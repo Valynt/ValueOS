@@ -11,12 +11,7 @@ import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { resolveMode } from "./lib/mode.js";
-import {
-  loadPorts,
-  resolvePort,
-  formatPortsEnv,
-  writePortsEnvFile,
-} from "./ports.js";
+import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from "./ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +31,10 @@ const softMode =
   args.includes("--soft") ||
   args.includes("-s") ||
   process.env.DX_SOFT_DOCTOR === "1";
+const autoShiftPorts =
+  args.includes("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
+const allowEnvPlaceholders = process.env.DX_DOCTOR_ALLOW_PLACEHOLDERS === "1";
+const allowMixedLockfiles = process.env.DX_ALLOW_MIXED_LOCKFILES === "1";
 
 // Incremental check cache
 const checkCache = new Map();
@@ -105,6 +104,7 @@ const caddyHttpsPort = resolvePort(
 const frontendUrl =
   process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
+const pnpmVersion = "9.15.0";
 
 const failures = [];
 
@@ -126,7 +126,8 @@ function commandExists(command) {
     execSync(`command -v ${command}`, { stdio: "ignore" });
     return true;
   } catch {
-    return false;
+    const localPath = path.join(projectRoot, "node_modules", ".bin", command);
+    return fs.existsSync(localPath);
   }
 }
 
@@ -149,6 +150,19 @@ function parseMajor(version) {
   return Number(String(version).replace(/^v/, "").split(".")[0]);
 }
 
+function parseEnvFile(envPath) {
+  const data = fs.readFileSync(envPath, "utf8");
+  const vars = {};
+  data.split("\n").forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return;
+    const [key, ...rest] = trimmed.split("=");
+    if (!key) return;
+    vars[key.trim()] = rest.join("=").trim();
+  });
+  return vars;
+}
+
 function checkNodeVersion() {
   const nvmrcPath = path.join(projectRoot, ".nvmrc");
   if (!fs.existsSync(nvmrcPath)) {
@@ -168,6 +182,46 @@ function checkNodeVersion() {
       "Node.js version mismatch",
       `Expected Node ${expectedMajor} from .nvmrc, found ${process.version}.`,
       "Run: nvm install && nvm use"
+    );
+  }
+}
+
+function checkPnpmVersion() {
+  if (!commandExists("corepack")) {
+    reportFailure(
+      "Corepack missing",
+      "corepack is not available (required for pnpm activation).",
+      "Install Node >= 16.13 or enable Corepack."
+    );
+    return;
+  }
+
+  try {
+    runCommand("corepack enable");
+    runCommand(`corepack prepare pnpm@${pnpmVersion} --activate`);
+  } catch (error) {
+    reportFailure(
+      "Corepack activation failed",
+      "Unable to activate pinned pnpm via Corepack.",
+      "Run: corepack enable && corepack prepare pnpm@9.15.0 --activate"
+    );
+    return;
+  }
+
+  try {
+    const actual = runCommand("pnpm -v").trim();
+    if (actual !== pnpmVersion) {
+      reportFailure(
+        "pnpm version mismatch",
+        `Expected pnpm ${pnpmVersion}, found ${actual}.`,
+        `Run: corepack prepare pnpm@${pnpmVersion} --activate`
+      );
+    }
+  } catch {
+    reportFailure(
+      "pnpm missing",
+      "pnpm is not available after Corepack activation.",
+      "Run: corepack prepare pnpm@9.15.0 --activate"
     );
   }
 }
@@ -233,6 +287,39 @@ function checkDocker() {
       "Run: docker context use default"
     );
   }
+
+  try {
+    const composeVersion = runCommand("docker compose version --short").trim();
+    if (!composeVersion.startsWith("v2")) {
+      reportFailure(
+        "Docker Compose v2 required",
+        `docker compose version ${composeVersion} detected.`,
+        "Upgrade Docker Desktop/Engine to use Compose v2."
+      );
+    }
+  } catch {
+    reportFailure(
+      "Docker Compose missing",
+      "docker compose (v2) is not available.",
+      "Install Docker Desktop or Docker Engine with Compose v2."
+    );
+  }
+
+  try {
+    const info = runCommand("docker info --format '{{json .}}'");
+    const parsed = JSON.parse(info);
+    const buildkitEnabled =
+      parsed?.Buildkit === true || parsed?.Buildkit === "true";
+    if (!buildkitEnabled) {
+      reportFailure(
+        "Docker BuildKit disabled",
+        "Docker BuildKit is not enabled.",
+        "Enable BuildKit: export DOCKER_BUILDKIT=1 (or enable in Docker Desktop settings)."
+      );
+    }
+  } catch {
+    // Ignore BuildKit detection failures
+  }
 }
 
 function isPortInUse(port, host = "127.0.0.1") {
@@ -253,6 +340,15 @@ function isPortInUse(port, host = "127.0.0.1") {
   });
 }
 
+async function findNextAvailablePort(startPort) {
+  for (let port = startPort + 1; port < startPort + 50; port += 1) {
+    if (!(await isPortInUse(port))) {
+      return port;
+    }
+  }
+  return null;
+}
+
 function isDockerPortPublished(port) {
   try {
     const output = runCommand('docker ps --format "{{.Ports}}"').trim();
@@ -269,30 +365,61 @@ function isDockerPortPublished(port) {
 
 async function checkPorts() {
   const portChecks = [
-    { name: "Frontend", port: frontendPort },
-    { name: "Backend", port: backendPort },
+    { name: "Frontend", port: frontendPort, env: "VITE_PORT" },
+    { name: "Vite HMR", port: resolvePort(process.env.VITE_HMR_PORT, ports.frontend.hmrPort), env: "VITE_HMR_PORT" },
+    { name: "Backend", port: backendPort, env: "API_PORT" },
+    { name: "Supabase API", port: supabaseApiPort, env: "SUPABASE_API_PORT" },
+    { name: "Supabase Studio", port: supabaseStudioPort, env: "SUPABASE_STUDIO_PORT" },
+    { name: "Supabase DB", port: resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort), env: "SUPABASE_DB_PORT" },
+    { name: "Caddy HTTP", port: resolvePort(process.env.CADDY_HTTP_PORT, ports.edge.httpPort), env: "CADDY_HTTP_PORT" },
+    { name: "Caddy HTTPS", port: resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort), env: "CADDY_HTTPS_PORT" },
+    { name: "Caddy Admin", port: resolvePort(process.env.CADDY_ADMIN_PORT, ports.edge.adminPort), env: "CADDY_ADMIN_PORT" },
+    { name: "Prometheus", port: resolvePort(process.env.PROMETHEUS_PORT, ports.observability.prometheusPort), env: "PROMETHEUS_PORT" },
+    { name: "Grafana", port: resolvePort(process.env.GRAFANA_PORT, ports.observability.grafanaPort), env: "GRAFANA_PORT" },
   ];
 
   if (mode === "local") {
     portChecks.push(
-      { name: "Postgres", port: postgresPort },
-      { name: "Redis", port: redisPort }
+      { name: "Postgres", port: postgresPort, env: "POSTGRES_PORT" },
+      { name: "Redis", port: redisPort, env: "REDIS_PORT" }
     );
   }
 
-  for (const { name, port } of portChecks) {
+  const overrides = {};
+
+  for (const { name, port, env } of portChecks) {
     const inUse = await isPortInUse(port);
     if (
       inUse &&
       !isDockerPortPublished(port) &&
       process.env.DX_ALLOW_PORT_IN_USE !== "1"
     ) {
-      reportFailure(
-        `${name} port in use`,
-        `Port ${port} is already bound on localhost.`,
-        `Free the port (lsof -i :${port}) or run with DX_ALLOW_PORT_IN_USE=1.`
-      );
+      if (autoShiftPorts) {
+        const suggestion = await findNextAvailablePort(port);
+        if (!suggestion) {
+          reportFailure(
+            `${name} port in use`,
+            `Port ${port} is already bound and no alternative port found.`,
+            `Free the port (lsof -i :${port}) or set ${name.toUpperCase()}_PORT.`
+          );
+        } else {
+          overrides[env] = suggestion;
+          console.log(`⚠️  Auto-shifted ${name} port from ${port} to ${suggestion}.`);
+        }
+      } else {
+        reportFailure(
+          `${name} port in use`,
+          `Port ${port} is already bound on localhost.`,
+          `Free the port (lsof -i :${port}) or run with DX_ALLOW_PORT_IN_USE=1.`
+        );
+      }
     }
+  }
+
+  if (autoShiftPorts && Object.keys(overrides).length > 0) {
+    const portsPath = path.join(projectRoot, ".env.ports");
+    writePortsEnvFile(portsPath, overrides);
+    console.log("✅ Updated .env.ports with auto-shifted ports.");
   }
 }
 
@@ -307,7 +434,7 @@ function checkEnvironment() {
     return;
   }
 
-  // Check for placeholder Supabase keys
+  const envVars = parseEnvFile(envLocalPath);
   const envContent = fs.readFileSync(envLocalPath, "utf8");
   const lines = envContent.split("\n");
 
@@ -324,7 +451,7 @@ function checkEnvironment() {
       !value ||
       value.includes("placeholder") ||
       value.includes("your-") ||
-      value.length < 100
+      (!allowEnvPlaceholders && value.length < 100)
     ) {
       reportFailure(
         "Invalid Supabase anon key",
@@ -353,6 +480,40 @@ function checkEnvironment() {
     }
   }
 
+  const requiredKeys = [
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_ANON_KEY",
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "DATABASE_URL",
+    "REDIS_URL",
+  ];
+
+  const placeholderPatterns = ["replace-with", "your-", "changeme", "placeholder"];
+  requiredKeys.forEach((key) => {
+    const value = envVars[key];
+    if (!value || value.trim() === "") {
+      reportFailure(
+        `Missing ${key}`,
+        `${key} is required and currently empty.`,
+        "Run: pnpm run dx:env --mode local --force"
+      );
+      return;
+    }
+
+    if (
+      !allowEnvPlaceholders &&
+      placeholderPatterns.some((pattern) => value.toLowerCase().includes(pattern))
+    ) {
+      reportFailure(
+        `Placeholder ${key}`,
+        `${key} still contains a placeholder value.`,
+        "Update .env.local with a real value."
+      );
+    }
+  });
+
   // Check .env.ports for container environment
   const envPortsPath = path.join(projectRoot, "deploy/envs/.env.ports");
   if (fs.existsSync(envPortsPath)) {
@@ -369,6 +530,78 @@ function checkEnvironment() {
         "Update deploy/envs/.env.ports with real anon key"
       );
     }
+  }
+}
+
+function checkMixedLockfiles() {
+  const packageLock = path.join(projectRoot, "package-lock.json");
+  const yarnLock = path.join(projectRoot, "yarn.lock");
+  const pnpmLock = path.join(projectRoot, "pnpm-lock.yaml");
+
+  const present = [
+    fs.existsSync(packageLock) ? "package-lock.json" : null,
+    fs.existsSync(yarnLock) ? "yarn.lock" : null,
+    fs.existsSync(pnpmLock) ? "pnpm-lock.yaml" : null,
+  ].filter(Boolean);
+
+  if (present.length > 1 && !allowMixedLockfiles) {
+    reportFailure(
+      "Mixed package managers",
+      `Multiple lockfiles detected: ${present.join(", ")}.`,
+      "Remove non-pnpm lockfiles (or set DX_ALLOW_MIXED_LOCKFILES=1 if intentional)."
+    );
+  }
+}
+
+function checkDiskSpace() {
+  try {
+    const output = runCommand("df -Pk .");
+    const lines = output.split("\n").filter(Boolean);
+    if (lines.length < 2) return;
+    const parts = lines[1].split(/\s+/);
+    const availableKb = Number(parts[3]);
+    const availableGb = availableKb / 1024 / 1024;
+    const thresholdGb = Number(process.env.DX_MIN_DISK_GB || 10);
+
+    if (availableGb < thresholdGb) {
+      reportFailure(
+        "Low disk space",
+        `Only ${availableGb.toFixed(1)}GB free (threshold ${thresholdGb}GB).`,
+        "Free up disk space to avoid Docker build failures."
+      );
+    }
+  } catch {
+    // Ignore disk check failures
+  }
+}
+
+function checkWslSettings() {
+  try {
+    const versionInfo = fs.readFileSync("/proc/version", "utf8");
+    const isWsl = versionInfo.toLowerCase().includes("microsoft");
+    if (!isWsl) return;
+
+    if (projectRoot.startsWith("/mnt/")) {
+      reportFailure(
+        "WSL filesystem performance",
+        "Repository is on /mnt (Windows filesystem), which slows file watching.",
+        "Move repo into the WSL Linux filesystem (e.g. ~/src/valueos)."
+      );
+    }
+
+    const inotifyPath = "/proc/sys/fs/inotify/max_user_watches";
+    if (fs.existsSync(inotifyPath)) {
+      const value = Number(fs.readFileSync(inotifyPath, "utf8").trim());
+      if (Number.isInteger(value) && value < 524288) {
+        reportFailure(
+          "WSL inotify limits",
+          `max_user_watches is ${value} (recommended >= 524288).`,
+          "Update /etc/sysctl.conf and reload sysctl to raise inotify limits."
+        );
+      }
+    }
+  } catch {
+    // Ignore WSL checks if unavailable
   }
 }
 
@@ -448,6 +681,7 @@ function checkDockerContainerHealth() {
 
   const unhealthy = [];
   const restartLoops = [];
+  const logSnippets = [];
 
   containers.forEach(({ id, name }) => {
     try {
@@ -476,12 +710,25 @@ function checkDockerContainerHealth() {
     return;
   }
 
+  const containersToLog = [...new Set([...unhealthy, ...restartLoops.map((d) => d.split(" ")[0])])];
+  containersToLog.forEach((name) => {
+    try {
+      const logs = runCommand(`docker logs --tail 50 ${name}`);
+      logSnippets.push(`--- Logs for ${name} (last 50 lines) ---\n${logs}`);
+    } catch {
+      logSnippets.push(`--- Logs for ${name} unavailable ---`);
+    }
+  });
+
   const detailParts = [];
   if (unhealthy.length > 0) {
     detailParts.push(`Unhealthy containers: ${unhealthy.join(", ")}.`);
   }
   if (restartLoops.length > 0) {
     detailParts.push(`Repeated restarts detected: ${restartLoops.join(", ")}.`);
+  }
+  if (logSnippets.length > 0) {
+    detailParts.push(`\n${logSnippets.join("\n")}`);
   }
 
   reportFailure(
@@ -908,11 +1155,43 @@ async function main() {
       }
     }),
     Promise.resolve().then(() => {
+      if (!isCheckCached("pnpm Version")) {
+        checkPnpmVersion();
+        cacheCheckResult("pnpm Version", failures.length === 0);
+      } else {
+        console.log(`⏭️  pnpm Version check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
       if (!isCheckCached("Environment")) {
         checkEnvironment();
         cacheCheckResult("Environment", failures.length === 0);
       } else {
         console.log(`⏭️  Environment check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Mixed Lockfiles")) {
+        checkMixedLockfiles();
+        cacheCheckResult("Mixed Lockfiles", failures.length === 0);
+      } else {
+        console.log(`⏭️  Mixed Lockfiles check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Disk Space")) {
+        checkDiskSpace();
+        cacheCheckResult("Disk Space", failures.length === 0);
+      } else {
+        console.log(`⏭️  Disk Space check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("WSL Settings")) {
+        checkWslSettings();
+        cacheCheckResult("WSL Settings", failures.length === 0);
+      } else {
+        console.log(`⏭️  WSL Settings check (cached)`);
       }
     }),
     Promise.resolve().then(() => {

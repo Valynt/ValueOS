@@ -1,0 +1,47 @@
+name: Dev Reliability Nightly
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
+
+jobs:
+  dev-reliability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
+
+      - name: Prepare env files
+        run: |
+          cp .env.example .env.local
+          node scripts/dx/ports.js
+
+      - name: Launch dev stack
+        env:
+          PATH: ${{ github.workspace }}/node_modules/.bin:${{ env.PATH }}
+        run: |
+          ./dev up --mode docker --ci --skip-install --auto-shift-ports
+
+      - name: Smoke test
+        run: ./dev smoke-test --mode docker
+
+      - name: Teardown
+        if: always()
+        run: ./dev down

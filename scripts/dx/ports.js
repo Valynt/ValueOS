@@ -21,6 +21,38 @@ export function loadPorts() {
   return parsed;
 }
 
+const portEnvMap = {
+  VITE_PORT: ["frontend", "port"],
+  VITE_HMR_PORT: ["frontend", "hmrPort"],
+  API_PORT: ["backend", "port"],
+  POSTGRES_PORT: ["postgres", "port"],
+  REDIS_PORT: ["redis", "port"],
+  SUPABASE_API_PORT: ["supabase", "apiPort"],
+  SUPABASE_STUDIO_PORT: ["supabase", "studioPort"],
+  SUPABASE_DB_PORT: ["supabase", "dbPort"],
+  CADDY_HTTP_PORT: ["edge", "httpPort"],
+  CADDY_HTTPS_PORT: ["edge", "httpsPort"],
+  CADDY_ADMIN_PORT: ["edge", "adminPort"],
+  PROMETHEUS_PORT: ["observability", "prometheusPort"],
+  GRAFANA_PORT: ["observability", "grafanaPort"],
+};
+
+export function applyPortOverrides(ports, overrides = {}) {
+  const updated = JSON.parse(JSON.stringify(ports));
+
+  Object.entries(overrides).forEach(([envKey, value]) => {
+    const mapping = portEnvMap[envKey];
+    if (!mapping) return;
+    const parsed = resolvePort(value, null);
+    if (!parsed) return;
+    const [section, key] = mapping;
+    if (!updated[section]) return;
+    updated[section][key] = parsed;
+  });
+
+  return updated;
+}
+
 /**
  * Validates port configuration for conflicts and valid ranges.
  * @param {Object} ports - The ports configuration object to validate
@@ -108,6 +140,7 @@ export function formatPortsEnv(ports) {
     "# Application Ports",
     `API_PORT=${ports.backend.port}`,
     `VITE_PORT=${ports.frontend.port}`,
+    `VITE_HMR_PORT=${ports.frontend.hmrPort}`,
     "",
     "# Supabase Ports (if running locally)",
     `SUPABASE_API_PORT=${ports.supabase.apiPort}`,
@@ -138,7 +171,8 @@ export function formatPortsEnv(ports) {
 }
 
 export function writePortsEnvFile(
-  destination = path.join(projectRoot, ".env.ports")
+  destination = path.join(projectRoot, ".env.ports"),
+  portsOverride = null
 ) {
   const lockFile = `${destination}.lock`;
 
@@ -160,7 +194,8 @@ export function writePortsEnvFile(
       lockFile,
       `Locked by PID ${process.pid} at ${new Date().toISOString()}`
     );
-    const ports = loadPorts();
+    const basePorts = loadPorts();
+    const ports = portsOverride ? applyPortOverrides(basePorts, portsOverride) : basePorts;
     const content = formatPortsEnv(ports);
 
     // Configuration auditing: log changes

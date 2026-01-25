@@ -9,6 +9,11 @@ const hmrPort = Number(process.env.VITE_HMR_PORT || vitePort);
 const hmrHost = process.env.VITE_HMR_HOST || "localhost";
 const hmrProtocol = process.env.VITE_HMR_PROTOCOL || "ws";
 const viteHost = process.env.VITE_HOST || "0.0.0.0";
+const isCi = process.env.CI === "true";
+const isDockerMode =
+  process.env.DX_MODE === "docker" ||
+  process.env.DOCKER === "true" ||
+  process.env.DX_DOCKER === "1";
 
 export default defineConfig({
   plugins: [react()],
@@ -29,14 +34,15 @@ export default defineConfig({
     },
   },
   server: {
-    host: viteHost,
+    host: isDockerMode ? "0.0.0.0" : viteHost,
     port: vitePort,
-    strictPort: true,
+    strictPort: isCi,
     allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
     hmr: {
       protocol: hmrProtocol,
       host: hmrHost,
       port: hmrPort,
+      clientPort: isDockerMode ? hmrPort : undefined,
     },
     // Proxy API requests to backend - enables relative URLs in browser
     // This eliminates hostname issues in Gitpod/Codespaces environments

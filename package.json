@@ -18,6 +18,8 @@
     "dx:env:validate": "node scripts/dx/env-compiler.js --validate",
     "dx:down": "node scripts/dev-cli.js down",
     "dx:reset": "node scripts/dev-cli.js reset",
+    "dx:bundle": "node scripts/dev-cli.js bundle",
+    "dx:smoke-test": "node scripts/dev-cli.js smoke-test",
     "dx:clean": "sh -c \"pnpm run dx:down && docker system prune -f && docker volume prune -f && rm -f .env.local .env .env.ports\"",
     "dx:check": "node scripts/dx/comprehensive-check.js",
     "dx:ps": "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml ps",

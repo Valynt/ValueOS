@@ -63,6 +63,8 @@ const dxStatePath = path.join(projectRoot, ".dx-state.json");
 const ports = loadPorts();
 const HEALTH_CHECK_TIMEOUT = 60000; // 60 seconds
 const HEALTH_CHECK_INTERVAL = 2000; // 2 seconds
+const RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY = 2000;
 
 /**
  * Run a command and return output
@@ -74,6 +76,25 @@ function runCommand(command, options = {}) {
     encoding: "utf8",
     ...options,
   });
+}
+
+async function runWithRetries(label, action, { attempts = RETRY_ATTEMPTS } = {}) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        const delay = RETRY_BASE_DELAY * 2 ** (attempt - 2);
+        log.warn(`${label} retry ${attempt}/${attempts} (waiting ${delay}ms)`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      return await action(attempt);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
 }
 
 /**
@@ -105,7 +126,8 @@ function commandExists(cmd) {
     execSync(`command -v ${cmd}`, { stdio: "ignore" });
     return true;
   } catch {
-    return false;
+    const localPath = path.join(projectRoot, "node_modules", ".bin", cmd);
+    return fs.existsSync(localPath);
   }
 }
 
@@ -142,6 +164,16 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT) {
   }
 
   return false;
+}
+
+async function waitForHealthWithRetries(url, { attempts = RETRY_ATTEMPTS, timeout } = {}) {
+  return runWithRetries("Health check", async () => {
+    const healthy = await waitForHealth(url, timeout);
+    if (!healthy) {
+      throw new Error(`Health check failed for ${url}`);
+    }
+    return true;
+  }, { attempts }).catch(() => false);
 }
 
 /**
@@ -224,7 +256,10 @@ async function startSupabase() {
       log.warn("Could not verify Supabase container status, continuing anyway");
     }
   } else {
-    const healthy = await waitForHealth(supabaseUrl, 30000);
+    const healthy = await waitForHealthWithRetries(supabaseUrl, {
+      attempts: RETRY_ATTEMPTS,
+      timeout: 30000,
+    });
     if (!healthy) {
       log.warn("Supabase API did not become healthy in time - continuing with dx postgres");
       // Don't exit - continue with dx postgres for testing
@@ -258,16 +293,40 @@ function stopSupabase() {
 /**
  * Start Docker dependencies
  */
-function startDockerDeps(mode) {
+async function startDockerDeps(mode) {
   log.info("Starting Docker dependencies...");
 
   const composeFile =
     mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
 
   try {
-    runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d`, {
-      silent: false,
+    await runWithRetries("Docker pull", async () => {
+      runCommand(`docker compose --env-file .env.ports -f ${composeFile} pull --ignore-pull-failures`, {
+        silent: false,
+      });
     });
+
+    await runWithRetries("Docker build", async () => {
+      try {
+        runCommand(`docker compose --env-file .env.ports -f ${composeFile} build --pull`, {
+          silent: false,
+        });
+      } catch (error) {
+        const message = error.message || "";
+        if (message.includes("ERR_PNPM") || message.includes("pnpm") || message.includes("store")) {
+          log.warn("Detected possible pnpm store corruption. Pruning build cache before retry.");
+          runCommand("docker builder prune -af", { silent: false });
+        }
+        throw error;
+      }
+    });
+
+    await runWithRetries("Docker up", async () => {
+      runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d`, {
+        silent: false,
+      });
+    });
+
     log.success("Docker dependencies started");
   } catch (error) {
     log.error("Failed to start Docker dependencies");
@@ -300,18 +359,28 @@ function stopDockerDeps() {
 /**
  * Reset Docker dependencies (remove volumes)
  */
-function resetDockerDeps() {
-  log.info("Resetting Docker dependencies (removing volumes)...");
+function resetDockerDeps(level = "soft") {
+  log.info(`Resetting Docker dependencies (${level})...`);
 
   const composeFiles = ["infra/docker/docker-compose.dev.yml", "docker-compose.deps.yml"];
 
   for (const file of composeFiles) {
     try {
-      runCommand(`docker compose --env-file .env.ports -f ${file} down -v --remove-orphans`, {
+      const downArgs =
+        level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
+      runCommand(`docker compose --env-file .env.ports -f ${file} ${downArgs}`, {
         silent: true,
       });
     } catch {
       // Ignore errors
+    }
+  }
+
+  if (level === "hard") {
+    try {
+      runCommand("docker builder prune -af", { silent: false });
+    } catch {
+      log.warn("Failed to prune Docker build cache (continuing).");
     }
   }
 
@@ -328,9 +397,35 @@ async function runMigrations() {
     // Use supabase db push for local development
     runCommand("supabase db push", { silent: false });
     log.success("Migrations applied");
+    return { ok: true };
   } catch (error) {
     log.warn("Migration failed (may be OK if already applied)");
     console.error(error.message);
+    return { ok: false, error: error.message || "" };
+  }
+}
+
+function shouldAutoInitDb(message = "") {
+  const lowered = message.toLowerCase();
+  return (
+    lowered.includes("does not exist") ||
+    lowered.includes("relation") ||
+    lowered.includes("schema") ||
+    lowered.includes("not initialized") ||
+    lowered.includes("connection refused")
+  );
+}
+
+async function autoInitializeDb() {
+  log.info("Attempting to auto-initialize database...");
+  try {
+    runCommand("supabase db reset", { silent: false });
+    log.success("Database reset completed");
+    return true;
+  } catch (error) {
+    log.warn("Database reset failed");
+    console.error(error.message);
+    return false;
   }
 }
 
@@ -540,8 +635,10 @@ async function main() {
   }
 
   // Handle --reset
-  if (args.includes("--reset")) {
-    resetDockerDeps();
+  const resetIndex = args.indexOf("--reset");
+  if (resetIndex !== -1) {
+    const level = args[resetIndex + 1] === "hard" ? "hard" : "soft";
+    resetDockerDeps(level);
     stopSupabase();
     clearDxState();
     log.success("Development environment reset");
@@ -589,7 +686,7 @@ async function main() {
 
   // Step 3: Start Docker dependencies
   log.step(3, "Starting Docker dependencies");
-  startDockerDeps(mode);
+  await startDockerDeps(mode);
 
   // Step 4: Start Supabase (local mode only)
   if (mode === "local") {
@@ -602,7 +699,23 @@ async function main() {
 
   // Step 5: Run migrations and verify schema
   log.step(5, "Running database migrations");
-  await runMigrations();
+  let dbInitAttempted = false;
+  let migrationsResult = await runMigrations();
+
+  if (!migrationsResult.ok && shouldAutoInitDb(migrationsResult.error) && !dbInitAttempted) {
+    dbInitAttempted = true;
+    const initOk = await autoInitializeDb();
+    if (initOk) {
+      migrationsResult = await runMigrations();
+      if (migrationsResult.ok) {
+        log.success("Migrations succeeded after auto-initialization");
+        if (!args.includes("--seed")) {
+          log.info("Auto-seeding database after initialization");
+          await seedDatabase();
+        }
+      }
+    }
+  }
   await verifySchema();
 
   // Step 6: Seed database (optional, skip if already seeded)
@@ -661,7 +774,10 @@ async function main() {
   log.info(`Waiting for backend at ${backendHealthUrl}...`);
   await new Promise((resolve) => setTimeout(resolve, 3000)); // Initial delay
 
-  const backendHealthy = await waitForHealth(backendHealthUrl, 30000);
+  const backendHealthy = await waitForHealthWithRetries(backendHealthUrl, {
+    attempts: RETRY_ATTEMPTS,
+    timeout: 30000,
+  });
   if (!backendHealthy) {
     log.warn("Backend health check timed out (continuing anyway)");
   } else {

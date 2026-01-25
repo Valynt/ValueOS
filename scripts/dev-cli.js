@@ -2,14 +2,14 @@
 
 import { execSync } from "child_process";
 import fs from "fs";
-import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
-import { loadPorts, resolvePort } from "./dx/ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
+
+process.env.PATH = `${path.join(projectRoot, "node_modules", ".bin")}${path.delimiter}${process.env.PATH}`;
 
 const rawArgs = process.argv.slice(2);
 const command = rawArgs[0] && !rawArgs[0].startsWith("-") ? rawArgs.shift() : "up";
@@ -32,6 +32,9 @@ const mode = getFlagValue("--mode") || process.env.DX_MODE || "local";
 const seed = hasFlag("--seed");
 const skipInstall = hasFlag("--skip-install") || process.env.DX_SKIP_INSTALL === "true";
 const ci = hasFlag("--ci") || process.env.CI === "true";
+const autoShiftPorts =
+  hasFlag("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
+const resetLevel = hasFlag("--hard") ? "hard" : "soft";
 const pnpmVersion = "9.15.0";
 
 function run(commandLine, options = {}) {
@@ -57,15 +60,19 @@ ValueOS Dev CLI
 Usage:
   ./dev up [--mode local|docker] [--seed] [--skip-install]
   ./dev down
-  ./dev reset
+  ./dev reset [--soft|--hard]
   ./dev doctor [--mode local|docker]
   ./dev logs [service] [--mode local|docker]
+  ./dev smoke-test [--mode local|docker]
+  ./dev bundle [--mode local|docker]
 
 Flags:
   --mode           Set dx mode (local or docker)
   --seed           Seed database after migrations
   --skip-install   Skip pnpm install step
   --ci             CI mode (less verbose, no prompts)
+  --auto-shift-ports  Auto-shift ports if conflicts are detected
+  --soft/--hard    Reset tier (soft removes containers + volumes, hard also prunes build cache)
 `);
 }
 
@@ -107,73 +114,34 @@ function ensureDocker() {
   }
 }
 
-function isPortInUse(port) {
-  return new Promise((resolve) => {
-    const socket = new net.Socket();
-    const onFailure = () => {
-      socket.destroy();
-      resolve(false);
-    };
+function loadPortsEnvFile() {
+  const portsPath = path.join(projectRoot, ".env.ports");
+  if (!fs.existsSync(portsPath)) {
+    return {};
+  }
 
-    socket.setTimeout(500);
-    socket.once("error", onFailure);
-    socket.once("timeout", onFailure);
-    socket.connect(port, "127.0.0.1", () => {
-      socket.end();
-      resolve(true);
-    });
+  const content = fs.readFileSync(portsPath, "utf8");
+  const env = {};
+  content.split("\n").forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) return;
+    const [key, ...rest] = trimmed.split("=");
+    if (!key) return;
+    env[key.trim()] = rest.join("=").trim();
+  });
+
+  return env;
+}
+
+function applyPortsEnvOverrides() {
+  const portsEnv = loadPortsEnvFile();
+  Object.entries(portsEnv).forEach(([key, value]) => {
+    if (key.endsWith("_PORT") || key === "VITE_HMR_PORT") {
+      process.env[key] = value;
+    }
   });
 }
 
-async function findNextAvailablePort(startPort) {
-  for (let port = startPort + 1; port < startPort + 50; port += 1) {
-    if (!(await isPortInUse(port))) {
-      return port;
-    }
-  }
-  return null;
-}
-
-async function checkPorts() {
-  const ports = loadPorts();
-  const checks = [
-    { label: "Frontend", env: "VITE_PORT", value: resolvePort(process.env.VITE_PORT, ports.frontend.port) },
-    { label: "Vite HMR", env: "VITE_HMR_PORT", value: resolvePort(process.env.VITE_HMR_PORT, ports.frontend.hmrPort) },
-    { label: "Backend", env: "API_PORT", value: resolvePort(process.env.API_PORT, ports.backend.port) },
-    { label: "Postgres", env: "POSTGRES_PORT", value: resolvePort(process.env.POSTGRES_PORT, ports.postgres.port) },
-    { label: "Redis", env: "REDIS_PORT", value: resolvePort(process.env.REDIS_PORT, ports.redis.port) },
-    { label: "Supabase API", env: "SUPABASE_API_PORT", value: resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort) },
-    { label: "Supabase Studio", env: "SUPABASE_STUDIO_PORT", value: resolvePort(process.env.SUPABASE_STUDIO_PORT, ports.supabase.studioPort) },
-    { label: "Supabase DB", env: "SUPABASE_DB_PORT", value: resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort) },
-    { label: "Caddy HTTP", env: "CADDY_HTTP_PORT", value: resolvePort(process.env.CADDY_HTTP_PORT, ports.edge.httpPort) },
-    { label: "Caddy HTTPS", env: "CADDY_HTTPS_PORT", value: resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort) },
-    { label: "Caddy Admin", env: "CADDY_ADMIN_PORT", value: resolvePort(process.env.CADDY_ADMIN_PORT, ports.edge.adminPort) },
-    { label: "Prometheus", env: "PROMETHEUS_PORT", value: resolvePort(process.env.PROMETHEUS_PORT, ports.observability.prometheusPort) },
-    { label: "Grafana", env: "GRAFANA_PORT", value: resolvePort(process.env.GRAFANA_PORT, ports.observability.grafanaPort) },
-  ];
-
-  const conflicts = [];
-
-  for (const check of checks) {
-    if (await isPortInUse(check.value)) {
-      const suggestion = await findNextAvailablePort(check.value);
-      conflicts.push({ ...check, suggestion });
-    }
-  }
-
-  if (conflicts.length > 0) {
-    console.error("\n❌ Port conflicts detected:");
-    conflicts.forEach((conflict) => {
-      console.error(
-        `   - ${conflict.label} port ${conflict.value} is in use. Set ${conflict.env}=${
-          conflict.suggestion || "<free-port>"
-        } and re-run.`
-      );
-    });
-    console.error(`\nFix: export overrides then regenerate envs:\n  pnpm run dx:env --mode ${mode} --force\n`);
-    process.exit(1);
-  }
-}
 
 async function main() {
   if (hasFlag("--help") || hasFlag("-h")) {
@@ -196,7 +164,8 @@ async function main() {
 
   if (command === "reset") {
     ensureDocker();
-    run("node scripts/dx/orchestrator.js --reset");
+    const resetFlag = resetLevel === "hard" ? "--reset hard" : "--reset soft";
+    run(`node scripts/dx/orchestrator.js ${resetFlag}`);
     return;
   }
 
@@ -210,6 +179,20 @@ async function main() {
     return;
   }
 
+  if (command === "bundle") {
+    ensureNodeVersion();
+    ensurePnpm();
+    run(`node scripts/dx/bundle.js --mode ${mode}`);
+    return;
+  }
+
+  if (command === "smoke-test") {
+    ensureNodeVersion();
+    ensurePnpm();
+    run(`node scripts/dx/smoke-test.js --mode ${mode}`);
+    return;
+  }
+
   if (command !== "up") {
     console.error(`Unknown command: ${command}`);
     printHelp();
@@ -218,8 +201,9 @@ async function main() {
 
   ensureNodeVersion();
   ensurePnpm();
+  run(`node scripts/dx/doctor.js --mode ${mode}${autoShiftPorts ? " --auto-shift-ports" : ""}`);
+  applyPortsEnvOverrides();
   ensureDocker();
-  await checkPorts();
 
   if (!skipInstall) {
     run("pnpm install --frozen-lockfile --prefer-offline");

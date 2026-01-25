@@ -149,6 +149,57 @@ jobs:
           # Check if ESLint config exists
           [ -f "eslint.config.js" ] || [ -f ".eslintrc.json" ] || exit 1
 
+  drift-tripwires:
+    name: Drift Tripwires
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+
+      - name: Verify Node version
+        run: node scripts/ci/check-node-version.js
+
+      - name: Check lockfile policy
+        run: node scripts/ci/check-lockfile-policy.js
+
+      - name: Check line endings
+        run: node scripts/ci/check-line-endings.js
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
+
+      - name: Validate web-vitals exports
+        run: node scripts/ci/verify-web-vitals.js
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Prepare env files
+        run: |
+          cp .env.example .env.local
+          node scripts/dx/ports.js
+
+      - name: Run DX doctor
+        run: DX_DOCTOR_ALLOW_PLACEHOLDERS=1 DX_SOFT_DOCTOR=1 node scripts/dx/doctor.js --mode local
+
+      - name: Validate Docker Compose configs
+        run: |
+          docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml config
+          docker compose --env-file .env.ports -f docker-compose.deps.yml config
+
   report:
     name: Generate Report
     runs-on: ubuntu-latest
@@ -158,6 +209,7 @@ jobs:
         validate-dependencies,
         validate-scripts,
         validate-configuration,
+        drift-tripwires,
       ]
     if: always()
 
@@ -189,4 +241,10 @@ jobs:
             echo "- ✅ Configuration: Valid" >> $GITHUB_STEP_SUMMARY
           else
             echo "- ❌ Configuration: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.drift-tripwires.result }}" == "success" ]; then
+            echo "- ✅ Drift Tripwires: Valid" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Drift Tripwires: Failed" >> $GITHUB_STEP_SUMMARY
           fi
