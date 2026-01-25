@@ -119,6 +119,84 @@ install_trivy() {
     return 1
 }
 
+install_kubectl() {
+    if command -v kubectl &>/dev/null; then
+        log "kubectl already installed"
+        return 0
+    fi
+    log "Installing kubectl..."
+    for i in 1 2 3; do
+        # Use a subshell to capture the output of the curl command to avoid syntax errors in the variable expansion
+        local version_url="https://dl.k8s.io/release/stable.txt"
+        local latest_version
+        latest_version=$(curl -L -s "$version_url")
+
+        if curl -LO "https://dl.k8s.io/release/${latest_version}/bin/linux/amd64/kubectl"; then
+            break
+        else
+            log "Retry $i/3 failed"
+            sleep 5
+        fi
+    done
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    rm kubectl
+    kubectl version --client || true
+}
+
+install_helm() {
+    if command -v helm &>/dev/null; then
+        log "helm already installed"
+        return 0
+    fi
+    log "Installing helm..."
+    for i in 1 2 3; do
+        if curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash; then
+            break
+        else
+            log "Retry $i/3 failed"
+            sleep 5
+        fi
+    done
+    helm version || true
+}
+
+install_terraform() {
+    if command -v terraform &>/dev/null; then
+        log "terraform already installed"
+        return 0
+    fi
+    log "Installing terraform..."
+    for i in 1 2 3; do
+        if wget -qO- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg; then
+            break
+        else
+            log "Retry $i/3 failed"
+            sleep 5
+        fi
+    done
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+    sudo apt-get update
+    sudo apt-get install -y terraform
+    terraform version || true
+}
+
+install_prisma() {
+    local version="${PRISMA_VERSION:-5.25.0}"
+    if command -v prisma &>/dev/null; then
+        log "prisma already installed"
+        return 0
+    fi
+    log "Installing prisma@$version globally..."
+    if command -v corepack &>/dev/null; then
+        sudo corepack enable
+        sudo pnpm add -g prisma@"$version"
+        prisma --version
+    else
+        log "corepack/pnpm not found, cannot install prisma"
+        return 1
+    fi
+}
+
 main() {
     ensure_log_dir
 
@@ -126,6 +204,12 @@ main() {
     install_dive || log "install_dive failed"
     install_hadolint || log "install_hadolint failed"
     install_trivy || log "install_trivy failed"
+
+    # Migrated tools
+    install_kubectl || log "install_kubectl failed"
+    install_helm || log "install_helm failed"
+    install_terraform || log "install_terraform failed"
+    install_prisma || log "install_prisma failed"
 
     log "Optional tools installation complete"
 }

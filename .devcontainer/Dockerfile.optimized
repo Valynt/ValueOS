@@ -57,112 +57,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     # Verify critical tools installed
     && command -v git && command -v curl && command -v make
 
-# Stage 2: Node.js installation
-FROM base AS nodejs
-
-ARG NODE_VERSION
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Install Node.js using official NodeSource repository
-# Retry logic for network resilience
-RUN for i in 1 2 3; do \
-        curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/* \
-    # Verify Node.js installed correctly
-    && node --version && npm --version
-
-# Install global npm packages for development with BuildKit cache mount
-# Pin major versions for reproducibility
-RUN --mount=type=cache,target=/root/.npm \
-    npm install -g \
-    npm@10.9.0 \
-    pnpm@9.15.0 \
-    yarn@1.22.22 \
-    tsx@4.19.2 \
-    nodemon@3.1.9 \
-    pm2@5.4.3 \
-    && npm cache clean --force \
-    # Verify installations
-    && pnpm --version && yarn --version && tsx --version
-
-# Stage 3: Docker CLI installation
-FROM nodejs AS docker
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Install Docker CLI and Docker Compose with BuildKit cache
-# Retry logic for GPG key download
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    mkdir -p /etc/apt/keyrings \
-    && for i in 1 2 3; do \
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt-get update \
-    && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin \
-    # Verify Docker CLI installed
-    && docker --version
-
-# Stage 4: Development tools
-FROM docker AS devtools
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Install Kubernetes tools with retry
-RUN for i in 1 2 3; do \
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
-    && rm kubectl \
-    && kubectl version --client || true
-
-# Install Helm with retry
-RUN for i in 1 2 3; do \
-        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && helm version || true
-
-# Install Terraform with retry
-RUN for i in 1 2 3; do \
-        wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
-    && apt-get update \
-    && apt-get install -y terraform \
-    && rm -rf /var/lib/apt/lists/* \
-    && terraform version || true
-
-# Stage 5: Security tools (moved to post-create optional installer)
-FROM devtools AS security
-
-# NOTE: Heavy or optional security tooling is intentionally moved out of
-# the main image build to keep the base image small and reproducible.
-# Use the post-create opt-in installer at:
-#   .devcontainer/scripts/install-optional-tools.sh
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-RUN echo "Optional security tooling moved to .devcontainer/scripts/install-optional-tools.sh" || true
-
-# Stage 6: Database tools
-FROM security AS dbtools
+# Stage 2: Database tools
+# (Renamed from Stage 6, now depends on base)
+FROM base AS dbtools
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 ARG INSTALL_DBTOOLS=1
 ARG SUPABASE_VERSION=1.200.0
-ARG PRISMA_VERSION=5.25.0
+# Prisma is now installed in post-create optional tools
 
-# Install Database tools (Supabase, Prisma, pgcli)
+# Install Database tools (Supabase, pgcli)
 RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
         set -eux; \
         \
@@ -187,18 +92,14 @@ RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
         rm -f /tmp/supabase.tar.gz /tmp/supabase; \
         supabase --version; \
         \
-        # Install Prisma CLI (pinned)
-        corepack enable; \
-        pnpm add -g prisma@${PRISMA_VERSION}; \
-        prisma --version; \
-        \
         # Install pgcli (optional but useful)
         pip3 install --no-cache-dir pgcli; \
     else \
         echo "Skipping dbtools installation"; \
     fi
 
-# Stage 7: Final image with user setup
+# Stage 3: Final image with user setup
+# (Renamed from Stage 7)
 FROM dbtools AS final
 
 # Switch to vscode user for remaining setup
@@ -238,8 +139,10 @@ LABEL org.opencontainers.image.title="ValueOS Dev Container" \
       org.opencontainers.image.source="https://github.com/Valynt/ValueOS"
 
 # Healthcheck to verify container is ready
+# Note: Node/npm commands removed from healthcheck as they are installed via features
+# We check git and curl instead as a baseline
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node --version && npm --version || exit 1
+    CMD command -v git && command -v curl || exit 1
 
 # Default command
 CMD ["/bin/bash"]
