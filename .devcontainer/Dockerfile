@@ -15,6 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 USER vscode
 
-WORKDIR /workspace
+WORKDIR /workspaces/valuecanvas
 
 CMD ["/bin/bash"]

@@ -210,13 +210,12 @@ RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
 
 # Create workspace directories
 RUN mkdir -p \
-    ~/workspace \
     ~/.cache \
     ~/.npm \
     ~/.local/bin
 
 # Set working directory
-WORKDIR /workspace
+WORKDIR /workspaces/valuecanvas
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \
