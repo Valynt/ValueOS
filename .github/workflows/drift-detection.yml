@@ -1,0 +1,40 @@
+name: Drift Detection
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  check-drift:
+    name: Check for Configuration Drift
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for git diff in check-lockfile-policy
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Check Node Version Policy
+        run: node scripts/ci/check-node-version.js
+
+      - name: Check Lockfile Policy
+        run: node scripts/ci/check-lockfile-policy.js
+
+      - name: Verify Lockfile Integrity
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Docker Compose Config
+        run: ./scripts/ci/validate-compose.sh

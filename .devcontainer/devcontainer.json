@@ -1,13 +1,11 @@
 {
   "name": "ValueOS Ephemeral Development Environment",
-  "build": {
-    "dockerfile": "Dockerfile.optimized",
-    "context": "..",
-    "args": {
-      "NODE_VERSION": "18",
-      "VARIANT": "ubuntu-22.04"
-    }
-  },
+  "dockerComposeFile": [
+    "../docker-compose.deps.yml",
+    "docker-compose.devcontainer.yml"
+  ],
+  "service": "app",
+  "workspaceFolder": "/workspaces/valuecanvas",
 
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
