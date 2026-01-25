@@ -138,7 +138,7 @@ function createMetric(label: string, value: string): HTMLElement {
 export function safeClearElement(elementId: string): void {
   const element = document.getElementById(elementId);
   if (element) {
-    element.innerHTML = "";
+    element.replaceChildren();
   }
 }
 
