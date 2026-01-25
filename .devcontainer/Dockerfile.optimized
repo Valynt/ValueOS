@@ -112,11 +112,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Stage 4: Development tools
 FROM docker AS devtools
 
+ARG KUBECTL_VERSION=v1.35.0
+ARG HELM_VERSION=v4.1.0
+
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Install Kubernetes tools with retry
 RUN for i in 1 2 3; do \
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && break || \
+        curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && break || \
         { echo "Retry $i/3 failed"; sleep 5; }; \
     done \
     && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
@@ -125,7 +128,10 @@ RUN for i in 1 2 3; do \
 
 # Install Helm with retry
 RUN for i in 1 2 3; do \
-        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash && break || \
+        curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" -o helm.tar.gz && \
+        tar -zxvf helm.tar.gz && \
+        mv linux-amd64/helm /usr/local/bin/helm && \
+        rm -rf linux-amd64 helm.tar.gz && break || \
         { echo "Retry $i/3 failed"; sleep 5; }; \
     done \
     && helm version || true
