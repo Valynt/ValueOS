@@ -11,6 +11,7 @@ export default defineConfig({
     include: [
       "src/views/__tests__/ValueCanvas.test.tsx",
       "src/views/Settings/__tests__/MFARecovery.test.ts",
+      "src/routes/__tests__/routeConfig.test.ts",
     ],
     coverage: {
       provider: "v8",
