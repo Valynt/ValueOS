@@ -211,18 +211,65 @@ export class CalculationEngine {
   }
 
   /**
-   * Validate a formula syntax
+   * Validate a formula syntax (without node context)
    */
-  validateFormula(formula: string, nodeId: string): { isValid: boolean; error?: string } {
+  validateFormula(formula: string): { isValid: boolean; error?: string; suggestions?: string[] } {
     try {
-      const parsedFormula = this.parseFormula(formula, nodeId);
-      // Try to create a temporary named expression to validate
+      if (!formula.trim()) {
+        return { isValid: true };
+      }
+
+      // Basic syntax check
+      if (!formula.startsWith("=")) {
+        return {
+          isValid: false,
+          error: "Formula must start with =",
+          suggestions: ["Start formulas with = for Excel compatibility"],
+        };
+      }
+
+      // Try to parse with HyperFormula
       const tempId = `temp_${Date.now()}`;
-      this.hf.addNamedExpression(tempId, parsedFormula);
-      this.hf.removeNamedExpression(tempId);
-      return { isValid: true };
+      try {
+        this.hf.addNamedExpression(tempId, formula.substring(1)); // Remove = prefix
+        this.hf.removeNamedExpression(tempId);
+        return { isValid: true };
+      } catch (error) {
+        return {
+          isValid: false,
+          error: `Formula syntax error: ${error}`,
+          suggestions: [
+            "Check for missing parentheses or operators",
+            "Ensure variable names are correct",
+          ],
+        };
+      }
     } catch (error) {
-      return { isValid: false, error: error as string };
+      return {
+        isValid: false,
+        error: "Invalid formula",
+        suggestions: ["Check formula syntax and variable references"],
+      };
+    }
+  }
+
+  /**
+   * Calculate a preview of a formula result
+   */
+  calculatePreview(formula: string): number {
+    try {
+      if (!formula.trim() || !formula.startsWith("=")) {
+        return 0;
+      }
+
+      const tempId = `preview_${Date.now()}`;
+      this.hf.addNamedExpression(tempId, formula.substring(1)); // Remove = prefix
+      const result = this.hf.getNamedExpressionValue(tempId);
+      this.hf.removeNamedExpression(tempId);
+
+      return typeof result === "number" ? result : 0;
+    } catch (error) {
+      return 0;
     }
   }
 
@@ -243,15 +290,13 @@ export class CalculationEngine {
   /**
    * Parse formula and replace node references with sanitized IDs
    */
-  private parseFormula(formula: string, currentNodeId: string): string {
+  private parseFormula(_formula: string, _currentNodeId: string): string {
     // Replace [Node Label] with sanitized_node_id
     // This is a simplified implementation - in production, you'd want more robust parsing
-    let parsedFormula = formula;
-
     // For now, assume formulas use direct node IDs or simple references
     // In the full implementation, this would parse the formula and replace human-readable labels
 
-    return parsedFormula;
+    return _formula;
   }
 
   /**
@@ -265,7 +310,7 @@ export class CalculationEngine {
   /**
    * Get all dependent nodes for a given node
    */
-  getDependents(nodeId: string): string[] {
+  getDependents(_nodeId: string): string[] {
     // This would require analyzing the dependency graph in HyperFormula
     // For now, return empty array - implement when needed
     return [];

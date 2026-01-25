@@ -29,7 +29,7 @@ import { Plus, Save, Undo, Redo, Library, Settings } from 'lucide-react';
 
 import { nodeTypes } from './ValueCanvasNodes';
 import { ValueDriverLibrary } from './ValueDriverLibrary';
-import { ValueDriverEditor } from '../valueDrivers/ValueDriverEditor';
+import { ValueDriverEditor } from './ValueDriverEditor';
 import { PlaygroundSessionService } from '@/services/PlaygroundSessionService';
 import { useOrganization } from '@/hooks/useOrganization';
 import { logger } from '@/lib/logger';

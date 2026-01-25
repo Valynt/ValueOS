@@ -16,6 +16,7 @@ import { InviteModal } from "@/components/settings/InviteModal";
 import { supabase } from "@/lib/supabase";
 import { emailService } from "@/services/EmailService";
 import { rbacService } from "@/services/RbacService";
+import { useToast } from "@/components/common/Toast";
 import { useAuth } from "@/hooks/useAuth";
 import { logger } from "@/lib/logger";
 
@@ -101,22 +102,17 @@ export function TeamSettings() {
   const handleResendInvite = async (memberId: string) => {
     const member = members.find((m) => m.id === memberId);
     if (!member) return;
-
+    const { showToast } = useToast();
     try {
-      const inviteLink = `${window.location.origin}/accept-invite?token=${memberId}`; // Generate proper token
-      await emailService.send({
-        to: member.email,
-        subject: `You're invited to join ${user?.organizationName || "our team"}`,
-        template: "invite",
-        data: {
-          inviterName: user?.name || "Team Admin",
-          organizationName: user?.organizationName || "ValueOS",
-          inviteLink,
-          role: member.role,
-        },
+      const res = await fetch(`/api/admin/invitations/${memberId}/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
+      if (!res.ok) throw new Error("Failed to resend");
+      showToast("Invite resent", "success");
       logger.info("Resent invite", { memberId, email: member.email });
     } catch (error) {
+      showToast("Failed to resend invite", "error");
       logger.error("Failed to resend invite", { error, memberId });
     }
   };
@@ -127,47 +123,34 @@ export function TeamSettings() {
       return;
     }
 
+    const { showToast } = useToast();
     try {
       for (const email of emails) {
-        // Check if already invited or member
         const existing = members.find((m) => m.email === email);
         if (existing) continue;
 
-        // Insert invite into DB
-        const { data, error } = await supabase
-          .from("team_members")
-          .insert({
-            email,
-            role,
-            status: "invited",
-            organization_id: organizationId,
-            invited_by: user?.id,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        // Send email
-        const inviteLink = `${window.location.origin}/accept-invite?token=${data.id}`;
-        await emailService.send({
-          to: email,
-          subject: `You're invited to join ${user?.organizationName || "our team"}`,
-          template: "invite",
-          data: {
-            inviterName: user?.name || "Team Admin",
-            organizationName: user?.organizationName || "ValueOS",
-            inviteLink,
-            role,
-          },
+        const res = await fetch("/api/admin/invitations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, role }),
         });
 
-        // Add to local state
-        setMembers((prev) => [...prev, data]);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error || "Invite failed");
+        }
+
+        const body = await res.json();
+        setMembers((prev) => [
+          ...prev,
+          { id: body.invite.id, email, role, status: "invited" } as TeamMember,
+        ]);
       }
 
       setInviteModalOpen(false);
+      showToast("Invites sent", "success");
     } catch (error) {
+      showToast("Failed to send invites", "error");
       logger.error("Failed to send invites", { error });
     }
   };

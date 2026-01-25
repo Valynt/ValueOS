@@ -8,12 +8,10 @@ import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter";
 import { requireAuth } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
-import {
-  requireAllPermissions,
-  requirePermission,
-} from "../middleware/rbac";
+import { requireAllPermissions, requirePermission } from "../middleware/rbac";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { adminUserService } from "../services/AdminUserService";
+import { invitationsService } from "../services/InvitationsService";
 import { createLogger } from "../lib/logger";
 import { sanitizeForLogging } from "../lib/piiFilter";
 
@@ -72,6 +70,47 @@ router.post(
     } catch (error) {
       logger.error("Failed to invite user", sanitizeForLogging(error));
       res.status(500).json({ error: "Failed to invite user" });
+    }
+  }
+);
+
+// New: server-side invitations table API
+router.post(
+  "/invitations",
+  requireAllPermissions("users.invite", "roles.assign"),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as any).tenantId as string | undefined;
+      if (!tenantId) return res.status(400).json({ error: "Tenant ID required" });
+
+      const actor = (req as any).user;
+      const invitedBy = actor?.id;
+
+      const { email, role } = req.body;
+      if (!email || !role) return res.status(400).json({ error: "email and role required" });
+
+      const invite = await invitationsService.createInvite({ tenantId, email, role, invitedBy });
+      res.status(201).json({ invite });
+    } catch (error) {
+      logger.error("Failed to create invitation", sanitizeForLogging(error));
+      res.status(500).json({ error: "Failed to create invitation" });
+    }
+  }
+);
+
+router.post(
+  "/invitations/:invitationId/resend",
+  requirePermission("users.invite"),
+  async (req: Request, res: Response) => {
+    try {
+      const invitationId = req.params.invitationId;
+      if (!invitationId) return res.status(400).json({ error: "invitationId required" });
+
+      const invite = await invitationsService.resendInvite(invitationId);
+      res.json({ invite });
+    } catch (error) {
+      logger.error("Failed to resend invitation", sanitizeForLogging(error));
+      res.status(500).json({ error: "Failed to resend invitation" });
     }
   }
 );

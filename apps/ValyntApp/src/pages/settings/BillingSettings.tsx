@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { billingService } from "@/services/billing";
+import { useToast } from "@/components/common/Toast";
 import {
   Rocket,
   TrendingUp,
@@ -83,12 +84,14 @@ export function BillingSettings() {
   const handleUpgrade = async () => {
     try {
       const { url } = await billingService.createCheckoutSession("standard");
+      const { showToast } = useToast();
       if (url) {
+        showToast("Redirecting to checkout...", "info");
         window.location.href = url;
       }
     } catch (err) {
-      // Best-effort: log to console for now
-      // In real UI, surface an error toast
+      const { showToast } = useToast();
+      showToast("Failed to create checkout session", "error");
       // eslint-disable-next-line no-console
       console.error("Failed to create checkout session", err);
     }

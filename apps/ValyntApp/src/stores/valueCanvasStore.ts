@@ -6,7 +6,7 @@
  */
 
 import { create } from "zustand";
-import { devtools, persist } from "zustand/middleware";
+import { devtools } from "zustand/middleware";
 import { Node, Edge, addEdge, Connection } from "@xyflow/react";
 import { zundo } from "zundo";
 
@@ -122,7 +122,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
         ...initialState,
 
         // Graph slice actions
-        addNode: (node) =>
+        addNode: (node: Node) =>
           set(
             (state) => ({
               nodes: [...state.nodes, node],
@@ -131,7 +131,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "addNode"
           ),
 
-        updateNode: (nodeId, updates) =>
+        updateNode: (nodeId: string, updates: Partial<Node>) =>
           set(
             (state) => ({
               nodes: state.nodes.map((node) =>
@@ -142,7 +142,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "updateNode"
           ),
 
-        removeNode: (nodeId) =>
+        removeNode: (nodeId: string) =>
           set(
             (state) => ({
               nodes: state.nodes.filter((node) => node.id !== nodeId),
@@ -152,7 +152,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "removeNode"
           ),
 
-        addEdge: (edge) =>
+        addEdge: (edge: Edge) =>
           set(
             (state) => ({
               edges: addEdge(edge, state.edges),
@@ -161,7 +161,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "addEdge"
           ),
 
-        removeEdge: (edgeId) =>
+        removeEdge: (edgeId: string) =>
           set(
             (state) => ({
               edges: state.edges.filter((edge) => edge.id !== edgeId),
@@ -170,20 +170,20 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "removeEdge"
           ),
 
-        onConnect: (connection) => {
+        onConnect: (connection: Connection) => {
           const edge = {
             ...connection,
             id: `edge-${connection.source}-${connection.target}`,
             type: "default",
           };
-          get().addEdge(edge);
+          (get() as ValueCanvasStore).addEdge(edge);
         },
 
-        setNodes: (nodes) => set({ nodes }, false, "setNodes"),
-        setEdges: (edges) => set({ edges }, false, "setEdges"),
+        setNodes: (nodes: Node[]) => set({ nodes }, false, "setNodes"),
+        setEdges: (edges: Edge[]) => set({ edges }, false, "setEdges"),
 
         // Model slice actions
-        updateDriverDefinition: (nodeId, definition) =>
+        updateDriverDefinition: (nodeId: string, definition: Partial<DriverDefinitions[string]>) =>
           set(
             (state) => ({
               driverDefinitions: {
@@ -198,7 +198,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "updateDriverDefinition"
           ),
 
-        updateDriverValue: (nodeId, value) =>
+        updateDriverValue: (nodeId: string, value: number) =>
           set(
             (state) => ({
               driverValues: {
@@ -210,7 +210,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "updateDriverValue"
           ),
 
-        batchUpdateValues: (updates) =>
+        batchUpdateValues: (updates: { [nodeId: string]: number }) =>
           set(
             (state) => ({
               driverValues: {
@@ -222,20 +222,23 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             "batchUpdateValues"
           ),
 
-        setDriverDefinitions: (definitions) =>
+        setDriverDefinitions: (definitions: DriverDefinitions) =>
           set({ driverDefinitions: definitions }, false, "setDriverDefinitions"),
-        setDriverValues: (values) => set({ driverValues: values }, false, "setDriverValues"),
+        setDriverValues: (values: DriverValues) =>
+          set({ driverValues: values }, false, "setDriverValues"),
 
         // UI slice actions
-        setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }, false, "setSelectedNodeId"),
-        setIsEditorOpen: (open) => set({ isEditorOpen: open }, false, "setIsEditorOpen"),
-        setIsLibraryOpen: (open) => set({ isLibraryOpen: open }, false, "setIsLibraryOpen"),
-        setIsSaving: (saving) => set({ isSaving: saving }, false, "setIsSaving"),
-        setLastSaved: (date) => set({ lastSaved: date }, false, "setLastSaved"),
-        setError: (error) => set({ error }, false, "setError"),
+        setSelectedNodeId: (nodeId: string | null) =>
+          set({ selectedNodeId: nodeId }, false, "setSelectedNodeId"),
+        setIsEditorOpen: (open: boolean) => set({ isEditorOpen: open }, false, "setIsEditorOpen"),
+        setIsLibraryOpen: (open: boolean) =>
+          set({ isLibraryOpen: open }, false, "setIsLibraryOpen"),
+        setIsSaving: (saving: boolean) => set({ isSaving: saving }, false, "setIsSaving"),
+        setLastSaved: (date: Date | null) => set({ lastSaved: date }, false, "setLastSaved"),
+        setError: (error: string | null) => set({ error }, false, "setError"),
 
         // Coordinated actions
-        addDriverNode: (driverNode) => {
+        addDriverNode: (driverNode: ValueDriverNode) => {
           const node: Node = {
             id: driverNode.id,
             type: driverNode.type === "input" ? "inputNode" : "calculatedNode",
@@ -248,22 +251,22 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
             },
           };
 
-          get().addNode(node);
-          get().updateDriverDefinition(driverNode.id, {
+          (get() as ValueCanvasStore).addNode(node);
+          (get() as ValueCanvasStore).updateDriverDefinition(driverNode.id, {
             formula: driverNode.formula || "",
             format: driverNode.format,
             label: driverNode.label,
           });
-          get().updateDriverValue(driverNode.id, driverNode.value);
+          (get() as ValueCanvasStore).updateDriverValue(driverNode.id, driverNode.value);
         },
 
-        updateDriverFormula: (nodeId, formula) => {
-          get().updateDriverDefinition(nodeId, { formula });
+        updateDriverFormula: (nodeId: string, formula: string) => {
+          (get() as ValueCanvasStore).updateDriverDefinition(nodeId, { formula });
           // Trigger recalculation will be handled by CalculationEngine
         },
 
-        deleteDriverNode: (nodeId) => {
-          get().removeNode(nodeId);
+        deleteDriverNode: (nodeId: string) => {
+          (get() as ValueCanvasStore).removeNode(nodeId);
           set(
             (state) => {
               const { [nodeId]: _, ...driverDefinitions } = state.driverDefinitions;
@@ -275,7 +278,12 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
           );
         },
 
-        loadCanvas: (data) =>
+        loadCanvas: (data: {
+          nodes: Node[];
+          edges: Edge[];
+          driverDefinitions: DriverDefinitions;
+          driverValues: DriverValues;
+        }) =>
           set(
             {
               nodes: data.nodes,
@@ -293,7 +301,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
     ),
     {
       // zundo options
-      handleSet: (handleSet) => (payload, replace) => {
+      handleSet: (handleSet: any) => (payload: any, replace: any) => {
         // Only include actions that should be undoable
         const undoableActions = [
           "addNode",
@@ -322,7 +330,7 @@ const useValueCanvasStore = create<ValueCanvasStore>()(
 
 // Export hooks for undo/redo
 export const useTemporalStore = () => {
-  const store = useValueCanvasStore.temporal;
+  const store = (useValueCanvasStore as any).temporal;
   return {
     undo: store.undo,
     redo: store.redo,
