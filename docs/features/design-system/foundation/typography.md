@@ -22,6 +22,19 @@ We follow a predefined type scale to maintain rhythm.
 | `--text-3xl`  | `30px` (`1.875rem`) | `2.25rem`   | Page Titles, Key Metrics.             |
 | `--text-5xl`  | `48px` (`3rem`)     | `1`         | Marketing headers, large stats.       |
 
+## Typography Role Map
+
+Use this role map to normalize hierarchy across dashboards, forms, and marketing surfaces.
+
+| Role                 | Token / Size          | Weight | Line Height | Usage Notes |
+| -------------------- | --------------------- | ------ | ----------- | ----------- |
+| Display / Hero        | `--text-5xl` (`48px`) | 600    | `1`         | Marketing headlines, hero KPIs. |
+| Page Title            | `--text-3xl` (`30px`) | 600    | `1.1`       | Primary screen title (H1). |
+| Section Heading       | `--text-lg` (`18px`)  | 600    | `1.25`      | Card headings, panel titles. |
+| Body (Default)        | `--text-sm` (`14px`)  | 400    | `1.5`       | Most UI copy and inputs. |
+| Body Emphasis         | `--text-sm` (`14px`)  | 500    | `1.5`       | Buttons, key values. |
+| Caption / Meta        | `--text-xs` (`12px`)  | 400    | `1.25`      | Helper text, labels, timestamps. |
+
 ## Weights
 
 - **Regular (400)**: Standard body text.

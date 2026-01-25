@@ -75,7 +75,9 @@
 
     /* ===================
        SEMANTIC TOKENS
-       =================== */
+       ===================
+       Usage: map component styles to semantic tokens only (no raw colors).
+    */
     
     /* Backgrounds */
     --background: var(--valueos-neutral-background);

@@ -9,11 +9,13 @@ Welcome to the official design system for Valynt (ValueOS). This living style gu
   - [Typography](./foundation/typography.md)
   - [Spacing](./foundation/spacing.md)
   - [Elevation](./foundation/elevation.md)
+  - [Motion](./foundation/motion.md)
 - **[Components](./components/)**: Reusable UI elements.
   - [Button](./components/button.md)
   - [Input](./components/input.md)
   - [Card](./components/card.md)
   - [Modal](./components/modal.md)
+  - [State Matrix](./components/state-matrix.md)
 - **[Layout](./layout/)**: Grid and container standards.
   - [Layout & Grid](./layout/grid.md)
 - **[Patterns](./patterns/)**: UX flows and compositions.

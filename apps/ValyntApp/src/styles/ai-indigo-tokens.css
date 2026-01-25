@@ -8,7 +8,9 @@
  * Executive-grade value management platform aesthetic.
  */
 
-:root {
+/* Scoped theme: apply only when data-theme="ai-indigo" is set on the root or a container. */
+:root[data-theme="ai-indigo"],
+[data-theme="ai-indigo"] {
   /* ============================================
    * PRIMARY PALETTE - AI Indigo
    * ============================================ */
@@ -189,14 +191,16 @@
  * GLASSMORPHISM UTILITIES
  * ============================================ */
 
-.glass {
+[data-theme="ai-indigo"] .glass,
+[data-theme="ai-indigo"].glass {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
 }
 
-.glass-subtle {
+[data-theme="ai-indigo"] .glass-subtle,
+[data-theme="ai-indigo"].glass-subtle {
   background: hsl(var(--valueos-neutral-background) / 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -231,11 +235,13 @@
   }
 }
 
-.ai-breathing {
+[data-theme="ai-indigo"] .ai-breathing,
+[data-theme="ai-indigo"].ai-breathing {
   animation: ai-breathe 3s ease-in-out infinite;
 }
 
-.ai-pulse {
+[data-theme="ai-indigo"] .ai-pulse,
+[data-theme="ai-indigo"].ai-pulse {
   animation: ai-pulse 2s ease-in-out infinite;
 }
 
@@ -243,37 +249,44 @@
  * AGENT STATE INDICATORS
  * ============================================ */
 
-.state-idle {
+[data-theme="ai-indigo"] .state-idle,
+[data-theme="ai-indigo"].state-idle {
   --state-color: var(--state-idle);
   box-shadow: var(--glow-idle);
 }
 
-.state-clarify {
+[data-theme="ai-indigo"] .state-clarify,
+[data-theme="ai-indigo"].state-clarify {
   --state-color: var(--state-clarify);
   box-shadow: var(--glow-clarify);
 }
 
-.state-plan {
+[data-theme="ai-indigo"] .state-plan,
+[data-theme="ai-indigo"].state-plan {
   --state-color: var(--state-plan);
   box-shadow: var(--glow-plan);
 }
 
-.state-execute {
+[data-theme="ai-indigo"] .state-execute,
+[data-theme="ai-indigo"].state-execute {
   --state-color: var(--state-execute);
   box-shadow: var(--glow-execute);
 }
 
-.state-review {
+[data-theme="ai-indigo"] .state-review,
+[data-theme="ai-indigo"].state-review {
   --state-color: var(--state-review);
   box-shadow: var(--glow-review);
 }
 
-.state-finalize {
+[data-theme="ai-indigo"] .state-finalize,
+[data-theme="ai-indigo"].state-finalize {
   --state-color: var(--state-finalize);
   box-shadow: var(--glow-finalize);
 }
 
-.state-resume {
+[data-theme="ai-indigo"] .state-resume,
+[data-theme="ai-indigo"].state-resume {
   --state-color: var(--state-resume);
   box-shadow: var(--glow-resume);
 }
@@ -282,22 +295,26 @@
  * COMPUTATIONAL LAYERING
  * ============================================ */
 
-.layer-base {
+[data-theme="ai-indigo"] .layer-base,
+[data-theme="ai-indigo"].layer-base {
   background: var(--bg-primary);
 }
 
-.layer-surface {
+[data-theme="ai-indigo"] .layer-surface,
+[data-theme="ai-indigo"].layer-surface {
   background: var(--bg-secondary);
   border: 1px solid var(--border-default);
 }
 
-.layer-elevated {
+[data-theme="ai-indigo"] .layer-elevated,
+[data-theme="ai-indigo"].layer-elevated {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-md);
 }
 
-.layer-overlay {
+[data-theme="ai-indigo"] .layer-overlay,
+[data-theme="ai-indigo"].layer-overlay {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
@@ -308,7 +325,8 @@
  * PRESENTER MODE OVERRIDES
  * ============================================ */
 
-.presenter-mode {
+[data-theme="ai-indigo"] .presenter-mode,
+[data-theme="ai-indigo"].presenter-mode {
   --text-body-md: 1.25rem;
   --text-heading-md: 1.5rem;
   --text-heading-lg: 2rem;
@@ -316,6 +334,7 @@
   --space-6: 2rem;
 }
 
-.presenter-mode .glass {
+[data-theme="ai-indigo"] .presenter-mode .glass,
+[data-theme="ai-indigo"].presenter-mode .glass {
   background: hsl(var(--valueos-neutral-background) / 0.95);
 }
