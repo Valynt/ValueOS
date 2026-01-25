@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { apiClient } from "../../../api/client/unified-api-client";
 import type { AuditLogEntry, AuditFilter } from "../types";
 
 export function useAuditLog() {
@@ -10,14 +11,38 @@ export function useAuditLog() {
   const fetchLogs = useCallback(async (filter?: AuditFilter, cursor?: string) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual API call
-      // const response = await api.get('/audit/logs', { params: { ...filter, cursor } });
-      // setEntries(prev => cursor ? [...prev, ...response.entries] : response.entries);
-      // setHasMore(response.hasMore);
+      const queryParams: any = {
+        userId: filter?.userId,
+        action: filter?.action,
+        resourceType: filter?.resource,
+        startDate: filter?.startDate,
+        endDate: filter?.endDate,
+        offset: cursor ? Number(cursor) : 0,
+        limit: 50,
+      };
 
-      // Mock data
-      setEntries([]);
-      setHasMore(false);
+      const response = await apiClient.get<any>("/api/admin/audit-logs", queryParams);
+
+      if (response.success && response.data) {
+        const logs: AuditLogEntry[] = response.data.logs.map((log: any) => ({
+          id: log.id,
+          action: log.action,
+          resource: log.resource_type,
+          resourceId: log.resource_id,
+          userId: log.user_id,
+          userEmail: log.user_email,
+          timestamp: log.timestamp,
+          ipAddress: log.ip_address,
+          userAgent: log.user_agent,
+          metadata: log.details,
+          changes: log.details?.changes,
+        }));
+
+        setEntries((prev) => (cursor && Number(cursor) > 0 ? [...prev, ...logs] : logs));
+        setHasMore(logs.length >= 50);
+      } else {
+        throw new Error(response.error?.message || "Failed to fetch audit logs");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch audit logs");
     } finally {
