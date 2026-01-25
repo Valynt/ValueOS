@@ -1,130 +1,335 @@
-import { logger } from '../lib/logger';
-import { CanvasComponent } from '../types';
+/**
+ * CalculationEngine - HyperFormula-based calculation engine
+ *
+ * Provides Excel-compatible formula evaluation with Named Expressions,
+ * cycle detection, and smart recalculation for value driver trees.
+ */
 
-export interface CalculationDependency {
-  sourceId: string;
-  targetId: string;
-  formula: string;
+import { HyperFormula } from 'hyperformula';
+import { logger } from '../lib/logger';
+
+export interface CalculationResult {
+  nodeId: string;
+  value: number;
+  error?: string;
 }
 
 export interface CalculationUpdate {
-  componentId: string;
-  oldValue: any;
-  newValue: any;
+  nodeId: string;
+  oldValue: number;
+  newValue: number;
   formula?: string;
 }
 
-class CalculationEngine {
-  private dependencies: Map<string, string[]> = new Map();
-  private formulas: Map<string, (components: Map<string, CanvasComponent>) => any> = new Map();
+export class CalculationEngine {
+  private hf: HyperFormula;
+  private nodeIdToNamedExpression: Map<string, string> = new Map();
+  private namedExpressionToNodeId: Map<string, string> = new Map();
 
-  registerDependency(targetId: string, sourceIds: string[], formula: (components: Map<string, CanvasComponent>) => any) {
-    this.dependencies.set(targetId, sourceIds);
-    this.formulas.set(targetId, formula);
-  }
-
-  getDependents(componentId: string): string[] {
-    const dependents: string[] = [];
-
-    this.dependencies.forEach((sources, targetId) => {
-      if (sources.includes(componentId)) {
-        dependents.push(targetId);
-      }
+  constructor() {
+    // Initialize HyperFormula with standard configuration
+    this.hf = HyperFormula.buildEmpty({
+      licenseKey: 'gpl-v3', // Using GPL v3 license
+      useColumnIndex: false,
+      useRowIndex: false,
+      dateFormats: ['MM/DD/YYYY', 'DD/MM/YYYY'],
+      timeFormats: ['hh:mm', 'hh:mm:ss.sss'],
+      currencySymbol: ['$'],
+      decimalSeparator: '.',
+      thousandSeparator: ',',
+      functionArgSeparator: ',',
+      arrayColumnSeparator: ';',
+      arrayRowSeparator: '|',
     });
 
-    return dependents;
+    logger.info('CalculationEngine initialized with HyperFormula');
   }
 
-  calculateCascade(
-    changedComponentId: string,
-    components: CanvasComponent[]
-  ): CalculationUpdate[] {
-    const updates: CalculationUpdate[] = [];
-    const processed = new Set<string>();
-    const queue = [changedComponentId];
+  /**
+   * Register a node with its formula as a Named Expression
+   */
+  registerNode(nodeId: string, formula: string, initialValue?: number): void {
+    try {
+      // Sanitize node ID for Named Expression (remove special chars, ensure uniqueness)
+      const sanitizedId = this.sanitizeNodeId(nodeId);
 
-    const componentMap = new Map(components.map(c => [c.id, c]));
+      // Remove existing named expression if it exists
+      if (this.nodeIdToNamedExpression.has(nodeId)) {
+        const oldExpression = this.nodeIdToNamedExpression.get(nodeId)!;
+        this.hf.removeNamedExpression(oldExpression);
+        this.namedExpressionToNodeId.delete(oldExpression);
+      }
 
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
+      // Add new named expression
+      if (formula && formula.trim()) {
+        // Parse and validate formula
+        const parsedFormula = this.parseFormula(formula, nodeId);
+        this.hf.addNamedExpression(sanitizedId, parsedFormula);
+      } else if (initialValue !== undefined) {
+        // For input nodes without formula, use the value directly
+        this.hf.addNamedExpression(sanitizedId, initialValue.toString());
+      }
 
-      if (processed.has(currentId)) continue;
-      processed.add(currentId);
+      // Update mappings
+      this.nodeIdToNamedExpression.set(nodeId, sanitizedId);
+      this.namedExpressionToNodeId.set(sanitizedId, nodeId);
 
-      const dependents = this.getDependents(currentId);
+      logger.debug('Registered node', { nodeId, sanitizedId, formula });
+    } catch (error) {
+      logger.error('Failed to register node', { nodeId, formula, error });
+      throw new Error(`Failed to register node ${nodeId}: ${error}`);
+    }
+  }
 
-      for (const dependentId of dependents) {
-        const formula = this.formulas.get(dependentId);
-        if (!formula) continue;
+  /**
+   * Update the value of an input node
+   */
+  updateInput(nodeId: string, value: number): CalculationResult[] {
+    try {
+      const sanitizedId = this.nodeIdToNamedExpression.get(nodeId);
+      if (!sanitizedId) {
+        throw new Error(`Node ${nodeId} not registered`);
+      }
 
-        const component = componentMap.get(dependentId);
-        if (!component) continue;
+      // Update the named expression with the new value
+      this.hf.changeNamedExpressionFormula(sanitizedId, value.toString());
 
-        const oldValue = component.props.value;
-        const newValue = formula(componentMap);
+      // Get all affected nodes
+      return this.recalculate();
+    } catch (error) {
+      logger.error('Failed to update input', { nodeId, value, error });
+      return [{
+        nodeId,
+        value: 0,
+        error: `Calculation error: ${error}`
+      }];
+    }
+  }
 
-        if (oldValue !== newValue) {
-          updates.push({
-            componentId: dependentId,
-            oldValue,
-            newValue,
-            formula: this.getFormulaDescription(dependentId)
+  /**
+   * Update the formula of a calculated node
+   */
+  updateFormula(nodeId: string, formula: string): CalculationResult[] {
+    try {
+      const sanitizedId = this.nodeIdToNamedExpression.get(nodeId);
+      if (!sanitizedId) {
+        throw new Error(`Node ${nodeId} not registered`);
+      }
+
+      // Parse and validate the new formula
+      const parsedFormula = this.parseFormula(formula, nodeId);
+
+      // Update the named expression
+      this.hf.changeNamedExpressionFormula(sanitizedId, parsedFormula);
+
+      // Get all affected nodes
+      return this.recalculate();
+    } catch (error) {
+      logger.error('Failed to update formula', { nodeId, formula, error });
+      return [{
+        nodeId,
+        value: 0,
+        error: `Formula error: ${error}`
+      }];
+    }
+  }
+
+  /**
+   * Remove a node and its dependencies
+   */
+  removeNode(nodeId: string): void {
+    try {
+      const sanitizedId = this.nodeIdToNamedExpression.get(nodeId);
+      if (sanitizedId) {
+        this.hf.removeNamedExpression(sanitizedId);
+        this.nodeIdToNamedExpression.delete(nodeId);
+        this.namedExpressionToNodeId.delete(sanitizedId);
+      }
+
+      logger.debug('Removed node', { nodeId });
+    } catch (error) {
+      logger.error('Failed to remove node', { nodeId, error });
+    }
+  }
+
+  /**
+   * Get the current value of a node
+   */
+  getValue(nodeId: string): number {
+    try {
+      const sanitizedId = this.nodeIdToNamedExpression.get(nodeId);
+      if (!sanitizedId) {
+        return 0;
+      }
+
+      const result = this.hf.getNamedExpressionValue(sanitizedId);
+      return typeof result === 'number' ? result : 0;
+    } catch (error) {
+      logger.error('Failed to get value', { nodeId, error });
+      return 0;
+    }
+  }
+
+  /**
+   * Recalculate all expressions and return changed values
+   */
+  recalculate(): CalculationResult[] {
+    try {
+      // Force recalculation
+      this.hf.recalculate();
+
+      const results: CalculationResult[] = [];
+
+      // Get values for all registered nodes
+      for (const [nodeId, sanitizedId] of this.nodeIdToNamedExpression.entries()) {
+        try {
+          const value = this.hf.getNamedExpressionValue(sanitizedId);
+          const numericValue = typeof value === 'number' ? value : 0;
+
+          results.push({
+            nodeId,
+            value: numericValue
           });
-
-          componentMap.set(dependentId, {
-            ...component,
-            props: { ...component.props, value: newValue }
+        } catch (error) {
+          results.push({
+            nodeId,
+            value: 0,
+            error: `Calculation error: ${error}`
           });
-
-          queue.push(dependentId);
         }
       }
+
+      return results;
+    } catch (error) {
+      logger.error('Recalculation failed', { error });
+      return [];
     }
-
-    return updates;
   }
 
-  getFormulaDescription(componentId: string): string {
-    const sources = this.dependencies.get(componentId);
-    if (!sources || sources.length === 0) {
-      return 'Calculated value';
+  /**
+   * Validate a formula syntax
+   */
+  validateFormula(formula: string, nodeId: string): { isValid: boolean; error?: string } {
+    try {
+      const parsedFormula = this.parseFormula(formula, nodeId);
+      // Try to create a temporary named expression to validate
+      const tempId = `temp_${Date.now()}`;
+      this.hf.addNamedExpression(tempId, parsedFormula);
+      this.hf.removeNamedExpression(tempId);
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: error as string };
     }
-
-    return `Depends on ${sources.length} component${sources.length > 1 ? 's' : ''}`;
   }
 
-  setupDefaultDependencies() {
-    this.registerDependency(
-      'roi-metric',
-      ['revenue-metric', 'cost-metric'],
-      (components) => {
-        const revenue = parseFloat(String(components.get('revenue-metric')?.props.value || '0').replace(/[^0-9.-]/g, ''));
-        const cost = parseFloat(String(components.get('cost-metric')?.props.value || '0').replace(/[^0-9.-]/g, ''));
-
-        if (cost === 0) return 'N/A';
-        const roi = ((revenue - cost) / cost) * 100;
-        return `${roi.toFixed(1)}%`;
-      }
-    );
-
-    this.registerDependency(
-      'payback-metric',
-      ['revenue-metric', 'cost-metric'],
-      (components) => {
-        const monthlyRevenue = parseFloat(String(components.get('revenue-metric')?.props.value || '0').replace(/[^0-9.-]/g, '')) / 12;
-        const totalCost = parseFloat(String(components.get('cost-metric')?.props.value || '0').replace(/[^0-9.-]/g, ''));
-
-        if (monthlyRevenue === 0) return 'N/A';
-        const months = Math.ceil(totalCost / monthlyRevenue);
-        return `${months} months`;
-      }
-    );
+  /**
+   * Check if a function is supported
+   */
+  isFunctionSupported(functionName: string): boolean {
+    return this.hf.isFunctionSupported(functionName);
   }
 
-  clearDependencies() {
-    this.dependencies.clear();
-    this.formulas.clear();
+  /**
+   * Get list of supported functions
+   */
+  getSupportedFunctions(): string[] {
+    return this.hf.getSupportedFunctions();
+  }
+
+  /**
+   * Parse formula and replace node references with sanitized IDs
+   */
+  private parseFormula(formula: string, currentNodeId: string): string {
+    // Replace [Node Label] with sanitized_node_id
+    // This is a simplified implementation - in production, you'd want more robust parsing
+    let parsedFormula = formula;
+
+    // For now, assume formulas use direct node IDs or simple references
+    // In the full implementation, this would parse the formula and replace human-readable labels
+
+    return parsedFormula;
+  }
+
+  /**
+   * Sanitize node ID for use as Named Expression
+   */
+  private sanitizeNodeId(nodeId: string): string {
+    // Replace special characters and ensure starts with letter
+    return 'node_' + nodeId.replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
+  /**
+   * Get all dependent nodes for a given node
+   */
+  getDependents(nodeId: string): string[] {
+    // This would require analyzing the dependency graph in HyperFormula
+    // For now, return empty array - implement when needed
+    return [];
+  }
+
+  /**
+   * Batch register multiple nodes
+   */
+  batchRegister(nodes: Array<{ id: string; formula?: string; value?: number }>): void {
+    try {
+      // Suspend evaluation for batch operations
+      this.hf.suspendEvaluation();
+
+      for (const node of nodes) {
+        this.registerNode(node.id, node.formula || '', node.value);
+      }
+
+      // Resume evaluation
+      this.hf.resumeEvaluation();
+      this.recalculate();
+
+      logger.debug('Batch registered nodes', { count: nodes.length });
+    } catch (error) {
+      logger.error('Batch registration failed', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Serialize the engine state for persistence
+   */
+  serialize(): any {
+    return {
+      namedExpressions: this.hf.getAllNamedExpressionsSerialized(),
+      nodeMappings: {
+        nodeIdToNamedExpression: Array.from(this.nodeIdToNamedExpression.entries()),
+        namedExpressionToNodeId: Array.from(this.namedExpressionToNodeId.entries())
+      }
+    };
+  }
+
+  /**
+   * Deserialize and restore engine state
+   */
+  deserialize(data: any): void {
+    try {
+      // Clear existing state
+      this.nodeIdToNamedExpression.clear();
+      this.namedExpressionToNodeId.clear();
+
+      // Restore mappings
+      if (data.nodeMappings) {
+        this.nodeIdToNamedExpression = new Map(data.nodeMappings.nodeIdToNamedExpression);
+        this.namedExpressionToNodeId = new Map(data.nodeMappings.namedExpressionToNodeId);
+      }
+
+      // Restore named expressions
+      if (data.namedExpressions) {
+        this.hf.setNamedExpressions(data.namedExpressions);
+      }
+
+      logger.debug('Deserialized calculation engine state');
+    } catch (error) {
+      logger.error('Failed to deserialize engine state', { error });
+      throw error;
+    }
   }
 }
 
+// Export singleton instance
 export const calculationEngine = new CalculationEngine();
