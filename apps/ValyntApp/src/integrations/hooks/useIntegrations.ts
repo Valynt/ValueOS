@@ -1,23 +1,37 @@
 import { useState, useCallback } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import type { Integration, IntegrationProvider } from "../types";
 import { PROVIDERS } from "../types";
 
 export function useIntegrations() {
+  const { session } = useAuth();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchIntegrations = useCallback(async () => {
+    if (!session?.access_token) return;
+
     setIsLoading(true);
     try {
-      // TODO: Implement actual API call
-      setIntegrations([]);
+      const response = await fetch("/api/integrations", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch integrations");
+      }
+
+      const data = await response.json();
+      setIntegrations(data.integrations);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch integrations");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [session?.access_token]);
 
   const connect = useCallback(async (providerId: string) => {
     try {
