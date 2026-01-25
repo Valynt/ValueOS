@@ -166,11 +166,6 @@ ARG PRISMA_VERSION=5.25.0
 RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
         set -eux; \
         \
-        # Ensure required installers exist
-        apt-get update; \
-        apt-get install -y --no-install-recommends curl ca-certificates; \
-        rm -rf /var/lib/apt/lists/*; \
-        \
         # Install Supabase CLI (pinned, from GitHub releases)
         arch="$(uname -m)"; \
         case "$arch" in \
@@ -193,7 +188,7 @@ RUN if [ "$INSTALL_DBTOOLS" = "1" ]; then \
         prisma --version; \
         \
         # Install pgcli (optional but useful)
-        pip3 install --no-cache-dir pgcli; \
+        pip3 install --no-cache-dir pgcli || true; \
     else \
         echo "Skipping dbtools installation"; \
     fi
