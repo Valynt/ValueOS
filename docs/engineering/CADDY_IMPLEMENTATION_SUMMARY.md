@@ -21,7 +21,7 @@ ValueCanvas has a **complete, working Caddy deployment**:
 
 **Existing Files:**
 - `Caddyfile`, `Caddyfile.prod`, `Caddyfile.staging`
-- `docker-compose.dev-caddy.yml`, `docker-compose.staging.yml`, `docker-compose.prod.yml`
+- `infra/docker/docker-compose.caddy.yml`, `infra/docker/docker-compose.staging.yml`, `infra/docker/docker-compose.prod.yml`
 - `infra/infra/k8s/caddy/` - Complete Kubernetes manifests
 - `Dockerfile.caddy` - Container build
 

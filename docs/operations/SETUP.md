@@ -13,6 +13,8 @@ This guide will help you set up and verify the complete LGTM (Loki, Grafana, Tem
 
 ## 🚀 Quick Start
 
+For the canonical infra entry points (including observability compose), see [`infra/README.md`](../../infra/README.md).
+
 ### 1. Install Dependencies
 
 ```bash
@@ -40,7 +42,7 @@ npm install --save-dev vitest @vitest/ui axios
 make -f Makefile.observability obs-up
 
 # Or using Docker Compose directly
-docker-compose -f docker-compose.observability.yml up -d
+docker-compose -f infra/docker/docker-compose.observability.yml up -d
 ```
 
 ### 3. Verify Services

@@ -64,7 +64,7 @@ src/agents/
 ```
 Found:
 ✅ docker-compose.mtls.yml
-✅ infrastructure/docker-compose.observability.yml
+✅ infra/docker/docker-compose.observability.yml
 ✅ Traefik reverse proxy configuration
 ❌ Kubernetes manifests/Helm charts NOT found
 ```
@@ -660,7 +660,7 @@ src/sdui/
 ```
 infrastructure/
 ├── docker-compose.mtls.yml ✅ mTLS config
-├── docker-compose.observability.yml ✅ Monitoring
+├── infra/docker/docker-compose.observability.yml ✅ Monitoring
 ├── tls/ ✅ Certificate management
 └── traefik/ ✅ Reverse proxy
 ```

@@ -574,7 +574,7 @@ npm run preview      # Test production build
 
 ```bash
 cd infra
-docker-compose -f docker-compose.observability.yml up -d
+docker-compose -f infra/docker/docker-compose.observability.yml up -d
 # Jaeger: http://localhost:16686
 # Grafana: http://localhost:3001
 ```

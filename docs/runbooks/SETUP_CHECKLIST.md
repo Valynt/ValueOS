@@ -3,7 +3,7 @@
 ## Files Created
 
 - [x] **Caddyfile.dev** - Development Caddy configuration
-- [x] **docker-compose.dev-caddy.yml** - Complete dev stack
+- [x] **infra/docker/docker-compose.caddy.yml** - Complete dev stack
 - [x] **.env.dev.example** - Environment template
 - [x] **scripts/dev-caddy-start.sh** - Startup automation
 - [x] **scripts/dev-caddy-stop.sh** - Shutdown script
@@ -16,7 +16,7 @@
 ```bash
 # Check all files exist
 ls -lh Caddyfile.dev
-ls -lh docker-compose.dev-caddy.yml
+ls -lh infra/docker/docker-compose.caddy.yml
 ls -lh .env.dev.example
 ls -lh scripts/dev-caddy-start.sh
 ls -lh scripts/dev-caddy-stop.sh
@@ -100,16 +100,16 @@ nano .env.dev
 ./scripts/dev-caddy-stop.sh
 
 # View logs
-docker-compose -f docker-compose.dev-caddy.yml logs -f
+docker-compose -f infra/docker/docker-compose.caddy.yml logs -f
 
 # Restart a service
-docker-compose -f docker-compose.dev-caddy.yml restart <service>
+docker-compose -f infra/docker/docker-compose.caddy.yml restart <service>
 
 # Check status
-docker-compose -f docker-compose.dev-caddy.yml ps
+docker-compose -f infra/docker/docker-compose.caddy.yml ps
 
 # Rebuild
-docker-compose -f docker-compose.dev-caddy.yml up -d --build
+docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
 ```
 
 ## Troubleshooting Checklist
@@ -124,7 +124,7 @@ docker-compose -f docker-compose.dev-caddy.yml up -d --build
 
 - [ ] Validate: `caddy validate --config Caddyfile.dev`
 - [ ] Check logs: `docker logs valuecanvas-caddy-dev`
-- [ ] Restart: `docker-compose -f docker-compose.dev-caddy.yml restart caddy`
+- [ ] Restart: `docker-compose -f infra/docker/docker-compose.caddy.yml restart caddy`
 
 ### HMR not working?
 
@@ -136,7 +136,7 @@ docker-compose -f docker-compose.dev-caddy.yml up -d --build
 ### Database issues?
 
 - [ ] Check: `docker exec valuecanvas-postgres-dev pg_isready`
-- [ ] View logs: `docker-compose -f docker-compose.dev-caddy.yml logs postgres`
+- [ ] View logs: `docker-compose -f infra/docker/docker-compose.caddy.yml logs postgres`
 - [ ] Check .env.dev credentials
 
 ## Next Steps After Setup
