@@ -9,6 +9,7 @@
 
 import { supabase } from "../lib/supabase";
 import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors";
+import { createLogger } from "@shared/lib/logger";
 
 // Null-safe supabase proxy that throws clear errors when client is unavailable
 const createSupabaseProxy = () => {
@@ -60,6 +61,7 @@ interface PendingRequest {
 export abstract class BaseService {
   protected supabase = createSupabaseProxy();
   protected serviceName: string;
+  protected logger;
 
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private cache: Map<string, { data: any; timestamp: number }> = new Map();
@@ -75,6 +77,7 @@ export abstract class BaseService {
 
   constructor(serviceName: string) {
     this.serviceName = serviceName;
+    this.logger = createLogger({ component: serviceName });
   }
 
   /**
@@ -227,45 +230,26 @@ export abstract class BaseService {
    * Logging utility
    */
   protected log(level: "debug" | "info" | "warn" | "error", message: string, data?: any): void {
-    const logData = {
-      service: this.serviceName,
-      timestamp: new Date().toISOString(),
-      message,
-      ...data,
-    };
-
-    if (process.env.NODE_ENV === "development") {
-      console[level](logData);
+    switch (level) {
+      case "debug":
+        this.logger.debug(message, data);
+        break;
+      case "info":
+        this.logger.info(message, data);
+        break;
+      case "warn":
+        this.logger.warn(message, data);
+        break;
+      case "error":
+        const error =
+          data?.error instanceof Error
+            ? data.error
+            : data?.error
+            ? new Error(String(data.error))
+            : undefined;
+        this.logger.error(message, error, data);
+        break;
     }
-
-    // In production, send to logging service
-    if (process.env.NODE_ENV === "production" && level === "error") {
-      this.reportToErrorTracking(logData);
-    }
-  }
-
-  /**
-   * Report errors to external tracking service
-   * Override in subclasses or configure via environment
-   */
-  private reportToErrorTracking(logData: Record<string, unknown>): void {
-    // Sentry integration (if available)
-    if (typeof globalThis !== "undefined" && (globalThis as any).Sentry) {
-      (globalThis as any).Sentry.captureMessage(logData.message as string, {
-        level: "error",
-        extra: logData,
-      });
-      return;
-    }
-
-    // Fallback: structured logging for log aggregation (e.g., CloudWatch, Datadog)
-    console.error(
-      JSON.stringify({
-        ...logData,
-        _type: "error_report",
-        _timestamp: Date.now(),
-      })
-    );
   }
 
   /**
