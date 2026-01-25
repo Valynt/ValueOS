@@ -31,10 +31,12 @@ import {
   CommitmentRiskSchema,
 } from "../types/value-commitment-schemas.js";
 import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 
 export class ValueCommitmentTrackingService {
   private groundTruthService: GroundTruthIntegrationService;
+  private db = supabase;
 
   constructor(groundTruthService: GroundTruthIntegrationService) {
     this.groundTruthService = groundTruthService;
@@ -316,21 +318,30 @@ export class ValueCommitmentTrackingService {
     actualDate?: string
   ): Promise<CommitmentMilestone> {
     try {
-      // TODO: Update in database and trigger progress recalculation
-      // const updated = await this.db.update('commitment_milestones')
-      //   .set({
-      //     progress_percentage: progressPercentage,
-      //     status: status || 'in_progress',
-      //     actual_date: actualDate,
-      //     updated_at: new Date()
-      //   })
-      //   .where(eq('id', milestoneId))
-      //   .returning();
+      const updateData: any = {
+        progress_percentage: progressPercentage,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (status) updateData.status = status;
+      if (actualDate) updateData.actual_date = actualDate;
+
+      if (!this.db) throw new Error("Database client not initialized");
+
+      const { data: updated, error } = await this.db
+        .from("commitment_milestones")
+        .update(updateData)
+        .eq("id", milestoneId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (!updated) throw new Error("Milestone not found");
 
       // Create audit entry
       await this.createAuditEntry(
         tenantId,
-        "",
+        updated.commitment_id,
         userId,
         "milestone_completed",
         {},
@@ -338,8 +349,8 @@ export class ValueCommitmentTrackingService {
         "Milestone progress updated"
       );
 
-      // TODO: Trigger commitment progress recalculation
-      // await this.updateCommitmentProgress(updated.commitment_id);
+      // Trigger commitment progress recalculation
+      await this.recalculateCommitmentProgress(updated.commitment_id, tenantId);
 
       logger.info("Milestone progress updated", {
         milestoneId,
@@ -348,9 +359,13 @@ export class ValueCommitmentTrackingService {
         status,
       });
 
-      return {} as CommitmentMilestone;
+      return updated as CommitmentMilestone;
     } catch (error) {
-      logger.error("Failed to update milestone progress", { error, milestoneId, tenantId });
+      logger.error("Failed to update milestone progress", {
+        error,
+        milestoneId,
+        tenantId,
+      });
       throw error;
     }
   }
@@ -658,6 +673,44 @@ export class ValueCommitmentTrackingService {
   // =========================
   // Private Helper Methods
   // =========================
+
+  private async recalculateCommitmentProgress(
+    commitmentId: string,
+    tenantId: string
+  ): Promise<void> {
+    try {
+      if (!this.db) return;
+
+      // Fetch all milestones
+      const { data: milestones, error } = await this.db
+        .from("commitment_milestones")
+        .select("progress_percentage")
+        .eq("commitment_id", commitmentId);
+
+      if (error || !milestones || milestones.length === 0) return;
+
+      // Simple average for now
+      const totalProgress = milestones.reduce(
+        (sum, m) => sum + (m.progress_percentage || 0),
+        0
+      );
+      const avgProgress = Math.round(totalProgress / milestones.length);
+
+      // Update commitment
+      await this.db
+        .from("value_commitments")
+        .update({
+          progress_percentage: avgProgress,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", commitmentId);
+    } catch (error) {
+      logger.error("Failed to recalculate commitment progress", {
+        error,
+        commitmentId,
+      });
+    }
+  }
 
   private async createAuditEntry(
     tenantId: string,
