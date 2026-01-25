@@ -18,7 +18,6 @@ import { rateLimiters } from "../../middleware/rateLimiter";
 import { requestAuditMiddleware } from "../../middleware/requestAuditMiddleware";
 import { healthMetrics } from "@shared/lib/health/metrics";
 import { alertManager } from "@shared/lib/health/alerts";
-import * as fs from "fs";
 import * as path from "path";
 
 const router = Router();
@@ -301,7 +300,7 @@ async function checkRedis(): Promise<HealthStatus> {
   }
 
   try {
-    const { redisClient } = await import("../middleware/llmRateLimiter");
+    const { redisClient } = await import("../../middleware/llmRateLimiter");
 
     // Add timeout to prevent hanging on unresponsive Redis
     const pingPromise = redisClient.ping();
@@ -681,13 +680,13 @@ router.get("/health/dashboard", (req: Request, res: Response) => {
     "health-dashboard.html"
   );
 
-  try {
-    const dashboardHtml = fs.readFileSync(dashboardPath, "utf8");
-    res.setHeader("Content-Type", "text/html");
-    res.send(dashboardHtml);
-  } catch (error) {
-    res.status(500).json({ error: "Dashboard not available" });
-  }
+  res.sendFile(dashboardPath, (err) => {
+    if (err) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Dashboard not available" });
+      }
+    }
+  });
 });
 
 /**
@@ -707,3 +706,5 @@ router.post(
     }
   }
 );
+
+export default router;
