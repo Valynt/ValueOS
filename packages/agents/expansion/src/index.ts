@@ -43,7 +43,7 @@ type QueryResponse = z.infer<typeof ResponseSchema>;
  * Mock LLM service for expansion analysis
  * In production, this would integrate with actual LLM APIs
  */
-class ExpansionAnalyzer {
+export class ExpansionAnalyzer {
   async analyzeExpansions(
     query: string,
     context?: QueryRequest["context"]
@@ -215,7 +215,7 @@ const customHealthChecks = [
 
 // Create and start the server
 const config = getConfig();
-const app = createServer({
+export const app = createServer({
   agentType: "expansion",
   version: "1.0.0",
   customHealthChecks,

@@ -15,7 +15,10 @@ vi.mock("@valueos/agents/base", () => ({
     customMetrics: new Map(),
     healthStatus: 1,
   },
-  createServer: vi.fn(),
+  createServer: vi.fn((...args) => {
+    if (args.length > 1) return Promise.resolve();
+    return {};
+  }),
   getConfig: vi.fn(() => ({ PORT: 3000 })),
 }));
 

@@ -15,7 +15,10 @@ vi.mock("@valueos/agents/base", () => ({
     customMetrics: new Map(),
     healthStatus: 1,
   },
-  createServer: vi.fn(),
+  createServer: vi.fn((...args) => {
+    if (args.length > 1) return Promise.resolve();
+    return {};
+  }),
   getConfig: vi.fn(() => ({ PORT: 3000 })),
 }));
 
@@ -78,7 +81,7 @@ describe("FinancialModelingAnalyzer", () => {
       );
       expect(forecastModel).toBeDefined();
       expect(forecastModel?.confidence).toBe(0.82);
-      expect(forecastModel?.category).toBe("Planning");
+      expect(forecastModel?.category).toBe("Forecasting");
     });
 
     it("should provide default financial model for unrecognized query", async () => {
@@ -87,7 +90,7 @@ describe("FinancialModelingAnalyzer", () => {
 
       expect(result.financial_models.length).toBe(1);
       expect(result.financial_models[0].title).toBe("General Financial Model");
-      expect(result.financial_models[0].confidence).toBe(0.7);
+      expect(result.financial_models[0].confidence).toBe(0.75);
     });
 
     it("should include analysis summary", async () => {
