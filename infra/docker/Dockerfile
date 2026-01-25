@@ -17,13 +17,16 @@ RUN apt-get update && apt-get upgrade -y && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Install pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy all source code (needed for workspace resolution without lockfile)
+COPY . .
 
-# Install dependencies (including devDependencies for build)
-RUN npm ci --legacy-peer-deps
+# Install dependencies
+RUN pnpm install --frozen-lockfile=false
 
 # ============================================================================
 # Stage 2: Backend Builder
@@ -32,14 +35,11 @@ FROM deps AS backend-builder
 
 WORKDIR /app
 
-# Copy source code
-COPY . .
-
 # Build the backend application
-RUN npm run build:backend || npx tsc -p .config/configs/tsconfig.backend.json
+RUN pnpm run build:backend
 
 # Remove devDependencies for backend
-RUN npm prune --production --legacy-peer-deps
+RUN pnpm prune --prod
 
 # ============================================================================
 # Stage 3: Frontend Builder
@@ -48,11 +48,8 @@ FROM deps AS frontend-builder
 
 WORKDIR /app
 
-# Copy source code
-COPY . .
-
 # Build the frontend application
-RUN npx vite build --config .config/configs/vite.config.ts
+RUN pnpm --filter valynt-app build
 
 # ============================================================================
 # Stage 4: Security Scanning
@@ -128,7 +125,7 @@ RUN apt-get update && apt-get upgrade -y && \
 RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
 
 # Copy built frontend assets
-COPY --from=frontend-builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
+COPY --from=frontend-builder --chown=nginx:nginx /app/apps/ValyntApp/dist /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY infra/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
@@ -142,9 +139,9 @@ USER nginx
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl --fail --silent --show-error \
-  http://localhost/health || exit 1
+  http://localhost:8080/health || exit 1
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
 
