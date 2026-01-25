@@ -295,7 +295,7 @@ export const simulationsRouter = router({
         });
       }
 
-      const { overallScore, categoryScores, passed } = scoringResult;
+      const { overallScore, categoryScores, passed, tier } = scoringResult;
 
       // Get attempt number
       const attemptCount = await safeDbOperation(
@@ -347,7 +347,7 @@ export const simulationsRouter = router({
       });
 
       // Award certification if passed with high score
-      if (passed && overallScore >= 95 && ctx.user.vosRole) {
+      if (passed && tier && (tier === 'gold' || tier === 'silver') && ctx.user.vosRole) {
         const scenario = await db.getSimulationScenarioById(input.scenarioId);
         if (scenario && scenario.pillarId) {
           const alreadyCertified = await db.hasCertification(
@@ -357,12 +357,13 @@ export const simulationsRouter = router({
           );
 
           if (!alreadyCertified) {
+            const badgeTier = tier.charAt(0).toUpperCase() + tier.slice(1);
             await db.createCertification({
               userId: ctx.user.id,
-              badgeName: `${scenario.title} - Gold`,
+              badgeName: `${scenario.title} - ${badgeTier}`,
               pillarId: scenario.pillarId,
               vosRole: ctx.user.vosRole,
-              tier: "gold",
+              tier: tier,
               score: overallScore,
               awardedAt: new Date(),
             });

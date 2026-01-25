@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "../src/data/routers";
 import type { Context } from "../src/data/_core/trpc";
+import { determineTier, SCORING_THRESHOLDS } from "../src/lib/simulation-scoring";
 
 type AuthenticatedUser = NonNullable<Context["user"]>;
 
@@ -59,10 +60,10 @@ describe("Certifications", () => {
         expect(cert).toHaveProperty("score");
         expect(cert).toHaveProperty("earnedAt");
         expect(cert).toHaveProperty("expiresAt");
-        
+
         // Tier should be one of the valid values
         expect(["bronze", "silver", "gold"]).toContain(cert.tier);
-        
+
         // Score should be between 0 and 100
         expect(cert.score).toBeGreaterThanOrEqual(0);
         expect(cert.score).toBeLessThanOrEqual(100);
@@ -78,7 +79,7 @@ describe("Certifications", () => {
         } as Context["req"],
         res: {} as Context["res"],
       };
-      
+
       const caller = appRouter.createCaller(ctx);
 
       await expect(
@@ -95,15 +96,17 @@ describe("Certifications", () => {
     });
 
     it("Silver tier: awarded for 80%+ on final simulation", () => {
-      // TODO: Implement simulation scoring
-      const silverThreshold = 80;
-      expect(silverThreshold).toBe(80);
+      expect(SCORING_THRESHOLDS.SILVER_THRESHOLD).toBe(80);
+      expect(determineTier(80)).toBe('silver');
+      expect(determineTier(85)).toBe('silver');
+      expect(determineTier(94)).toBe('silver');
+      expect(determineTier(79)).toBeNull();
     });
 
     it("Gold tier: awarded for 95%+ with exceptional insight", () => {
-      // TODO: Implement insight scoring
-      const goldThreshold = 95;
-      expect(goldThreshold).toBe(95);
+      expect(SCORING_THRESHOLDS.GOLD_THRESHOLD).toBe(95);
+      expect(determineTier(95)).toBe('gold');
+      expect(determineTier(100)).toBe('gold');
     });
   });
 });
