@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
+import { Button } from "./ui/button";
 import { Icons } from "@/lib/icons";
-import { Award, CheckCircle } from "lucide-react";
+import { Award, CheckCircle, Download } from "lucide-react";
 
 interface Certification {
   id: number;
@@ -17,6 +18,7 @@ interface Certification {
 interface CertificationDisplayProps {
   certifications: Certification[];
   totalPillars: number;
+  onDownload?: (id: number) => void;
 }
 
 const tierConfig = {
@@ -46,9 +48,9 @@ const tierConfig = {
   }
 };
 
-export default function CertificationDisplay({ certifications, totalPillars }: CertificationDisplayProps) {
+export default function CertificationDisplay({ certifications, totalPillars, onDownload }: CertificationDisplayProps) {
   const completionRate = (certifications.length / totalPillars) * 100;
-  
+
   // Group certifications by tier
   const certsByTier = {
     bronze: certifications.filter(c => c.tier === "bronze").length,
@@ -71,7 +73,7 @@ export default function CertificationDisplay({ certifications, totalPillars }: C
         </CardHeader>
         <CardContent className="space-y-4">
           <Progress value={completionRate} className="h-2" />
-          
+
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <div className="text-2xl font-bold text-amber-600">{certsByTier.bronze}</div>
@@ -92,7 +94,7 @@ export default function CertificationDisplay({ certifications, totalPillars }: C
       {/* Earned Certifications */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Earned Certifications</h3>
-        
+
         {certifications.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
@@ -106,7 +108,7 @@ export default function CertificationDisplay({ certifications, totalPillars }: C
             {certifications.map((cert) => {
               const config = tierConfig[cert.tier];
               const Icon = config.icon;
-              
+
               return (
                 <Card key={cert.id} className={`border-2 ${config.borderColor} ${config.bgColor}`}>
                   <CardHeader className="pb-3">
@@ -142,9 +144,22 @@ export default function CertificationDisplay({ certifications, totalPillars }: C
                         <span>{new Date(cert.expiresAt).toLocaleDateString()}</span>
                       </div>
                     )}
-                    <div className="pt-2 flex items-center gap-2 text-xs text-teal-600">
-                      <CheckCircle className="h-3 w-3" />
-                      <span>Verified Certification</span>
+                    <div className="pt-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs text-teal-600">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Verified Certification</span>
+                      </div>
+                      {onDownload && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-xs"
+                          onClick={() => onDownload(cert.id)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
