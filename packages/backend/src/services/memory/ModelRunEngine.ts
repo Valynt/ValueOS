@@ -84,29 +84,31 @@ export class ModelRunEngine {
   private async hydrateBenchmarks(
     benchmark_ids: string[]
   ): Promise<BenchmarkSlice[]> {
-    return Promise.all(
-      benchmark_ids.map(async (id) => {
-        const latest = await this.benchmarkProvider.getLatestValue(id);
-        return {
-          id: latest.id,
-          parent_id: latest.parent_id,
-          version: latest.version,
-          name: latest.name,
-          industry: latest.industry,
-          geo: latest.geo,
-          company_size_range: latest.company_size_range,
-          tier: latest.tier,
-          metrics: latest.metrics,
-          checksum: latest.checksum,
-          is_active: latest.is_active,
-          created_at: latest.created_at,
-          benchmark_id: id,
-          version_id: latest.id,
-          value_at_execution: (latest.metrics.value as number) || 0,
-          label: latest.name,
-        };
-      })
+    const latestValues = await this.benchmarkProvider.getLatestValues(
+      benchmark_ids
     );
+
+    return latestValues.map((latest, index) => {
+      const id = benchmark_ids[index];
+      return {
+        id: latest.id,
+        parent_id: latest.parent_id,
+        version: latest.version,
+        name: latest.name,
+        industry: latest.industry,
+        geo: latest.geo,
+        company_size_range: latest.company_size_range,
+        tier: latest.tier,
+        metrics: latest.metrics,
+        checksum: latest.checksum,
+        is_active: latest.is_active,
+        created_at: latest.created_at,
+        benchmark_id: id,
+        version_id: latest.id,
+        value_at_execution: (latest.metrics.value as number) || 0,
+        label: latest.name,
+      };
+    });
   }
 
   private async executeCalculationLogic(
@@ -168,6 +170,7 @@ export class ModelRunEngine {
 
 export interface BenchmarkProvider {
   getLatestValue(benchmarkId: string): Promise<BenchmarkSlice>;
+  getLatestValues(benchmarkIds: string[]): Promise<BenchmarkSlice[]>;
 }
 
 export class DefaultBenchmarkProvider implements BenchmarkProvider {
@@ -199,5 +202,42 @@ export class DefaultBenchmarkProvider implements BenchmarkProvider {
     }
 
     return data as BenchmarkSlice;
+  }
+
+  async getLatestValues(benchmarkIds: string[]): Promise<BenchmarkSlice[]> {
+    if (benchmarkIds.length === 0) return [];
+
+    const { data, error } = await this.supabase
+      .from("memory_benchmark_slices")
+      .select("*")
+      .in("id", benchmarkIds)
+      .eq("is_active", true);
+
+    const slicesMap = new Map<string, BenchmarkSlice>();
+    if (data && !error) {
+      data.forEach((slice: BenchmarkSlice) => {
+        slicesMap.set(slice.id, slice);
+      });
+    }
+
+    return benchmarkIds.map((id) => {
+      if (slicesMap.has(id)) {
+        return slicesMap.get(id)!;
+      }
+      return {
+        id,
+        parent_id: null,
+        version: 1,
+        name: "Default Benchmark",
+        industry: "general",
+        geo: "global",
+        company_size_range: "all",
+        tier: 2,
+        metrics: { value: 1.0 },
+        checksum: "",
+        is_active: true,
+        created_at: new Date(),
+      };
+    });
   }
 }
