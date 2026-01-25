@@ -160,6 +160,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Stage 7: Final image with user setup
 FROM dbtools AS final
 
+# Create workspace directory as root and set permissions
+RUN mkdir -p /workspaces/valuecanvas && \
+    chown -R vscode:vscode /workspaces/valuecanvas
+
 # Switch to vscode user for remaining setup
 USER vscode
 
