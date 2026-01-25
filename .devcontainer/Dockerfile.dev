@@ -3,7 +3,7 @@ FROM node:18.19.0-bullseye
 # Install required tools for development
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash curl ca-certificates git postgresql-client \
-  && npm install -g pnpm@9.15.0 \
+  && corepack enable && corepack prepare pnpm@9.15.0 --activate \
   && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
