@@ -4,6 +4,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const vitePort = Number(process.env.VITE_PORT || 5173);
+const hmrPort = Number(process.env.VITE_HMR_PORT || vitePort);
+const hmrHost = process.env.VITE_HMR_HOST || "localhost";
+const hmrProtocol = process.env.VITE_HMR_PROTOCOL || "ws";
+const viteHost = process.env.VITE_HOST || "0.0.0.0";
 
 export default defineConfig({
   plugins: [react()],
@@ -24,14 +29,14 @@ export default defineConfig({
     },
   },
   server: {
-    host: "0.0.0.0",
-    port: 5173,
+    host: viteHost,
+    port: vitePort,
     strictPort: true,
     allowedHosts: [".gitpod.dev", ".gitpod.io", ".github.dev", "localhost"],
     hmr: {
-      protocol: "ws",
-      host: "localhost",
-      port: 5173,
+      protocol: hmrProtocol,
+      host: hmrHost,
+      port: hmrPort,
     },
     // Proxy API requests to backend - enables relative URLs in browser
     // This eliminates hostname issues in Gitpod/Codespaces environments

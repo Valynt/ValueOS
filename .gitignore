@@ -2,7 +2,6 @@
 node_modules/
 .pnpm-store/
 .pnpm/
-pnpm-lock.yaml
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -108,7 +107,7 @@ tmp/
 temp/
 
 # Docker
-.dockerignore
+!.dockerignore
 
 # Database
 *.sqlite
@@ -125,6 +124,7 @@ coverage/
 
 # Config files that should be environment-specific
 .env.*
+!.env.example
 
 # Development files
 .dx-lock

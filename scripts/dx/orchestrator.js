@@ -385,7 +385,7 @@ async function seedDatabase() {
 function startBackend() {
   log.info("Starting backend...");
 
-  const proc = spawn("npm", ["run", "backend:dev"], {
+  const proc = spawn("pnpm", ["run", "backend:dev"], {
     cwd: projectRoot,
     stdio: ["ignore", "pipe", "pipe"],
     shell: true,
@@ -419,7 +419,7 @@ function startBackend() {
 function startFrontend() {
   log.info("Starting frontend...");
 
-  const proc = spawn("npm", ["run", "dev"], {
+  const proc = spawn("pnpm", ["run", "dev"], {
     cwd: projectRoot,
     stdio: ["ignore", "pipe", "pipe"],
     shell: true,

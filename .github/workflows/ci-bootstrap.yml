@@ -16,10 +16,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: ".nvmrc"
 
       - name: Enable Corepack
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
 
       - name: Cache pnpm store
         uses: actions/cache@v4
@@ -32,10 +34,10 @@ jobs:
           key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Lockfile lint
-        run: pnpm run lint:lockfile
+      - name: Verify lockfile integrity
+        run: git diff --exit-code pnpm-lock.yaml
 
       - name: Lint
         run: pnpm run lint
@@ -58,10 +60,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: ".nvmrc"
 
       - name: Enable Corepack
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
 
       - name: Cache pnpm store
         uses: actions/cache@v4
@@ -69,13 +73,32 @@ jobs:
           path: |
             ~/.pnpm-store
             node_modules
-          key: pnpm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Dependency audit
         run: pnpm run security:scan
 
       - name: Generate SBOM
         run: pnpm run security:sbom
+
+  dev-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+
+      - name: Run Dev Smoke Test
+        run: scripts/dev/smoke-test.sh docker
