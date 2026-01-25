@@ -63,6 +63,7 @@ function tokenizeExpression(expression: string): string[] {
 
   for (let i = 0; i < expression.length; i++) {
     const char = expression[i];
+    const nextChar = expression[i + 1];
 
     if (/\s/.test(char)) {
       if (current) tokens.push(current);
@@ -72,6 +73,28 @@ function tokenizeExpression(expression: string): string[] {
 
     if (/[+\-*/()^,]/.test(char)) {
       if (current) tokens.push(current);
+      tokens.push(char);
+      current = "";
+      continue;
+    }
+
+    if (/[<>=!&|]/.test(char)) {
+      if (current) tokens.push(current);
+
+      if ((char === "&" && nextChar === "&") || (char === "|" && nextChar === "|")) {
+        tokens.push(`${char}${nextChar}`);
+        i++;
+        current = "";
+        continue;
+      }
+
+      if ((char === "<" || char === ">" || char === "=" || char === "!") && nextChar === "=") {
+        tokens.push(`${char}${nextChar}`);
+        i++;
+        current = "";
+        continue;
+      }
+
       tokens.push(char);
       current = "";
       continue;
@@ -123,7 +146,7 @@ function parseTokens(tokens: string[]): any {
     const token = tokens[index];
     if (!token) throw new Error("Unexpected end of expression");
 
-    if (token === "+" || token === "-") {
+    if (token === "+" || token === "-" || token === "!") {
       index++;
       const argument = parseUnaryExpression();
       return { type: "unary", operator: token, argument };
@@ -199,14 +222,26 @@ function parseTokens(tokens: string[]): any {
 
 function getOperatorPrecedence(operator: string): number {
   switch (operator) {
+    case "||":
+      return 1;
+    case "&&":
+      return 2;
+    case "==":
+    case "!=":
+      return 3;
+    case "<":
+    case "<=":
+    case ">":
+    case ">=":
+      return 4;
     case "+":
     case "-":
-      return 1;
+      return 5;
     case "*":
     case "/":
-      return 2;
+      return 6;
     case "^":
-      return 3;
+      return 7;
     default:
       return 0;
   }
@@ -231,6 +266,9 @@ function evaluateAST(node: any, vars: Record<string, number>): number {
 
     case "unary":
       const arg = evaluateAST(node.argument, vars);
+      if (node.operator === "!") {
+        return arg ? 0 : 1;
+      }
       return node.operator === "-" ? -arg : arg;
 
     case "binary":
@@ -249,6 +287,22 @@ function evaluateAST(node: any, vars: Record<string, number>): number {
           return left / right;
         case "^":
           return Math.pow(left, right);
+        case "==":
+          return left === right ? 1 : 0;
+        case "!=":
+          return left !== right ? 1 : 0;
+        case "<":
+          return left < right ? 1 : 0;
+        case "<=":
+          return left <= right ? 1 : 0;
+        case ">":
+          return left > right ? 1 : 0;
+        case ">=":
+          return left >= right ? 1 : 0;
+        case "&&":
+          return left && right ? 1 : 0;
+        case "||":
+          return left || right ? 1 : 0;
         default:
           throw new Error(`Unknown operator: ${node.operator}`);
       }

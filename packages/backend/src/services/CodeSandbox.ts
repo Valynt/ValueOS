@@ -66,6 +66,7 @@ export class CodeSandbox {
     code: string,
     context: Record<string, any> = {}
   ): Promise<SandboxResult> {
+    void context;
     const startTime = Date.now();
     const consoleOutput: string[] = [];
 
@@ -73,22 +74,12 @@ export class CodeSandbox {
       // Validate code before execution
       this.validateCode(code);
 
-      // Create sandboxed context
-      const sandboxContext = this.createSandboxContext(context, consoleOutput);
-
-      // Execute with timeout
-      const result = await this.executeWithTimeout(code, sandboxContext);
-
       const executionTime = Date.now() - startTime;
 
-      logger.info('Sandbox execution successful', {
-        executionTime,
-        codeLength: code.length,
-      });
-
       return {
-        success: true,
-        result,
+        success: false,
+        error:
+          'Dynamic code execution is disabled. Use an isolated worker/service with explicit capabilities.',
         executionTime,
         consoleOutput: this.config.captureConsole ? consoleOutput : undefined,
       };
@@ -212,43 +203,6 @@ export class CodeSandbox {
     return validated;
   }
 
-  /**
-   * Execute code with timeout enforcement
-   */
-  private executeWithTimeout(
-    code: string,
-    context: Record<string, any>
-  ): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Execution timeout (${this.config.timeout}ms)`));
-      }, this.config.timeout);
-
-      try {
-        // Use Function constructor for basic sandboxing
-        // Note: For production, use VM2 or isolated-vm
-        const contextKeys = Object.keys(context);
-        const contextValues = Object.values(context);
-
-        // Wrap code in IIFE to capture return value
-        const wrappedCode = `
-          'use strict';
-          return (function() {
-            ${code}
-          })();
-        `;
-
-        const fn = new Function(...contextKeys, wrappedCode);
-        const result = fn(...contextValues);
-
-        clearTimeout(timeout);
-        resolve(result);
-      } catch (error) {
-        clearTimeout(timeout);
-        reject(error);
-      }
-    });
-  }
 
   /**
    * Execute multiple code snippets in batch
@@ -297,29 +251,7 @@ export const codeSandbox = new CodeSandbox();
 /**
  * SECURITY NOTE:
  * 
- * This implementation uses Function constructor for basic sandboxing.
- * For production use, consider:
- * 
- * 1. VM2 (node-only):
- *    npm install vm2
- *    const { VM } = require('vm2');
- * 
- * 2. isolated-vm (strongest isolation):
- *    npm install isolated-vm
- * 
- * 3. Web Workers (browser):
- *    Use Worker API for browser-based sandboxing
- * 
- * Current implementation provides:
- * ✅ Timeout enforcement
- * ✅ Pattern blocking
- * ✅ Context isolation
- * ✅ Console capture
- * 
- * Does NOT provide:
- * ❌ Complete VM isolation
- * ❌ Memory limit enforcement
- * ❌ Prototype pollution protection
- * 
- * Recommend upgrading to VM2 or isolated-vm for production.
+ * Dynamic code execution is disabled.
+ * For production use, isolate execution out-of-process with strict capability allowlists,
+ * timeouts, and memory limits.
  */

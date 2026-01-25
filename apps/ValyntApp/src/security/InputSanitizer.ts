@@ -99,9 +99,36 @@ export function encodeHtml(text: string): string {
  * Decode HTML entities
  */
 export function decodeHtml(text: string): string {
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = text;
-  return textarea.value;
+  return text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity) => {
+    if (typeof entity !== 'string') {
+      return match;
+    }
+
+    if (entity.startsWith('#x') || entity.startsWith('#X')) {
+      const codePoint = Number.parseInt(entity.slice(2), 16);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    if (entity.startsWith('#')) {
+      const codePoint = Number.parseInt(entity.slice(1), 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    switch (entity) {
+      case 'amp':
+        return '&';
+      case 'lt':
+        return '<';
+      case 'gt':
+        return '>';
+      case 'quot':
+        return '"';
+      case 'apos':
+        return "'";
+      default:
+        return match;
+    }
+  });
 }
 
 /**
