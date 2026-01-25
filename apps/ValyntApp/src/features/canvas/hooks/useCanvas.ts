@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { apiClient } from "../../../api/client/unified-api-client";
 import type { Canvas, CanvasNode, CanvasEdge, CanvasViewport } from "../types";
 
 export function useCanvas(canvasId?: string) {
@@ -9,19 +10,12 @@ export function useCanvas(canvasId?: string) {
   const loadCanvas = useCallback(async (id: string) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual API call
-      // const data = await api.get(`/canvas/${id}`);
-      // setCanvas(data);
-
-      setCanvas({
-        id,
-        name: "Untitled Canvas",
-        nodes: [],
-        edges: [],
-        viewport: { x: 0, y: 0, zoom: 1 },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      const response = await apiClient.get<Canvas>(`/api/canvas/${id}`);
+      if (response.success && response.data) {
+        setCanvas(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load canvas", error);
     } finally {
       setIsLoading(false);
     }

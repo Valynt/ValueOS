@@ -9,6 +9,7 @@ import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import billingRouter from "../api/billing";
 import agentsRouter from "../api/agents";
+import canvasRouter from "../api/canvas";
 import groundtruthRouter from "../api/groundtruth";
 import llmRouter from "../api/llm";
 import workflowRouter from "../api/workflow";
@@ -265,6 +266,13 @@ app.use(
   tenantContextMiddleware(),
   agentExecutionLimiter,
   groundtruthRouter
+);
+app.use(
+  "/api/canvas",
+  serviceIdentityMiddleware,
+  requireAuth,
+  tenantContextMiddleware(),
+  canvasRouter
 );
 app.use("/api/llm", llmRouter);
 app.use("/api", workflowRouter);
