@@ -180,7 +180,7 @@ export async function checkSupabaseCli() {
       fix: `
    Install Supabase CLI:
 
-   $ npm install -g supabase
+   $ pnpm install -g supabase
    
    Or disable local Supabase check:
    $ export DX_SUPABASE_LOCAL=0`,

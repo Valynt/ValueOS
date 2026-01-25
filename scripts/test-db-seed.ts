@@ -9,7 +9,7 @@
  * - 100 agent sessions per tenant
  *
  * Usage:
- *   npm run db:test:seed
+ *   pnpm run db:test:seed
  *   or
  *   tsx scripts/test-db-seed.ts
  */

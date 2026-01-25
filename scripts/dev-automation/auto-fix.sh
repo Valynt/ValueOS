@@ -33,7 +33,7 @@ FIXES_APPLIED=0
 # 1. Fix missing node_modules
 if [ ! -d "node_modules" ]; then
     print_status "Installing missing node_modules..."
-    npm ci --prefer-offline --no-audit --no-fund
+    pnpm install --frozen-lockfile --prefer-offline --no-audit --no-fund
     print_success "node_modules installed"
     FIXES_APPLIED=$((FIXES_APPLIED + 1))
 fi
@@ -49,7 +49,7 @@ fi
 # 3. Fix Prisma client
 if [ -f "scripts/prisma/schema.prisma" ] && [ ! -d "node_modules/.prisma" ]; then
     print_status "Generating Prisma client..."
-    npx prisma generate
+    pnpm prisma generate
     print_success "Prisma client generated"
     FIXES_APPLIED=$((FIXES_APPLIED + 1))
 fi
@@ -57,7 +57,7 @@ fi
 # 4. Fix Playwright browsers
 if [ -f "playwright.config.ts" ] && [ ! -d "$HOME/.cache/ms-playwright" ]; then
     print_status "Installing Playwright browsers..."
-    npx playwright install --with-deps
+    pnpm playwright install --with-deps
     print_success "Playwright browsers installed"
     FIXES_APPLIED=$((FIXES_APPLIED + 1))
 fi
@@ -65,7 +65,7 @@ fi
 # 5. Fix Git hooks
 if [ -d ".husky" ] && [ ! -f ".husky/_/husky.sh" ]; then
     print_status "Setting up Git hooks..."
-    npx husky install
+    pnpm husky install
     print_success "Git hooks configured"
     FIXES_APPLIED=$((FIXES_APPLIED + 1))
 fi
@@ -77,7 +77,7 @@ if [ -f "package-lock.json" ]; then
 
     if [ "$PACKAGE_MODIFIED" -gt "$LOCK_MODIFIED" ]; then
         print_status "Updating stale package-lock.json..."
-        npm install
+        pnpm install
         print_success "package-lock.json updated"
         FIXES_APPLIED=$((FIXES_APPLIED + 1))
     fi
@@ -135,7 +135,7 @@ if [ $FIXES_APPLIED -eq 0 ]; then
 else
     echo "✅ Applied $FIXES_APPLIED fixes"
     echo ""
-    echo "Run 'npm run dev' to start development"
+    echo "Run 'pnpm run dev' to start development"
 fi
 
 echo ""

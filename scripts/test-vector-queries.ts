@@ -5,7 +5,7 @@
  * Interactive script to test pgvector queries on real data
  * 
  * Usage:
- *   npx ts-node scripts/test-vector-queries.ts
+ *   pnpm ts-node scripts/test-vector-queries.ts
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -89,7 +89,7 @@ async function testBasicSearch() {
   if (!data || data.length === 0) {
     console.log('⚠️  No results found. Try:');
     console.log('   1. Lowering threshold');
-    console.log('   2. Adding test data with: npm run seed:memories');
+    console.log('   2. Adding test data with: pnpm run seed:memories');
     return;
   }
 

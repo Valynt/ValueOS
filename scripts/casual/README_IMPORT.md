@@ -44,7 +44,7 @@ print(f"Projected Gain: {simulation['expected_outcome']}")
 To use the explorer in your SaaS dashboard:
 
 1. Copy the `/explorer` content.
-2. Run `npm install` and `npm run build`.
+2. Run `pnpm install` and `pnpm run build`.
 3. The generated `/dist` folder can be served by your SaaS to show the Causal Network.
 
 ## 💎 Knowledge Anchors Included

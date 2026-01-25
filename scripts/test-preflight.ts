@@ -29,7 +29,7 @@ function checkDocker(): PreflightResult {
       "❌ Docker is not available or not running",
       "   Integration tests require Docker to start testcontainers",
       "   Please start Docker and ensure you have permissions to run containers",
-      "   For unit tests only, run: npm run test:unit"
+      "   For unit tests only, run: pnpm run test:unit"
     );
   }
 

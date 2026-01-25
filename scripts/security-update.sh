@@ -68,12 +68,12 @@ fi
 # Install dependencies
 echo ""
 echo "📥 Installing dependencies..."
-npm install
+pnpm install
 
 # Run tests
 echo ""
 echo "🧪 Running tests..."
-if npm test; then
+if pnpm test; then
     echo -e "${GREEN}✅ Tests passed!${NC}"
 else
     echo -e "${RED}❌ Tests failed. Rolling back...${NC}"
@@ -84,7 +84,7 @@ fi
 # Build project
 echo ""
 echo "🏗️  Building project..."
-if npm run build; then
+if pnpm run build; then
     echo -e "${GREEN}✅ Build successful!${NC}"
 else
     echo -e "${RED}❌ Build failed. Rolling back...${NC}"

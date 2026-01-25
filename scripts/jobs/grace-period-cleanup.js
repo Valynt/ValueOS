@@ -45,7 +45,7 @@ try {
   createLogger = require('../../dist/lib/logger').createLogger;
 } catch (error) {
   console.error('❌ Failed to load services. Make sure the project is built.');
-  console.error('   Run: npm run build');
+  console.error('   Run: pnpm run build');
   console.error('   Error:', error.message);
   process.exit(1);
 }

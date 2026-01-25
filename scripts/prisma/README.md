@@ -63,7 +63,7 @@ ValueCanvas uses **Prisma** as the ORM and migration tool, integrated with **Sup
 ### 1. Install Dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. Set Database URL
@@ -96,7 +96,7 @@ pnpm run db:seed
 ### 5. Generate Prisma Client
 
 ```bash
-npx prisma generate
+pnpm prisma generate
 ```
 
 ## 📝 Migration Workflow
@@ -106,7 +106,7 @@ npx prisma generate
 ```bash
 # 1. Modify schema.prisma
 # 2. Create migration
-npx prisma migrate dev --name add_new_feature
+pnpm prisma migrate dev --name add_new_feature
 
 # 3. Review generated SQL in prisma/migrations/
 # 4. Test migration
@@ -132,7 +132,7 @@ DATABASE_URL=$PROD_DATABASE_URL ./scripts/db-migrate.sh production
 ### Check Migration Status
 
 ```bash
-npx prisma migrate status
+pnpm prisma migrate status
 ```
 
 ### Rollback Migration
@@ -142,7 +142,7 @@ npx prisma migrate status
 # Manual rollback required:
 
 # 1. Identify migration to rollback
-npx prisma migrate status
+pnpm prisma migrate status
 
 # 2. Create rollback SQL
 # See: prisma/migrations/YYYYMMDDHHMMSS_migration_name/migration.sql
@@ -202,7 +202,7 @@ NODE_ENV=production ./scripts/db-seed.sh production
 Visual database browser:
 
 ```bash
-npx prisma studio
+pnpm prisma studio
 ```
 
 Opens at: http://localhost:5555
@@ -321,10 +321,10 @@ Set up automated backups in Supabase dashboard or use:
 createdb valuecanvas_test
 
 # Run migrations
-DATABASE_URL="postgresql://localhost/valuecanvas_test" npx prisma migrate deploy
+DATABASE_URL="postgresql://localhost/valuecanvas_test" pnpm prisma migrate deploy
 
 # Run tests
-npm test
+pnpm test
 
 # Cleanup
 dropdb valuecanvas_test
@@ -365,34 +365,34 @@ describe('Database Migrations', () => {
 
 ```bash
 # Check status
-npx prisma migrate status
+pnpm prisma migrate status
 
 # Reset database (development only!)
-npx prisma migrate reset
+pnpm prisma migrate reset
 
 # Force deploy
-npx prisma migrate deploy --force
+pnpm prisma migrate deploy --force
 ```
 
 ### Schema Drift
 
 ```bash
 # Check for drift
-npx prisma migrate diff \
+pnpm prisma migrate diff \
   --from-schema-datamodel prisma/schema.prisma \
   --to-schema-datasource $DATABASE_URL
 
 # Resolve drift
-npx prisma db pull  # Pull from database
+pnpm prisma db pull  # Pull from database
 # or
-npx prisma db push  # Push to database (development only)
+pnpm prisma db push  # Push to database (development only)
 ```
 
 ### Connection Issues
 
 ```bash
 # Test connection
-npx prisma db execute --stdin <<< "SELECT 1"
+pnpm prisma db execute --stdin <<< "SELECT 1"
 
 # Check DATABASE_URL
 echo $DATABASE_URL
@@ -405,11 +405,11 @@ psql $DATABASE_URL -c "SELECT version()"
 
 ```bash
 # Regenerate client
-npx prisma generate
+pnpm prisma generate
 
 # Clear cache
 rm -rf node_modules/.prisma
-npm install
+pnpm install
 ```
 
 ## 📚 Best Practices
@@ -426,7 +426,7 @@ cat prisma/migrations/YYYYMMDDHHMMSS_migration_name/migration.sql
 
 ```bash
 # Test on local database first
-DATABASE_URL="postgresql://localhost/valuecanvas_dev" npx prisma migrate deploy
+DATABASE_URL="postgresql://localhost/valuecanvas_dev" pnpm prisma migrate deploy
 ```
 
 ### 3. Backup Before Production Migrations
@@ -465,7 +465,7 @@ model User {
 
 ```bash
 # Time migrations
-time npx prisma migrate deploy
+time pnpm prisma migrate deploy
 ```
 
 ## 🔄 CI/CD Integration
@@ -475,8 +475,8 @@ time npx prisma migrate deploy
 ```yaml
 - name: Run Migrations
   run: |
-    npx prisma generate
-    npx prisma migrate deploy
+    pnpm prisma generate
+    pnpm prisma migrate deploy
   env:
     DATABASE_URL: ${{ secrets.DATABASE_URL }}
 ```
@@ -485,13 +485,13 @@ time npx prisma migrate deploy
 
 ```bash
 # Validate schema
-npx prisma validate
+pnpm prisma validate
 
 # Check for drift
-npx prisma migrate status
+pnpm prisma migrate status
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ## 📖 Additional Resources
@@ -504,7 +504,7 @@ npm test
 ## 🆘 Support
 
 For issues or questions:
-1. Check Prisma logs: `npx prisma --help`
-2. Review migration status: `npx prisma migrate status`
+1. Check Prisma logs: `pnpm prisma --help`
+2. Review migration status: `pnpm prisma migrate status`
 3. Check this documentation
 4. Contact DevOps team

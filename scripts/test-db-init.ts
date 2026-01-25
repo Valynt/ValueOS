@@ -9,7 +9,7 @@
  * 4. Setting up RLS policies
  *
  * Usage:
- *   npm run db:test:init
+ *   pnpm run db:test:init
  *   or
  *   tsx scripts/test-db-init.ts
  */
@@ -96,7 +96,7 @@ async function verifyTables(): Promise<void> {
       missingTables
     );
     console.error(
-      "   Run migrations first: supabase db push or npm run db:push"
+      "   Run migrations first: supabase db push or pnpm run db:push"
     );
     throw new Error("Missing required tables");
   }
@@ -124,7 +124,7 @@ async function runMigrations(): Promise<void> {
   } catch (error: any) {
     if (error.message.includes("supabase: command not found")) {
       console.warn("⚠️  Supabase CLI not found. Skipping migration step.");
-      console.warn("    Install: npm install -g supabase");
+      console.warn("    Install: pnpm install -g supabase");
     } else {
       console.error("❌ Migration failed:", error.message);
       throw error;
@@ -222,8 +222,8 @@ async function main() {
 
     console.log("✅ Database initialization complete!\n");
     console.log("   Next steps:");
-    console.log("   1. Run: npm run db:test:seed");
-    console.log("   2. Run: npm test\n");
+    console.log("   1. Run: pnpm run db:test:seed");
+    console.log("   2. Run: pnpm test\n");
 
     process.exit(0);
   } catch (error: any) {

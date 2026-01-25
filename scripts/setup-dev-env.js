@@ -4,7 +4,7 @@
  * Development Environment Setup Script
  *
  * DEPRECATED: This script delegates to the canonical env-compiler.
- * Use `npm run dx:env` directly for environment configuration.
+ * Use `pnpm run dx:env` directly for environment configuration.
  *
  * Kept for backwards compatibility.
  */
@@ -30,9 +30,9 @@ function main() {
 
     console.log("\n🎉 Development environment setup complete!");
     console.log("\nNext steps:");
-    console.log("  npm run dx        # Start development stack");
-    console.log("  npm run db:verify # Verify database schema");
-    console.log("  npm run seed:demo # Create demo user");
+    console.log("  pnpm run dx        # Start development stack");
+    console.log("  pnpm run db:verify # Verify database schema");
+    console.log("  pnpm run seed:demo # Create demo user");
     console.log("\nThen open http://localhost:5173");
   } catch (error) {
     console.error("\n❌ Setup failed. Check errors above.");

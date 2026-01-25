@@ -47,23 +47,23 @@ run_test_suite() {
 # 1. Settings Cascade Tests
 run_test_suite \
   "Settings Cascade Logic" \
-  "npm test -- src/lib/__tests__/settingsCascade.test.ts --run"
+  "pnpm test -- src/lib/__tests__/settingsCascade.test.ts --run"
 
 # 2. Sanitization Tests
 run_test_suite \
   "XSS Prevention & Sanitization" \
-  "npm test -- src/utils/__tests__/sanitization.test.ts --run"
+  "pnpm test -- src/utils/__tests__/sanitization.test.ts --run"
 
 # 3. MFA Recovery Tests
 run_test_suite \
   "MFA Backup Code Security" \
-  "npm test -- src/views/Settings/__tests__/MFARecovery.test.ts --run"
+  "pnpm test -- src/views/Settings/__tests__/MFARecovery.test.ts --run"
 
 # 4. RLS Cross-Tenant Tests (if database tests are available)
 if [ -f "supabase/tests/database/settings_rls_cross_tenant.test.sql" ]; then
   run_test_suite \
     "RLS Cross-Tenant Isolation" \
-    "npm run test:db -- settings_rls_cross_tenant"
+    "pnpm run test:db -- settings_rls_cross_tenant"
 else
   echo -e "${YELLOW}⚠ Skipping RLS tests (database tests not configured)${NC}"
   echo ""

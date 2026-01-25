@@ -42,7 +42,7 @@ fi
 echo -e "${YELLOW}🔄 Running database migrations...${NC}"
 
 if [ -f "package.json" ] && grep -q "db:push" package.json; then
-    if npm run db:push; then
+    if pnpm run db:push; then
         echo -e "${GREEN}✅ Migrations completed${NC}"
     else
         echo -e "${YELLOW}⚠️ Migration failed, continuing with seeding...${NC}"

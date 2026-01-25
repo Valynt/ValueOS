@@ -193,7 +193,7 @@ check_memory() {
 
 check_node_modules() {
     if [ ! -d "$WORKSPACE_PATH/node_modules" ]; then
-        log_check "node_modules" "warn" "Not installed (run npm install)"
+        log_check "node_modules" "warn" "Not installed (run pnpm install)"
         return $EXIT_WARNING
     fi
     

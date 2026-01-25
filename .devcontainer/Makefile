@@ -16,19 +16,19 @@ verify:
 	@echo "🔍 Running golden path verification..."
 	@echo ""
 	@echo "Step 1: Validate environment"
-	@npm run env:validate || exit 1
+	@pnpm run env:validate || exit 1
 	@echo ""
 	@echo "Step 2: Reset database"
-	@npm run dx:reset || exit 1
+	@pnpm run dx:reset || exit 1
 	@echo ""
 	@echo "Step 3: Seed demo data"
-	@npm run seed || exit 1
+	@pnpm run seed || exit 1
 	@echo ""
 	@echo "Step 4: Verify login"
 	@tsx scripts/verify-login.ts || exit 1
 	@echo ""
 	@echo "Step 5: Run health check"
-	@npm run health || exit 1
+	@pnpm run health || exit 1
 	@echo ""
 	@echo "✅ All verification steps passed!"
 	@echo "System is operational."
@@ -36,7 +36,7 @@ verify:
 # Clean slate - start from zero
 clean:
 	@echo "🧹 Resetting to zero state..."
-	npm run dx:clean
+	pnpm run dx:clean
 	rm -rf node_modules/.vite
 	rm -rf dist
 	@echo "✅ Clean complete"
@@ -49,9 +49,9 @@ seed:
 # Development server
 dev:
 	@echo "🚀 Starting development server..."
-	npm run dev
+	pnpm run dev
 
 # Test suite
 test:
 	@echo "🧪 Running tests..."
-	npm run test || exit 1
+	pnpm run test || exit 1

@@ -30,7 +30,7 @@ if (args.has('--help') || args.has('-h')) {
   console.log('Usage: node scripts/dx/setup.js [--start] [--seed]');
   console.log('');
   console.log('Options:');
-  console.log('  --start   Start the dev environment via npm run dx after setup');
+  console.log('  --start   Start the dev environment via pnpm run dx after setup');
   console.log('  --seed    Seed the database after setup (requires a running database)');
   process.exit(0);
 }
@@ -158,10 +158,10 @@ async function installDependencies() {
   console.log('\n📦 Installing dependencies...');
   console.log('   This may take a few minutes...\n');
   
-  // Use npm ci for faster, more reliable installs
+  // Use pnpm install --frozen-lockfile for faster, more reliable installs
   const command = fs.existsSync(path.resolve(__dirname, '../../package-lock.json'))
-    ? 'npm ci'
-    : 'npm install';
+    ? 'pnpm install --frozen-lockfile'
+    : 'pnpm install';
   
   return exec(command, 'Install dependencies');
 }
@@ -188,12 +188,12 @@ function displaySuccess() {
   console.log('='.repeat(60));
   console.log(`\n⏱️  Time: ${minutes}m ${seconds}s`);
   console.log('\n📋 Next steps:');
-  console.log('   1. Start development: npm run dx');
+  console.log('   1. Start development: pnpm run dx');
   console.log('   2. Open frontend: http://localhost:5173');
   console.log('   3. Read docs: docs/GETTING_STARTED.md');
   console.log('\n💡 Useful commands:');
-  console.log('   npm run health     - Check system health');
-  console.log('   npm run dx         - Start all services');
+  console.log('   pnpm run health     - Check system health');
+  console.log('   pnpm run dx         - Start all services');
   console.log('   docker-compose -f docker-compose.deps.yml ps  - Check Docker services');
   console.log('\n🚀 Happy coding!\n');
 }
@@ -267,7 +267,7 @@ async function main() {
       });
     } else {
       console.log('\n✅ .env.local already exists, skipping environment setup');
-      console.log('   To regenerate: rm .env.local && npm run setup\n');
+      console.log('   To regenerate: rm .env.local && pnpm run setup\n');
     }
 
     ensureDotEnvFromLocal();
@@ -296,7 +296,7 @@ async function main() {
         );
         console.log('   Skipping automatic start to avoid duplicate processes.\n');
       } else {
-        const startSuccess = exec('npm run dx', 'Start development environment');
+        const startSuccess = exec('pnpm run dx', 'Start development environment');
         if (!startSuccess) {
           throw new Error('Development start failed');
         }

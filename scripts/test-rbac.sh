@@ -29,7 +29,7 @@ if curl -s "$SUPABASE_URL/rest/v1/" > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Supabase is running${NC}"
 else
     echo -e "${YELLOW}⚠ Supabase doesn't appear to be running${NC}"
-    echo "Start it with: npm run supabase:start"
+    echo "Start it with: pnpm run supabase:start"
     exit 1
 fi
 
@@ -86,11 +86,11 @@ echo ""
 if [ -f "package.json" ]; then
     # Check if test file exists
     if [ -f "src/test/rbac.local.test.ts" ]; then
-        echo "Running: npm test -- rbac.local.test.ts"
+        echo "Running: pnpm test -- rbac.local.test.ts"
         echo ""
         
         # Try to run the test
-        if npm test -- rbac.local.test.ts 2>&1; then
+        if pnpm test -- rbac.local.test.ts 2>&1; then
             echo ""
             echo -e "${GREEN}✓ TypeScript tests passed${NC}"
         else

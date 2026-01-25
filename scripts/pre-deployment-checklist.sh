@@ -69,21 +69,21 @@ else
 fi
 
 # Run linting
-if npm run lint > /dev/null 2>&1; then
+if pnpm run lint > /dev/null 2>&1; then
     check_pass "Linting passed"
 else
     check_fail "Linting failed"
 fi
 
 # Run type checking
-if npm run typecheck > /dev/null 2>&1; then
+if pnpm run typecheck > /dev/null 2>&1; then
     check_pass "Type checking passed"
 else
     check_fail "Type checking failed"
 fi
 
 # Run unit tests
-if npm run test:unit > /dev/null 2>&1; then
+if pnpm run test:unit > /dev/null 2>&1; then
     check_pass "Unit tests passed"
 else
     check_fail "Unit tests failed"
@@ -102,7 +102,7 @@ if [ -d "dist" ]; then
 fi
 
 # Run build
-if npm run build > /dev/null 2>&1; then
+if pnpm run build > /dev/null 2>&1; then
     check_pass "Application build successful"
 else
     check_fail "Application build failed"
@@ -130,7 +130,7 @@ else
 fi
 
 # Run secrets validation
-if npx tsx scripts/validate-deployment.ts > /dev/null 2>&1; then
+if pnpm tsx scripts/validate-deployment.ts > /dev/null 2>&1; then
     check_pass "Secrets validation passed"
 else
     check_fail "Secrets validation failed"
@@ -356,7 +356,7 @@ print_section "P0 - Critical Blockers (Must Pass)"
 
 # 1. RLS Tests
 echo -n "Running RLS tests... "
-if npm run test:rls > /tmp/rls-test.log 2>&1; then
+if pnpm run test:rls > /tmp/rls-test.log 2>&1; then
     check_pass "RLS policies enforced on all tables"
 else
     check_fail "RLS tests failed (see /tmp/rls-test.log)"
@@ -364,7 +364,7 @@ fi
 
 # 2. Database Validation
 echo -n "Validating database fixes... "
-if npm run db:validate > /tmp/db-validate.log 2>&1; then
+if pnpm run db:validate > /tmp/db-validate.log 2>&1; then
     check_pass "Database validation passed"
 else
     check_fail "Database validation failed (see /tmp/db-validate.log)"
@@ -372,7 +372,7 @@ fi
 
 # 3. Security Scan
 echo -n "Running security scans... "
-if npm run security:scan:all > /tmp/security-scan.log 2>&1; then
+if pnpm run security:scan:all > /tmp/security-scan.log 2>&1; then
     check_pass "No high-severity vulnerabilities"
 else
     check_fail "Security vulnerabilities found (see /tmp/security-scan.log)"
@@ -380,7 +380,7 @@ fi
 
 # 4. Console Log Check
 echo -n "Checking for console.log statements... "
-if npm run lint:console > /tmp/console-check.log 2>&1; then
+if pnpm run lint:console > /tmp/console-check.log 2>&1; then
     check_pass "No console.log statements in production code"
 else
     check_fail "Console.log statements found (see /tmp/console-check.log)"
@@ -388,7 +388,7 @@ fi
 
 # 5. Build Test
 echo -n "Testing production build... "
-if npm run build > /tmp/build-test.log 2>&1; then
+if pnpm run build > /tmp/build-test.log 2>&1; then
     check_pass "Production build successful"
 else
     check_fail "Build failed (see /tmp/build-test.log)"
@@ -401,7 +401,7 @@ print_section "P1 - High Priority (Should Pass)"
 
 # 6. Unit Tests
 echo -n "Running unit tests... "
-if npm test > /tmp/unit-tests.log 2>&1; then
+if pnpm test > /tmp/unit-tests.log 2>&1; then
     check_pass "All unit tests passing"
 else
     check_warn "Some unit tests failed (see /tmp/unit-tests.log)"
@@ -409,7 +409,7 @@ fi
 
 # 7. Type Checking
 echo -n "Type checking... "
-if npm run typecheck > /tmp/typecheck.log 2>&1; then
+if pnpm run typecheck > /tmp/typecheck.log 2>&1; then
     check_pass "No TypeScript errors"
 else
     check_warn "TypeScript errors found (see /tmp/typecheck.log)"
@@ -417,7 +417,7 @@ fi
 
 # 8. Linting
 echo -n "Linting code... "
-if npm run lint > /tmp/lint.log 2>&1; then
+if pnpm run lint > /tmp/lint.log 2>&1; then
     check_pass "Code passes linting"
 else
     check_warn "Linting issues found (see /tmp/lint.log)"
@@ -425,7 +425,7 @@ fi
 
 # 9. Performance Tests
 echo -n "Running performance tests... "
-if npm run test:perf > /tmp/perf-tests.log 2>&1; then
+if pnpm run test:perf > /tmp/perf-tests.log 2>&1; then
     check_pass "Performance benchmarks met"
 else
     check_warn "Performance tests failed (see /tmp/perf-tests.log)"
@@ -472,7 +472,7 @@ echo -n "Checking dependencies... "
 if [ -d "node_modules" ]; then
     check_pass "Dependencies installed"
 else
-    check_fail "node_modules not found (run npm install)"
+    check_fail "node_modules not found (run pnpm install)"
 fi
 
 # ============================================================================

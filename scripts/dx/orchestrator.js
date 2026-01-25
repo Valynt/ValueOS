@@ -149,7 +149,7 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT) {
  */
 function isSupabaseRunning() {
   try {
-    const status = runCommand("npx supabase status", { silent: true });
+    const status = runCommand("pnpm supabase status", { silent: true });
     return status.includes("API URL") && !status.includes("not running");
   } catch {
     return false;
@@ -176,7 +176,7 @@ async function startSupabase() {
   }
 
   if (!commandExists("supabase")) {
-    log.error("Supabase CLI not found. Install with: npm install -g supabase");
+    log.error("Supabase CLI not found. Install with: pnpm install -g supabase");
     process.exit(1);
   }
 
@@ -356,7 +356,7 @@ async function verifySchema() {
 
   // Regenerate types to ensure they're current
   try {
-    runCommand("npm run db:types", { silent: true });
+    runCommand("pnpm run db:types", { silent: true });
     log.success("Schema verified, types regenerated");
     return true;
   } catch (error) {
@@ -372,7 +372,7 @@ async function seedDatabase() {
   log.info("Seeding database...");
 
   try {
-    runCommand("npm run seed:demo", { silent: false });
+    runCommand("pnpm run seed:demo", { silent: false });
     log.success("Database seeded");
   } catch (error) {
     log.warn("Seed failed (may be OK if already seeded)");
@@ -570,7 +570,7 @@ async function main() {
     log.error(
       `Another DX session is running (pid ${existingSession.pid}, mode ${existingSession.mode})`
     );
-    log.info("Stop it first: npm run dx:down");
+    log.info("Stop it first: pnpm run dx:down");
     process.exit(1);
   }
 
@@ -630,8 +630,8 @@ async function main() {
 ║  Supabase API:    http://localhost:${supabaseApiPort}                     ║
 ║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                     ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Stop:  npm run dx:down                                        ║
-║  Logs:  npm run dx:logs                                        ║
+║  Stop:  pnpm run dx:down                                        ║
+║  Logs:  pnpm run dx:logs                                        ║
 ╚════════════════════════════════════════════════════════════════╝
 `);
     return;

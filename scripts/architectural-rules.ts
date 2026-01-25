@@ -5,7 +5,7 @@
  * Prevents common anti-patterns and maintains clean architecture.
  *
  * Usage:
- *   npm run policy:check
+ *   pnpm run policy:check
  *   tsx scripts/architectural-rules.ts
  */
 

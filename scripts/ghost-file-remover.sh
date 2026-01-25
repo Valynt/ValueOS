@@ -157,7 +157,7 @@ verify_system() {
     log "Verifying system integrity..."
 
     # Check if TypeScript compiles
-    if npm run typecheck &>/dev/null; then
+    if pnpm run typecheck &>/dev/null; then
         log_success "TypeScript compilation: PASSED"
     else
         log_error "TypeScript compilation: FAILED"
@@ -165,14 +165,14 @@ verify_system() {
     fi
 
     # Check if linting passes
-    if npm run lint &>/dev/null; then
+    if pnpm run lint &>/dev/null; then
         log_success "ESLint: PASSED"
     else
         log_warning "ESLint: ISSUES FOUND (but not critical)"
     fi
 
     # Check if tests still run
-    if npm run test:unit &>/dev/null; then
+    if pnpm run test:unit &>/dev/null; then
         log_success "Unit tests: PASSED"
     else
         log_warning "Unit tests: ISSUES FOUND"

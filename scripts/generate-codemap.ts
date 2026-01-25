@@ -133,7 +133,7 @@ export function generatePRComment(impact: ImpactAnalysis): string {
     comment += `- 🧪 Run full integration test suite\n`;
     comment += `- 📊 Monitor metrics closely after deployment\n`;
   } else if (impact.riskScore >= 5) {
-    comment += `- ✅ Run affected tests: \`npm test -- ${impact.affectedTests.slice(0, 3).join(" ")}\`\n`;
+    comment += `- ✅ Run affected tests: \`pnpm test -- ${impact.affectedTests.slice(0, 3).join(" ")}\`\n`;
     comment += `- 📈 Review performance impact\n`;
   } else {
     comment += `- ✅ Low risk - Standard review process\n`;
@@ -162,7 +162,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   if (!fs.existsSync(impactPath)) {
     console.error(`❌ Impact analysis not found: ${impactPath}`);
-    console.error("   Run: npm run analyze:deps first");
+    console.error("   Run: pnpm run analyze:deps first");
     process.exit(1);
   }
 

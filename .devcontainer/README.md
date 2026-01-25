@@ -131,9 +131,9 @@ The devcontainer uses a series of scripts that run at different lifecycle stages
 | Script | When | Purpose | Failure Behavior |
 |--------|------|---------|------------------|
 | `on-create.sh` | Container first created | Git config, directories, aliases | Fails build on critical errors |
-| `post-create.sh` | After content cloned | Install dependencies, generate clients | Fails on npm install failure |
+| `post-create.sh` | After content cloned | Install dependencies, generate clients | Fails on pnpm install failure |
 | `post-start.sh` | Every container start | Quick health checks | Never fails (advisory only) |
-| `update-content.sh` | After git pull | Incremental dependency updates | Fails on npm install failure |
+| `update-content.sh` | After git pull | Incremental dependency updates | Fails on pnpm install failure |
 | `healthcheck.sh` | On demand / Docker HEALTHCHECK | Verify container health | Returns exit code 0/1/2 |
 
 ### Script Design Principles

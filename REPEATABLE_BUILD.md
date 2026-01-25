@@ -66,10 +66,10 @@ To verify the repeatable build setup:
 node --version  # Should be v22.x.x
 
 # Run full build verification
-npm run ci:verify
+pnpm run ci:verify
 
 # Run comprehensive checks
-npm run dx:check
+pnpm run dx:check
 ```
 
 ## CI/CD Integration

@@ -4,7 +4,7 @@
 # Runs after container is created and content is updated
 #
 # Design principles:
-# - Reproducible: uses npm ci with lockfile
+# - Reproducible: uses pnpm install --frozen-lockfile with lockfile
 # - Failsafe: non-critical steps don't block setup
 # - Idempotent: safe to run multiple times
 # - Timeout protection on long operations
@@ -112,21 +112,21 @@ install_dependencies() {
 
     # Fallback for legacy setups
     if [ -f "package-lock.json" ]; then
-        log_info "Using npm ci for reproducible install..."
-        if run_with_timeout $NPM_INSTALL_TIMEOUT npm ci --prefer-offline --no-audit --no-fund 2>&1; then
+        log_info "Using pnpm install --frozen-lockfile for reproducible install..."
+        if run_with_timeout $NPM_INSTALL_TIMEOUT pnpm install --frozen-lockfile --prefer-offline --no-audit --no-fund 2>&1; then
             log_success "Dependencies installed (reproducible)"
         else
-            log_warn "npm ci failed, falling back to npm install..."
-            if run_with_timeout $NPM_INSTALL_TIMEOUT npm install --prefer-offline --no-audit --no-fund 2>&1; then
-                log_success "Dependencies installed (npm install fallback)"
+            log_warn "pnpm install --frozen-lockfile failed, falling back to pnpm install..."
+            if run_with_timeout $NPM_INSTALL_TIMEOUT pnpm install --prefer-offline --no-audit --no-fund 2>&1; then
+                log_success "Dependencies installed (pnpm install fallback)"
             else
                 log_error "Dependency installation failed"
                 return 1
             fi
         fi
     else
-        log_warn "No lockfile found, using npm install"
-        if run_with_timeout $NPM_INSTALL_TIMEOUT npm install --no-audit --no-fund 2>&1; then
+        log_warn "No lockfile found, using pnpm install"
+        if run_with_timeout $NPM_INSTALL_TIMEOUT pnpm install --no-audit --no-fund 2>&1; then
             log_success "Dependencies installed"
         else
             log_error "Dependency installation failed"
@@ -145,7 +145,7 @@ generate_prisma_client() {
         if [ -f "$schema_path" ]; then
             log_info "Generating Prisma client from ${schema_path}..."
             # Run non-interactive and capture output to the post-create log to avoid prompts
-            if npx --yes prisma generate --schema="$schema_path" >> "$LOG_FILE" 2>&1; then
+            if pnpm prisma generate --schema="$schema_path" >> "$LOG_FILE" 2>&1; then
                 log_success "Prisma client generated"
             else
                 log_warn "Prisma client generation failed (non-critical). See $LOG_FILE for details"
@@ -161,7 +161,7 @@ generate_prisma_client() {
 setup_husky_hooks() {
     if [ -d "${PROJECT_ROOT}/.husky" ]; then
         log_info "Setting up Husky hooks..."
-        if npx husky install 2>/dev/null; then
+        if pnpm husky install 2>/dev/null; then
             log_success "Husky hooks configured"
         else
             log_warn "Husky setup failed (non-critical)"
@@ -177,7 +177,7 @@ verify_typescript() {
     log_info "Verifying TypeScript configuration..."
 
     # Just check that tsc can parse the config, don't do full build
-    if npx tsc --noEmit --pretty false 2>/dev/null; then
+    if pnpm tsc --noEmit --pretty false 2>/dev/null; then
         log_success "TypeScript configuration valid"
     else
         log_warn "TypeScript has errors (can be fixed later)"
@@ -222,7 +222,7 @@ verify_environment() {
     fi
 
     # Optional: Supabase CLI
-    if command_exists supabase || npx supabase --version &>/dev/null 2>&1; then
+    if command_exists supabase || pnpm supabase --version &>/dev/null 2>&1; then
         log_success "Supabase CLI: available"
     fi
 
@@ -236,15 +236,15 @@ print_summary() {
     echo "========================================"
     echo ""
     echo "Quick Start:"
-    echo "  npm run dx           - Start full dev environment"
-    echo "  npm run dev          - Start frontend only"
-    echo "  npm run backend:dev  - Start backend only"
-    echo "  npm test             - Run tests"
+    echo "  pnpm run dx           - Start full dev environment"
+    echo "  pnpm run dev          - Start frontend only"
+    echo "  pnpm run backend:dev  - Start backend only"
+    echo "  pnpm test             - Run tests"
     echo ""
     echo "Useful Commands:"
-    echo "  npm run dx:doctor    - Check environment health"
-    echo "  npm run dx:down      - Stop all services"
-    echo "  npm run dx:logs      - View service logs"
+    echo "  pnpm run dx:doctor    - Check environment health"
+    echo "  pnpm run dx:down      - Stop all services"
+    echo "  pnpm run dx:logs      - View service logs"
     echo ""
     echo "Documentation:"
     echo "  docs/                - Project documentation"

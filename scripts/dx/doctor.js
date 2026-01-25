@@ -302,7 +302,7 @@ function checkEnvironment() {
     reportFailure(
       ".env.local missing",
       "Local environment file is required.",
-      "Run: npm run env:dev"
+      "Run: pnpm run env:dev"
     );
     return;
   }
@@ -329,7 +329,7 @@ function checkEnvironment() {
       reportFailure(
         "Invalid Supabase anon key",
         "VITE_SUPABASE_ANON_KEY is missing, blank, or using placeholder value.",
-        "Update .env.local with real anon key: npm run env:dev"
+        "Update .env.local with real anon key: pnpm run env:dev"
       );
     }
   } else {
@@ -410,7 +410,7 @@ function checkComposeState() {
     reportFailure(
       "Full Docker stack already running",
       `Running services: ${fullRunning.join(", ")}`,
-      "Stop it with: npm run dx:down (or use npm run dx:docker)"
+      "Stop it with: pnpm run dx:down (or use pnpm run dx:docker)"
     );
   }
 
@@ -418,7 +418,7 @@ function checkComposeState() {
     reportFailure(
       "Local deps already running",
       `Running services: ${depsRunning.join(", ")}`,
-      "Stop it with: npm run dx:down (or use npm run dx)"
+      "Stop it with: pnpm run dx:down (or use pnpm run dx)"
     );
   }
 }
@@ -487,7 +487,7 @@ function checkDockerContainerHealth() {
   reportFailure(
     "Docker containers unhealthy or restarting",
     detailParts.join(" "),
-    "Run: npm run dx:reset"
+    "Run: pnpm run dx:reset"
   );
 }
 
@@ -513,7 +513,7 @@ function checkSupabase() {
     reportFailure(
       "Supabase CLI missing",
       "Supabase URL is local but CLI is not installed.",
-      "Install with: npm install -g supabase (or set DX_SUPABASE_LOCAL=0 to skip)"
+      "Install with: pnpm install -g supabase (or set DX_SUPABASE_LOCAL=0 to skip)"
     );
     return;
   }
@@ -534,7 +534,7 @@ function checkSupabase() {
     reportFailure(
       "Supabase local not running",
       `Expected Supabase at http://localhost:${supabaseApiPort}`,
-      "Start it with: supabase start (or npm run dx will start it automatically)"
+      "Start it with: supabase start (or pnpm run dx will start it automatically)"
     );
     return;
   }
@@ -612,7 +612,7 @@ function checkSupabaseMigrations() {
       reportFailure(
         "Pending database migrations",
         `${pendingMigrations.length} migration(s) not applied to local database.`,
-        "Run: npm run db:push (or supabase db push)"
+        "Run: pnpm run db:push (or supabase db push)"
       );
     }
   } catch {
@@ -658,7 +658,7 @@ function checkSupabaseSchema() {
       reportFailure(
         "Database schema drift detected",
         `Local database differs from migrations (${lineCount} changes).`,
-        "Run: npm run db:reset to rebuild from migrations, or npm run db:push to apply pending changes"
+        "Run: pnpm run db:reset to rebuild from migrations, or pnpm run db:push to apply pending changes"
       );
     }
   } catch {
@@ -687,7 +687,7 @@ function checkSupabaseSchema() {
         reportFailure(
           "Supabase types may be outdated",
           `${newerMigrations.length} migration(s) newer than generated types.`,
-          "Run: npm run db:types to regenerate TypeScript types"
+          "Run: pnpm run db:types to regenerate TypeScript types"
         );
       }
     } catch {
@@ -712,7 +712,7 @@ function checkEnvModeConsistency() {
     reportFailure(
       "Environment mode mismatch",
       `.env.local is configured for mode "${envMode}" but you're running mode "${mode}".`,
-      `Regenerate env: npm run dx:env --mode ${mode} --force`
+      `Regenerate env: pnpm run dx:env --mode ${mode} --force`
     );
     return;
   }
@@ -726,7 +726,7 @@ function checkEnvModeConsistency() {
         reportFailure(
           "Docker DNS in local mode",
           `VITE_API_BASE_URL uses Docker hostname (${apiUrl}) but mode is "local". Browser cannot resolve Docker hostnames.`,
-          `Regenerate env: npm run dx:env --mode local --force`
+          `Regenerate env: pnpm run dx:env --mode local --force`
         );
       }
     }
@@ -796,7 +796,7 @@ function checkMigrationDrift() {
         reportFailure(
           "Database migrations pending",
           `${pendingCount} migration(s) not applied to local database.`,
-          "Run: supabase db push (or npm run db:push)"
+          "Run: supabase db push (or pnpm run db:push)"
         );
       }
     } catch {

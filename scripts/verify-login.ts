@@ -48,7 +48,7 @@ async function verifyLogin() {
     if (error) {
       console.error("❌ Login failed:", error.message);
       console.error("\nPossible causes:");
-      console.error("  - Demo user not seeded (run: npm run seed)");
+      console.error("  - Demo user not seeded (run: pnpm run seed)");
       console.error("  - Incorrect credentials");
       console.error("  - Supabase not running");
       process.exit(1);

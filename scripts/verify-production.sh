@@ -69,7 +69,7 @@ check_rls_tests() {
     echo -e "${BLUE}Running RLS policy tests...${NC}"
     echo ""
     
-    if npm run test:rls 2>&1 | tee /tmp/rls-test-output.log; then
+    if pnpm run test:rls 2>&1 | tee /tmp/rls-test-output.log; then
         echo -e "${GREEN}✓${NC} RLS tests passed"
         return 0
     else
@@ -95,7 +95,7 @@ check_supabase_config() {
     if supabase status &> /dev/null; then
         echo -e "${GREEN}✓${NC} Supabase project linked"
     else
-        echo -e "${YELLOW}⚠${NC} Supabase project not linked (run: npm run db:link)"
+        echo -e "${YELLOW}⚠${NC} Supabase project not linked (run: pnpm run db:link)"
     fi
     
     echo ""

@@ -8,7 +8,7 @@
  * 4. Risk score based on complexity and criticality
  *
  * Usage:
- *   npm run analyze:deps
+ *   pnpm run analyze:deps
  *   node scripts/analyze-dependencies.ts path/to/file.ts
  */
 

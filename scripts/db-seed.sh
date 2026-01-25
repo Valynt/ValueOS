@@ -36,7 +36,7 @@ fi
 
 # Run seed script
 echo -e "\n${YELLOW}Running seed script...${NC}"
-NODE_ENV=$ENVIRONMENT npx tsx prisma/seed.ts
+NODE_ENV=$ENVIRONMENT pnpm tsx prisma/seed.ts
 
 if [ $? -eq 0 ]; then
     echo -e "\n${GREEN}========================================${NC}"

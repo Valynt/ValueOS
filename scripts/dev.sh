@@ -113,16 +113,16 @@ if [[ "$UI_ONLY" == "true" ]]; then
 
   echo "🌐 Starting frontend..."
   if [[ "$AUTH_BYPASS" == "true" ]]; then
-    VITE_AUTH_BYPASS=true npm run dev &
+    VITE_AUTH_BYPASS=true pnpm run dev &
   else
-    npm run dev &
+    pnpm run dev &
   fi
   FRONTEND_PID=$!
 
 else
   # Full development environment
   echo "📦 Starting Docker services and Supabase..."
-  npm run dx
+  pnpm run dx
 
   # Wait for Supabase to be ready
   echo "⏳ Waiting for Supabase..."
@@ -140,9 +140,9 @@ else
   # Start the frontend in background
   echo "🌐 Starting frontend..."
   if [[ "$AUTH_BYPASS" == "true" ]]; then
-    VITE_AUTH_BYPASS=true npm run dev &
+    VITE_AUTH_BYPASS=true pnpm run dev &
   else
-    npm run dev &
+    pnpm run dev &
   fi
   FRONTEND_PID=$!
 fi

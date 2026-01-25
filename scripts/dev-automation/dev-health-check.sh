@@ -91,7 +91,7 @@ if [ -d "node_modules" ]; then
     MODULE_COUNT=$(find node_modules -maxdepth 1 -type d | wc -l)
     check_pass "node_modules: $MODULE_COUNT packages"
 else
-    check_fail "node_modules: Missing (run 'npm install')"
+    check_fail "node_modules: Missing (run 'pnpm install')"
 fi
 
 # .env
@@ -119,7 +119,7 @@ if [ -f "scripts/prisma/schema.prisma" ]; then
     if [ -d "node_modules/.prisma" ]; then
         check_pass "Prisma client: Generated"
     else
-        check_warn "Prisma client: Not generated (run 'npx prisma generate')"
+        check_warn "Prisma client: Not generated (run 'pnpm prisma generate')"
     fi
 else
     check_warn "Prisma schema: Not found"
@@ -150,7 +150,7 @@ if [ -f "playwright.config.ts" ]; then
     if [ -d "$HOME/.cache/ms-playwright" ]; then
         check_pass "Playwright browsers: Installed"
     else
-        check_warn "Playwright browsers: Not installed (run 'npx playwright install')"
+        check_warn "Playwright browsers: Not installed (run 'pnpm playwright install')"
     fi
 else
     check_warn "Playwright config: Not found"

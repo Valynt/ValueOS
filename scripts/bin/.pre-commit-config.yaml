@@ -43,7 +43,7 @@ repos:
     hooks:
       - id: tsc
         name: TypeScript Compiler
-        entry: npx tsc --noEmit
+        entry: pnpm tsc --noEmit
         language: system
         types: [typescript, tsx]
         pass_filenames: false
@@ -129,7 +129,7 @@ repos:
       # Run tests before commit
       - id: run-tests
         name: Run Unit Tests
-        entry: npm run test
+        entry: pnpm run test
         language: system
         pass_filenames: false
         stages: [commit]
@@ -169,7 +169,7 @@ repos:
       # Validate package.json changes
       - id: validate-package-json
         name: Validate package.json
-        entry: bash -c 'if git diff --cached --name-only | grep "package.json"; then npm run lint && npm audit --audit-level=high; fi'
+        entry: bash -c 'if git diff --cached --name-only | grep "package.json"; then pnpm run lint && npm audit --audit-level=high; fi'
         language: system
         pass_filenames: false
         stages: [commit]

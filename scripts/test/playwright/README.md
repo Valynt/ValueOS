@@ -41,24 +41,24 @@ Tests admin functionality:
 
 ```bash
 # Run all E2E tests
-npx playwright test
+pnpm playwright test
 
 # Run specific workflow
-npx playwright test research-company
-npx playwright test target-roi
-npx playwright test realization-dashboard
-npx playwright test admin-workflows
+pnpm playwright test research-company
+pnpm playwright test target-roi
+pnpm playwright test realization-dashboard
+pnpm playwright test admin-workflows
 
 # Run in headed mode (see browser)
-npx playwright test --headed
+pnpm playwright test --headed
 
 # Run in UI mode (interactive)
-npx playwright test --ui
+pnpm playwright test --ui
 
 # Run with specific browser
-npx playwright test --project=chromium
-npx playwright test --project=firefox
-npx playwright test --project=webkit
+pnpm playwright test --project=chromium
+pnpm playwright test --project=firefox
+pnpm playwright test --project=webkit
 ```
 
 ## Test Coverage
@@ -132,13 +132,13 @@ E2E tests run in GitHub Actions workflow:
 
 ```bash
 # Show trace viewer for failed tests
-npx playwright show-trace trace.zip
+pnpm playwright show-trace trace.zip
 
 # Generate and view HTML report
-npx playwright show-report
+pnpm playwright show-report
 
 # Run in debug mode
-npx playwright test --debug
+pnpm playwright test --debug
 ```
 
 ## Next Steps

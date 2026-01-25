@@ -505,10 +505,10 @@ bash scripts/docker-compose.sh production up
 ### Test Commands
 ```bash
 # Unit tests
-npm run test:unit
+pnpm run test:unit
 
 # Integration tests
-npm run test:integration
+pnpm run test:integration
 ```
 
 ## Migration Steps
