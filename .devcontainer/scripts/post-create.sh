@@ -83,6 +83,27 @@ setup_logging() {
     echo "=== post-create.sh started at $(date -Iseconds) ===" >> "$LOG_FILE" 2>/dev/null || true
 }
 
+install_global_tools() {
+    log_info "Installing global development tools..."
+
+    # Ensure pnpm is available
+    if command_exists corepack; then
+        corepack enable >/dev/null 2>&1 || true
+    fi
+
+    # Install global tools with pinned versions
+    # tsx: TypeScript execution
+    # nodemon: File watcher
+    # pm2: Process manager
+    # prisma: Database ORM CLI
+    if pnpm add -g tsx@4.19.2 nodemon@3.1.9 pm2@5.4.3 prisma@5.25.0 2>&1 | tee -a "$LOG_FILE"; then
+        log_success "Global development tools installed"
+    else
+        log_error "Failed to install global development tools"
+        return 1
+    fi
+}
+
 install_dependencies() {
     log_info "Installing project dependencies..."
 
@@ -272,6 +293,12 @@ main() {
     # Critical step - fail if this fails
     install_dependencies || {
         log_error "Failed to install dependencies. Check network and try again."
+        exit 1
+    }
+
+    # Install global tools
+    install_global_tools || {
+        log_error "Failed to install global tools."
         exit 1
     }
 
