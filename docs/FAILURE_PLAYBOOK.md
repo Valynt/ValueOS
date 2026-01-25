@@ -21,7 +21,7 @@ This guide covers common issues encountered in the ValueOS development environme
 **Fix:**
 - Ensure the database is healthy: `./dev logs postgres`
 - Wait for "database system is ready to accept connections".
-- The `depends_on` in docker-compose usually handles this, but if you reset volumes, it might take longer.
+- The `depends_on` in docker compose usually handles this, but if you reset volumes, it might take longer.
 
 ### 4. Supabase Connection Issues
 **Symptom:** `AuthApiError: Database error saving new user`
@@ -63,7 +63,7 @@ This guide covers common issues encountered in the ValueOS development environme
 ### 10. Network Issues
 **Symptom:** Services cannot talk to each other.
 **Fix:**
-- Ensure all services are on the same network (handled by `docker-compose.dev.yml`).
+- Ensure all services are on the same network (handled by `infra/docker/docker-compose.dev.yml`).
 - Use service names (e.g., `http://backend:3001`) instead of `localhost` for inter-container communication.
 
 ## Quick Reset

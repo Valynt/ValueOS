@@ -90,7 +90,7 @@ For the canonical inventory of infra entry points, see [`infra/README.md`](../..
 1. **Install dependencies:**
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. **Start the stack:**
@@ -145,13 +145,13 @@ This will:
 
 ```bash
 # Unit tests (no stack required)
-npm run test:observability:unit
+pnpm run test:observability:unit
 
 # Integration tests (stack required)
-npm run test:observability:integration
+pnpm run test:observability:integration
 
 # E2E tests (stack required)
-npm run test:observability:e2e
+pnpm run test:observability:e2e
 ```
 
 ## 📖 Documentation

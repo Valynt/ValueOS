@@ -210,43 +210,43 @@ interface AgentEvent {
 
 ```bash
 # Unit tests with coverage (recommended for development)
-npm test
+pnpm run test
 
 # Unit tests without coverage
-npm run test:unit
+pnpm run test:unit
 
 # Watch mode for development
-npm run test:watch
+pnpm run test:watch
 
 # Integration tests (requires Docker)
-npm run test:integration
+pnpm run test:integration
 
 # All tests
-npm run test:all
+pnpm run test:all
 ```
 
 #### Docker Testing
 
 ```bash
 # Unit tests in Docker container
-npm run test:docker
+pnpm run test:docker
 
 # Integration tests with Docker services
-npm run test:docker:integration
+pnpm run test:docker:integration
 
 # Manual Docker setup
-docker-compose -f infra/docker/docker-compose.test.yml up -d
-docker-compose -f infra/docker/docker-compose.test.yml logs -f test-ready
-TEST_MODE=integration npm run test:integration
-docker-compose -f infra/docker/docker-compose.test.yml down
+docker compose -f infra/docker/docker-compose.test.yml up -d
+docker compose -f infra/docker/docker-compose.test.yml logs -f test-ready
+TEST_MODE=integration pnpm run test:integration
+docker compose -f infra/docker/docker-compose.test.yml down
 ```
 
 ### Environment Requirements
 
 #### Unit Tests
 
-- Node.js 18+
-- npm/yarn
+- Node.js 20+
+- pnpm (via Corepack)
 
 #### Integration Tests
 
@@ -354,7 +354,7 @@ src/
 ### Linting Guardrails
 
 - `eslint-plugin-jsx-a11y` enabled for ARIA labels and focus requirements
-- CI runs `npm run lint` to catch accessibility violations
+- CI runs `pnpm run lint` to catch accessibility violations
 - Flags positive tabindex values and unmanaged autofocus
 
 ### Component Checklist
@@ -385,7 +385,7 @@ src/
 
 ```bash
 cd /workspaces/ValueOS/infra
-docker-compose -f infra/docker/docker-compose.observability.yml up -d
+docker compose -f infra/docker/docker-compose.observability.yml up -d
 ```
 
 **Access URLs:**
@@ -398,7 +398,7 @@ docker-compose -f infra/docker/docker-compose.observability.yml up -d
 
 ```bash
 cd /workspaces/ValueOS/infra
-docker-compose -f infra/docker/docker-compose.observability.yml up -d tempo
+docker compose -f infra/docker/docker-compose.observability.yml up -d tempo
 ```
 
 ### Service Overview
@@ -430,7 +430,7 @@ docker-compose -f infra/docker/docker-compose.observability.yml up -d tempo
 docker network create valuecanvas-network
 
 # Start observability stack
-docker-compose -f infra/docker/docker-compose.observability.yml up -d
+docker compose -f infra/docker/docker-compose.observability.yml up -d
 ```
 
 #### Port Conflicts
@@ -464,19 +464,19 @@ docker logs valueos-tempo
 
 ```bash
 # Start all services
-docker-compose -f infra/docker/docker-compose.observability.yml up -d
+docker compose -f infra/docker/docker-compose.observability.yml up -d
 
 # Stop all services
-docker-compose -f infra/docker/docker-compose.observability.yml down
+docker compose -f infra/docker/docker-compose.observability.yml down
 
 # View logs
-docker-compose -f infra/docker/docker-compose.observability.yml logs -f
+docker compose -f infra/docker/docker-compose.observability.yml logs -f
 
 # Restart specific service
-docker-compose -f infra/docker/docker-compose.observability.yml restart tempo
+docker compose -f infra/docker/docker-compose.observability.yml restart tempo
 
 # Check status
-docker-compose -f infra/docker/docker-compose.observability.yml ps
+docker compose -f infra/docker/docker-compose.observability.yml ps
 ```
 
 ## Frequently Asked Questions
@@ -549,9 +549,9 @@ Yes, designed for horizontal scaling with load balancing, connection pooling, an
 **How do I run tests?**
 
 ```bash
-npm test              # Unit tests with coverage
-npm run test:unit     # Unit tests only
-npm run test:integration # Integration tests (requires Docker)
+pnpm run test              # Unit tests with coverage
+pnpm run test:unit         # Unit tests only
+pnpm run test:integration  # Integration tests (requires Docker)
 ```
 
 **How do I add a new agent?**
@@ -634,7 +634,7 @@ CACHE_TTL=3600
 
 ### Troubleshooting
 
-**Installation fails with "npm not found"**
+**Installation fails with "pnpm not found"**
 Install Node.js from nodejs.org
 
 **"Supabase connection failed"**
@@ -647,7 +647,7 @@ Install Node.js from nodejs.org
 **"Port 5173 already in use"**
 
 ```bash
-npm run dev -- --port 3000
+pnpm run dev -- --port 3000
 ```
 
 **Database migrations fail**

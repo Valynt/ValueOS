@@ -1,6 +1,6 @@
-# Contributing to ValueCanvas
+# Contributing to ValueOS
 
-Thank you for your interest in contributing to ValueCanvas! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to ValueOS! This document provides guidelines and instructions for contributing to the project.
 
 ---
 
@@ -44,7 +44,7 @@ We are committed to providing a welcoming and inclusive environment for all cont
 
 Before contributing, ensure you have:
 
-- Node.js 18+ and npm installed
+- Node.js 20+ and pnpm installed (via Corepack)
 - Docker Desktop (for local Supabase)
 - Supabase CLI installed
 - Git configured with your name and email
@@ -56,35 +56,37 @@ Before contributing, ensure you have:
 
 2. **Clone your fork:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ValueCanvas.git
-   cd ValueCanvas
+   git clone https://github.com/YOUR_USERNAME/valueos.git
+   cd valueos
    ```
 
 3. **Add upstream remote:**
    ```bash
-   git remote add upstream https://github.com/bmsull560/ValueCanvas.git
+   git remote add upstream https://github.com/valynt/valueos.git
    ```
 
 4. **Install dependencies:**
    ```bash
-   npm install
+   corepack enable
+   corepack prepare pnpm@9.15.0 --activate
+   pnpm install
    ```
 
 5. **Set up environment:**
    ```bash
-   cp .env.local .env
-   # Edit .env and add your LLM API key
+   pnpm run dx:env -- --mode local --force
+   # Edit .env.local to add any required API keys
    ```
 
 6. **Start development environment:**
    ```bash
-   ./start.sh
+   pnpm run dx
    ```
 
 7. **Verify setup:**
    ```bash
-   npm test
-   npm run lint
+   pnpm run test
+   pnpm run lint
    ```
 
 ---
@@ -133,13 +135,13 @@ Examples:
 
 ```bash
 # Run tests
-npm test
+pnpm run test
 
 # Run linting
-npm run lint
+pnpm run lint
 
 # Fix linting issues automatically
-npm run lint -- --fix
+pnpm run lint:fix
 ```
 
 ### Keeping Your Branch Updated

@@ -57,9 +57,9 @@ node scripts/lib/platform.js
 
 **Tasks**:
 
-- [ ] Check Node.js version (>= 18.0.0)
+- [ ] Check Node.js version (>= 20.0.0)
 - [ ] Check Docker installation and status
-- [ ] Check npm/yarn availability
+- [ ] Check pnpm availability (via Corepack)
 - [ ] Check available disk space (>= 10GB)
 - [ ] Provide actionable error messages
 
@@ -84,11 +84,11 @@ async function checkPrerequisites() {
 
 ```
 ❌ Node.js version 16.14.0 is too old
-   Required: >= 18.0.0
+   Required: >= 20.0.0
 
    Fix:
-   $ nvm install 18
-   $ nvm use 18
+   $ nvm install 20
+   $ nvm use 20
 ```
 
 **Time Estimate**: 6 hours
@@ -133,7 +133,7 @@ $ pnpm run setup
 ✅ Generated database credentials
 ✅ Created .env file
 
-Next: npm run dev
+Next: pnpm run dx
 ```
 
 **Time Estimate**: 6 hours
@@ -144,7 +144,7 @@ Next: npm run dev
 
 **Tasks**:
 
-- [ ] Optimize npm install (use `npm ci`)
+- [ ] Optimize pnpm install (use `pnpm install --frozen-lockfile`)
 - [ ] Add progress indicators
 - [ ] Handle installation failures gracefully
 - [ ] Cache dependencies when possible
@@ -157,7 +157,7 @@ async function installDependencies() {
   const spinner = ora("Installing dependencies...").start();
 
   try {
-    await exec("npm ci");
+    await exec("pnpm install --frozen-lockfile");
     spinner.succeed("Dependencies installed");
   } catch (error) {
     spinner.fail("Installation failed");
@@ -168,7 +168,7 @@ async function installDependencies() {
 
 **Optimizations**:
 
-- Use `npm ci` instead of `npm install` (faster, more reliable)
+- Use `pnpm install --frozen-lockfile` (faster, more reliable)
 - Implement retry logic for network failures
 - Show progress bar for large installs
 
@@ -253,7 +253,7 @@ pnpm run setup
 
 **Tasks**:
 
-- [ ] Create single `npm run dev` command
+- [ ] Create single `pnpm run dx` command
 - [ ] Start all services concurrently
 - [ ] Show unified logs with prefixes
 - [ ] Handle graceful shutdown
@@ -264,8 +264,8 @@ pnpm run setup
 // scripts/dev.js
 async function startDevServer() {
   await startServices([
-    { name: "backend", command: "npm run dev:backend", color: "blue" },
-    { name: "frontend", command: "npm run dev:frontend", color: "green" },
+    { name: "backend", command: "pnpm run backend:dev", color: "blue" },
+    { name: "frontend", command: "pnpm run dev", color: "green" },
     { name: "supabase", command: "supabase start", color: "yellow" },
   ]);
 }
@@ -274,7 +274,7 @@ async function startDevServer() {
 **User Experience**:
 
 ```bash
-$ npm run dev
+$ pnpm run dx
 
 🚀 Starting ValueOS development environment...
 
@@ -300,7 +300,7 @@ Press Ctrl+C to stop all services
 **Tasks**:
 
 - [ ] Implement health check for each service
-- [ ] Create `npm run health` command
+- [ ] Create `pnpm run health` command
 - [ ] Auto-run health check after setup
 - [ ] Provide diagnostic information on failures
 
@@ -325,7 +325,7 @@ async function runHealthChecks() {
 **User Experience**:
 
 ```bash
-$ npm run health
+$ pnpm run health
 
 🏥 Running health checks...
 
@@ -344,12 +344,12 @@ All systems operational! 🎉
 ❌ Backend API       Connection refused
 
    Possible causes:
-   - Backend not started (run: npm run dev:backend)
+   - Backend not started (run: pnpm run backend:dev)
    - Port 3000 in use (check: lsof -i :3000)
    - Environment vars missing (check: .env)
 
    Debug:
-   $ npm run dev:backend
+   $ pnpm run backend:dev
 ```
 
 **Time Estimate**: 6 hours
@@ -403,7 +403,7 @@ Estimated time remaining: 30 seconds
    Time: 4 minutes 23 seconds
 
    Next steps:
-   1. Start development: npm run dev
+   1. Start development: pnpm run dx
    2. Open frontend: http://localhost:5173
    3. Read docs: docs/GETTING_STARTED.md
 
@@ -476,7 +476,7 @@ async function handleError(error) {
 
 **Deliverables**:
 
-- ✅ Unified `npm run dev` command
+- ✅ Unified `pnpm run dx` command
 - ✅ Comprehensive health check system
 - ✅ Progress bars and friendly messages
 - ✅ Auto-recovery for common errors
@@ -534,8 +534,8 @@ async function handleError(error) {
 ```javascript
 // .husky/pre-commit
 #!/bin/sh
-npm run lint
-npm run test:security
+pnpm run lint
+pnpm run security:scan
 pnpm run env:validate
 ```
 
@@ -627,7 +627,7 @@ cd ValueOS
 pnpm run setup
 
 # Start development
-npm run dev
+pnpm run dx
 ```
 ````
 

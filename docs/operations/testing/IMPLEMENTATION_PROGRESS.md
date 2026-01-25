@@ -102,16 +102,16 @@
 
 ```bash
 # Run all tests
-npm test
+pnpm run test
 
 # Run by category
-npm test tests/api
-npm test tests/agents
-npm test tests/components
-npm test tests/integration
+pnpm run test tests/api
+pnpm run test tests/agents
+pnpm run test tests/components
+pnpm run test tests/integration
 
 # With coverage
-npm test -- --coverage
+pnpm run test -- --coverage
 
 # CI pipeline
 git push # Triggers .github/workflows/test.yml

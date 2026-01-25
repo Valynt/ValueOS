@@ -100,16 +100,16 @@ nano .env.dev
 ./scripts/dev-caddy-stop.sh
 
 # View logs
-docker-compose -f infra/docker/docker-compose.caddy.yml logs -f
+docker compose -f infra/docker/docker-compose.caddy.yml logs -f
 
 # Restart a service
-docker-compose -f infra/docker/docker-compose.caddy.yml restart <service>
+docker compose -f infra/docker/docker-compose.caddy.yml restart <service>
 
 # Check status
-docker-compose -f infra/docker/docker-compose.caddy.yml ps
+docker compose -f infra/docker/docker-compose.caddy.yml ps
 
 # Rebuild
-docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
+docker compose -f infra/docker/docker-compose.caddy.yml up -d --build
 ```
 
 ## Troubleshooting Checklist
@@ -118,13 +118,13 @@ docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
 
 - [ ] Check: `lsof -i :80`
 - [ ] Stop conflicting service
-- [ ] Or change port in docker-compose file
+- [ ] Or change port in docker compose file
 
 ### Caddy not starting?
 
 - [ ] Validate: `caddy validate --config Caddyfile.dev`
 - [ ] Check logs: `docker logs valuecanvas-caddy-dev`
-- [ ] Restart: `docker-compose -f infra/docker/docker-compose.caddy.yml restart caddy`
+- [ ] Restart: `docker compose -f infra/docker/docker-compose.caddy.yml restart caddy`
 
 ### HMR not working?
 
@@ -136,7 +136,7 @@ docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
 ### Database issues?
 
 - [ ] Check: `docker exec valuecanvas-postgres-dev pg_isready`
-- [ ] View logs: `docker-compose -f infra/docker/docker-compose.caddy.yml logs postgres`
+- [ ] View logs: `docker compose -f infra/docker/docker-compose.caddy.yml logs postgres`
 - [ ] Check .env.dev credentials
 
 ## Next Steps After Setup

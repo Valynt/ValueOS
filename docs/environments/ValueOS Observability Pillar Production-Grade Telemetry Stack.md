@@ -186,7 +186,7 @@ The pre-configured dashboard leverages the OTLP metrics exported to Prometheus. 
 
 ### 6. Implementation Guidelines
 
-1.  **Initialization**: Ensure the `infra/` directory exists before running `docker-compose up`.
+1.  **Initialization**: Ensure the `infra/` directory exists before running `docker compose up`.
 2.  **LiteLLM Integration**: Point the ValueOS application's LLM client to `http://localhost:4000/v1`. This ensures all traffic is captured by the gateway.
 3.  **Instrumentation**: Agents must use the OTel SDK with `OTEL_EXPORTER_OTLP_ENDPOINT` set to the collector's address.
 4.  **Security**: The `valueos-net` bridge provides internal DNS and prevents external services from accessing the Prometheus/OTel ports unless explicitly mapped to the host.

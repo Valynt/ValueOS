@@ -35,9 +35,9 @@ Timeline: IMMEDIATE (Today)
 ### 2. Manual Critical Fix
 ```bash
 npm update vite@latest
-npm install
-npm test
-npm run build
+pnpm install
+pnpm run test
+pnpm run build
 ```
 **Time**: 5-10 minutes  
 **Fixes**: Critical vulnerability only
@@ -122,7 +122,7 @@ safety check -r requirements.txt
 ### CI Report
 - **Job**: Dependency Outdated Report (runs in CI on PRs and main/develop pushes).
 - **Artifact**: `npm-outdated-report` (`reports/npm-outdated.json`).
-- **Command**: `npm run deps:outdated` (captures JSON output for parsing).
+- **Command**: `pnpm run deps:outdated` (captures JSON output for parsing).
 
 ### Ownership
 - **Primary owner**: Platform/DevOps (CI health + dependency hygiene).

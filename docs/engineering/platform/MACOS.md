@@ -17,8 +17,10 @@ brew install node@20 docker
 # 3. Clone and setup
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
 pnpm run setup
-npm start
+pnpm run dx
 ```
 
 ---
@@ -64,7 +66,7 @@ nvm alias default 20
 
 ```bash
 node --version  # Should be v20.x.x
-npm --version
+pnpm --version
 ```
 
 ### 3. Docker Desktop
@@ -155,19 +157,19 @@ lsof -ti:5173
 kill -9 $(lsof -ti:5173)
 
 # Or use different port
-VITE_PORT=5174 npm start
+VITE_PORT=5174 pnpm run dev
 ```
 
 ### Issue 3: Permission denied errors
 
-**Symptom**: `EACCES` when running npm install
+**Symptom**: `EACCES` when running pnpm install
 
 **Solution**:
 
 ```bash
-# Fix npm permissions
-sudo chown -R $USER:$(id -gn $USER) ~/.npm
-sudo chown -R $USER:$(id -gn $USER) ~/.config
+# Fix pnpm permissions
+sudo chown -R $USER:$(id -gn $USER) ~/.pnpm-store
+sudo chown -R $USER:$(id -gn $USER) ~/.config/pnpm
 
 # Or reinstall Node via nvm (recommended)
 ```
@@ -303,10 +305,10 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
 
 # Aliases
-alias dc="docker-compose"
+alias dc="docker compose"
 alias dps="docker ps"
-alias nrs="npm run start"
-alias nrd="npm run dev"
+alias dx="pnpm run dx"
+alias pdev="pnpm run dev"
 
 # Auto-load .env files
 export $(cat .env | xargs)
@@ -336,13 +338,13 @@ lsof -i :5173               # Frontend
 lsof -i :54321              # Supabase
 
 # Run diagnostics
-npm run doctor
+pnpm run dx:doctor
 
 # View logs
-npm run logs
+pnpm run dx:logs
 
 # Reset everything
-npm run clean
+pnpm run dx:clean
 pnpm run setup
 ```
 
@@ -390,7 +392,7 @@ brew upgrade --cask docker
 
 If you're still stuck:
 
-1. Run `npm run doctor` and share output
-2. Check logs: `npm run logs`
+1. Run `pnpm run dx:doctor` and share output
+2. Check logs: `pnpm run dx:logs`
 3. Ask in #engineering on Slack
 4. See main troubleshooting: `docs/TROUBLESHOOTING.md`

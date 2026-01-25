@@ -63,8 +63,8 @@ bash scripts/verify-security-fixes.sh
 
 ## Testing Checklist
 
-- [ ] Run unit tests: `npm test`
-- [ ] Type check: `npm run typecheck`
+- [ ] Run unit tests: `pnpm run test`
+- [ ] Type check: `pnpm run typecheck`
 - [ ] Deploy database migration to staging
 - [ ] Execute integration tests in staging
 - [ ] Monitor for 48 hours

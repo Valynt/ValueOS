@@ -25,7 +25,7 @@ While Nix handles the developer's machine, Docker ensures the **immutable deploy
 nix develop
 
 # Example of launching the localized stack
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ---

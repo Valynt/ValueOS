@@ -47,7 +47,7 @@ bash scripts/test-agent-security.sh
 bash scripts/cleanup-legacy-agents.sh
 
 # 3. Run full test suite
-npm test
+pnpm run test
 
 # 4. Run RLS tests
 npm run test:rls

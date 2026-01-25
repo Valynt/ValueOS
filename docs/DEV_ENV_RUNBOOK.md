@@ -3,20 +3,20 @@
 ## Prerequisites
 
 - Node.js 20+ (v22.22.0 installed)
-- npm 10.9.4
+- pnpm 9.15.0 (via Corepack)
 - Python 3.11.14
 - Docker 29.1.4 with Docker Compose
-- Supabase CLI (installed locally via npm)
+- Supabase CLI (available via `pnpm dlx supabase`)
 
 ## Setup Steps
 
 1. Clone the repository
-2. Run `npm install` to install dependencies
+2. Run `pnpm install` to install dependencies
 3. Run `npx supabase start` to start local Supabase
 4. Run `pnpm run dx` to start the development stack
 5. Run `pnpm run dx:check` to verify health
 6. Run `npx supabase db reset` to apply migrations
-7. Run `npm run seed:demo` to create demo user
+7. Run `pnpm run seed:demo` to create demo user
 8. Open http://localhost:5173 and login with demo.user@example.com / DemoUser!2345
 
 ## Exact Commands to Boot Stack
@@ -26,7 +26,7 @@ npx supabase start
 pnpm run dx
 pnpm run dx:check
 npx supabase db reset
-npm run seed:demo
+pnpm run seed:demo
 ```
 
 ## Health Check Steps
@@ -40,13 +40,13 @@ npm run seed:demo
 ## Migration/Seed Commands
 
 - Migrations: `npx supabase db reset`
-- Seed: `npm run seed:demo`
+- Seed: `pnpm run seed:demo`
 
 ## Dummy User Creation Steps
 
 1. Ensure Supabase is running: `npx supabase start`
 2. Reset database: `npx supabase db reset`
-3. Run seed script: `npm run seed:demo`
+3. Run seed script: `pnpm run seed:demo`
 4. User created: demo.user@example.com / DemoUser!2345
 
 ## UI Login Validation Steps

@@ -2,7 +2,7 @@
 
 This document lists the required backend dependencies for the LLM cost control and reliability infrastructure.
 
-## Required npm Packages
+## Required Packages (pnpm)
 
 Add these to your backend `package.json`:
 
@@ -77,11 +77,11 @@ Add these to your backend `package.json`:
 
 ```bash
 # Install all dependencies
-npm install express redis opossum winston winston-cloudwatch \
+pnpm add express redis opossum winston winston-cloudwatch \
   @aws-sdk/client-secrets-manager @aws-sdk/client-s3 pg
 
 # Install dev dependencies
-npm install -D @types/express @types/node
+pnpm add -D @types/express @types/node
 ```
 
 ## Environment Variables
@@ -156,18 +156,18 @@ Some packages may require peer dependencies:
 
 ```bash
 # Check for peer dependency warnings
-npm install
+pnpm install
 
 # Install any missing peer dependencies
-npm install <missing-peer-dep>
+pnpm add <missing-peer-dep>
 ```
 
 ## Security Considerations
 
-1. **Keep dependencies updated**: Run `npm audit` regularly
-2. **Use exact versions in production**: Consider using `npm ci` instead of `npm install`
+1. **Keep dependencies updated**: Run `pnpm audit` regularly
+2. **Use exact versions in production**: Use `pnpm install --frozen-lockfile` in CI
 3. **Review security advisories**: Check GitHub security alerts
-4. **Use Snyk or similar**: `npm install -g snyk && snyk test`
+4. **Use Snyk or similar**: `pnpm dlx snyk test`
 
 ## Troubleshooting
 
@@ -198,8 +198,8 @@ process.env.DEBUG = "opossum:*";
 
 ## Next Steps
 
-1. Install dependencies: `npm install`
+1. Install dependencies: `pnpm install`
 2. Configure environment variables
-3. Run database migrations: `npm run migrate`
-4. Start Redis: `docker-compose up redis`
+3. Run database migrations: `pnpm run db:push`
+4. Start Redis: `docker compose up redis`
 5. Test health endpoint: `curl http://localhost:3000/health/ready`

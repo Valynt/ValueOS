@@ -135,26 +135,26 @@
 
 ```bash
 # All auth unit tests
-npm test -- src/services/__tests__/Auth --run
+pnpm run test -- src/services/__tests__/Auth --run
 
 # Specific test suites
-npm test -- src/services/__tests__/AuthService.signup.test.ts --run
-npm test -- src/services/__tests__/AuthService.login.test.ts --run
-npm test -- src/services/__tests__/auth.security.test.ts --run
-npm test -- src/services/__tests__/auth.integration.test.ts --run
+pnpm run test -- src/services/__tests__/AuthService.signup.test.ts --run
+pnpm run test -- src/services/__tests__/AuthService.login.test.ts --run
+pnpm run test -- src/services/__tests__/auth.security.test.ts --run
+pnpm run test -- src/services/__tests__/auth.integration.test.ts --run
 
 # With coverage
-npm test -- src/services/__tests__/Auth --coverage --run
+pnpm run test -- src/services/__tests__/Auth --coverage --run
 ```
 
 ### Component Tests
 
 ```bash
 # All auth component tests
-npm test -- src/views/Auth/__tests__ --run
+pnpm run test -- src/views/Auth/__tests__ --run
 
 # Login page tests
-npm test -- src/views/Auth/__tests__/LoginPage.test.tsx --run
+pnpm run test -- src/views/Auth/__tests__/LoginPage.test.tsx --run
 ```
 
 ### E2E Tests
@@ -179,7 +179,7 @@ docker run -t owasp/zap2docker-stable zap-baseline.py \
   -r security-report.html
 
 # Custom security tests
-npm test -- tests/security/ --run
+pnpm run test -- tests/security/ --run
 ```
 
 ### Load Tests
@@ -203,7 +203,7 @@ k6 run tests/load/auth-stress-test.js
 
 ```bash
 # Generate coverage report
-npm test -- --coverage --run
+pnpm run test -- --coverage --run
 
 # View HTML report
 open coverage/index.html  # macOS
@@ -304,17 +304,17 @@ curl http://localhost:5173/health || echo "Server not running"
 curl https://your-project.supabase.co/rest/v1/ || echo "Supabase unreachable"
 
 # Check database connection
-pnpm run db:health-check
+pnpm run db:verify
 ```
 
 ### After Testing
 
 ```bash
 # Clean up test data
-npm run test:cleanup
+pnpm run test:cleanup
 
 # Reset rate limiters
-npm run test:reset-rate-limits
+pnpm run test:reset-rate-limits
 
 # Review test logs
 cat logs/test-execution.log
@@ -400,7 +400,7 @@ Password "password123!" was accepted.
 **Fix:** Verify Supabase credentials in `.env.local`
 
 **Issue:** Rate limit errors in tests  
-**Fix:** Run `npm run test:reset-rate-limits` between test runs
+**Fix:** Run `pnpm run test:reset-rate-limits` between test runs
 
 **Issue:** OAuth tests failing  
 **Fix:** Check if redirect URLs are whitelisted in provider dashboard

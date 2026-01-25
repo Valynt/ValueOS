@@ -10,7 +10,7 @@
 ### ✅ Core Implementation
 
 - [x] Platform detection (macOS Intel/Silicon, Windows/WSL2, Linux)
-- [x] Prerequisites checker (Node, Docker, npm, disk space, Git)
+- [x] Prerequisites checker (Node, Docker, pnpm, disk space, Git)
 - [x] Environment generator (secure secrets, validation)
 - [x] Main setup script (orchestration, metrics, error handling)
 - [x] Health check system (all services, diagnostics)
@@ -41,8 +41,8 @@
 ### ✅ Scripts and Commands
 
 - [x] `pnpm run setup` - Automated setup
-- [x] `npm run health` - Health checks
-- [x] `npm run dev` - Unified dev server
+- [x] `pnpm run health` - Health checks
+- [x] `pnpm run dx` - Unified dev server
 - [x] `pnpm run env:validate` - Environment validation
 
 ---
@@ -109,8 +109,8 @@ We've completely rebuilt our setup process to make onboarding faster and easier:
 ✅ Single command: `pnpm run setup` does everything
 ✅ Auto-detects your platform (macOS/Windows/Linux)
 ✅ Helpful error messages with actionable solutions
-✅ Health checks: `npm run health` verifies everything works
-✅ Unified dev server: `npm run dev` starts all services
+✅ Health checks: `pnpm run health` verifies everything works
+✅ Unified dev server: `pnpm run dx` starts all services
 
 **Getting Started:**
 
@@ -118,7 +118,7 @@ We've completely rebuilt our setup process to make onboarding faster and easier:
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
 pnpm run setup
-npm run dev
+pnpm run dx
 ```
 ````
 

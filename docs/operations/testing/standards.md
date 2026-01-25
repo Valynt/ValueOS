@@ -12,7 +12,7 @@ This document lists recommended, mature standards aligned to our stack and compl
 
 - Unit: Vitest (jsdom/node), mocking with `vi` and `msw` for network. Test runners: `vitest run --config vitest.config.unit.ts`.
 - Integration: Vitest with `testcontainers` + `test/setup-integration.ts` using Postgres/Redis MS images or `supabase test db`. Tests: `vitest run --config vitest.config.integration.ts`.
-- E2E: Playwright (`@playwright/test`) for browser/automation flows. CI: install browsers and run Playwright with `npm run test:e2e`.
+- E2E: Playwright (`@playwright/test`) for browser/automation flows. CI: install browsers and run Playwright with `pnpm run test:e2e`.
 - DB-as-a-service: Supabase (Postgres) — rely on `supabase` CLI for RLS and verification tests.
 - Message Queue: Redis + BullMQ — test by running Redis service in integration tests (or testcontainers).
 - Observability: OpenTelemetry & Prometheus compatible metrics; users must instrument long-running jobs and health checks.
@@ -25,7 +25,7 @@ Note: Performance and timing assertions in tests should be environment-tolerant.
 - `lint` → `typecheck` → `test:unit` → `test:integration` → `test:e2e`.
 - Use dedicated CI stages; fail fast on lint/typecheck.
 - Integration stage: spin up Postgres & Redis services; set environment variables `DATABASE_URL` and `REDIS_URL`.
-- E2E stage: bring up the app (docker-compose) and run Playwright.
+- E2E stage: bring up the app (docker compose) and run Playwright.
 
 4. Test Isolation Best Practices
 
@@ -53,9 +53,9 @@ Note: Performance and timing assertions in tests should be environment-tolerant.
 
 8. How to get started locally
 
-- Unit: `npm run test:unit`
-- Integration: `npm run test:integration` (requires Docker or the supabase CLI)
-- E2E: `npm run test:e2e` (requires application to be running; the CI uses a Compose definition to run the app)
+- Unit: `pnpm run test:unit`
+- Integration: `pnpm run test:integration` (requires Docker or the supabase CLI)
+- E2E: `pnpm run test:e2e` (requires application to be running; the CI uses a Compose definition to run the app)
 
 9. Contact & Ownership
 

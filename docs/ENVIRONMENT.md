@@ -6,7 +6,7 @@ ValueOS uses a single, standardized environment system to ensure reproducible bu
 
 ```bash
 # Generate environment for local development
-pnpm run dx:env --mode local
+pnpm run dx:env -- --mode local
 
 # Start development (auto-generates env if needed)
 pnpm run dx
@@ -30,7 +30,7 @@ This ensures:
 - URLs use `localhost`
 
 ```bash
-pnpm run dx --mode local
+pnpm run dx -- --mode local
 # or just
 pnpm run dx
 ```
@@ -41,7 +41,7 @@ pnpm run dx
 - URLs use service names (e.g., `backend:3001`)
 
 ```bash
-pnpm run dx --mode docker
+pnpm run dx -- --mode docker
 ```
 
 ## Generated Files
@@ -55,9 +55,9 @@ pnpm run dx --mode docker
 
 ```bash
 # Generate environment files
-pnpm run dx:env --mode local      # For local development
-pnpm run dx:env --mode docker     # For Docker development
-pnpm run dx:env --mode local --force  # Regenerate even if exists
+pnpm run dx:env -- --mode local      # For local development
+pnpm run dx:env -- --mode docker     # For Docker development
+pnpm run dx:env -- --mode local --force  # Regenerate even if exists
 
 # Validate environment
 pnpm run dx:env:validate          # Check current env is valid
@@ -108,7 +108,7 @@ pnpm run dx:env:validate
 If it fails, regenerate:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 ### "Mode mismatch detected"
@@ -116,7 +116,7 @@ pnpm run dx:env --mode local --force
 Your `.env.local` was generated for a different mode. Regenerate:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 ### "SUPABASE_SERVICE_KEY is deprecated"
@@ -124,7 +124,7 @@ pnpm run dx:env --mode local --force
 Rename to `SUPABASE_SERVICE_ROLE_KEY` in your env files, or regenerate:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 ## For Contributors
@@ -134,7 +134,7 @@ pnpm run dx:env --mode local --force
 Always use the env-compiler:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 Manual edits will be overwritten and may introduce contradictions.
@@ -149,10 +149,10 @@ Manual edits will be overwritten and may introduce contradictions.
 
 ```bash
 # Validate both modes work
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 pnpm run dx:env:validate
 
-pnpm run dx:env --mode docker --force
+pnpm run dx:env -- --mode docker --force
 pnpm run dx:env:validate
 ```
 
@@ -196,5 +196,5 @@ pnpm run dx:env:validate
 ```bash
 pnpm run dx:doctor    # Check all prerequisites
 pnpm run db:verify    # Verify database schema
-npm run health       # Check service health
+pnpm run health       # Check service health
 ```

@@ -53,14 +53,14 @@ REDIS_PORT=6380
 ```bash
 # Check Node version
 node --version
-npm --version
+pnpm --version
 
 # Use correct version with nvm
 nvm use
 
 # Reinstall dependencies
 rm -rf node_modules pnpm-lock.yaml
-npm install
+pnpm install
 ```
 
 ## Database Issues
@@ -76,7 +76,7 @@ npm install
 pnpm run dx:ps
 
 # View database logs
-npm run docker:logs postgres
+pnpm run docker:logs postgres
 
 # Test connection
 pnpm run db:test
@@ -102,14 +102,14 @@ pnpm run db:pull
 pnpm run db:repair
 
 # Manual migration repair
-npm run migration:validate
+pnpm run migration:validate
 ```
 
 ## Application Issues
 
 ### Build Failures
 
-**Symptoms:** `npm run build` fails
+**Symptoms:** `pnpm run build` fails
 
 **Solutions:**
 
@@ -118,14 +118,14 @@ npm run migration:validate
 rm -rf dist node_modules/.vite
 
 # Type check first
-npm run typecheck
+pnpm run typecheck
 
 # Clean install
 pnpm run dx:clean
-npm install
+pnpm install
 
 # Check for TypeScript errors
-npm run build:backend
+pnpm run build:backend
 ```
 
 ### Runtime Errors
@@ -139,7 +139,7 @@ npm run build:backend
 pnpm run dx:logs
 
 # Health check
-npm run health
+pnpm run health
 
 # Environment validation
 pnpm run env:validate
@@ -163,7 +163,7 @@ lsof -i :5173
 rm -rf node_modules/.vite
 
 # Restart dev server
-npm run dev
+pnpm run dev
 
 # Check browser console for errors
 ```
@@ -172,22 +172,22 @@ npm run dev
 
 ### Test Failures
 
-**Symptoms:** `npm run test` fails
+**Symptoms:** `pnpm run test` fails
 
 **Solutions:**
 
 ```bash
 # Run tests with verbose output
-npm run test -- --verbose
+pnpm run test -- --verbose
 
 # Check test environment
-npm run test:docker
+pnpm run test:docker
 
 # Clear test cache
-npm run test -- --clearCache
+pnpm run test -- --clearCache
 
 # Run specific test
-npm run test -- [test-file]
+pnpm run test -- [test-file]
 ```
 
 ### Integration Test Issues
@@ -198,13 +198,13 @@ npm run test -- [test-file]
 
 ```bash
 # Ensure test containers are running
-npm run test:docker:integration
+pnpm run test:docker:integration
 
 # Check test database
 pnpm run db:test:setup
 
 # View test logs
-npm run docker:logs test-db
+pnpm run docker:logs test-db
 ```
 
 ## Deployment Issues
@@ -241,7 +241,7 @@ echo $DATABASE_URL
 echo $SUPABASE_URL
 
 # Compare environments
-npm run config:diff
+pnpm run config:diff
 ```
 
 ### SSL/Certificate Issues
@@ -277,7 +277,7 @@ docker stats
 # Increase memory allocation in Docker Desktop
 
 # Health check timing
-npm run health
+pnpm run health
 ```
 
 ### Memory Issues
@@ -294,7 +294,7 @@ docker stats
 # Edit docker-compose.yml memory settings
 
 # Optimize application
-npm run analyze:deps
+pnpm run analyze:deps
 ```
 
 ## Networking Issues
@@ -344,13 +344,13 @@ pnpm run env:validate
 pnpm run dx:logs
 
 # Service-specific logs
-npm run docker:logs backend
+pnpm run docker:logs backend
 
 # Search logs
 pnpm run dx:logs | grep "ERROR"
 
 # Structured log analysis
-npm run analyze:logs
+pnpm run analyze:logs
 ```
 
 ### Health Monitoring
@@ -376,11 +376,11 @@ docker stats
 pnpm run dx:clean
 
 # Reinitialize everything
-npm install
-pnpm run env:dev
+pnpm install
+pnpm run dx:env -- --mode local --force
 pnpm run dx
 pnpm run db:reset
-npm run seed:demo
+pnpm run seed:demo
 ```
 
 ### Database Recovery
@@ -400,13 +400,13 @@ pnpm run db:repair
 
 ```bash
 # Stop current deployment
-npm run docker:prod:down
+pnpm run docker:prod:down
 
 # Start previous version
 docker run -d --name valueos-rollback valueos:previous
 
 # Verify rollback
-npm run health
+pnpm run health
 ```
 
 ## Getting Help

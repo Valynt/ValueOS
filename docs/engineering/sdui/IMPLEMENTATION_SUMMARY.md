@@ -404,7 +404,7 @@ const KPICard = ({ componentId, title, value }) => {
 ### 1. Install Dependencies (if needed)
 
 ```bash
-npm install zustand  # For canvas state management
+pnpm add zustand  # For canvas state management
 ```
 
 ### 2. Create Your First Layout Component

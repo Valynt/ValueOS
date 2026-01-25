@@ -42,7 +42,9 @@ Your branch is up to date with 'origin/main'.
 ### 1.2 Install Node Dependencies
 
 ```bash
-npm install
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm install
 ```
 
 **Expected Output**:
@@ -60,7 +62,7 @@ added X packages in Ys
 ### 2.1 Generate Development Environment Files
 
 ```bash
-pnpm run env:dev
+pnpm run dx:env -- --mode local --force
 ```
 
 **Expected Output**:
@@ -230,7 +232,7 @@ supabase gen types typescript --local > src/types/supabase.ts
 ### 5.1 Create Demo User
 
 ```bash
-npm run seed:demo
+pnpm run seed:demo
 ```
 
 **Expected Output**:
@@ -256,7 +258,7 @@ Login credentials:
 ### 6.1 Start Backend
 
 ```bash
-npm run backend:dev &
+pnpm run backend:dev &
 ```
 
 **Expected Output**:
@@ -282,7 +284,7 @@ curl http://127.0.0.1:3001/health
 ### 6.2 Start Frontend
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 **Expected Output**:
@@ -423,8 +425,8 @@ Check browser DevTools > Console:
 
 ### Idempotent Operations
 
-- `pnpm run env:dev`: Overwrites existing files
-- `npm run seed:demo`: Uses `ON CONFLICT` to avoid duplicates
+- `pnpm run dx:env`: Overwrites existing files
+- `pnpm run seed:demo`: Uses `ON CONFLICT` to avoid duplicates
 - `npx supabase db push`: Skips already-applied migrations
 
 ---
@@ -444,7 +446,7 @@ grep SUPABASE_SERVICE_ROLE_KEY .env.local
 
 # Restart
 pkill -9 -f "tsx watch"
-npm run backend:dev
+pnpm run backend:dev
 ```
 
 ### Frontend Hangs
@@ -484,10 +486,10 @@ set -e
 echo "=== ValueOS Reproducible Dev Setup ==="
 
 # 1. Install dependencies
-npm install
+pnpm install
 
 # 2. Generate environment
-pnpm run env:dev
+pnpm run dx:env -- --mode local --force
 
 # 3. Start Docker deps
 docker compose --env-file .env.ports -f docker-compose.deps.yml up -d
@@ -503,10 +505,10 @@ npx supabase db push
 pnpm run db:types
 
 # 7. Seed demo user
-npm run seed:demo
+pnpm run seed:demo
 
 # 8. Start backend (background)
-npm run backend:dev &
+pnpm run backend:dev &
 BACKEND_PID=$!
 
 # Wait for backend
@@ -523,7 +525,7 @@ echo "Demo credentials:"
 echo "  Email: demo@valueos.dev"
 echo "  Password: Demo123!@#"
 echo ""
-npm run dev
+pnpm run dev
 ```
 
 **Save as**: `scripts/setup-dev-clean.sh`
@@ -538,7 +540,7 @@ bash scripts/setup-dev-clean.sh
 
 ## Verification Checklist
 
-- [ ] `npm install` completes without errors
+- [ ] `pnpm install` completes without errors
 - [ ] `.env.local` exists and contains `SUPABASE_SERVICE_ROLE_KEY`
 - [ ] Docker containers running: `valueos-postgres`, `valueos-redis`
 - [ ] Supabase containers: 12 total, all healthy
@@ -603,7 +605,7 @@ Frontend dev server configuration:
 
 ## Demo User Details
 
-**Created by**: `npm run seed:demo`
+**Created by**: `pnpm run seed:demo`
 **Script**: `scripts/seed-demo-user.ts`
 
 **Credentials**:
@@ -662,7 +664,7 @@ bash scripts/setup-dev-clean.sh
 
 This setup is **reproducible** because:
 
-- All dependencies locked (npm, Docker images)
+- All dependencies locked (pnpm, Docker images)
 - No manual configuration required
 - Fixed demo credentials
 - Deterministic port assignments

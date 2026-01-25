@@ -4,12 +4,12 @@ This runbook documents the CI testing process and introduces checks to keep test
 
 CI test stages:
 
-1. Lint: `npm run lint` — fail fast on style & console usage
-2. Typecheck: `npm run typecheck` — TypeScript type correctness
-3. Unit: `npm run test:unit` — Quick feedback; must pass before other stages
-4. Integration: `npm run test:integration` (CI: `npm run test:integration:ci`) — Postgres/Redis/Message bus checks; uses services
-5. RLS: `npm run test:rls` — Supabase policy enforcement checks
-6. E2E: `npm run test:e2e` — Playwright runs on the running app
+1. Lint: `pnpm run lint` — fail fast on style & console usage
+2. Typecheck: `pnpm run typecheck` — TypeScript type correctness
+3. Unit: `pnpm run test:unit` — Quick feedback; must pass before other stages
+4. Integration: `pnpm run test:integration` (CI: `pnpm run test:integration:ci`) — Postgres/Redis/Message bus checks; uses services
+5. RLS: `pnpm run test:rls` — Supabase policy enforcement checks
+6. E2E: `pnpm run test:e2e` — Playwright runs on the running app
 
 Architecture & operational notes:
 

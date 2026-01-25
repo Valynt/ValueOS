@@ -1797,16 +1797,16 @@ useEffect(() => {
 
 ```bash
 # All auth tests
-npm test -- src/services/__tests__/Auth
+pnpm run test -- src/services/__tests__/Auth
 
 # Specific test file
-npm test -- src/services/__tests__/AuthService.signup.test.ts
+pnpm run test -- src/services/__tests__/AuthService.signup.test.ts
 
 # Watch mode
-npm test -- --watch
+pnpm run test -- --watch
 
 # Coverage report
-npm test -- --coverage
+pnpm run test -- --coverage
 ```
 
 ---
@@ -1825,7 +1825,7 @@ npm test -- --coverage
 **Run Tests:**
 
 ```bash
-npm test -- src/views/Auth/__tests__/
+pnpm run test -- src/views/Auth/__tests__/
 ```
 
 ---
@@ -1974,7 +1974,7 @@ jobs:
         run: npm ci
 
       - name: Run unit tests
-        run: npm test -- src/services/__tests__/Auth --coverage
+        run: pnpm run test -- src/services/__tests__/Auth --coverage
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3

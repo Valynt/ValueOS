@@ -359,7 +359,7 @@ MODEL_NAME=meta-llama/Llama-3-70b-chat-hf
 ### 3. Dependency Installation
 Ensure you have the necessary SDKs:
 ```bash
-npm install @supabase/supabase-js @togetherjs/together-ai
+pnpm add @supabase/supabase-js @togetherjs/together-ai
 ```
 
 ### 4. Integration Verification

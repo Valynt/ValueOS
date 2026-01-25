@@ -201,7 +201,7 @@ const PRODUCTION_LIMITS = {
 Run circuit breaker tests:
 
 ```bash
-npm test src/lib/agent-fabric/__tests__/CircuitBreaker.test.ts
+pnpm run test src/lib/agent-fabric/__tests__/CircuitBreaker.test.ts
 ```
 
 ## Monitoring

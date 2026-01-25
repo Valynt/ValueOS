@@ -430,7 +430,7 @@ SELECT count(*) FROM public.semantic_memory WHERE organization_id = 'org-a-uuid'
 #### 2.3 Automated Test Script
 ```bash
 # Run automated RLS tests
-npm run test:rls
+pnpm run test:rls
 
 # Expected output:
 # ✓ All tables have RLS enabled

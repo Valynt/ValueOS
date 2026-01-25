@@ -85,10 +85,10 @@ open http://localhost:54323
 
 ```bash
 # Run RBAC test suite
-npm test -- rbac.local.test.ts
+pnpm run test -- rbac.local.test.ts
 
 # Or with watch mode
-npm test -- rbac.local.test.ts --watch
+pnpm run test -- rbac.local.test.ts --watch
 ```
 
 ### Option 3: Manual Dashboard Testing
@@ -159,7 +159,7 @@ Find keys at: http://localhost:54323/project/default/settings/api
 | Problem                 | Solution                                                  |
 | ----------------------- | --------------------------------------------------------- |
 | "No users found"        | Create a user via Supabase Auth or signup flow            |
-| "Role does not exist"   | Check migrations are applied: `npm run supabase:migrate`  |
+| "Role does not exist"   | Check migrations are applied: `pnpm run db:push`  |
 | "Foreign key violation" | Verify user_id, role_id, and tenant_id all exist          |
 | "Duplicate key error"   | User already has this role - use `ON CONFLICT DO NOTHING` |
 | "RLS blocks query"      | Use service role key for admin operations                 |

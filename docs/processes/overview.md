@@ -38,20 +38,21 @@ ValueOS maintains a professional and inclusive environment with clear expectatio
 
 ```bash
 # Fork and clone repository
-git clone https://github.com/YOUR_USERNAME/ValueCanvas.git
-cd ValueCanvas
+git clone https://github.com/YOUR_USERNAME/valueos.git
+cd valueos
 
 # Set up environment
-npm install
-cp .env.local .env
-# Edit .env with LLM API key
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm run setup
+# Edit .env.local with any required API keys
 
 # Start development environment
-./start.sh
+pnpm run dx
 
 # Verify setup
-npm test
-npm run lint
+pnpm run test
+pnpm run lint
 ```
 
 **Branch Management:**

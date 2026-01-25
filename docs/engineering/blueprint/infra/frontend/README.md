@@ -13,8 +13,8 @@ This skeleton uses [Create React App](https://create-react-app.dev/) with Tailwi
 ## Running Locally
 
 ```bash
-npm install
-npm start
+pnpm install
+pnpm run dev
 ```
 
 The app runs at `http://localhost:3000`.

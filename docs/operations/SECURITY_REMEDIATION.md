@@ -559,14 +559,14 @@ supabase db push
 **Application:**
 ```bash
 # Build with security fixes
-npm run build
-npm run deploy
+pnpm run build:prod
+pnpm run deploy:validate
 ```
 
 **Verification:**
 ```bash
 # Test XSS protection
-npm test -- sanitizeHtml
+pnpm run test -- sanitizeHtml
 
 # Test RLS policies
 psql -c "\d+ user_tenants"

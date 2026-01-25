@@ -45,35 +45,35 @@ if (!supabaseUrl || !supabaseAnonKey) {
 ### All Tests
 
 ```bash
-npm test
+pnpm run test
 ```
 
 ### Watch Mode
 
 ```bash
-npm run test:watch
+pnpm run test:watch
 ```
 
 ### Specific Test Files
 
 ```bash
 # Environment & Supabase config tests
-npm test src/config/__tests__/environment.test.ts
+pnpm run test src/config/__tests__/environment.test.ts
 
 # Security & CSP tests
-npm test src/api/__tests__/security-integration.test.ts
+pnpm run test src/api/__tests__/security-integration.test.ts
 
 # Password breach API tests
-npm test src/security/__tests__/PasswordValidator.test.ts
+pnpm run test src/security/__tests__/PasswordValidator.test.ts
 
 # Dev container tests
-npm test test/integration/devcontainer-config.test.ts
+pnpm run test test/integration/devcontainer-config.test.ts
 ```
 
 ### With Coverage
 
 ```bash
-npm test -- --coverage
+pnpm run test -- --coverage
 ```
 
 ## Test Categories
@@ -178,7 +178,7 @@ afterEach(async () => {
 Run the OpenAPI validation gate in CI to block breaking changes and missing examples:
 
 ```bash
-npm run lint:openapi
+pnpm run lint:openapi
 ```
 
 The script verifies schema validity, operation descriptions, and examples on every request and response body.
@@ -253,7 +253,7 @@ For CI/CD pipelines, set environment variables:
 ```bash
 export VITE_SUPABASE_URL=https://bxaiabnqalurloblfwua.supabase.co
 export VITE_SUPABASE_ANON_KEY=your-anon-key
-npm test
+pnpm run test
 ```
 
 ## Performance

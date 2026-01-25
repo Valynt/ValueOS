@@ -5,26 +5,39 @@ ValueOS is a multi-workspace platform for value modeling and lifecycle intellige
 ## Setup
 
 1. Install Node.js 20.x (or newer) and enable Corepack.
-2. Install dependencies:
+2. Run the automated setup (installs dependencies and generates env files):
 
 ```bash
 corepack enable
-pnpm install
+corepack prepare pnpm@9.15.0 --activate
+pnpm run setup
 ```
 
-3. Copy environment templates and fill in values:
+3. If you prefer manual setup instead of the script:
 
 ```bash
-cp .env.example .env.local
-cp apps/ValyntApp/.env.example apps/ValyntApp/.env.local
+pnpm install
+pnpm run dx:env -- --mode local --force
 ```
 
 ## Running the app
 
-Run the ValyntApp frontend locally:
+Run the full local development stack (deps + backend + frontend):
 
 ```bash
-pnpm dev
+pnpm run dx
+```
+
+Run the frontend only (if services are already running):
+
+```bash
+pnpm run dev
+```
+
+Run the backend only:
+
+```bash
+pnpm run backend:dev
 ```
 
 ## Common scripts

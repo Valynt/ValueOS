@@ -273,7 +273,7 @@ debug.log
 ### Build Artifacts
 
 1. **Enhanced .gitignore:** ✅ Already implemented
-2. **Clean Script:** Consider adding `npm run clean` script to package.json
+2. **Clean Script:** Consider adding `pnpm run dx:clean` to package.json documentation
 3. **CI/CD:** Ensure build artifacts are not committed
 
 ### Version Control
@@ -290,16 +290,16 @@ debug.log
 
 ```bash
 # Attempted but encountered issues:
-npm run lint          # ❌ ESLint configuration error
-npx depcheck          # ❌ Unicode syntax errors
+pnpm run lint         # ❌ ESLint configuration error
+pnpm dlx depcheck     # ❌ Unicode syntax errors
 ```
 
 ### Recommendations
 
 1. Fix ESLint configuration before running full test suite
 2. Address Unicode escape issues in 5 files
-3. Run full test suite after fixes: `npm test`
-4. Verify build: `npm run build`
+3. Run full test suite after fixes: `pnpm run test`
+4. Verify build: `pnpm run build`
 
 ---
 

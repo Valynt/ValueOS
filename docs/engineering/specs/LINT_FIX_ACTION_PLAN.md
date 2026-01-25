@@ -384,7 +384,7 @@ jobs:
         with:
           node-version: "20"
       - run: npm ci
-      - run: npm run lint
+      - run: pnpm run lint
         # This will fail if ANY errors exist
 ```
 

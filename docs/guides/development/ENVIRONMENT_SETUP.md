@@ -21,8 +21,8 @@ pnpm run env:production      # Switch to production
 **Development:**
 
 ```bash
-npm run dev:staging         # Start dev server with staging
-npm run dev:production      # Start dev server with production
+pnpm run dev:staging         # Start dev server with staging
+pnpm run dev:production      # Start dev server with production
 ```
 
 **Database Operations:**
@@ -113,7 +113,7 @@ pnpm run env:status
 # Should show: Current environment: https://abc123xyz.supabase.co
 
 # Start dev server
-npm run dev:staging
+pnpm run dev:staging
 
 # Visit http://localhost:5173
 # App should connect to staging database
@@ -133,7 +133,7 @@ pnpm run env:status
 pnpm run env:staging
 
 # Start development
-npm run dev
+pnpm run dev
 ```
 
 ### Creating Migrations
@@ -167,7 +167,7 @@ npx supabase migration list
 
 # 3. Switch back to staging to test one more time
 pnpm run env:staging
-npm run dev
+pnpm run dev
 # Manually test your changes
 
 # 4. Deploy to production (has 5-second safety delay)

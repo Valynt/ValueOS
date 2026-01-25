@@ -158,7 +158,7 @@ packages/shared / packages/mcp / packages/sdui-types
 
 ESLint boundary rules are configured in `.config/configs/eslint.boundaries.js`.
 
-Run `npm run lint` to check for violations.
+Run `pnpm run lint` to check for violations.
 
 ---
 

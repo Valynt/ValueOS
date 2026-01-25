@@ -77,7 +77,7 @@ AWS_ACCESS_KEY_ID=AKIA...  # Production AWS
 
 ```bash
 # Install husky (already in package.json)
-npm install
+pnpm install
 
 # Hooks are automatically installed
 ```
@@ -266,7 +266,7 @@ npm audit --audit-level=high
 
 ```bash
 # Full repository scan
-npm run security:scan
+pnpm run security:scan
 
 # Check for secrets in git history
 git log -p | grep -E "(sk_live|AKIA|password|secret)"
@@ -437,7 +437,7 @@ npm update
 
 # Update major versions
 npx npm-check-updates -u
-npm install
+pnpm install
 ```
 
 ### Lock Files
@@ -462,7 +462,7 @@ npm-shrinkwrap.json
 
 ```bash
 # Deploying from your laptop
-npm run build
+pnpm run build
 scp dist/* prod-server:/var/www/
 ```
 
@@ -529,7 +529,7 @@ DATABASE_URL=prod.supabase.co
 
 - [ ] Run `pnpm run setup` (generates secure secrets)
 - [ ] Verify `.env` is in `.gitignore`
-- [ ] Install pre-commit hooks (`npm install`)
+- [ ] Install pre-commit hooks (`pnpm install`)
 - [ ] Review `.env.example` for required vars
 
 ### Before Committing

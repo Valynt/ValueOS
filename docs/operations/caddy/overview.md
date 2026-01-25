@@ -53,10 +53,10 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 ## Docker Compose integration
 
 - **Dev:** `docker compose -f infra/docker/docker-compose.caddy.yml up --build` → browse `http://localhost:8080`. Caddy upstreams are auto-wired to `frontend:5173` and `backend:3001`.
-- **Stage/Prod:** build the SPA (`npm run build` to populate `dist/`), then:
+- **Stage/Prod:** build the SPA (`pnpm run build` to populate `dist/`), then:
   - Stage: `APP_DOMAIN=staging.example.com ACME_EMAIL=ops@example.com docker compose -f infra/docker/docker-compose.staging.yml up -d`
   - Prod: `APP_DOMAIN=app.example.com ACME_EMAIL=security@example.com docker compose -f infra/docker/docker-compose.prod.yml up -d`
-    Static assets mount from `dist` into Caddy at `/srv/www`; backend runs from source via `npm run backend:dev` (swap to a compiled server image if desired).
+    Static assets mount from `dist` into Caddy at `/srv/www`; backend runs from source via `pnpm run backend:dev` (swap to a compiled server image if desired).
 
 ## Codebase refactors & validation checklist
 
@@ -68,7 +68,7 @@ This document explains how the new Caddy layer is wired for dev/stage/prod, the 
 
 ## Operational checklist
 
-- Build artifacts (stage/prod): `npm run build` → ensure `dist/` exists before starting Caddy.
+- Build artifacts (stage/prod): `pnpm run build` → ensure `dist/` exists before starting Caddy.
 - Start services with the compose files above.
 - Verify routing: `curl -i https://$APP_DOMAIN/healthz` (Caddy), `curl -i https://$APP_DOMAIN/api/health` (backend), WebSockets via `wscat -c wss://$APP_DOMAIN/ws/sdui`.
 - Verify headers: check CSP, HSTS (prod), `X-Request-ID`, and absence of `Server` header.

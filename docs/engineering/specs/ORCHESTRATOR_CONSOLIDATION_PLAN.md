@@ -110,7 +110,7 @@ const orchestrator = getUnifiedOrchestrator();
 2. Replace `agentOrch.processQuery()` with `orchestrator.processQuery()`
 3. Replace `workflowOrch.executeWorkflow()` with `orchestrator.executeWorkflow()`
 4. Update state management (pass state as parameter)
-5. Run tests: `npm test -- ActionRouter.test.ts`
+5. Run tests: `pnpm run test -- ActionRouter.test.ts`
 
 **Validation:**
 
@@ -143,7 +143,7 @@ private orchestrator = getUnifiedOrchestrator();
 1. Update imports
 2. Replace method calls (signatures are compatible)
 3. Update state handling
-4. Run tests: `npm test -- AgentQueryService.test.ts`
+4. Run tests: `pnpm run test -- AgentQueryService.test.ts`
 
 **Validation:**
 
@@ -273,7 +273,7 @@ export { ValueLifecycleOrchestrator } from "./ValueLifecycleOrchestrator";
 #### 3. Run Full Test Suite
 
 ```bash
-npm test
+pnpm run test
 ```
 
 #### 4. Update Documentation

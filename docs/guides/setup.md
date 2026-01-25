@@ -25,7 +25,7 @@ nvm use
 
 # Verify installations
 node --version
-npm --version
+pnpm --version
 docker --version
 docker compose version
 ```
@@ -38,11 +38,12 @@ ValueOS provides a deterministic local development environment with automated se
 
 ```bash
 # First-time setup
-npm install
-pnpm run env:dev          # Setup environment with real keys
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm run setup            # Installs deps + generates env files
 pnpm run dx               # Start development stack
 pnpm run db:reset         # Reset database
-npm run seed:demo        # Create demo user
+pnpm run seed:demo        # Create demo user
 
 # Daily development
 pnpm run dx               # Start stack
@@ -55,8 +56,8 @@ pnpm run dx:check         # Comprehensive health check
 **Quick Start (5 minutes):**
 
 1. Install Docker Desktop and ensure it's running
-2. Run: `npm install && pnpm run env:dev && pnpm run dx`
-3. Run: `pnpm run db:reset && npm run seed:demo`
+2. Run: `corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm run setup`
+3. Run: `pnpm run dx && pnpm run db:reset && pnpm run seed:demo`
 4. Open: `http://localhost:5173`
 5. Login with credentials from `seed:demo` output
 
@@ -66,7 +67,7 @@ Environment management is handled through dedicated scripts:
 
 ```bash
 # Setup local development environment
-pnpm run env:dev           # Configures local dev with real keys
+pnpm run dx:env -- --mode local --force  # Configures local dev env files
 
 # Switch to staging environment
 pnpm run env:staging
@@ -115,38 +116,38 @@ All changes must pass automated quality checks:
 pnpm run ci:verify
 
 # Individual checks
-npm run lint              # ESLint
-npm run typecheck         # TypeScript
-npm run test              # Unit tests
-npm run build             # Build verification
+pnpm run lint             # ESLint
+pnpm run typecheck        # TypeScript
+pnpm run test             # Unit tests
+pnpm run build            # Build verification
 ```
 
 ### Testing Strategy
 
 ```bash
 # Run test suites
-npm run test:all          # Unit + Integration
-npm run test:unit         # Unit tests only
-npm run test:integration  # Integration tests only
-npm run test:watch        # Watch mode
-npm run test:docker       # Docker-based tests
+pnpm run test:all         # Unit + Integration
+pnpm run test:unit        # Unit tests only
+pnpm run test:integration # Integration tests only
+pnpm run test:watch       # Watch mode
+pnpm run test:docker      # Docker-based tests
 ```
 
 ### Code Quality Tools
 
 ```bash
 # Linting and formatting
-npm run lint              # ESLint check
-npm run lint:fix          # Auto-fix ESLint issues
-npm run format            # Prettier formatting
-npm run format:check      # Prettier check
+pnpm run lint             # ESLint check
+pnpm run lint:fix         # Auto-fix ESLint issues
+pnpm run format           # Prettier formatting
+pnpm run format:check     # Prettier check
 
 # Type checking
-npm run typecheck
+pnpm run typecheck
 
 # Build verification
-npm run build
-npm run build:backend
+pnpm run build
+pnpm run build:backend
 ```
 
 ## Repository Structure

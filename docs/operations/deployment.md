@@ -17,7 +17,7 @@ For hotfixes:
 # Create hotfix branch
 git checkout -b hotfix/critical-issue
 # Make minimal fix
-npm test
+pnpm run test
 # Create PR with [HOTFIX] prefix
 gh pr create --title "[HOTFIX] Fix critical issue"
 ```
@@ -38,8 +38,8 @@ gh pr create --title "[HOTFIX] Fix critical issue"
 
 ```bash
 # Required packages
-Node.js 18.17.0+
-pnpm 8.6.0+
+Node.js 20.0.0+
+pnpm 9.15.0+
 Docker 24.0.0+
 kubectl 1.27.0+
 helm 3.12.0+
@@ -76,12 +76,12 @@ DATADOG_API_KEY=your-datadog-key
 
 ```bash
 # 1. Verify all tests pass locally
-npm test
-npm run typecheck
-npm run lint
+pnpm run test
+pnpm run typecheck
+pnpm run lint
 
 # 2. Check code coverage meets threshold (75%)
-npm run test -- --coverage
+pnpm run test -- --coverage
 
 # 3. Validate any database migrations
 ./scripts/validate-migration.sh supabase/migrations/[migration-file].sql
@@ -137,7 +137,7 @@ psql $DATABASE_URL -c "SELECT viewname, viewowner, CASE WHEN definition LIKE '%S
 
    ```bash
    # Run smoke tests against production
-   BASE_URL=https://app.valuecanvas.com npm run test:smoke
+   BASE_URL=https://app.valuecanvas.com pnpm run test:smoke
 
    # Check health endpoint
    curl https://app.valuecanvas.com/health
@@ -163,8 +163,8 @@ git checkout -b hotfix/critical-issue-description
 # - No refactoring or nice-to-haves
 
 # 3. Test locally
-npm test
-npm run test:smoke
+pnpm run test
+pnpm run test:smoke
 
 # 4. Create PR with [HOTFIX] prefix
 gh pr create --title "[HOTFIX] Fix critical issue" --body "..."
@@ -352,7 +352,7 @@ pnpm run db:backup:list
 pnpm run db:push:staging
 
 # 3. Verify staging works
-npm run test:staging
+pnpm run test:staging
 
 # 4. Apply to production (with warning)
 pnpm run db:push:prod
@@ -372,19 +372,19 @@ Staging builds are optimized for development and testing:
 
 ```bash
 # Staging build
-npm run staging:build       # Standard staging build
-npm run staging:build:backend # Backend build
-npm run staging:build:bare   # Minimal build
+pnpm run staging:build       # Standard staging build
+pnpm run staging:build:backend # Backend build
+pnpm run staging:build:bare   # Minimal build
 ```
 
 #### Container Deployment
 
 ```bash
 # Staging container operations
-npm run staging:start      # Start staging containers
-npm run staging:stop       # Stop staging containers
-npm run staging:logs       # View staging logs
-npm run staging:clean      # Clean staging environment
+pnpm run staging:start      # Start staging containers
+pnpm run staging:stop       # Stop staging containers
+pnpm run staging:logs       # View staging logs
+pnpm run staging:clean      # Clean staging environment
 ```
 
 #### Database Operations
@@ -398,8 +398,8 @@ pnpm run db:push:staging    # Push schema to staging
 
 ```bash
 # Staging-specific tests
-npm run staging:test       # Run tests in staging mode
-npm run test:staging       # Test against staging URL
+pnpm run staging:test       # Run tests in staging mode
+pnpm run test:staging       # Test against staging URL
 ```
 
 ---
@@ -470,8 +470,8 @@ Safe database migrations with:
 pnpm run db:push            # Apply migrations
 pnpm run db:pull            # Pull remote schema
 pnpm run db:reset           # Reset database (dev only)
-npm run migration:safety   # Safety checks
-npm run migration:validate # Validate migrations
+pnpm run migration:safety   # Safety checks
+pnpm run migration:validate # Validate migrations
 ```
 
 ---
@@ -507,12 +507,12 @@ npm run migration:validate # Validate migrations
 
 ```bash
 # Check container status
-npm run docker:ps
-npm run docker:logs [container-name]
+pnpm run docker:ps
+pnpm run docker:logs [container-name]
 
 # Validate configuration
 pnpm run env:validate
-npm run config:validate
+pnpm run config:validate
 ```
 
 **Database Connection Issues**
@@ -522,7 +522,7 @@ npm run config:validate
 pnpm run db:test
 
 # Check database logs
-npm run docker:logs postgres
+pnpm run docker:logs postgres
 ```
 
 **SSL Certificate Problems**
@@ -553,10 +553,10 @@ curl http://localhost:54321/health
 pnpm run dx:logs
 
 # Service-specific logs
-npm run docker:logs [service-name]
+pnpm run docker:logs [service-name]
 
 # Structured log analysis
-npm run analyze:logs
+pnpm run analyze:logs
 ```
 
 ---
@@ -658,7 +658,7 @@ pnpm update
 
 # Run security scans
 pnpm audit
-pnpm run security-scan
+pnpm run security:scan
 
 # Database maintenance
 kubectl exec -it postgres-pod -- psql -d valueos -c "VACUUM ANALYZE;"
@@ -672,7 +672,7 @@ kubectl get certificates
 
 # Dependency updates and testing
 pnpm update --latest
-pnpm test
+pnpm run test
 
 # Performance benchmarking
 ab -n 1000 -c 10 https://your-domain.com/api/health

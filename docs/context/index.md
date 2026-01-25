@@ -558,23 +558,23 @@ interface AnalysisResult {
 ### Development
 
 ```bash
-npm run dev          # Start Vite dev server (port 5173)
-npm run backend      # Start Express backend (port 3000)
+pnpm run dev          # Start Vite dev server (port 5173)
+pnpm run backend:dev  # Start Express backend (port 3001)
 supabase start       # Start Supabase stack
 ```
 
 ### Production
 
 ```bash
-npm run build        # Build for production
-npm run preview      # Test production build
+pnpm run build        # Build for production
+pnpm run preview      # Test production build
 ```
 
 ### Observability
 
 ```bash
 cd infra
-docker-compose -f infra/docker/docker-compose.observability.yml up -d
+docker compose -f infra/docker/docker-compose.observability.yml up -d
 # Jaeger: http://localhost:16686
 # Grafana: http://localhost:3001
 ```
@@ -738,10 +738,10 @@ docker-compose -f infra/docker/docker-compose.observability.yml up -d
 ### Commands
 
 ```bash
-npm run typecheck    # Check TypeScript
-npm test            # Run tests
-npm run lint        # Lint code
-npm run build       # Build for production
+pnpm run typecheck    # Check TypeScript
+pnpm run test         # Run tests
+pnpm run lint         # Lint code
+pnpm run build        # Build for production
 ```
 
 ---

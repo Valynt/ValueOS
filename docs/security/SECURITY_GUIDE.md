@@ -244,15 +244,15 @@ const response = await csrfProtection.secureFetch("/api/auth/login", {
 ### Security Test Execution
 
 ```bash
-# Run security tests
-npm run test:security
+# Run security-focused test suite
+pnpm run test
 
 # Run with coverage
-npm run test:security:coverage
+pnpm run test -- --coverage
 
 # Run security scans
-npm run audit:security
-npm run scan:dependencies
+pnpm run security:scan
+pnpm run security:scan:all
 ```
 
 ## Monitoring and Alerting

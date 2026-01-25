@@ -36,8 +36,8 @@ tasks:
   setup:deps:
     desc: Install NPM dependencies for frontend and root
     cmds:
-      - npm install
-      - cd {{.FRONTEND_DIR}} && npm install
+      - pnpm install
+      - cd {{.FRONTEND_DIR}} && pnpm install
 
   setup:supabase:
     desc: Start local Supabase services
@@ -53,10 +53,10 @@ tasks:
   dev:
     desc: Start unified frontend and backend development servers
     cmds:
-      - npx concurrently 
+      - pnpm dlx concurrently 
         -n "vite,backend" 
         -c "cyan.bold,green.bold" 
-        "cd {{.FRONTEND_DIR}} && npm run dev" 
+        "cd {{.FRONTEND_DIR}} && pnpm run dev" 
         "cd {{.BACKEND_DIR}} && go run cmd/main.go"
 
   # ===========================================================================
@@ -90,17 +90,17 @@ tasks:
   obs:up:
     desc: Start the telemetry stack (Jaeger, Grafana, OTel Collector)
     cmds:
-      - docker-compose -f {{.OBS_DIR}}/docker-compose.yml up -d
+      - docker compose -f {{.OBS_DIR}}/docker-compose.yml up -d
 
   obs:down:
     desc: Stop the telemetry stack
     cmds:
-      - docker-compose -f {{.OBS_DIR}}/docker-compose.yml down
+      - docker compose -f {{.OBS_DIR}}/docker-compose.yml down
 
   obs:logs:
     desc: View logs for the observability stack
     cmds:
-      - docker-compose -f {{.OBS_DIR}}/docker-compose.yml logs -f
+      - docker compose -f {{.OBS_DIR}}/docker-compose.yml logs -f
 
   # ===========================================================================
   # Agent Operations

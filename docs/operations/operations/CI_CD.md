@@ -22,8 +22,8 @@ This runs:
 Run dependency and SBOM scans locally:
 
 ```bash
-npm run security:scan
-npm run security:sbom
+pnpm run security:scan
+pnpm run security:sbom
 ```
 
 ### Secret Scanning (Local)

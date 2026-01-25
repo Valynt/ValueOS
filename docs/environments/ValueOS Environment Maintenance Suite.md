@@ -34,7 +34,7 @@ fi
 # 2. Dependency Installation
 if [ -f "package.json" ]; then
     echo -e "Installing NPM dependencies..."
-    npm install
+    pnpm install
 else
     echo -e "${RED}Error: package.json not found.${NC}"
     exit 1

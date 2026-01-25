@@ -148,26 +148,26 @@ VITE_SUPABASE_URL=https://bxaiabnqalurloblfwua.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-### 2. Add Package Scripts
+### 2. Use Existing Environment Scripts
 
-Add to `package.json`:
+ValueOS already ships environment helpers. Use the canonical env compiler plus the staging/production helpers:
 
-```json
-{
-  "scripts": {
-    "env:dev": "cp .env.local.development .env.local",
-    "env:prod": "cp .env.local.production .env.local",
-    "db:push:safe": "echo 'Are you sure? Press Ctrl+C to cancel' && sleep 5 && npx supabase db push",
-    "db:backup": "npx supabase db dump > backups/backup-$(date +%Y%m%d-%H%M%S).sql"
-  }
-}
+```bash
+# Local env files (Supabase keys + ports)
+pnpm run dx:env -- --mode local --force
+
+# Switch to production env (uses deploy/envs/.env.production)
+pnpm run env:production
+
+# Safe push helper with built-in delay
+pnpm run db:push:prod
 ```
 
 ### 3. Migration Development Flow
 
 ```bash
 # 1. Switch to dev environment
-pnpm run env:dev
+pnpm run dx:env -- --mode local --force
 
 # 2. Create feature branch
 git checkout -b feature/my-feature
@@ -182,12 +182,12 @@ npx supabase migration new my_feature_name
 npx supabase db push
 
 # 6. Test your app
-npm run dev
+pnpm run dev
 
 #  7. When ready for production
 git checkout main
-pnpm run env:prod
-pnpm run db:push:safe
+pnpm run env:production
+pnpm run db:push:prod
 ```
 
 ---

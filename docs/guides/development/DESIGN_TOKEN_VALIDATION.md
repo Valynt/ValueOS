@@ -132,7 +132,7 @@ const color = '#18C3A5';
 
 ```bash
 # Run validation on all files
-npm run lint:design-tokens
+pnpm run lint:design-tokens
 
 # Run validation on specific files
 node scripts/validate-design-tokens.cjs
@@ -318,7 +318,7 @@ Edit `.design-tokens.config.json` to:
 
 **Solution**:
 
-1. Run `npm run lint:design-tokens` locally
+1. Run `pnpm run lint:design-tokens` locally
 2. Fix violations or add exception comments
 3. Commit and push changes
 

@@ -5,7 +5,7 @@
 Install the following packages for full observability support:
 
 ```bash
-npm install --save @opentelemetry/sdk-node \
+pnpm add @opentelemetry/sdk-node \
   @opentelemetry/auto-instrumentations-node \
   @opentelemetry/exporter-trace-otlp-http \
   @opentelemetry/exporter-prometheus \
@@ -23,7 +23,7 @@ npm install --save @opentelemetry/sdk-node \
 For testing:
 
 ```bash
-npm install --save-dev vitest \
+pnpm add -D vitest \
   @vitest/ui \
   axios
 ```
@@ -49,7 +49,7 @@ Already included in `auto-instrumentations-node`.
 ### For Loki Transport (Production)
 
 ```bash
-npm install winston-loki
+pnpm add winston-loki
 ```
 
 ### For Database Instrumentation
@@ -58,13 +58,13 @@ Specific database instrumentations (optional):
 
 ```bash
 # PostgreSQL
-npm install @opentelemetry/instrumentation-pg
+pnpm add @opentelemetry/instrumentation-pg
 
 # MongoDB
-npm install @opentelemetry/instrumentation-mongodb
+pnpm add @opentelemetry/instrumentation-mongodb
 
 # Redis
-npm install @opentelemetry/instrumentation-redis
+pnpm add @opentelemetry/instrumentation-redis
 ```
 
 ## Verification

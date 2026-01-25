@@ -27,7 +27,7 @@ Common issues and solutions for ValueOS development.
 1. **Check prerequisites**:
 
    ```bash
-   node --version    # >= 18.0.0
+   node --version    # >= 20.0.0
    docker --version  # Installed
    docker ps         # Running
    ```
@@ -60,42 +60,42 @@ Common issues and solutions for ValueOS development.
 
 ### Dependencies Won't Install
 
-**Symptom**: `npm install` or `npm ci` fails
+**Symptom**: `pnpm install` fails
 
 **Solutions**:
 
-1. **Clear npm cache**:
+1. **Clear pnpm store**:
 
    ```bash
-   npm cache clean --force
+   pnpm store prune
    rm -rf node_modules pnpm-lock.yaml
-   npm install
+   pnpm install
    ```
 
 2. **Check Node version**:
 
    ```bash
    node --version
-   # Must be >= 18.0.0
+   # Must be >= 20.0.0
 
    # Update if needed
-   nvm install 18
-   nvm use 18
+   nvm install 20
+   nvm use 20
    ```
 
 3. **Check network**:
 
    ```bash
-   npm config get registry
+   pnpm config get registry
    # Should be: https://registry.npmjs.org/
 
    # Reset if needed
-   npm config set registry https://registry.npmjs.org/
+   pnpm config set registry https://registry.npmjs.org/
    ```
 
 4. **Try with verbose logging**:
    ```bash
-   npm install --verbose
+   pnpm install --reporter=append-only
    # Look for specific error messages
    ```
 
@@ -140,34 +140,34 @@ sudo systemctl status docker
 
 ### Docker Compose Fails
 
-**Symptom**: `docker-compose up` fails
+**Symptom**: `docker compose up` fails
 
 **Solutions**:
 
 1. **Check Docker Compose version**:
 
    ```bash
-   docker-compose --version
+   docker compose version
    # Should be >= 2.0.0
    ```
 
 2. **Pull images manually**:
 
    ```bash
-   docker-compose pull
-   docker-compose up -d
+   docker compose pull
+   docker compose up -d
    ```
 
 3. **Clean and rebuild**:
 
    ```bash
-   docker-compose down -v
-   docker-compose up --build
+   docker compose down -v
+   docker compose up --build
    ```
 
 4. **Check logs**:
    ```bash
-   docker-compose logs
+   docker compose logs
    # Look for specific errors
    ```
 
@@ -175,15 +175,15 @@ sudo systemctl status docker
 
 ### Containers Keep Restarting
 
-**Symptom**: `docker-compose ps` shows containers restarting
+**Symptom**: `docker compose ps` shows containers restarting
 
 **Solutions**:
 
 1. **Check logs**:
 
    ```bash
-   docker-compose logs <service-name>
-   # e.g., docker-compose logs postgres
+   docker compose logs <service-name>
+   # e.g., docker compose logs postgres
    ```
 
 2. **Check resource limits**:
@@ -201,9 +201,9 @@ sudo systemctl status docker
 
 4. **Reset Docker**:
    ```bash
-   docker-compose down -v
+   docker compose down -v
    docker system prune -a
-   docker-compose up -d
+   docker compose up -d
    ```
 
 ---
@@ -243,10 +243,10 @@ taskkill /PID <PID> /F
 
 ```bash
 # Frontend
-VITE_PORT=5174 npm run dev
+VITE_PORT=5174 pnpm run dev
 
 # Backend
-API_PORT=3002 npm run backend:dev
+API_PORT=3002 pnpm run backend:dev
 ```
 
 ---
@@ -356,26 +356,26 @@ pnpm run setup
 1. **Check Docker is running**:
 
    ```bash
-   docker-compose ps postgres
+   docker compose ps postgres
    # Should show "Up"
    ```
 
 2. **Start Docker services**:
 
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 3. **Check logs**:
 
    ```bash
-   docker-compose logs postgres
+   docker compose logs postgres
    ```
 
 4. **Reset database**:
    ```bash
-   docker-compose down -v
-   docker-compose up -d
+   docker compose down -v
+   docker compose up -d
    pnpm run db:reset
    ```
 
@@ -390,7 +390,7 @@ pnpm run setup
 1. **Check database is running**:
 
    ```bash
-   docker-compose ps postgres
+   docker compose ps postgres
    ```
 
 2. **Reset and retry**:
@@ -426,13 +426,13 @@ pnpm run setup
    ```bash
    # Kill backend process
    pkill -9 node
-   npm run backend:dev
+   pnpm run backend:dev
    ```
 
 2. **Restart database**:
 
    ```bash
-   docker-compose restart postgres
+   docker compose restart postgres
    ```
 
 3. **Check for connection leaks**:
@@ -445,35 +445,35 @@ pnpm run setup
 
 ### Build Fails
 
-**Symptom**: `npm run build` exits with errors
+**Symptom**: `pnpm run build` exits with errors
 
 **Solutions**:
 
 1. **Check TypeScript errors**:
 
    ```bash
-   npm run typecheck
+   pnpm run typecheck
    # Fix any type errors
    ```
 
 2. **Check linting**:
 
    ```bash
-   npm run lint
-   npm run lint:fix
+   pnpm run lint
+   pnpm run lint:fix
    ```
 
 3. **Clear build cache**:
 
    ```bash
    rm -rf dist .vite
-   npm run build
+   pnpm run build
    ```
 
 4. **Check dependencies**:
    ```bash
-   npm install
-   npm run build
+   pnpm install
+   pnpm run build
    ```
 
 ---
@@ -487,7 +487,7 @@ pnpm run setup
 1. **Increase Node memory**:
 
    ```bash
-   NODE_OPTIONS="--max-old-space-size=4096" npm run build
+   NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
    ```
 
 2. **Close other applications**:
@@ -496,7 +496,7 @@ pnpm run setup
 
 3. **Build in production mode**:
    ```bash
-   NODE_ENV=production npm run build
+   NODE_ENV=production pnpm run build
    ```
 
 ---
@@ -631,16 +631,16 @@ cat /proc/sys/fs/inotify/max_user_watches
 # System info
 uname -a
 node --version
-npm --version
+pnpm --version
 docker --version
-docker-compose --version
+docker compose version
 
 # Check services
-docker-compose ps
-npm run health
+docker compose ps
+pnpm run health
 
 # Check logs
-docker-compose logs
+docker compose logs
 ```
 
 ### Get Help
@@ -673,22 +673,22 @@ docker-compose logs
 1. **Keep dependencies updated**:
 
    ```bash
-   npm outdated
-   npm update
+   pnpm outdated
+   pnpm update
    ```
 
 2. **Regular cleanup**:
 
    ```bash
    docker system prune -a
-   npm cache clean --force
+   pnpm store prune
    ```
 
 3. **Use version managers**:
 
    ```bash
    # Node.js
-   nvm use 18
+   nvm use 20
 
    # Docker
    # Keep Docker Desktop updated
@@ -712,14 +712,14 @@ docker-compose logs
 ### Health Check
 
 ```bash
-npm run health
+pnpm run health
 ```
 
 ### Reset Everything
 
 ```bash
 # Nuclear option - resets everything
-docker-compose down -v
+docker compose down -v
 rm -rf node_modules pnpm-lock.yaml .env
 pnpm run setup
 ```
@@ -728,10 +728,10 @@ pnpm run setup
 
 ```bash
 # Docker services
-docker-compose logs -f
+docker compose logs -f
 
 # Backend
-npm run backend:dev  # Check terminal output
+pnpm run backend:dev  # Check terminal output
 
 # Frontend
 # Check browser console
@@ -744,13 +744,13 @@ npm run backend:dev  # Check terminal output
 lsof -i :5173 && kill -9 <PID> # or :$VITE_PORT
 
 # Docker issues
-docker-compose restart
+docker compose restart
 
 # Environment issues
 rm .env && pnpm run setup
 
 # Dependency issues
-rm -rf node_modules && npm install
+rm -rf node_modules && pnpm install
 ```
 
 ---

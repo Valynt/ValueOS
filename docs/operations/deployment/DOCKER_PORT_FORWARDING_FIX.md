@@ -246,7 +246,7 @@ Create `scripts/docker-setup.sh`:
 echo "🐳 Setting up Docker environment..."
 
 # 1. Stop existing containers
-docker-compose down
+docker compose down
 
 # 2. Create secrets directory
 mkdir -p secrets
@@ -281,7 +281,7 @@ cat > Caddyfile << 'EOF'
 EOF
 
 # 4. Start services
-docker-compose up -d
+docker compose up -d
 
 # 5. Wait for services
 echo "⏳ Waiting for services to start..."
@@ -385,22 +385,22 @@ wsl --shutdown
 
 ```bash
 # Start everything
-docker-compose up -d
+docker compose up -d
 
 # Stop everything
-docker-compose down
+docker compose down
 
 # Restart Caddy
-docker-compose restart caddy
+docker compose restart caddy
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Rebuild and restart
-docker-compose up -d --build
+docker compose up -d --build
 
 # Check health
-docker-compose ps
+docker compose ps
 ```
 
 ---

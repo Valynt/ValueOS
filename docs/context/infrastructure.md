@@ -30,7 +30,7 @@ ValueOS uses a containerized development environment with Docker and VS Code Dev
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
 
-  "postStartCommand": "chmod +x ./.devcontainer/bridge.sh && ./.devcontainer/bridge.sh && (npm run dev > /tmp/vite.log 2>&1 &)",
+  "postStartCommand": "chmod +x ./.devcontainer/bridge.sh && ./.devcontainer/bridge.sh && (pnpm run dev > /tmp/vite.log 2>&1 &)",
 
   "forwardPorts": [3000, 5173, 8000, 5432, 16686, 54321, 54323],
 
@@ -157,7 +157,7 @@ while true; do
 
     # Restart Vite
     cd /workspaces/ValueOS
-    npm run dev > /tmp/vite.log 2>&1 &
+    pnpm run dev > /tmp/vite.log 2>&1 &
 
     echo "✅ Vite restarted, waiting for it to be ready..."
     sleep 5
@@ -194,19 +194,20 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate \
+    && pnpm install --frozen-lockfile --prefer-offline
 
 # Copy source code
 COPY . .
 
 # Build application within container
-RUN npm run build
+RUN pnpm run build
 
 # Expose port
 EXPOSE 5173
 
 # Start dev server
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
 ```
 
 ### Backend Dockerfile
@@ -222,16 +223,17 @@ RUN apk add --no-cache socat
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate \
+    && pnpm install --frozen-lockfile --prefer-offline
 
 COPY . .
 
 # Build within container
-RUN npm run build:backend
+RUN pnpm run build:backend
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start:backend"]
+CMD ["pnpm", "run", "backend:start"]
 ```
 
 ### Optimized Dockerfile
@@ -306,7 +308,7 @@ setTimeout(() => {
 2. postStartCommand executes:
    - chmod +x bridge.sh
    - ./bridge.sh (network setup)
-   - npm run dev (background)
+   - pnpm run dev (background)
    ↓
 3. Vite server starts (5-10s)
    ↓
@@ -328,7 +330,7 @@ auto-restart.sh detects (within 10s)
    ↓
 Kills old process (pkill)
    ↓
-Starts new npm run dev
+Starts new pnpm run dev
    ↓
 health-check.sh waits for ready (up to 60s)
    ↓
@@ -363,7 +365,7 @@ ss -tlnp | grep 5173
 
 - Vite config didn't update
 - Check `vite.config.ts` has `host: "0.0.0.0"`
-- Restart Vite: `pkill -f vite && npm run dev`
+- Restart Vite: `pkill -f vite && pnpm run dev`
 
 ### Container Won't Start
 
@@ -417,7 +419,7 @@ tail -100 /tmp/vite.log
 ```bash
 pkill -f vite
 rm -rf node_modules/.vite
-npm run dev
+pnpm run dev
 ```
 
 ---
@@ -432,7 +434,7 @@ Ctrl + Shift + P → "Dev Containers: Rebuild Container"
 
 # Option 2: Restart just Vite
 pkill -f vite
-npm run dev
+pnpm run dev
 
 # Option 3: Use health check
 ./.devcontainer/health-check.sh
@@ -461,7 +463,7 @@ Ctrl + Shift + P → "Dev Containers: Rebuild Container"
 
 # Or manually restart Vite
 pkill -f vite
-npm run dev
+pnpm run dev
 ```
 
 ---

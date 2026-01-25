@@ -26,10 +26,10 @@ This document outlines the implementation of 5 high-leverage enhancements for Va
 
 ```bash
 # Validate all environment configurations
-npm run config:validate
+pnpm run config:validate
 
 # Compare two environments
-npm run config:diff production staging
+pnpm run config:diff production staging
 
 # Load validated configuration in code
 import { getValidatedConfig } from './src/config/schema';
@@ -67,13 +67,13 @@ const config = getValidatedConfig(); // Fails fast if invalid
 
 ```bash
 # Run comprehensive migration safety checks
-npm run migration:safety
+pnpm run migration:safety
 
 # Validate migration syntax and structure
-npm run migration:validate
+pnpm run migration:validate
 
 # Rollback a specific migration
-npm run migration:rollback 20260114000001
+pnpm run migration:rollback 20260114000001
 ```
 
 ## 3. CI/CD Integration ✅
@@ -125,13 +125,13 @@ npm run migration:rollback 20260114000001
 
 ```bash
 # Configuration management
-npm run config:validate    # Validate all environments
-npm run config:diff        # Compare environments
+pnpm run config:validate    # Validate all environments
+pnpm run config:diff        # Compare environments
 
 # Migration safety
-npm run migration:safety   # Comprehensive safety checks
-npm run migration:validate # Syntax and structure validation
-npm run migration:rollback  # Safe rollback with verification
+pnpm run migration:safety   # Comprehensive safety checks
+pnpm run migration:validate # Syntax and structure validation
+pnpm run migration:rollback  # Safe rollback with verification
 ```
 
 ### Automated Reports
@@ -161,7 +161,7 @@ npm run migration:rollback  # Safe rollback with verification
 ### Configuration Management
 
 - [x] All services fail fast on startup with invalid config
-- [x] `npm run config:validate` command checks all environments
+- [x] `pnpm run config:validate` command checks all environments
 - [x] Config diff tool shows changes between environments
 - [x] Zero undefined/null config access in production logs
 
@@ -176,8 +176,8 @@ npm run migration:rollback  # Safe rollback with verification
 
 ### Immediate Actions
 
-1. **Run configuration validation**: `npm run config:validate`
-2. **Test migration safety**: `npm run migration:safety`
+1. **Run configuration validation**: `pnpm run config:validate`
+2. **Test migration safety**: `pnpm run migration:safety`
 3. **Review CI/CD workflow**: Ensure GitHub Actions are enabled
 
 ### Ongoing Maintenance

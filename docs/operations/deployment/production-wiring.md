@@ -471,7 +471,7 @@ cp .env.example .env.local
 nano .env.local
 
 # Start development server
-npm run dev
+pnpm run dev
 ```
 
 ### Production Build
@@ -484,10 +484,10 @@ cp .env.production.example .env.production
 nano .env.production
 
 # Build for production
-npm run build
+pnpm run build
 
 # Preview production build
-npm run preview
+pnpm run preview
 ```
 
 ### Docker Deployment
@@ -500,7 +500,7 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 ARG VITE_APP_ENV=production
-RUN npm run build
+RUN pnpm run build
 
 # Production stage
 FROM nginx:alpine

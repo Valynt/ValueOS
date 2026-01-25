@@ -29,18 +29,19 @@ Complete guide for setting up ValueOS for local development.
 git clone https://github.com/valynt/valueos.git
 cd valueos
 
+# Enable pnpm via Corepack
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+
 # Install dependencies
-npm install
+pnpm install
 ```
 
 ### 2. Environment Configuration
 
 ```bash
-# Create local environment file
-cp deploy/envs/.env.example .env.local
-
-# Configure development environment
-pnpm run env:dev
+# Generate local environment files
+pnpm run dx:env -- --mode local --force
 ```
 
 #### Environment Files Explained
@@ -59,7 +60,7 @@ pnpm run env:dev
 pnpm run dx
 
 # Or use Caddy reverse proxy setup
-./scripts/dev-caddy-start.sh
+pnpm run dx:caddy:start
 ```
 
 ### 4. Database Setup
@@ -69,7 +70,7 @@ pnpm run dx
 pnpm run db:reset
 
 # Create demo user
-npm run seed:demo
+pnpm run seed:demo
 ```
 
 ### 5. Verify Installation
@@ -87,36 +88,36 @@ npm run seed:demo
 pnpm run dx
 
 # Frontend only (if backend already running)
-npm run dev
+pnpm run dev
 
 # Backend only
-npm run dev:backend
+pnpm run backend:dev
 ```
 
 ### Running Tests
 
 ```bash
 # Unit tests
-npm run test:unit
+pnpm run test:unit
 
 # Integration tests
-npm run test:integration
+pnpm run test:integration
 
 # All tests
-npm run test:all
+pnpm run test:all
 ```
 
 ### Code Quality
 
 ```bash
 # Lint and fix
-npm run lint:fix
+pnpm run lint:fix
 
 # Type check
-npx tsc --noEmit
+pnpm run typecheck
 
 # Pre-commit checks
-npm run lint && npx tsc --noEmit
+pnpm run lint && pnpm run typecheck
 ```
 
 ### Database Operations
@@ -129,10 +130,10 @@ open http://localhost:54323
 pnpm run db:reset
 
 # Create new migration
-npx supabase migration new <name>
+pnpm supabase migration new <name>
 
 # Apply migrations
-pnpm run db:migrate
+pnpm run db:push
 ```
 
 ## IDE Configuration
@@ -254,7 +255,7 @@ src/
 The optimized dev container uses volume mounts for:
 
 - `node_modules` - Persistent across rebuilds
-- `.npm` cache - Faster installs
+- `.pnpm-store` cache - Faster installs
 - `.cache` - Build artifacts
 - Playwright browsers - No re-download
 
@@ -265,11 +266,11 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 ```
 
-### 3. Optimize npm Install
+### 3. Optimize pnpm Install
 
 ```bash
-# Use ci for reproducible installs
-npm ci --prefer-offline --no-audit --no-fund
+# Use frozen lockfile for reproducible installs
+pnpm install --frozen-lockfile --prefer-offline
 ```
 
 ## Troubleshooting
@@ -297,7 +298,7 @@ lsof -i :5173  # or :$VITE_PORT
 kill -9 <PID>
 
 # Or use different port
-VITE_PORT=5174 npm run dev
+VITE_PORT=5174 pnpm run dev
 ```
 
 ### Database Connection Issues
@@ -310,7 +311,7 @@ docker ps | grep postgres
 psql $DATABASE_URL -c "SELECT 1"
 
 # Restart PostgreSQL
-docker-compose restart postgres
+docker compose restart postgres
 ```
 
 For more detailed troubleshooting, see [Troubleshooting Guide](./troubleshooting.md).

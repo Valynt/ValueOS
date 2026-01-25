@@ -18,8 +18,10 @@ wsl --install
 cd /mnt/c/Users/YourName/Projects
 git clone https://github.com/Valynt/ValueOS.git
 cd ValueOS
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
 pnpm run setup
-npm start
+pnpm run dx
 ```
 
 ---
@@ -83,7 +85,7 @@ nvm use 20
 
 ```bash
 node --version  # Should be v20.x.x
-npm --version
+pnpm --version
 ```
 
 ---
@@ -104,7 +106,7 @@ npm --version
 
 ### Issue 2: File permissions errors
 
-**Symptom**: `EACCES` errors when running npm install
+**Symptom**: `EACCES` errors when running pnpm install
 
 **Solution**:
 
@@ -148,7 +150,7 @@ netstat -ano | findstr :5173
 taskkill /PID <PID> /F
 
 # Or use different port
-VITE_PORT=5174 npm start
+VITE_PORT=5174 pnpm run dev
 ```
 
 ### Issue 5: Git line endings
@@ -267,16 +269,16 @@ docker ps
 
 # Check Node
 node --version
-npm --version
+pnpm --version
 
 # Run diagnostics
-npm run doctor
+pnpm run dx:doctor
 
 # View logs
-npm run logs
+pnpm run dx:logs
 
 # Reset everything
-npm run clean
+pnpm run dx:clean
 pnpm run setup
 ```
 
@@ -295,7 +297,7 @@ pnpm run setup
 
 If you're still stuck:
 
-1. Run `npm run doctor` and share output
-2. Check logs: `npm run logs`
+1. Run `pnpm run dx:doctor` and share output
+2. Check logs: `pnpm run dx:logs`
 3. Ask in #engineering on Slack
 4. See main troubleshooting: `docs/TROUBLESHOOTING.md`

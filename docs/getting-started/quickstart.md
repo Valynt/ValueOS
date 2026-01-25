@@ -16,27 +16,26 @@ Get up and running with ValueOS in under 10 minutes.
 ```bash
 git clone https://github.com/valynt/valueos.git
 cd valueos
-npm install
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm run setup
 ```
 
 ### 2. Configure Environment
 
 ```bash
-# Copy example environment file
-cp deploy/envs/.env.example .env.local
-
-# Set up development environment (configures Supabase keys)
-pnpm run env:dev
+# Regenerate local environment files if needed
+pnpm run dx:env -- --mode local --force
 ```
 
 ### 3. Start Development Stack
 
 ```bash
-# Start all services (Supabase, Redis, Backend, Frontend)
+# Start all services (deps, backend, frontend)
 pnpm run dx
 
 # Or use the Caddy reverse proxy setup
-./scripts/dev-caddy-start.sh
+pnpm run dx:caddy:start
 ```
 
 ### 4. Verify Setup
@@ -59,7 +58,7 @@ curl http://localhost:3001/health
 ## Creating a Demo User
 
 ```bash
-npm run seed:demo
+pnpm run seed:demo
 ```
 
 This creates a demo user with credentials displayed in the terminal output.
@@ -73,10 +72,10 @@ This creates a demo user with credentials displayed in the terminal output.
 | `pnpm run dx:check`    | Health check all services                         |
 | `pnpm run dx:logs`     | View service logs                                 |
 | `pnpm run db:reset`    | Reset local database                              |
-| `npm run dev`         | Start frontend only (if services already running) |
-| `npm run dev:backend` | Start backend only                                |
-| `supabase start`      | Start Supabase locally                            |
-| `supabase status`     | Check Supabase status                             |
+| `pnpm run dev`         | Start frontend only (if services already running) |
+| `pnpm run backend:dev` | Start backend only                                |
+| `supabase start`       | Start Supabase locally                            |
+| `supabase status`      | Check Supabase status                             |
 
 ## Service Ports
 
@@ -108,7 +107,7 @@ lsof -i :5173
 kill -9 <PID>
 
 # Or use a different port
-PORT=5174 npm run dev
+VITE_PORT=5174 pnpm run dev
 ```
 
 ### Docker Not Running
@@ -123,7 +122,7 @@ PORT=5174 npm run dev
 
 ```bash
 # Regenerate environment
-pnpm run env:dev
+pnpm run dx:env -- --mode local --force
 
 # Restart services
 pnpm run dx:down && pnpm run dx

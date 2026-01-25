@@ -81,17 +81,17 @@ Current ValueOS setup takes 35+ minutes with 40% success rate, causing developer
 2. Install Docker
 3. Copy .env.example to .env
 4. Edit .env manually
-5. npm install
-6. docker-compose up -d
-7. npm run migrate
-8. npm run seed
+5. pnpm install
+6. docker compose up -d
+7. pnpm run db:push
+8. pnpm run seed:demo
 9. Start backend
 10. Start frontend
 # Total: 30-45 minutes, error-prone
 
 # Proposed (automated)
 pnpm run setup
-npm run dev
+pnpm run dx
 # Total: < 5 minutes, reliable
 ```
 
@@ -205,7 +205,7 @@ if (process.env.JWT_SECRET === "secret123") {
 
 **Actions**:
 
-- [ ] Implement `npm run dev` that starts all services
+- [ ] Standardize on `pnpm run dx` as the single command that starts all services
 - [ ] Show unified logs with service prefixes
 - [ ] Display service URLs prominently
 - [ ] Handle graceful shutdown
@@ -213,7 +213,7 @@ if (process.env.JWT_SECRET === "secret123") {
 **User Experience**:
 
 ```bash
-$ npm run dev
+$ pnpm run dx
 
 🚀 Starting ValueOS development environment...
 
@@ -247,7 +247,7 @@ Press Ctrl+C to stop all services
 
 **Actions**:
 
-- [ ] Implement `npm run health` command
+- [ ] Implement `pnpm run health` command
 - [ ] Check all services and dependencies
 - [ ] Provide specific fix instructions
 - [ ] Auto-run after setup
@@ -255,7 +255,7 @@ Press Ctrl+C to stop all services
 **Health Checks**:
 
 ```bash
-$ npm run health
+$ pnpm run health
 
 🏥 Running health checks...
 
@@ -275,7 +275,7 @@ All systems operational! 🎉
 
    Possible causes:
    1. Backend not started
-      Fix: npm run dev:backend
+      Fix: pnpm run backend:dev
 
    2. Port 3000 in use
       Check: lsof -i :3000
@@ -327,7 +327,7 @@ Estimated time remaining: 30 seconds
    You're ready to build amazing things!
 
    Next steps:
-   1. Start development: npm run dev
+   1. Start development: pnpm run dx
    2. Open frontend: http://localhost:5173
    3. Read docs: docs/GETTING_STARTED.md
 
@@ -494,7 +494,7 @@ docs/
 
 **Deliverables**:
 
-- Unified `npm run dev` command
+- Unified `pnpm run dx` command
 - Comprehensive health check system
 - Progress bars and friendly messages
 - Auto-recovery for common errors

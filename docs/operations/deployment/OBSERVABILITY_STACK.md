@@ -44,7 +44,7 @@
 
 **Installation**:
 ```bash
-npm install @opentelemetry/sdk-node \
+pnpm add @opentelemetry/sdk-node \
             @opentelemetry/auto-instrumentations-node \
             @opentelemetry/exporter-prometheus \
             @opentelemetry/exporter-trace-otlp-http
@@ -137,7 +137,7 @@ app.get('/api/users', async (req, res) => {
 
 **Installation**:
 ```bash
-npm install @opentelemetry/api \
+pnpm add @opentelemetry/api \
             @opentelemetry/sdk-trace-web \
             @opentelemetry/instrumentation-fetch \
             @opentelemetry/instrumentation-xml-http-request \
@@ -615,7 +615,7 @@ volumes:
 
 ```bash
 # Start observability stack
-docker-compose -f infra/docker/docker-compose.observability.yml up -d
+docker compose -f infra/docker/docker-compose.observability.yml up -d
 
 # Access dashboards
 open http://localhost:3001  # Grafana (admin/admin)

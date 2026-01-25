@@ -136,10 +136,10 @@ overrideRuntimeConfig({ api: "https://staging-api.example.com" });
 
 ```bash
 # Build and inject config for production
-npm run build:prod
+pnpm run build:prod
 
 # Or manually inject after build
-npm run build:inject-config -- --env staging
+pnpm run build:inject-config -- --env staging
 ```
 
 **Script:** `scripts/inject-runtime-config.js`
@@ -158,7 +158,7 @@ Provides "Fix It" buttons for known failure scenarios instead of just reporting 
 
 | ID                  | Trigger                | Action                                                 |
 | ------------------- | ---------------------- | ------------------------------------------------------ |
-| `seed-database`     | DB connected but empty | Runs `npm run seed:demo`                               |
+| `seed-database`     | DB connected but empty | Runs `pnpm run seed:demo`                              |
 | `refresh-dev-token` | JWT expired            | Gets fresh dev token                                   |
 | `run-migrations`    | Pending migrations     | Runs `pnpm run db:push`                                 |
 | `clear-all-storage` | Always available       | Nukes localStorage, sessionStorage, IndexedDB, cookies |
@@ -290,7 +290,7 @@ export const REMEDIATION_ACTIONS: RemediationAction[] = [
 
 ### Ghost Mode not activating
 
-1. Check if MSW is installed: `npm ls msw`
+1. Check if MSW is installed: `pnpm list msw`
 2. Verify `mockServiceWorker.js` exists in `public/`
 3. Check browser console for MSW errors
 

@@ -87,25 +87,25 @@
 
 ```bash
 # All tests
-npm test
+pnpm run test
 
 # By category
-npm test tests/api
-npm test tests/agents
-npm test tests/components
-npm test tests/integration
+pnpm run test tests/api
+pnpm run test tests/agents
+pnpm run test tests/components
+pnpm run test tests/integration
 
 # E2E tests
 npx playwright test
 
 # Performance tests
-npm run test:perf
+pnpm run test:perf
 
 # Accessibility tests
-npm run test:a11y
+pnpm run test:a11y
 
 # RLS leakage hammer
-npm run test:rls:leakage
+pnpm run test:rls:leakage
 
 # CI pipeline (runs all)
 git push # Triggers GitHub Actions

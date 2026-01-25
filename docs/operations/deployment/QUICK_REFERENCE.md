@@ -20,7 +20,7 @@ supabase storage rm avatars --recursive
 psql $DATABASE_URL -f scripts/verify-production-readiness.sql
 
 # 3. Run RLS policy tests
-npm run test:rls
+pnpm run test:rls
 ```
 
 ## ✅ Critical Verification Queries

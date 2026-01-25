@@ -210,7 +210,7 @@ App.tsx
 ### Strengths
 
 - Accessibility standards are documented (linting guardrails, WCAG AA expectations, testing steps).
-- CI includes dedicated accessibility testing (Playwright + `npm run test:a11y`).
+- CI includes dedicated accessibility testing (Playwright + `pnpm run test:a11y`).
 - Design lint workflow enforces UI consistency via linting, style checks, and inline style detection.
 
 ### Gaps

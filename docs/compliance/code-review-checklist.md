@@ -6,7 +6,7 @@ This checklist is a framework for ensuring code quality, consistency, and adhere
 
 ## Code Style & Consistency (TypeScript/JavaScript)
 
-- **ESLint Compliance**: Code passes `npm run lint` with no errors. Avoid disabling rules without justification.
+- **ESLint Compliance**: Code passes `pnpm run lint` with no errors. Avoid disabling rules without justification.
 - **Prettier Formatting**: Code is formatted automatically by Prettier (if configured). Consistency is key.
 - **Type Safety**:
   - Use TypeScript throughout. Avoid `any` type unless absolutely necessary and justified.

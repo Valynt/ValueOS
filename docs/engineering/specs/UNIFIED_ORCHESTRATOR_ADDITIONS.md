@@ -366,13 +366,13 @@ After implementation:
 
 ```bash
 # Test simulation
-npm test -- UnifiedAgentOrchestrator.test.ts
+pnpm run test -- UnifiedAgentOrchestrator.test.ts
 
 # Test guardrails
-npm test -- --grep "guardrail"
+pnpm run test -- --grep "guardrail"
 
 # Test full workflow with guardrails
-npm test -- --grep "workflow.*autonomy"
+pnpm run test -- --grep "workflow.*autonomy"
 ```
 
 ---

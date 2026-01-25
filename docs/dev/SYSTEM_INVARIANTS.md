@@ -341,7 +341,7 @@ All commands must succeed for the system to be considered operational.
 **Changing ports**:
 
 - Update `config/ports.json`
-- Run `pnpm run env:dev`
+- Run `pnpm run dx:env -- --mode local --force`
 - Update any hardcoded references
 - Restart all services
 

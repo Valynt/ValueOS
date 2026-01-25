@@ -186,7 +186,7 @@ curl -X POST https://metrics.valueos.com/feedback \
 **Measurement**:
 
 ```bash
-npm run health-check
+pnpm run dx:check
 # Checks:
 # - All services running
 # - Database accessible
@@ -233,7 +233,7 @@ npm run health-check
 
 **Optimization Strategies**:
 
-- Use npm ci instead of npm install
+- Use `pnpm install --frozen-lockfile` instead of `pnpm install`
 - Implement dependency caching
 - Remove unused dependencies
 - Use pnpm for faster installs

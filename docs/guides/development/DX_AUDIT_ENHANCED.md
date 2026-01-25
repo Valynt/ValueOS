@@ -28,7 +28,7 @@ This enhanced plan adds critical layers for:
 
 - Scripts assume Unix-like environment (bash)
 - Windows users fail on environment variable setting (`export` vs `set`)
-- File watcher limits on Linux (ENOSPC) crash `npm start`
+- File watcher limits on Linux (ENOSPC) crash `pnpm run dx`
 - No Apple Silicon (M1/M2) specific guidance
 
 **Enhanced Solution**:
@@ -278,7 +278,7 @@ if git diff --cached | grep -E "(sk_live|sk_prod|api_key.*=.*[A-Za-z0-9]{32})"; 
 fi
 
 # Run existing linter
-npm run lint-staged
+pnpm exec lint-staged
 ```
 
 ---
@@ -334,7 +334,7 @@ async function runSetup() {
       progressBar.stop();
       console.error(chalk.red(`\n❌ Failed: ${task.name}`));
       console.error(chalk.yellow("\n💡 Troubleshooting:"));
-      console.error(`   Run: npm run doctor`);
+      console.error(`   Run: pnpm run dx:doctor`);
       console.error(`   Docs: docs/TROUBLESHOOTING.md`);
       process.exit(1);
     }
@@ -356,7 +356,7 @@ async function runSetup() {
   );
   console.log(
     chalk.yellow("\n👉 Run ") +
-      chalk.bold("npm start") +
+      chalk.bold("pnpm run dx") +
       chalk.yellow(" to lift off!\n"),
   );
 
@@ -377,8 +377,8 @@ function handleError(error: Error, context: string) {
   if (error.message.includes("ECONNREFUSED")) {
     console.log(chalk.yellow("💡 Service not responding. Try:"));
     console.log("   1. Check if Docker is running: docker ps");
-    console.log("   2. Restart services: npm run restart");
-    console.log("   3. Check port conflicts: npm run doctor");
+    console.log("   2. Restart services: pnpm run dx:down && pnpm run dx");
+    console.log("   3. Check port conflicts: pnpm run dx:doctor");
   } else if (error.message.includes("ENOSPC")) {
     console.log(chalk.yellow("💡 File watcher limit reached. Run:"));
     console.log(
@@ -451,7 +451,7 @@ function recordSetupMetrics(metrics: SetupMetrics) {
 
 - [ ] Create `scripts/setup.ts` with OS detection
 - [ ] Implement platform-specific checks (WSL2, ARM64, file watchers)
-- [ ] Add `.npmrc` with `legacy-peer-deps=true`
+- [ ] Add `.npmrc` with `strict-peer-dependencies=false`
 - [ ] Create `scripts/generate-env.ts` interactive wizard
 - [ ] Add progress bars and friendly output
 
@@ -467,7 +467,7 @@ function recordSetupMetrics(metrics: SetupMetrics) {
 - [ ] Add `scripts/doctor.ts` diagnostic tool
 - [ ] Create smoke tests (`scripts/smoke-test.ts`)
 
-**Deliverable**: `npm start` launches everything, `npm run doctor` diagnoses issues
+**Deliverable**: `pnpm run dx` launches everything, `pnpm run dx:doctor` diagnoses issues
 
 ### Phase 3: Polish (Week 2 - Days 1-3)
 
@@ -507,7 +507,7 @@ ValueOS/
 │   ├── validate-env.ts       # P1: Env validation
 │   ├── smoke-test.ts         # P2: Quick verification
 │   └── telemetry.ts          # P2: Success metrics
-├── .npmrc                    # P0: legacy-peer-deps=true
+├── .npmrc                    # P0: strict-peer-dependencies=false
 ├── .husky/
 │   └── pre-commit            # P1: Security checks
 ├── README.md                 # P1: 30-second quickstart
@@ -531,12 +531,12 @@ ValueOS/
 
 1. `scripts/setup.ts` - Single-command setup
 2. `scripts/start-all.ts` - Unified dev server
-3. `.npmrc` - Fix dependency issues
+3. `.npmrc` - Fix dependency issues (pnpm settings)
 4. `scripts/generate-env.ts` - Environment wizard
 5. Platform detection - Windows/macOS/Linux support
 
 **Time**: 2-3 days
-**Success Criteria**: `pnpm run setup && npm start` works on all platforms
+**Success Criteria**: `pnpm run setup && pnpm run dx` works on all platforms
 
 ### 🟡 P1 - Critical DX Issues (Should Have)
 
@@ -559,7 +559,7 @@ ValueOS/
 2. `docs/DEVELOPER_SETUP.md` - Deep dive guide
 3. Platform-specific docs - Windows/macOS/Linux guides
 4. Telemetry - Success metrics
-5. `npm run dashboard` - Service monitoring UI
+5. `pnpm run health` - Service monitoring check
 
 **Time**: 2-3 days
 **Success Criteria**: Onboarding tickets < 1/week

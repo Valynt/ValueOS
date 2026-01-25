@@ -283,14 +283,14 @@ This implementation provides a **comprehensive test suite** for ValueOS's accoun
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run all auth tests
-npm test -- src/services/__tests__/Auth --run
-npm test -- src/views/Auth/__tests__ --run
+pnpm run test -- src/services/__tests__/Auth --run
+pnpm run test -- src/views/Auth/__tests__ --run
 
 # Run with coverage
-npm test -- --coverage --run
+pnpm run test -- --coverage --run
 
 # Run E2E tests
 npx playwright test tests/e2e/auth-complete-flow.spec.ts
@@ -300,37 +300,37 @@ npx playwright test tests/e2e/auth-complete-flow.spec.ts
 
 ```bash
 # Signup tests only
-npm test -- AuthService.signup.test.ts --run
-npm test -- SignupPage.test.tsx --run
+pnpm run test -- AuthService.signup.test.ts --run
+pnpm run test -- SignupPage.test.tsx --run
 
 # Login tests only
-npm test -- AuthService.login.test.ts --run
-npm test -- LoginPage.test.tsx --run
+pnpm run test -- AuthService.login.test.ts --run
+pnpm run test -- LoginPage.test.tsx --run
 
 # Security tests
-npm test -- auth.security.test.ts --run
+pnpm run test -- auth.security.test.ts --run
 
 # Integration tests
-npm test -- auth.integration.test.ts --run
+pnpm run test -- auth.integration.test.ts --run
 ```
 
 ### Pre-Deployment Checklist
 
 ```bash
 # 1. Run all unit tests
-npm test -- src/services/__tests__/Auth --run
+pnpm run test -- src/services/__tests__/Auth --run
 
 # 2. Run all component tests
-npm test -- src/views/Auth/__tests__ --run
+pnpm run test -- src/views/Auth/__tests__ --run
 
 # 3. Check coverage (must be ≥90%)
-npm test -- --coverage --run
+pnpm run test -- --coverage --run
 
 # 4. Run E2E smoke tests
 npx playwright test tests/e2e/auth-complete-flow.spec.ts --grep "E2E-001|E2E-002|E2E-003"
 
 # 5. Run security scan
-npm run security:scan
+pnpm run security:scan
 
 # 6. Run load tests
 k6 run tests/load/auth-load-test.js

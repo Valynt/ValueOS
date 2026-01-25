@@ -273,7 +273,7 @@ From `PERFORMANCE_TESTING.md`.
 Run:
 
 ```bash
-npm test -- src/test/performance/ConcurrentUserLoadTest.test.ts
+pnpm run test -- src/test/performance/ConcurrentUserLoadTest.test.ts
 ```
 
 ---
@@ -289,7 +289,7 @@ npm test -- src/test/performance/ConcurrentUserLoadTest.test.ts
 Run:
 
 ```bash
-npm test -- src/test/performance/ValueTreeStressTest.test.ts
+pnpm run test -- src/test/performance/ValueTreeStressTest.test.ts
 ```
 
 ---
@@ -308,7 +308,7 @@ npm test -- src/test/performance/ValueTreeStressTest.test.ts
 Run:
 
 ```bash
-npm test -- src/test/performance/AgentInvocationBenchmark.test.ts
+pnpm run test -- src/test/performance/AgentInvocationBenchmark.test.ts
 ```
 
 ---
@@ -327,7 +327,7 @@ npm test -- src/test/performance/AgentInvocationBenchmark.test.ts
 Run:
 
 ```bash
-npm test -- src/test/resilience/ResilienceTests.test.ts
+pnpm run test -- src/test/resilience/ResilienceTests.test.ts
 ```
 
 ---
@@ -376,33 +376,33 @@ npm test -- src/test/resilience/ResilienceTests.test.ts
 
 ```bash
 # Full suite
-npm test
+pnpm run test
 
 # Specific config tests
-npm test -- src/config/__tests__/validateEnv.test.ts
-npm test -- src/config/__tests__/chatWorkflowConfig.test.ts
+pnpm run test -- src/config/__tests__/validateEnv.test.ts
+pnpm run test -- src/config/__tests__/chatWorkflowConfig.test.ts
 
 # SDUI templates
-npm test -- src/sdui/templates/__tests__/chat-templates.test.ts
+pnpm run test -- src/sdui/templates/__tests__/chat-templates.test.ts
 
 # Telemetry
-npm test -- src/lib/telemetry/__tests__/SDUITelemetry.test.ts
+pnpm run test -- src/lib/telemetry/__tests__/SDUITelemetry.test.ts
 ```
 
 ### 8.2 Performance & Resilience
 
 ```bash
 # Load
-npm test -- src/test/performance/ConcurrentUserLoadTest.test.ts
+pnpm run test -- src/test/performance/ConcurrentUserLoadTest.test.ts
 
 # Value tree
-npm test -- src/test/performance/ValueTreeStressTest.test.ts
+pnpm run test -- src/test/performance/ValueTreeStressTest.test.ts
 
 # Agent benchmarks
-npm test -- src/test/performance/AgentInvocationBenchmark.test.ts
+pnpm run test -- src/test/performance/AgentInvocationBenchmark.test.ts
 
 # Resilience
-npm test -- src/test/resilience/ResilienceTests.test.ts
+pnpm run test -- src/test/resilience/ResilienceTests.test.ts
 ```
 
 ---

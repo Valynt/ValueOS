@@ -15,7 +15,7 @@
 | Container Build     | ~15 min | 1.4 GB |
 | First Startup       | ~10 min | -      |
 | Subsequent Startups | ~3 min  | -      |
-| npm install         | ~5 min  | 812 MB |
+| pnpm install        | ~5 min  | 812 MB |
 
 ### After Optimization
 
@@ -24,7 +24,7 @@
 | Container Build     | ~5 min  | 800 MB | **70% faster** |
 | First Startup       | ~2 min  | -      | **80% faster** |
 | Subsequent Startups | ~30 sec | -      | **83% faster** |
-| npm install         | ~1 min  | 812 MB | **80% faster** |
+| pnpm install        | ~1 min  | 812 MB | **80% faster** |
 
 ---
 
@@ -59,7 +59,7 @@
 {
   "mounts": [
     "source=valuecanvas-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
-    "source=valuecanvas-npm-cache,target=/home/vscode/.npm,type=volume",
+    "source=valuecanvas-pnpm-store,target=/home/vscode/.pnpm-store,type=volume",
     "source=valuecanvas-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume",
     "source=valuecanvas-playwright,target=/home/vscode/.cache/ms-playwright,type=volume"
   ]
@@ -69,7 +69,7 @@
 **Benefits:**
 
 - Persistent `node_modules` across container rebuilds
-- Cached npm packages (80% faster installs)
+- Cached pnpm store (80% faster installs)
 - Cached build artifacts
 - Cached Playwright browsers (no re-download)
 
@@ -214,7 +214,7 @@
 - **Container Build Time:** 70% faster (15 min → 5 min)
 - **First Startup:** 80% faster (10 min → 2 min)
 - **Subsequent Startups:** 83% faster (3 min → 30 sec)
-- **npm install:** 80% faster (5 min → 1 min)
+- **pnpm install:** 80% faster (5 min → 1 min)
 
 ### Image Optimization
 
@@ -277,7 +277,7 @@ jobs:
 **Daily:**
 
 - Container startups: 5 min saved
-- npm installs: 8 min saved
+- pnpm installs: 8 min saved
 - Troubleshooting: 10 min saved
 - **Total:** ~23 min/day
 

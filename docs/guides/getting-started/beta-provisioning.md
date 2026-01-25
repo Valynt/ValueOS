@@ -5,7 +5,7 @@
 Use the new helper to bootstrap beta tenants with premium limits and seeded data:
 
 ```bash
-npm run beta:provision -- --email=user@company.com --plan=enterprise_beta
+pnpm run beta:provision -- --email=user@company.com --plan=enterprise_beta
 ```
 
 What the script does:

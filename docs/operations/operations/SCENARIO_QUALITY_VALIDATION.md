@@ -40,7 +40,7 @@ This playbook operationalizes Sprint Epic 3 by pairing always-on synthetic monit
 MONITOR_BASE_URL=https://beta.valuecanvas.example.com \ \
 MONITOR_EMAIL=bot@example.com \ \
 MONITOR_PASSWORD=***** \ \
-npm run monitor:golden-path
+pnpm run monitor:golden-path
 ```
 
 ### Acceptance Mapping

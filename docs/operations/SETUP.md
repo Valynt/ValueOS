@@ -19,7 +19,7 @@ For the canonical infra entry points (including observability compose), see [`in
 
 ```bash
 # Install all OpenTelemetry and observability dependencies
-npm install --save @opentelemetry/sdk-node \
+pnpm add @opentelemetry/sdk-node \
   @opentelemetry/auto-instrumentations-node \
   @opentelemetry/exporter-trace-otlp-http \
   @opentelemetry/exporter-prometheus \
@@ -32,7 +32,7 @@ npm install --save @opentelemetry/sdk-node \
   winston
 
 # Development dependencies for testing
-npm install --save-dev vitest @vitest/ui axios
+pnpm add -D vitest @vitest/ui axios
 ```
 
 ### 2. Start the Observability Stack
@@ -42,7 +42,7 @@ npm install --save-dev vitest @vitest/ui axios
 make -f Makefile.observability obs-up
 
 # Or using Docker Compose directly
-docker-compose -f infra/docker/docker-compose.observability.yml up -d
+docker compose -f infra/docker/docker-compose.observability.yml up -d
 ```
 
 ### 3. Verify Services

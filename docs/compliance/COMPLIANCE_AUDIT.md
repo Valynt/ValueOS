@@ -183,7 +183,7 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 
 ```bash
 # Snyk scan results (last run: 2025-12-05)
-npm run security-scan
+pnpm run security:scan
 
 # Results:
 ✓ No high or critical vulnerabilities

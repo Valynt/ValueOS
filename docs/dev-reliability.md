@@ -60,7 +60,7 @@ These commands are designed to be one-shot, non-interactive, and safe on fresh c
 
 1. **Port conflict detected**
    - **Symptom**: `Port 5173 is in use`
-   - **Fix**: `export VITE_PORT=5174 && pnpm run dx:env --mode local --force`
+  - **Fix**: `export VITE_PORT=5174 && pnpm run dx:env -- --mode local --force`
 
 2. **Docker daemon not running**
    - **Symptom**: `Cannot connect to Docker daemon`

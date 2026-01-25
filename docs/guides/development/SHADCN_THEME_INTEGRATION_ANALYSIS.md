@@ -274,7 +274,7 @@ From `docs/instructions/design rules.instructions.md`:
 Or use `@fontsource` packages for self-hosting:
 
 ```bash
-npm install @fontsource/inter @fontsource/jetbrains-mono
+pnpm add @fontsource/inter @fontsource/jetbrains-mono
 ```
 
 ```typescript
