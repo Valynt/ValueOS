@@ -43,7 +43,7 @@ type QueryResponse = z.infer<typeof ResponseSchema>;
  * Mock LLM service for financial modeling analysis
  * In production, this would integrate with actual LLM APIs
  */
-class FinancialModelingAnalyzer {
+export class FinancialModelingAnalyzer {
   async analyzeFinancialModels(
     query: string,
     context?: QueryRequest["context"]
