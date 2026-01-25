@@ -4,149 +4,68 @@ Get up and running with ValueOS in under 10 minutes.
 
 ## Prerequisites
 
-- **Docker Desktop**: Install and ensure it's running
-- **Node.js**: Version 20+ (check with `node --version`)
-- **Git**: For cloning the repository
-- **IDE**: VS Code recommended with ESLint and Prettier extensions
+- **Node.js**: 20+ (use the version in `.nvmrc`)
+- **Docker Desktop**: installed and running
+- **Git**: for cloning the repository
+- **Corepack**: for managing the pinned pnpm version
 
-## Quick Start (5 minutes)
+## Local Dev Quickstart (Default)
 
-### 1. Clone and Install
+Follow these commands from a clean machine to a running app.
+
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/valynt/valueos.git
 cd valueos
-npm install
 ```
 
-### 2. Configure Environment
+**Expected outcome:** repo cloned and working directory set to `valueos`.
+
+### 2. Install dependencies with the pinned pnpm version
 
 ```bash
-# Copy example environment file
-cp deploy/envs/.env.example .env.local
-
-# Set up development environment (configures Supabase keys)
-pnpm run env:dev
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+pnpm install
 ```
 
-### 3. Start Development Stack
+**Expected outcome:** pnpm installs dependencies and creates `node_modules/`.
+
+### 3. Generate local environment files
 
 ```bash
-# Start all services (Supabase, Redis, Backend, Frontend)
+pnpm run dx:env -- --mode local --force
+```
+
+**Expected outcome:** `.env.local`, `.env.ports`, and `deploy/envs/.env.ports` are generated for local mode.
+
+### 4. Start the full development stack
+
+```bash
 pnpm run dx
-
-# Or use the Caddy reverse proxy setup
-./scripts/dev-caddy-start.sh
 ```
 
-### 4. Verify Setup
+**Expected outcome:** Docker dependencies, Supabase, backend, and frontend start. You should see Vite report `http://localhost:5173`.
+
+### 5. (Optional) Seed a demo user
 
 ```bash
-# Run health check
-pnpm run dx:check
-
-# Or check individual services
-curl http://localhost:3001/health
+pnpm run seed:demo
 ```
 
-### 5. Access the Application
+**Expected outcome:** demo user credentials are printed in the terminal.
 
-- **Frontend**: http://localhost:5173 (or http://localhost with Caddy)
+## Access points
+
+- **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:3001
+- **Backend Health**: http://localhost:3001/health
+- **Supabase API**: http://localhost:54321
 - **Supabase Studio**: http://localhost:54323
-- **Caddy Admin** (if using Caddy): http://localhost:2019
 
-## Creating a Demo User
+## Next steps
 
-```bash
-npm run seed:demo
-```
-
-This creates a demo user with credentials displayed in the terminal output.
-
-## Common Commands
-
-| Command               | Purpose                                           |
-| --------------------- | ------------------------------------------------- |
-| `pnpm run dx`          | Start development environment                     |
-| `pnpm run dx:down`     | Stop all services                                 |
-| `pnpm run dx:check`    | Health check all services                         |
-| `pnpm run dx:logs`     | View service logs                                 |
-| `pnpm run db:reset`    | Reset local database                              |
-| `npm run dev`         | Start frontend only (if services already running) |
-| `npm run dev:backend` | Start backend only                                |
-| `supabase start`      | Start Supabase locally                            |
-| `supabase status`     | Check Supabase status                             |
-
-## Service Ports
-
-| Service           | Port    | Purpose                |
-| ----------------- | ------- | ---------------------- |
-| Frontend (Vite)   | 5173    | Main application       |
-| Backend (Express) | 3001    | API server             |
-| Supabase API      | 54321   | Database API           |
-| Supabase Studio   | 54323   | Database management UI |
-| PostgreSQL        | 5432    | Database server        |
-| Redis             | 6379    | Cache & sessions       |
-| Caddy (optional)  | 80/8080 | Reverse proxy          |
-
-## Next Steps
-
-- [Local Development Guide](./local-setup.md) - Detailed setup instructions
-- [Troubleshooting](./troubleshooting.md) - Common issues and solutions
-- [Architecture Overview](../architecture/overview.md) - System design
-
-## Troubleshooting Quick Fixes
-
-### Port Already in Use
-
-```bash
-# Check what's using the port
-lsof -i :5173
-
-# Kill the process
-kill -9 <PID>
-
-# Or use a different port
-PORT=5174 npm run dev
-```
-
-### Docker Not Running
-
-```bash
-# Start Docker Desktop
-# On macOS: open -a Docker
-# On Linux: sudo systemctl start docker
-```
-
-### Missing Supabase Keys
-
-```bash
-# Regenerate environment
-pnpm run env:dev
-
-# Restart services
-pnpm run dx:down && pnpm run dx
-```
-
-### Database Connection Failed
-
-```bash
-# Reset the database
-pnpm run db:reset
-
-# Check database logs
-docker logs valueos-postgres
-```
-
-### Environment Variables Not Loading
-
-```bash
-# Validate configuration
-pnpm run env:validate
-
-# Check Vite environment loading
-node -r dotenv/config -e "console.log('SUPABASE_URL:', process.env.VITE_SUPABASE_URL)"
-```
-
-For more detailed troubleshooting, see [Troubleshooting Guide](./troubleshooting.md).
+- [Local Development Setup](./local-setup.md) - detailed workflows and options
+- [Environment Configuration](../ENVIRONMENT.md) - env file generation and modes
+- [Troubleshooting](./troubleshooting.md) - common issues and fixes

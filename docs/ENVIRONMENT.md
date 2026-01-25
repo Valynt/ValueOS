@@ -6,11 +6,13 @@ ValueOS uses a single, standardized environment system to ensure reproducible bu
 
 ```bash
 # Generate environment for local development
-pnpm run dx:env --mode local
+pnpm run dx:env -- --mode local --force
 
 # Start development (auto-generates env if needed)
 pnpm run dx
 ```
+
+For the full local dev flow, see [Local Dev Quickstart](getting-started/quickstart.md).
 
 ## The Single Source of Truth
 
@@ -26,12 +28,10 @@ This ensures:
 
 ### Local Mode (default)
 - Frontend and backend run on your host machine
-- Docker runs only dependencies (Postgres, Redis)
+- Docker runs only dependencies (Postgres, Redis, Supabase)
 - URLs use `localhost`
 
 ```bash
-pnpm run dx --mode local
-# or just
 pnpm run dx
 ```
 
@@ -41,7 +41,7 @@ pnpm run dx
 - URLs use service names (e.g., `backend:3001`)
 
 ```bash
-pnpm run dx --mode docker
+pnpm run dx:docker
 ```
 
 ## Generated Files
@@ -50,49 +50,21 @@ pnpm run dx --mode docker
 |------|---------|--------------|
 | `.env.local` | Main environment file | `pnpm run dx:env` |
 | `.env.ports` | Port mappings for Docker Compose | `pnpm run dx:env` |
+| `deploy/envs/.env.ports` | Docker Compose env file | `pnpm run dx:env` |
 
 ## Commands
 
 ```bash
 # Generate environment files
-pnpm run dx:env --mode local      # For local development
-pnpm run dx:env --mode docker     # For Docker development
-pnpm run dx:env --mode local --force  # Regenerate even if exists
+pnpm run dx:env -- --mode local --force
+pnpm run dx:env -- --mode docker --force
 
 # Validate environment
-pnpm run dx:env:validate          # Check current env is valid
+pnpm run dx:env:validate
 
-# Full development startup (includes env generation)
-pnpm run dx                       # Local mode
-pnpm run dx:docker                # Docker mode
-```
-
-## Why This Matters
-
-### Problem: Mode Confusion
-
-Without a single env builder, you get:
-- Docker DNS (`backend:3001`) leaking into host envs
-- `localhost` URLs in container envs
-- Silent failures that look like "React bugs"
-
-### Solution: Hard Failures on Contradictions
-
-The env-compiler detects and blocks contradictions:
-
-```
-╔════════════════════════════════════════════════════════════════╗
-║                    ❌ ENVIRONMENT CONTRADICTION                 ║
-╚════════════════════════════════════════════════════════════════╝
-
-Your .env.local contains URLs that contradict the requested mode.
-
-Mode requested: local
-Mode in .env.local: docker
-
-Contradictions found:
-  • URL CONTRADICTION: VITE_API_BASE_URL uses Docker DNS (http://backend:3001)
-    but mode is "local". Browser cannot resolve Docker hostnames.
+# Full development startup
+pnpm run dx         # Local mode
+pnpm run dx:docker  # Docker mode
 ```
 
 ## Troubleshooting
@@ -108,7 +80,7 @@ pnpm run dx:env:validate
 If it fails, regenerate:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 ### "Mode mismatch detected"
@@ -116,7 +88,7 @@ pnpm run dx:env --mode local --force
 Your `.env.local` was generated for a different mode. Regenerate:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 ### "SUPABASE_SERVICE_KEY is deprecated"
@@ -124,7 +96,7 @@ pnpm run dx:env --mode local --force
 Rename to `SUPABASE_SERVICE_ROLE_KEY` in your env files, or regenerate:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 ## For Contributors
@@ -134,7 +106,7 @@ pnpm run dx:env --mode local --force
 Always use the env-compiler:
 
 ```bash
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 ```
 
 Manual edits will be overwritten and may introduce contradictions.
@@ -148,11 +120,10 @@ Manual edits will be overwritten and may introduce contradictions.
 ### Testing Environment Changes
 
 ```bash
-# Validate both modes work
-pnpm run dx:env --mode local --force
+pnpm run dx:env -- --mode local --force
 pnpm run dx:env:validate
 
-pnpm run dx:env --mode docker --force
+pnpm run dx:env -- --mode docker --force
 pnpm run dx:env:validate
 ```
 
@@ -194,7 +165,7 @@ pnpm run dx:env:validate
 ## Related Commands
 
 ```bash
-pnpm run dx:doctor    # Check all prerequisites
-pnpm run db:verify    # Verify database schema
-npm run health       # Check service health
+pnpm run dx:doctor   # Check all prerequisites
+pnpm run db:verify   # Verify database schema
+pnpm run health      # Check service health
 ```
