@@ -5,7 +5,7 @@
  */
 
 import { GuestPermissions } from "./GuestAccessService.js"
-import { logger } from "./lib/logger";
+import { logger } from "../lib/logger.js";
 
 // Permission action types
 export enum PermissionAction {

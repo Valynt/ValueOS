@@ -494,7 +494,11 @@ async function startDockerDeps(mode) {
 function stopDockerDeps() {
   log.info("Stopping Docker dependencies...");
 
-  const composeFiles = ["infra/docker/docker-compose.dev.yml", "docker-compose.deps.yml"];
+  const composeFiles = [
+    "infra/docker/docker-compose.dev.yml",
+    "docker-compose.deps.yml",
+    "infra/docker/docker-compose.caddy.yml",
+  ];
 
   for (const file of composeFiles) {
     try {
@@ -515,7 +519,11 @@ function stopDockerDeps() {
 function resetDockerDeps(level = "soft") {
   log.info(`Resetting Docker dependencies (${level})...`);
 
-  const composeFiles = ["infra/docker/docker-compose.dev.yml", "docker-compose.deps.yml"];
+  const composeFiles = [
+    "infra/docker/docker-compose.dev.yml",
+    "docker-compose.deps.yml",
+    "infra/docker/docker-compose.caddy.yml",
+  ];
 
   for (const file of composeFiles) {
     try {
@@ -1118,6 +1126,10 @@ async function main() {
     services.push(frontendProc);
   }
 
+  // Step 9: Start Caddy (optional - if enabled)
+  log.step(9, "Caddy HTTPS reverse proxy");
+  const caddyInfo = await startCaddy();
+
   // Setup shutdown handler
   setupShutdownHandler(services);
   writeDxState(mode);
@@ -1127,18 +1139,28 @@ async function main() {
 
   const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
 
-  console.log(`
+  // Build output message
+  let servicesOutput = `
 ╔════════════════════════════════════════════════════════════════╗
 ║                    All Services Ready                          ║
 ╠════════════════════════════════════════════════════════════════╣
 ║  Frontend:        http://localhost:${frontendPort}                      ║
 ║  Backend:         http://localhost:${backendPort}                       ║
 ║  Supabase API:    http://localhost:${supabaseApiPort}                     ║
-║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                     ║
+║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                     ║`;
+
+  if (caddyInfo) {
+    servicesOutput += `
+║  Caddy HTTPS:     https://localhost:${caddyInfo.httpsPort}                      ║`;
+  }
+
+  servicesOutput += `
 ╠════════════════════════════════════════════════════════════════╣
 ║  Press Ctrl+C to stop all services                             ║
 ╚════════════════════════════════════════════════════════════════╝
-`);
+`;
+
+  console.log(servicesOutput);
 
   // Keep process alive
   await new Promise(() => {});

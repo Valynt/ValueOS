@@ -6,7 +6,7 @@
  */
 
 import { EventEmitter } from "events";
-import { logger } from "../logger";
+import { logger } from "../utils/logger.js";
 
 // ============================================================================
 // Types

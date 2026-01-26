@@ -27,7 +27,19 @@ const colors = {
 };
 
 function log(msg: string, color?: string) {
+  if (process.argv.includes("--json")) return;
   console.log(`${color || ""}${msg}${colors.reset}`);
+}
+
+function getCandidates(importPath: string, fromFile: string): string[] {
+  const dir = path.dirname(fromFile);
+  const basePath = importPath.endsWith(".js") ? importPath.slice(0, -3) : importPath;
+  return [
+    path.resolve(dir, basePath + ".ts"),
+    path.resolve(dir, basePath + ".tsx"),
+    path.resolve(dir, basePath, "index.ts"),
+    path.resolve(dir, basePath, "index.tsx")
+  ];
 }
 
 /**
@@ -123,14 +135,22 @@ async function validateImports(): Promise<boolean> {
 
   for (const file of files) {
     const imports = extractImports(file);
-    const missing: string[] = [];
+    const missing: any[] = [];
 
     for (const imp of imports) {
       if (!imp.startsWith(".")) continue; // Skip external packages
 
       const resolved = resolveImport(imp, file);
       if (!resolved) {
-        missing.push(imp);
+        if (process.argv.includes("--json")) {
+          const candidates = getCandidates(imp, file);
+          missing.push({
+            target: imp,
+            resolved: candidates.map(c => path.relative(projectRoot, c))
+          });
+        } else {
+          missing.push(imp);
+        }
       }
     }
 
@@ -138,6 +158,11 @@ async function validateImports(): Promise<boolean> {
       results.push({ file: path.relative(projectRoot, file), imports, missing });
       totalMissing += missing.length;
     }
+  }
+
+  if (process.argv.includes("--json")) {
+    console.log(JSON.stringify({ totalMissing, results }, null, 2));
+    return totalMissing === 0;
   }
 
   if (totalMissing === 0) {

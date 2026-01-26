@@ -75,6 +75,7 @@
     "db:repair": "supabase migration repair",
     "db:link": "supabase link --project-ref ${SUPABASE_PROJECT_ID}",
     "db:reset": "supabase db reset",
+    "db:seed": "tsx scripts/seed-demo-user.ts",
     "seed:demo": "tsx scripts/seed-demo-user.ts",
     "db:types": "supabase gen types typescript --workdir infra/supabase --local > packages/shared/src/types/index.ts",
     "db:types:remote": "supabase gen types typescript --workdir infra/supabase --linked > packages/shared/src/types/index.ts",

@@ -54,10 +54,10 @@ function runCapture(commandLine) {
 
 function printHelp() {
   console.log(`
-ValueOS Dev CLI
+ValueOS Dev CLI - Developer Experience Orchestrator
 
 Usage:
-  ./dev up [--mode local|docker] [--seed] [--skip-install]
+  ./dev up [--mode local|docker] [--seed] [--caddy] [--skip-install]
   ./dev down
   ./dev reset [--soft|--hard]
   ./dev doctor [--mode local|docker]
@@ -65,9 +65,28 @@ Usage:
   ./dev smoke-test [--mode local|docker]
   ./dev bundle [--mode local|docker]
 
+Orchestration Flow (./dev up):
+  1. dx:env         - Generate .env.local + .env.ports from config/ports.json
+  2. Preflight      - Docker, Node/pnpm, DATABASE_URL, ports
+  3. Docker deps    - Start postgres + redis (docker compose)
+  4. Supabase       - Start local Supabase (optional, falls back to dx postgres)
+  5. Migrations     - supabase db push against Supabase or dx postgres
+  6. Schema verify  - Regenerate TypeScript types (non-critical)
+  7. Backend        - tsx watch packages/backend/src/server.ts
+  8. Frontend       - pnpm --filter valynt-app dev (Vite)
+  9. Caddy          - HTTPS reverse proxy (optional, use --caddy)
+
+Recovery/Maintenance:
+  ./dev logs <service>  - Tail logs for a service
+  ./dev down            - Stop stack (Ctrl+C also works)
+  ./dev reset           - Reset stack (remove containers/volumes)
+  pnpm run dx:doctor    - Run preflight diagnostics
+  pnpm run dx:env:validate  - Validate environment files
+
 Flags:
   --mode           Set dx mode (local or docker)
   --seed           Seed database after migrations
+  --caddy          Enable Caddy HTTPS reverse proxy
   --skip-install   Skip pnpm install step
   --ci             CI mode (less verbose, no prompts)
   --auto-shift-ports  Auto-shift ports if conflicts are detected
