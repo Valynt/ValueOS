@@ -319,7 +319,7 @@ async function startDockerDeps(mode) {
           runCommand(`docker compose --env-file .env.ports -f ${composeFile} build --pull`, {
             silent: false,
           });
-        } catch (error: any) {
+        } catch (error) {
           const message = String(error?.message || "");
           if (message.includes("ERR_PNPM") || message.includes("pnpm") || message.includes("store")) {
             log.warn(
@@ -339,7 +339,7 @@ async function startDockerDeps(mode) {
     });
 
     log.success("Docker dependencies started");
-  } catch (error: any) {
+  } catch (error) {
     log.error("Failed to start Docker dependencies");
     console.error(String(error?.message || error));
     process.exit(1);
