@@ -541,6 +541,8 @@ function resetDockerDeps(level = "soft") {
 
 /**
  * Run database migrations
+ * 
+ * Step 5a/5b: Migrations against Supabase DB or dx postgres fallback
  */
 async function runMigrations() {
   log.info("Running database migrations...");
@@ -554,11 +556,11 @@ async function runMigrations() {
     const supabaseDbUrl = getSupabaseDbUrl();
 
     if (supabaseDbUrl) {
-      // Supabase is running, use its actual DB URL
+      // Step 5a: Supabase is running, use its actual DB URL
       command = `supabase db push --workdir infra/supabase --db-url "${supabaseDbUrl}"`;
-      log.info("Pushing migrations to Supabase-managed Postgres...");
+      log.info("Step 5a: Pushing migrations to Supabase-managed Postgres...");
     } else {
-      // Fall back to dx postgres container
+      // Step 5b: Fall back to dx postgres container
       let host = process.env.POSTGRES_HOST || "localhost";
       
       // In DevContainer environments, localhost doesn't work - use container IP
@@ -576,14 +578,16 @@ async function runMigrations() {
       
       const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable`;
       command = `supabase db push --workdir infra/supabase --db-url "${dbUrl}"`;
-      log.info(`Pushing migrations to dx postgres container (${host})...`);
+      log.info(`Step 5b: Pushing migrations to dx postgres container (${host})...`);
+    }
+
     traceLogger.info("Running migration command", { command });
     runCommand(command, { silent: false });
     log.success("Migrations applied");
     checkpointManager.commit(checkpoint);
-    traceLogger.stepSuccess("run_migrations", stepStart
-    // Use supabase db push for local development
-    runCommand(command, { silent: false });
+    traceLogger.stepSuccess("run_migrations", stepStart);
+    return { ok: true };
+  } catch (error) {
     traceLogger.stepError("run_migrations", error);
     const errorMessage = error.message || "";
     const lowered = errorMessage.toLowerCase();
@@ -602,9 +606,7 @@ async function runMigrations() {
       lowered.includes("no such host") ||
       lowered.includes("connection failed")
     ) {
-      log.error(formatError("ERR_004", { error: errorMessage })
-      lowered.includes("connection failed")
-    ) {
+      log.error(formatError("ERR_004", { error: errorMessage }));
       log.error("Migration failed due to connection error (fatal)");
       console.error(errorMessage);
       return { ok: false, error: errorMessage, fatal: true };
@@ -690,6 +692,88 @@ async function seedDatabase() {
     log.success("Database seeded");
   } catch (error) {
     log.warn("Seed failed (may be OK if already seeded)");
+  }
+}
+
+/**
+ * Check if Caddy is enabled
+ */
+function isCaddyEnabled() {
+  return (
+    process.env.DX_ENABLE_CADDY === "1" ||
+    process.env.DX_ENABLE_CADDY === "true" ||
+    process.argv.includes("--caddy")
+  );
+}
+
+/**
+ * Start Caddy reverse proxy (optional)
+ * Provides HTTPS reverse proxy + local domains
+ */
+async function startCaddy() {
+  if (!isCaddyEnabled()) {
+    log.info("Caddy disabled (use --caddy or DX_ENABLE_CADDY=1 to enable)");
+    return null;
+  }
+
+  log.info("Starting Caddy reverse proxy...");
+
+  const stepStart = traceLogger.stepStart("start_caddy");
+
+  try {
+    // Validate Caddyfile first
+    try {
+      runCommand(
+        'docker run --rm -v "$PWD/infra/caddy:/etc/caddy" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile.dev --adapter caddyfile',
+        { silent: true }
+      );
+      log.success("Caddyfile validated");
+    } catch (error) {
+      log.warn("Caddyfile validation failed (continuing anyway)");
+    }
+
+    // Start Caddy via Docker Compose
+    runCommand(
+      "docker compose --env-file .env.ports -f infra/docker/docker-compose.caddy.yml up -d",
+      { silent: false }
+    );
+
+    // Wait for Caddy to be healthy
+    const caddyAdminPort = resolvePort(process.env.CADDY_ADMIN_PORT, ports.edge.adminPort);
+    const caddyAdminUrl = `http://127.0.0.1:${caddyAdminPort}/config/`;
+
+    const healthy = await waitForHealth(caddyAdminUrl, 15000);
+    if (!healthy) {
+      log.warn("Caddy health check timed out (may still be starting)");
+    } else {
+      log.success("Caddy is healthy");
+    }
+
+    traceLogger.stepSuccess("start_caddy", stepStart);
+
+    return {
+      httpPort: resolvePort(process.env.CADDY_HTTP_PORT, ports.edge.httpPort),
+      httpsPort: resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort),
+    };
+  } catch (error) {
+    traceLogger.stepError("start_caddy", error);
+    log.warn("Failed to start Caddy (continuing without HTTPS proxy)");
+    console.error(error.message);
+    return null;
+  }
+}
+
+/**
+ * Stop Caddy
+ */
+function stopCaddy() {
+  try {
+    runCommand(
+      "docker compose --env-file .env.ports -f infra/docker/docker-compose.caddy.yml down",
+      { silent: true }
+    );
+  } catch {
+    // Ignore
   }
 }
 
@@ -807,6 +891,14 @@ function checkExistingSession() {
   } catch {
     clearDxState();
     return null;
+  }
+}
+
+/**
+ * Setup shutdown handler for graceful shutdown
+ */
+function setupShutdownHandler(services) {
+  const shutdown = () => {
     traceLogger.info("Shutdown initiated");
 
     services.forEach((proc) => {
@@ -832,16 +924,7 @@ function checkExistingSession() {
   process.on("exit", () => {
     clearDxState();
     traceLogger.close();
-  }
-    setTimeout(() => {
-      log.success("All services stopped");
-      process.exit(0);
-    }, 2000);
-  };
-
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-  process.on("exit", clearDxState);
+  });
 }
 
 /**
@@ -995,18 +1078,17 @@ async function main() {
   const backendPortInUse = await isPortInUse(backendPort);
 
   let backendProc = null;
-  if (backendPortInUse) { with deep validation
+  if (backendPortInUse) {
+    log.warn(
+      `Backend port ${backendPort} is already in use. Skipping backend start to avoid duplicates.`
+    );
+  } else {
+    backendProc = startBackend();
+    services.push(backendProc);
+  }
+
+  // Wait for backend to be healthy with deep validation
   const backendHealthUrl = `http://127.0.0.1:${backendPort}/health`;
-
-  log.info(`Waiting for backend at ${backendHealthUrl}...`);
-  await new Promise((resolve) => setTimeout(resolve, 3000)); // Initial delay
-
-  const backendHealthy = await waitForHealthWithRetries(backendHealthUrl, {
-    attempts: RETRY_ATTEMPTS,
-    timeout: 30000,
-  });
-  if (!backendHealthy) {
-    log.error(formatError("ERR_003", { healthUrl: backendHealthUrl })); = `http://127.0.0.1:${backendPort}/health`;
 
   log.info(`Waiting for backend at ${backendHealthUrl}...`);
   await new Promise((resolve) => setTimeout(resolve, 3000)); // Initial delay

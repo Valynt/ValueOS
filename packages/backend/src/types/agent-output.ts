@@ -1,0 +1,58 @@
+/**
+ * Agent Output Types
+ * 
+ * Standardized output structures from agent executions
+ */
+
+export interface AgentOutput {
+  agent_id: string;
+  agent_type: string;
+  execution_id: string;
+  status: AgentOutputStatus;
+  result: AgentResult;
+  metadata: AgentOutputMetadata;
+}
+
+export type AgentOutputStatus =
+  | 'success'
+  | 'partial_success'
+  | 'failure'
+  | 'timeout';
+
+export interface AgentResult {
+  data: Record<string, any>;
+  confidence: number;
+  reasoning?: string;
+  suggestions?: string[];
+  warnings?: string[];
+  errors?: AgentError[];
+}
+
+export interface AgentError {
+  code: string;
+  message: string;
+  severity: 'low' | 'medium' | 'high';
+  recoverable: boolean;
+}
+
+export interface AgentOutputMetadata {
+  execution_time_ms: number;
+  token_usage?: TokenUsage;
+  model_version: string;
+  timestamp: string;
+  retry_count: number;
+}
+
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  estimated_cost_usd?: number;
+}
+
+export interface AgentOutputValidation {
+  is_valid: boolean;
+  schema_version: string;
+  validation_errors: string[];
+  validated_at: string;
+}
