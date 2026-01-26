@@ -1,4 +1,4 @@
-import { createHistogram } from "./config/telemetry";
+import { createHistogram } from "../config/telemetry";
 import { logger } from "@shared/lib/logger";
 
 const WINDOW_SIZE = 120;
