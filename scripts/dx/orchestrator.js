@@ -78,6 +78,47 @@ function checkIsDevContainer() {
 }
 
 /**
+ * Run preflight checks to ensure DX can run successfully
+ */
+function runPreflightChecks() {
+  log.info("Running preflight checks...");
+
+  // Check Docker availability (platform-aware)
+  if (!checkDockerAvailable()) {
+    log.error("Docker is not available or not running");
+    if (checkIsDevContainer()) {
+      log.error("Fix: Ensure Docker socket is mounted in DevContainer");
+    } else {
+      log.error("Fix: Start Docker Desktop or install Docker Engine");
+    }
+    process.exit(1);
+  }
+  log.success("Docker available");
+
+  // Check DATABASE_URL is set
+  if (!process.env.DATABASE_URL) {
+    log.error("DATABASE_URL environment variable not set");
+    log.error("Fix: Run 'pnpm run dx:env' to generate environment files");
+    process.exit(1);
+  }
+  log.success("DATABASE_URL configured");
+
+  // Check Supabase availability if it should be running
+  const shouldRunSupabase =
+    process.env.DX_FORCE_SUPABASE === "1" ||
+    (process.env.DX_SKIP_SUPABASE !== "1" && checkDockerAvailable());
+
+  if (shouldRunSupabase && !isSupabaseRunning()) {
+    log.warn("Supabase should be running but is not available");
+    log.info("This may be OK if starting for the first time");
+  } else if (shouldRunSupabase) {
+    log.success("Supabase available");
+  } else {
+    log.info("Supabase skipped (using dx postgres)");
+  }
+}
+
+/**
  * Run a command and return output
  */
 function runCommand(command, options = {}) {
@@ -178,13 +219,17 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT) {
 }
 
 async function waitForHealthWithRetries(url, { attempts = RETRY_ATTEMPTS, timeout } = {}) {
-  return runWithRetries("Health check", async () => {
-    const healthy = await waitForHealth(url, timeout);
-    if (!healthy) {
-      throw new Error(`Health check failed for ${url}`);
-    }
-    return true;
-  }, { attempts }).catch(() => false);
+  return runWithRetries(
+    "Health check",
+    async () => {
+      const healthy = await waitForHealth(url, timeout);
+      if (!healthy) {
+        throw new Error(`Health check failed for ${url}`);
+      }
+      return true;
+    },
+    { attempts }
+  ).catch(() => false);
 }
 
 /**
@@ -200,17 +245,37 @@ function isSupabaseRunning() {
 }
 
 /**
+ * Get the Supabase database URL from status output
+ */
+function getSupabaseDbUrl() {
+  try {
+    const status = runCommand("pnpm supabase status", { silent: true });
+    const dbUrlMatch = status.match(/DB URL:\s*(postgresql:\/\/[^\s]+)/);
+    if (dbUrlMatch) {
+      // Append sslmode=disable for local development
+      return `${dbUrlMatch[1]}?sslmode=disable`;
+    }
+  } catch {
+    // Fall back to nothing
+  }
+  return null;
+}
+
+/**
  * Start Supabase
  */
 async function startSupabase() {
   log.info("Starting Supabase...");
 
-  // Skip Supabase in Docker-in-Docker environments where port forwarding doesn't work
-  const isDevContainer = checkIsDevContainer();
-
-  if (isDevContainer) {
-    log.warn("DevContainer detected - skipping Supabase (using dx postgres instead)");
-    log.info("Supabase doesn't work reliably in Docker-in-Docker environments");
+  // Check explicit override flags first
+  if (process.env.DX_FORCE_SUPABASE === "1") {
+    log.info("DX_FORCE_SUPABASE=1 detected - forcing Supabase startup");
+  } else if (process.env.DX_SKIP_SUPABASE === "1") {
+    log.warn("DX_SKIP_SUPABASE=1 detected - skipping Supabase");
+    log.info("Using valueos-postgres container on port 5432 for development");
+    return;
+  } else if (!checkDockerAvailable()) {
+    log.warn("Docker not available - skipping Supabase");
     log.info("Using valueos-postgres container on port 5432 for development");
     return;
   }
@@ -242,12 +307,14 @@ async function startSupabase() {
   console.log(`[debug] connecting to: ${supabaseUrl}`);
   log.info(`Waiting for Supabase API at ${supabaseUrl}...`);
 
-  // In DevContainer/Codespaces, Docker port forwarding may not work from shell
+  // In containerized environments, port forwarding may not work reliably from shell
   // but containers are accessible. Verify container is running instead.
-  // Note: isDevContainer already declared at function start
+  const isContainerized = checkIsDevContainer() || process.env.CONTAINER === "true";
 
-  if (isDevContainer) {
-    log.info("DevContainer detected - verifying Supabase container status instead of health check");
+  if (isContainerized) {
+    log.info(
+      "Container environment detected - verifying Supabase container status instead of health check"
+    );
     try {
       const containerStatus = runCommand(
         'docker ps --filter name=supabase_kong_ValueOS --format "{{.Status}}"',
@@ -255,7 +322,9 @@ async function startSupabase() {
       ).trim();
 
       if (containerStatus && containerStatus.includes("Up")) {
-        log.success("Supabase containers are running (health check skipped in DevContainer)");
+        log.success(
+          "Supabase containers are running (health check skipped in container environment)"
+        );
       } else {
         log.warn("Supabase Kong container is not running - continuing with dx postgres");
         // Don't exit - continue with dx postgres for testing
@@ -305,9 +374,7 @@ async function startDockerDeps(mode) {
   log.info("Starting Docker dependencies...");
 
   const composeFile =
-    mode === "docker"
-      ? "infra/docker/docker-compose.dev.yml"
-      : "docker-compose.deps.yml";
+    mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
 
   // In full docker mode, we want images current and builds reproducible.
   // For deps-only mode, do not force builds.
@@ -329,7 +396,11 @@ async function startDockerDeps(mode) {
           });
         } catch (error) {
           const message = String(error?.message || "");
-          if (message.includes("ERR_PNPM") || message.includes("pnpm") || message.includes("store")) {
+          if (
+            message.includes("ERR_PNPM") ||
+            message.includes("pnpm") ||
+            message.includes("store")
+          ) {
             log.warn(
               "Detected possible pnpm store/build cache corruption. Pruning Docker build cache before retry."
             );
@@ -385,8 +456,7 @@ function resetDockerDeps(level = "soft") {
 
   for (const file of composeFiles) {
     try {
-      const downArgs =
-        level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
+      const downArgs = level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
       runCommand(`docker compose --env-file .env.ports -f ${file} ${downArgs}`, {
         silent: true,
       });
@@ -413,14 +483,20 @@ async function runMigrations() {
   log.info("Running database migrations...");
 
   try {
-    // Determine command based on environment
+    // Determine command based on Supabase availability
     let command = "supabase db push";
-    if (checkIsDevContainer()) {
-      // In DevContainer, push directly to the postgres service
+    const supabaseDbUrl = getSupabaseDbUrl();
+
+    if (supabaseDbUrl) {
+      // Supabase is running, use its actual DB URL
+      command = `supabase db push --db-url "${supabaseDbUrl}"`;
+      log.info("Pushing migrations to Supabase-managed Postgres...");
+    } else {
+      // Fall back to dx postgres container
       const host = process.env.POSTGRES_HOST || "postgres";
-      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev`;
+      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable`;
       command = `supabase db push --db-url "${dbUrl}"`;
-      log.info(`Pushing migrations to DevContainer DB (${host})...`);
+      log.info(`Pushing migrations to dx postgres container (${host})...`);
     }
 
     // Use supabase db push for local development
@@ -428,9 +504,34 @@ async function runMigrations() {
     log.success("Migrations applied");
     return { ok: true };
   } catch (error) {
-    log.warn("Migration failed (may be OK if already applied)");
-    console.error(error.message);
-    return { ok: false, error: error.message || "" };
+    const errorMessage = error.message || "";
+    const lowered = errorMessage.toLowerCase();
+
+    // Distinguish error types
+    if (lowered.includes("already applied") || lowered.includes("up to date")) {
+      log.success("Migrations already applied (safe)");
+      return { ok: true };
+    } else if (
+      lowered.includes("connection refused") ||
+      lowered.includes("no such host") ||
+      lowered.includes("connection failed")
+    ) {
+      log.error("Migration failed due to connection error (fatal)");
+      console.error(errorMessage);
+      return { ok: false, error: errorMessage, fatal: true };
+    } else if (
+      lowered.includes("syntax error") ||
+      lowered.includes("relation") ||
+      lowered.includes("does not exist")
+    ) {
+      log.error("Migration failed due to schema error (fatal)");
+      console.error(errorMessage);
+      return { ok: false, error: errorMessage, fatal: true };
+    } else {
+      log.warn("Migration failed (unknown error - may be safe if already applied)");
+      console.error(errorMessage);
+      return { ok: false, error: errorMessage };
+    }
   }
 }
 
@@ -654,6 +755,9 @@ function setupShutdownHandler(services) {
 async function main() {
   const args = process.argv.slice(2);
 
+  // Run preflight checks
+  runPreflightChecks();
+
   // Handle --down
   if (args.includes("--down")) {
     stopDockerDeps();
@@ -731,16 +835,24 @@ async function main() {
   let dbInitAttempted = false;
   let migrationsResult = await runMigrations();
 
-  if (!migrationsResult.ok && shouldAutoInitDb(migrationsResult.error) && !dbInitAttempted) {
-    dbInitAttempted = true;
-    const initOk = await autoInitializeDb();
-    if (initOk) {
-      migrationsResult = await runMigrations();
-      if (migrationsResult.ok) {
-        log.success("Migrations succeeded after auto-initialization");
-        if (!args.includes("--seed")) {
-          log.info("Auto-seeding database after initialization");
-          await seedDatabase();
+  if (!migrationsResult.ok) {
+    // Check if this is a fatal error that shouldn't be auto-recovered
+    if (migrationsResult.fatal) {
+      log.error("Fatal migration error - cannot continue");
+      process.exit(1);
+    }
+
+    if (shouldAutoInitDb(migrationsResult.error) && !dbInitAttempted) {
+      dbInitAttempted = true;
+      const initOk = await autoInitializeDb();
+      if (initOk) {
+        migrationsResult = await runMigrations();
+        if (migrationsResult.ok) {
+          log.success("Migrations succeeded after auto-initialization");
+          if (!args.includes("--seed")) {
+            log.info("Auto-seeding database after initialization");
+            await seedDatabase();
+          }
         }
       }
     }

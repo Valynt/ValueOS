@@ -32,8 +32,7 @@ const mode = getFlagValue("--mode") || process.env.DX_MODE || "local";
 const seed = hasFlag("--seed");
 const skipInstall = hasFlag("--skip-install") || process.env.DX_SKIP_INSTALL === "true";
 const ci = hasFlag("--ci") || process.env.CI === "true";
-const autoShiftPorts =
-  hasFlag("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
+const autoShiftPorts = hasFlag("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
 const resetLevel = hasFlag("--hard") ? "hard" : "soft";
 const pnpmVersion = "9.15.0";
 
@@ -142,11 +141,16 @@ function applyPortsEnvOverrides() {
   });
 }
 
-
 async function main() {
   if (hasFlag("--help") || hasFlag("-h")) {
     printHelp();
     return;
+  }
+
+  // Hard-ban DX in CI builds
+  if (process.env.CI === "true") {
+    console.error("❌ DX must not run in CI. Use setup:ci and build commands instead.");
+    process.exit(1);
   }
 
   if (command === "doctor") {

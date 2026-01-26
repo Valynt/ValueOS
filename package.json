@@ -11,6 +11,8 @@
   "scripts": {
     "preinstall": "node scripts/dx/ensure-pnpm.js",
     "setup": "node scripts/dx/setup.js",
+    "setup:local": "node scripts/dx/setup.js",
+    "setup:ci": "node scripts/dx/setup-ci.js",
     "dx": "node scripts/dev-cli.js",
     "dx:docker": "node scripts/dev-cli.js up --mode docker",
     "dx:doctor": "node scripts/dx/doctor.js",

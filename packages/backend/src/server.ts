@@ -49,13 +49,32 @@ import { validateEnvOrThrow } from "./config/validateEnv";
 import { createLogger } from "@shared/lib/logger";
 import { createVersionedApiRouter } from "./versioning";
 import { initializeContext } from "@shared/lib/context";
-import { tracingMiddleware } from "./config/telemetry";
+
+// Conditionally import telemetry modules
+let tracingMiddleware = null;
+let latencyMetricsMiddleware = null;
+let metricsMiddleware = null;
+let getMetricsRegistry = null;
+let getLatencySnapshot = null;
+
+if (process.env.ENABLE_TELEMETRY !== "false") {
+  try {
+    const telemetryModule = await import("./config/telemetry");
+    tracingMiddleware = telemetryModule.tracingMiddleware;
+
+    const latencyModule = await import("./middleware/latencyMetricsMiddleware");
+    latencyMetricsMiddleware = latencyModule.latencyMetricsMiddleware;
+    getLatencySnapshot = latencyModule.getLatencySnapshot;
+
+    const metricsModule = await import("./middleware/metricsMiddleware");
+    metricsMiddleware = metricsModule.metricsMiddleware;
+    getMetricsRegistry = metricsModule.getMetricsRegistry;
+  } catch (error) {
+    console.warn("Telemetry modules not available, running without observability");
+  }
+}
+
 import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware";
-import {
-  getLatencySnapshot,
-  latencyMetricsMiddleware,
-} from "./middleware/latencyMetricsMiddleware";
-import { getMetricsRegistry, metricsMiddleware } from "./middleware/metricsMiddleware";
 import { createRateLimiter } from "./middleware/rateLimiter";
 import {
   requestIdMiddleware,
@@ -263,25 +282,37 @@ app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
-app.use(tracingMiddleware()); // Add tracing middleware early
-app.use(metricsMiddleware());
+
+// Conditionally add telemetry middleware
+if (tracingMiddleware) {
+  app.use(tracingMiddleware()); // Add tracing middleware early
+}
+if (metricsMiddleware) {
+  app.use(metricsMiddleware());
+}
+if (latencyMetricsMiddleware) {
+  app.use(latencyMetricsMiddleware());
+}
+
 app.use(requestAuditMiddleware());
-app.use(latencyMetricsMiddleware());
 
 // Health check
 app.use(healthRouter);
 
-// Prometheus metrics endpoint
-app.get("/metrics", async (_req: express.Request, res: express.Response) => {
-  const registry = getMetricsRegistry();
-  res.set("Content-Type", registry.contentType);
-  res.end(await registry.metrics());
-});
+// Conditionally add metrics endpoint
+if (getMetricsRegistry) {
+  app.get("/metrics", async (_req: express.Request, res: express.Response) => {
+    const registry = getMetricsRegistry();
+    res.set("Content-Type", registry.contentType);
+    res.end(await registry.metrics());
+  });
+}
 
-// Latency metrics snapshot
-app.get("/metrics/latency", (_req, res) => {
-  res.json({
-    routes: getLatencySnapshot(),
+// Conditionally add latency metrics endpoint
+if (typeof getLatencySnapshot === "function") {
+  app.get("/metrics/latency", (_req, res) => {
+    res.json({
+      routes: getLatencySnapshot(),
     timestamp: new Date().toISOString(),
   });
 });
