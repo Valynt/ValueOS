@@ -5,7 +5,7 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { featureFlags } from './services/FeatureFlags';
+import { featureFlags } from '../services/FeatureFlags';
 import { logger } from '../utils/logger.js'
 
 /**

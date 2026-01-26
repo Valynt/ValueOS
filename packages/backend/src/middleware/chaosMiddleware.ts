@@ -5,7 +5,7 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { chaosEngineering } from './services/ChaosEngineering';
+import { chaosEngineering } from '../services/ChaosEngineering';
 import { logger } from '../utils/logger.js'
 
 /**

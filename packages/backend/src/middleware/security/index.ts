@@ -96,7 +96,7 @@ export interface SecurityMiddlewareOptions {
  *
  * Usage:
  * ```typescript
- * import { createSecurityMiddleware } from './middleware/security';
+ * import { createSecurityMiddleware } from './index.js';
  *
  * const app = express();
  * app.use(createSecurityMiddleware({
@@ -191,7 +191,7 @@ export function apiSecurityMiddleware() {
  * Usage:
  * ```typescript
  * import express from 'express';
- * import { applySecurityMiddleware } from './middleware/security';
+ * import { applySecurityMiddleware } from './index.js';
  *
  * const app = express();
  * applySecurityMiddleware(app, {
