@@ -1,5 +1,9 @@
 # ValueOS Developer Experience (DX) Orchestration
 
+> ⚠️ **DRAFT - PENDING VALIDATION**
+> This document describes implementation that has not yet passed runtime proof.
+> Status will be updated after `./dev up` successfully shows "All Services Ready".
+
 This document describes the complete development environment orchestration flow for ValueOS.
 
 ## Quick Start

@@ -102,6 +102,7 @@
     "policy:check": "tsx scripts/architectural-rules.ts",
     "check:legacy-routes": "tsx scripts/check-legacy-routes-imports.ts",
     "ci:local": "bash .devcontainer/scripts/local-ci.sh",
+    "ci:infra-contract": "bash scripts/ci/infra-contract.sh",
     "ci:verify": "pnpm run lint && pnpm run typecheck && pnpm run check:legacy-routes && pnpm run lint:docs-paths && pnpm run test && pnpm run build",
     "db:validate": "tsx scripts/run-sql-file.ts supabase/tests/database/validate_all_fixes.sql",
     "db:validate-tenant-rls": "bash scripts/validate-tenant-rls.sh",

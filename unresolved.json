@@ -1,5 +1,5 @@
 {
-  "totalMissing": 81,
+  "totalMissing": 67,
   "results": [
     {
       "file": "packages/backend/src/__tests__/metrics.test.ts",
@@ -202,186 +202,6 @@
             "packages/backend/src/middleware/services/AuditLogService.tsx",
             "packages/backend/src/middleware/services/AuditLogService/index.ts",
             "packages/backend/src/middleware/services/AuditLogService/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/middleware/chaosMiddleware.ts",
-      "imports": [
-        "./services/ChaosEngineering",
-        "../utils/logger.js"
-      ],
-      "missing": [
-        {
-          "target": "./services/ChaosEngineering",
-          "resolved": [
-            "packages/backend/src/middleware/services/ChaosEngineering.ts",
-            "packages/backend/src/middleware/services/ChaosEngineering.tsx",
-            "packages/backend/src/middleware/services/ChaosEngineering/index.ts",
-            "packages/backend/src/middleware/services/ChaosEngineering/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/middleware/consentMiddleware.ts",
-      "imports": [
-        "./services/consentRegistry",
-        "../types/consent"
-      ],
-      "missing": [
-        {
-          "target": "./services/consentRegistry",
-          "resolved": [
-            "packages/backend/src/middleware/services/consentRegistry.ts",
-            "packages/backend/src/middleware/services/consentRegistry.tsx",
-            "packages/backend/src/middleware/services/consentRegistry/index.ts",
-            "packages/backend/src/middleware/services/consentRegistry/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/middleware/featureFlagMiddleware.ts",
-      "imports": [
-        "./services/FeatureFlags",
-        "../utils/logger.js"
-      ],
-      "missing": [
-        {
-          "target": "./services/FeatureFlags",
-          "resolved": [
-            "packages/backend/src/middleware/services/FeatureFlags.ts",
-            "packages/backend/src/middleware/services/FeatureFlags.tsx",
-            "packages/backend/src/middleware/services/FeatureFlags/index.ts",
-            "packages/backend/src/middleware/services/FeatureFlags/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/middleware/llmRateLimiter.ts",
-      "imports": [
-        "@shared/lib/redisClient",
-        "./services/RateLimitKeyService",
-        "./services/RedisCircuitBreaker",
-        "@shared/lib/logger"
-      ],
-      "missing": [
-        {
-          "target": "./services/RateLimitKeyService",
-          "resolved": [
-            "packages/backend/src/middleware/services/RateLimitKeyService.ts",
-            "packages/backend/src/middleware/services/RateLimitKeyService.tsx",
-            "packages/backend/src/middleware/services/RateLimitKeyService/index.ts",
-            "packages/backend/src/middleware/services/RateLimitKeyService/index.tsx"
-          ]
-        },
-        {
-          "target": "./services/RedisCircuitBreaker",
-          "resolved": [
-            "packages/backend/src/middleware/services/RedisCircuitBreaker.ts",
-            "packages/backend/src/middleware/services/RedisCircuitBreaker.tsx",
-            "packages/backend/src/middleware/services/RedisCircuitBreaker/index.ts",
-            "packages/backend/src/middleware/services/RedisCircuitBreaker/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/middleware/planEnforcementMiddleware.ts",
-      "imports": [
-        "./services/metering/UsageCache",
-        "./services/metering/GracePeriodService",
-        "./config/billing",
-        "@shared/lib/logger",
-        "./services/billing/SubscriptionService",
-        "@shared/lib/supabase"
-      ],
-      "missing": [
-        {
-          "target": "./services/metering/UsageCache",
-          "resolved": [
-            "packages/backend/src/middleware/services/metering/UsageCache.ts",
-            "packages/backend/src/middleware/services/metering/UsageCache.tsx",
-            "packages/backend/src/middleware/services/metering/UsageCache/index.ts",
-            "packages/backend/src/middleware/services/metering/UsageCache/index.tsx"
-          ]
-        },
-        {
-          "target": "./services/metering/GracePeriodService",
-          "resolved": [
-            "packages/backend/src/middleware/services/metering/GracePeriodService.ts",
-            "packages/backend/src/middleware/services/metering/GracePeriodService.tsx",
-            "packages/backend/src/middleware/services/metering/GracePeriodService/index.ts",
-            "packages/backend/src/middleware/services/metering/GracePeriodService/index.tsx"
-          ]
-        },
-        {
-          "target": "./config/billing",
-          "resolved": [
-            "packages/backend/src/middleware/config/billing.ts",
-            "packages/backend/src/middleware/config/billing.tsx",
-            "packages/backend/src/middleware/config/billing/index.ts",
-            "packages/backend/src/middleware/config/billing/index.tsx"
-          ]
-        },
-        {
-          "target": "./services/billing/SubscriptionService",
-          "resolved": [
-            "packages/backend/src/middleware/services/billing/SubscriptionService.ts",
-            "packages/backend/src/middleware/services/billing/SubscriptionService.tsx",
-            "packages/backend/src/middleware/services/billing/SubscriptionService/index.ts",
-            "packages/backend/src/middleware/services/billing/SubscriptionService/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/middleware/security/index.ts",
-      "imports": [
-        "./config",
-        "./cors",
-        "./headers",
-        "./middleware/security",
-        "./middleware/security"
-      ],
-      "missing": [
-        {
-          "target": "./middleware/security",
-          "resolved": [
-            "packages/backend/src/middleware/security/middleware/security.ts",
-            "packages/backend/src/middleware/security/middleware/security.tsx",
-            "packages/backend/src/middleware/security/middleware/security/index.ts",
-            "packages/backend/src/middleware/security/middleware/security/index.tsx"
-          ]
-        },
-        {
-          "target": "./middleware/security",
-          "resolved": [
-            "packages/backend/src/middleware/security/middleware/security.ts",
-            "packages/backend/src/middleware/security/middleware/security.tsx",
-            "packages/backend/src/middleware/security/middleware/security/index.ts",
-            "packages/backend/src/middleware/security/middleware/security/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/middleware/usageTrackingMiddleware.ts",
-      "imports": [
-        "./services/metering/UsageEmitter",
-        "@shared/lib/logger"
-      ],
-      "missing": [
-        {
-          "target": "./services/metering/UsageEmitter",
-          "resolved": [
-            "packages/backend/src/middleware/services/metering/UsageEmitter.ts",
-            "packages/backend/src/middleware/services/metering/UsageEmitter.tsx",
-            "packages/backend/src/middleware/services/metering/UsageEmitter/index.ts",
-            "packages/backend/src/middleware/services/metering/UsageEmitter/index.tsx"
           ]
         }
       ]
@@ -683,23 +503,6 @@
       ]
     },
     {
-      "file": "packages/backend/src/services/InputValidation.ts",
-      "imports": [
-        "../logger"
-      ],
-      "missing": [
-        {
-          "target": "../logger",
-          "resolved": [
-            "packages/backend/src/logger.ts",
-            "packages/backend/src/logger.tsx",
-            "packages/backend/src/logger/index.ts",
-            "packages/backend/src/logger/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
       "file": "packages/backend/src/services/ManifestoEnforcer.ts",
       "imports": [
         "../lib/logger.js",
@@ -888,23 +691,6 @@
             "packages/backend/src/lib/security/SDUISanitizer.tsx",
             "packages/backend/src/lib/security/SDUISanitizer/index.ts",
             "packages/backend/src/lib/security/SDUISanitizer/index.tsx"
-          ]
-        }
-      ]
-    },
-    {
-      "file": "packages/backend/src/services/SecurityMonitoringService.ts",
-      "imports": [
-        "../logger"
-      ],
-      "missing": [
-        {
-          "target": "../logger",
-          "resolved": [
-            "packages/backend/src/logger.ts",
-            "packages/backend/src/logger.tsx",
-            "packages/backend/src/logger/index.ts",
-            "packages/backend/src/logger/index.tsx"
           ]
         }
       ]
