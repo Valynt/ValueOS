@@ -57,11 +57,19 @@ function resolveImport(importPath: string, fromFile: string): string | null {
     return "alias-resolved";
   }
 
+  // Strip .js extension if present (ESM imports use .js but source files are .ts)
+  const basePath = importPath.endsWith(".js") 
+    ? importPath.slice(0, -3) 
+    : importPath;
+
   const candidates = [
-    path.resolve(dir, importPath + ".ts"),
-    path.resolve(dir, importPath + ".js"),
+    path.resolve(dir, basePath + ".ts"),
+    path.resolve(dir, basePath + ".tsx"),
+    path.resolve(dir, importPath), // Try exact path (might be directory or have extension)
+    path.resolve(dir, basePath, "index.ts"),
+    path.resolve(dir, basePath, "index.tsx"),
     path.resolve(dir, importPath, "index.ts"),
-    path.resolve(dir, importPath, "index.js"),
+    path.resolve(dir, importPath, "index.tsx"),
   ];
 
   for (const candidate of candidates) {
