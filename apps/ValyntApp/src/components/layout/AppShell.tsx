@@ -5,7 +5,7 @@
  * Based on ValueOS UX design spec.
  */
 
-import React, { useState } from "react";
+import React, { useState, useId } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   Home,
@@ -63,11 +63,14 @@ const NavItemWithSubmenu = ({ icon, label, basePath, children }: NavItemWithSubm
   const location = useLocation();
   const isActive = location.pathname.startsWith(basePath);
   const [isOpen, setIsOpen] = useState(isActive);
+  const submenuId = useId();
 
   return (
     <div>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-controls={submenuId}
         className={cn(
           "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors",
           isActive
@@ -85,7 +88,10 @@ const NavItemWithSubmenu = ({ icon, label, basePath, children }: NavItemWithSubm
         />
       </button>
       {isOpen && (
-        <div className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-3">
+        <div
+          id={submenuId}
+          className="ml-4 mt-1 space-y-1 border-l border-slate-700 pl-3"
+        >
           {children.map((child) => (
             <NavLink
               key={child.to}
@@ -153,6 +159,12 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        Skip to main content
+      </a>
       {/* Sidebar */}
       <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col">
         {/* Logo */}
@@ -232,10 +244,14 @@ export function AppShell() {
                 <input
                   type="text"
                   placeholder="Search (⌘K)"
+                  aria-label="Search"
                   className="pl-9 pr-4 py-1.5 w-64 rounded-md border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
               </div>
-              <button className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg">
+              <button
+                className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
+                aria-label="Notifications"
+              >
                 <Bell size={20} />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               </button>
@@ -244,7 +260,7 @@ export function AppShell() {
         )}
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-slate-50">
+        <main id="main-content" className="flex-1 overflow-auto bg-slate-50">
           <Outlet />
         </main>
       </div>
