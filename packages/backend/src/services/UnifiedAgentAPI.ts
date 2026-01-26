@@ -22,7 +22,7 @@ import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
 import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
 import { AgentType } from "./agent-types";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
-import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
+import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,

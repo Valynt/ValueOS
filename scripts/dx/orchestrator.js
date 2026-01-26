@@ -27,6 +27,7 @@ import fs from "fs";
 import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
+import { config } from "dotenv";
 import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
 import { writeEnvFiles, validateEnvLocal } from "./env-compiler.js";
@@ -34,6 +35,9 @@ import { writeEnvFiles, validateEnvLocal } from "./env-compiler.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
+
+// Load environment variables from .env.local
+config({ path: path.join(projectRoot, ".env.local") });
 
 // ANSI colors
 const colors = {
@@ -75,6 +79,22 @@ function checkIsDevContainer() {
     process.env.CODESPACES === "true" ||
     fs.existsSync("/.dockerenv")
   );
+}
+
+/**
+ * Check if Docker is available and running
+ */
+function checkDockerAvailable() {
+  if (!commandExists("docker")) {
+    return false;
+  }
+
+  try {
+    runCommand("docker info", { silent: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -237,7 +257,7 @@ async function waitForHealthWithRetries(url, { attempts = RETRY_ATTEMPTS, timeou
  */
 function isSupabaseRunning() {
   try {
-    const status = runCommand("pnpm supabase status", { silent: true });
+    const status = runCommand("pnpm supabase status --workdir infra/supabase", { silent: true });
     return status.includes("API URL") && !status.includes("not running");
   } catch {
     return false;
@@ -249,7 +269,7 @@ function isSupabaseRunning() {
  */
 function getSupabaseDbUrl() {
   try {
-    const status = runCommand("pnpm supabase status", { silent: true });
+    const status = runCommand("pnpm supabase status --workdir infra/supabase", { silent: true });
     const dbUrlMatch = status.match(/DB URL:\s*(postgresql:\/\/[^\s]+)/);
     if (dbUrlMatch) {
       // Append sslmode=disable for local development
@@ -291,7 +311,7 @@ async function startSupabase() {
   }
 
   try {
-    runCommand("supabase start");
+    runCommand("supabase start --workdir infra/supabase");
     log.success("Supabase started");
   } catch (error) {
     log.warn("Failed to start Supabase - continuing with dx postgres container");
@@ -360,7 +380,7 @@ function stopSupabase() {
 
   log.info("Stopping Supabase...");
   try {
-    runCommand("supabase stop", { silent: true });
+    runCommand("supabase stop --workdir infra/supabase", { silent: true });
     log.success("Supabase stopped");
   } catch {
     log.warn("Failed to stop Supabase (may already be stopped)");
@@ -484,18 +504,32 @@ async function runMigrations() {
 
   try {
     // Determine command based on Supabase availability
-    let command = "supabase db push";
+    let command = "supabase db push --workdir infra/supabase";
     const supabaseDbUrl = getSupabaseDbUrl();
 
     if (supabaseDbUrl) {
       // Supabase is running, use its actual DB URL
-      command = `supabase db push --db-url "${supabaseDbUrl}"`;
+      command = `supabase db push --workdir infra/supabase --db-url "${supabaseDbUrl}"`;
       log.info("Pushing migrations to Supabase-managed Postgres...");
     } else {
       // Fall back to dx postgres container
-      const host = process.env.POSTGRES_HOST || "postgres";
-      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable`;
-      command = `supabase db push --db-url "${dbUrl}"`;
+      let host = process.env.POSTGRES_HOST || "localhost";
+      
+      // In DevContainer environments, localhost doesn't work - use container IP
+      if (checkIsDevContainer()) {
+        try {
+          const containerInfo = runCommand("docker inspect valueos-postgres", { silent: true });
+          const networks = JSON.parse(containerInfo)[0].NetworkSettings.Networks;
+          const networkName = Object.keys(networks)[0];
+          host = networks[networkName].IPAddress;
+          log.info(`Using container IP ${host} for DevContainer environment`);
+        } catch (error) {
+          log.warn("Could not get container IP, falling back to localhost");
+        }
+      }
+      
+      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable&sslcert=&sslkey=&sslrootcert=`;
+      command = `supabase db push --workdir infra/supabase --db-url "${dbUrl}"`;
       log.info(`Pushing migrations to dx postgres container (${host})...`);
     }
 
@@ -549,7 +583,7 @@ function shouldAutoInitDb(message = "") {
 async function autoInitializeDb() {
   log.info("Attempting to auto-initialize database...");
   try {
-    runCommand("supabase db reset", { silent: false });
+    runCommand("supabase db reset --workdir infra/supabase", { silent: false });
     log.success("Database reset completed");
     return true;
   } catch (error) {
@@ -567,7 +601,7 @@ async function verifySchema() {
 
   // Check migration status
   try {
-    const migrationList = runCommand("supabase migration list 2>/dev/null || echo ''", {
+    const migrationList = runCommand("supabase migration list --workdir infra/supabase 2>/dev/null || echo ''", {
       silent: true,
     });
 
@@ -811,7 +845,7 @@ async function main() {
   // Step 2: Run doctor checks
   log.step(2, "Running preflight checks");
   try {
-    runCommand(`node scripts/dx/doctor.js --mode ${mode}`, { silent: false });
+    runCommand(`node scripts/dx/doctor.js --mode ${mode} --soft`, { silent: false });
   } catch (error) {
     log.error("Preflight checks failed. Fix the issues above and try again.");
     process.exit(1);

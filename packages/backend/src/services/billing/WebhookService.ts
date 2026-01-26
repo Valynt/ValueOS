@@ -8,7 +8,7 @@ import StripeService from "./StripeService";
 import InvoiceService from "./InvoiceService";
 import { STRIPE_CONFIG } from "../../config/billing";
 import { createLogger } from "../../lib/logger";
-import { getSupabaseConfig } from "../../lib/env";
+import { getSupabaseConfig } from "@shared/lib/env";
 import {
   recordBillingJobFailure,
   recordInvoiceEvent,

@@ -8,8 +8,8 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 
 // Re-export requireRole from rbac for convenience
 export { requireRole } from './rbac';
-import { authService } from './services/AuthService';
-import { AuthenticationError } from './services/errors';
+import { authService } from '../services/AuthService';
+import { AuthenticationError } from '../services/errors';
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
 import { createRequestSupabaseClient, getSupabaseClient } from '@shared/lib/supabase';

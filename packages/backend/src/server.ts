@@ -313,10 +313,10 @@ if (typeof getLatencySnapshot === "function") {
   app.get("/metrics/latency", (_req, res) => {
     res.json({
       routes: getLatencySnapshot(),
-    timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+    });
   });
-});
-
+}
 // CSP Reporting Endpoint
 app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
 

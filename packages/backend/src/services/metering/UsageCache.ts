@@ -7,7 +7,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { BILLING_METRICS, USAGE_CACHE_TTL } from "../../config/billing";
 import type { BillingMetric } from "../../config/billing";
 import { createLogger } from "../../lib/logger";
-import { getEnvVar, getSupabaseConfig } from "../../lib/env";
+import { getEnvVar, getSupabaseConfig } from "@shared/lib/env";
 import Redis, { type RedisClientType } from "redis";
 
 // Constants
