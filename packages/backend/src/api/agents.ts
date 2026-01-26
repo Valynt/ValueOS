@@ -10,7 +10,7 @@ import { getEventSourcingService } from "../services/EventSourcingService";
 import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "@shared/types/events";
 import { AgentType } from "../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
-import { getServiceConfigManager, getAgentAPIConfig } from "./config/ServiceConfigManager";
+import { getServiceConfigManager, getAgentAPIConfig } from "../config/ServiceConfigManager";
 import { z } from "zod";
 import { agentCache } from "../services/CacheService";
 import { getMetricsCollector } from "../services/MetricsCollector";
