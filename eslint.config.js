@@ -199,6 +199,18 @@ const baseConfig = {
       },
     ],
 
+    // ESM Import Rules - Permanent safeguards against import resolution issues
+    // CRITICAL: These prevent .js extension mismatches and unresolved imports
+    "import/no-unresolved": "error",  // Fail on imports that don't resolve
+    "import/order": [
+      "warn",
+      {
+        groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "newlines-between": "always",
+        alphabeticalOrder: true,
+      },
+    ],
+
     // Disallow JSX inline styles and direct llmGateway.complete calls
     "no-restricted-syntax": [
       "error",

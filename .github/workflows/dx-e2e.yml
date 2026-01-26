@@ -38,8 +38,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate imports
-        run: pnpm run dx:validate-imports
+      - name: Validate imports (strict - must have zero unresolved)
+        run: |
+          output=$(pnpm run dx:validate-imports 2>&1)
+          echo "$output"
+          if echo "$output" | grep -q "unresolved imports"; then
+            echo "❌ FAILED: Unresolved imports detected"
+            echo "This indicates missing implementations, not a build issue."
+            echo "See docs/DX_IMPORT_STRATEGY.md for how to fix properly (no stubs)."
+            exit 1
+          fi
+          echo "✅ All imports validated"
 
       - name: Run module contract tests
         run: pnpm test packages/backend/src/__tests__/module-contracts.test.ts
