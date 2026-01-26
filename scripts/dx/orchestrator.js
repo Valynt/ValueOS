@@ -67,6 +67,17 @@ const RETRY_ATTEMPTS = 3;
 const RETRY_BASE_DELAY = 2000;
 
 /**
+ * Check if running in a DevContainer environment
+ */
+function checkIsDevContainer() {
+  return (
+    process.env.REMOTE_CONTAINERS === "true" ||
+    process.env.CODESPACES === "true" ||
+    fs.existsSync("/.dockerenv")
+  );
+}
+
+/**
  * Run a command and return output
  */
 function runCommand(command, options = {}) {
@@ -195,10 +206,7 @@ async function startSupabase() {
   log.info("Starting Supabase...");
 
   // Skip Supabase in Docker-in-Docker environments where port forwarding doesn't work
-  const isDevContainer =
-    process.env.REMOTE_CONTAINERS === "true" ||
-    process.env.CODESPACES === "true" ||
-    fs.existsSync("/.dockerenv");
+  const isDevContainer = checkIsDevContainer();
 
   if (isDevContainer) {
     log.warn("DevContainer detected - skipping Supabase (using dx postgres instead)");
@@ -405,8 +413,18 @@ async function runMigrations() {
   log.info("Running database migrations...");
 
   try {
+    // Determine command based on environment
+    let command = "supabase db push";
+    if (checkIsDevContainer()) {
+      // In DevContainer, push directly to the postgres service
+      const host = process.env.POSTGRES_HOST || "postgres";
+      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev`;
+      command = `supabase db push --db-url "${dbUrl}"`;
+      log.info(`Pushing migrations to DevContainer DB (${host})...`);
+    }
+
     // Use supabase db push for local development
-    runCommand("supabase db push", { silent: false });
+    runCommand(command, { silent: false });
     log.success("Migrations applied");
     return { ok: true };
   } catch (error) {
