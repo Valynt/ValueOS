@@ -5,7 +5,7 @@
  * automated compliance checking, and enhanced audit trails for enterprise security.
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";

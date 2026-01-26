@@ -4,16 +4,16 @@
  */
 
 import express from 'express';
-import subscriptionsRouter from './subscriptions';
-import usageRouter from './usage';
-import invoicesRouter from './invoices';
-import webhooksRouter from './webhooks';
-import { securityHeadersMiddleware } from '../../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware';
-import { requirePermission } from '../../middleware/rbac';
-import { requireAuth } from '../../middleware/auth';
-import { tenantContextMiddleware } from '../../middleware/tenantContext';
-import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext';
+import subscriptionsRouter from './subscriptions.js'
+import usageRouter from './usage.js'
+import invoicesRouter from './invoices.js'
+import webhooksRouter from './webhooks.js'
+import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.js'
+import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js'
+import { requirePermission } from '../../middleware/rbac.js'
+import { requireAuth } from '../../middleware/auth.js'
+import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
+import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 
 const router = express.Router();
 

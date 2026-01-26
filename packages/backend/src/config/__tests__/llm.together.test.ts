@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { llmConfig, semanticMemoryConfig } from "../llm";
+import { llmConfig, semanticMemoryConfig } from "../llm.js"
 
 describe("Together AI Configuration", () => {
   describe("Provider Configuration", () => {

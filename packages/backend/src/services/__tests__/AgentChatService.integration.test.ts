@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AgentChatService } from '../AgentChatService';
+import { AgentChatService } from '../AgentChatService.js'
 import { WorkflowStateRepository } from '../../repositories/WorkflowStateRepository';
 
 // Mocks

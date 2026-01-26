@@ -1,5 +1,5 @@
-import { createCounter, createHistogram } from '../../config/telemetry';
-import { createLogger } from '../../lib/logger';
+import { createCounter, createHistogram } from '../../config/telemetry.js'
+import { createLogger } from '../../lib/logger.js'
 import { getRedisClient } from '../../lib/redisClient';
 
 const logger = createLogger({ component: 'tenant-cache' });

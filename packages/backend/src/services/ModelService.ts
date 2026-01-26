@@ -11,9 +11,9 @@ import { ValueTreeNodeRepository } from "../repositories/ValueTreeNodeRepository
 import { ValueTreeLinkRepository } from "../repositories/ValueTreeLinkRepository";
 import { RoiModelCalculationRepository } from "../repositories/RoiModelCalculationRepository";
 import { ValueCommitRepository } from "../repositories/ValueCommitRepository";
-import { auditLogService } from "./AuditLogService";
-import { userSettingsService } from "./UserSettingsService";
-import { logger } from "../lib/logger";
+import { auditLogService } from "./AuditLogService.js"
+import { userSettingsService } from "./UserSettingsService.js"
+import { logger } from "../lib/logger.js"
 
 export class ModelService {
   private context: LifecycleContext;

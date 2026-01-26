@@ -5,10 +5,10 @@
  * and CRM data (HubSpot, Salesforce).
  */
 
-import type { LLMTool } from '../lib/agent-fabric/llm-types';
-import { mcpGroundTruthService } from './MCPGroundTruthService';
+import type { LLMTool } from '../lib/agent-fabric/llm-types.js'
+import { mcpGroundTruthService } from './MCPGroundTruthService.js'
 import { CRM_TOOLS, getMCPCRMServer } from '@mcp/crm';
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 
 // ============================================================================
 // Tool Definitions

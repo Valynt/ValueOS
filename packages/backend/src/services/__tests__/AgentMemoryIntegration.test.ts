@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AgentMemoryIntegration } from '../AgentMemoryIntegration';
+import { AgentMemoryIntegration } from '../AgentMemoryIntegration.js'
 
 // Mock dependencies
 vi.mock('../AgentAPI');

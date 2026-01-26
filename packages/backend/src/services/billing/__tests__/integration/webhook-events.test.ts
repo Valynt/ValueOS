@@ -18,7 +18,7 @@ import {
   createSubscription,
   createWebhookEvent,
 } from "../__helpers__/billing-factories";
-import { createMockStripeEvent } from "../__helpers__/stripe-mocks";
+import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Webhook Event Processing E2E Tests", () => {

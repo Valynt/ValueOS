@@ -5,7 +5,7 @@
  * Uses VM2 for sandboxing with strict timeout and memory limits.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 
 /**
  * Sandbox configuration

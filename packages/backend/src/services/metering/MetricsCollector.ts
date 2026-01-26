@@ -4,9 +4,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { BillingMetric } from '../../config/billing';
+import { BillingMetric } from '../../config/billing.js'
 import { UsageSummary } from '../../types/billing';
-import { createLogger } from '../../lib/logger';
+import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'MetricsCollector' });
 

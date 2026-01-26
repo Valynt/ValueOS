@@ -27,11 +27,11 @@ import {
   ConflictError,
   DatabaseError,
 } from './repository';
-import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth';
-import { tenantContextMiddleware } from '../../middleware/tenantContext';
-import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext';
-import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter';
-import { logger } from '../../lib/logger';
+import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js'
+import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
+import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
+import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js'
+import { logger } from '../../lib/logger.js'
 
 // ============================================================================
 // Router Setup

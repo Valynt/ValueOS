@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import router from './auth';
+import router from './auth.js'
 
 describe('auth api router', () => {
   const app = express().use('/api/auth', router);

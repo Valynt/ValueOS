@@ -1,4 +1,4 @@
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { CanvasComponent } from '../types';
 import { createCurrencyBinding, createMetricBinding, createPercentageBinding } from '@sdui/DataBindingSchema';
 

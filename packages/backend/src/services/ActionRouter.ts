@@ -5,7 +5,7 @@
  * Enforces governance, validates actions, and routes to appropriate handlers.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import {
   ActionContext,
   ActionHandler,
@@ -16,19 +16,19 @@ import {
   ValidationResult,
 } from '../types/sdui-integration';
 import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
-import { AuditLogService } from './AuditLogService';
-import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
-import { AgentAPI, getAgentAPI } from './AgentAPI';
-import { ComponentMutationService } from './ComponentMutationService';
-import { manifestoEnforcer } from './ManifestoEnforcer';
-import { atomicActionExecutor } from './AtomicActionExecutor';
-import { canvasSchemaService } from './CanvasSchemaService';
+import { AuditLogService } from './AuditLogService.js'
+import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator.js'
+import { AgentAPI, getAgentAPI } from './AgentAPI.js'
+import { ComponentMutationService } from './ComponentMutationService.js'
+import { manifestoEnforcer } from './ManifestoEnforcer.js'
+import { atomicActionExecutor } from './AtomicActionExecutor.js'
+import { canvasSchemaService } from './CanvasSchemaService.js'
 import { EnforcementResult, enforceRules } from '../lib/rules';
-import { workspaceStateService } from './WorkspaceStateService';
-import { ValueTreeService, LifecycleContext } from './ValueTreeService';
-import { getSupabaseClient } from '../lib/supabase';
+import { workspaceStateService } from './WorkspaceStateService.js'
+import { ValueTreeService, LifecycleContext } from './ValueTreeService.js'
+import { getSupabaseClient } from '../lib/supabase.js'
 import { SDUIPageDefinition } from '@sdui/schema';
-import { assumptionService } from './AssumptionService';
+import { assumptionService } from './AssumptionService.js'
 import {
   exportToPDF,
   exportToPNG,

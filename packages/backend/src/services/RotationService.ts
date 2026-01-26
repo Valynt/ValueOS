@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto';
-import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
-import { auditLogService } from './AuditLogService';
-import type { ISecretProvider, SecretMetadata, SecretValue } from '../config/secrets/ISecretProvider';
+import { logger } from '../lib/logger.js'
+import { BaseService } from './BaseService.js'
+import { auditLogService } from './AuditLogService.js'
+import type { ISecretProvider, SecretMetadata, SecretValue } from '../config/secrets/ISecretProvider.js'
 
 export interface DualUserSecret {
   activeUser: 'primary' | 'secondary';

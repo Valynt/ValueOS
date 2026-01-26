@@ -8,7 +8,7 @@
  * Based on the Configuration & Settings Matrix specification
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 
 /**
  * Access level for configuration settings

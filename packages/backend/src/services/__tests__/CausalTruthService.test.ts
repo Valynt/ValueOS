@@ -2,7 +2,7 @@
  * CausalTruthService Tests
  */
 
-import { CausalTruthService } from "../CausalTruthService";
+import { CausalTruthService } from "../CausalTruthService.js"
 
 describe("CausalTruthService", () => {
   let service: CausalTruthService;

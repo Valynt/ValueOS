@@ -9,9 +9,9 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
-import { log } from '../lib/logger';
-import { SecurityEvent } from './AdvancedThreatDetectionService';
+import { TenantAwareService } from './TenantAwareService.js'
+import { log } from '../lib/logger.js'
+import { SecurityEvent } from './AdvancedThreatDetectionService.js'
 
 // ML Model interfaces
 export interface AnomalyDetectionResult {

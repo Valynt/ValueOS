@@ -14,8 +14,8 @@ import {
   ToolExecutionResult,
   ValidationError,
 } from "./types";
-import { BfaTelemetry } from "./telemetry";
-import { logger } from "../../lib/logger";
+import { BfaTelemetry } from "./telemetry.js"
+import { logger } from "../../lib/logger.js"
 
 /**
  * Abstract base class for semantic tools

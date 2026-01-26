@@ -6,8 +6,8 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger';
-import { getMetricsCollector } from './MetricsCollector';
+import { logger } from '../lib/logger.js'
+import { getMetricsCollector } from './MetricsCollector.js'
 
 export interface ValuePrediction {
   id: string;

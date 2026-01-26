@@ -4,7 +4,7 @@
  * Production-grade logging with correlation IDs and safe metadata.
  */
 
-import { redactSensitiveData } from "./redaction";
+import { redactSensitiveData } from "./redaction.js"
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 

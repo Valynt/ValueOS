@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRateLimiter, getRateLimitKey } from '../rateLimiter';
+import { createRateLimiter, getRateLimitKey } from '../rateLimiter.js'
 
 const mockReq = (overrides: any = {}) => {
   const headers = overrides.headers || {};

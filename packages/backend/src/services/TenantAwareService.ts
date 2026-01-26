@@ -5,9 +5,9 @@
  * Provides defense-in-depth tenant isolation even if RLS fails.
  */
 
-import { BaseService } from "./BaseService";
-import { AuthorizationError, ValidationError } from "./errors";
-import { createLogger } from "../lib/logger";
+import { BaseService } from "./BaseService.js"
+import { AuthorizationError, ValidationError } from "./errors.js"
+import { createLogger } from "../lib/logger.js"
 
 const logger = createLogger({ component: "TenantAwareService" });
 

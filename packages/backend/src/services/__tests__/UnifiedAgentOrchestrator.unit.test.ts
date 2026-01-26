@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';
+import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator.js'
 
 const envelope = {
   intent: 'unit-test',

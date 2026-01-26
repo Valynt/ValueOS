@@ -37,6 +37,22 @@ Start only the frontend (requires backend/services already running):
 pnpm run dev
 ```
 
+## Demo credentials
+
+The local setup seeds a demo tenant and user for development convenience. After running `pnpm run setup` (which applies migrations and seeds) or `pnpm run dx -- --seed`, the following credentials are available:
+
+- **Email:** demouser@valynt.com
+- **Password:** passw0rd! (default — must be at least 8 characters)
+
+To override the demo password, set `DEMO_USER_PASSWORD` before running the seed step:
+
+```bash
+export DEMO_USER_PASSWORD='your-strong-pass1!'
+pnpm run seed:demo
+```
+
+Do not use these demo credentials in production environments.
+
 ## Common scripts
 
 Run these from the repo root.

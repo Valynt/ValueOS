@@ -5,10 +5,10 @@
  * Provides saga pattern integration with compensation
  */
 
-import { LifecycleContext, LifecycleStage, StageResult, ValueLifecycleOrchestrator } from './ValueLifecycleOrchestrator';
-import { WorkflowCompensation } from './WorkflowCompensation';
+import { LifecycleContext, LifecycleStage, StageResult, ValueLifecycleOrchestrator } from './ValueLifecycleOrchestrator.js'
+import { WorkflowCompensation } from './WorkflowCompensation.js'
 import { WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { SupabaseClient } from '@supabase/supabase-js';
 
 /**

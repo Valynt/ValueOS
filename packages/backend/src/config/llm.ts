@@ -1,4 +1,4 @@
-import type { LLMProvider } from "../lib/agent-fabric/llm-types";
+import type { LLMProvider } from "../lib/agent-fabric/llm-types.js"
 import type { LLMGatingConfig } from "../lib/llm-gating/types";
 import { DEFAULT_GATING_CONFIG } from "../lib/llm-gating/types";
 

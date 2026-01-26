@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CacheService } from '../CacheService';
+import { CacheService } from '../CacheService.js'
 
 // Mock redis
 const mockDel = vi.fn().mockResolvedValue(1);

@@ -4,7 +4,7 @@
  * Enhanced version of LLMFallback with distributed tracing
  */
 
-import { LLMFallbackService, LLMRequest, LLMResponse } from './LLMFallback';
+import { LLMFallbackService, LLMRequest, LLMResponse } from './LLMFallback.js'
 import {
   addSpanAttributes,
   addSpanEvent,
@@ -12,7 +12,7 @@ import {
   metrics,
   traceLLMOperation
 } from '../config/telemetry';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js'
 
 export class LLMFallbackServiceWithTracing extends LLMFallbackService {
   /**

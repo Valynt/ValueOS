@@ -1,19 +1,19 @@
 import { Request, Response, Router } from "express";
-import { modelCardService } from "../services/ModelCardService";
-import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
-import { rateLimiters } from "../middleware/rateLimiter";
-import { validateRequest } from "../middleware/inputValidation";
+import { modelCardService } from "../services/ModelCardService.js"
+import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
+import { rateLimiters } from "../middleware/rateLimiter.js"
+import { validateRequest } from "../middleware/inputValidation.js"
 import { logger } from "@shared/lib/logger";
-import { requirePermission } from "../middleware/rbac";
-import { getEventProducer } from "../services/EventProducer";
-import { getEventSourcingService } from "../services/EventSourcingService";
+import { requirePermission } from "../middleware/rbac.js"
+import { getEventProducer } from "../services/EventProducer.js"
+import { getEventSourcingService } from "../services/EventSourcingService.js"
 import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "@shared/types/events";
-import { AgentType } from "../services/agent-types";
+import { AgentType } from "../services/agent-types.js"
 import { v4 as uuidv4 } from "uuid";
-import { getServiceConfigManager, getAgentAPIConfig } from "../config/ServiceConfigManager";
+import { getServiceConfigManager, getAgentAPIConfig } from "../config/ServiceConfigManager.js"
 import { z } from "zod";
-import { agentCache } from "../services/CacheService";
-import { getMetricsCollector } from "../services/MetricsCollector";
+import { agentCache } from "../services/CacheService.js"
+import { getMetricsCollector } from "../services/MetricsCollector.js"
 
 const router = Router();
 router.use(securityHeadersMiddleware);

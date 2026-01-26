@@ -10,7 +10,7 @@
  */
 
 import { z, ZodType, ZodTypeDef } from 'zod';
-import { sanitizeString, sanitizeForLog, sanitizeForPrompt } from './sanitize';
+import { sanitizeString, sanitizeForLog, sanitizeForPrompt } from './sanitize.js'
 import {
   normalizeEmail,
   normalizePhone,
@@ -19,7 +19,7 @@ import {
   normalizeName,
   normalizeUrl,
 } from './normalizers';
-import { SafePatterns, isValidEmail, isValidUuid, analyzeRegexSafety } from './safeRegex';
+import { SafePatterns, isValidEmail, isValidUuid, analyzeRegexSafety } from './safeRegex.js'
 
 // ============================================================================
 // Field Size Limits

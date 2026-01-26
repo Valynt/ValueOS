@@ -9,8 +9,8 @@
  * - Business metrics
  */
 
-import { createCounter, createHistogram, createObservableGauge } from '../lib/observability';
-import { logger } from '../lib/logger';
+import { createCounter, createHistogram, createObservableGauge } from '../lib/observability/index.js'
+import { logger } from '../lib/logger.js'
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface AgentMetrics {

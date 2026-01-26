@@ -6,7 +6,7 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { chaosEngineering } from './services/ChaosEngineering';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js'
 
 /**
  * Middleware to inject chaos into requests

@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { academyService } from '../AcademyService';
-import { supabase } from '../../lib/supabase';
+import { academyService } from '../AcademyService.js'
+import { supabase } from '../../lib/supabase.js'
 
 // Mock dependencies
 vi.mock('../../lib/supabase', () => ({

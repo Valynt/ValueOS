@@ -6,9 +6,9 @@
  */
 
 import { Kafka, Consumer, Producer, EachMessagePayload, logLevel } from "kafkajs";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { BaseEvent } from "@shared/types/events";
-import { tenantContextStorage, TCTPayload } from "../middleware/tenantContext";
+import { tenantContextStorage, TCTPayload } from "../middleware/tenantContext.js"
 import jwt from "jsonwebtoken";
 
 export interface ConsumerConfig {

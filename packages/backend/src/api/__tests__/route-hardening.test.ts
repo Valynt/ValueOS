@@ -120,10 +120,10 @@ process.env.STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_t
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost';
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'service-role-key';
 
-import authRouter from '../auth';
-import billingRouter from '../billing';
-import healthRouter from '../health';
-import llmRouter from '../llm';
+import authRouter from '../auth.js'
+import billingRouter from '../billing/index.js'
+import healthRouter from '../health/index.js'
+import llmRouter from '../llm.js'
 
 function collectMiddlewareNames(router: any): string[] {
   const names: string[] = [];

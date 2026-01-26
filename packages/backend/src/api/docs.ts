@@ -9,9 +9,9 @@ import swaggerUi from 'swagger-ui-express';
 import YAML from 'yamljs';
 import path from 'path';
 // import { logger } from '../utils/logger';
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
 
 const router = Router();
 router.use(requestAuditMiddleware());

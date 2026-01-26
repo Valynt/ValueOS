@@ -8,7 +8,7 @@ import {
   ListInitiativesQuerySchema,
   ApiErrorResponse,
 } from "./types";
-import { InitiativesService } from "./service";
+import { InitiativesService } from "./service.js"
 import {
   DbConflictError,
   DbForbiddenError,
@@ -17,8 +17,8 @@ import {
   DbValidationError,
   TransientDbError,
 } from "../../lib/db/errors";
-import { createRateLimiter, RateLimitTier } from "../../middleware/rateLimiter";
-import { logger } from "../../lib/logger";
+import { createRateLimiter, RateLimitTier } from "../../middleware/rateLimiter.js"
+import { logger } from "../../lib/logger.js"
 
 const router = Router();
 

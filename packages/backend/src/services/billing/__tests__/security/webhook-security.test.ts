@@ -11,7 +11,7 @@ import {
   createMockStripeEvent,
   StripeErrors,
 } from "../__helpers__/stripe-mocks";
-import { createWebhookSignature } from "../__helpers__/test-fixtures";
+import { createWebhookSignature } from "../__helpers__/test-fixtures.js"
 
 // Mock the billing config
 vi.mock("../../config/billing", () => ({

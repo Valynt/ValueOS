@@ -1,9 +1,9 @@
 ```typescript
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ActivateCustomer } from "../activate-customer";
-import { AgentContext } from "../../../types";
-import { supabase } from "../../../../../lib/supabase";
-import { logger } from "../../../../../lib/logger";
+import { ActivateCustomer } from "../activate-customer.js"
+import { AgentContext } from "../../../types.js"
+import { supabase } from "../../../../../lib/supabase.js"
+import { logger } from "../../../../../lib/logger.js"
 
 // Mock dependencies
 vi.mock("../../../../../lib/supabase", () => ({

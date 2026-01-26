@@ -6,10 +6,10 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger';
-import { TenantAwareService } from './TenantAwareService';
-import { AuditLogService } from './AuditLogService';
-import { ValidationError } from './errors';
+import { logger } from '../lib/logger.js'
+import { TenantAwareService } from './TenantAwareService.js'
+import { AuditLogService } from './AuditLogService.js'
+import { ValidationError } from './errors.js'
 
 // Only instantiate server-side Supabase client. Prevents bundler/runtime errors in browser.
 const supabase = (typeof window === 'undefined')

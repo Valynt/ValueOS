@@ -7,7 +7,7 @@ import {
   verifyTenantExists,
   verifyTenantMembership,
 } from "@shared/lib/tenantVerification";
-import { validateEnv } from "../config/validateEnv";
+import { validateEnv } from "../config/validateEnv.js"
 
 const logger = createLogger({ component: "TenantContextMiddleware" });
 const DEFAULT_TCT_SECRET = "default-tct-secret-change-me";

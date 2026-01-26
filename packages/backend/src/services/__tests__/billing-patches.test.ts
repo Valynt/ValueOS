@@ -100,9 +100,9 @@ vi.mock('../../config/environment', () => ({
   isDevelopment: () => true,
 }));
 
-import webhookService from '../billing/WebhookService';
-import aggregator from '../metering/UsageAggregator';
-import { trackUsage } from '../UsageTrackingService';
+import webhookService from '../billing/WebhookService.js'
+import aggregator from '../metering/UsageAggregator.js'
+import { trackUsage } from '../UsageTrackingService.js'
 
 describe('Billing patches', () => {
   beforeEach(async () => {

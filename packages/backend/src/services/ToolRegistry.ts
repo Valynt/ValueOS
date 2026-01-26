@@ -10,7 +10,7 @@
  * - Industry standard tool interfaces
  */
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js'
 
 /**
  * JSON Schema for tool parameters

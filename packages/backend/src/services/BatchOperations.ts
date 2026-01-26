@@ -1,4 +1,4 @@
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { CanvasComponent } from '../types';
 
 export interface BatchOperation {

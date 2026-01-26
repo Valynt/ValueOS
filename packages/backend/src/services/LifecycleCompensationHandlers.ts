@@ -4,9 +4,9 @@
  * Specific compensation logic for each lifecycle stage
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { SupabaseClient } from '@supabase/supabase-js';
-import { LifecycleStage } from './ValueLifecycleOrchestrator';
+import { LifecycleStage } from './ValueLifecycleOrchestrator.js'
 
 /**
  * Compensation context for a stage

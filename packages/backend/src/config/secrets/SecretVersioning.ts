@@ -8,8 +8,8 @@
  * Created: 2024-11-29
  */
 
-import { logger } from '../../lib/logger';
-import type { ISecretProvider, SecretMetadata, SecretValue } from './ISecretProvider';
+import { logger } from '../../lib/logger.js'
+import type { ISecretProvider, SecretMetadata, SecretValue } from './ISecretProvider.js'
 
 /**
  * Secret version entry

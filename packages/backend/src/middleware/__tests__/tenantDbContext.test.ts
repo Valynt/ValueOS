@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { tenantDbContextMiddleware } from "../tenantDbContext";
-import { getDatabaseUrl } from "../../config/database";
+import { tenantDbContextMiddleware } from "../tenantDbContext.js"
+import { getDatabaseUrl } from "../../config/database.js"
 
 const mockClient = {
   query: vi.fn(),

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EventConsumer, ConsumerConfig } from '../EventConsumer';
-import { logger } from '../../lib/logger';
+import { EventConsumer, ConsumerConfig } from '../EventConsumer.js'
+import { logger } from '../../lib/logger.js'
 import { EachMessagePayload } from 'kafkajs';
 
 // Mocks must be hoisted or defined before imports if using vi.mock factory

@@ -3,8 +3,8 @@
  * Provides rate limiting for client-side API calls and user actions
  */
 
-import { createLogger } from "../lib/logger";
-import { rateLimitService, RateLimitConfig } from "./RateLimitService";
+import { createLogger } from "../lib/logger.js"
+import { rateLimitService, RateLimitConfig } from "./RateLimitService.js"
 
 const logger = createLogger({ component: "ClientRateLimit" });
 

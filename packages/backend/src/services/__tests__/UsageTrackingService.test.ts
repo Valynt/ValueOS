@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import * as UsageTrackingService from '../UsageTrackingService';
+import * as UsageTrackingService from '../UsageTrackingService.js'
 
 // Mocks
 vi.mock('../../lib/logger', () => ({

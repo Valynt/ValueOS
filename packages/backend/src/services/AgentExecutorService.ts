@@ -5,10 +5,10 @@
  * and publishes agent response events.
  */
 
-import { createEventConsumer, EventConsumer } from "./EventConsumer";
-import { getEventProducer } from "./EventProducer";
-import { getUnifiedAgentAPI } from "./UnifiedAgentAPI";
-import { getEventSourcingService } from "./EventSourcingService";
+import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
+import { getEventProducer } from "./EventProducer.js"
+import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
+import { getEventSourcingService } from "./EventSourcingService.js"
 import {
   AgentRequestEvent,
   AgentResponseEvent,
@@ -17,9 +17,9 @@ import {
   BaseEvent,
   Event,
 } from "@shared/types/events";
-import { AgentType } from "./agent-types";
-import { logger } from "../lib/logger";
-import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown";
+import { AgentType } from "./agent-types.js"
+import { logger } from "../lib/logger.js"
+import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 
 export class AgentExecutorService {
   private consumer: EventConsumer;

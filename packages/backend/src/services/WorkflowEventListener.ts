@@ -7,10 +7,10 @@
  */
 
 import { ServiceMessageBusAdapter } from "../lib/agent-fabric/ServiceMessageBusAdapter";
-import { logger } from "../lib/logger";
-import { canvasSchemaService } from "./CanvasSchemaService";
-import { workflowSDUIAdapter } from "./WorkflowSDUIAdapter";
-import { getStageById } from "./workflows/WorkflowDAGDefinitions";
+import { logger } from "../lib/logger.js"
+import { canvasSchemaService } from "./CanvasSchemaService.js"
+import { workflowSDUIAdapter } from "./WorkflowSDUIAdapter.js"
+import { getStageById } from "./workflows/WorkflowDAGDefinitions.js"
 import { StageCompletionEvent, WorkflowProgress } from "../types/workflow-sdui";
 import { StageStatus } from "../types/workflow";
 

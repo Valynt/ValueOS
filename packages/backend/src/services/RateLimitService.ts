@@ -3,7 +3,7 @@
  * Provides comprehensive rate limiting for API endpoints and user actions
  */
 
-import { createLogger } from '../lib/logger';
+import { createLogger } from '../lib/logger.js'
 
 const logger = createLogger({ component: 'RateLimitService' });
 

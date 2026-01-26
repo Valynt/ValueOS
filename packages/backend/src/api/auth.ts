@@ -10,18 +10,18 @@
  */
 
 import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter";
-import { requireAuth } from "../middleware/auth";
-import { requireMFA } from "../middleware/mfa";
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
-import { authService } from "../services/AuthService";
-import { AuthenticationError, ValidationError } from "../services/errors";
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { requireAuth } from "../middleware/auth.js"
+import { requireMFA } from "../middleware/mfa.js"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
+import { authService } from "../services/AuthService.js"
+import { AuthenticationError, ValidationError } from "../services/errors.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
-import { auditLogService } from "../services/AuditLogService";
+import { auditLogService } from "../services/AuditLogService.js"
 import { createServerSupabaseClient } from "@shared/lib/supabase";
-import { sanitizeErrorMessage } from "../utils/security";
-import { getConfig } from "../config/environment";
+import { sanitizeErrorMessage } from "../utils/security.js"
+import { getConfig } from "../config/environment.js"
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");

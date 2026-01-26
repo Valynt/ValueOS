@@ -6,7 +6,7 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { getEnvVar, getLLMCostTrackerConfig } from "@shared/lib/env";
 
 const TOKENS_PER_MILLION = 1_000_000;

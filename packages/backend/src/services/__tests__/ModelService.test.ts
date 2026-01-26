@@ -1,8 +1,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ModelService } from '../ModelService';
-import { auditLogService } from '../AuditLogService';
-import { userSettingsService } from '../UserSettingsService';
+import { ModelService } from '../ModelService.js'
+import { auditLogService } from '../AuditLogService.js'
+import { userSettingsService } from '../UserSettingsService.js'
 import { LifecycleContext } from '../../types/agent';
 import { TargetAgentOutput } from '../../types/vos';
 

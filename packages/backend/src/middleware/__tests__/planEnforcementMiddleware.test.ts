@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPlanEnforcement } from '../planEnforcementMiddleware';
+import { createPlanEnforcement } from '../planEnforcementMiddleware.js'
 import UsageCache from '../services/metering/UsageCache';
 import GracePeriodService from '../services/metering/GracePeriodService';
 import SubscriptionService from '../services/billing/SubscriptionService';

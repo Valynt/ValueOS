@@ -6,12 +6,12 @@
  */
 
 import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter";
-import { requireAuth } from "../middleware/auth";
-import { tenantContextMiddleware } from "../middleware/tenantContext";
-import { requirePermission } from "../middleware/rbac";
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
-import { adminUserService } from "../services/AdminUserService";
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { requireAuth } from "../middleware/auth.js"
+import { tenantContextMiddleware } from "../middleware/tenantContext.js"
+import { requirePermission } from "../middleware/rbac.js"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
+import { adminUserService } from "../services/AdminUserService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 

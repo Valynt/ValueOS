@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createTeamsAndRoles, TenantConfig } from '../TenantProvisioning';
+import { createTeamsAndRoles, TenantConfig } from '../TenantProvisioning.js'
 
 // Define mocks using vi.hoisted
 const mocks = vi.hoisted(() => {

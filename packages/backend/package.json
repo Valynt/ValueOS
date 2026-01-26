@@ -37,7 +37,8 @@
     "@types/node": "^20.19.29",
     "@types/ws": "^8.18.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.90.1"

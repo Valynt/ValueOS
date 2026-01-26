@@ -2,7 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
-import { validateRequest } from '../inputValidation';
+import { validateRequest } from '../inputValidation.js'
 
 describe('inputValidation middleware', () => {
   it('accepts valid payloads and sanitizes input', async () => {

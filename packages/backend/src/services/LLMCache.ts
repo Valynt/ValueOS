@@ -7,7 +7,7 @@
 
 import { createClient, RedisClientType } from 'redis';
 import crypto from 'crypto';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js'
 
 export interface CacheConfig {
   ttl: number; // Time to live in seconds

@@ -8,8 +8,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { tenantContextMiddleware } from '../../middleware/tenantContext';
-import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext';
+import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
+import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 import { 
   CreateMessageSchema,
   BatchCreateMessagesSchema,

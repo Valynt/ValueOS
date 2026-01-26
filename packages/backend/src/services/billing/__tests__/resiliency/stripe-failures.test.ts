@@ -10,7 +10,7 @@ import {
   createMockStripeClient,
   StripeErrors,
 } from "../__helpers__/stripe-mocks";
-import { delay } from "../__helpers__/test-fixtures";
+import { delay } from "../__helpers__/test-fixtures.js"
 
 describe("Stripe API Failure Handling Tests", () => {
   let mockStripe: ReturnType<typeof createMockStripeClient>;

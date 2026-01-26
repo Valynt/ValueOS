@@ -4,9 +4,9 @@
  */
 
 import express, { Request, Response } from 'express';
-import MetricsCollector from '../services/metering/MetricsCollector';
-import UsageCache from '../services/metering/UsageCache';
-import { BillingMetric } from '../config/billing';
+import MetricsCollector from '../../services/metering/MetricsCollector.js';
+import UsageCache from '../../services/metering/UsageCache.js';
+import { BillingMetric } from '../../config/billing.js';
 import { createLogger } from '@shared/lib/logger';
 
 const router = express.Router();

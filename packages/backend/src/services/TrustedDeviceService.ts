@@ -10,8 +10,8 @@
  * - Security monitoring
  */
 
-import { logger } from "../lib/logger";
-import { BaseService } from "./BaseService";
+import { logger } from "../lib/logger.js"
+import { BaseService } from "./BaseService.js"
 
 export interface TrustedDevice {
   id: string;

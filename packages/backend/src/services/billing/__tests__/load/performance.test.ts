@@ -14,7 +14,7 @@ import {
   createBatchUsageEvents,
   createUsageEvent,
 } from "../__helpers__/billing-factories";
-import { performance as perfHelpers } from "../__helpers__/test-fixtures";
+import { performance as perfHelpers } from "../__helpers__/test-fixtures.js"
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Load and Stress Tests", () => {

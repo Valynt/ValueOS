@@ -7,9 +7,9 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { BaseEvent, Event, EVENT_TOPICS } from "@shared/types/events";
-import { getEventProducer } from "./EventProducer";
+import { getEventProducer } from "./EventProducer.js"
 
 export interface EventStoreRecord {
   id: string;

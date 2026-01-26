@@ -4,7 +4,7 @@
  * Manages permission checks and access control for guest users
  */
 
-import { GuestPermissions } from "./GuestAccessService";
+import { GuestPermissions } from "./GuestAccessService.js"
 import { logger } from "./lib/logger";
 
 // Permission action types

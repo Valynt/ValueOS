@@ -162,16 +162,12 @@ describe('PasswordValidator', () => {
   describe('Password Breach Checking', () => {
     it('should check password against breach database', async () => {
       const { checkPasswordBreach } = await import('../../security');
-      
-      // Test with a known breached password
       const breachedPassword = 'password123';
-      
       try {
-        const isBreached = await checkPasswordBreach(breachedPassword);
-        // Common passwords should be detected as breached
-        expect(typeof isBreached).toBe('boolean');
+        const result = await checkPasswordBreach(breachedPassword);
+        expect(result).toHaveProperty('status');
+        expect(['breached','not_breached','unknown']).toContain(result.status);
       } catch (error) {
-        // If API is unreachable, test should note it but not fail
         expect(error).toBeDefined();
       }
     });
@@ -179,16 +175,12 @@ describe('PasswordValidator', () => {
     it('should handle network errors gracefully', async () => {
       const { checkPasswordBreach } = await import('../../security');
       const originalFetch = global.fetch;
-      
-      // Mock network error
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
-      
       try {
         const result = await checkPasswordBreach('testpassword');
-        // Should handle error and return false (allow password)
-        expect(typeof result).toBe('boolean');
+        expect(result).toHaveProperty('status');
+        expect(result.status).toBe('unknown');
       } catch (error) {
-        // Error handling is acceptable
         expect(error).toBeDefined();
       } finally {
         global.fetch = originalFetch;
@@ -201,22 +193,16 @@ describe('PasswordValidator', () => {
       
       try {
         await checkPasswordBreach('testpassword123');
-        
         if (fetchSpy.mock.calls.length > 0) {
           const callUrl = fetchSpy.mock.calls[0][0] as string;
-
-          // URL should be to pwnedpasswords API
           expect(callUrl).toContain('api.pwnedpasswords.com');
           expect(callUrl).toContain('/range/');
-          
-          // Should only include 5-char prefix for privacy
           const hashPart = callUrl.split('/range/')[1];
           if (hashPart) {
             expect(hashPart.length).toBeLessThanOrEqual(5);
           }
         }
       } catch (error) {
-        // API might be unreachable in test environment
         expect(error).toBeDefined();
       } finally {
         fetchSpy.mockRestore();

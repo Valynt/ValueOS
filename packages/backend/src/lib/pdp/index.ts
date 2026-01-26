@@ -1,4 +1,4 @@
-import { TCTPayload } from "../../middleware/tenantContext";
+import { TCTPayload } from "../../middleware/tenantContext.js"
 import { createLogger } from "@shared/lib/logger";
 
 const logger = createLogger({ component: "PDP" });

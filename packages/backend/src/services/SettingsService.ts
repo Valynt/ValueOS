@@ -3,12 +3,12 @@
  * Centralized settings API calls with caching, validation, and error handling
  */
 
-import { logger } from '../lib/logger';
-import { TenantAwareService } from './TenantAwareService';
-import { AuthorizationError, NotFoundError, ValidationError } from './errors';
-import { tenantCache } from './cache/TenantCache';
+import { logger } from '../lib/logger.js'
+import { TenantAwareService } from './TenantAwareService.js'
+import { AuthorizationError, NotFoundError, ValidationError } from './errors.js'
+import { tenantCache } from './cache/TenantCache.js'
 import { z } from 'zod';
-import { securityEvents } from '../security/securityLogger';
+import { securityEvents } from '../security/securityLogger.js'
 
 // Schema definitions for secure deserialization
 const SecureSettingsSchemas = {

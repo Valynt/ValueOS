@@ -5,7 +5,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 
 export interface ValueTreeNode {
   node_id: string;

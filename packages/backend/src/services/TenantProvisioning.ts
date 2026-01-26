@@ -8,16 +8,16 @@
  * - Billing integration
  */
 
-import { logger } from '../lib/logger';
-import { getConfig } from '../config/environment';
-import { createServerSupabaseClient } from '../lib/supabase';
-import CustomerService from './billing/CustomerService';
-import SubscriptionService from './billing/SubscriptionService';
-import { PlanTier } from '../config/billing';
-import { emailService } from './EmailService';
-import { settingsService } from './SettingsService';
-import { integrationControlService } from './IntegrationControlService';
-import { auditLogService } from './AuditLogService';
+import { logger } from '../lib/logger.js'
+import { getConfig } from '../config/environment.js'
+import { createServerSupabaseClient } from '../lib/supabase.js'
+import CustomerService from './billing/CustomerService.js'
+import SubscriptionService from './billing/SubscriptionService.js'
+import { PlanTier } from '../config/billing.js'
+import { emailService } from './EmailService.js'
+import { settingsService } from './SettingsService.js'
+import { integrationControlService } from './IntegrationControlService.js'
+import { auditLogService } from './AuditLogService.js'
 
 /**
  * Tenant tier

@@ -10,11 +10,11 @@
  * - AI transparency (confidence, reasoning)
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { llmConfig } from "../config/llm";
+import { llmConfig } from "../config/llm.js"
 import {
   conversationHistoryService,
   ConversationMessage,
@@ -29,19 +29,19 @@ import {
   formatExampleForPrompt,
   getRelevantExamples,
 } from "../data/valueModelExamples";
-import { createToolExecutor, getAllTools } from "./MCPTools";
-import { mcpGroundTruthService } from "./MCPGroundTruthService";
-import { checkStageTransition } from "../config/chatWorkflowConfig";
+import { createToolExecutor, getAllTools } from "./MCPTools.js"
+import { mcpGroundTruthService } from "./MCPGroundTruthService.js"
+import { checkStageTransition } from "../config/chatWorkflowConfig.js"
 import {
   generateChatSDUIPage,
   hasTemplateForStage,
 } from "@sdui/templates/chat-templates";
-import { sanitizeAgentInput } from "../utils/security";
+import { sanitizeAgentInput } from "../utils/security.js"
 import { contextFabric } from "../lib/agent-fabric/ContextFabric";
 import { detectIndustry } from "../data/industryTemplates";
-import { geminiProxyService } from "./GeminiProxyService";
-import { FallbackAIService } from "./FallbackAIService";
-import { RetryService } from "./RetryService";
+import { geminiProxyService } from "./GeminiProxyService.js"
+import { FallbackAIService } from "./FallbackAIService.js"
+import { RetryService } from "./RetryService.js"
 
 // ============================================================================
 // Type-Safe Schemas with Zod

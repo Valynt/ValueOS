@@ -34,7 +34,7 @@ vi.mock('@shared/lib/tenantVerification', () => ({
   verifyTenantMembership: vi.fn().mockResolvedValue(true),
 }));
 
-import workflowRouter from '../workflow';
+import workflowRouter from '../workflow.js'
 
 const app = express();
 app.use(express.json());

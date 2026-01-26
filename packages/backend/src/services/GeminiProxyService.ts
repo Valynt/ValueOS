@@ -5,7 +5,7 @@
  * Removes API key exposure from client-side code.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 
 interface GeminiRequest {
   contents: Array<{

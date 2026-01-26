@@ -18,10 +18,10 @@
 
 import { promises as fs, FSWatcher, watch } from "fs";
 import { join } from "path";
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
 import { promisify } from "util";
-import { config } from "./SecretConfig";
+import { config } from "./SecretConfig.js"
 
 /**
  * Secret file change event

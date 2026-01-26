@@ -9,14 +9,14 @@
  */
 
 import { CronJob } from "cron";
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 import type {
   ISecretProvider,
   RotationPolicy,
   SecretMetadata,
 } from "./ISecretProvider";
 import { EventEmitter } from "events";
-import { auditLogService } from "../../services/AuditLogService";
+import { auditLogService } from "../../services/AuditLogService.js"
 
 /**
  * Rotation job configuration

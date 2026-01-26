@@ -30,7 +30,7 @@ import {
   sanitizedString,
   FieldLimits,
 } from './zodHelpers';
-import { normalizeName, normalizeCompanyName } from './normalizers';
+import { normalizeName, normalizeCompanyName } from './normalizers.js'
 
 // ============================================================================
 // User Schemas

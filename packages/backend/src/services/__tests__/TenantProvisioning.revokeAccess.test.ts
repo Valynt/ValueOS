@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { integrationControlService } from '../IntegrationControlService';
-import { auditLogService } from '../AuditLogService';
+import { integrationControlService } from '../IntegrationControlService.js'
+import { auditLogService } from '../AuditLogService.js'
 
 // Mock dependencies
 vi.mock('../IntegrationControlService', () => ({
@@ -60,7 +60,7 @@ vi.mock('../lib/supabase', () => ({
 }));
 
 // Import subject
-import { deprovisionTenant } from '../TenantProvisioning';
+import { deprovisionTenant } from '../TenantProvisioning.js'
 
 describe('TenantProvisioning - revokeAllAccess', () => {
   beforeEach(() => {

@@ -4,7 +4,7 @@
  * Defines the scenarios, prompts, and success criteria for Agent Labs.
  */
 
-import { LabConfiguration } from '../types/academy';
+import { LabConfiguration } from '../types/academy.js'
 
 // ============================================================================
 // Discovery Agent Labs

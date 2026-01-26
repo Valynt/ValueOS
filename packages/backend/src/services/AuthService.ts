@@ -3,12 +3,12 @@
  * Handles session management and authentication operations
  */
 
-import { BaseService } from "./BaseService";
-import { AuthenticationError, RateLimitError, ValidationError } from "./errors";
+import { BaseService } from "./BaseService.js"
+import { AuthenticationError, RateLimitError, ValidationError } from "./errors.js"
 import { Session, User } from "@supabase/supabase-js";
-import { sanitizeErrorMessage, validatePassword } from "../utils/security";
-import { securityLogger } from "./SecurityLogger";
-import { getConfig } from "../config/environment";
+import { sanitizeErrorMessage, validatePassword } from "../utils/security.js"
+import { securityLogger } from "./SecurityLogger.js"
+import { getConfig } from "../config/environment.js"
 import jwt from "jsonwebtoken";
 import {
   checkPasswordBreach,
@@ -16,9 +16,9 @@ import {
   RateLimitExceededError,
   resetRateLimit,
 } from "../security";
-import { clientRateLimit } from "./ClientRateLimit";
-import { mfaService } from "./MFAService";
-import { fetchWithCSRF } from "../security/CSRFProtection";
+import { clientRateLimit } from "./ClientRateLimit.js"
+import { mfaService } from "./MFAService.js"
+import { fetchWithCSRF } from "../security/CSRFProtection.js"
 
 export interface LoginCredentials {
   email: string;

@@ -4,9 +4,9 @@
  */
 
 import express, { Request, Response } from 'express';
-import WebhookService from '../services/billing/WebhookService';
+import WebhookService from '../../services/billing/WebhookService.js';
 import { createLogger } from '@shared/lib/logger';
-import { recordStripeWebhook } from '../../metrics/billingMetrics';
+import { recordStripeWebhook } from '../../metrics/billingMetrics.js';
 import { getSupabaseConfig } from '@shared/lib/env';
 
 const router = express.Router();

@@ -13,10 +13,10 @@ import type {
   ISecretProvider,
   ProviderConfig,
 } from "./ISecretProvider";
-import { AWSSecretProvider } from "./AWSSecretProvider";
-import { VaultSecretProvider } from "./VaultSecretProvider";
-import { FallbackSecretProvider } from "./FallbackSecretProvider";
-import { logger } from "../../lib/logger";
+import { AWSSecretProvider } from "./AWSSecretProvider.js"
+import { VaultSecretProvider } from "./VaultSecretProvider.js"
+import { FallbackSecretProvider } from "./FallbackSecretProvider.js"
+import { logger } from "../../lib/logger.js"
 
 /**
  * Provider factory implementation

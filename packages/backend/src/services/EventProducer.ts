@@ -6,14 +6,14 @@
  */
 
 import { Kafka, Producer, Message, CompressionTypes, logLevel } from "kafkajs";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { BaseEvent } from "@shared/types/events";
 import {
   kafkaProducerEventsTotal,
   kafkaProducerLatency,
   kafkaProducerErrors,
 } from "../lib/monitoring/metrics";
-import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown";
+import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 
 export interface ProducerConfig {
   clientId: string;

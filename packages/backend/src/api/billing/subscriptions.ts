@@ -4,9 +4,9 @@
  */
 
 import express, { Request, Response } from "express";
-import SubscriptionService from "../services/billing/SubscriptionService";
-import CustomerService from "../services/billing/CustomerService";
-import { PlanTier } from "../config/billing";
+import SubscriptionService from "../../services/billing/SubscriptionService.js";
+import CustomerService from "../../services/billing/CustomerService.js";
+import { PlanTier } from "../../config/billing.js";
 import { createLogger } from "@shared/lib/logger";
 
 const router = express.Router();

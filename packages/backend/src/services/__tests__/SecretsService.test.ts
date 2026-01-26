@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ISecretProvider, SecretMetadata, SecretValue } from '../../config/secrets/ISecretProvider';
-import { SecretsService } from '../SecretsService';
-import { RbacService, RbacUser } from '../RbacService';
-import { AuthorizationError } from '../errors';
+import type { ISecretProvider, SecretMetadata, SecretValue } from '../../config/secrets/ISecretProvider.js'
+import { SecretsService } from '../SecretsService.js'
+import { RbacService, RbacUser } from '../RbacService.js'
+import { AuthorizationError } from '../errors.js'
 
 class MockProvider implements ISecretProvider {
   name = 'mock';

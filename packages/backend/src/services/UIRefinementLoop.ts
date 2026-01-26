@@ -9,12 +9,12 @@
  * mutations to specific components for snappy, responsive updates.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { llmConfig } from '../config/llm';
-import { getUIGenerationTracker } from './UIGenerationTracker';
+import { llmConfig } from '../config/llm.js'
+import { getUIGenerationTracker } from './UIGenerationTracker.js'
 import { validateComponentSelection } from '@sdui/ComponentToolRegistry';
-import { ComponentMutationService } from './ComponentMutationService';
+import { ComponentMutationService } from './ComponentMutationService.js'
 import { AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
 import {

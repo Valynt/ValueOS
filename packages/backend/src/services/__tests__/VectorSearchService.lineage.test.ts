@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VectorSearchService } from '../VectorSearchService';
+import { VectorSearchService } from '../VectorSearchService.js'
 
 describe('VectorSearchService lineage enforcement', () => {
   const service = new VectorSearchService();

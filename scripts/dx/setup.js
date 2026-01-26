@@ -11,7 +11,6 @@ import { setupEnvironment } from '../lib/environment.js';
 import { progressTracker, spinner } from '../lib/progress.js';
 import { retryWithRecovery } from '../lib/recovery.js';
 import { execSync } from 'child_process';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -142,12 +141,17 @@ function generateEnvFiles(mode = 'local') {
 /**
  * Load .env.local into process.env
  */
-function loadEnvLocal() {
+async function loadEnvLocal() {
   const projectRoot = path.resolve(__dirname, '../..');
   const envLocalPath = path.join(projectRoot, '.env.local');
 
   if (fs.existsSync(envLocalPath)) {
-    dotenv.config({ path: envLocalPath });
+    try {
+      const dotenv = await import('dotenv');
+      dotenv.config({ path: envLocalPath });
+    } catch (err) {
+      // If dotenv is not yet installed, skip loading here; it will be available after deps install.
+    }
   }
 }
 
@@ -167,10 +171,33 @@ async function installDependencies() {
 }
 
 /**
+ * Ensure Supabase CLI is available on PATH. If missing, attempt to install it globally via pnpm.
+ */
+async function ensureSupabaseCli() {
+  try {
+    execSync('supabase --version', { stdio: 'ignore' });
+    return true;
+  } catch (err) {
+    console.log('\n⚠️  Supabase CLI not found. Attempting to install via pnpm add -g supabase...');
+    try {
+      execSync('pnpm add -g supabase', { stdio: 'inherit', cwd: path.resolve(__dirname, '../..') });
+      // verify
+      execSync('supabase --version', { stdio: 'ignore' });
+      console.log('✅ Supabase CLI installed and available on PATH');
+      return true;
+    } catch (installErr) {
+      console.error('\n❌ Automatic Supabase CLI install failed.');
+      console.error('   Please install it manually: npm install -g supabase OR pnpm add -g supabase');
+      return false;
+    }
+  }
+}
+
+/**
  * Seed the database
  */
 async function seedDatabase() {
-  loadEnvLocal();
+  await loadEnvLocal();
   return exec('bash scripts/db-seed.sh', 'Seed database');
 }
 
@@ -272,11 +299,40 @@ async function main() {
 
     ensureDotEnvFromLocal();
     ensurePortsEnv();
+    // Load .env.local into process.env so child processes (like db setup)
+    // receive necessary variables such as SUPABASE_PROJECT_ID.
+    await loadEnvLocal();
     
     // Step 4: Install dependencies
     const depsSuccess = await installDependencies();
     if (!depsSuccess) {
       throw new Error('Dependency installation failed');
+    }
+    
+    // Step 5: Ensure Supabase and DB migrations are applied
+    console.log('\n🗄️  Setting up Supabase and applying database migrations...');
+
+    // Ensure Supabase CLI is available (attempt auto-install if missing)
+    await ensureSupabaseCli();
+
+    // If essential Supabase environment variables are not set, skip DB setup
+    // to avoid failing the overall setup flow for users who prefer to
+    // manage Supabase manually (e.g., using local containers or remote projects).
+    if (!process.env.SUPABASE_PROJECT_ID || !process.env.SUPABASE_DB_PASSWORD) {
+      console.log('\n⚠️  SUPABASE_PROJECT_ID or SUPABASE_DB_PASSWORD not set — skipping Supabase DB setup and migrations.');
+      console.log('   To run DB setup later: set SUPABASE_PROJECT_ID and SUPABASE_DB_PASSWORD, then run `pnpm run db:setup`.');
+    } else {
+      const dbSetupSuccess = exec('pnpm run db:setup', 'Supabase DB setup & migrations');
+      if (!dbSetupSuccess) {
+        throw new Error('Supabase DB setup or migrations failed');
+      }
+
+      // Step 6: Seed demo user/data so `pnpm run dx` has an account to login with
+      console.log('\n🌱 Seeding demo user and sample data...');
+      const demoSeedSuccess = exec('pnpm run seed:demo', 'Seed demo user');
+      if (!demoSeedSuccess) {
+        throw new Error('Demo data seeding failed');
+      }
     }
     
     // Step 5: Optional database seed

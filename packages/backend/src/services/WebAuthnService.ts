@@ -22,9 +22,9 @@ import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
 } from "@simplewebauthn/browser";
-import { logger } from "../lib/logger";
-import { BaseService } from "./BaseService";
-import { AuthenticationError, ValidationError } from "./errors";
+import { logger } from "../lib/logger.js"
+import { BaseService } from "./BaseService.js"
+import { AuthenticationError, ValidationError } from "./errors.js"
 
 export interface WebAuthnCredential {
   id: string;

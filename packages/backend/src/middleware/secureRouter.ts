@@ -3,10 +3,10 @@ import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
 } from './securityMiddleware';
-import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware';
-import { serviceIdentityMiddleware } from './serviceIdentityMiddleware';
-import { rateLimiters, RateLimitTier } from './rateLimiter';
-import { requestAuditMiddleware } from './requestAuditMiddleware';
+import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware.js'
+import { serviceIdentityMiddleware } from './serviceIdentityMiddleware.js'
+import { rateLimiters, RateLimitTier } from './rateLimiter.js'
+import { requestAuditMiddleware } from './requestAuditMiddleware.js'
 
 /**
  * Factory for new routers with standard security middlewares pre-applied.

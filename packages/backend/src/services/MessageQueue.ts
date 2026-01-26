@@ -8,9 +8,9 @@ import { Job, Queue, QueueEvents, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import http from 'http';
 import { collectDefaultMetrics, Gauge, Registry } from 'prom-client';
-import { logger } from '../utils/logger';
-import { llmFallbackWithTracing } from './LLMFallbackWithTracing';
-import { promptVersionControl } from './PromptVersionControl';
+import { logger } from '../utils/logger.js'
+import { llmFallbackWithTracing } from './LLMFallbackWithTracing.js'
+import { promptVersionControl } from './PromptVersionControl.js'
 import { createClient } from '@supabase/supabase-js';
 
 // Lazy Redis connection – create when first used to allow test harness to set REDIS_URL

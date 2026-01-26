@@ -10,12 +10,12 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
-import { log } from '../lib/logger';
-import { SecurityEvent } from './AdvancedThreatDetectionService';
-import { MLAnomalyDetectionService } from './MLAnomalyDetectionService';
-import { DistributedAttackDetectionService } from './DistributedAttackDetectionService';
-import { CredentialStuffingDetectionService } from './CredentialStuffingDetectionService';
+import { TenantAwareService } from './TenantAwareService.js'
+import { log } from '../lib/logger.js'
+import { SecurityEvent } from './AdvancedThreatDetectionService.js'
+import { MLAnomalyDetectionService } from './MLAnomalyDetectionService.js'
+import { DistributedAttackDetectionService } from './DistributedAttackDetectionService.js'
+import { CredentialStuffingDetectionService } from './CredentialStuffingDetectionService.js'
 
 export interface SecurityAnalyticsEvent {
   id: string;

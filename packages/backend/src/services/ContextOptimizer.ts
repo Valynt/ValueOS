@@ -5,9 +5,9 @@
  * context relevance and security boundaries.
  */
 
-import { logger } from '../lib/logger';
-import { AgentType } from './agent-types';
-import { getMemoryPressureMonitor, MemoryPressure, MemoryPressureListener } from './monitoring/MemoryPressureMonitor';
+import { logger } from '../lib/logger.js'
+import { AgentType } from './agent-types.js'
+import { getMemoryPressureMonitor, MemoryPressure, MemoryPressureListener } from './monitoring/MemoryPressureMonitor.js'
 
 // ============================================================================
 // Types

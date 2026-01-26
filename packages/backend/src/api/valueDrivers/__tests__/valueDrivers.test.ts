@@ -6,8 +6,8 @@
 
 import request from 'supertest';
 import express, { Express } from 'express';
-import { valueDriversRouter } from '../index';
-import { getValueDriversRepository } from '../repository';
+import { valueDriversRouter } from '../index.js'
+import { getValueDriversRepository } from '../repository.js'
 import {
   DbConflictError,
   DbNotFoundError,

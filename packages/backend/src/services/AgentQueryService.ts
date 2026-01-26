@@ -15,19 +15,19 @@
  */
 import { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { WorkflowStateRepository } from "../repositories/WorkflowStateRepository";
 import {
   AgentResponse,
   getUnifiedOrchestrator,
   UnifiedAgentOrchestrator,
 } from "./UnifiedAgentOrchestrator";
-import { sanitizeInput } from "../security/InputSanitizer";
+import { sanitizeInput } from "../security/InputSanitizer.js"
 import {
   ExecutionRequest,
   normalizeExecutionRequest,
 } from "../types/execution";
-import { CircuitBreakerError, TimeoutError } from "./errors";
+import { CircuitBreakerError, TimeoutError } from "./errors.js"
 
 export interface QueryResult {
   sessionId: string;
@@ -55,7 +55,7 @@ export interface QueryOptions {
   };
 }
 
-import { agentQueryLatency } from "../lib/monitoring/metrics";
+import { agentQueryLatency } from "../lib/monitoring/metrics.js"
 
 /**
  * Agent Query Service

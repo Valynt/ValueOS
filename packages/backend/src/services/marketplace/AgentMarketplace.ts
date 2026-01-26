@@ -5,10 +5,10 @@
  * for creating a vibrant agent ecosystem with enterprise-grade management.
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
-import { getAgentPerformanceMonitor } from "../monitoring/AgentPerformanceMonitor";
+import { getAgentPerformanceMonitor } from "../monitoring/AgentPerformanceMonitor.js"
 
 // ============================================================================
 // Types

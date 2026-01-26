@@ -31,6 +31,9 @@ import { config } from "dotenv";
 import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
 import { writeEnvFiles, validateEnvLocal } from "./env-compiler.js";
+import { CheckpointManager } from "./checkpoint-manager.js";
+import { TraceLogger } from "./trace-logger.js";
+import { formatError } from "./error-codes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,6 +72,10 @@ const HEALTH_CHECK_TIMEOUT = 60000; // 60 seconds
 const HEALTH_CHECK_INTERVAL = 2000; // 2 seconds
 const RETRY_ATTEMPTS = 3;
 const RETRY_BASE_DELAY = 2000;
+
+// Initialize checkpoint manager and trace logger
+const checkpointManager = new CheckpointManager(projectRoot);
+const traceLogger = new TraceLogger(projectRoot);
 
 /**
  * Check if running in a DevContainer environment
@@ -204,10 +211,11 @@ function commandExists(cmd) {
 }
 
 /**
- * Wait for HTTP endpoint to be healthy
+ * Wait for HTTP endpoint to be healthy with deep validation
  */
-async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT) {
+async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT, validateResponse = null) {
   const startTime = Date.now();
+  traceLogger.info(`Health check starting for ${url}`);
 
   while (Date.now() - startTime < timeout) {
     try {
@@ -215,26 +223,39 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT) {
         method: "GET",
         signal: AbortSignal.timeout(5000),
       });
-      // Some endpoints (e.g. Supabase REST) return 401/403 when hit without an apikey.
-      // For DX readiness we only need the service to be reachable.
-      if (response.status >= 200 && response.status < 500) {
-        return true;
+      
+      // Deep validation if provided
+      if (validateResponse) {
+        try {
+          const body = await response.text();
+          const isValid = validateResponse(response.status, body);
+          if (isValid) {
+            traceLogger.info(`Health check passed for ${url}`, { status: response.status });
+            return true;
+          }
+        } catch (validationError) {
+          traceLogger.warn(`Health validation failed for ${url}`, { error: validationError.message });
+        }
       } else {
-        // Debug log for failure status
-        if (Date.now() - startTime > 5000) {
-          // Only log after 5s to reduce noise
-          console.log(`[debug] Health check ${url} returned status ${response.status}`);
+        // Default validation: 2xx-4xx status codes
+        if (response.status >= 200 && response.status < 500) {
+          traceLogger.info(`Health check passed for ${url}`, { status: response.status });
+          return true;
         }
       }
-    } catch (error) {
-      // Continue waiting
+      
       if (Date.now() - startTime > 5000) {
-        console.log(`[debug] Health check ${url} failed: ${error.message}`);
+        traceLogger.warn(`Health check ${url} returned status ${response.status}`);
+      }
+    } catch (error) {
+      if (Date.now() - startTime > 5000) {
+        traceLogger.warn(`Health check ${url} failed`, { error: error.message });
       }
     }
     await new Promise((resolve) => setTimeout(resolve, HEALTH_CHECK_INTERVAL));
   }
 
+  traceLogger.error(`Health check timed out for ${url}`);
   return false;
 }
 
@@ -282,10 +303,18 @@ function getSupabaseDbUrl() {
 }
 
 /**
- * Start Supabase
+ * Start Supabase (idempotent - checks if already running)
  */
 async function startSupabase() {
+  const stepStart = traceLogger.stepStart("start_supabase");
   log.info("Starting Supabase...");
+
+  // Check if already running (idempotent)
+  if (isSupabaseRunning()) {
+    log.success("Supabase already running (idempotent check)");
+    traceLogger.stepSuccess("start_supabase", stepStart, { alreadyRunning: true });
+    return;
+  }
 
   // Check explicit override flags first
   if (process.env.DX_FORCE_SUPABASE === "1") {
@@ -300,21 +329,29 @@ async function startSupabase() {
     return;
   }
 
+  let useDlx = false;
   if (!commandExists("supabase")) {
-    log.error("Supabase CLI not found. Install with: pnpm install -g supabase");
-    process.exit(1);
-  }
-
-  if (isSupabaseRunning()) {
-    log.success("Supabase already running");
-    return;
+    log.warn("Supabase CLI not found locally. Will attempt to run via 'pnpm dlx supabase' fallback.");
+    try {
+      // Check if pnpm dlx can fetch the supabase CLI
+      runCommand("pnpm dlx supabase --version", { silent: true });
+      useDlx = true;
+      log.info("pnpm dlx supabase is available as a fallback");
+    } catch (err) {
+      log.warn("Could not run 'pnpm dlx supabase' - Supabase CLI not available");
+      // Do not exit here: continue and allow dx to fall back to dx postgres
+    }
   }
 
   try {
-    runCommand("supabase start --workdir infra/supabase");
+    const supabaseStartCmd = useDlx ? "pnpm dlx supabase start --workdir infra/supabase" : "supabase start --workdir infra/supabase";
+    traceLogger.info("Running Supabase start command", { command: supabaseStartCmd });
+    runCommand(supabaseStartCmd);
     log.success("Supabase started");
+    traceLogger.stepSuccess("start_supabase", stepStart);
   } catch (error) {
-    log.warn("Failed to start Supabase - continuing with dx postgres container");
+    traceLogger.stepError("start_supabase", error);
+    log.warn(formatError("ERR_010", { command: useDlx ? "pnpm dlx supabase" : "supabase", error: error.message }));
     console.error(error.message);
     // Don't exit - continue with dx postgres for testing
   }
@@ -391,6 +428,9 @@ function stopSupabase() {
  * Start Docker dependencies
  */
 async function startDockerDeps(mode) {
+  const stepStart = traceLogger.stepStart("start_docker_deps", { mode });
+  const checkpoint = checkpointManager.save("docker_deps", { mode });
+  
   log.info("Starting Docker dependencies...");
 
   const composeFile =
@@ -438,8 +478,11 @@ async function startDockerDeps(mode) {
     });
 
     log.success("Docker dependencies started");
+    checkpointManager.commit(checkpoint);
+    traceLogger.stepSuccess("start_docker_deps", stepStart);
   } catch (error) {
-    log.error("Failed to start Docker dependencies");
+    traceLogger.stepError("start_docker_deps", error);
+    log.error(formatError("ERR_008", { composeFile, error: error.message }));
     console.error(String(error?.message || error));
     process.exit(1);
   }
@@ -502,6 +545,9 @@ function resetDockerDeps(level = "soft") {
 async function runMigrations() {
   log.info("Running database migrations...");
 
+  const stepStart = traceLogger.stepStart("run_migrations");
+  const checkpoint = checkpointManager.save("migrations");
+  
   try {
     // Determine command based on Supabase availability
     let command = "supabase db push --workdir infra/supabase";
@@ -528,26 +574,35 @@ async function runMigrations() {
         }
       }
       
-      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable&sslcert=&sslkey=&sslrootcert=`;
+      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable`;
       command = `supabase db push --workdir infra/supabase --db-url "${dbUrl}"`;
       log.info(`Pushing migrations to dx postgres container (${host})...`);
-    }
-
-    // Use supabase db push for local development
+    traceLogger.info("Running migration command", { command });
     runCommand(command, { silent: false });
     log.success("Migrations applied");
-    return { ok: true };
-  } catch (error) {
+    checkpointManager.commit(checkpoint);
+    traceLogger.stepSuccess("run_migrations", stepStart
+    // Use supabase db push for local development
+    runCommand(command, { silent: false });
+    traceLogger.stepError("run_migrations", error);
     const errorMessage = error.message || "";
     const lowered = errorMessage.toLowerCase();
 
-    // Distinguish error types
+    // Distinguish error types with diagnostic codes
     if (lowered.includes("already applied") || lowered.includes("up to date")) {
       log.success("Migrations already applied (safe)");
+      checkpointManager.commit(checkpoint);
       return { ok: true };
+    } else if (lowered.includes("tls error") || lowered.includes("refused tls")) {
+      log.error(formatError("ERR_006", { dbUrl: "check connection string", error: errorMessage }));
+      console.error(errorMessage);
+      return { ok: false, error: errorMessage, fatal: true };
     } else if (
       lowered.includes("connection refused") ||
       lowered.includes("no such host") ||
+      lowered.includes("connection failed")
+    ) {
+      log.error(formatError("ERR_004", { error: errorMessage })
       lowered.includes("connection failed")
     ) {
       log.error("Migration failed due to connection error (fatal)");
@@ -752,15 +807,7 @@ function checkExistingSession() {
   } catch {
     clearDxState();
     return null;
-  }
-}
-
-/**
- * Handle shutdown
- */
-function setupShutdownHandler(services) {
-  const shutdown = () => {
-    console.log("\n\n🛑 Shutting down...\n");
+    traceLogger.info("Shutdown initiated");
 
     services.forEach((proc) => {
       try {
@@ -771,7 +818,21 @@ function setupShutdownHandler(services) {
     });
 
     clearDxState();
+    checkpointManager.clear();
+    traceLogger.close();
 
+    setTimeout(() => {
+      log.success("All services stopped");
+      process.exit(0);
+    }, 2000);
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+  process.on("exit", () => {
+    clearDxState();
+    traceLogger.close();
+  }
     setTimeout(() => {
       log.success("All services stopped");
       process.exit(0);
@@ -934,17 +995,18 @@ async function main() {
   const backendPortInUse = await isPortInUse(backendPort);
 
   let backendProc = null;
-  if (backendPortInUse) {
-    log.warn(
-      `Backend port ${backendPort} is already in use. Skipping backend start to avoid duplicates.`
-    );
-  } else {
-    backendProc = startBackend();
-    services.push(backendProc);
-  }
-
-  // Wait for backend to be healthy
+  if (backendPortInUse) { with deep validation
   const backendHealthUrl = `http://127.0.0.1:${backendPort}/health`;
+
+  log.info(`Waiting for backend at ${backendHealthUrl}...`);
+  await new Promise((resolve) => setTimeout(resolve, 3000)); // Initial delay
+
+  const backendHealthy = await waitForHealthWithRetries(backendHealthUrl, {
+    attempts: RETRY_ATTEMPTS,
+    timeout: 30000,
+  });
+  if (!backendHealthy) {
+    log.error(formatError("ERR_003", { healthUrl: backendHealthUrl })); = `http://127.0.0.1:${backendPort}/health`;
 
   log.info(`Waiting for backend at ${backendHealthUrl}...`);
   await new Promise((resolve) => setTimeout(resolve, 3000)); // Initial delay

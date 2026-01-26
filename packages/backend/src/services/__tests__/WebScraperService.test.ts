@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { webScraperService } from '../WebScraperService';
+import { webScraperService } from '../WebScraperService.js'
 
 describe('WebScraperService', () => {
   const originalFetch = global.fetch;

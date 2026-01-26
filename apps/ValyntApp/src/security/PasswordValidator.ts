@@ -213,41 +213,52 @@ export function validatePassword(
  * Check if password has been compromised (using Have I Been Pwned API)
  * This is an async check that should be done separately
  */
-export async function checkPasswordBreach(password: string): Promise<boolean> {
+export type PasswordBreachStatus = 'breached' | 'not_breached' | 'unknown';
+
+export interface PasswordBreachResult {
+  status: PasswordBreachStatus;
+  count?: number;
+  reason?: string;
+}
+
+// Simple front-end HIBP check returning conservative results
+export async function checkPasswordBreach(password: string): Promise<PasswordBreachResult> {
+  const timeoutMs = Number(process.env.VUE_APP_HIBP_TIMEOUT_MS) || 2000;
+
   try {
-    // Hash the password using SHA-1
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-1', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-    // Use k-anonymity: send only first 5 characters of hash
     const prefix = hashHex.substring(0, 5);
     const suffix = hashHex.substring(5);
 
-    // Query HIBP API
-    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
-    if (!response.ok) {
-      logger.warn('Failed to check password breach status');
-      return false;
+    const controller = new AbortController();
+    const to = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, { signal: controller.signal, headers: { Accept: 'text/plain', 'User-Agent': 'valyntapp/1.0' } });
+    clearTimeout(to);
+
+    if (!res.ok) {
+      logger.warn('HIBP returned non-ok status');
+      return { status: 'unknown', reason: `status_${res.status}` };
     }
 
-    const text = await response.text();
-    const hashes = text.split('\n');
-
-    // Check if our hash suffix appears in the results
-    for (const line of hashes) {
-      const [hashSuffix, count] = line.split(':');
+    const text = await res.text();
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const [hashSuffix, countStr] = line.split(':');
       if (hashSuffix === suffix) {
-        return true; // Password has been breached
+        const count = Number((countStr || '').trim()) || undefined;
+        return { status: 'breached', count };
       }
     }
 
-    return false; // Password not found in breaches
-  } catch (error) {
-    logger.error('Error checking password breach:', error);
-    return false; // Fail open - don't block if service is unavailable
+    return { status: 'not_breached' };
+  } catch (err: any) {
+    logger.warn('HIBP check failed', { reason: String(err?.message || err) });
+    return { status: 'unknown', reason: String(err?.message || err) };
   }
 }
 

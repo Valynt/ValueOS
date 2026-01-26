@@ -9,7 +9,7 @@
  * - Comprehensive telemetry
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { sduiTelemetry, TelemetryEventType } from '../lib/telemetry/SDUITelemetry';
 
 export interface RetryOptions {

@@ -9,9 +9,9 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
-import { log } from '../lib/logger';
-import { AutomatedResponse } from './SecurityAutomationService';
+import { TenantAwareService } from './TenantAwareService.js'
+import { log } from '../lib/logger.js'
+import { AutomatedResponse } from './SecurityAutomationService.js'
 
 export interface IPBlock {
   id: string;

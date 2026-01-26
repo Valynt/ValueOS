@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CircuitBreakerManager } from '../../services/CircuitBreaker';
+import { CircuitBreakerManager } from '../../services/CircuitBreaker.js'
 
 describe('CircuitBreakerManager', () => {
   it('opens when failure rate or latency breach occurs', async () => {

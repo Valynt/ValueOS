@@ -22,9 +22,9 @@ import {
   getSafeErrorMessage,
   RateLimitError,
 } from '../lib/errors';
-import { logger } from '../lib/logger';
-import { redactSensitiveData } from '../lib/redaction';
-import { getTraceContextForLogging, recordSpanException } from '../config/telemetry';
+import { logger } from '../lib/logger.js'
+import { redactSensitiveData } from '../lib/redaction.js'
+import { getTraceContextForLogging, recordSpanException } from '../config/telemetry.js'
 
 // ============================================================================
 // Types

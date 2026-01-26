@@ -1,10 +1,10 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { TenantAwareService } from "./TenantAwareService";
-import { AdvancedThreatDetectionService, SecurityEvent } from "./AdvancedThreatDetectionService";
-import { SecurityEnforcementService } from "./SecurityEnforcementService";
-import { SecurityEventValidator } from "./SecurityEventValidator";
-import { log } from "../lib/logger";
-import { auditLogService, AuditLogService } from "./AuditLogService";
+import { TenantAwareService } from "./TenantAwareService.js"
+import { AdvancedThreatDetectionService, SecurityEvent } from "./AdvancedThreatDetectionService.js"
+import { SecurityEnforcementService } from "./SecurityEnforcementService.js"
+import { SecurityEventValidator } from "./SecurityEventValidator.js"
+import { log } from "../lib/logger.js"
+import { auditLogService, AuditLogService } from "./AuditLogService.js"
 
 export interface SecurityIncident {
   id: string;

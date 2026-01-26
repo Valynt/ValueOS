@@ -9,7 +9,7 @@ import {
   RateLimiter,
   validatePassword,
 } from "../../utils/security";
-import { AuthService } from "../AuthService";
+import { AuthService } from "../AuthService.js"
 import {
   TEST_EMAILS,
   TEST_PASSWORDS,

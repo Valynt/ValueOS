@@ -17,7 +17,7 @@ import {
   createSubscription,
   createInvoice,
 } from "../__helpers__/billing-factories";
-import { createMockStripeInvoice } from "../__helpers__/stripe-mocks";
+import { createMockStripeInvoice } from "../__helpers__/stripe-mocks.js"
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Invoice Generation and Synchronization Tests", () => {

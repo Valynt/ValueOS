@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getGuestAccessService } from '../GuestAccessService';
+import { getGuestAccessService } from '../GuestAccessService.js'
 
 // Mock Supabase
 const mockSupabase = {

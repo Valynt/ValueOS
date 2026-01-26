@@ -4,8 +4,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import WebhookService from './WebhookService';
-import { createLogger } from '../../lib/logger';
+import WebhookService from './WebhookService.js'
+import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'WebhookRetryService' });
 

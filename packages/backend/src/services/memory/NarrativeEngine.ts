@@ -9,8 +9,8 @@ import {
   PersonaType,
   NarrativeRequest,
 } from "./types";
-import { MemoryService } from "./MemoryService";
-import { ModelRunEngine } from "./ModelRunEngine";
+import { MemoryService } from "./MemoryService.js"
+import { ModelRunEngine } from "./ModelRunEngine.js"
 
 export class NarrativeEngine {
   constructor(

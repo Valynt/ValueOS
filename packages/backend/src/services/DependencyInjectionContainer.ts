@@ -5,7 +5,7 @@
  * with support for singleton, transient, and scoped lifetimes.
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 
 export interface ServiceLifetime {
   Singleton: "singleton";

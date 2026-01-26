@@ -6,13 +6,13 @@
  * and only committed changes are persisted to Postgres.
  */
 
-import { logger } from '../lib/logger';
-import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
-import { PlaygroundSessionService } from './PlaygroundSessionService';
-import { getAutoSaveWorker, PlaygroundAutoSaveWorker } from './PlaygroundAutoSave';
+import { logger } from '../lib/logger.js'
+import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator.js'
+import { PlaygroundSessionService } from './PlaygroundSessionService.js'
+import { getAutoSaveWorker, PlaygroundAutoSaveWorker } from './PlaygroundAutoSave.js'
 import { SDUIPageDefinition } from '@sdui/schema';
 import { AtomicUIAction } from '@sdui/AtomicUIActions';
-import { ComponentMutationService } from './ComponentMutationService';
+import { ComponentMutationService } from './ComponentMutationService.js'
 import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 /**

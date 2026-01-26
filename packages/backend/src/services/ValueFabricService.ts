@@ -12,10 +12,10 @@
  * - Ontology versioning
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../lib/supabase";
-import { llmProxyClient } from "./LlmProxyClient";
+import { getSupabaseClient } from "../lib/supabase.js"
+import { llmProxyClient } from "./LlmProxyClient.js"
 import type {
   Benchmark,
   Capability,

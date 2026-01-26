@@ -5,7 +5,7 @@
  * Supports pub/sub, message compression, and delivery guarantees.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { v4 as uuidv4 } from 'uuid';
 import type {
   ChannelConfig,

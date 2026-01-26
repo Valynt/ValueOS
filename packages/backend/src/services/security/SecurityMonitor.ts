@@ -5,9 +5,9 @@
  * automated alerting, and threat detection.
  */
 
-import { logger } from "../../lib/logger";
-import { getAuditLogger, AgentAuditLog } from "../AgentAuditLogger";
-import { getSecureSharedContext } from "../SecureSharedContext";
+import { logger } from "../../lib/logger.js"
+import { getAuditLogger, AgentAuditLog } from "../AgentAuditLogger.js"
+import { getSecureSharedContext } from "../SecureSharedContext.js"
 import { secureMessageBus } from "../../lib/agent-fabric/SecureMessageBus";
 
 // ============================================================================

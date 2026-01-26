@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RolloutManager, ProgressiveRollout, RolloutMetrics } from '../progressiveRollout';
+import { RolloutManager, ProgressiveRollout, RolloutMetrics } from '../progressiveRollout.js'
 
 // Mock dependencies
 vi.mock('../../lib/supabase', () => ({

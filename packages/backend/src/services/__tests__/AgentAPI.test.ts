@@ -6,8 +6,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AgentAPI } from '../../services/AgentAPI';
-import type { AgentRequest, AgentResponse, AgentType } from '../../services/AgentAPI';
+import { AgentAPI } from '../../services/AgentAPI.js'
+import type { AgentRequest, AgentResponse, AgentType } from '../../services/AgentAPI.js'
 
 describe('AgentAPI', () => {
   let api: AgentAPI;

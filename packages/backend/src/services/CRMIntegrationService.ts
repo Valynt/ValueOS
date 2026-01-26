@@ -5,11 +5,11 @@
  * Currently supports HubSpot via the HubSpot Module Note API.
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { HubSpotModule } from "@mcp/crm/modules/HubSpotModule";
 import { CRMDeal } from "@mcp/crm/types";
-import { integrationControlService } from "./IntegrationControlService";
-import { createServerSupabaseClient } from "../lib/supabase";
+import { integrationControlService } from "./IntegrationControlService.js"
+import { createServerSupabaseClient } from "../lib/supabase.js"
 
 // Create a singleton instance for now, assuming connection management is handled globally or we pass it
 const crmModule = new HubSpotModule();

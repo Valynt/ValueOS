@@ -28,7 +28,7 @@ import {
   normalizePhone,
   normalizeSlug,
 } from '../normalizers';
-import { formatZodErrors, hasUnknownFields } from '../zodHelpers';
+import { formatZodErrors, hasUnknownFields } from '../zodHelpers.js'
 
 // ============================================================================
 // Unknown Fields Rejection Tests

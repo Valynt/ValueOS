@@ -5,10 +5,10 @@
  * shared context management, conflict resolution, and consensus-based decision making.
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
-import { getAgentMessageBroker, AgentMessageBroker } from "../AgentMessageBroker";
+import { getAgentMessageBroker, AgentMessageBroker } from "../AgentMessageBroker.js"
 import {
   getAgentPerformanceMonitor,
   AgentHealthScore,

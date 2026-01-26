@@ -25,29 +25,29 @@ import express from "express";
 import cors from "cors";
 import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import billingRouter from "./api/billing";
-import agentsRouter from "./api/agents";
-import groundtruthRouter from "./api/groundtruth";
-import llmRouter from "./api/llm";
-import workflowRouter from "./api/workflow";
-import documentRouter from "./api/documents";
-import healthRouter, { markAsShuttingDown } from "./api/health";
-import authRouter from "./api/auth";
-import adminRouter from "./api/admin";
-import referralsRouter from "./api/referrals";
-import projectsRouter from "./api/projects";
-import analyticsRouter from "./api/analytics";
-import initiativesRouter from "./api/initiatives";
-import teamsRouter from "./api/teams";
-import docsApiRouter from "./docs-api";
+import billingRouter from "./api/billing/index.js"
+import agentsRouter from "./api/agents.js"
+import groundtruthRouter from "./api/groundtruth.js"
+import llmRouter from "./api/llm.js"
+import workflowRouter from "./api/workflow.js"
+import documentRouter from "./api/documents.js"
+import healthRouter, { markAsShuttingDown } from "./api/health/index.js"
+import authRouter from "./api/auth.js"
+import adminRouter from "./api/admin.js"
+import referralsRouter from "./api/referrals.js"
+import projectsRouter from "./api/projects.js"
+import analyticsRouter from "./api/analytics.js"
+import initiativesRouter from "./api/initiatives/index.js"
+import teamsRouter from "./api/teams.js"
+import docsApiRouter from "./docs-api/index.js"
 import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher";
-import { validateSecretsOnStartup, secretHealthMiddleware } from "./config/secrets/SecretValidator";
-import { validateEnvOrThrow } from "./config/validateEnv";
+import { validateSecretsOnStartup, secretHealthMiddleware } from "./config/secrets/SecretValidator.js"
+import { validateEnvOrThrow } from "./config/validateEnv.js"
 import { createLogger } from "@shared/lib/logger";
-import { createVersionedApiRouter } from "./versioning";
+import { createVersionedApiRouter } from "./versioning.js"
 import { initializeContext } from "@shared/lib/context";
 
 // Conditionally import telemetry modules
@@ -74,8 +74,8 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
   }
 }
 
-import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware";
-import { createRateLimiter } from "./middleware/rateLimiter";
+import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js"
+import { createRateLimiter } from "./middleware/rateLimiter.js"
 import {
   requestIdMiddleware,
   accessLogMiddleware,
@@ -83,15 +83,15 @@ import {
   notFoundHandler,
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler";
-import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware";
-import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders";
-import { cachingMiddleware } from "./middleware/cachingMiddleware";
-import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth";
-import { tenantContextMiddleware } from "./middleware/tenantContext";
-import { tenantDbContextMiddleware } from "./middleware/tenantDbContext";
-import { settings } from "./config/settings";
-import { isConsentRegistryConfigured } from "./services/consentRegistry";
-import { TenantContextResolver } from "./services/TenantContextResolver";
+import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js"
+import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders.js"
+import { cachingMiddleware } from "./middleware/cachingMiddleware.js"
+import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js"
+import { tenantContextMiddleware } from "./middleware/tenantContext.js"
+import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js"
+import { settings } from "./config/settings.js"
+import { isConsentRegistryConfigured } from "./services/consentRegistry.js"
+import { TenantContextResolver } from "./services/TenantContextResolver.js"
 
 const logger = createLogger({ component: "BillingServer" });
 const WS_POLICY_VIOLATION_CODE = 1008;

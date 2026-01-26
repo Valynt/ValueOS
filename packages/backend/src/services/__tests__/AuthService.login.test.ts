@@ -4,8 +4,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthService } from "../AuthService";
-import { ValidationError, RateLimitError, AuthenticationError } from "../errors";
+import { AuthService } from "../AuthService.js"
+import { ValidationError, RateLimitError, AuthenticationError } from "../errors.js"
 import {
   createLoginCredentials,
   createSuccessfulLoginResponse,

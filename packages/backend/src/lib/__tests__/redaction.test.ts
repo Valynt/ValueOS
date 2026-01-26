@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { redactSensitiveData, redactHeaders } from '../redaction';
+import { redactSensitiveData, redactHeaders } from '../redaction.js'
 
 describe('redaction utilities', () => {
   it('redacts sensitive header values', () => {

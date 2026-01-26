@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 
 // Base service configuration schema
 const BaseServiceConfigSchema = z.object({

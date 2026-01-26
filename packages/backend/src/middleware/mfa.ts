@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { createLogger } from "@shared/lib/logger";
-import { mfaService } from "../services/MFAService";
+import { mfaService } from "../services/MFAService.js"
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 
 const logger = createLogger({ component: "MFAMiddleware" });

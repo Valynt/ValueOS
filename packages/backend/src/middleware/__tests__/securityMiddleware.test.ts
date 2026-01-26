@@ -4,7 +4,7 @@ import {
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../securityMiddleware';
-import { getSecurityConfig } from '../../security/SecurityConfig';
+import { getSecurityConfig } from '../../security/SecurityConfig.js'
 
 function mockRes() {
   const headers: Record<string, string> = {};

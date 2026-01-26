@@ -14,14 +14,14 @@
  * - Extensible: Plugin architecture for routing strategies
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { v4 as uuidv4 } from "uuid";
 import * as z from "zod";
-import { CircuitBreakerManager } from "./CircuitBreaker";
-import { AgentRecord, AgentRegistry } from "./AgentRegistry";
+import { CircuitBreakerManager } from "./CircuitBreaker.js"
+import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
 import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
-import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
-import { AgentType } from "./agent-types";
+import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
+import { AgentType } from "./agent-types.js"
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import GroundtruthAPI, {
@@ -33,8 +33,8 @@ import {
   getAgentMessageBroker,
   AgentMessageBroker,
 } from "./AgentMessageBroker";
-import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue";
-import { AgentType } from "./agent-types";
+import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue.js"
+import { AgentType } from "./agent-types.js"
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
@@ -46,9 +46,9 @@ import {
 } from "./AgentAPI";
 import { renderPage, RenderPageOptions } from "@sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
-import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer";
-import { supabase } from "../lib/supabase";
-import { featureFlags } from "../config/featureFlags";
+import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js"
+import { supabase } from "../lib/supabase.js"
+import { featureFlags } from "../config/featureFlags.js"
 
 // ============================================================================
 // Types

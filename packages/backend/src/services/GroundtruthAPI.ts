@@ -5,7 +5,7 @@
  * authentication, timeouts, and normalized error handling.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { getGroundtruthConfig } from '../lib/env';
 
 export interface GroundtruthAPIConfig {

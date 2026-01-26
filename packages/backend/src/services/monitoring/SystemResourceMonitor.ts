@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { getMemoryPressureMonitor, MemoryPressure } from './MemoryPressureMonitor';
+import { getMemoryPressureMonitor, MemoryPressure } from './MemoryPressureMonitor.js'
 
 // ============================================================================
 // Types

@@ -4,7 +4,7 @@
  * Tracks demo completion rates and identifies drop-off points
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js'
 import { analyticsClient } from '../lib/analyticsClient';
 
 export interface DemoEvent {

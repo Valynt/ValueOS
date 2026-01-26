@@ -9,17 +9,17 @@ import {
   SERVICE_TOKENS,
   Lifetime,
 } from "./DependencyInjectionContainer";
-import { logger } from "../lib/logger";
-import { getAuditLogger } from "./AgentAuditLogger";
-import { getAgentCache } from "./cache/AgentCache";
-import { getAgentRegistry } from "./AgentRegistry";
-import { getAgentAPI } from "./AgentAPI";
-import { getAgentMessageQueue } from "./AgentMessageQueue";
-import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger.js"
+import { getAuditLogger } from "./AgentAuditLogger.js"
+import { getAgentCache } from "./cache/AgentCache.js"
+import { getAgentRegistry } from "./AgentRegistry.js"
+import { getAgentAPI } from "./AgentAPI.js"
+import { getAgentMessageQueue } from "./AgentMessageQueue.js"
+import { supabase } from "../lib/supabase.js"
 import { getRedisClient } from "../lib/redis";
-import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator";
+import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator.js"
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { llmConfig } from "../config/llm";
+import { llmConfig } from "../config/llm.js"
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
 
 // Create and configure the service collection

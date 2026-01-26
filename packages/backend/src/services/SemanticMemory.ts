@@ -6,7 +6,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { logger } from "../utils/logger";
+import { logger } from "../utils/logger.js"
 
 export interface MemoryEntry {
   id: string;

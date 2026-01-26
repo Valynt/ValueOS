@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AdminUserService } from '../AdminUserService';
+import { AdminUserService } from '../AdminUserService.js'
 
 // Hoist the mock object so it's available in the mock factory
 const mocks = vi.hoisted(() => {

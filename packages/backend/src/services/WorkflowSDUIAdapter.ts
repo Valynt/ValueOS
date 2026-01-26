@@ -5,7 +5,7 @@
  * Handles stage transitions, progress updates, and workflow completion.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { SDUIPageDefinition } from '@sdui/schema';
 import { SDUIUpdate } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
@@ -21,7 +21,7 @@ import {
   createMutateAction,
   createRemoveAction,
 } from '@sdui/AtomicUIActions';
-import { canvasSchemaService } from './CanvasSchemaService';
+import { canvasSchemaService } from './CanvasSchemaService.js'
 
 /**
  * Workflow SDUI Adapter
