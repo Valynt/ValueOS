@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 import { getCustomerMetrics } from '../customer/metrics.js'
 import { getCustomerValueCase } from '../customer/value-case.js'
 import { getCustomerBenchmarks } from '../customer/benchmarks.js'
-import { customerAccessService } from '../services/CustomerAccessService';
+import { customerAccessService } from '../../services/CustomerAccessService';
 import { supabase } from '@shared/lib/supabase';
 
 // Mock dependencies
