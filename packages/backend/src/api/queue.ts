@@ -5,7 +5,7 @@
  */
 
 import { Request, Response, Router } from 'express';
-import { llmQueue } from './services/MessageQueue';
+import { llmQueue } from '../services/MessageQueue';
 import { logger } from '../utils/logger';
 import {
   csrfProtectionMiddleware,
@@ -16,7 +16,7 @@ import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddlewa
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
-import { consentRegistry } from './services/consentRegistry';
+import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
 
 const router = Router();
