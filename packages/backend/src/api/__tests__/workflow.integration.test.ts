@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { Client } from 'pg';
-import { getDatabaseUrl } from '../config/database';
+import { getDatabaseUrl } from '../../config/database';
 
 vi.mock('../../middleware/auth', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
