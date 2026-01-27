@@ -10,3 +10,7 @@ export function metricsMiddleware(req: any, res: any, next: any) {
   });
   next();
 }
+
+export function getMetricsRegistry() {
+  return {};
+}

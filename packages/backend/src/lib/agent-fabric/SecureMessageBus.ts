@@ -51,7 +51,7 @@ export class SecureMessageBus extends EventEmitter {
     const handlers = this.subscribers.get(to) || [];
     for (const { handler, patterns } of handlers) {
       if (!patterns || patterns.includes('*') || patterns.includes(from)) {
-        handler(message, { id: from } as AgentIdentity);
+        handler(message, { agent_id: from, agent_type: 'unknown', organization_id: '', permissions: [], issued_at: '', expires_at: '' } as AgentIdentity);
       }
     }
 

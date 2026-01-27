@@ -3,7 +3,9 @@
  */
 
 export class ContextFabric {
-  constructor() {}
+  buildContext(data: any): any {
+    return { ...data, context: 'built' };
+  }
 }
 
-export const contextfabric = new ContextFabric();
+export const contextFabric = new ContextFabric();

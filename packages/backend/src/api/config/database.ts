@@ -14,3 +14,7 @@ export const databaseConfig: DatabaseConfig = {
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || '',
 };
+
+export function getDatabaseUrl(): string {
+  return `postgresql://${databaseConfig.user}:${databaseConfig.password}@${databaseConfig.host}:${databaseConfig.port}/${databaseConfig.database}`;
+}
