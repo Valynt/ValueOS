@@ -181,14 +181,14 @@ async function main() {
 
   if (command === "down") {
     ensureDocker();
-    run("node scripts/dx/orchestrator.js --down");
+    run("npx tsx scripts/dx/orchestrator.js --down");
     return;
   }
 
   if (command === "reset") {
     ensureDocker();
     const resetFlag = resetLevel === "hard" ? "--reset hard" : "--reset soft";
-    run(`node scripts/dx/orchestrator.js ${resetFlag}`);
+    run(`npx tsx scripts/dx/orchestrator.js ${resetFlag}`);
     return;
   }
 
@@ -237,7 +237,7 @@ async function main() {
 
   const modeFlag = mode === "docker" ? "--mode docker" : "--mode local";
   const seedFlag = seed ? " --seed" : "";
-  run(`node scripts/dx/orchestrator.js ${modeFlag}${seedFlag}`);
+  run(`npx tsx scripts/dx/orchestrator.js ${modeFlag}${seedFlag}`);
 }
 
 main().catch((error) => {

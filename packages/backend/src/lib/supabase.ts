@@ -7,3 +7,6 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY || 'example-key';
 export const createServerSupabaseClient = () => {
   return createClient(supabaseUrl, supabaseKey);
 };
+
+// Shared singleton client for legacy call sites/tests that import { supabase }
+export const supabase = createServerSupabaseClient();

@@ -31,9 +31,9 @@ import { config } from "dotenv";
 import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
 import { writeEnvFiles, validateEnvLocal } from "./env-compiler.js";
-import { CheckpointManager } from "./checkpoint-manager.js";
-import { TraceLogger } from "./trace-logger.js";
-import { formatError } from "./error-codes.js";
+import { CheckpointManager } from "./checkpoint-manager.ts";
+import { TraceLogger } from "./trace-logger.ts";
+import { formatError } from "./error-codes.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

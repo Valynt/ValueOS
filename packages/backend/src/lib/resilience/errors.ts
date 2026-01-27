@@ -22,3 +22,17 @@ export class RetryExhaustedError extends Error {
     this.name = 'RetryExhaustedError';
   }
 }
+
+export class CircuitBreakerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CircuitBreakerError';
+  }
+}
+
+export class RetryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RetryError';
+  }
+}
