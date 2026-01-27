@@ -3,7 +3,7 @@ version: '3.9'
 services:
   app:
     build:
-      context: ..
+      context: .
       dockerfile: .devcontainer/Dockerfile.optimized
       args:
         NODE_VERSION: "20"
