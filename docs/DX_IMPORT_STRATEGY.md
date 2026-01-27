@@ -9,6 +9,7 @@ This is NOT a build configuration issue. It's a **missing implementation problem
 ## Critical Rule: NO STUBS ALLOWED
 
 Creating stub files (empty implementations) is **permanently forbidden**:
+
 - ❌ Hides broken imports from detection  
 - ❌ Creates false sense of progress
 - ❌ Spreads problems across 200+ files
@@ -62,19 +63,23 @@ export * from '../../repositories/WorkflowStateRepository';
 ## Permanent Safeguards (In Place)
 
 **ESLint Rules** (`eslint.config.js`)
+
 - `import/no-unresolved`: Errors on missing imports
 - Prevents broken code from being written
 
 **Pre-commit Hook** (`.git/hooks/pre-commit`)
+
 - Blocks commits with unresolved imports
 - Prevents code from reaching repository
 
-**CI Validation** (`.github/workflows/dx-e2e.yml`)  
+**CI Validation** (`.github/workflows/dx-e2e.yml`)
+
 - Strict import checking on every PR
 - Fails loudly with guidance
 - Zero tolerance for unresolved imports
 
 **Stub Creator** (`scripts/dx/create-missing-stubs.ts`)
+
 - Permanently disabled with exit code 1
 - No environment override possible
 - Clear error message on any attempt
@@ -117,12 +122,14 @@ pnpm run dx:validate-imports
 **Goal**: 0 unresolved imports
 
 **Effort estimate:**
+
 - Top 10 (most critical): 2-3 hrs each = 30 hrs
-- Next 30: 1 hr each = 30 hrs  
+- Next 30: 1 hr each = 30 hrs
 - Remaining 200+: 15 min each = 50 hrs
 - **Total: ~110 hours**
 
 **Recommended pace:**
+
 - Fix 3-5 modules per day
 - ~20 days to complete
 - Verify with `pnpm run dx:validate-imports` after each fix
@@ -149,9 +156,9 @@ pnpm test packages/backend/src/__tests__/import-resolution.test.ts
 ## Why This Matters
 
 Import resolution issues cascade:
+
 - Broken imports → Type errors → Build failures → CI red
 - But stubs mask these → Code breaks in production
 - Pre-commit + CI + validation catch it early
 
-**The safeguards ensure: What compiles locally = What passes CI = What ships to production**
-
+### The safeguards ensure: What compiles locally = What passes CI = What ships to production

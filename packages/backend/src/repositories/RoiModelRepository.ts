@@ -1,11 +1,11 @@
 /**
- * '${repo}'
+ * Repository Implementation
  */
 
 import { createServerSupabaseClient } from '../lib/supabase.js';
 import { logger } from '../lib/logger.js';
 
-export class ${repo} {
+export class RoiModelRepository {
   private supabase: ReturnType<typeof createServerSupabaseClient>;
 
   constructor() {
@@ -13,14 +13,14 @@ export class ${repo} {
   }
 
   async findById(id: string): Promise<any | null> {
-    logger.debug('${repo} findById', { id });
+    logger.debug('RoiModelRepository findById', { id });
     return null;
   }
 
   async create(data: any): Promise<any> {
-    logger.debug('${repo} create', { data });
+    logger.debug('RoiModelRepository create', { data });
     return data;
   }
 }
 
-export const ${repo,,} = new ${repo}();
+export const instance = new RoiModelRepository();

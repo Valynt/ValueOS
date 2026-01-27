@@ -1,9 +1,5 @@
 # ValueOS Developer Experience (DX) Orchestration
 
-> ⚠️ **DRAFT - PENDING VALIDATION**
-> This document describes implementation that has not yet passed runtime proof.
-> Status will be updated after `./dev up` successfully shows "All Services Ready".
-
 This document describes the complete development environment orchestration flow for ValueOS.
 
 ## Quick Start
@@ -61,6 +57,7 @@ pnpm run dx:env
 ```
 
 **Files generated:**
+
 - `.env.local` - Application environment variables (mode-specific)
 - `.env.ports` - Port mappings for Docker Compose
 
@@ -71,7 +68,7 @@ pnpm run dx:env
 Validates the development environment:
 
 | Check | Description | Fix |
-|-------|-------------|-----|
+| ----- | ----------- | --- |
 | Docker | Docker daemon is running | Start Docker Desktop |
 | Node | Node version matches `.nvmrc` | `nvm install && nvm use` |
 | pnpm | Correct pnpm version | `corepack prepare pnpm@9.15.0 --activate` |
@@ -79,6 +76,7 @@ Validates the development environment:
 | Ports | No conflicts on required ports | Stop conflicting services |
 
 Run manually:
+
 ```bash
 pnpm run dx:doctor
 ```
@@ -90,6 +88,7 @@ Starts PostgreSQL and Redis via Docker Compose.
 **Compose file:** `docker-compose.deps.yml`
 
 **Services:**
+
 - `valueos-postgres` - PostgreSQL 15 on port 5432
 - `valueos-redis` - Redis 7 on port 6379
 
@@ -104,11 +103,13 @@ supabase start --workdir infra/supabase
 ```
 
 **Decision logic:**
+
 1. If `DX_FORCE_SUPABASE=1`: Force Supabase startup
 2. If `DX_SKIP_SUPABASE=1`: Skip Supabase, use dx postgres
 3. If Supabase fails: Fallback to dx postgres container
 
 **Supabase services when running:**
+
 - API: `http://localhost:54321`
 - Studio: `http://localhost:54323`
 - DB: `postgresql://...:54322`
@@ -116,11 +117,13 @@ supabase start --workdir infra/supabase
 ### Step 5: Run Migrations
 
 #### Step 5a: Supabase DB Available
+
 ```bash
 supabase db push --workdir infra/supabase
 ```
 
 #### Step 5b: Fallback to dx postgres
+
 ```bash
 supabase db push --workdir infra/supabase --db-url "postgresql://postgres:dev_password@localhost:5432/valuecanvas_dev"
 ```
@@ -172,6 +175,7 @@ Enable with `--caddy` flag or `DX_ENABLE_CADDY=1`:
 ```
 
 Provides:
+
 - HTTPS reverse proxy
 - Local domain support
 - TLS termination
@@ -179,7 +183,7 @@ Provides:
 ## Recovery & Maintenance Commands
 
 | Command | Description |
-|---------|-------------|
+| ------- | ----------- |
 | `./dev logs <service>` | Tail logs for a specific service |
 | `./dev down` | Stop all services |
 | `./dev reset` | Soft reset (remove containers + volumes) |
@@ -207,7 +211,7 @@ A successful dev environment has:
 All ports are defined in `config/ports.json`:
 
 | Service | Port | Environment Variable |
-|---------|------|---------------------|
+| ------- | ---- | -------------------- |
 | Frontend | 5173 | `VITE_PORT` |
 | Frontend HMR | 24678 | `VITE_HMR_PORT` |
 | Backend | 3001 | `API_PORT` |
@@ -224,7 +228,7 @@ All ports are defined in `config/ports.json`:
 Key environment flags:
 
 | Variable | Description |
-|----------|-------------|
+| -------- | ----------- |
 | `DX_MODE` | `local` or `docker` |
 | `DX_SKIP_SUPABASE` | Skip Supabase, use dx postgres |
 | `DX_FORCE_SUPABASE` | Force Supabase startup |

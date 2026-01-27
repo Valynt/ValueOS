@@ -3,35 +3,25 @@ import { getMetricsRegistry } from '../middleware/metricsMiddleware.js';
 
 const registry = getMetricsRegistry();
 
-type StripeWebhookLabels = {
-  event_type: string;
-  status: string;
-};
+type StripeWebhookLabelNames = 'event_type' | 'status';
+type InvoiceLabelNames = 'event_type';
+type JobFailureLabelNames = 'job' | 'reason';
 
-type InvoiceLabels = {
-  event_type: string;
-};
-
-type JobFailureLabels = {
-  job: string;
-  reason: string;
-};
-
-const stripeWebhooksTotal = new Counter<StripeWebhookLabels>({
+const stripeWebhooksTotal = new Counter<StripeWebhookLabelNames>({
   name: 'billing_stripe_webhooks_total',
   help: 'Stripe webhooks processed by the billing pipeline',
   labelNames: ['event_type', 'status'],
   registers: [registry],
 });
 
-const billingInvoicesProcessedTotal = new Counter<InvoiceLabels>({
+const billingInvoicesProcessedTotal = new Counter<InvoiceLabelNames>({
   name: 'billing_invoices_processed_total',
   help: 'Invoice-related Stripe events processed by the billing pipeline',
   labelNames: ['event_type'],
   registers: [registry],
 });
 
-const billingJobsFailuresTotal = new Counter<JobFailureLabels>({
+const billingJobsFailuresTotal = new Counter<JobFailureLabelNames>({
   name: 'billing_jobs_failures_total',
   help: 'Billing job failures by job and reason',
   labelNames: ['job', 'reason'],
