@@ -8,8 +8,8 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { getSecurityHeaders } from '../security/SecurityHeaders';
-import { getSecurityConfig } from '../security/SecurityConfig';
+import { getSecurityHeaders } from '../security/SecurityHeaders.js'
+import { getSecurityConfig } from '../security/SecurityConfig.js'
 
 /**
  * Apply strong security headers to responses.

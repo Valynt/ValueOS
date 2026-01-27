@@ -4,9 +4,9 @@
  */
 
 import { vi } from "vitest";
-import { createMockStripeClient } from "./stripe-mocks";
-import { createCompleteBillingSetup } from "./billing-factories";
-import type { PlanTier } from "../../config/billing";
+import { createMockStripeClient } from "./stripe-mocks.js"
+import { createCompleteBillingSetup } from "./billing-factories.js"
+import type { PlanTier } from "../../../../config/billing";
 
 /**
  * Setup mock Stripe for tests

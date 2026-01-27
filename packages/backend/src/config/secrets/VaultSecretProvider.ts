@@ -8,8 +8,8 @@
  * Created: 2024-11-29
  */
 
-import { logger } from "../../lib/logger";
-import { createServerSupabaseClient } from "../../lib/supabase";
+import { logger } from "../../lib/logger.js"
+import { createServerSupabaseClient } from "../../lib/supabase.js"
 import type {
   AuditAction,
   AuditResult,

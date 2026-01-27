@@ -5,7 +5,7 @@
  * Enables snappy, responsive UI updates in the Playground.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { SDUIComponentSection, SDUIPageDefinition } from '@sdui/schema';
 import {
   ActionResult,

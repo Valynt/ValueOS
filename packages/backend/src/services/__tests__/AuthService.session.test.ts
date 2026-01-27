@@ -4,8 +4,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthService } from "../AuthService";
-import { AuthenticationError } from "../errors";
+import { AuthService } from "../AuthService.js"
+import { AuthenticationError } from "../errors.js"
 import {
   createMockSession,
   createMockUser,

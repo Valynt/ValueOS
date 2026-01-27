@@ -5,8 +5,8 @@
  * and ensure data integrity in the threat detection pipeline
  */
 
-import { SecurityEvent } from './AdvancedThreatDetectionService';
-import { log } from '../lib/logger';
+import { SecurityEvent } from './AdvancedThreatDetectionService.js'
+import { log } from '../lib/logger.js'
 
 export interface ValidationSchema {
   [key: string]: {

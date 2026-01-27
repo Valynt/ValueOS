@@ -5,7 +5,7 @@
  * Prevents prompt regressions and validates agent performance.
  */
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js'
 import { createClient } from '@supabase/supabase-js';
 
 export interface GoldenExample {

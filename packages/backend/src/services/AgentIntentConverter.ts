@@ -7,7 +7,7 @@
  * This replaces the hardcoded switch statements in AgentSDUIAdapter.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { createIntent, UIIntent } from '../types/intent';
 
 /**

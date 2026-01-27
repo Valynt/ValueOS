@@ -9,7 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
-import { validateEnv } from "../src/lib/env";
+import { validateEnv } from "../packages/shared/src/lib/env";
 
 // Load environment
 const __filename = fileURLToPath(import.meta.url);
@@ -50,9 +50,15 @@ async function seedDemoData() {
     console.log(`✅ Created demo tenant: ${tenant.name}`);
 
     // Create demo user with fixed credentials (INVARIANT - do not change)
-    const demoUserEmail = "demouser@valynt.com";
-    const demoUserPassword = "passord";
+    const demoUserEmail = process.env.DEMO_USER_EMAIL || "demouser@valynt.com";
+    // Allow overriding demo password via env var, but enforce minimum length
+    const demoUserPassword = process.env.DEMO_USER_PASSWORD || "passw0rd!";
     const demoUserId = "00000000-0000-0000-0000-000000000001"; // Fixed UUID for determinism
+
+    if (demoUserPassword.length < 8) {
+      console.error('❌ Demo password must be at least 8 characters long. Set DEMO_USER_PASSWORD to a longer value.');
+      process.exit(1);
+    }
 
     // First, create the user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({

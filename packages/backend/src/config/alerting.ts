@@ -4,7 +4,7 @@
  * Defines alert rules and thresholds for monitoring
  */
 
-import { AlertRule } from '../services/AlertingService';
+import { AlertRule } from '../services/AlertingService.js'
 
 /**
  * Alert thresholds configuration type

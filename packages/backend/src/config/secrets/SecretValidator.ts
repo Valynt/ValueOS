@@ -6,8 +6,8 @@
  */
 
 import { z } from "zod";
-import { logger } from "../../lib/logger";
-import { createProviderFromEnv as getSecretProvider } from "./ProviderFactory";
+import { logger } from "../../lib/logger.js"
+import { createProviderFromEnv as getSecretProvider } from "./ProviderFactory.js"
 import {
   createSecretVolumeWatcher,
   secretVolumeWatcher,

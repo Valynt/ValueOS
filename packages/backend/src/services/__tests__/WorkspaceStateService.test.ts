@@ -3,9 +3,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkspaceStateService } from '../WorkspaceStateService';
+import { WorkspaceStateService } from '../WorkspaceStateService.js'
 import { WorkspaceState } from '../../types/sdui-integration';
-import { CacheService } from '../CacheService';
+import { CacheService } from '../CacheService.js'
 
 // Mock dependencies
 vi.mock('../CacheService');

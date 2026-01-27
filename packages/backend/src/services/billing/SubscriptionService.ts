@@ -5,12 +5,12 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import StripeService from "./StripeService";
-import CustomerService from "./CustomerService";
-import { BILLING_METRICS, PLANS, PlanTier } from "../../config/billing";
-import type { BillingMetric } from "../../config/billing";
+import StripeService from "./StripeService.js"
+import CustomerService from "./CustomerService.js"
+import { BILLING_METRICS, PLANS, PlanTier } from "../../config/billing.js"
+import type { BillingMetric } from "../../config/billing.js"
 import { Subscription, SubscriptionItem } from "../../types/billing";
-import { createLogger } from "../../lib/logger";
+import { createLogger } from "../../lib/logger.js"
 
 const logger = createLogger({ component: "SubscriptionService" });
 

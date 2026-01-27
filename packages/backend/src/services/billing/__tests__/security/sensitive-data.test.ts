@@ -15,7 +15,7 @@ import {
   createBillingCustomer,
   createInvoice,
 } from "../__helpers__/billing-factories";
-import { createMockStripePaymentMethod } from "../__helpers__/stripe-mocks";
+import { createMockStripePaymentMethod } from "../__helpers__/stripe-mocks.js"
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Sensitive Data Exposure Tests", () => {

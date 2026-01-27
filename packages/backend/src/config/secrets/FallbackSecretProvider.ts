@@ -5,7 +5,7 @@
  * Tries providers in order of preference, falling back to next on failure
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 import type {
   AuditAction,
   AuditResult,

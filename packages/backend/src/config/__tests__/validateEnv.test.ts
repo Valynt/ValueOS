@@ -4,7 +4,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { validateEnv, validateLLMConfig } from "../validateEnv";
+import { validateEnv, validateLLMConfig } from "../validateEnv.js"
 
 describe("Phase 1: Environment Validation", () => {
   describe("validateLLMConfig", () => {

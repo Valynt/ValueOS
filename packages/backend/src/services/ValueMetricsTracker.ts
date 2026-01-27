@@ -4,7 +4,7 @@
  * Tracks and measures value delivered to users across the platform
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js'
 import { analyticsClient } from '../lib/analyticsClient';
 
 export interface ValueMetric {

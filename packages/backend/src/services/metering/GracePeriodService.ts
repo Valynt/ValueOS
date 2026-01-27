@@ -4,8 +4,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { BillingMetric, GRACE_PERIOD_MS } from '../../config/billing';
-import { createLogger } from '../../lib/logger';
+import { BillingMetric, GRACE_PERIOD_MS } from '../../config/billing.js'
+import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'GracePeriodService' });
 

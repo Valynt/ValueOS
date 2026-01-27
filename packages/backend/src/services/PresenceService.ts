@@ -5,8 +5,8 @@
  * SEC-003: Migrated to TenantAwareService for tenant isolation
  */
 
-import { logger } from '../lib/logger';
-import { TenantAwareService } from './TenantAwareService';
+import { logger } from '../lib/logger.js'
+import { TenantAwareService } from './TenantAwareService.js'
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface ActiveSession {

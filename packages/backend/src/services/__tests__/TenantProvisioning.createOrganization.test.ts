@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createOrganization, TenantConfig } from '../TenantProvisioning';
+import { createOrganization, TenantConfig } from '../TenantProvisioning.js'
 
 // Define mocks using vi.hoisted to ensure they are available before imports
 const mocks = vi.hoisted(() => {

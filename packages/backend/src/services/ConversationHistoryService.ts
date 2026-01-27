@@ -5,8 +5,8 @@
  * Supports real-time sync and local caching for offline support.
  */
 
-import { logger } from '../lib/logger';
-import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger.js'
+import { supabase } from '../lib/supabase.js'
 
 // ============================================================================
 // Types

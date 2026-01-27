@@ -9,11 +9,11 @@ import { createClient } from '@supabase/supabase-js';
 import {
   resetWorkflowLifecycleIntegration,
   WorkflowLifecycleIntegration
-} from '../../services/WorkflowLifecycleIntegration';
+} from '../../WorkflowLifecycleIntegration';
 import {
   LifecycleCompensationHandlers,
   resetLifecycleCompensationHandlers
-} from '../../services/LifecycleCompensationHandlers';
+} from '../../LifecycleCompensationHandlers';
 
 // Mock Supabase client
 const mockSupabase = createClient(

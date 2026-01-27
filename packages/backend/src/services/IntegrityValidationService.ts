@@ -12,11 +12,11 @@
  - Performance signal accuracy verification
  */
 
-import { logger } from "../lib/logger";
-import { AdversarialValidator } from "./AdversarialValidator";
+import { logger } from "../lib/logger.js"
+import { AdversarialValidator } from "./AdversarialValidator.js"
 import { SDUIPageDefinition } from "@sdui/schema";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
-import { AgentMemoryService } from "./AgentMemoryService";
+import { AgentMemoryService } from "./AgentMemoryService.js"
 
 // ============================================================================
 // Types

@@ -5,8 +5,8 @@
  * and adaptive concurrency scaling.
  */
 
-import { logger } from '../lib/logger';
-import { getMemoryPressureMonitor, MemoryPressure } from './MemoryPressureMonitor';
+import { logger } from "../../lib/logger.js";
+import { getMemoryPressureMonitor, MemoryPressure } from './MemoryPressureMonitor.js'
 
 // ============================================================================
 // Types

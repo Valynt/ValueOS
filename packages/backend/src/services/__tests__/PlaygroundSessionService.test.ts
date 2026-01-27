@@ -2,7 +2,7 @@
  * Tests for PlaygroundSessionService
  */
 
-import { PlaygroundSessionService } from '../PlaygroundSessionService';
+import { PlaygroundSessionService } from '../PlaygroundSessionService.js'
 import { SDUIPageDefinition } from '@sdui/schema';
 import { createPropertyUpdate } from '@sdui/AtomicUIActions';
 

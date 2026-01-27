@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { InitiativesRepository } from "../repository";
-import { DbConflictError } from "../../../lib/db/errors";
+import { InitiativesRepository } from "../repository.js"
+import { DbConflictError } from "../../../lib/db/errors.js"
 
 const buildDb = (query: ReturnType<typeof vi.fn>) => ({
   client: {} as any,

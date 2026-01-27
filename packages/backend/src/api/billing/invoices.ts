@@ -4,9 +4,9 @@
  */
 
 import express, { Request, Response } from 'express';
-import InvoiceService from '../services/billing/InvoiceService';
+import InvoiceService from "../../services/billing/InvoiceService.js";
 import { createLogger } from '@shared/lib/logger';
-import { auditDataExport } from '../../middleware/auditHooks';
+import { auditDataExport } from '../../middleware/auditHooks.js'
 
 const router = express.Router();
 const logger = createLogger({ component: 'InvoicesAPI' });

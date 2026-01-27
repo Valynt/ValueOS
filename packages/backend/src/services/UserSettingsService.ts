@@ -5,11 +5,11 @@
  * SEC-003: Migrated to TenantAwareService for tenant isolation
  */
 
-import { logger } from '../lib/logger';
-import { TenantAwareService } from './TenantAwareService';
-import { settingsService } from './SettingsService';
-import { NotFoundError, ValidationError } from './errors';
-import { tenantCache } from './cache/TenantCache';
+import { logger } from '../lib/logger.js'
+import { TenantAwareService } from './TenantAwareService.js'
+import { settingsService } from './SettingsService.js'
+import { NotFoundError, ValidationError } from './errors.js'
+import { tenantCache } from './cache/TenantCache.js'
 
 export interface UserProfile {
   id: string;

@@ -32,8 +32,7 @@ const mode = getFlagValue("--mode") || process.env.DX_MODE || "local";
 const seed = hasFlag("--seed");
 const skipInstall = hasFlag("--skip-install") || process.env.DX_SKIP_INSTALL === "true";
 const ci = hasFlag("--ci") || process.env.CI === "true";
-const autoShiftPorts =
-  hasFlag("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
+const autoShiftPorts = hasFlag("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
 const resetLevel = hasFlag("--hard") ? "hard" : "soft";
 const pnpmVersion = "9.15.0";
 
@@ -55,10 +54,10 @@ function runCapture(commandLine) {
 
 function printHelp() {
   console.log(`
-ValueOS Dev CLI
+ValueOS Dev CLI - Developer Experience Orchestrator
 
 Usage:
-  ./dev up [--mode local|docker] [--seed] [--skip-install]
+  ./dev up [--mode local|docker] [--seed] [--caddy] [--skip-install]
   ./dev down
   ./dev reset [--soft|--hard]
   ./dev doctor [--mode local|docker]
@@ -66,9 +65,28 @@ Usage:
   ./dev smoke-test [--mode local|docker]
   ./dev bundle [--mode local|docker]
 
+Orchestration Flow (./dev up):
+  1. dx:env         - Generate .env.local + .env.ports from config/ports.json
+  2. Preflight      - Docker, Node/pnpm, DATABASE_URL, ports
+  3. Docker deps    - Start postgres + redis (docker compose)
+  4. Supabase       - Start local Supabase (optional, falls back to dx postgres)
+  5. Migrations     - supabase db push against Supabase or dx postgres
+  6. Schema verify  - Regenerate TypeScript types (non-critical)
+  7. Backend        - tsx watch packages/backend/src/server.ts
+  8. Frontend       - pnpm --filter valynt-app dev (Vite)
+  9. Caddy          - HTTPS reverse proxy (optional, use --caddy)
+
+Recovery/Maintenance:
+  ./dev logs <service>  - Tail logs for a service
+  ./dev down            - Stop stack (Ctrl+C also works)
+  ./dev reset           - Reset stack (remove containers/volumes)
+  pnpm run dx:doctor    - Run preflight diagnostics
+  pnpm run dx:env:validate  - Validate environment files
+
 Flags:
   --mode           Set dx mode (local or docker)
   --seed           Seed database after migrations
+  --caddy          Enable Caddy HTTPS reverse proxy
   --skip-install   Skip pnpm install step
   --ci             CI mode (less verbose, no prompts)
   --auto-shift-ports  Auto-shift ports if conflicts are detected
@@ -142,11 +160,16 @@ function applyPortsEnvOverrides() {
   });
 }
 
-
 async function main() {
   if (hasFlag("--help") || hasFlag("-h")) {
     printHelp();
     return;
+  }
+
+  // Hard-ban DX in CI builds
+  if (process.env.CI === "true") {
+    console.error("❌ DX must not run in CI. Use setup:ci and build commands instead.");
+    process.exit(1);
   }
 
   if (command === "doctor") {
@@ -158,14 +181,14 @@ async function main() {
 
   if (command === "down") {
     ensureDocker();
-    run("node scripts/dx/orchestrator.js --down");
+    run("npx tsx scripts/dx/orchestrator.js --down");
     return;
   }
 
   if (command === "reset") {
     ensureDocker();
     const resetFlag = resetLevel === "hard" ? "--reset hard" : "--reset soft";
-    run(`node scripts/dx/orchestrator.js ${resetFlag}`);
+    run(`npx tsx scripts/dx/orchestrator.js ${resetFlag}`);
     return;
   }
 
@@ -214,7 +237,7 @@ async function main() {
 
   const modeFlag = mode === "docker" ? "--mode docker" : "--mode local";
   const seedFlag = seed ? " --seed" : "";
-  run(`node scripts/dx/orchestrator.js ${modeFlag}${seedFlag}`);
+  run(`npx tsx scripts/dx/orchestrator.js ${modeFlag}${seedFlag}`);
 }
 
 main().catch((error) => {

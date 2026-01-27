@@ -1,6 +1,5 @@
-import { getEnvVar } from "../lib/env";
-import { settings } from "./settings";
+/**
+ * Database Configuration - Re-export from shared
+ */
 
-export function getDatabaseUrl(): string | undefined {
-  return settings.DATABASE_URL ?? getEnvVar("DATABASE_URL");
-}
+export { getDatabaseConfig } from '@shared/config/server-config';

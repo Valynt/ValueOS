@@ -91,6 +91,7 @@
   },
 
   "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=valueos-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
     "source=valueos-npm-cache,target=/home/vscode/.npm,type=volume",
     "source=valueos-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume"

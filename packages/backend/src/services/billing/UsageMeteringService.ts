@@ -4,9 +4,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import StripeService from './StripeService';
+import StripeService from './StripeService.js'
 import { UsageAggregate } from '../../types/billing';
-import { createLogger } from '../../lib/logger';
+import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'UsageMeteringService' });
 

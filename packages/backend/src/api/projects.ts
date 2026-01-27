@@ -7,7 +7,7 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "../lib/errors";
-import { asyncHandler } from "../middleware/globalErrorHandler";
+import { asyncHandler } from "../middleware/globalErrorHandler.js"
 
 const router = Router();
 

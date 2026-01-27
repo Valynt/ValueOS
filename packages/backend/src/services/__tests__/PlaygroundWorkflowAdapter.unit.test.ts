@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PlaygroundWorkflowAdapter } from '../PlaygroundWorkflowAdapter';
+import { PlaygroundWorkflowAdapter } from '../PlaygroundWorkflowAdapter.js'
 import { ExecutionRequest } from '../../types/execution';
 
 vi.mock('../PlaygroundAutoSave', () => {

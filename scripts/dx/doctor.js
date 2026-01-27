@@ -29,9 +29,7 @@ try {
 
 // Soft mode: print warnings but don't block dev server startup
 const softMode =
-  args.includes("--soft") ||
-  args.includes("-s") ||
-  process.env.DX_SOFT_DOCTOR === "1";
+  args.includes("--soft") || args.includes("-s") || process.env.DX_SOFT_DOCTOR === "1";
 const autoShiftPorts =
   args.includes("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
 const allowEnvPlaceholders = process.env.DX_DOCTOR_ALLOW_PLACEHOLDERS === "1";
@@ -84,26 +82,13 @@ function runCheckWithCache(checkName, checkFunction) {
 const ports = loadPorts();
 const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
 const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
-const postgresPort = resolvePort(
-  process.env.POSTGRES_PORT,
-  ports.postgres.port
-);
+const postgresPort = resolvePort(process.env.POSTGRES_PORT, ports.postgres.port);
 const redisPort = resolvePort(process.env.REDIS_PORT, ports.redis.port);
-const supabaseApiPort = resolvePort(
-  process.env.SUPABASE_API_PORT,
-  ports.supabase.apiPort
-);
-const supabaseStudioPort = resolvePort(
-  process.env.SUPABASE_STUDIO_PORT,
-  ports.supabase.studioPort
-);
-const caddyHttpsPort = resolvePort(
-  process.env.CADDY_HTTPS_PORT,
-  ports.edge.httpsPort
-);
+const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
+const supabaseStudioPort = resolvePort(process.env.SUPABASE_STUDIO_PORT, ports.supabase.studioPort);
+const caddyHttpsPort = resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort);
 
-const frontendUrl =
-  process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
+const frontendUrl = process.env.VITE_APP_URL || `http://localhost:${frontendPort}`;
 const backendUrl = process.env.BACKEND_URL || `http://localhost:${backendPort}`;
 const pnpmVersion = "9.15.0";
 
@@ -126,11 +111,19 @@ function runCommand(command, options = {}) {
 
 function commandExists(command) {
   try {
+    // Try Unix-style command first
     execSync(`command -v ${command}`, { stdio: "ignore" });
     return true;
   } catch {
-    const localPath = path.join(projectRoot, "node_modules", ".bin", command);
-    return fs.existsSync(localPath);
+    try {
+      // Try Windows-style where command
+      execSync(`where ${command}`, { stdio: "ignore" });
+      return true;
+    } catch {
+      // Check local node_modules/.bin
+      const localPath = path.join(projectRoot, "node_modules", ".bin", command);
+      return fs.existsSync(localPath);
+    }
   }
 }
 
@@ -266,13 +259,9 @@ function checkDocker() {
     let details = `Docker daemon is not responding. Current context: ${dockerContext}.`;
 
     if (errorMsg.includes("permission denied")) {
-      fix =
-        "Add your user to the docker group: sudo usermod -aG docker $USER && newgrp docker";
+      fix = "Add your user to the docker group: sudo usermod -aG docker $USER && newgrp docker";
       details = `Docker permission denied. Current context: ${dockerContext}.`;
-    } else if (
-      errorMsg.includes("Cannot connect") ||
-      errorMsg.includes("connection refused")
-    ) {
+    } else if (errorMsg.includes("Cannot connect") || errorMsg.includes("connection refused")) {
       details = `Cannot connect to Docker daemon. Context: ${dockerContext}. Available: ${contextDetails || "unknown"}.`;
       fix =
         dockerContext !== "default"
@@ -293,30 +282,47 @@ function checkDocker() {
 
   try {
     const composeVersion = runCommand("docker compose version --short").trim();
-    if (!composeVersion.startsWith("v2")) {
+    // Parse version to handle both v2.x.x and 2.x.x formats
+    const versionParts = composeVersion.replace(/^v/, "").split(".");
+    const majorVersion = parseInt(versionParts[0], 10);
+
+    if (majorVersion < 2) {
       reportFailure(
         "Docker Compose v2 required",
-        `docker compose version ${composeVersion} detected.`,
+        `Detected version: "${composeVersion}" (parsed major: ${majorVersion}) via command: docker compose version --short`,
         "Upgrade Docker Desktop/Engine to use Compose v2."
       );
     }
   } catch {
     reportFailure(
       "Docker Compose missing",
-      "docker compose (v2) is not available.",
+      "Command failed: docker compose version --short. docker compose (v2) is not available.",
       "Install Docker Desktop or Docker Engine with Compose v2."
     );
   }
 
   try {
-    const info = runCommand("docker info --format '{{json .}}'");
-    const parsed = JSON.parse(info);
+    // Check if BuildKit is enabled via environment variable or buildx plugin
     const buildkitEnabled =
-      parsed?.Buildkit === true || parsed?.Buildkit === "true";
+      process.env.DOCKER_BUILDKIT === "1" || process.env.DOCKER_BUILDKIT?.toLowerCase() === "true";
+
+    // If not enabled via env var, check if buildx plugin is available
+    let hasBuildxPlugin = false;
     if (!buildkitEnabled) {
+      try {
+        const info = runCommand("docker info --format '{{json .}}'");
+        const parsed = JSON.parse(info);
+        hasBuildxPlugin = parsed?.ClientInfo?.Plugins?.some((plugin) => plugin.Name === "buildx");
+      } catch {
+        // Ignore JSON parsing failures
+      }
+    }
+
+    if (!buildkitEnabled && !hasBuildxPlugin) {
+      const envValue = process.env.DOCKER_BUILDKIT || "not set";
       reportFailure(
         "Docker BuildKit disabled",
-        "Docker BuildKit is not enabled.",
+        `BuildKit not enabled. Environment variable: DOCKER_BUILDKIT="${envValue}". Detection command: docker info --format '{{json .}}' (checked for buildx plugin)`,
         "Enable BuildKit: export DOCKER_BUILDKIT=1 (or enable in Docker Desktop settings)."
       );
     }
@@ -369,16 +375,44 @@ function isDockerPortPublished(port) {
 async function checkPorts() {
   const portChecks = [
     { name: "Frontend", port: frontendPort, env: "VITE_PORT" },
-    { name: "Vite HMR", port: resolvePort(process.env.VITE_HMR_PORT, ports.frontend.hmrPort), env: "VITE_HMR_PORT" },
+    {
+      name: "Vite HMR",
+      port: resolvePort(process.env.VITE_HMR_PORT, ports.frontend.hmrPort),
+      env: "VITE_HMR_PORT",
+    },
     { name: "Backend", port: backendPort, env: "API_PORT" },
     { name: "Supabase API", port: supabaseApiPort, env: "SUPABASE_API_PORT" },
     { name: "Supabase Studio", port: supabaseStudioPort, env: "SUPABASE_STUDIO_PORT" },
-    { name: "Supabase DB", port: resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort), env: "SUPABASE_DB_PORT" },
-    { name: "Caddy HTTP", port: resolvePort(process.env.CADDY_HTTP_PORT, ports.edge.httpPort), env: "CADDY_HTTP_PORT" },
-    { name: "Caddy HTTPS", port: resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort), env: "CADDY_HTTPS_PORT" },
-    { name: "Caddy Admin", port: resolvePort(process.env.CADDY_ADMIN_PORT, ports.edge.adminPort), env: "CADDY_ADMIN_PORT" },
-    { name: "Prometheus", port: resolvePort(process.env.PROMETHEUS_PORT, ports.observability.prometheusPort), env: "PROMETHEUS_PORT" },
-    { name: "Grafana", port: resolvePort(process.env.GRAFANA_PORT, ports.observability.grafanaPort), env: "GRAFANA_PORT" },
+    {
+      name: "Supabase DB",
+      port: resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort),
+      env: "SUPABASE_DB_PORT",
+    },
+    {
+      name: "Caddy HTTP",
+      port: resolvePort(process.env.CADDY_HTTP_PORT, ports.edge.httpPort),
+      env: "CADDY_HTTP_PORT",
+    },
+    {
+      name: "Caddy HTTPS",
+      port: resolvePort(process.env.CADDY_HTTPS_PORT, ports.edge.httpsPort),
+      env: "CADDY_HTTPS_PORT",
+    },
+    {
+      name: "Caddy Admin",
+      port: resolvePort(process.env.CADDY_ADMIN_PORT, ports.edge.adminPort),
+      env: "CADDY_ADMIN_PORT",
+    },
+    {
+      name: "Prometheus",
+      port: resolvePort(process.env.PROMETHEUS_PORT, ports.observability.prometheusPort),
+      env: "PROMETHEUS_PORT",
+    },
+    {
+      name: "Grafana",
+      port: resolvePort(process.env.GRAFANA_PORT, ports.observability.grafanaPort),
+      env: "GRAFANA_PORT",
+    },
   ];
 
   if (mode === "local") {
@@ -392,11 +426,7 @@ async function checkPorts() {
 
   for (const { name, port, env } of portChecks) {
     const inUse = await isPortInUse(port);
-    if (
-      inUse &&
-      !isDockerPortPublished(port) &&
-      process.env.DX_ALLOW_PORT_IN_USE !== "1"
-    ) {
+    if (inUse && !isDockerPortPublished(port) && process.env.DX_ALLOW_PORT_IN_USE !== "1") {
       if (autoShiftPorts) {
         const suggestion = await findNextAvailablePort(port);
         if (!suggestion) {
@@ -441,12 +471,8 @@ function checkEnvironment() {
   const envContent = fs.readFileSync(envLocalPath, "utf8");
   const lines = envContent.split("\n");
 
-  const supabaseAnonKeyLine = lines.find((line) =>
-    line.startsWith("VITE_SUPABASE_ANON_KEY=")
-  );
-  const supabaseUrlLine = lines.find((line) =>
-    line.startsWith("VITE_SUPABASE_URL=")
-  );
+  const supabaseAnonKeyLine = lines.find((line) => line.startsWith("VITE_SUPABASE_ANON_KEY="));
+  const supabaseUrlLine = lines.find((line) => line.startsWith("VITE_SUPABASE_URL="));
 
   if (supabaseAnonKeyLine) {
     const value = supabaseAnonKeyLine.split("=")[1];
@@ -472,8 +498,7 @@ function checkEnvironment() {
 
   if (supabaseUrlLine) {
     const value = supabaseUrlLine.split("=")[1];
-    const isLocalUrl =
-      value && (value.includes("localhost") || value.includes("127.0.0.1"));
+    const isLocalUrl = value && (value.includes("localhost") || value.includes("127.0.0.1"));
     if (!isLocalUrl) {
       reportFailure(
         "Invalid Supabase URL",
@@ -523,9 +548,7 @@ function checkEnvironment() {
     const portsContent = fs.readFileSync(envPortsPath, "utf8");
     const portsLines = portsContent.split("\n");
 
-    const portsAnonKeyLine = portsLines.find((line) =>
-      line.startsWith("VITE_SUPABASE_ANON_KEY=")
-    );
+    const portsAnonKeyLine = portsLines.find((line) => line.startsWith("VITE_SUPABASE_ANON_KEY="));
     if (!portsAnonKeyLine || portsAnonKeyLine.includes("placeholder")) {
       reportFailure(
         "Container Supabase key missing",
@@ -823,9 +846,7 @@ function checkSupabase() {
   let supabaseStatus = "";
   try {
     supabaseStatus = runCommand("supabase status", { stdio: "pipe" });
-    supabaseRunning =
-      supabaseStatus.includes("API URL") &&
-      !supabaseStatus.includes("not running");
+    supabaseRunning = supabaseStatus.includes("API URL") && !supabaseStatus.includes("not running");
   } catch {
     supabaseRunning = false;
   }
@@ -890,10 +911,9 @@ function checkSupabaseMigrations() {
 
   // Check migration status
   try {
-    const migrationList = runCommand(
-      "supabase migration list 2>/dev/null || echo 'unavailable'",
-      { stdio: "pipe" }
-    );
+    const migrationList = runCommand("supabase migration list 2>/dev/null || echo 'unavailable'", {
+      stdio: "pipe",
+    });
 
     if (migrationList.includes("unavailable")) {
       return; // Can't check migrations
@@ -941,17 +961,14 @@ function checkSupabaseSchema() {
 
   // Check for schema drift using supabase db diff
   try {
-    const diff = runCommand(
-      "supabase db diff --use-migra 2>/dev/null || echo ''",
-      { stdio: "pipe" }
-    );
+    const diff = runCommand("supabase db diff --use-migra 2>/dev/null || echo ''", {
+      stdio: "pipe",
+    });
 
     // If diff output contains CREATE/ALTER/DROP statements, there's drift
     const hasDrift =
       diff.trim().length > 0 &&
-      (diff.includes("CREATE") ||
-        diff.includes("ALTER") ||
-        diff.includes("DROP"));
+      (diff.includes("CREATE") || diff.includes("ALTER") || diff.includes("DROP"));
 
     if (hasDrift) {
       const lineCount = diff.split("\n").filter((l) => l.trim()).length;
@@ -972,9 +989,7 @@ function checkSupabaseSchema() {
   if (fs.existsSync(typesPath) && fs.existsSync(migrationsDir)) {
     try {
       const typesStat = fs.statSync(typesPath);
-      const migrations = fs
-        .readdirSync(migrationsDir)
-        .filter((f) => f.endsWith(".sql"));
+      const migrations = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
 
       // Check if any migration is newer than types file
       const newerMigrations = migrations.filter((m) => {
@@ -1069,9 +1084,7 @@ function checkMigrationDrift() {
   // Count local migration files
   let localMigrations = [];
   try {
-    localMigrations = fs
-      .readdirSync(migrationsDir)
-      .filter((f) => f.endsWith(".sql"));
+    localMigrations = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   } catch {
     return;
   }
@@ -1107,21 +1120,14 @@ function checkMigrationDrift() {
 
 function checkHttpsEndpoint(url) {
   return new Promise((resolve) => {
-    const request = https.get(
-      url,
-      { rejectUnauthorized: false, timeout: 3000 },
-      (response) => {
-        const { statusCode } = response;
-        response.resume();
-        resolve({
-          ok:
-            Number.isInteger(statusCode) &&
-            statusCode >= 200 &&
-            statusCode < 400,
-          statusCode,
-        });
-      }
-    );
+    const request = https.get(url, { rejectUnauthorized: false, timeout: 3000 }, (response) => {
+      const { statusCode } = response;
+      response.resume();
+      resolve({
+        ok: Number.isInteger(statusCode) && statusCode >= 200 && statusCode < 400,
+        statusCode,
+      });
+    });
 
     request.on("error", (error) => {
       resolve({ ok: false, error: error.message });
@@ -1138,12 +1144,7 @@ async function checkDevEdgeRouting() {
     return;
   }
 
-  const composeFile = path.join(
-    projectRoot,
-    "infra",
-    "docker",
-    "docker-compose.dev-caddy.yml"
-  );
+  const composeFile = path.join(projectRoot, "infra", "docker", "docker-compose.dev-caddy.yml");
   let runningServices = [];
 
   try {
@@ -1186,9 +1187,7 @@ async function checkDevEdgeRouting() {
 
 async function main() {
   if (!["local", "docker"].includes(mode)) {
-    console.error(
-      `❌ Invalid mode "${mode}". Use --mode local or --mode docker.`
-    );
+    console.error(`❌ Invalid mode "${mode}". Use --mode local or --mode docker.`);
     process.exit(1);
   }
 
@@ -1349,9 +1348,7 @@ async function main() {
 
   if (failures.length > 0) {
     if (softMode) {
-      console.log(
-        "\n⚠️  Preflight checks have warnings (soft mode - continuing):\n"
-      );
+      console.log("\n⚠️  Preflight checks have warnings (soft mode - continuing):\n");
     } else {
       console.log("\n❌ Preflight checks failed:\n");
     }
@@ -1363,9 +1360,7 @@ async function main() {
         f.title.includes("Node.js version") ||
         f.title.includes(".env.local missing")
     );
-    const warningFailures = failures.filter(
-      (f) => !blockingFailures.includes(f)
-    );
+    const warningFailures = failures.filter((f) => !blockingFailures.includes(f));
 
     if (blockingFailures.length > 0) {
       console.log("🚫 Blocking issues (must fix):");
@@ -1399,9 +1394,7 @@ async function main() {
         console.log("\n❌ Cannot continue due to blocking issues above.\n");
         process.exit(1);
       }
-      console.log(
-        "\n⚠️  Continuing with warnings. Some features may not work.\n"
-      );
+      console.log("\n⚠️  Continuing with warnings. Some features may not work.\n");
     } else {
       process.exit(1);
     }

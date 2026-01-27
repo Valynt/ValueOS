@@ -8,13 +8,13 @@
  */
 
 import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter";
-import { requireAuth } from "../middleware/auth";
-import { validateRequest } from "../middleware/inputValidation";
-import { referralService } from "./services/ReferralService";
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { requireAuth } from "../middleware/auth.js"
+import { validateRequest } from "../middleware/inputValidation.js"
+import { referralService } from "./services/ReferralService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
-import { auditLogService } from "../services/AuditLogService";
+import { auditLogService } from "../services/AuditLogService.js"
 
 const logger = createLogger({ component: "ReferralAPI" });
 const router = createSecureRouter("standard");

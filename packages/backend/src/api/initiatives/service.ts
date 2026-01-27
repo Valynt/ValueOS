@@ -1,7 +1,7 @@
 import {
   DbValidationError,
 } from "../../lib/db/errors";
-import { InitiativesRepository } from "./repository";
+import { InitiativesRepository } from "./repository.js"
 import type {
   CreateInitiativeInput,
   Initiative,

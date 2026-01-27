@@ -9,7 +9,7 @@
  * - Audit logging
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { getCache, setCache, deleteCache } from '../lib/redis';
 import {
   OrganizationConfiguration,

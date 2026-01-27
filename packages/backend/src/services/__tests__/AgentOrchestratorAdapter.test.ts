@@ -123,7 +123,7 @@ vi.mock('../../config/featureFlags', () => ({
 }));
 
 // Import after mocks
-import { agentOrchestrator } from '../AgentOrchestratorAdapter';
+import { agentOrchestrator } from '../AgentOrchestratorAdapter.js'
 
 describe('AgentOrchestratorAdapter', () => {
   beforeEach(() => {

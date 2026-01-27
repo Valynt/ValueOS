@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { requirePolicy } from '../rbac';
+import { requirePolicy } from '../rbac.js'
 
 // Mock logger
 vi.mock('@shared/lib/logger', () => ({

@@ -4,8 +4,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import { referralService } from '../src/api/services/ReferralService';
-import { referralAnalyticsService } from '../src/api/services/ReferralAnalyticsService';
+import { referralService } from '../services/ReferralService';
+import { referralAnalyticsService } from '../services/ReferralAnalyticsService';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
 
 describe('Referral Program Integration Tests', () => {

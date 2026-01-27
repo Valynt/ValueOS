@@ -1,7 +1,7 @@
-import { logger } from "../lib/logger";
-import { sanitizeForLogging } from "../lib/piiFilter";
-import { BaseService } from "./BaseService";
-import { createServerSupabaseClient } from "../lib/supabase";
+import { logger } from "../lib/logger.js"
+import { sanitizeForLogging } from "../lib/piiFilter.js"
+import { BaseService } from "./BaseService.js"
+import { createServerSupabaseClient } from "../lib/supabase.js"
 import { captureMessage } from "../lib/sentry";
 
 export interface RequestAuditEvent {

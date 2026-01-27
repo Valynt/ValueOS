@@ -4,11 +4,11 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import StripeService from "./StripeService";
-import InvoiceService from "./InvoiceService";
-import { STRIPE_CONFIG } from "../../config/billing";
-import { createLogger } from "../../lib/logger";
-import { getSupabaseConfig } from "../../lib/env";
+import StripeService from "./StripeService.js"
+import InvoiceService from "./InvoiceService.js"
+import { STRIPE_CONFIG } from "../../config/billing.js"
+import { createLogger } from "../../lib/logger.js"
+import { getSupabaseConfig } from "@shared/lib/env";
 import {
   recordBillingJobFailure,
   recordInvoiceEvent,

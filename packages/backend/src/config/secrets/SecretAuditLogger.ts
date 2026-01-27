@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
-import { logger } from '../../lib/logger';
-import { createServerSupabaseClient } from '../../lib/supabase';
+import { logger } from '../../lib/logger.js'
+import { createServerSupabaseClient } from '../../lib/supabase.js'
 
 export type SecretAuditAction = 'READ' | 'WRITE' | 'ROTATE' | 'DELETE' | 'LIST';
 

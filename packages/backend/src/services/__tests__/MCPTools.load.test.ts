@@ -5,8 +5,8 @@
  * including concurrent execution, memory usage, and cleanup.
  */
 
-import { executeMCPTool, getAllTools, createToolExecutor } from "../MCPTools";
-import { mcpGroundTruthService } from "../MCPGroundTruthService";
+import { executeMCPTool, getAllTools, createToolExecutor } from "../MCPTools.js"
+import { mcpGroundTruthService } from "../MCPGroundTruthService.js"
 
 // Mock dependencies
 jest.mock("../MCPGroundTruthService");

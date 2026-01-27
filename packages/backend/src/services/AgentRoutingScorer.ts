@@ -1,6 +1,6 @@
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { WorkflowStage } from '../types/workflow';
-import { AgentRecord, RoutingContext } from './AgentRegistry';
+import { AgentRecord, RoutingContext } from './AgentRegistry.js'
 
 export interface AgentScoreBreakdown {
   agent: AgentRecord;

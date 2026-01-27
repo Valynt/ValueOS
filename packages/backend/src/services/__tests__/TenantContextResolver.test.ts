@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { TenantContextResolver } from '../TenantContextResolver';
+import { TenantContextResolver } from '../TenantContextResolver.js'
 
 vi.mock('../../lib/logger', () => ({
   logger: {

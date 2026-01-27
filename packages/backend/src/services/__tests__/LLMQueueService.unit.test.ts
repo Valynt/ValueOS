@@ -54,7 +54,7 @@ vi.mock("ioredis", () => ({
   },
 }));
 
-import { LLMQueueService } from "../MessageQueue";
+import { LLMQueueService } from "../MessageQueue.js"
 
 describe("LLMQueueService (unit)", () => {
   let queue: LLMQueueService;

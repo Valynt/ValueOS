@@ -5,10 +5,10 @@
  * Stores episodes and retrieves similar past experiences for context.
  */
 
-import { AgentAPI, AgentRequest, AgentResponse } from './AgentAPI';
+import { AgentAPI, AgentRequest, AgentResponse } from './AgentAPI.js'
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
-import { logger } from '../lib/logger';
-import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger.js'
+import { supabase } from '../lib/supabase.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 
 export interface MemoryEnhancedRequest extends AgentRequest {

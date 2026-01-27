@@ -1,0 +1,96 @@
+name: DX End-to-End Test
+
+on:
+  push:
+    paths:
+      - "scripts/dx/**"
+      - "packages/backend/src/lib/**"
+      - "infra/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  pull_request:
+    paths:
+      - "scripts/dx/**"
+      - "packages/backend/src/lib/**"
+      - "infra/**"
+
+jobs:
+  dx-startup:
+    name: Test DX Startup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup pnpm
+        run: corepack prepare pnpm@9.15.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate imports (strict - must have zero unresolved)
+        run: |
+          output=$(pnpm run dx:validate-imports 2>&1)
+          echo "$output"
+          if echo "$output" | grep -q "unresolved imports"; then
+            echo "❌ FAILED: Unresolved imports detected"
+            echo "This indicates missing implementations, not a build issue."
+            echo "See docs/DX_IMPORT_STRATEGY.md for how to fix properly (no stubs)."
+            exit 1
+          fi
+          echo "✅ All imports validated"
+
+      - name: Run module contract tests
+        run: pnpm test packages/backend/src/__tests__/module-contracts.test.ts
+
+      - name: Start DX environment
+        run: |
+          timeout 300 pnpm run dx &
+          DX_PID=$!
+          
+          # Wait for services to be ready
+          echo "Waiting for backend..."
+          for i in {1..60}; do
+            if curl -sf http://localhost:3001/health > /dev/null 2>&1; then
+              echo "✅ Backend is ready"
+              break
+            fi
+            sleep 2
+          done
+          
+          echo "Waiting for frontend..."
+          for i in {1..60}; do
+            if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+              echo "✅ Frontend is ready"
+              break
+            fi
+            sleep 2
+          done
+          
+          # Check if DX is still running
+          if ! kill -0 $DX_PID 2>/dev/null; then
+            echo "❌ DX process died"
+            exit 1
+          fi
+          
+          echo "✅ DX startup successful"
+          kill $DX_PID
+
+      - name: Upload trace logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dx-trace-logs
+          path: |
+            .dx-trace.log
+            /tmp/dx-*.log

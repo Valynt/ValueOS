@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { mfaService } from "../MFAService";
+import { mfaService } from "../MFAService.js"
 import * as OTPAuth from "otpauth";
 
 // Mock dependencies

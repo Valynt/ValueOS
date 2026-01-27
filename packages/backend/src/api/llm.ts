@@ -6,23 +6,23 @@
  */
 
 import { Request, Response, Router } from 'express';
-import { llmFallback } from '../services/LLMFallback';
-import { llmRateLimiter } from '../middleware/llmRateLimiter';
-import { logger } from '../utils/logger';
+import { llmFallback } from '../services/LLMFallback.js'
+import { llmRateLimiter } from '../middleware/llmRateLimiter.js'
+import { logger } from '../utils/logger.js'
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
-import { rateLimiters } from '../middleware/rateLimiter';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
-import { requireConsent } from '../middleware/consentMiddleware';
-import { consentRegistry } from './services/consentRegistry';
-import { sanitizeAgentInput } from '../utils/security';
-import { requireAuth } from '../middleware/auth';
-import { tenantContextMiddleware } from '../middleware/tenantContext';
-import { tenantDbContextMiddleware } from '../middleware/tenantDbContext';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
+import { rateLimiters } from '../middleware/rateLimiter.js'
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
+import { requireConsent } from '../middleware/consentMiddleware.js'
+import { consentRegistry } from '../services/consentRegistry.js'
+import { sanitizeAgentInput } from '../utils/security.js'
+import { requireAuth } from '../middleware/auth.js'
+import { tenantContextMiddleware } from '../middleware/tenantContext.js'
+import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
 
 const router = Router();
 router.use(requestAuditMiddleware());

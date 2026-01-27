@@ -6,7 +6,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { ConfidenceLevel } from '../lib/agent-fabric/schemas/SecureAgentOutput';
 
 export interface ConfidenceMetrics {

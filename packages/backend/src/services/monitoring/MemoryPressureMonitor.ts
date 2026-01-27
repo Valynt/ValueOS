@@ -5,7 +5,7 @@
  * for adaptive resource management in high-traffic scenarios.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from "../../lib/logger.js";
 
 // ============================================================================
 // Types

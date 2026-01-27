@@ -5,8 +5,8 @@
  * and permission-based access to value cases.
  */
 
-import { supabase } from "../lib/supabase";
-import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase.js"
+import { logger } from "../lib/logger.js"
 import crypto from "crypto";
 
 // Database row types for guest access tables

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { __setEnvSourceForTests } from '../../lib/env';
-import { LLMCostTracker } from '../LLMCostTracker';
+import { LLMCostTracker } from '../LLMCostTracker.js'
 import { createClient } from '@supabase/supabase-js';
 
 vi.mock('@supabase/supabase-js', () => {

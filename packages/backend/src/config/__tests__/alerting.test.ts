@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAlertRuleById, ALERT_RULES } from '../alerting';
+import { getAlertRuleById, ALERT_RULES } from '../alerting.js'
 
 describe('alerting configuration', () => {
   describe('getAlertRuleById', () => {

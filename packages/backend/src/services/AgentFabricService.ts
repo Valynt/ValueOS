@@ -1,7 +1,7 @@
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { AgentFabric, AgentFabricResult } from '../lib/agent-fabric';
 import { CanvasComponent } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase.js'
 
 export class AgentFabricService {
   private fabric: AgentFabric;

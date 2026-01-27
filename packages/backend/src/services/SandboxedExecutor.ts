@@ -8,7 +8,7 @@
  * (NPV, IRR, Monte Carlo simulations) that LLMs struggle with directly.
  */
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js'
 
 export interface SandboxConfig {
   language: 'python' | 'javascript' | 'r';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSecureRouter } from '../secureRouter';
+import { createSecureRouter } from '../secureRouter.js'
 
 function hasMiddleware(router: any, name: string): boolean {
   return router.stack?.some((layer: any) => (layer.name || '').includes(name));

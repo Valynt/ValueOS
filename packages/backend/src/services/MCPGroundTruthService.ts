@@ -5,7 +5,7 @@
  * Used by agents to fetch authoritative financial data before generating responses.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { isBrowser } from '../lib/env';
 
 // MCP Server type (dynamic import to avoid circular deps)

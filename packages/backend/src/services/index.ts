@@ -4,31 +4,31 @@
  */
 
 // Base infrastructure
-export * from "./errors";
-export * from "./BaseService";
+export * from "./errors.js"
+export * from "./BaseService.js"
 
 // Core services
-export * from "./SettingsService";
-export * from "./UserSettingsService";
-export * from "./AuthService";
-export * from "./PermissionService";
-export * from "./AuditLogService";
-export * from "./RbacService";
-export * from "./SecretsService";
-export * from "./ValueKernel";
-export * from "./IntegrationControlService";
+export * from "./SettingsService.js"
+export * from "./UserSettingsService.js"
+export * from "./AuthService.js"
+export * from "./PermissionService.js"
+export * from "./AuditLogService.js"
+export * from "./RbacService.js"
+export * from "./SecretsService.js"
+export * from "./ValueKernel.js"
+export * from "./IntegrationControlService.js"
 
 // Service instances (singletons)
-export { settingsService } from "./SettingsService";
-export { integrationControlService } from "./IntegrationControlService";
-export { userSettingsService } from "./UserSettingsService";
-export { authService } from "./AuthService";
-export { permissionService } from "./PermissionService";
-export { auditLogService } from "./AuditLogService";
+export { settingsService } from "./SettingsService.js"
+export { integrationControlService } from "./IntegrationControlService.js"
+export { userSettingsService } from "./UserSettingsService.js"
+export { authService } from "./AuthService.js"
+export { permissionService } from "./PermissionService.js"
+export { auditLogService } from "./AuditLogService.js"
 
-export { ROIFormulaInterpreter } from "./ROIFormulaInterpreter";
-export { ValueFabricService } from "./ValueFabricService";
-export { BenchmarkService } from "./BenchmarkService";
+export { ROIFormulaInterpreter } from "./ROIFormulaInterpreter.js"
+export { ValueFabricService } from "./ValueFabricService.js"
+export { BenchmarkService } from "./BenchmarkService.js"
 export {
   RotationService,
   rotationService,

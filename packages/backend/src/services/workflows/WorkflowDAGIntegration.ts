@@ -10,8 +10,8 @@
  * - Error recovery strategies
  */
 
-import { logger } from "../../lib/logger";
-import { supabase } from "../../lib/supabase";
+import { logger } from "../../lib/logger.js"
+import { supabase } from "../../lib/supabase.js"
 import {
   ExecutedStep,
   RetryConfig,
@@ -25,10 +25,10 @@ import {
   getWorkflowById,
   validateWorkflowDAG,
 } from "./WorkflowDAGDefinitions";
-import { workflowCompensation } from "../WorkflowCompensation";
-import { CircuitBreakerManager } from "../CircuitBreaker";
-import { AgentType, getAgentAPI } from "../AgentAPI";
-import { workflowStateMachine } from "../WorkflowStateMachine";
+import { workflowCompensation } from "../WorkflowCompensation.js"
+import { CircuitBreakerManager } from "../CircuitBreaker.js"
+import { AgentType, getAgentAPI } from "../AgentAPI.js"
+import { workflowStateMachine } from "../WorkflowStateMachine.js"
 
 // ============================================================================
 // Types

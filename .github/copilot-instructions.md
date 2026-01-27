@@ -1,123 +1,105 @@
+````instructions
 # GitHub Copilot Instructions for ValueOS
 
-AI agent workflow platform with multi-tenant architecture, agent fabric orchestration, and server-driven UI.
+Multi-tenant AI orchestration platform: React (Vite) + Supabase (PostgreSQL/RLS) + Node.js backend + agent workflows (DAGs) + vector memory + async messaging.
 
 ---
 
-## Architecture Overview
+## 90-Second Architecture Summary
 
-**ValueOS** is a multi-tenant SaaS platform combining React (Vite), Supabase backend, and an AI agent orchestration system. Key characteristics:
+**Monorepo:** pnpm workspaces — `apps/` (ValyntApp, VOSAcademy) and `packages/` (backend, agent-fabric, memory, sdui, services, shared, components, integrations)
 
-- **Frontend:** React + TypeScript + Vite + TailwindCSS, Server-Driven UI (SDUI) system with semantic design tokens
-- **Backend:** Express (Node.js) for billing/webhooks, Supabase for data/auth/RLS
-- **Agent Fabric:** Orchestrated workflows via `WorkflowOrchestrator`, event-driven via `MessageBus`
-- **Database:** PostgreSQL with Row-Level Security (RLS), managed via Supabase
-- **Observability:** OpenTelemetry tracing, structured logging with `src/lib/logger.ts`
-- **Security:** Secrets manager (AWS/Vault), RLS policies, multi-tenant isolation
-- **Testing:** Vitest (unit/integration), Playwright (E2E), sequential execution (`fileParallelism: false`)
+**Critical Data Boundaries:**
+- **Frontend:** anon key only → Supabase REST
+- **Backend:** service_role ONLY for AuthService, TenantProvisioning, CronJobs
+- **Agents:** ALL LLM calls via `secureInvoke()` (circuit breaker + hallucination detection + Zod validation)
+- **Memory:** Vector DB with mandatory tenant-scoped queries
+- **Messaging:** CloudEvents via `MessageBus` (async inter-agent communication)
 
-**Service Boundaries:**
-
-- Frontend communicates via Supabase client (anon key)
-- Backend uses service_role key ONLY for `AuthService`, `TenantProvisioning`, `CronJobs`
-- Agents communicate asynchronously via `MessageBus` (CloudEvents protocol)
-- Workflows persist state to Supabase after every DAG node transition
+**Dev Stack:** `pnpm run dx` orchestrates Supabase + migrations + backend + frontend with Caddy HTTPS
+**Testing:** Vitest sequential (`fileParallelism: false`), RLS validation (`pnpm run test:rls`), agent security suite (`bash scripts/test-agent-security.sh`)
 
 ---
 
-## Critical Multi-Tenancy Rules
+## CRITICAL Multi-Tenancy Rules (Non-Negotiable)
 
-**ALL database operations MUST scope by `organization_id` or `tenant_id`:**
-
+**Rule 1: Every database query MUST include `organization_id` or `tenant_id` filter**
 ```typescript
-// ✅ CORRECT - Scoped query
-const data = await supabase
-  .from("workflows")
-  .select("*")
-  .eq("organization_id", user.organizationId);
+// ✅ CORRECT
+const data = await supabase.from("workflows").select("*").eq("organization_id", org);
 
-// ❌ WRONG - Missing tenant scope
+// ❌ WRONG - data leak
 const data = await supabase.from("workflows").select("*");
 ```
 
-**Memory/Vector Queries:**
-
+**Rule 2: Memory queries MUST specify `tenant_id` metadata filter**
 ```typescript
-// ✅ CORRECT - Memory queries filter by tenant
-await memorySystem.query(embedding, {
-  metadata: { tenant_id: organizationId },
-  limit: 10,
-});
+// ✅ CORRECT
+await memorySystem.query(embedding, { metadata: { tenant_id: org }, limit: 10 });
+
+// ❌ WRONG - cross-tenant exposure
+await memorySystem.query(embedding, { limit: 10 });
 ```
 
-**RLS Policies:** All tables enforce RLS. Run `npm run test:rls` to validate policies.
+**Rule 3: service_role bypasses RLS — only for auth, tenant provisioning, cron jobs**
+
+Validate: `pnpm run test:rls`
 
 ---
 
-## Agent Fabric Architecture
+## Agent Development (`src/lib/agent-fabric/agents/`)
 
-### Agent Development (`src/lib/agent-fabric/agents/**`)
+**ALL production agents must:**
 
-**CRITICAL**: ALL production agents are in `src/lib/agent-fabric/agents/`. Legacy `src/agents/` was deleted (Dec 2024).
-
-All agents extend `BaseAgent` and follow strict security patterns:
+1. Extend `BaseAgent` with `lifecycleStage`, `version`, `name` properties
+2. ALWAYS use `this.secureInvoke(sessionId, prompt, zodSchema, options)` for LLM calls (NEVER direct `llmGateway.complete()`)
+3. Include `hallucination_check: boolean` in Zod schema
+4. Store memory with `this.organizationId` parameter (tenant isolation required)
+5. Set confidence thresholds by risk:
+   - **Financial agents:** 0.7-0.9 (ROI, NPV, payback — highest accuracy required)
+   - **Commitment agents:** 0.6-0.85 (targets, KPIs, objectives)
+   - **Discovery agents:** 0.5-0.8 (opportunity analysis, intelligence gathering)
 
 ```typescript
-// ✅ SECURE Agent structure
+// ✅ SECURE Agent Pattern
 export class MyAgent extends BaseAgent {
   public readonly lifecycleStage = "discovery";
   public readonly version = "1.0.0";
   public readonly name = "MyAgent";
 
   async execute(sessionId: string, input: Input): Promise<Output> {
-    // 1. Define Zod schema with hallucination_check
     const schema = z.object({
-      result_field: z.string(),
-      confidence_level: z.enum(["high", "medium", "low"]),
+      result: z.string(),
+      confidence: z.enum(["high", "medium", "low"]),
       reasoning: z.string(),
       hallucination_check: z.boolean().optional(), // REQUIRED
     });
 
-    // 2. ALWAYS use secureInvoke() - NEVER llmGateway.complete()
-    const secureResult = await this.secureInvoke(sessionId, prompt, schema, {
+    const result = await this.secureInvoke(sessionId, prompt, schema, {
       trackPrediction: true,
       confidenceThresholds: { low: 0.6, high: 0.85 },
       context: { agent: "MyAgent" },
     });
 
-    // 3. Store memory with organizationId (tenant isolation)
+    // MUST include organizationId for tenant isolation
     await this.memorySystem.storeSemanticMemory(
-      sessionId,
-      this.agentId,
-      "Knowledge to store",
-      { metadata: "value" },
-      this.organizationId // REQUIRED - prevents cross-tenant leaks
+      sessionId, this.agentId, "Knowledge", { metadata: "value" }, this.organizationId
     );
 
-    return secureResult.result;
+    return result.result;
   }
 }
 ```
 
-**MANDATORY Rules:**
+**Test Coverage:** 100% required. Mock `LLMGateway` and `MemorySystem`. Never test with real LLM calls.
 
-- Each agent = single file `[AgentName]Agent.ts` in `src/lib/agent-fabric/agents/`
-- LLM calls ONLY via `this.secureInvoke()` (circuit breakers, hallucination detection, Zod validation)
-- ALL memory operations MUST include `this.organizationId` parameter (tenant isolation)
-- Confidence thresholds by risk: Financial=0.7-0.9, Commitments=0.6-0.85, Discovery=0.5-0.8
-  - **Financial agents** (0.7-0.9): ROI calculations, NPV, payback periods require highest accuracy to prevent financial misrepresentation
-  - **Commitment agents** (0.6-0.85): Target metrics, KPIs, business objectives need high confidence but allow reasonable estimates
-  - **Discovery agents** (0.5-0.8): Opportunity analysis, intelligence gathering permit exploratory insights with moderate confidence
-- 100% test coverage required (mock `LLMGateway` and `MemorySystem`)
-- NO direct `llmGateway.complete()` calls (100% security bypass)
-- NO direct agent-to-agent memory access
+---
 
-### Workflow Orchestration (`src/services/WorkflowOrchestrator.ts`)
+## Workflows & Orchestration
 
-Workflows are DAGs defined in `src/data/lifecycleWorkflows.ts`:
+**Workflows are DAGs** defined in `src/data/lifecycleWorkflows.ts`, executed via `WorkflowOrchestrator.executeWorkflow(definitionId, context)`:
 
 ```typescript
-// Workflow = DAG with stages and transitions
 const workflow: WorkflowDAG = {
   initial_stage: "start",
   stages: {
@@ -131,383 +113,141 @@ const workflow: WorkflowDAG = {
 ```
 
 **Rules:**
-
-- Workflows MUST be acyclic (cycles forbidden)
-- Saga pattern: every state mutation needs a compensation function
+- Workflows MUST be acyclic (no cycles)
+- Saga pattern: compensation function for every state mutation
 - Persist `WorkflowState` to Supabase after EVERY node transition
-- Use `WorkflowOrchestrator.executeWorkflow(definitionId, context)`
-
-### Inter-Agent Communication (`src/services/MessageBus.ts`)
-
-Agents communicate via CloudEvents-compliant messages:
-
-```typescript
-// ✅ Asynchronous event
-await messageBus.publish({
-  type: 'workflow.stage.completed',
-  source: 'DiscoveryAgent',
-  data: { findings: [...] },
-  trace_id: context.traceId // MUST propagate
-});
-
-// ❌ WRONG - NO synchronous agent calls (except Orchestrator)
-const result = await otherAgent.execute(data);
-```
-
-**Rules:**
-
-- Default: asynchronous messaging
-- `trace_id` MUST propagate across all async boundaries
-- Use `MessageBus` for cross-agent communication
-- Share data via `SharedArtifacts` table, not direct memory access
+- Inter-agent messaging only via `MessageBus` (async, CloudEvents, trace_id propagation required)
 
 ---
 
-## Service Layer Patterns (`src/services/**`)
+## Backend Services (`src/services/`)
 
-Backend services are stateless and tenant-aware:
-
+**Services must be stateless:**
 ```typescript
+// ✅ CORRECT - Always fetch user context
 export class MyService {
-  // ✅ Services must NOT hold state between requests
   async processData(organizationId: string, data: any) {
-    // Always use supabase.auth.getUser() for context
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // Multi-table writes in SQL transactions
-    const { data: result } = await supabase.rpc("atomic_update", {
-      org_id: organizationId,
-      payload: data,
-    });
-
+    const { data: { user } } = await supabase.auth.getUser();
+    const result = await supabase.from("table").select("*").eq("organization_id", organizationId);
     return result;
+  }
+}
+
+// ❌ WRONG - Holding state between requests
+let cachedUser = null;
+export class BadService {
+  async processData(data: any) {
+    if (!cachedUser) cachedUser = await supabase.auth.getUser();
   }
 }
 ```
 
-**Bypass RLS with service_role ONLY for:**
-
-- `AuthService` (user provisioning)
-- `TenantProvisioning` (org creation)
-- `CronJobs` (background tasks)
-
 ---
 
-## Server-Driven UI (SDUI) (`src/sdui/**`)
+## Server-Driven UI (`src/sdui/`)
 
-Components must be registered in TWO places:
-
+Components must be registered in **TWO places:**
 1. `config/ui-registry.json` (intent mappings)
 2. `src/sdui/registry.tsx` (component exports)
 
-```json
-// config/ui-registry.json
-{
-  "intentType": "visualize_graph",
-  "component": "SystemMapCanvas",
-  "fallback": "JsonViewer"
-}
-```
-
-```typescript
-// src/sdui/registry.tsx
-export const componentRegistry = {
-  SystemMapCanvas: lazy(() => import("./components/SystemMapCanvas")),
-};
-```
-
-**AI-Generated Content:**
-
-- Mark with `GhostPreview` wrapper or "AI Generated" badge
-- Use `useRealtimeUpdates` for WebSocket subscriptions
-
----
-
-## Design Rules (VALYNT Brand)
-
-**North Star Rule:** If a design or UI decision does not reinforce VALYNT as a dark-first, system-level, economically grounded Value Operating System, it is incorrect.
-
-**Semantic Tokens Required:**
-
+Mark AI-generated content with `GhostPreview` wrapper or "AI Generated" badge. Use semantic tokens (no hard-coded colors):
 ```tsx
-// ✓ Required
+// ✅ CORRECT
 <div className="bg-vc-surface-2 border-vc-border-default" />
 
-// ✗ Forbidden
-<div style={{ background: "#101010", border: "1px solid #2A2A2A" }} />
+// ❌ WRONG
+<div style={{ background: "#101010" }} />
 ```
-
-**Visual Metaphor:**
-
-- Value Intelligence → Teal scale
-- Structure/Graph/Evidence → Grey scale
-
----
-
-## Tool System (`src/tools/**`, `src/services/tools/**`)
-
-```typescript
-// ✅ Tool implementation
-export class MyTool implements Tool<Input, Output> {
-  async execute(input: Input, context: ToolContext): Promise<Output> {
-    // Check LocalRules before execution (LR-001)
-    await checkLocalRules(context.organizationId, "tool.my_tool");
-
-    // External APIs MUST use RateLimiter middleware
-    const result = await rateLimiter.execute(() => externalApi.call(input), {
-      key: `tool:${context.organizationId}`,
-    });
-
-    return result;
-  }
-}
-```
-
-**Rules:**
-
-- Implement `Tool<TInput, TOutput>` interface
-- Register in `ToolRegistry.ts` (dynamic creation FORBIDDEN)
-- External API tools require `RateLimiter` middleware
 
 ---
 
 ## Development Workflow
 
-### Start Development
-
+**Setup & Run:**
 ```bash
-pnpm run setup              # Initial setup
-pnpm run dx                  # Start local dev environment (orchestrator)
-npm run dev                 # Frontend dev server
-pnpm run dx:docker           # Docker-based dev environment
-pnpm run db:setup            # Bootstrap Supabase locally
-pnpm run db:types            # Regenerate TypeScript types
+pnpm run setup              # Initial setup (one-time)
+pnpm run dx                 # Full stack (Supabase + backend + frontend)
+pnpm run dx:docker          # Docker-based environment
+pnpm run dev                # Frontend only (requires backend running)
 ```
 
-### Testing
-
+**Testing & Validation:**
 ```bash
-npm run test                # Unit + integration (sequential)
-npm run test:rls            # RLS policy validation
-npm run test:watch          # Watch mode
-npm run typecheck           # TypeScript validation
-pnpm run ci:verify           # Full CI pipeline locally
-npm run security:scan       # Dependency audit
+pnpm run test               # Unit + integration (sequential)
+pnpm run test:rls           # RLS policy validation
+pnpm run test:watch         # Watch mode
+pnpm run typecheck          # TypeScript check
+bash scripts/test-agent-security.sh  # Agent security suite
 ```
 
-**Test Configuration:**
-
-- `fileParallelism: false` (avoid race conditions on single container)
-- Mock Supabase with `createBoltClientMock()` from `test/mocks/mockSupabaseClient`
-- Timeout: 30s tests, 120s hooks
-- Agent security tests: `src/lib/agent-fabric/agents/__tests__/*.security.test.ts`
-- Run security suite: `bash scripts/test-agent-security.sh`
-
-**Test Environment (Node.js):**
-Backend/agent tests run in Node.js (no browser APIs). Guard browser-only code:
-
-```typescript
-// tests/setup.ts - Conditional browser API mocks
-if (typeof window !== "undefined") {
-  Object.defineProperty(window, "matchMedia", {
-    value: vi.fn().mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })),
-  });
-}
-```
-
-### Codemap Workflows
-
-Use `@codemap` feature for dependency tracing:
-
-```typescript
-// Trace opportunity flow
-@{opportunity-flow-map}: OpportunityAgent → TargetAgent → ValueMappingAgent
-
-// Infrastructure validation
-@{infra-map}: devcontainer.json → .devcontainer/scripts/*
-
-// Security verification
-@{security-map}: LLMGateway.ts incoming calls → piiFilter.ts
-```
-
-### Staging → Production Deployment Flow
-
-**Workflow:** Local tests → Staging deploy → 48hr observation → Production release
-
-1. **Staging Deployment:**
-   - Run security test suite: `bash scripts/test-agent-security.sh`
-   - Build staging: `npm run build`
-   - Deploy and run smoke tests (OpportunityAgent, FinancialModelingAgent)
-   - Validate cross-tenant isolation (Org A cannot access Org B data)
-   - Monitor circuit breakers, hallucination detection rates, latency
-
-2. **Observation Period (48 hours):**
-   - Grafana metrics: agent confidence scores, error rates, memory usage
-   - Security audit: zero cross-tenant leaks, zero RLS violations
-   - Performance: latency increase < 10% baseline
-
-3. **Production Release:**
-   - Sign-off from Engineering, Security, DevOps
-   - Gradual rollout with feature flags
-   - Rollback plan ready (circuit breaker stuck open, hallucination rate > 20%)
-
-**Complete checklist:** `STAGING_DEPLOYMENT_CHECKLIST.md` (9-step guide with verification commands)
-
-### Pre-Production Verification
-
+**Database:**
 ```bash
-# Automated verification suite
-./scripts/verify-production.sh staging
-
-# SQL health checks
-psql $DATABASE_URL -f scripts/verify-production-readiness.sql
-
-# Critical queries
-SELECT * FROM security.verify_rls_enabled();
-SELECT * FROM security.health_check();
+pnpm run db:setup           # Bootstrap Supabase
+pnpm run db:types           # Regenerate TypeScript types
+pnpm run db:push            # Push migrations to staging
+pnpm run db:pull            # Pull remote schema
 ```
 
-**Before Production Deploy:**
+---
 
-- Configure JWT custom claims (`organization_id` in token)
-- Test cross-tenant access isolation in staging
-- Enable service role operation monitoring
-- Deploy Edge Functions with secure secrets
-- Configure Storage RLS policies
+## Critical Files Reference
 
-### Path Aliases
-
-```typescript
-import { logger } from "@lib/logger";
-import { MyService } from "@services/MyService";
-import { Button } from "@components/ui/Button";
-```
-
-Configured in `vitest.config.ts` and `tsconfig.json`.
+| Path | Purpose |
+|------|---------|
+| `src/services/WorkflowOrchestrator.ts` | Workflow DAG execution engine |
+| `src/services/MessageBus.ts` | CloudEvents async messaging |
+| `src/lib/agent-fabric/agents/BaseAgent.ts` | Agent base class + secureInvoke() |
+| `src/lib/agent-fabric/MemorySystem.ts` | Vector memory (tenant-scoped) |
+| `src/lib/supabase.ts` | Supabase client singleton |
+| `config/ui-registry.json` | SDUI component mappings |
+| `supabase/tests/database/rls_policies.test.sql` | RLS validation |
+| `scripts/test-agent-security.sh` | Agent security test runner |
+| `.windsurf/rules/*.md` | AI behavior guidelines (global, agents, backend, frontend, orchestration, memory) |
+| `docs/dx-architecture.md` | DX environment setup & troubleshooting |
 
 ---
 
 ## Security & Compliance
 
-### Secrets Management
+**Secrets:** Never commit `.env.local` or secrets. Use environment templates in `deploy/envs/`.
 
-- `SECRETS_MANAGER_ENABLED=true` (AWS or Vault)
-- `.env` for non-sensitive defaults only
-- NEVER commit `SUPABASE_SERVICE_KEY` or `STRIPE_SECRET_KEY`
-
-### Input Sanitization
-
+**Input Sanitization:**
 ```typescript
-// ✅ Sanitize SDUI payloads
 import { SDUISanitizer } from "@lib/security/SDUISanitizer";
 const clean = SDUISanitizer.sanitize(userInput);
 
-// ✅ Validate with Zod
 const schema = z.object({ email: z.string().email() });
 const validated = schema.parse(req.body);
 ```
 
-### Logging
-
+**Logging:** Use structured logging only. Never log sensitive data:
 ```typescript
-// ✅ Structured logging (NO console.log)
-logger.info("Workflow started", {
-  workflowId,
-  organizationId,
-  trace_id: context.traceId,
-});
-
-// ❌ NEVER log sensitive data
-logger.error("Auth failed", { password: user.password }); // WRONG
-```
-
-Run `npm run lint:console` to detect console.log usage.
-
----
-
-## Communication Style
-
-**Be concise. NO conversational filler.**
-
-Examples:
-
-- ❌ "Sure, I can help with that. Here's the code..."
-- ✅ _Just provide the code with filename_
-- ❌ "I've updated the file to add the feature."
-- ✅ _Perform the edit silently_
-
-Only explain complex logic or architectural decisions, not obvious code changes.
-
-## Recent Security Improvements (Dec 2024 - Jan 2026)
-
-**Agent Security Overhaul**: All 8 production agents now use `secureInvoke()` with:
-
-- ✅ Circuit breaker protection (prevents runaway LLM costs)
-- ✅ Hallucination detection via `hallucination_check` flag in schemas
-- ✅ Structured output validation with Zod
-- ✅ Tenant isolation in all memory operations (organizationId required)
-- ✅ Confidence score tracking for accuracy metrics
-
-**Global Rules Enforcement**: Policy-as-Code for systemic safety, data sovereignty, PII protection, cost control, audit compliance.
-
-**Design System**: Semantic token-based styling with VALYNT brand enforcement.
-
-**Codemap Integration**: Live dependency graphs, blast radius analysis, hot path detection.
-
-**Verification**: Zero agents bypass security (verified via `grep -r "llmGateway\.complete" src/lib/agent-fabric/agents/*.ts`)
-
-**⚠️ Legacy Code Warning**: The `src/agents/` directory was **deleted** in Dec 2024 (backup: `backup/legacy-agents-*/`). All production agents are now in `src/lib/agent-fabric/agents/`. If you find references to `src/agents/` in:
-
-- Import statements (e.g., `from '../../agents/OpportunityAgent'`)
-- Documentation or comments
-- Configuration files
-- Test files
-
-**Action required**: Update paths to `src/lib/agent-fabric/agents/` or remove obsolete references. Verify with:
-
-```bash
-grep -r "src/agents/" --include="*.ts" --include="*.tsx" --include="*.md"
+logger.info("Workflow started", { workflowId, organizationId, trace_id });
 ```
 
 ---
 
-## Key Files Reference
+## Project-Specific Conventions
 
-| Path                                                    | Purpose                              |
-| ------------------------------------------------------- | ------------------------------------ |
-| `src/services/WorkflowOrchestrator.ts`                  | Workflow DAG execution engine        |
-| `src/services/MessageBus.ts`                            | CloudEvents message bus              |
-| `src/lib/agent-fabric/agents/BaseAgent.ts`              | Agent base class with secureInvoke() |
-| `src/lib/agent-fabric/MemorySystem.ts`                  | Vector memory (tenant-scoped)        |
-| `src/lib/agent-fabric/SafeJSONParser.ts`                | JSON error recovery (400+ lines)     |
-| `src/lib/supabase.ts`                                   | Supabase client singleton            |
-| `config/ui-registry.json`                               | SDUI component mappings              |
-| `supabase/tests/database/rls_policies.test.sql`         | RLS test suite                       |
-| `docs/database/enterprise_saas_hardened_config_v2.sql`  | Production database schema           |
-| `scripts/test-agent-security.sh`                        | Agent security test runner           |
-| `scripts/cleanup-legacy-agents.sh`                      | Legacy code cleanup (with backup)    |
-| `STAGING_DEPLOYMENT_CHECKLIST.md`                       | Deployment verification guide        |
-| `.windsurf/rules/`                                      | AI agent behavior rules              |
-| `docs/guides/instructions/design rules.instructions.md` | UI design token rules                |
-| `scripts/bin/.windsurfrules.md`                         | Workspace and codemap rules          |
-
-**Detailed instructions:** See `.github/instructions/{agents,backend,frontend,orchestration,memory,communication,tools}.instructions.md` for domain-specific guidelines.
+- **Path aliases:** `@lib/*`, `@services/*`, `@components/*` (tsconfig.json + vitest.config.ts)
+- **Prompts:** Handlebars templates (no string concatenation)
+- **Tools:** Static registration in `ToolRegistry.ts` (no dynamic creation)
+- **Memory sharing:** Via `MessageBus` events or `SharedArtifacts` table (no cross-tenant direct access)
+- **Design north star:** VALYNT = dark-first, system-level, economically grounded Value Operating System
+- **Styling:** Semantic tokens (teal for Value Intelligence, grey for Structure/Graph/Evidence)
 
 ---
 
-**Last Updated:** 2026-01-18 (Added design rules, codemap workflows, updated development commands)
+## Recent Security Improvements (Dec 2024 – Jan 2026)
 
-<corridor>
-# GitHub Copilot Instructions for Corridor MCP Integration
+- ✅ All agents use `secureInvoke()` with circuit breaker + hallucination detection + Zod validation
+- ✅ Tenant isolation in ALL memory operations (organizationId required)
+- ✅ Global rules enforcement (Policy-as-Code for safety, data sovereignty, PII protection, cost control)
+- ✅ Semantic token-based design system with VALYNT brand enforcement
+- ✅ Codemap integration for live dependency graphs and blast radius analysis
+- ⚠️ **Legacy Warning:** `src/agents/` deleted Dec 2024. All production agents now in `src/lib/agent-fabric/agents/`. Update references or verify with: `grep -r "src/agents/" --include="*.ts" --include="*.tsx" --include="*.md"`
 
-## Corridor MCP Server Usage
+---
 
-Every time you generate code, use the Corridor tool from Corridor's MCP Server (corridor) to analyze the plan or thought process. ALWAYS use Corridor to analyze the plan. Always generate a plan before generating code.
-</corridor>
+**Last Updated:** 2026-01-26 | **Next:** Review `.windsurf/rules/` for AI guidelines, `docs/ENVIRONMENT.md` for env setup, `STAGING_DEPLOYMENT_CHECKLIST.md` for release process
+````

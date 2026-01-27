@@ -1,8 +1,8 @@
 // import { logger } from '../lib/logger'; // Not used in this file
-import { supabase } from "../lib/supabase";
-import { securityLogger } from "./SecurityLogger";
-import { sanitizeLLMContent } from "../utils/security";
-import { llmSanitizer } from "./LLMSanitizer";
+import { supabase } from "../lib/supabase.js"
+import { securityLogger } from "./SecurityLogger.js"
+import { sanitizeLLMContent } from "../utils/security.js"
+import { llmSanitizer } from "./LLMSanitizer.js"
 import type {
   LLMConfig,
   LLMMessage,
@@ -11,8 +11,8 @@ import type {
   LLMStreamCallback,
   LLMTool,
 } from "../lib/agent-fabric/llm-types";
-import { webSocketManager } from "./WebSocketManager";
-import type { WebSocketMessage } from "./WebSocketManager";
+import { webSocketManager } from "./WebSocketManager.js"
+import type { WebSocketMessage } from "./WebSocketManager.js"
 
 interface ProxyChatRequest {
   messages: LLMMessage[];

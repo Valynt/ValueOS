@@ -3,10 +3,10 @@
  * Manages secure token-based access for customer portal
  */
 
-import { supabase } from "../lib/supabase";
-import { BaseService } from "./BaseService";
-import { logger } from "../lib/logger";
-import { emailService } from "./EmailService";
+import { supabase } from "../lib/supabase.js"
+import { BaseService } from "./BaseService.js"
+import { logger } from "../lib/logger.js"
+import { emailService } from "./EmailService.js"
 
 export interface CustomerAccessToken {
   id: string;

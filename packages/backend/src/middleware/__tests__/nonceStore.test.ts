@@ -4,7 +4,7 @@ vi.mock('@shared/lib/redisClient', () => ({
   getRedisClient: vi.fn(),
 }));
 
-import { NonceStore } from '../nonceStore';
+import { NonceStore } from '../nonceStore.js'
 
 type RedisSetResult = 'OK' | null;
 

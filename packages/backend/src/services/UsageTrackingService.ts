@@ -5,11 +5,11 @@
  * Provides real-time usage monitoring and reporting.
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { createClient } from "@supabase/supabase-js";
-import { getConfig } from "../config/environment";
-import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning";
-import { supabase as publicSupabase } from "../lib/supabase";
+import { getConfig } from "../config/environment.js"
+import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning.js"
+import { supabase as publicSupabase } from "../lib/supabase.js"
 import * as React from "react";
 
 /**

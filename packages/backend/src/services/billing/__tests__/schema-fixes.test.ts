@@ -6,9 +6,9 @@
 /// <reference types="vitest/globals" />
 
 // Vitest provides globals automatically with globals: true in config
-import { PLANS } from "../../../config/billing";
-import SubscriptionService from "../SubscriptionService";
-import CustomerService from "../CustomerService";
+import { PLANS } from "../../../config/billing.js"
+import SubscriptionService from "../SubscriptionService.js"
+import CustomerService from "../CustomerService.js"
 import { createClient } from "@supabase/supabase-js";
 import { vi } from "vitest";
 

@@ -12,7 +12,7 @@
  * - Runtime registration
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import {
   IntentCondition,
   IntentRegistryConfig,

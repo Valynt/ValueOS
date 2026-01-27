@@ -5,19 +5,19 @@
  */
 
 import { Request, Response, Router } from 'express';
-import { llmQueue } from './services/MessageQueue';
-import { logger } from '../utils/logger';
+import { llmQueue } from '../services/MessageQueue.js'
+import { logger } from '../utils/logger.js'
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
-import { rateLimiters } from '../middleware/rateLimiter';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
-import { requireConsent } from '../middleware/consentMiddleware';
-import { consentRegistry } from './services/consentRegistry';
-import { sanitizeAgentInput } from '../utils/security';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
+import { rateLimiters } from '../middleware/rateLimiter.js'
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
+import { requireConsent } from '../middleware/consentMiddleware.js'
+import { consentRegistry } from '../services/consentRegistry.js'
+import { sanitizeAgentInput } from '../utils/security.js'
 
 const router = Router();
 router.use(requestAuditMiddleware());

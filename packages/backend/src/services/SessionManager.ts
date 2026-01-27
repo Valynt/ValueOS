@@ -10,9 +10,9 @@
  * - Session refresh
  */
 
-import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
-import { authService } from './AuthService';
+import { logger } from '../lib/logger.js'
+import { BaseService } from './BaseService.js'
+import { authService } from './AuthService.js'
 
 export interface SessionConfig {
   idleTimeoutMs: number;

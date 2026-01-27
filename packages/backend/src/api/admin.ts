@@ -5,14 +5,14 @@
  */
 
 import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter";
-import { requireAuth } from "../middleware/auth";
-import { tenantContextMiddleware } from "../middleware/tenantContext";
-import { tenantDbContextMiddleware } from "../middleware/tenantDbContext";
-import { requireAllPermissions, requirePermission } from "../middleware/rbac";
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
-import { adminUserService } from "../services/AdminUserService";
-import { auditLogService } from "../services/AuditLogService";
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { requireAuth } from "../middleware/auth.js"
+import { tenantContextMiddleware } from "../middleware/tenantContext.js"
+import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
+import { requireAllPermissions, requirePermission } from "../middleware/rbac.js"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
+import { adminUserService } from "../services/AdminUserService.js"
+import { auditLogService } from "../services/AuditLogService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
 

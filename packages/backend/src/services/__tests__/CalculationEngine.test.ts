@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { CalculationEngine, CalculationUpdate } from "../CalculationEngine";
+import { CalculationEngine, CalculationUpdate } from "../CalculationEngine.js"
 import { CanvasComponent } from "../types";
 
 describe("CalculationEngine", () => {

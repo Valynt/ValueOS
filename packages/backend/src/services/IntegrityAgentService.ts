@@ -7,9 +7,9 @@
 
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
-import { logger } from '../lib/logger';
-import { llmConfig } from '../config/llm';
-import { LabSuccessCriterion, QuizQuestion } from '../types/academy';
+import { logger } from '../lib/logger.js'
+import { llmConfig } from '../config/llm.js'
+import { LabSuccessCriterion, QuizQuestion } from '../types/academy.js'
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
 
 // Lab message type (also defined in LabPanel)

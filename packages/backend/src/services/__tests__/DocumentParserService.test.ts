@@ -14,7 +14,7 @@ vi.mock('../../lib/agent-fabric/LLMGateway', () => ({
   })),
 }));
 
-import { DocumentParserService } from '../DocumentParserService';
+import { DocumentParserService } from '../DocumentParserService.js'
 
 describe('DocumentParserService.parseDocument fallback', () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldEnableForUser } from '../featureFlags';
+import { shouldEnableForUser } from '../featureFlags.js'
 
 describe('featureFlags rollout helpers', () => {
   it('enables 100% rollouts and disables 0%', () => {

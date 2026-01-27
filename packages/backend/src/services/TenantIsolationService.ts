@@ -5,7 +5,7 @@
  * Ensures complete separation between tenant data and prevents cross-tenant access.
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 
 // ============================================================================
 // Types

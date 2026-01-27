@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { requireConsent } from '../consentMiddleware';
+import { requireConsent } from '../consentMiddleware.js'
 import type { ConsentRegistry } from '../../types/consent';
 
 describe('requireConsent', () => {

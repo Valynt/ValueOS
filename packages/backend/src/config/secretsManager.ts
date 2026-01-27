@@ -21,11 +21,11 @@ import {
   SecretsManagerClient,
   UpdateSecretCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { getEnvVar } from '../lib/env';
-import { createServerSupabaseClient } from '../lib/supabase';
-import { RbacService, type RbacUser, type SecretPermission } from '../services/RbacService';
-import { getDatabaseUrl } from './database';
+import { createServerSupabaseClient } from '../lib/supabase.js'
+import { RbacService, type RbacUser, type SecretPermission } from '../services/RbacService.js'
+import { getDatabaseUrl } from './database.js'
 
 /**
  * Secret cache entry with expiration

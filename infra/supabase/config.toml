@@ -25,8 +25,11 @@ enabled = false
 # key_path = "../certs/my-key.pem"
 
 [db]
-# Port to use for the local database URL.
-port = 54322
+# Host and port to use for the local database URL inside the Supabase Docker network.
+# Use the internal service name `db` and the standard Postgres port 5432 so Supabase
+# components connect to the in-network Postgres instance rather than localhost.
+host = "db"
+port = 5432
 # Port used by db diff command to initialize the shadow database.
 shadow_port = 54320
 # Maximum amount of time to wait for health check when starting the local database.
@@ -86,7 +89,7 @@ enabled = true
 # Port to use for Supabase Studio.
 port = 54323
 # External URL of the API server that frontend connects to.
-api_url = "http://127.0.0.1"
+api_url = "http://0.0.0.0"
 # OpenAI API Key to use for Supabase AI in the Supabase Studio.
 openai_api_key = "env(OPENAI_API_KEY)"
 
@@ -147,9 +150,10 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# Bind to all interfaces so the runtime advertises a reachable host inside containers.
+site_url = "http://0.0.0.0:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+additional_redirect_urls = ["https://0.0.0.0:3000"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).

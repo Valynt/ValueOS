@@ -6,8 +6,8 @@
 
 import request from 'supertest';
 import express, { Express } from 'express';
-import { valueCasesRouter } from '../index';
-import { getValueCasesRepository, NotFoundError, DatabaseError } from '../repository';
+import { valueCasesRouter } from '../index.js'
+import { getValueCasesRepository, NotFoundError, DatabaseError } from '../repository.js'
 
 // Mock the repository
 jest.mock('../repository');

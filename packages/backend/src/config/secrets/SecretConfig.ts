@@ -5,7 +5,7 @@
  * Supports environment-specific settings and configurable constants
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 
 export interface SecretConfig {
   // Cache settings

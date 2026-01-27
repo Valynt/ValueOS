@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SecretValidator } from "../SecretValidator";
+import { SecretValidator } from "../SecretValidator.js"
 
 const baseEnv = {
   NODE_ENV: "production",

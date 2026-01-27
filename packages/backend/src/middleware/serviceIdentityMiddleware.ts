@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
-import { getAutonomyConfig } from "../config/autonomy";
-import { NonceStoreUnavailableError, nonceStore } from './nonceStore';
+import { getAutonomyConfig } from "../config/autonomy.js"
+import { NonceStoreUnavailableError, nonceStore } from './nonceStore.js'
 
 // Use browser-compatible crypto when available, fallback to Node crypto
 const randomUUID = (): string => {

@@ -24,7 +24,7 @@ vi.mock('../../lib/supabase', () => ({
   createServerSupabaseClient: vi.fn(),
 }));
 
-import { crmIntegrationService } from '../CRMIntegrationService';
+import { crmIntegrationService } from '../CRMIntegrationService.js'
 
 describe('CRMIntegrationService', () => {
   const originalNodeEnv = process.env.NODE_ENV;

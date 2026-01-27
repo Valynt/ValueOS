@@ -12,7 +12,7 @@
  *   if (featureFlags.ENABLE_UNIFIED_ORCHESTRATION) { ... }
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 
 /**
  * Feature flag configuration

@@ -5,8 +5,8 @@
  * counterfactual analysis, and temporal modeling for enhanced agent capabilities.
  */
 
-import { logger } from "../../lib/logger";
-import { getCausalTruthService, CausalTruthService } from "../CausalTruthService";
+import { logger } from "../../lib/logger.js"
+import { getCausalTruthService, CausalTruthService } from "../CausalTruthService.js"
 import { EventEmitter } from "events";
 
 // ============================================================================

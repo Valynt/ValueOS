@@ -8,7 +8,7 @@
  * Created: 2024-11-29
  */
 
-import { logger } from '../../lib/logger';
+import { logger } from '../../lib/logger.js'
 
 /**
  * Service that depends on a secret

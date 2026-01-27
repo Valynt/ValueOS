@@ -6,8 +6,8 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
-import { log } from '../lib/logger';
+import { TenantAwareService } from './TenantAwareService.js'
+import { log } from '../lib/logger.js'
 
 export interface TenantBaseline {
   id: string;

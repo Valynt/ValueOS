@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { tenantContextMiddleware } from '../tenantContext';
+import { tenantContextMiddleware } from '../tenantContext.js'
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 
 const tenantVerificationMocks = vi.hoisted(() => ({

@@ -5,7 +5,7 @@
  * latency distributions, and cache effectiveness
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 
 export interface CacheMetrics {
   // Hit rate metrics

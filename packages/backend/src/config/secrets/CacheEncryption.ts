@@ -9,7 +9,7 @@
  */
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
-import { logger } from '../../lib/logger';
+import { logger } from '../../lib/logger.js'
 
 /**
  * Encrypted cache entry

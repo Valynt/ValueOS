@@ -1,6 +1,6 @@
-export * from "./types";
+export * from "./types.js"
 
-export { MemoryService, MemoryServiceError } from "./MemoryService";
+export { MemoryService, MemoryServiceError } from "./MemoryService.js"
 export {
   MemoryPipeline,
   ChunkerFactory,
@@ -8,12 +8,12 @@ export {
   generateContentHash,
   withRetries,
 } from "./MemoryPipeline";
-export { RetrievalEngine } from "./RetrievalEngine";
-export { ModelRunEngine, DefaultBenchmarkProvider } from "./ModelRunEngine";
-export type { BenchmarkProvider } from "./ModelRunEngine";
-export { NarrativeEngine } from "./NarrativeEngine";
-export { ApprovalService, ApprovalError } from "./ApprovalService";
-export { AccessService } from "./AccessService";
+export { RetrievalEngine } from "./RetrievalEngine.js"
+export { ModelRunEngine, DefaultBenchmarkProvider } from "./ModelRunEngine.js"
+export type { BenchmarkProvider } from "./ModelRunEngine.js"
+export { NarrativeEngine } from "./NarrativeEngine.js"
+export { ApprovalService, ApprovalError } from "./ApprovalService.js"
+export { AccessService } from "./AccessService.js"
 export {
   MemoryBenchmarkService,
   NotFoundError,
@@ -21,15 +21,15 @@ export {
 } from "./MemoryBenchmarkService";
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { MemoryService } from "./MemoryService";
-import { MemoryPipeline } from "./MemoryPipeline";
-import { RetrievalEngine } from "./RetrievalEngine";
-import { ModelRunEngine, DefaultBenchmarkProvider } from "./ModelRunEngine";
-import { NarrativeEngine } from "./NarrativeEngine";
-import { ApprovalService } from "./ApprovalService";
-import { AccessService } from "./AccessService";
-import { MemoryBenchmarkService } from "./MemoryBenchmarkService";
-import { UUID } from "./types";
+import { MemoryService } from "./MemoryService.js"
+import { MemoryPipeline } from "./MemoryPipeline.js"
+import { RetrievalEngine } from "./RetrievalEngine.js"
+import { ModelRunEngine, DefaultBenchmarkProvider } from "./ModelRunEngine.js"
+import { NarrativeEngine } from "./NarrativeEngine.js"
+import { ApprovalService } from "./ApprovalService.js"
+import { AccessService } from "./AccessService.js"
+import { MemoryBenchmarkService } from "./MemoryBenchmarkService.js"
+import { UUID } from "./types.js"
 
 export interface MemoryLayerConfig {
   supabaseUrl: string;

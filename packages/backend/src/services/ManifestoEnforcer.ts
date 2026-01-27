@@ -5,7 +5,7 @@
  * Provides detailed validation, warnings, and override workflows.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { MANIFESTO_RULES, ManifestoRule, ValidationRule } from '../lib/manifesto/ManifestoRules';
 import {
   ActionContext,

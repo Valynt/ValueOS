@@ -1,76 +1,16 @@
-import type { NextFunction, Request, Response } from 'express';
-import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client';
+/**
+ * Metrics Middleware
+ */
 
-type MetricsLabels = {
-  method: string;
-  route: string;
-  status_code: string;
-  tenant_id: string;
-};
+export function metricsMiddleware(req: any, res: any, next: any) {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+}
 
-const registry = new Registry();
-
-collectDefaultMetrics({ register: registry });
-
-const httpRequestDurationMs = new Histogram<MetricsLabels>({
-  name: 'valuecanvas_http_request_duration_ms',
-  help: 'Duration of HTTP requests in milliseconds',
-  labelNames: ['method', 'route', 'status_code', 'tenant_id'],
-  buckets: [10, 50, 100, 200, 500, 1000],
-  registers: [registry],
-});
-
-const httpRequestsTotal = new Counter<MetricsLabels>({
-  name: 'valuecanvas_http_requests_total',
-  help: 'Total number of HTTP requests received',
-  labelNames: ['method', 'route', 'status_code', 'tenant_id'],
-  registers: [registry],
-});
-
-const httpRequestErrors = new Counter<MetricsLabels>({
-  name: 'valuecanvas_http_request_errors_total',
-  help: 'Total number of HTTP requests that resulted in 5xx responses',
-  labelNames: ['method', 'route', 'status_code', 'tenant_id'],
-  registers: [registry],
-});
-
-const resolveRouteLabel = (req: Request): string => {
-  if (req.route?.path) {
-    return `${req.baseUrl}${req.route.path}`;
-  }
-
-  return req.originalUrl?.split('?')[0] ?? 'unknown';
-};
-
-export const metricsMiddleware = () =>
-  (req: Request, res: Response, next: NextFunction): void => {
-    if (req.path === '/metrics') {
-      next();
-      return;
-    }
-
-    const endTimer = httpRequestDurationMs.startTimer();
-
-    res.on('finish', () => {
-      const routeLabel = resolveRouteLabel(req);
-      const tenantId = (req as any).tenantId || 'unknown';
-
-      const labels: MetricsLabels = {
-        method: req.method,
-        route: routeLabel,
-        status_code: String(res.statusCode),
-        tenant_id: tenantId,
-      };
-
-      httpRequestsTotal.labels(labels).inc();
-      if (res.statusCode >= 500) {
-        httpRequestErrors.labels(labels).inc();
-      }
-
-      endTimer(labels);
-    });
-
-    next();
-  };
-
-export const getMetricsRegistry = (): Registry => registry;
+export function getMetricsRegistry() {
+  return {};
+}

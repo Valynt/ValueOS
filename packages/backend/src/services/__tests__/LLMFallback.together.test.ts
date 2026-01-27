@@ -8,7 +8,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { llmFallback, LLMFallbackService } from "../LLMFallback";
+import { llmFallback, LLMFallbackService } from "../LLMFallback.js"
 
 // Mock dependencies
 vi.mock("../../utils/logger");

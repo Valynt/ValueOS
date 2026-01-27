@@ -12,7 +12,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { randomBytes } from 'crypto';
-import { HstsConfig, CspConfig, getSecurityConfig } from './config';
+import { HstsConfig, CspConfig, getSecurityConfig } from './config.js'
 
 // ============================================================================
 // Types

@@ -5,8 +5,8 @@
  * Prevents data loss and enables recovery from crashes.
  */
 
-import { logger } from '../lib/logger';
-import { PlaygroundSessionService } from './PlaygroundSessionService';
+import { logger } from '../lib/logger.js'
+import { PlaygroundSessionService } from './PlaygroundSessionService.js'
 
 /**
  * Auto-save worker

@@ -5,11 +5,11 @@
  * This service acts as an event bus between agents and the SDUI system.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '../lib/logger.js'
 import { AgentOutput } from '../types/agent-output';
-import { agentSDUIAdapter } from './AgentSDUIAdapter';
-import { canvasSchemaService } from './CanvasSchemaService';
-import { getComponentMutationService } from './ComponentMutationService';
+import { agentSDUIAdapter } from './AgentSDUIAdapter.js'
+import { canvasSchemaService } from './CanvasSchemaService.js'
+import { getComponentMutationService } from './ComponentMutationService.js'
 import { EventEmitter } from 'events';
 
 /**

@@ -3,10 +3,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest';
-import { CustomerAccessService } from '../CustomerAccessService';
-import { supabase } from '../../lib/supabase';
-import { emailService } from '../EmailService';
-import { logger } from '../../lib/logger';
+import { CustomerAccessService } from '../CustomerAccessService.js'
+import { supabase } from '../../lib/supabase.js'
+import { emailService } from '../EmailService.js'
+import { logger } from '../../lib/logger.js'
 
 // Mock dependencies
 vi.mock('../EmailService');

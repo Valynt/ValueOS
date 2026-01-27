@@ -5,13 +5,13 @@
  * Provides high-level business operations with security, validation, and telemetry.
  */
 
-export * from './types';
-export * from './registry';
-export * from './auth-guard';
-export * from './telemetry';
-export * from './base-tool';
+export * from './types.js'
+export * from './registry.js'
+export * from './auth-guard.js'
+export * from './telemetry.js'
+export * from './base-tool.js'
 
 // Re-export commonly used utilities
-export { toolRegistry } from './registry';
-export { AuthGuard } from './auth-guard';
-export { BfaTelemetry } from './telemetry';
+export { toolRegistry } from './registry.js'
+export { AuthGuard } from './auth-guard.js'
+export { BfaTelemetry } from './telemetry.js'

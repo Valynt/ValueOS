@@ -7,8 +7,8 @@
  * - Error handling
  */
 
-import { supabase } from "../lib/supabase";
-import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors";
+import { supabase } from "../lib/supabase.js"
+import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors.js"
 import { createLogger } from "@shared/lib/logger";
 
 // Null-safe supabase proxy that throws clear errors when client is unavailable

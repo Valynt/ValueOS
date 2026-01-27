@@ -188,7 +188,7 @@ vi.mock('../../lib/supabase', () => ({
   createServerSupabaseClient: vi.fn().mockImplementation(() => createMockSupabase()),
 }));
 
-import { deprovisionTenant } from '../TenantProvisioning';
+import { deprovisionTenant } from '../TenantProvisioning.js'
 
 describe('Performance Benchmark', () => {
   it('measures deprovisionTenant execution time', async () => {

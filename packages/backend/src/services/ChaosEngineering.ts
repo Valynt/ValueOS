@@ -4,7 +4,7 @@
  * Controlled failure injection for resilience testing
  */
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js'
 
 export interface ChaosExperiment {
   id: string;

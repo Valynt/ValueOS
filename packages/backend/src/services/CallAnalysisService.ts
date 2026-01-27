@@ -5,11 +5,11 @@
  * the transcript using Together.ai LLM.
  */
 
-import { supabase } from "../lib/supabase";
-import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase.js"
+import { logger } from "../lib/logger.js"
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { llmConfig } from "../config/llm";
-import { sanitizeForLogging } from "../lib/piiFilter";
+import { llmConfig } from "../config/llm.js"
+import { sanitizeForLogging } from "../lib/piiFilter.js"
 import { secureLLMComplete } from "../lib/llm/secureLLMWrapper";
 import { createExternalAPIAdapter } from "../lib/agent-fabric/ExternalAPIAdapter";
 

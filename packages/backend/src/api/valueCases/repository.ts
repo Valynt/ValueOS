@@ -14,7 +14,7 @@ import {
   CaseStatus,
   CasePhase,
 } from './types';
-import { logger } from '../../lib/logger';
+import { logger } from '../../lib/logger.js'
 
 // ============================================================================
 // Repository Errors

@@ -1,7 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
-import { log } from '../lib/logger';
-import { sanitizeUser } from '../lib/piiFilter';
+import { TenantAwareService } from './TenantAwareService.js'
+import { log } from '../lib/logger.js'
+import { sanitizeUser } from '../lib/piiFilter.js'
 
 export interface DeviceFingerprint {
   userAgent: string;

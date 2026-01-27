@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AgentQueryService } from "../../services/AgentQueryService";
+import { AgentQueryService } from "../../services/AgentQueryService.js"
 import { TimeoutError } from "../../lib/resilience/errors";
 
 // Mock Supabase client

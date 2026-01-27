@@ -25,38 +25,57 @@ import express from "express";
 import cors from "cors";
 import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import billingRouter from "./api/billing";
-import agentsRouter from "./api/agents";
-import groundtruthRouter from "./api/groundtruth";
-import llmRouter from "./api/llm";
-import workflowRouter from "./api/workflow";
-import documentRouter from "./api/documents";
-import healthRouter, { markAsShuttingDown } from "./api/health";
-import authRouter from "./api/auth";
-import adminRouter from "./api/admin";
-import referralsRouter from "./api/referrals";
-import projectsRouter from "./api/projects";
-import analyticsRouter from "./api/analytics";
-import initiativesRouter from "./api/initiatives";
-import teamsRouter from "./api/teams";
-import docsApiRouter from "./docs-api";
+import billingRouter from "./api/billing/index.js"
+import agentsRouter from "./api/agents.js"
+import groundtruthRouter from "./api/groundtruth.js"
+import llmRouter from "./api/llm.js"
+import workflowRouter from "./api/workflow.js"
+import documentRouter from "./api/documents.js"
+import healthRouter, { markAsShuttingDown } from "./api/health/index.js"
+import authRouter from "./api/auth.js"
+import adminRouter from "./api/admin.js"
+import referralsRouter from "./api/referrals.js"
+import projectsRouter from "./api/projects.js"
+import analyticsRouter from "./api/analytics.js"
+import initiativesRouter from "./api/initiatives/index.js"
+import teamsRouter from "./api/teams.js"
+import docsApiRouter from "./docs-api/index.js"
 import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher";
-import { validateSecretsOnStartup, secretHealthMiddleware } from "./config/secrets/SecretValidator";
-import { validateEnvOrThrow } from "./config/validateEnv";
+import { validateSecretsOnStartup, secretHealthMiddleware } from "./config/secrets/SecretValidator.js"
+import { validateEnvOrThrow } from "./config/validateEnv.js"
 import { createLogger } from "@shared/lib/logger";
-import { createVersionedApiRouter } from "./versioning";
+import { createVersionedApiRouter } from "./versioning.js"
 import { initializeContext } from "@shared/lib/context";
-import { tracingMiddleware } from "./config/telemetry";
-import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware";
-import {
-  getLatencySnapshot,
-  latencyMetricsMiddleware,
-} from "./middleware/latencyMetricsMiddleware";
-import { getMetricsRegistry, metricsMiddleware } from "./middleware/metricsMiddleware";
-import { createRateLimiter } from "./middleware/rateLimiter";
+
+// Conditionally import telemetry modules
+let tracingMiddleware = null;
+let latencyMetricsMiddleware = null;
+let metricsMiddleware = null;
+let getMetricsRegistry = null;
+let getLatencySnapshot = null;
+
+if (process.env.ENABLE_TELEMETRY !== "false") {
+  try {
+    const telemetryModule = await import("./config/telemetry");
+    tracingMiddleware = telemetryModule.tracingMiddleware;
+
+    const latencyModule = await import("./middleware/latencyMetricsMiddleware");
+    latencyMetricsMiddleware = latencyModule.latencyMetricsMiddleware;
+    getLatencySnapshot = latencyModule.getLatencySnapshot;
+
+    const metricsModule = await import("./middleware/metricsMiddleware");
+    metricsMiddleware = metricsModule.metricsMiddleware;
+    getMetricsRegistry = metricsModule.getMetricsRegistry;
+  } catch (error) {
+    console.warn("Telemetry modules not available, running without observability");
+  }
+}
+
+import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js"
+import { createRateLimiter } from "./middleware/rateLimiter.js"
 import {
   requestIdMiddleware,
   accessLogMiddleware,
@@ -64,15 +83,15 @@ import {
   notFoundHandler,
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler";
-import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware";
-import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders";
-import { cachingMiddleware } from "./middleware/cachingMiddleware";
-import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth";
-import { tenantContextMiddleware } from "./middleware/tenantContext";
-import { tenantDbContextMiddleware } from "./middleware/tenantDbContext";
-import { settings } from "./config/settings";
-import { isConsentRegistryConfigured } from "./services/consentRegistry";
-import { TenantContextResolver } from "./services/TenantContextResolver";
+import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js"
+import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders.js"
+import { cachingMiddleware } from "./middleware/cachingMiddleware.js"
+import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js"
+import { tenantContextMiddleware } from "./middleware/tenantContext.js"
+import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js"
+import { settings } from "./config/settings.js"
+import { isConsentRegistryConfigured } from "./services/consentRegistry.js"
+import { TenantContextResolver } from "./services/TenantContextResolver.js"
 
 const logger = createLogger({ component: "BillingServer" });
 const WS_POLICY_VIOLATION_CODE = 1008;
@@ -263,29 +282,41 @@ app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
-app.use(tracingMiddleware()); // Add tracing middleware early
-app.use(metricsMiddleware());
+
+// Conditionally add telemetry middleware
+if (tracingMiddleware) {
+  app.use(tracingMiddleware()); // Add tracing middleware early
+}
+if (metricsMiddleware) {
+  app.use(metricsMiddleware());
+}
+if (latencyMetricsMiddleware) {
+  app.use(latencyMetricsMiddleware());
+}
+
 app.use(requestAuditMiddleware());
-app.use(latencyMetricsMiddleware());
 
 // Health check
 app.use(healthRouter);
 
-// Prometheus metrics endpoint
-app.get("/metrics", async (_req: express.Request, res: express.Response) => {
-  const registry = getMetricsRegistry();
-  res.set("Content-Type", registry.contentType);
-  res.end(await registry.metrics());
-});
-
-// Latency metrics snapshot
-app.get("/metrics/latency", (_req, res) => {
-  res.json({
-    routes: getLatencySnapshot(),
-    timestamp: new Date().toISOString(),
+// Conditionally add metrics endpoint
+if (getMetricsRegistry) {
+  app.get("/metrics", async (_req: express.Request, res: express.Response) => {
+    const registry = getMetricsRegistry();
+    res.set("Content-Type", registry.contentType);
+    res.end(await registry.metrics());
   });
-});
+}
 
+// Conditionally add latency metrics endpoint
+if (typeof getLatencySnapshot === "function") {
+  app.get("/metrics/latency", (_req, res) => {
+    res.json({
+      routes: getLatencySnapshot(),
+      timestamp: new Date().toISOString(),
+    });
+  });
+}
 // CSP Reporting Endpoint
 app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cspReportHandler);
 

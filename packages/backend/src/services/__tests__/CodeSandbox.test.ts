@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { CodeSandbox } from '../CodeSandbox';
+import { CodeSandbox } from '../CodeSandbox.js'
 
 describe('CodeSandbox', () => {
   let sandbox: CodeSandbox;

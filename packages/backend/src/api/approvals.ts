@@ -6,9 +6,9 @@
 
 import { Request, Response, Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
-import { logger } from '../utils/logger';
-import { auditBulkDelete } from '../middleware/auditHooks';
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
+import { logger } from '../utils/logger.js'
+import { auditBulkDelete } from '../middleware/auditHooks.js'
 
 const router = Router();
 router.use(requestAuditMiddleware());

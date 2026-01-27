@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { setupTestDatabase } from "../__helpers__/db-helpers";
+import { setupTestDatabase } from "../__helpers__/db-helpers.js"
 import {
   createBillingCustomer,
   createInvoice,

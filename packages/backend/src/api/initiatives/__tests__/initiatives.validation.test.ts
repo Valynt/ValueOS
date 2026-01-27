@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CreateInitiativeSchema } from "../types";
+import { CreateInitiativeSchema } from "../types.js"
 
 describe("Initiatives validation", () => {
   it("normalizes fields and rejects unknown keys", () => {

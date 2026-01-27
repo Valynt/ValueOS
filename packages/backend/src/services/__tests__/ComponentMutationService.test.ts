@@ -2,7 +2,7 @@
  * Tests for ComponentMutationService
  */
 
-import { ComponentMutationService } from '../ComponentMutationService';
+import { ComponentMutationService } from '../ComponentMutationService.js'
 import { SDUIPageDefinition } from '@sdui/schema';
 import {
   createAddAction,

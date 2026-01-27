@@ -6,11 +6,11 @@
  */
 
 // Core configuration
-export { getConfig, isProduction, isDevelopment, isTest, isFeatureEnabled } from './environment';
-export type { EnvironmentConfig, AppEnvironment, LogLevel } from './environment';
+export { getConfig, isProduction, isDevelopment, isTest, isFeatureEnabled } from './environment.js'
+export type { EnvironmentConfig, AppEnvironment, LogLevel } from './environment.js'
 
 // LLM configuration
-export { llmConfig } from './llm';
+export { llmConfig } from './llm.js'
 
 // Validation
 export {
@@ -19,7 +19,7 @@ export {
   validateEnvOrThrow,
   logValidationResults,
 } from './validateEnv';
-export type { ValidationResult, LLMValidationResult } from './validateEnv';
+export type { ValidationResult, LLMValidationResult } from './validateEnv.js'
 
 // Governance and entrypoint configuration
 export {
@@ -29,7 +29,7 @@ export {
   assertEntryPointAccess,
   EntryPointViolationError,
 } from './entrypoints';
-export type { EntryPoint, KernelIntent, EntryPointConfig, IntentBinding } from './entrypoints';
+export type { EntryPoint, KernelIntent, EntryPointConfig, IntentBinding } from './entrypoints.js'
 
 // Health check types (safe for client-side, moved to avoid importing server code)
 export type { ConfigHealth, ComponentHealth, HealthStatus } from '../types/health';

@@ -5,13 +5,13 @@
  * maintaining security boundaries and dependency management.
  */
 
-import { logger } from '../lib/logger';
-import { AgentType } from './agent-types';
-import { getUnifiedAgentAPI } from './UnifiedAgentAPI';
-import { getCategorizedCircuitBreakerManager } from './CircuitBreakerManager';
-import { getSecureSharedContext } from './SecureSharedContext';
-import { getContextOptimizer } from './ContextOptimizer';
-import { getSystemResourceMonitor, ResourceListener } from './monitoring/SystemResourceMonitor';
+import { logger } from '../lib/logger.js'
+import { AgentType } from './agent-types.js'
+import { getUnifiedAgentAPI } from './UnifiedAgentAPI.js'
+import { getCategorizedCircuitBreakerManager } from './CircuitBreakerManager.js'
+import { getSecureSharedContext } from './SecureSharedContext.js'
+import { getContextOptimizer } from './ContextOptimizer.js'
+import { getSystemResourceMonitor, ResourceListener } from './monitoring/SystemResourceMonitor.js'
 import { randomUUID } from 'crypto';
 
 // ============================================================================

@@ -11,10 +11,10 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { logger } from '@shared/lib/logger';
-import { MLAnomalyDetectionService } from './services/MLAnomalyDetectionService';
-import { DistributedAttackDetectionService } from './services/DistributedAttackDetectionService';
-import { RateLimitEscalationService } from './services/RateLimitEscalationService';
-import { SecurityEvent } from './services/AdvancedThreatDetectionService';
+import { MLAnomalyDetectionService } from '../services/MLAnomalyDetectionService';
+import { DistributedAttackDetectionService } from '../services/DistributedAttackDetectionService';
+import { RateLimitEscalationService } from '../services/RateLimitEscalationService';
+import { SecurityEvent } from '../services/AdvancedThreatDetectionService';
 
 // Enhanced interfaces for monitoring
 export interface RateLimitMetrics {

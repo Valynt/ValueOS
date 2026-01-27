@@ -3,9 +3,9 @@
  * Tracks all configuration changes with rollback capabilities
  */
 
-import { logger } from '../lib/logger';
-import { BaseService } from './BaseService';
-import { NotFoundError } from './errors';
+import { logger } from '../lib/logger.js'
+import { BaseService } from './BaseService.js'
+import { NotFoundError } from './errors.js'
 
 export interface SettingsVersion {
   id: string;

@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import router from '../documents';
+import router from '../documents.js'
 
 const app = express();
 app.use(express.json());

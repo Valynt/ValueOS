@@ -5,7 +5,7 @@
  * and frequently accessed data with intelligent invalidation strategies.
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
 import {
   getRedisClient,

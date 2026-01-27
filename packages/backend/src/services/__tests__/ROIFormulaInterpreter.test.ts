@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ROIFormulaInterpreter } from '../../services/ROIFormulaInterpreter';
-import { createBoltClientMock } from '../utils/mockSupabaseClient';
+import { ROIFormulaInterpreter } from '../../services/ROIFormulaInterpreter.js'
+import { createBoltClientMock } from '../utils/mockSupabaseClient.js'
 
 const supabase = createBoltClientMock();
 const interpreter = new ROIFormulaInterpreter(supabase as any);

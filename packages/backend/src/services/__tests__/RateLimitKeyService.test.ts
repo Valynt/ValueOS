@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RateLimitKeyService } from '../RateLimitKeyService';
+import { RateLimitKeyService } from '../RateLimitKeyService.js'
 
 describe('RateLimitKeyService', () => {
   const options = { service: 'api', tier: 'standard' };

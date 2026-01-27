@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { emailService } from '../EmailService';
+import { emailService } from '../EmailService.js'
 
 // Mock dependencies
 vi.mock('../EmailService', () => ({
@@ -45,7 +45,7 @@ vi.mock('../lib/supabase', () => ({
   createServerSupabaseClient: vi.fn().mockReturnValue(mockSupabase),
 }));
 
-import { deprovisionTenant } from '../TenantProvisioning';
+import { deprovisionTenant } from '../TenantProvisioning.js'
 
 describe('TenantProvisioning - sendDeactivationEmail', () => {
   beforeEach(() => {

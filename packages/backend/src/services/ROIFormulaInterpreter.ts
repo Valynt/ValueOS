@@ -26,7 +26,7 @@ import type {
   SensitivityAnalysis,
   SensitivityScenario
 } from '../types/vos';
-import { securityLogger } from './SecurityLogger';
+import { securityLogger } from './SecurityLogger.js'
 
 export class ROIFormulaInterpreter {
   private supabase: SupabaseClient;

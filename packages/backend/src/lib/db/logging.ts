@@ -3,7 +3,7 @@
  * Ensures no PII/secrets are logged.
  */
 
-import { logger } from '../logger';
+import { logger } from '../logger.js'
 
 interface DbLogContext {
   correlationId: string;

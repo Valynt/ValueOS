@@ -7,9 +7,9 @@ import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 
 // Re-export requireRole from rbac for convenience
-export { requireRole } from './rbac';
-import { authService } from './services/AuthService';
-import { AuthenticationError } from './services/errors';
+export { requireRole } from './rbac.js'
+import { authService } from '../services/AuthService.js'
+import { AuthenticationError } from '../services/errors.js'
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
 import { createRequestSupabaseClient, getSupabaseClient } from '@shared/lib/supabase';

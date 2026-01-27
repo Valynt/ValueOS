@@ -4,8 +4,8 @@
  */
 
 import Stripe from "stripe";
-import { STRIPE_CONFIG } from "../../config/billing";
-import { createLogger } from "../../lib/logger";
+import { STRIPE_CONFIG } from "../../config/billing.js"
+import { createLogger } from "../../lib/logger.js"
 
 const logger = createLogger({ component: "StripeService" });
 

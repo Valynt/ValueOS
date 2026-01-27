@@ -6,8 +6,8 @@
  */
 
 import { v4 as uuidv4 } from "uuid";
-import { logger } from "../lib/logger";
-import { getEventProducer } from "./EventProducer";
+import { logger } from "../lib/logger.js"
+import { getEventProducer } from "./EventProducer.js"
 import { EVENT_TOPICS } from "@shared/types/events";
 
 export interface SagaStep {

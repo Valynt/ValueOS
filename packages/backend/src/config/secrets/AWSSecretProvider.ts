@@ -19,8 +19,8 @@ import {
   UpdateSecretCommand,
 } from "@aws-sdk/client-secrets-manager";
 import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
-import { logger } from "../../lib/logger";
-import { createServerSupabaseClient } from "../../lib/supabase";
+import { logger } from "../../lib/logger.js"
+import { createServerSupabaseClient } from "../../lib/supabase.js"
 import type {
   AuditAction,
   AuditResult,
@@ -38,9 +38,9 @@ import {
   CircuitBreaker,
   createConfigurableCircuitBreaker,
 } from "./CircuitBreaker";
-import { config } from "./SecretConfig";
-import { InputValidator } from "./InputValidator";
-import { awsCacheMonitor } from "./CachePerformanceMonitor";
+import { config } from "./SecretConfig.js"
+import { InputValidator } from "./InputValidator.js"
+import { awsCacheMonitor } from "./CachePerformanceMonitor.js"
 
 /**
  * AWS Secrets Manager provider implementation

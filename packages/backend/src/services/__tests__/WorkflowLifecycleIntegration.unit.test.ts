@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowLifecycleIntegration } from '../WorkflowLifecycleIntegration';
+import { WorkflowLifecycleIntegration } from '../WorkflowLifecycleIntegration.js'
 
 // Mock ValueLifecycleOrchestrator to avoid running agents
 vi.mock('../ValueLifecycleOrchestrator', async () => {

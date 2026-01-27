@@ -1,9 +1,9 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
-import { log } from '../lib/logger';
-import { sanitizeUser } from '../lib/piiFilter';
-import { MLAnomalyDetectionService, AnomalyDetectionResult } from './MLAnomalyDetectionService';
-import { DynamicBaselineService } from './DynamicBaselineService';
+import { TenantAwareService } from './TenantAwareService.js'
+import { log } from '../lib/logger.js'
+import { sanitizeUser } from '../lib/piiFilter.js'
+import { MLAnomalyDetectionService, AnomalyDetectionResult } from './MLAnomalyDetectionService.js'
+import { DynamicBaselineService } from './DynamicBaselineService.js'
 
 export interface SecurityEvent {
   id: string;

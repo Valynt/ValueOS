@@ -44,7 +44,7 @@ vi.mock('../../middleware/requestAuditMiddleware', () => ({
 // We need to import the router. Since it might not be exported yet in the source,
 // this import might fail during the "verify" step if not fixed.
 // For now we assume the fix will export it as default.
-import healthRouter from '../health/index';
+import healthRouter from '../health/index.js'
 
 describe('Health Dashboard Endpoint', () => {
   const app = express();

@@ -14,21 +14,21 @@
  * - Full observability and audit logging
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js"
 import { v4 as uuidv4 } from "uuid";
-import { CircuitBreakerManager } from "./CircuitBreaker";
-import { AgentRecord, AgentRegistry } from "./AgentRegistry";
+import { CircuitBreakerManager } from "./CircuitBreaker.js"
+import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
 import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
-import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
-import { AgentType } from "./agent-types";
+import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
+import { AgentType } from "./agent-types.js"
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
-import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
+import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
-import { cacheService } from "./CacheService";
+import { cacheService } from "./CacheService.js"
 
 // ============================================================================
 // Types

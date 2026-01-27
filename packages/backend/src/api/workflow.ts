@@ -1,13 +1,13 @@
 import { Request, Response, Router } from 'express';
 import { logger } from '@shared/lib/logger';
-import { rateLimiters } from '../middleware/rateLimiter';
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
-import { validateRequest } from '../middleware/inputValidation';
-import { requirePermission } from '../middleware/rbac';
-import { requireAuth } from '../middleware/auth';
-import { tenantContextMiddleware } from '../middleware/tenantContext';
-import { tenantDbContextMiddleware } from '../middleware/tenantDbContext';
+import { rateLimiters } from '../middleware/rateLimiter.js'
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
+import { validateRequest } from '../middleware/inputValidation.js'
+import { requirePermission } from '../middleware/rbac.js'
+import { requireAuth } from '../middleware/auth.js'
+import { tenantContextMiddleware } from '../middleware/tenantContext.js'
+import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
 
 const router = Router();
 router.use(securityHeadersMiddleware);

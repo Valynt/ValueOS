@@ -6,10 +6,10 @@
  */
 
 import CircuitBreaker from "opossum";
-import { logger } from "../utils/logger";
+import { logger } from "../utils/logger.js"
 import { getEnvVar } from "@shared/lib/env";
-import { llmCache } from "./LLMCache";
-import { llmCostTracker } from "./LLMCostTracker";
+import { llmCache } from "./LLMCache.js"
+import { llmCostTracker } from "./LLMCostTracker.js"
 
 export interface LLMRequest {
   prompt: string;
