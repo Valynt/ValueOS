@@ -4,25 +4,7 @@
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "version": "latest",
-      "enableNonRootDocker": "true",
-      "moby": "true"
-    },
-    "ghcr.io/devcontainers/features/github-cli:1": {
-      "version": "latest"
-    },
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "20",
-      "nodeGypDependencies": true
-    },
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.11",
-      "installTools": "true"
-    },
-    "ghcr.io/devcontainers/features/go:1": {
-      "version": "1.21"
-    },
+    // Go feature removed to prevent automatic install
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": true,
       "configureZshAsDefaultShell": true,

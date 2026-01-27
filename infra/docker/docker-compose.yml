@@ -9,8 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # ports removed for devcontainer best practice
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
