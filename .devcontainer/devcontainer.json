@@ -1,9 +1,6 @@
 {
   "name": "ValueOS Ephemeral Development Environment",
-  "dockerComposeFile": [
-    "../docker-compose.deps.yml",
-    "docker-compose.devcontainer.yml"
-  ],
+  "dockerComposeFile": ["../docker-compose.deps.yml", "docker-compose.devcontainer.yml"],
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
   "features": {
@@ -33,8 +30,7 @@
       "userUid": "1000",
       "userGid": "1000"
     }
-	}
-
+  },
 
   "remoteUser": "vscode",
 
