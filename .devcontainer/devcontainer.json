@@ -74,13 +74,6 @@
     "source=valueos-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume"
   ],
 
-  "runArgs": [
-    "--add-host=host.docker.internal:host-gateway",
-    "--shm-size=2gb",
-    "--label=project=valueos",
-    "--label=environment=development",
-    "--label=type=ephemeral"
-  ],
 
   "hostRequirements": {
     "cpus": 4,
@@ -108,7 +101,7 @@
         "redhat.vscode-yaml",
         "Prisma.prisma",
         "ms-vscode.vscode-json",
-        "RooVeterinaryInc.roo-cline"
+        // "RooVeterinaryInc.roo-cline" removed due to invalid extension ID
       ],
       "settings": {
         "files.watcherExclude": {
