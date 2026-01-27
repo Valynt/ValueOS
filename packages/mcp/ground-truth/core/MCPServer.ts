@@ -28,6 +28,7 @@ import { sha256 } from "../../lib/contentHash";
 import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
 import { PredictiveModelingService } from "../services/PredictiveModelingService";
 import { AutomatedInsightsService } from "../services/AutomatedInsightsService";
+import { GroundTruthIntegrationService } from "../services/GroundTruthIntegrationService";
 import { WebSocketServer } from "../services/WebSocketServer";
 import { SECWebhookSystem } from "../services/SECWebhookSystem";
 import { EventBus, getEventBus } from "../services/EventBus";
@@ -131,6 +132,7 @@ export class MCPFinancialGroundTruthServer {
   private secWebhookSystem?: SECWebhookSystem;
   private eventBus: EventBus;
   private streamingSentimentAnalyzer: StreamingSentimentAnalyzer;
+  private ingestionService?: GroundTruthIntegrationService;
 
   constructor(config: MCPServerConfig, httpServer?: any) {
     this.config = config;
@@ -186,9 +188,7 @@ export class MCPFinancialGroundTruthServer {
 
       // Initialize Industry Benchmark module (Tier 3)
       this.modules.industryBenchmark = new IndustryBenchmarkModule();
-      await this.modules.industryBenchmark.initialize(
-        this.config.industryBenchmark
-      );
+      await this.modules.industryBenchmark.initialize(this.config.industryBenchmark);
       this.truthLayer.registerModule(this.modules.industryBenchmark);
 
       // Initialize ESO module (Economic Structure Ontology)
@@ -238,8 +238,7 @@ export class MCPFinancialGroundTruthServer {
             },
             period: {
               type: "string",
-              description:
-                "Fiscal period normalized to Calendar Quarters or Annual format.",
+              description: "Fiscal period normalized to Calendar Quarters or Annual format.",
               enum: ["FY2023", "FY2024", "CQ1_2024", "CQ2_2024", "LTM"],
             },
             metrics: {
@@ -261,8 +260,7 @@ export class MCPFinancialGroundTruthServer {
             },
             currency: {
               type: "string",
-              description:
-                "ISO 4217 currency code. Defaults to reporting currency if omitted.",
+              description: "ISO 4217 currency code. Defaults to reporting currency if omitted.",
               default: "USD",
               pattern: "^[A-Z]{3}$",
             },
@@ -290,8 +288,7 @@ export class MCPFinancialGroundTruthServer {
             },
             industry_code: {
               type: "string",
-              description:
-                "NAICS or SIC code to select appropriate productivity benchmarks.",
+              description: "NAICS or SIC code to select appropriate productivity benchmarks.",
             },
           },
           required: ["domain"],
@@ -306,8 +303,7 @@ export class MCPFinancialGroundTruthServer {
           properties: {
             claim_text: {
               type: "string",
-              description:
-                "The sentence or assertion containing a financial fact to verify.",
+              description: "The sentence or assertion containing a financial fact to verify.",
             },
             context_entity: {
               type: "string",
@@ -315,8 +311,7 @@ export class MCPFinancialGroundTruthServer {
             },
             context_date: {
               type: "string",
-              description:
-                "ISO 8601 date string for the point-in-time of the claim.",
+              description: "ISO 8601 date string for the point-in-time of the claim.",
             },
             strict_mode: {
               type: "boolean",
@@ -346,17 +341,11 @@ export class MCPFinancialGroundTruthServer {
             driver_node_id: {
               type: "string",
               description: "ID of the value tree node to populate.",
-              enum: [
-                "revenue_uplift",
-                "cost_reduction",
-                "risk_mitigation",
-                "productivity_delta",
-              ],
+              enum: ["revenue_uplift", "cost_reduction", "risk_mitigation", "productivity_delta"],
             },
             simulation_period: {
               type: "string",
-              description:
-                "The forward-looking period for the value realization model.",
+              description: "The forward-looking period for the value realization model.",
             },
           },
           required: ["target_cik", "benchmark_naics", "driver_node_id"],
@@ -371,8 +360,7 @@ export class MCPFinancialGroundTruthServer {
           properties: {
             identifier: {
               type: "string",
-              description:
-                "NAICS code (6 digits) or SOC Occupation code (XX-XXXX).",
+              description: "NAICS code (6 digits) or SOC Occupation code (XX-XXXX).",
             },
             metric: {
               type: "string",
@@ -392,12 +380,7 @@ export class MCPFinancialGroundTruthServer {
             document_type: {
               type: "string",
               description: "Type of document to analyze",
-              enum: [
-                "earnings_call",
-                "sec_filing",
-                "press_release",
-                "analyst_report",
-              ],
+              enum: ["earnings_call", "sec_filing", "press_release", "analyst_report"],
             },
             content: {
               type: "string",
@@ -428,8 +411,7 @@ export class MCPFinancialGroundTruthServer {
           properties: {
             metric_name: {
               type: "string",
-              description:
-                "The financial metric to forecast (revenue, earnings, etc.)",
+              description: "The financial metric to forecast (revenue, earnings, etc.)",
             },
             historical_data: {
               type: "object",
@@ -438,8 +420,7 @@ export class MCPFinancialGroundTruthServer {
                 periods: {
                   type: "array",
                   items: { type: "string" },
-                  description:
-                    "Time periods (e.g., ['FY2020', 'FY2021', 'FY2022'])",
+                  description: "Time periods (e.g., ['FY2020', 'FY2021', 'FY2022'])",
                 },
                 values: {
                   type: "array",
@@ -563,12 +544,7 @@ export class MCPFinancialGroundTruthServer {
             event_type: {
               type: "string",
               description: "Type of financial event",
-              enum: [
-                "earnings_call",
-                "press_conference",
-                "sec_hearing",
-                "investor_meeting",
-              ],
+              enum: ["earnings_call", "press_conference", "sec_hearing", "investor_meeting"],
             },
             company_name: {
               type: "string",
@@ -612,8 +588,7 @@ export class MCPFinancialGroundTruthServer {
       },
       {
         name: "end_sentiment_stream",
-        description:
-          "End a real-time sentiment analysis session and get final analysis results",
+        description: "End a real-time sentiment analysis session and get final analysis results",
         inputSchema: {
           type: "object",
           properties: {
@@ -627,8 +602,7 @@ export class MCPFinancialGroundTruthServer {
       },
       {
         name: "get_streaming_stats",
-        description:
-          "Get real-time statistics about streaming services and active connections",
+        description: "Get real-time statistics about streaming services and active connections",
         inputSchema: {
           type: "object",
           properties: {},
@@ -642,15 +616,9 @@ export class MCPFinancialGroundTruthServer {
   /**
    * Execute an MCP tool
    */
-  async executeTool(
-    toolName: string,
-    args: Record<string, any>
-  ): Promise<MCPToolResult> {
+  async executeTool(toolName: string, args: Record<string, any>): Promise<MCPToolResult> {
     if (!this.initialized) {
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "MCP server not initialized"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "MCP server not initialized");
     }
 
     // Input validation and sanitization
@@ -700,9 +668,7 @@ export class MCPFinancialGroundTruthServer {
           );
 
         case "get_industry_benchmark":
-          return await this.getIndustryBenchmark(
-            args as { identifier: string; metric?: string }
-          );
+          return await this.getIndustryBenchmark(args as { identifier: string; metric?: string });
 
         case "analyze_financial_sentiment":
           return await this.analyzeFinancialSentiment(
@@ -792,26 +758,15 @@ export class MCPFinancialGroundTruthServer {
         case "eso_get_similar_traces":
         case "eso_get_persona_kpis":
           if (this.modules.eso) {
-            const result = await this.modules.eso.handleToolCall(
-              toolName,
-              args
-            );
+            const result = await this.modules.eso.handleToolCall(toolName, args);
             return {
-              content: [
-                { type: "text", text: JSON.stringify(result, null, 2) },
-              ],
+              content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
             };
           }
-          throw new GroundTruthError(
-            ErrorCodes.INVALID_REQUEST,
-            "ESO module not initialized"
-          );
+          throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "ESO module not initialized");
 
         default:
-          throw new GroundTruthError(
-            ErrorCodes.INVALID_REQUEST,
-            `Unknown tool: ${toolName}`
-          );
+          throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unknown tool: ${toolName}`);
       }
     } catch (error) {
       logger.error(
@@ -830,11 +785,8 @@ export class MCPFinancialGroundTruthServer {
               {
                 error: {
                   code:
-                    error instanceof GroundTruthError
-                      ? error.code
-                      : ErrorCodes.UPSTREAM_FAILURE,
-                  message:
-                    error instanceof Error ? error.message : "Unknown error",
+                    error instanceof GroundTruthError ? error.code : ErrorCodes.UPSTREAM_FAILURE,
+                  message: error instanceof Error ? error.message : "Unknown error",
                 },
               },
               null,
@@ -1039,12 +991,7 @@ export class MCPFinancialGroundTruthServer {
     context_date?: string;
     strict_mode?: boolean;
   }): Promise<MCPToolResult> {
-    const {
-      claim_text,
-      context_entity,
-      context_date,
-      strict_mode = true,
-    } = args;
+    const { claim_text, context_entity, context_date, strict_mode = true } = args;
 
     const verification = await this.truthLayer.verifyClaim(
       claim_text,
@@ -1093,8 +1040,7 @@ export class MCPFinancialGroundTruthServer {
     driver_node_id: string;
     simulation_period: string;
   }): Promise<MCPToolResult> {
-    const { target_cik, benchmark_naics, driver_node_id, simulation_period } =
-      args;
+    const { target_cik, benchmark_naics, driver_node_id, simulation_period } = args;
 
     const result = await this.truthLayer.populateValueDriverTree(
       target_cik,
@@ -1206,12 +1152,7 @@ export class MCPFinancialGroundTruthServer {
     forecast_periods?: number;
     confidence_level?: number;
   }): Promise<MCPToolResult> {
-    const {
-      metric_name,
-      historical_data,
-      forecast_periods = 4,
-      confidence_level = 0.95,
-    } = args;
+    const { metric_name, historical_data, forecast_periods = 4, confidence_level = 0.95 } = args;
 
     const result = await this.predictiveService.generateForecast({
       historicalData: {
@@ -1347,21 +1288,20 @@ export class MCPFinancialGroundTruthServer {
       peer_companies,
     } = args;
 
-    const result =
-      await this.insightsService.generateBusinessIntelligenceReport({
-        companyName: company_name,
-        cik,
-        industry,
-        timeRange: time_range
-          ? {
-              start: time_range.start,
-              end: time_range.end,
-            }
-          : undefined,
-        includeSentiment: include_sentiment,
-        includeForecasting: include_forecasting,
-        peerCompanies: peer_companies,
-      });
+    const result = await this.insightsService.generateBusinessIntelligenceReport({
+      companyName: company_name,
+      cik,
+      industry,
+      timeRange: time_range
+        ? {
+            start: time_range.start,
+            end: time_range.end,
+          }
+        : undefined,
+      includeSentiment: include_sentiment,
+      includeForecasting: include_forecasting,
+      peerCompanies: peer_companies,
+    });
 
     const response = {
       company_name,
@@ -1396,13 +1336,7 @@ export class MCPFinancialGroundTruthServer {
     sequence_number?: number;
     is_partial?: boolean;
   }): Promise<MCPToolResult> {
-    const {
-      session_id,
-      speaker,
-      text,
-      sequence_number = 0,
-      is_partial = false,
-    } = args;
+    const { session_id, speaker, text, sequence_number = 0, is_partial = false } = args;
 
     await this.streamingSentimentAnalyzer.processTranscript({
       sessionId: session_id,
@@ -1439,13 +1373,10 @@ export class MCPFinancialGroundTruthServer {
   /**
    * Tool: end_sentiment_stream
    */
-  private async endSentimentStream(args: {
-    session_id: string;
-  }): Promise<MCPToolResult> {
+  private async endSentimentStream(args: { session_id: string }): Promise<MCPToolResult> {
     const { session_id } = args;
 
-    const session =
-      await this.streamingSentimentAnalyzer.endSession(session_id);
+    const session = await this.streamingSentimentAnalyzer.endSession(session_id);
 
     const response = {
       session_id,
@@ -1546,20 +1477,17 @@ export class MCPFinancialGroundTruthServer {
       });
     });
 
-    this.eventBus.registerHandler(
-      "market.fundamentals_update",
-      async (event) => {
-        this.webSocketServer!.broadcastToChannel("market.fundamentals", {
-          channel: "market.fundamentals",
-          data: event.data,
-          timestamp: event.timestamp,
-          metadata: {
-            source: event.source,
-            quality: "batch",
-          },
-        });
-      }
-    );
+    this.eventBus.registerHandler("market.fundamentals_update", async (event) => {
+      this.webSocketServer!.broadcastToChannel("market.fundamentals", {
+        channel: "market.fundamentals",
+        data: event.data,
+        timestamp: event.timestamp,
+        metadata: {
+          source: event.source,
+          quality: "batch",
+        },
+      });
+    });
 
     logger.info("Market data streaming integration configured");
   }
@@ -1572,22 +1500,13 @@ export class MCPFinancialGroundTruthServer {
       );
     }
     if (args.entity_id.length > 20) {
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "entity_id too long"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "entity_id too long");
     }
     if (!Array.isArray(args.metrics) || args.metrics.length === 0) {
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "metrics must be a non-empty array"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "metrics must be a non-empty array");
     }
     if (args.metrics.length > 10) {
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "too many metrics requested"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "too many metrics requested");
     }
   }
 
@@ -1600,10 +1519,7 @@ export class MCPFinancialGroundTruthServer {
     }
     if (args.domain.length > 253) {
       // Max domain length per RFC
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "domain name too long"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "domain name too long");
     }
   }
 
@@ -1621,10 +1537,7 @@ export class MCPFinancialGroundTruthServer {
       );
     }
     if (args.claim_text.length > 2000) {
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "claim_text too long"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "claim_text too long");
     }
   }
 
@@ -1657,10 +1570,7 @@ export class MCPFinancialGroundTruthServer {
       );
     }
     if (args.identifier.length > 20) {
-      throw new GroundTruthError(
-        ErrorCodes.INVALID_REQUEST,
-        "identifier too long"
-      );
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "identifier too long");
     }
   }
 
