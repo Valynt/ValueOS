@@ -9,7 +9,7 @@ services:
         NODE_VERSION: "20"
         VARIANT: "ubuntu-22.04"
     volumes:
-      - ..:/workspaces/valuecanvas:cached
+      - ..:/workspaces/ValueOS:cached
     command: /bin/sh -c "while sleep 1000; do :; done"
     init: true
     networks:
