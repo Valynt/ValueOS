@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Camera, MessageSquareText, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -181,12 +182,16 @@ export function BetaFeedbackWidget() {
 
           <div className="grid gap-4 sm:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-3">
-              <Textarea
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="Describe the issue or idea..."
-                className="min-h-[180px]"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="feedback-message">Feedback</Label>
+                <Textarea
+                  id="feedback-message"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  placeholder="Describe the issue or idea..."
+                  className="min-h-[180px]"
+                />
+              </div>
               <div className="rounded-lg border border-border bg-muted/50 p-3 text-xs text-muted-foreground">
                 <div className="font-medium text-foreground">Browser</div>
                 <p className="mt-1 break-words">{userAgent}</p>
@@ -229,8 +234,12 @@ export function BetaFeedbackWidget() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!message.trim() || isSubmitting}>
-              <Send className="mr-2 h-4 w-4" />
+            <Button
+              onClick={handleSubmit}
+              disabled={!message.trim()}
+              loading={isSubmitting}
+            >
+              {!isSubmitting && <Send className="mr-2 h-4 w-4" />}
               {isSubmitting ? "Sending..." : "Submit Feedback"}
             </Button>
           </DialogFooter>
