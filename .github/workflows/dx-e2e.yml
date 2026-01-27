@@ -94,3 +94,11 @@ jobs:
           path: |
             .dx-trace.log
             /tmp/dx-*.log
+
+value-domain-contract:
+    name: Value Domain Contract Guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Value Domain Contract Guard
+        run: bash scripts/ci/value-domain-contract.sh
