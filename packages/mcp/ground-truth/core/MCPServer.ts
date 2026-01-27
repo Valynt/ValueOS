@@ -147,6 +147,11 @@ export class MCPFinancialGroundTruthServer {
     this.eventBus = getEventBus();
     this.streamingSentimentAnalyzer = new StreamingSentimentAnalyzer();
 
+    // Initialize ingestion service for automated, provenance-enforced ingestion
+    // (EDGAR, XBRL, BLS modules are initialized in .initialize())
+    // Will be set after modules are ready
+    this.ingestionService = undefined;
+
     // Initialize WebSocket server if HTTP server provided
     if (httpServer) {
       this.webSocketServer = new WebSocketServer(httpServer);
@@ -195,6 +200,13 @@ export class MCPFinancialGroundTruthServer {
       this.modules.eso = new ESOModule();
       await this.modules.eso.initialize();
       this.truthLayer.registerModule(this.modules.eso);
+
+      // Initialize ingestion service (now that modules are ready)
+      this.ingestionService = new GroundTruthIntegrationService(
+        this.modules.edgar!,
+        this.modules.xbrl!,
+        this.modules.industryBenchmark!
+      );
 
       // Initialize streaming services (Phase 3)
       if (this.webSocketServer && this.secWebhookSystem) {
