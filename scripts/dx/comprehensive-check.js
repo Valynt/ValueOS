@@ -13,6 +13,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 
+const args = process.argv.slice(2);
+const softMode = args.includes("--soft");
+
 const checks = [];
 let allPassed = true;
 
@@ -211,5 +214,10 @@ console.log(
       ? "🎉 All checks passed! Development environment is ready."
       : "⚠️  Some checks failed. Run the suggested fixes and try again.")
 );
+
+if (!allPassed && softMode) {
+  console.log("\n⚠️  Soft mode enabled: Exiting with success (0) despite failures.");
+  process.exit(0);
+}
 
 process.exit(allPassed ? 0 : 1);
