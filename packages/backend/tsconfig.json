@@ -1,25 +1,16 @@
 {
+  "extends": "../../tsconfig.app.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022"],
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
     "noEmit": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "types": ["node", "vitest/globals"],
+    "baseUrl": "src",
+    "paths": {
+      "@shared/lib/logger": ["lib/logger"],
+      "@shared/*": ["shared/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

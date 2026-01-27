@@ -5,9 +5,12 @@
 
 import { Request, Response } from "express";
 import { customerAccessService } from "../../services/CustomerAccessService";
-import { supabase } from "@shared/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { logger } from "@shared/lib/logger";
 import { z } from "zod";
+import { ValueTreeService } from '../../services/value/ValueTreeService';
+import { RoiModelService } from '../../services/value/RoiModelService';
+import { KpiTargetService } from '../../services/value/KpiTargetService';
 
 // Request validation schema
 const ValueCaseRequestSchema = z.object({
@@ -59,12 +62,9 @@ export async function getCustomerValueCase(
   try {
     // Validate request parameters
     const { token } = ValueCaseRequestSchema.parse(req.params);
-
     logger.info("Customer value case request");
-
     // Validate token
     const validation = await customerAccessService.validateCustomerToken(token);
-
     if (!validation.is_valid || !validation.value_case_id) {
       res.status(401).json({
         error: "Unauthorized",
@@ -72,88 +72,57 @@ export async function getCustomerValueCase(
       });
       return;
     }
-
     const valueCaseId = validation.value_case_id;
-
-    // Fetch value case with related data
-    const { data: valueCase, error: vcError } = await supabase
-      .from("value_cases")
-      .select(
-        `
-        id,
-        name,
-        company_name,
-        description,
-        lifecycle_stage,
-        status,
-        buyer_persona,
-        persona_fit_score,
-        created_at,
-        updated_at
-      `
-      )
-      .eq("id", valueCaseId)
+    // tenant_id is not returned by token validation, so fetch value case row for tenant_id and details
+    const supabaseClient = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const valueTreeService = new ValueTreeService(supabaseClient);
+    const roiModelService = new RoiModelService(supabaseClient);
+    const kpiTargetService = new KpiTargetService(supabaseClient);
+    // Fetch value case row for tenant_id and details
+    const valueCaseRow = await supabaseClient
+      .from('value_cases')
+      .select('*')
+      .eq('id', valueCaseId)
       .single();
-
-    if (vcError || !valueCase) {
-      logger.error("Failed to fetch value case", vcError);
-      res.status(404).json({
-        error: "Not Found",
-        message: "Value case not found",
-      });
+    if (valueCaseRow.error || !valueCaseRow.data) {
+      res.status(404).json({ error: 'Value case not found' });
       return;
     }
-
-    // Fetch opportunities
-    const { data: opportunities, error: oppError } = await supabase
-      .from("opportunities")
-      .select("id, type, title, description, priority, impact_score")
-      .eq("value_case_id", valueCaseId)
-      .order("impact_score", { ascending: false });
-
-    if (oppError) {
-      logger.error("Failed to fetch opportunities", oppError);
-    }
-
-    // Fetch value drivers
-    const { data: valueDrivers, error: vdError } = await supabase
-      .from("value_drivers")
-      .select("id, name, category, baseline_value, target_value, unit")
-      .eq("value_case_id", valueCaseId)
-      .order("category");
-
-    if (vdError) {
-      logger.error("Failed to fetch value drivers", vdError);
-    }
-
-    // Fetch financial model summary
-    const { data: financialModel, error: fmError } = await supabase
-      .from("financial_models")
-      .select("roi, npv, payback_period_months")
-      .eq("value_case_id", valueCaseId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (fmError && fmError.code !== "PGRST116") {
-      // Ignore "no rows" error
-      logger.error("Failed to fetch financial model", fmError);
-    }
-
-    // Build response
+    const tenantId = valueCaseRow.data.tenant_id;
+    // Fetch value tree
+    const valueTree = await valueTreeService.getByValueCase(tenantId, valueCaseId);
+    // Fetch ROI model
+    const roiModel = await roiModelService.getByValueCase(tenantId, valueCaseId);
+    // Fetch derived KPIs
+    const kpiTargets = await kpiTargetService.deriveForValueCase(tenantId, valueCaseId);
+    // Build response (adapt as needed)
     const response: ValueCaseResponse = {
-      ...valueCase,
-      opportunities: opportunities || [],
-      value_drivers: valueDrivers || [],
-      financial_summary: financialModel || null,
+      id: valueCaseId,
+      name: valueCaseRow.data.name || valueTree.nodes[0]?.label || '',
+      company_name: valueCaseRow.data.company_name || '',
+      description: valueCaseRow.data.description || '',
+      lifecycle_stage: valueCaseRow.data.lifecycle_stage || '',
+      status: valueCaseRow.data.status || '',
+      buyer_persona: valueCaseRow.data.buyer_persona || null,
+      persona_fit_score: valueCaseRow.data.persona_fit_score || null,
+      created_at: valueCaseRow.data.created_at || '',
+      updated_at: valueCaseRow.data.updated_at || '',
+      opportunities: [], // TODO: fetch if needed
+      value_drivers: (valueTree.nodes as Array<{id:string,label:string,driverType:string,value?:number}>).map(n => ({
+        id: n.id,
+        name: n.label,
+        category: n.driverType,
+        baseline_value: n.value ?? 0,
+        target_value: 0, // TODO: derive if needed
+        unit: '', // TODO: derive if needed
+      })),
+      financial_summary: {
+        roi: roiModel.outputs['roi'] ?? null,
+        npv: roiModel.outputs['npv'] ?? null,
+        payback_period_months: roiModel.outputs['payback_period_months'] ?? null,
+      },
+      warnings: [],
     };
-
-    logger.info("Customer value case retrieved successfully", {
-      valueCaseId,
-      opportunitiesCount: opportunities?.length || 0,
-      valueDriversCount: valueDrivers?.length || 0,
-    });
-
     res.status(200).json(response);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -164,8 +133,7 @@ export async function getCustomerValueCase(
       });
       return;
     }
-
-    logger.error("Error in getCustomerValueCase", error as Error);
+    logger.error("Error in getCustomerValueCase", error);
     res.status(500).json({
       error: "Internal Server Error",
       message: "An unexpected error occurred",

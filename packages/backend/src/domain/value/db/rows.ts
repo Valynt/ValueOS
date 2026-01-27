@@ -33,13 +33,45 @@ export interface ValueDriverRow {
   // ...other fields
 }
 
-export interface FinancialModelRow {
+export interface ValueCommitmentRow {
   id: string;
   tenant_id: string;
-  value_case_id: string;
-  assumptions?: Record<string, number>;
-  outputs?: Record<string, number>;
-  // ...other fields
+  session_id: string;
+  user_id: string;
+  organization_id?: string;
+  title: string;
+  description: string;
+  commitment_type: string;
+  priority: string;
+  financial_impact: Record<string, any>;
+  currency: string;
+  timeframe_months: number;
+  status: string;
+  progress_percentage: number;
+  confidence_level: number;
+  committed_at: string;
+  target_completion_date: string;
+  actual_completion_date?: string;
+  ground_truth_references: Record<string, any>;
+  tags: string[];
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+// Example: get value commitments for a case (via session_id)
+export async function getValueCommitmentsForCase(supabase: ReturnType<typeof createClient>, tenant_id: string, value_case_id: string): Promise<ValueCommitmentRow[]> {
+  // First get the value case to find session_id
+  const valueCase = await getValueCase(supabase, tenant_id, value_case_id);
+  if (!valueCase) return [];
+  
+  const { data, error } = await supabase
+    .from<ValueCommitmentRow>('value_commitments')
+    .select('*')
+    .eq('tenant_id', tenant_id)
+    .eq('session_id', valueCase.session_id); // Assuming value_cases has session_id
+  if (error) throw error;
+  return data || [];
 }
 
 // Example: get a value case by tenant and id
