@@ -14,7 +14,7 @@ import type {
   UsageQuota,
   UsageAlert,
   WebhookEvent,
-} from "../../../../../types/billing";
+} from "../../../../types/billing";
 
 let idCounter = 0;
 const generateId = () => `test-${Date.now()}-${++idCounter}`;

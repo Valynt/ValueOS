@@ -8,7 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MultiTenantSecretsManager } from '../secretsManager.v2';
+import { MultiTenantSecretsManager } from '../../secretsManager.v2';
 import * as SupabaseLib from '../../lib/supabase.js'
 
 // ---------------------------------------------------------------------------
