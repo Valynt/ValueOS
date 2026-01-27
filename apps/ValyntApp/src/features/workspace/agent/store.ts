@@ -1,11 +1,16 @@
 /**
  * Agent State Store
- * 
+ *
  * Client-side state management for agent interactions.
  * Uses Zustand for reactive state.
  */
 
-import { create } from 'zustand';
+import { create } from "zustand";
+import {
+  IntegrityValidationService,
+  ValidationLevel,
+  ContentType,
+} from "../../services/IntegrityValidationService";
 import type {
   AgentPhase,
   AgentEvent,
@@ -14,26 +19,26 @@ import type {
   WorkflowStepState,
   PlanAssumption,
   ClarifyOption,
-} from './types';
+} from "./types";
 
 export interface AgentState {
   // Current phase
   phase: AgentPhase;
-  
+
   // Active run
   runId: string | null;
   isStreaming: boolean;
-  
+
   // Conversation
   messages: ConversationMessage[];
   streamingMessageId: string | null;
   streamingContent: string;
-  
+
   // Plan state
   planId: string | null;
   steps: WorkflowStepState[];
   assumptions: PlanAssumption[];
-  
+
   // Clarification state
   pendingQuestion: {
     questionId: string;
@@ -42,11 +47,11 @@ export interface AgentState {
     defaultOption?: string;
     allowFreeform: boolean;
   } | null;
-  
+
   // Artifacts
   artifacts: Record<string, Artifact>;
   activeArtifactId: string | null;
-  
+
   // Checkpoints (for undo/restore)
   checkpoints: Array<{
     id: string;
@@ -58,7 +63,7 @@ export interface AgentState {
   // Undo/Redo history
   history: AgentState[];
   historyIndex: number;
-  
+
   // Error state
   error: {
     code: string;
@@ -71,7 +76,7 @@ export interface AgentState {
 export interface AgentActions {
   // Event processing
   processEvent: (event: AgentEvent) => void;
-  
+
   // User actions
   sendMessage: (content: string) => void;
   selectOption: (optionId: string) => void;
@@ -82,12 +87,12 @@ export interface AgentActions {
   rejectArtifact: (artifactId: string) => void;
   selectArtifact: (artifactId: string | null) => void;
   restoreCheckpoint: (checkpointId: string) => void;
-  
+
   // Undo/Redo
   undo: () => void;
   redo: () => void;
   saveSnapshot: () => void;
-  
+
   // Control
   startRun: (runId: string) => void;
   cancelRun: () => void;
@@ -99,12 +104,12 @@ export interface AgentActions {
 }
 
 const initialState: AgentState = {
-  phase: 'idle',
+  phase: "idle",
   runId: null,
   isStreaming: false,
   messages: [],
   streamingMessageId: null,
-  streamingContent: '',
+  streamingContent: "",
   planId: null,
   steps: [],
   assumptions: [],
@@ -123,73 +128,101 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   ...initialState,
 
   processEvent: (event: AgentEvent) => {
-    set((state) => {
+    set(async (state) => {
+      // Integrity validation on phase change
+      if (event.type === "phase_changed") {
+        const integrityService = new IntegrityValidationService(undefined as any, "", "");
+        await integrityService.validateIntegrity({
+          content: { reasoning: [event.payload.reason || ""], confidence: undefined },
+          contentType: ContentType.AGENT_REASONING,
+          agentType: "workspace-agent",
+          context: {},
+          traceId: event.runId,
+          validationLevel: ValidationLevel.BASIC,
+        });
+      }
       switch (event.type) {
-        case 'phase_changed':
+        case "phase_changed":
           return {
             ...state,
             phase: event.payload.to,
-            error: event.payload.to !== 'idle' ? null : state.error,
+            error: event.payload.to !== "idle" ? null : state.error,
           };
 
-        case 'checkpoint_created':
+        case "checkpoint_created":
           return {
             ...state,
-            checkpoints: [...state.checkpoints, {
-              id: event.payload.checkpointId,
-              label: event.payload.label,
-              timestamp: event.timestamp,
-              canRestore: event.payload.canRestore,
-            }],
+            checkpoints: [
+              ...state.checkpoints,
+              {
+                id: event.payload.checkpointId,
+                label: event.payload.label,
+                timestamp: event.timestamp,
+                canRestore: event.payload.canRestore,
+              },
+            ],
           };
 
-        case 'tool_started': {
-          const stepIndex = state.steps.findIndex(s => s.id === event.payload.toolId);
+        case "tool_started": {
+          const stepIndex = state.steps.findIndex((s) => s.id === event.payload.toolId);
           if (stepIndex < 0) return state;
-          const newSteps: WorkflowStepState[] = state.steps.map((step, idx) => 
-            idx === stepIndex 
-              ? { ...step, status: 'running' as const, startedAt: event.timestamp }
+          const newSteps: WorkflowStepState[] = state.steps.map((step, idx) =>
+            idx === stepIndex
+              ? { ...step, status: "running" as const, startedAt: event.timestamp }
               : step
           );
           return { ...state, steps: newSteps };
         }
 
-        case 'tool_finished': {
-          const stepIdx = state.steps.findIndex(s => s.id === event.payload.toolId);
+        case "tool_finished": {
+          const stepIdx = state.steps.findIndex((s) => s.id === event.payload.toolId);
           if (stepIdx < 0) return state;
-          const newStatus = event.payload.status === 'success' ? 'completed' as const : 
-                           event.payload.status === 'error' ? 'error' as const : 'skipped' as const;
-          const newSteps: WorkflowStepState[] = state.steps.map((step, idx) => 
-            idx === stepIdx 
-              ? { ...step, status: newStatus, completedAt: event.timestamp, error: event.payload.error }
+          const newStatus =
+            event.payload.status === "success"
+              ? ("completed" as const)
+              : event.payload.status === "error"
+                ? ("error" as const)
+                : ("skipped" as const);
+          const newSteps: WorkflowStepState[] = state.steps.map((step, idx) =>
+            idx === stepIdx
+              ? {
+                  ...step,
+                  status: newStatus,
+                  completedAt: event.timestamp,
+                  error: event.payload.error,
+                }
               : step
           );
           return { ...state, steps: newSteps };
         }
 
-        case 'artifact_proposed':
+        case "artifact_proposed":
           return {
             ...state,
             artifacts: { ...state.artifacts, [event.payload.artifact.id]: event.payload.artifact },
             activeArtifactId: state.activeArtifactId || event.payload.artifact.id,
           };
 
-        case 'artifact_updated': {
+        case "artifact_updated": {
           const artifact = state.artifacts[event.payload.artifactId];
           if (!artifact) return state;
           return {
             ...state,
             artifacts: {
               ...state.artifacts,
-              [event.payload.artifactId]: { ...artifact, ...event.payload.changes, updatedAt: event.timestamp },
+              [event.payload.artifactId]: {
+                ...artifact,
+                ...event.payload.changes,
+                updatedAt: event.timestamp,
+              },
             },
           };
         }
 
-        case 'message_delta':
+        case "message_delta":
           if (event.payload.done) {
             // Finalize message
-            const msgIndex = state.messages.findIndex(m => m.id === state.streamingMessageId);
+            const msgIndex = state.messages.findIndex((m) => m.id === state.streamingMessageId);
             if (msgIndex >= 0) {
               const newMessages: ConversationMessage[] = state.messages.map((msg, idx) =>
                 idx === msgIndex ? { ...msg, content: state.streamingContent } : msg
@@ -198,19 +231,19 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
                 ...state,
                 messages: newMessages,
                 streamingMessageId: null,
-                streamingContent: '',
+                streamingContent: "",
                 isStreaming: false,
               };
             }
-            return { ...state, streamingMessageId: null, streamingContent: '', isStreaming: false };
+            return { ...state, streamingMessageId: null, streamingContent: "", isStreaming: false };
           } else {
             // Start or continue streaming
             if (!state.streamingMessageId || state.streamingMessageId !== event.payload.messageId) {
               // New message
               const newMessage: ConversationMessage = {
                 id: event.payload.messageId,
-                role: 'agent',
-                content: '',
+                role: "agent",
+                content: "",
                 timestamp: event.timestamp,
               };
               return {
@@ -226,10 +259,10 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
             }
           }
 
-        case 'clarify_question':
+        case "clarify_question":
           return {
             ...state,
-            phase: 'clarify' as const,
+            phase: "clarify" as const,
             pendingQuestion: {
               questionId: event.payload.questionId,
               question: event.payload.question,
@@ -239,20 +272,20 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
             },
           };
 
-        case 'plan_proposed':
+        case "plan_proposed":
           return {
             ...state,
-            phase: 'plan' as const,
+            phase: "plan" as const,
             planId: event.payload.planId,
-            steps: event.payload.steps.map(step => ({
+            steps: event.payload.steps.map((step) => ({
               id: step.id,
               label: step.label,
-              status: 'pending' as const,
+              status: "pending" as const,
             })),
             assumptions: event.payload.assumptions,
           };
 
-        case 'error':
+        case "error":
           return {
             ...state,
             error: {
@@ -262,7 +295,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
               suggestions: event.payload.suggestions,
             },
             isStreaming: event.payload.recoverable ? state.isStreaming : false,
-            phase: event.payload.recoverable ? state.phase : 'idle',
+            phase: event.payload.recoverable ? state.phase : "idle",
           };
 
         default:
@@ -274,12 +307,15 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   sendMessage: (content: string) => {
     set((state) => ({
       ...state,
-      messages: [...state.messages, {
-        id: `msg_${Date.now()}`,
-        role: 'user' as const,
-        content,
-        timestamp: Date.now(),
-      }],
+      messages: [
+        ...state.messages,
+        {
+          id: `msg_${Date.now()}`,
+          role: "user" as const,
+          content,
+          timestamp: Date.now(),
+        },
+      ],
       pendingQuestion: null,
     }));
   },
@@ -287,8 +323,8 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   selectOption: (optionId: string) => {
     const { pendingQuestion } = get();
     if (!pendingQuestion) return;
-    
-    const option = pendingQuestion.options?.find(o => o.id === optionId);
+
+    const option = pendingQuestion.options?.find((o) => o.id === optionId);
     if (option) {
       get().sendMessage(option.label);
     }
@@ -296,19 +332,20 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
 
   approvePlan: () => {
     set((state) => {
-      const newSteps: WorkflowStepState[] = state.steps.length > 0 
-        ? state.steps.map((step, idx) => 
-            idx === 0 ? { ...step, status: 'running' as const, startedAt: Date.now() } : step
-          )
-        : state.steps;
-      return { ...state, phase: 'execute' as const, steps: newSteps };
+      const newSteps: WorkflowStepState[] =
+        state.steps.length > 0
+          ? state.steps.map((step, idx) =>
+              idx === 0 ? { ...step, status: "running" as const, startedAt: Date.now() } : step
+            )
+          : state.steps;
+      return { ...state, phase: "execute" as const, steps: newSteps };
     });
   },
 
   rejectPlan: () => {
     set((state) => ({
       ...state,
-      phase: 'idle' as const,
+      phase: "idle" as const,
       planId: null,
       steps: [],
       assumptions: [],
@@ -318,9 +355,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   updateAssumption: (id: string, value: string | number) => {
     set((state) => ({
       ...state,
-      assumptions: state.assumptions.map(a => 
-        a.id === id && a.editable ? { ...a, value } : a
-      ),
+      assumptions: state.assumptions.map((a) => (a.id === id && a.editable ? { ...a, value } : a)),
     }));
   },
 
@@ -332,7 +367,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
         ...state,
         artifacts: {
           ...state.artifacts,
-          [artifactId]: { ...artifact, status: 'approved' as const, updatedAt: Date.now() },
+          [artifactId]: { ...artifact, status: "approved" as const, updatedAt: Date.now() },
         },
       };
     });
@@ -346,7 +381,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
         ...state,
         artifacts: {
           ...state.artifacts,
-          [artifactId]: { ...artifact, status: 'rejected' as const, updatedAt: Date.now() },
+          [artifactId]: { ...artifact, status: "rejected" as const, updatedAt: Date.now() },
         },
       };
     });
@@ -357,7 +392,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   },
 
   restoreCheckpoint: (checkpointId: string) => {
-    console.log('Restoring checkpoint:', checkpointId);
+    console.log("Restoring checkpoint:", checkpointId);
   },
 
   startRun: (runId: string) => {
@@ -365,7 +400,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   },
 
   cancelRun: () => {
-    set({ isStreaming: false, phase: 'idle' });
+    set({ isStreaming: false, phase: "idle" });
   },
 
   reset: () => {
@@ -421,7 +456,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
 
       const newIndex = state.historyIndex - 1;
       const snapshot = state.history[newIndex];
-      
+
       if (!snapshot) return state;
 
       return {
@@ -438,7 +473,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
 
       const newIndex = state.historyIndex + 1;
       const snapshot = state.history[newIndex];
-      
+
       if (!snapshot) return state;
 
       return {
@@ -455,7 +490,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
       messages,
       artifacts: artifacts || state.artifacts,
       activeArtifactId: artifacts ? Object.keys(artifacts)[0] || null : state.activeArtifactId,
-      phase: 'idle',
+      phase: "idle",
       isStreaming: false,
       error: null,
     }));
@@ -472,32 +507,29 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
 
 // Selectors for common derived state
 // Note: These return primitives or stable references to avoid infinite loops
-export const selectIsProcessing = (state: AgentState): boolean => 
-  state.phase === 'execute' || state.isStreaming;
+export const selectIsProcessing = (state: AgentState): boolean =>
+  state.phase === "execute" || state.isStreaming;
 
 export const selectActiveArtifact = (state: AgentState): Artifact | null =>
-  state.activeArtifactId ? state.artifacts[state.activeArtifactId] ?? null : null;
+  state.activeArtifactId ? (state.artifacts[state.activeArtifactId] ?? null) : null;
 
 // This selector returns the artifacts record directly - use useMemo in component to sort
-export const selectArtifacts = (state: AgentState): Record<string, Artifact> =>
-  state.artifacts;
+export const selectArtifacts = (state: AgentState): Record<string, Artifact> => state.artifacts;
 
 export const selectCompletedSteps = (state: AgentState): number =>
-  state.steps.filter(s => s.status === 'completed').length;
+  state.steps.filter((s) => s.status === "completed").length;
 
-export const selectTotalSteps = (state: AgentState): number =>
-  state.steps.length;
+export const selectTotalSteps = (state: AgentState): number => state.steps.length;
 
 export const selectOverallProgress = (state: AgentState): number => {
   if (state.steps.length === 0) return 0;
-  const completed = state.steps.filter(s => s.status === 'completed').length;
-  const running = state.steps.find(s => s.status === 'running');
+  const completed = state.steps.filter((s) => s.status === "completed").length;
+  const running = state.steps.find((s) => s.status === "running");
   const runningProgress = running?.progress ?? 0;
   return Math.round(((completed + runningProgress / 100) / state.steps.length) * 100);
 };
 
-export const selectCanUndo = (state: AgentState): boolean =>
-  state.historyIndex > 0;
+export const selectCanUndo = (state: AgentState): boolean => state.historyIndex > 0;
 
 export const selectCanRedo = (state: AgentState): boolean =>
   state.historyIndex < state.history.length - 1;
