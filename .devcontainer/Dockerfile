@@ -1,22 +1,25 @@
-## Minimal placeholder Dockerfile
-# This file exists so `devcontainer.json` can find `Dockerfile`.
-# The full, optimized Dockerfile lives in `Dockerfile.optimized`.
-ARG VARIANT=ubuntu-22.04
-ARG NODE_VERSION=22
+FROM mcr.microsoft.com/devcontainers/base:ubuntu
 
-FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT}
+# Set environment variables
+ENV PNPM_HOME="/home/vscode/.local/share/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+ENV NODE_VERSION="20.19.0"
 
-# Lightweight defaults to allow the devcontainer to start.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+# Install Node.js from official tarball (pinned version)
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    | tar -xJ -C /usr/local --strip-components=1 \
+    && node --version \
+    && npm --version
 
-RUN mkdir -p /workspaces/valuecanvas && chown -R vscode:vscode /workspaces/valuecanvas
+# Enable corepack and install pnpm
+RUN corepack enable \
+    && corepack prepare pnpm@9.15.0 --activate
 
+# Create pnpm directories and set permissions
 USER vscode
+RUN mkdir -p "${PNPM_HOME}" \
+    && pnpm config set global-bin-dir "${PNPM_HOME}" \
+    && pnpm config set store-dir "/home/vscode/.local/share/pnpm/store"
 
-WORKDIR /workspaces/valuecanvas
-
-CMD ["/bin/bash"]
+# Verify installation
+RUN node --version && pnpm --version
