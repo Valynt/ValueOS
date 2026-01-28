@@ -30,9 +30,11 @@ export class ValueGraphEngine {
     // Find all nodes that depend on sourceId
     for (const [id, node] of this.nodes.entries()) {
       if (node.dependencies.includes(sourceId) && node.formula) {
-        const inputValues = node.dependencies.map(depId => this.nodes.get(depId)?.value || new Decimal(0));
+        const inputValues = node.dependencies.map(
+          (depId) => this.nodes.get(depId)?.value || new Decimal(0)
+        );
         const nextValue = node.formula(inputValues);
-        
+
         if (!nextValue.equals(node.value)) {
           node.value = nextValue;
           console.log(`[GraphEngine] Incremental update: ${id} = ${node.value.toString()}`);

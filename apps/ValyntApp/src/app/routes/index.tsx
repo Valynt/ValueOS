@@ -44,6 +44,7 @@ const BillingPage = lazy(() => import("@pages/billing/BillingPage"));
 // Admin
 const AdminDashboard = lazy(() => import("@pages/admin/AdminDashboard"));
 const UsersPage = lazy(() => import("@pages/admin/UsersPage"));
+const SecurityDashboard = lazy(() => import("@pages/admin/SecurityDashboard"));
 
 // Guest
 const GuestAccessPage = lazy(() => import("@pages/guest/GuestAccessPage"));
@@ -96,7 +97,7 @@ export function AppRoutes() {
             </Route>
             <Route path="team" element={<ValueOSTeam />} />
             <Route path="billing" element={<ValueOSBilling />} />
-            
+
             {/* Settings within app shell */}
             <Route path="settings" element={<SettingsLayout />}>
               <Route index element={<ProfilePage />} />
@@ -116,8 +117,6 @@ export function AppRoutes() {
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
             </Route>
-
-
 
             {/* Academy routes */}
             <Route path="/academy" element={<AcademyHome />} />
@@ -143,6 +142,7 @@ export function AppRoutes() {
             {/* Admin */}
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<UsersPage />} />
+            <Route path="/admin/security" element={<SecurityDashboard />} />
           </Route>
 
           {/* Catch-all */}

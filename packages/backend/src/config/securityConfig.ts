@@ -4,6 +4,8 @@
  */
 
 import { Request, Response } from "express";
+import * as dns from "node:dns/promises";
+import * as net from "node:net";
 
 // Security Headers Configuration
 export interface SecurityHeadersConfig {
@@ -42,7 +44,11 @@ export interface SecurityHeadersConfig {
     mode: "block" | "report";
   };
 
-  referrerPolicy: "strict-origin-when-cross-origin" | "no-referrer" | "strict-origin" | string;
+  referrerPolicy:
+    | "strict-origin-when-cross-origin"
+    | "no-referrer"
+    | "strict-origin"
+    | string;
 
   permissionsPolicy: Record<string, string[]>;
 
@@ -138,7 +144,7 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
     camera: [],
     microphone: [],
     geolocation: [],
-    interestCohort: [],
+    "interest-cohort": [],
     magnetometer: [],
     gyroscope: [],
     accelerometer: [],
@@ -320,47 +326,43 @@ export function validateFileUpload(
 /**
  * Generate secure CSRF token
  */
-export function generateCSRFToken(
+export async function generateCSRFToken(
   config: SecurityHeadersConfig["csrf"] = getSecurityConfig().csrf
-): string {
-  const crypto = await import("crypto");
+): Promise<string> {
+  const crypto = await import("node:crypto");
   return crypto.randomBytes(config.tokenLength).toString("hex");
 }
 
 /**
  * Validate URL against SSRF protection rules
  */
-export function validateSSRFUrl(
+export async function validateSSRFUrl(
   url: string,
   config: SecurityHeadersConfig["ssrf"] = getSecurityConfig().ssrf
-): { valid: boolean; error?: string } {
+): Promise<{ valid: boolean; error?: string }> {
   if (!config.enabled) {
     return { valid: true };
   }
 
   try {
     const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+      return { valid: false, error: "Invalid URL scheme" };
+    }
+    if (parsedUrl.username || parsedUrl.password) {
+      return { valid: false, error: "URL credentials not allowed" };
+    }
+
+    const host = parsedUrl.hostname.split("%")[0].toLowerCase();
 
     // Check blocked hosts
-    if (
-      config.blockedHosts.some(
-        (host) =>
-          parsedUrl.hostname === host ||
-          parsedUrl.hostname.endsWith("." + host) ||
-          (host.includes("*") && parsedUrl.hostname.includes(host.replace("*", "")))
-      )
-    ) {
+    if (config.blockedHosts.some((rule) => hostMatchesRule(host, rule))) {
       return { valid: false, error: "URL blocked by SSRF protection" };
     }
 
     // Check allowed hosts (if whitelist is enabled)
     if (config.allowedHosts.length > 0) {
-      const isAllowed = config.allowedHosts.some(
-        (host) =>
-          parsedUrl.hostname === host ||
-          parsedUrl.hostname.endsWith("." + host) ||
-          (host.includes("*") && parsedUrl.hostname.includes(host.replace("*", "")))
-      );
+      const isAllowed = config.allowedHosts.some((rule) => hostMatchesRule(host, rule));
 
       if (!isAllowed) {
         return { valid: false, error: "URL not in allowed hosts list" };
@@ -369,7 +371,7 @@ export function validateSSRFUrl(
 
     // Check port
     const port = parsedUrl.port
-      ? parseInt(parsedUrl.port)
+      ? parseInt(parsedUrl.port, 10)
       : parsedUrl.protocol === "https:"
         ? 443
         : 80;
@@ -378,8 +380,113 @@ export function validateSSRFUrl(
       return { valid: false, error: `Port ${port} not allowed` };
     }
 
+    if (net.isIP(host)) {
+      if (isPrivateOrReservedIp(host)) {
+        return { valid: false, error: "IP literal private or reserved" };
+      }
+      return { valid: false, error: "IP literal not allowed" };
+    }
+
+    const records = await dns.lookup(host, { all: true, verbatim: true });
+    if (!records.length) {
+      return { valid: false, error: "DNS returned no records" };
+    }
+    if (records.some((record) => isPrivateOrReservedIp(record.address))) {
+      return { valid: false, error: "DNS resolves to private or reserved IP" };
+    }
+
     return { valid: true };
   } catch (error) {
     return { valid: false, error: "Invalid URL format" };
   }
+}
+
+function hostMatchesRule(host: string, rule: string): boolean {
+  const normalizedHost = host.toLowerCase();
+  const normalizedRule = rule.toLowerCase();
+  if (!normalizedRule.startsWith("*.")) {
+    return normalizedHost === normalizedRule;
+  }
+
+  const suffix = normalizedRule.slice(1); // ".example.com"
+  return normalizedHost.endsWith(suffix) && normalizedHost.length > suffix.length;
+}
+
+function isPrivateOrReservedIp(ip: string): boolean {
+  const normalized = ip.toLowerCase();
+  if (normalized.startsWith("::ffff:")) {
+    const mapped = normalized.slice(7);
+    if (net.isIP(mapped) === 4) {
+      return isPrivateOrReservedIpv4(mapped);
+    }
+  }
+  if (normalized.startsWith("0:0:0:0:0:ffff:")) {
+    const mapped = normalized.slice("0:0:0:0:0:ffff:".length);
+    if (net.isIP(mapped) === 4) {
+      return isPrivateOrReservedIpv4(mapped);
+    }
+  }
+
+  if (net.isIP(ip) === 4) {
+    return isPrivateOrReservedIpv4(ip);
+  }
+
+  if (net.isIP(ip) !== 6) {
+    return true;
+  }
+
+  if (normalized === "::" || normalized === "::1") {
+    return true;
+  }
+
+  const firstHextet = parseInt(normalized.split(":")[0] || "0", 16);
+  if ((firstHextet & 0xfe00) === 0xfc00) {
+    return true; // fc00::/7
+  }
+  if ((firstHextet & 0xffc0) === 0xfe80) {
+    return true; // fe80::/10
+  }
+  if ((firstHextet & 0xff00) === 0xff00) {
+    return true; // ff00::/8
+  }
+  if (normalized.startsWith("2001:db8:")) {
+    return true; // documentation range
+  }
+
+  return false;
+}
+
+function isPrivateOrReservedIpv4(ip: string): boolean {
+  const octets = ip.split(".").map((part) => Number(part));
+  if (octets.length !== 4 || octets.some((part) => Number.isNaN(part))) {
+    return true;
+  }
+  const [a, b, c, d] = octets;
+  const value = ((a << 24) | (b << 16) | (c << 8) | d) >>> 0;
+
+  return (
+    inRange(value, "0.0.0.0", 8) ||
+    inRange(value, "10.0.0.0", 8) ||
+    inRange(value, "100.64.0.0", 10) ||
+    inRange(value, "127.0.0.0", 8) ||
+    inRange(value, "169.254.0.0", 16) ||
+    inRange(value, "172.16.0.0", 12) ||
+    inRange(value, "192.168.0.0", 16) ||
+    inRange(value, "192.0.2.0", 24) ||
+    inRange(value, "198.51.100.0", 24) ||
+    inRange(value, "203.0.113.0", 24) ||
+    inRange(value, "224.0.0.0", 4) ||
+    inRange(value, "240.0.0.0", 4)
+  );
+}
+
+function inRange(value: number, base: string, mask: number): boolean {
+  const baseValue = ipToInt(base);
+  const maskValue = mask === 0 ? 0 : (~((1 << (32 - mask)) - 1) >>> 0);
+  return (value & maskValue) === (baseValue & maskValue);
+}
+
+function ipToInt(ip: string): number {
+  const parts = ip.split(".").map((part) => Number(part));
+  return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
 }

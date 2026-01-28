@@ -1,4 +1,4 @@
-import { Users, Settings, Shield, Activity, Key } from "lucide-react";
+import { Users, Settings, Shield, Activity, Key, Eye } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 
@@ -32,11 +32,11 @@ const adminSections = [
     stats: "",
   },
   {
-    title: "Activity Log",
-    description: "View system activity and audit logs",
-    icon: Activity,
-    path: "/admin/activity",
-    stats: "Last 24h: 156 events",
+    title: "Security Monitoring",
+    description: "Monitor security events and threats",
+    icon: Eye,
+    path: "/admin/security",
+    stats: "Real-time monitoring",
   },
 ];
 
@@ -45,9 +45,7 @@ export function AdminDashboard() {
     <div className="container py-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage users, permissions, and system settings
-        </p>
+        <p className="text-muted-foreground mt-1">Manage users, permissions, and system settings</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

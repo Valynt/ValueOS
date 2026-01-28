@@ -34,6 +34,7 @@ import documentRouter from "./api/documents.js";
 import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import authRouter from "./api/auth.js";
 import adminRouter from "./api/admin.js";
+import securityMonitoringRouter from "./api/securityMonitoring.js";
 import referralsRouter from "./api/referrals.js";
 import projectsRouter from "./api/projects.js";
 import analyticsRouter from "./api/analytics.js";
@@ -344,6 +345,7 @@ apiRouter.use(
 app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/admin/security", securityMonitoringRouter);
 app.use(
   "/api/agents",
   serviceIdentityMiddleware,

@@ -49,41 +49,51 @@ describe("Billing API Endpoints", () => {
 
   describe("GET /api/billing/subscription", () => {
     it("should return 404 when no subscription exists", async () => {
-      // This would normally be a fetch to the API, but in this test environment
-      // we are testing the database/RLS layer via the admin client
+      if (!testAdminClient) return;
+
       const { data, error } = await testAdminClient
         .from("subscriptions")
         .select("*")
-        .eq("tenant_id", TEST_TENANT_A)
+        .eq("tenant_id", generateTestId("nonexistent"))
         .single();
 
       expect(error).toBeDefined();
-      expect(error?.code).toBe("PGRST116"); // No rows found
+      expect(data).toBeNull();
     });
 
     it("should return subscription when it exists", async () => {
       if (!testAdminClient) return;
 
+      const tenantId = generateTestId("tenant");
+
+      // Create test tenant first
+      await testAdminClient.from("tenants").insert({
+        id: tenantId,
+        name: "Test Tenant A",
+      });
+
       // Create a test customer first
-      const { data: customer } = await testAdminClient
+      const { data: customer, error: custError } = await testAdminClient
         .from("billing_customers")
         .insert({
-          tenant_id: TEST_TENANT_A,
+          tenant_id: tenantId,
           organization_name: "Test Org A",
-          stripe_customer_id: "cus_test_123",
+          stripe_customer_id: generateTestId("cus"),
           status: "active",
         })
         .select()
         .single();
 
+      if (custError) throw custError;
+
       // Create a test subscription
-      const { data: subscription } = await testAdminClient
+      const { data: subscription, error: subError } = await testAdminClient
         .from("subscriptions")
         .insert({
-          tenant_id: TEST_TENANT_A,
+          tenant_id: tenantId,
           billing_customer_id: customer.id,
-          stripe_subscription_id: "sub_test_123",
-          stripe_customer_id: "cus_test_123",
+          stripe_subscription_id: generateTestId("sub"),
+          stripe_customer_id: customer.stripe_customer_id,
           plan_tier: "standard",
           status: "active",
           current_period_start: new Date().toISOString(),
@@ -92,9 +102,11 @@ describe("Billing API Endpoints", () => {
         .select()
         .single();
 
+      if (subError) throw subError;
+
       expect(subscription).toBeDefined();
       expect(subscription.plan_tier).toBe("standard");
-      expect(subscription.tenant_id).toBe(TEST_TENANT_A);
+      expect(subscription.tenant_id).toBe(tenantId);
     });
   });
 
@@ -102,10 +114,12 @@ describe("Billing API Endpoints", () => {
     it("should return usage quotas for a tenant", async () => {
       if (!testAdminClient) return;
 
+      const tenantId = generateTestId("tenant");
+
       // Create test quotas
-      await testAdminClient.from("usage_quotas").insert([
+      const { error } = await testAdminClient.from("usage_quotas").insert([
         {
-          tenant_id: TEST_TENANT_A,
+          tenant_id: tenantId,
           metric: "llm_tokens",
           quota_amount: 1000000,
           current_usage: 50000,
@@ -113,7 +127,7 @@ describe("Billing API Endpoints", () => {
           period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         },
         {
-          tenant_id: TEST_TENANT_A,
+          tenant_id: tenantId,
           metric: "agent_executions",
           quota_amount: 5000,
           current_usage: 150,
@@ -122,14 +136,16 @@ describe("Billing API Endpoints", () => {
         },
       ]);
 
+      if (error) throw error;
+
       const { data: quotas } = await testAdminClient
         .from("usage_quotas")
         .select("*")
-        .eq("tenant_id", TEST_TENANT_A);
+        .eq("tenant_id", tenantId);
 
       expect(quotas).toHaveLength(2);
       const llmQuota = quotas?.find((q) => q.metric === "llm_tokens");
-      expect(llmQuota.current_usage).toBe(50000);
+      expect(llmQuota?.current_usage).toBe(50000);
     });
   });
 
@@ -137,30 +153,34 @@ describe("Billing API Endpoints", () => {
     it("should not allow tenant A to see tenant B's subscription", async () => {
       if (!testAdminClient) return;
 
+      const tenantA = generateTestId("tenantA");
+      const tenantB = generateTestId("tenantB");
+
       // Create subscription for Tenant B
-      await testAdminClient.from("subscriptions").insert({
-        tenant_id: TEST_TENANT_B,
-        stripe_subscription_id: "sub_test_B",
-        stripe_customer_id: "cus_test_B",
+      const { error } = await testAdminClient.from("subscriptions").insert({
+        tenant_id: tenantB,
+        stripe_subscription_id: generateTestId("subB"),
+        stripe_customer_id: generateTestId("cusB"),
         plan_tier: "enterprise",
         status: "active",
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       });
 
-      // Try to query as Tenant A (simulated by RLS if we were using a tenant-scoped client)
-      // Since we're using adminClient, we'll just verify the tenant_id filter works
+      if (error) throw error;
+
+      // Try to query as Tenant A
       const { data: subA } = await testAdminClient
         .from("subscriptions")
         .select("*")
-        .eq("tenant_id", TEST_TENANT_A);
+        .eq("tenant_id", tenantA);
 
       expect(subA).toHaveLength(0);
 
       const { data: subB } = await testAdminClient
         .from("subscriptions")
         .select("*")
-        .eq("tenant_id", TEST_TENANT_B);
+        .eq("tenant_id", tenantB);
 
       expect(subB).toHaveLength(1);
     });

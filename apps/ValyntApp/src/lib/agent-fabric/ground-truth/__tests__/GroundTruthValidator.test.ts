@@ -3,7 +3,7 @@ import {
   validateGroundTruthMetadata,
   assertHighConfidence,
   assertProvenance,
-} from "../ground-truth/GroundTruthValidator";
+} from "../GroundTruthValidator";
 
 const validMetadata = {
   provenance: {

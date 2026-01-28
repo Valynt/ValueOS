@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Request, Response } from "express";
+import * as dns from "node:dns/promises";
 import {
   getSecurityConfig,
   productionSecurityConfig,
@@ -16,11 +17,17 @@ import {
 } from "../config/securityConfig";
 
 // Mock crypto for consistent testing
-vi.mock("crypto", () => ({
-  default: {
-    randomBytes: vi.fn((size) => Buffer.from("a".repeat(size))),
-  },
+vi.mock("node:crypto", () => ({
+  randomBytes: vi.fn((size) => Buffer.from("a".repeat(size))),
 }));
+
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.mocked(dns.lookup).mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+});
 
 describe("OWASP Security Hardening", () => {
   describe("Security Configuration", () => {
@@ -154,52 +161,79 @@ describe("OWASP Security Hardening", () => {
   describe("SSRF Protection", () => {
     const config = getSecurityConfig().ssrf;
 
-    it("should allow valid URLs", () => {
+    it("should allow valid URLs", async () => {
       const validUrls = [
         "https://api.supabase.co/v1/auth",
         "https://api.openai.com/v1/chat/completions",
         "https://example.supabase.co/db",
       ];
 
-      validUrls.forEach((url) => {
-        const result = validateSSRFUrl(url, config);
+      for (const url of validUrls) {
+        const result = await validateSSRFUrl(url, config);
         expect(result.valid).toBe(true);
-      });
+      }
     });
 
-    it("should block localhost URLs", () => {
+    it("should block localhost URLs", async () => {
       const blockedUrls = [
         "http://localhost:3000/api",
         "https://127.0.0.1:8080/data",
         "http://0.0.0.0:8000/test",
       ];
 
-      blockedUrls.forEach((url) => {
-        const result = validateSSRFUrl(url, config);
+      for (const url of blockedUrls) {
+        const result = await validateSSRFUrl(url, config);
         expect(result.valid).toBe(false);
         expect(result.error).toContain("blocked by SSRF protection");
-      });
+      }
     });
 
-    it("should block disallowed ports", () => {
+    it("should block disallowed ports", async () => {
       const url = "https://api.supabase.co:22/api"; // SSH port
-      const result = validateSSRFUrl(url, config);
+      const result = await validateSSRFUrl(url, config);
       expect(result.valid).toBe(false);
       expect(result.error).toContain("Port 22 not allowed");
     });
 
-    it("should reject invalid URLs", () => {
+    it("should reject invalid URLs", async () => {
       const invalidUrls = [
         "not-a-url",
         "javascript:alert(1)",
         "data:text/html,<script>alert(1)</script>",
       ];
 
-      invalidUrls.forEach((url) => {
-        const result = validateSSRFUrl(url, config);
+      for (const url of invalidUrls) {
+        const result = await validateSSRFUrl(url, config);
         expect(result.valid).toBe(false);
-        expect(result.error).toContain("Invalid URL format");
-      });
+      }
+    });
+
+    it("should block wildcard substring bypasses", async () => {
+      const url = "https://evil.supabase.co.evil.com/path";
+      const result = await validateSSRFUrl(url, config);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("allowed hosts");
+    });
+
+    it("should block IP literal URLs", async () => {
+      const ipUrls = [
+        "http://10.0.0.1",
+        "http://127.0.0.1",
+        "http://169.254.169.254",
+        "http://[::1]",
+      ];
+
+      for (const url of ipUrls) {
+        const result = await validateSSRFUrl(url, config);
+        expect(result.valid).toBe(false);
+      }
+    });
+
+    it("should block DNS that resolves to private IPs", async () => {
+      vi.mocked(dns.lookup).mockResolvedValueOnce([{ address: "10.0.0.5", family: 4 }]);
+      const result = await validateSSRFUrl("https://api.supabase.co/internal", config);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("DNS resolves to private");
     });
   });
 
@@ -307,11 +341,10 @@ describe("Security Middleware Integration", () => {
 
 // Performance tests
 describe("Security Performance", () => {
-  it("should validate SSRF quickly", () => {
+  it("should validate SSRF quickly", async () => {
     const start = Date.now();
-    const result = validateSSRFUrl("https://api.supabase.co/v1/auth");
+    const result = await validateSSRFUrl("https://api.supabase.co/v1/auth");
     const end = Date.now();
-
     expect(result.valid).toBe(true);
     expect(end - start).toBeLessThan(10); // Should complete in < 10ms
   });
@@ -337,17 +370,17 @@ describe("Security Edge Cases", () => {
     expect(() => validateFileUpload(malformedFile)).not.toThrow();
   });
 
-  it("should handle URLs with unusual characters", () => {
+  it("should handle URLs with unusual characters", async () => {
     const urls = [
       "https://api.supabase.co/path with spaces",
       "https://api.supabase.co/path%20with%20encoding",
       "https://api.supabase.co/path?query=value&other=test",
     ];
 
-    urls.forEach((url) => {
-      const result = validateSSRFUrl(url);
+    for (const url of urls) {
+      const result = await validateSSRFUrl(url);
       expect(result.valid).toBe(true);
-    });
+    }
   });
 
   it("should handle environment variable parsing for CORS", () => {
