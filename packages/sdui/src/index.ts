@@ -4,6 +4,10 @@ export * from "./registry";
 export * from "./schema";
 export * from "./templates";
 
+// Real-time schema updates
+export { useSchemaStore } from "./SchemaStore";
+export { SchemaPatcher } from "./SchemaPatcher";
+
 // New SDUI Runtime Engine exports
 export * from "./renderPage";
 export * from "./types";

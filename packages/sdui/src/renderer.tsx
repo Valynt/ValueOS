@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
   DashboardPanel,
   Grid,
@@ -6,15 +6,8 @@ import {
   VerticalSplit,
 } from "../components/SDUI/CanvasLayout";
 import { ErrorBoundary } from "../components/Common/ErrorBoundary";
-import {
-  SectionErrorFallback,
-  UnknownComponentFallback,
-} from "../components/SDUI";
-import {
-  SDUIComponentSection,
-  SDUIPageDefinition,
-  validateSDUISchema,
-} from "./schema";
+import { SectionErrorFallback, UnknownComponentFallback } from "../components/SDUI";
+import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
 import { RegistryPlaceholderComponent, resolveComponent } from "./registry";
 import { DataBindingResolver } from "./DataBindingResolver";
 import { DataSourceContext } from "./DataBindingSchema";
@@ -22,9 +15,13 @@ import { useDataBindings } from "./useDataBinding";
 import { sanitizeProps } from "./security/sanitization";
 import { incrementSecurityMetric } from "./security/metrics";
 import { logger } from "../lib/logger";
+import { useSchemaStore } from "./SchemaStore";
 
 interface SDUIRendererProps {
-  schema: unknown;
+  schema?: unknown; // Optional when using streaming
+  schemaId?: string; // For streaming mode
+  enableStreaming?: boolean;
+  wsUrl?: string; // WebSocket URL for streaming
   debugOverlay?: boolean;
   onValidationError?: (errors: string[]) => void;
   onHydrationWarning?: (warnings: string[]) => void;
@@ -38,11 +35,7 @@ interface HydrationTraceProps {
   warning?: string;
 }
 
-const HydrationTrace: React.FC<HydrationTraceProps> = ({
-  section,
-  status,
-  warning,
-}) => {
+const HydrationTrace: React.FC<HydrationTraceProps> = ({ section, status, warning }) => {
   const tone =
     status === "rendered"
       ? "text-emerald-700 bg-emerald-50"
@@ -183,8 +176,7 @@ const renderSection = (
       >
         <p className="font-semibold">Layout too deeply nested</p>
         <p className="text-sm">
-          Maximum nesting depth ({MAX_RENDER_DEPTH}) exceeded. This may indicate
-          a malformed schema.
+          Maximum nesting depth ({MAX_RENDER_DEPTH}) exceeded. This may indicate a malformed schema.
         </p>
       </div>
     );
@@ -192,9 +184,7 @@ const renderSection = (
   // Handle layout types (VerticalSplit, HorizontalSplit, Grid, DashboardPanel)
   if (
     section.type &&
-    ["VerticalSplit", "HorizontalSplit", "Grid", "DashboardPanel"].includes(
-      section.type
-    )
+    ["VerticalSplit", "HorizontalSplit", "Grid", "DashboardPanel"].includes(section.type)
   ) {
     const key = `layout-${section.type}-${index}`;
 
@@ -207,22 +197,14 @@ const renderSection = (
     switch (section.type) {
       case "VerticalSplit":
         return (
-          <VerticalSplit
-            key={key}
-            ratios={section.ratios || [1, 1]}
-            gap={section.gap}
-          >
+          <VerticalSplit key={key} ratios={section.ratios || [1, 1]} gap={section.gap}>
             {childNodes}
           </VerticalSplit>
         );
 
       case "HorizontalSplit":
         return (
-          <HorizontalSplit
-            key={key}
-            ratios={section.ratios || [1, 1]}
-            gap={section.gap}
-          >
+          <HorizontalSplit key={key} ratios={section.ratios || [1, 1]} gap={section.gap}>
             {childNodes}
           </HorizontalSplit>
         );
@@ -281,9 +263,7 @@ const renderSection = (
 
   return (
     <div key={`${section.component}-${index}`} className="space-y-2">
-      <ErrorBoundary
-        fallback={<SectionErrorFallback componentName={section.component} />}
-      >
+      <ErrorBoundary fallback={<SectionErrorFallback componentName={section.component} />}>
         <ComponentWithBindings
           section={section}
           Component={Component}
@@ -298,13 +278,54 @@ const renderSection = (
 
 export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
   schema,
+  schemaId,
+  enableStreaming = false,
+  wsUrl,
   debugOverlay = false,
   onValidationError,
   onHydrationWarning,
   dataBindingResolver,
   dataSourceContext,
 }) => {
-  const validation = useMemo(() => validateSDUISchema(schema), [schema]);
+  const schemaStore = useSchemaStore();
+
+  // Start streaming if enabled and schemaId provided
+  useEffect(() => {
+    if (enableStreaming && schemaId) {
+      schemaStore.startStreaming(schemaId, wsUrl);
+      return () => {
+        schemaStore.stopStreaming();
+      };
+    }
+  }, [enableStreaming, schemaId, wsUrl, schemaStore]);
+
+  // Determine which schema to use
+  const currentSchema = enableStreaming ? schemaStore.current : schema;
+
+  // If streaming and no schema yet, show loading
+  if (enableStreaming && !currentSchema) {
+    return (
+      <div className="space-y-4" data-testid="sdui-renderer">
+        <div className="animate-pulse space-y-2">
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+        <p className="text-sm text-gray-500">Waiting for schema...</p>
+      </div>
+    );
+  }
+
+  // If no schema at all, return empty
+  if (!currentSchema) {
+    return (
+      <div className="space-y-4" data-testid="sdui-renderer">
+        <p className="text-sm text-gray-500">No schema provided</p>
+      </div>
+    );
+  }
+
+  const validation = useMemo(() => validateSDUISchema(currentSchema), [currentSchema]);
 
   if (!validation.success) {
     // Track invalid schemas for security monitoring

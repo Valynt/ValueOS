@@ -1,7 +1,7 @@
 {
   "name": "@valueos/infra",
   "version": "1.0.0",
-  "description": "ValueOS Infrastructure adapters - supabase, database, queues, storage, observability",
+  "description": "ValueOS Infrastructure adapters - supabase, database, queues, storage, observability, eso",
   "type": "module",
   "private": true,
   "exports": {
@@ -9,11 +9,14 @@
     "./database": "./database/index.ts",
     "./queues": "./queues/index.ts",
     "./storage": "./storage/index.ts",
-    "./observability": "./observability/index.ts"
+    "./observability": "./observability/index.ts",
+    "./eso": "./eso/index.ts"
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.90.1",
