@@ -1,20 +1,16 @@
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { RouteGuard } from "./components/RouteGuard";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import {
-  catchAllRoute,
-  protectedRoutes,
-  publicRoutes,
-} from "./routes";
+import { catchAllRoute, protectedRoutes, publicRoutes } from "./routes";
 
 function Router() {
   return (
     <Switch>
       {publicRoutes.map((route) => (
-        <Route key={route.path} path={route.path} component={route.component} />
+        <Route key={route.path} path={route.path} component={route.component as any} />
       ))}
       {protectedRoutes.map((route) => (
         <Route key={route.path} path={route.path}>

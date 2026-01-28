@@ -1,27 +1,25 @@
-import { ReactNode, useState, useEffect } from 'react';
-import { Icons } from '@/lib/icons';
-import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { ReactNode, useState, useEffect } from "react";
+import { Icons } from "../lib/icons";
+import { Button } from "./ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 interface GuidedTooltipProps {
   content: string;
   children: ReactNode;
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  side?: "top" | "right" | "bottom" | "left";
   delay?: number;
 }
 
-export function GuidedTooltip({ content, children, side = 'top', delay = 300 }: GuidedTooltipProps) {
+export function GuidedTooltip({
+  content,
+  children,
+  side = "top",
+  delay = 300,
+}: GuidedTooltipProps) {
   return (
     <TooltipProvider delayDuration={delay}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          {children}
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
         <TooltipContent side={side} className="max-w-xs">
           <p className="text-sm">{content}</p>
         </TooltipContent>
@@ -58,7 +56,7 @@ interface GuidedTourStep {
   target: string; // CSS selector
   title: string;
   content: string;
-  position?: 'top' | 'right' | 'bottom' | 'left';
+  position?: "top" | "right" | "bottom" | "left";
   showSkip?: boolean;
 }
 
@@ -80,26 +78,26 @@ export function GuidedTour({ steps, onComplete, onSkip }: GuidedTourProps) {
     setTargetElement(element);
 
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      element.classList.add("ring-2", "ring-primary", "ring-offset-2");
     }
 
     return () => {
       if (element) {
-        element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+        element.classList.remove("ring-2", "ring-primary", "ring-offset-2");
       }
     };
   }, [currentStep, step.target]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         handleSkip();
       }
     };
 
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
   if (!isVisible || !targetElement) return null;
@@ -133,7 +131,7 @@ export function GuidedTour({ steps, onComplete, onSkip }: GuidedTourProps) {
           left: rect.left - 4,
           width: rect.width + 8,
           height: rect.height + 8,
-          borderRadius: '4px',
+          borderRadius: "4px",
         }}
       />
 
@@ -141,9 +139,9 @@ export function GuidedTour({ steps, onComplete, onSkip }: GuidedTourProps) {
       <div
         className="absolute pointer-events-auto bg-background border rounded-lg shadow-lg p-4 max-w-sm"
         style={{
-          top: step.position === 'bottom' ? rect.bottom + 16 : rect.top - 16,
-          left: step.position === 'right' ? rect.right + 16 : rect.left,
-          transform: step.position === 'right' ? 'translateX(0)' : 'translateX(-100%)',
+          top: step.position === "bottom" ? rect.bottom + 16 : rect.top - 16,
+          left: step.position === "right" ? rect.right + 16 : rect.left,
+          transform: step.position === "right" ? "translateX(0)" : "translateX(-100%)",
         }}
       >
         <div className="space-y-3">
@@ -164,7 +162,7 @@ export function GuidedTour({ steps, onComplete, onSkip }: GuidedTourProps) {
                 </Button>
               )}
               <Button size="sm" onClick={handleNext}>
-                {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+                {currentStep === steps.length - 1 ? "Finish" : "Next"}
               </Button>
             </div>
           </div>
@@ -178,49 +176,56 @@ export function GuidedTour({ steps, onComplete, onSkip }: GuidedTourProps) {
 export const tours = {
   dashboard: [
     {
-      id: 'welcome',
+      id: "welcome",
       target: '[data-tour="welcome"]',
-      title: 'Welcome to Your Dashboard',
-      content: 'This is your personalized learning dashboard. Here you can track your progress, view upcoming activities, and access all VOS Academy features.',
+      title: "Welcome to Your Dashboard",
+      content:
+        "This is your personalized learning dashboard. Here you can track your progress, view upcoming activities, and access all VOS Academy features.",
     },
     {
-      id: 'progress',
+      id: "progress",
       target: '[data-tour="progress"]',
-      title: 'Your Learning Progress',
-      content: 'Track your completion across all 10 VOS pillars. Each pillar builds on the previous one to create comprehensive value engineering expertise.',
+      title: "Your Learning Progress",
+      content:
+        "Track your completion across all 10 VOS pillars. Each pillar builds on the previous one to create comprehensive value engineering expertise.",
     },
     {
-      id: 'simulations',
+      id: "simulations",
       target: '[data-tour="simulations"]',
-      title: 'Interactive Simulations',
-      content: 'Practice real-world VOS scenarios with AI-powered feedback. These hands-on exercises are crucial for applying your learning.',
+      title: "Interactive Simulations",
+      content:
+        "Practice real-world VOS scenarios with AI-powered feedback. These hands-on exercises are crucial for applying your learning.",
     },
     {
-      id: 'certifications',
+      id: "certifications",
       target: '[data-tour="certifications"]',
-      title: 'Earn Certifications',
-      content: 'Complete assessments to earn Bronze, Silver, or Gold certifications. These validate your VOS expertise to stakeholders.',
+      title: "Earn Certifications",
+      content:
+        "Complete assessments to earn Bronze, Silver, or Gold certifications. These validate your VOS expertise to stakeholders.",
     },
   ],
 
   simulation: [
     {
-      id: 'scenario',
+      id: "scenario",
       target: '[data-tour="scenario"]',
-      title: 'Scenario Context',
-      content: 'Read the business scenario carefully. Understanding the context is key to providing effective VOS solutions.',
+      title: "Scenario Context",
+      content:
+        "Read the business scenario carefully. Understanding the context is key to providing effective VOS solutions.",
     },
     {
-      id: 'steps',
+      id: "steps",
       target: '[data-tour="steps"]',
-      title: 'Step-by-Step Process',
-      content: 'Work through each step systematically. You\'ll receive AI feedback after each submission to improve your approach.',
+      title: "Step-by-Step Process",
+      content:
+        "Work through each step systematically. You'll receive AI feedback after each submission to improve your approach.",
     },
     {
-      id: 'evaluation',
+      id: "evaluation",
       target: '[data-tour="evaluation"]',
-      title: 'AI Evaluation',
-      content: 'After each step, our AI evaluates your response against VOS best practices and provides detailed feedback with improvement suggestions.',
+      title: "AI Evaluation",
+      content:
+        "After each step, our AI evaluates your response against VOS best practices and provides detailed feedback with improvement suggestions.",
     },
   ],
 };

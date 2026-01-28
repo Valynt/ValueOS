@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { Subscription, PlanTier } from "../types";
+import { billingService } from "@/services/billing/billingService";
 
 export function useSubscription() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -13,21 +14,9 @@ export function useSubscription() {
   const fetchSubscription = async () => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual API call
-      // const res = await fetch("/api/billing/subscription");
-      // const data = await res.json();
-      // setSubscription(data);
-
-      // Mock data for now
-      setSubscription({
-        id: "sub_1",
-        userId: "user_1",
-        planTier: "pro",
-        status: "active",
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        cancelAtPeriodEnd: false,
-      });
+      const data = await billingService.getSubscription();
+      setSubscription(data);
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch subscription");
     } finally {
@@ -37,19 +26,25 @@ export function useSubscription() {
 
   const changePlan = async (newPlan: PlanTier) => {
     try {
-      // TODO: Implement actual API call
-      setSubscription((prev) => (prev ? { ...prev, planTier: newPlan } : null));
+      setError(null);
+      await billingService.changePlan(newPlan);
+      // Refresh subscription data
+      await fetchSubscription();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to change plan");
+      throw err;
     }
   };
 
   const cancelSubscription = async () => {
     try {
-      // TODO: Implement actual API call
-      setSubscription((prev) => (prev ? { ...prev, cancelAtPeriodEnd: true } : null));
+      setError(null);
+      await billingService.cancelSubscription();
+      // Refresh subscription data
+      await fetchSubscription();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to cancel subscription");
+      throw err;
     }
   };
 

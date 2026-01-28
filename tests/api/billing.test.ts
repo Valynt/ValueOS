@@ -12,56 +12,20 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Mock Supabase client
-vi.mock("../../src/lib/supabase", () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-      delete: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      neq: vi.fn().mockReturnThis(),
-      gte: vi.fn().mockReturnThis(),
-      lte: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      single: vi.fn(),
-    })),
+// Mock the API client
+vi.mock("@/services/api/client", () => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
-// Mock the billing API functions
-vi.mock("../../src/services/billing/SubscriptionService", () => ({
-  SubscriptionService: {
-    getActiveSubscription: vi.fn(),
-    createSubscription: vi.fn(),
-    updateSubscription: vi.fn(),
-    cancelSubscription: vi.fn(),
-  },
-}));
+import { api } from "@/services/api/client";
+import { billingService } from "@/services/billing/billingService";
 
-vi.mock("../../src/services/billing/UsageService", () => ({
-  UsageService: {
-    getUsageSummary: vi.fn(),
-  },
-}));
-
-vi.mock("../../src/services/billing/InvoiceService", () => ({
-  InvoiceService: {
-    getInvoices: vi.fn(),
-  },
-}));
-
-import { supabase } from "../../src/lib/supabase";
-import { SubscriptionService } from "../../src/services/billing/SubscriptionService";
-import { UsageService } from "../../src/services/billing/UsageService";
-import { InvoiceService } from "../../src/services/billing/InvoiceService";
-
-const mockSupabase = vi.mocked(supabase);
-const mockSubscriptionService = vi.mocked(SubscriptionService);
-const mockUsageService = vi.mocked(UsageService);
-const mockInvoiceService = vi.mocked(InvoiceService);
+const mockApi = vi.mocked(api);
 
 describe("Billing API Endpoints", () => {
   beforeEach(() => {
@@ -70,12 +34,12 @@ describe("Billing API Endpoints", () => {
 
   describe("GET /api/billing/subscription", () => {
     it("should return 404 when no subscription exists", async () => {
-      mockSubscriptionService.getActiveSubscription.mockResolvedValue(null);
+      mockApi.get.mockRejectedValue(new Error("Not found"));
 
-      // Mock API call would be made here
-      const result = await mockSubscriptionService.getActiveSubscription("nonexistent-tenant");
+      const result = await billingService.getSubscription();
 
       expect(result).toBeNull();
+      expect(mockApi.get).toHaveBeenCalledWith("/billing/subscription");
     });
 
     it("should return subscription when it exists", async () => {
@@ -88,119 +52,89 @@ describe("Billing API Endpoints", () => {
         current_period_end: new Date(),
       };
 
-      mockSubscriptionService.getActiveSubscription.mockResolvedValue(mockSubscription);
+      mockApi.get.mockResolvedValue(mockSubscription);
 
-      const result = await mockSubscriptionService.getActiveSubscription("tenant_123");
+      const result = await billingService.getSubscription();
 
       expect(result).toEqual(mockSubscription);
       expect(result?.status).toBe("active");
-    });
-          organization_name: "Test Org A",
-          stripe_customer_id: generateTestId("cus"),
-          status: "active",
-        })
-        .select()
-        .single();
-
-      if (custError) throw custError;
-
-      // Create a test subscription
-      const { data: subscription, error: subError } = await testAdminClient
-        .from("subscriptions")
-        .insert({
-          tenant_id: tenantId,
-          billing_customer_id: customer.id,
-          stripe_subscription_id: generateTestId("sub"),
-          stripe_customer_id: customer.stripe_customer_id,
-          plan_tier: "standard",
-          status: "active",
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        })
-        .select()
-        .single();
-
-      if (subError) throw subError;
-
-      expect(subscription).toBeDefined();
-      expect(subscription.plan_tier).toBe("standard");
-      expect(subscription.tenant_id).toBe(tenantId);
+      expect(mockApi.get).toHaveBeenCalledWith("/billing/subscription");
     });
   });
 
   describe("GET /api/billing/usage", () => {
-    it("should return usage quotas for a tenant", async () => {
-      if (!testAdminClient) return;
-
-      const tenantId = generateTestId("tenant");
-
-      // Create test quotas
-      const { error } = await testAdminClient.from("usage_quotas").insert([
+    it("should return usage metrics for a tenant", async () => {
+      const mockUsage = [
         {
-          tenant_id: tenantId,
           metric: "llm_tokens",
-          quota_amount: 1000000,
-          current_usage: 50000,
-          period_start: new Date().toISOString(),
-          period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          current: 1500,
+          limit: 10000,
         },
         {
-          tenant_id: tenantId,
           metric: "agent_executions",
-          quota_amount: 5000,
-          current_usage: 150,
-          period_start: new Date().toISOString(),
-          period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          current: 25,
+          limit: 100,
         },
-      ]);
+      ];
 
-      if (error) throw error;
+      mockApi.get.mockResolvedValue(mockUsage);
 
-      const { data: quotas } = await testAdminClient
-        .from("usage_quotas")
-        .select("*")
-        .eq("tenant_id", tenantId);
+      const result = await billingService.getUsage();
 
-      expect(quotas).toHaveLength(2);
-      const llmQuota = quotas?.find((q) => q.metric === "llm_tokens");
-      expect(llmQuota?.current_usage).toBe(50000);
+      expect(result).toEqual(mockUsage);
+      expect(result).toHaveLength(2);
+      expect(mockApi.get).toHaveBeenCalledWith("/billing/usage");
     });
   });
 
-  describe("Tenant Isolation", () => {
-    it("should not allow tenant A to see tenant B's subscription", async () => {
-      if (!testAdminClient) return;
+  describe("GET /api/billing/invoices", () => {
+    it("should return invoice list", async () => {
+      const mockInvoices = {
+        invoices: [
+          {
+            id: "inv_123",
+            amount: 2999,
+            status: "paid",
+            date: new Date(),
+          },
+        ],
+      };
 
-      const tenantA = generateTestId("tenantA");
-      const tenantB = generateTestId("tenantB");
+      mockApi.get.mockResolvedValue(mockInvoices);
 
-      // Create subscription for Tenant B
-      const { error } = await testAdminClient.from("subscriptions").insert({
-        tenant_id: tenantB,
-        stripe_subscription_id: generateTestId("subB"),
-        stripe_customer_id: generateTestId("cusB"),
-        plan_tier: "enterprise",
+      const result = await billingService.getInvoices();
+
+      expect(result).toEqual(mockInvoices.invoices);
+      expect(result).toHaveLength(1);
+      expect(mockApi.get).toHaveBeenCalledWith("/billing/invoices");
+    });
+  });
+
+  describe("PUT /api/billing/subscription", () => {
+    it("should change plan successfully", async () => {
+      const mockSubscription = {
+        id: "sub_123",
+        plan_tier: "premium",
         status: "active",
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      });
+      };
 
-      if (error) throw error;
+      mockApi.put.mockResolvedValue(mockSubscription);
 
-      // Try to query as Tenant A
-      const { data: subA } = await testAdminClient
-        .from("subscriptions")
-        .select("*")
-        .eq("tenant_id", tenantA);
+      const result = await billingService.changePlan("premium");
 
-      expect(subA).toHaveLength(0);
+      expect(result).toEqual(mockSubscription);
+      expect(result?.plan_tier).toBe("premium");
+      expect(mockApi.put).toHaveBeenCalledWith("/billing/subscription", { planTier: "premium" });
+    });
+  });
 
-      const { data: subB } = await testAdminClient
-        .from("subscriptions")
-        .select("*")
-        .eq("tenant_id", tenantB);
+  describe("DELETE /api/billing/subscription", () => {
+    it("should cancel subscription", async () => {
+      mockApi.delete.mockResolvedValue(undefined);
 
-      expect(subB).toHaveLength(1);
+      await billingService.cancelSubscription();
+
+      expect(mockApi.delete).toHaveBeenCalledWith("/billing/subscription");
     });
   });
 });

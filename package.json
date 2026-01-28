@@ -175,6 +175,7 @@
     "db:push:staging": "pnpm run env:staging && pnpm supabase db push",
     "db:push:prod": "pnpm run env:production && echo '⚠️ PUSHING TO PRODUCTION in 5 seconds (Ctrl+C to cancel)' && sleep 5 && pnpm supabase db push",
     "dev:staging": "pnpm run env:staging && pnpm run dev",
+    "apply-migration-local": "bash scripts/supabase/apply-migration.sh",
     "dev:production": "pnpm run env:production && pnpm run dev",
     "verify:llm-instrumentation": "node -r tsx/cjs scripts/verify-llm-instrumentation.ts",
     "verify:trace-reconstruction": "node -r tsx/cjs scripts/verify/trace_reconstruction.ts",

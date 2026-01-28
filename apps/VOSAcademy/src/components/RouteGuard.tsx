@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 type RouteGuardProps = {
   children: React.ReactNode;
-  requiredRole?: string;
+  requiredRole: string | undefined;
 };
 
 export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
@@ -29,11 +29,7 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
   }, [isAuthenticated, loading, location, requiredRole, setLocation, userRole]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
   if (!isAuthenticated) {

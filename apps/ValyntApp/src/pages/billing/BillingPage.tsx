@@ -3,6 +3,8 @@ import { CreditCard, TrendingUp, FileText, AlertCircle, Check } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useSubscription } from "@/features/billing";
+import { billingService } from "@/services/billing/billingService";
 
 type Tab = "usage" | "plans" | "invoices";
 type PlanTier = "free" | "pro" | "enterprise";
@@ -25,7 +27,13 @@ const plans = [
     id: "enterprise" as const,
     name: "Enterprise",
     price: 99,
-    features: ["Unlimited everything", "100 GB storage", "24/7 support", "Custom integrations", "SLA"],
+    features: [
+      "Unlimited everything",
+      "100 GB storage",
+      "24/7 support",
+      "Custom integrations",
+      "SLA",
+    ],
   },
 ];
 
@@ -37,7 +45,8 @@ const mockInvoices = [
 
 export function BillingPage() {
   const [activeTab, setActiveTab] = useState<Tab>("usage");
-  const [currentPlan, setCurrentPlan] = useState<PlanTier>("pro");
+  const { subscription, isLoading, error, changePlan, cancelSubscription } = useSubscription();
+  const [currentPlan, setCurrentPlan] = useState<PlanTier>(subscription?.planTier || "free");
 
   const tabs = [
     { id: "usage" as const, label: "Usage", icon: TrendingUp },
@@ -60,10 +69,15 @@ export function BillingPage() {
         <CardContent className="flex items-center justify-between py-6">
           <div>
             <p className="text-sm opacity-90">Current Plan</p>
-            <p className="text-3xl font-bold mt-1 capitalize">{currentPlan}</p>
-            <p className="text-sm opacity-90 mt-1">
-              ${plans.find((p) => p.id === currentPlan)?.price}/month
+            <p className="text-3xl font-bold mt-1 capitalize">
+              {isLoading ? "Loading..." : subscription?.planTier || "Free"}
             </p>
+            <p className="text-sm opacity-90 mt-1">
+              ${plans.find((p) => p.id === (subscription?.planTier || "free"))?.price || 0}/month
+            </p>
+            {subscription?.status && (
+              <p className="text-xs opacity-75 mt-1 capitalize">Status: {subscription.status}</p>
+            )}
           </div>
           <CreditCard className="icon-lg text-primary-foreground/70" />
         </CardContent>
@@ -93,7 +107,13 @@ export function BillingPage() {
       {/* Tab Content */}
       {activeTab === "usage" && <UsageTab />}
       {activeTab === "plans" && (
-        <PlansTab currentPlan={currentPlan} onSelectPlan={setCurrentPlan} />
+        <PlansTab
+          currentPlan={subscription?.planTier || "free"}
+          onSelectPlan={async (plan) => {
+            await changePlan(plan);
+            setCurrentPlan(plan);
+          }}
+        />
       )}
       {activeTab === "invoices" && <InvoicesTab invoices={mockInvoices} />}
     </div>
@@ -121,14 +141,19 @@ function UsageTab() {
                 <div className="text-2xl font-bold">
                   {item.used.toLocaleString()}
                   <span className="text-sm font-normal text-muted-foreground">
-                    {" "}/ {item.limit.toLocaleString()} {item.unit || ""}
+                    {" "}
+                    / {item.limit.toLocaleString()} {item.unit || ""}
                   </span>
                 </div>
                 <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className={cn(
                       "h-full transition-all",
-                      percentage >= 90 ? "bg-destructive" : percentage >= 75 ? "bg-yellow-500" : "bg-primary"
+                      percentage >= 90
+                        ? "bg-destructive"
+                        : percentage >= 75
+                          ? "bg-yellow-500"
+                          : "bg-primary"
                     )}
                     style={{ width: `${Math.min(percentage, 100)}%` }}
                   />

@@ -1,5 +1,5 @@
-import React from 'react';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import React from "react";
+import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -14,16 +14,17 @@ interface ErrorBoundaryState {
 interface ErrorFallbackProps {
   error: Error;
   resetError: () => void;
-  showHomeButton?: boolean;
+  showHomeButton: boolean | undefined;
 }
 
-export function ErrorFallback({ error, resetError, showHomeButton = true }: ErrorFallbackProps) {
+export function ErrorFallback({ error, resetError, showHomeButton }: ErrorFallbackProps) {
+  const showHome = showHomeButton ?? true;
   const handleRetry = () => {
     resetError();
   };
 
   const handleGoHome = () => {
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   return (
@@ -42,9 +43,7 @@ export function ErrorFallback({ error, resetError, showHomeButton = true }: Erro
         <div className="space-y-4 px-6 pb-6">
           <div className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
-            <p className="text-sm">
-              {error.message || 'An unexpected error occurred'}
-            </p>
+            <p className="text-sm">{error.message || "An unexpected error occurred"}</p>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -57,7 +56,7 @@ export function ErrorFallback({ error, resetError, showHomeButton = true }: Erro
               Try Again
             </button>
 
-            {showHomeButton && (
+            {showHome && (
               <button
                 type="button"
                 onClick={handleGoHome}
@@ -69,7 +68,7 @@ export function ErrorFallback({ error, resetError, showHomeButton = true }: Erro
             )}
           </div>
 
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === "development" && (
             <details className="mt-4 text-left">
               <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
                 Error Details (Development)
@@ -90,27 +89,27 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     super(props);
     this.state = {
       hasError: false,
-      error: null
+      error: null,
     };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return {
       hasError: true,
-      error
+      error,
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // In a real app, you might log this to an error reporting service
-    console.error('Uncaught error in ErrorBoundary:', error, errorInfo);
+    console.error("Uncaught error in ErrorBoundary:", error, errorInfo);
   }
 
   private handleReset = () => {
     this.setState({ hasError: false, error: null });
   };
 
-  render() {
+  override render() {
     if (this.state.hasError && this.state.error) {
       return (
         <ErrorFallback
@@ -130,27 +129,30 @@ export function useAsyncOperation() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
 
-  const execute = React.useCallback(async <T,>(
-    operation: () => Promise<T>,
-    onSuccess?: (result: T) => void,
-    onError?: (error: Error) => void
-  ): Promise<T | null> => {
-    setLoading(true);
-    setError(null);
+  const execute = React.useCallback(
+    async <T,>(
+      operation: () => Promise<T>,
+      onSuccess?: (result: T) => void,
+      onError?: (error: Error) => void
+    ): Promise<T | null> => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const result = await operation();
-      onSuccess?.(result);
-      return result;
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('An unexpected error occurred');
-      setError(error);
-      onError?.(error);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      try {
+        const result = await operation();
+        onSuccess?.(result);
+        return result;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error("An unexpected error occurred");
+        setError(error);
+        onError?.(error);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   const reset = React.useCallback(() => {
     setError(null);
@@ -161,11 +163,17 @@ export function useAsyncOperation() {
 }
 
 // Generic loading component
-export function LoadingSpinner({ size = 'md', text }: { size?: 'sm' | 'md' | 'lg'; text?: string }) {
+export function LoadingSpinner({
+  size = "md",
+  text,
+}: {
+  size?: "sm" | "md" | "lg";
+  text?: string;
+}) {
   const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-6 h-6',
-    lg: 'w-8 h-8'
+    sm: "w-4 h-4",
+    md: "w-6 h-6",
+    lg: "w-8 h-8",
   };
 
   return (
@@ -201,10 +209,7 @@ export function SkeletonText({ lines = 3 }: { lines?: number }) {
   return (
     <div className="space-y-2 animate-pulse">
       {Array.from({ length: lines }).map((_, i) => (
-        <div
-          key={i}
-          className={`h-3 bg-muted rounded ${i === lines - 1 ? 'w-3/4' : 'w-full'}`}
-        />
+        <div key={i} className={`h-3 bg-muted rounded ${i === lines - 1 ? "w-3/4" : "w-full"}`} />
       ))}
     </div>
   );

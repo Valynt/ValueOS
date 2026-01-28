@@ -7,7 +7,7 @@ set -euo pipefail
 
 # REQUIRED: Supabase project ref (from dashboard URL)
 # Example: abcdefghijklmnop
-SUPABASE_PROJECT_REF="${SUPABASE_PROJECT_REF:-}"
+SUPABASE_PROJECT_REF="${SUPABASE_PROJECT_ID:-}"
 
 # OPTIONAL: database password (recommended via env)
 SUPABASE_DB_PASSWORD="${SUPABASE_DB_PASSWORD:-}"
@@ -26,13 +26,29 @@ if [[ -z "$SUPABASE_PROJECT_REF" ]]; then
 fi
 
 ############################################
+# Check Supabase login status
+############################################
+
+echo "🔐 Checking Supabase authentication…"
+if ! supabase projects list &>/dev/null; then
+  echo "❌ Not logged in to Supabase CLI"
+  echo "   Please run: supabase login"
+  echo "   Or set SUPABASE_ACCESS_TOKEN environment variable"
+  exit 1
+fi
+
+echo "✅ Supabase CLI authenticated"
+
+############################################
 # Link project
 ############################################
 
 echo "🔗 Linking Supabase Cloud project: $SUPABASE_PROJECT_REF"
 
+# Run from project root, specify workdir for config
 supabase link \
   --project-ref "$SUPABASE_PROJECT_REF" \
+  --workdir infra/supabase \
   ${SUPABASE_DB_PASSWORD:+--password "$SUPABASE_DB_PASSWORD"}
 
 ############################################

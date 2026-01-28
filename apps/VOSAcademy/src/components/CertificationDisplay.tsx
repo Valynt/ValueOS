@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 import { Button } from "./ui/button";
-import { Icons } from "@/lib/icons";
+import { Icons } from "../lib/icons";
 import { Award, CheckCircle, Download } from "lucide-react";
 
 interface Certification {
@@ -28,7 +28,7 @@ const tierConfig = {
     bgColor: "bg-amber-50",
     borderColor: "border-amber-200",
     label: "Bronze",
-    description: "Passed all knowledge checks"
+    description: "Passed all knowledge checks",
   },
   silver: {
     icon: Icons.Star,
@@ -36,7 +36,7 @@ const tierConfig = {
     bgColor: "bg-gray-50",
     borderColor: "border-gray-300",
     label: "Silver",
-    description: "80%+ on final simulation"
+    description: "80%+ on final simulation",
   },
   gold: {
     icon: Icons.Trophy,
@@ -44,18 +44,22 @@ const tierConfig = {
     bgColor: "bg-yellow-50",
     borderColor: "border-yellow-300",
     label: "Gold",
-    description: "95%+ with exceptional insight"
-  }
+    description: "95%+ with exceptional insight",
+  },
 };
 
-export default function CertificationDisplay({ certifications, totalPillars, onDownload }: CertificationDisplayProps) {
+export default function CertificationDisplay({
+  certifications,
+  totalPillars,
+  onDownload,
+}: CertificationDisplayProps) {
   const completionRate = (certifications.length / totalPillars) * 100;
 
   // Group certifications by tier
   const certsByTier = {
-    bronze: certifications.filter(c => c.tier === "bronze").length,
-    silver: certifications.filter(c => c.tier === "silver").length,
-    gold: certifications.filter(c => c.tier === "gold").length
+    bronze: certifications.filter((c) => c.tier === "bronze").length,
+    silver: certifications.filter((c) => c.tier === "silver").length,
+    gold: certifications.filter((c) => c.tier === "gold").length,
   };
 
   return (
@@ -100,7 +104,9 @@ export default function CertificationDisplay({ certifications, totalPillars, onD
             <CardContent className="py-8 text-center text-muted-foreground">
               <Award className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p>No certifications earned yet</p>
-              <p className="text-sm mt-1">Complete pillar quizzes to earn your first certification!</p>
+              <p className="text-sm mt-1">
+                Complete pillar quizzes to earn your first certification!
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -151,8 +157,7 @@ export default function CertificationDisplay({ certifications, totalPillars, onD
                       </div>
                       {onDownload && (
                         <Button
-                          variant="ghost"
-                          size="sm"
+                          variant="primary"
                           className="h-8 px-2 text-xs"
                           onClick={() => onDownload(cert.id)}
                         >

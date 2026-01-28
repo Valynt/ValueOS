@@ -1,0 +1,273 @@
+Dev Build Cleanup Checklist (Post-Stabilization)
+
+1. Lock the Toolchain (No Accidental Versions)
+
+Goal: Same inputs → same build, everywhere.
+
+Node version pinned
+
+.nvmrc (or .node-version) exists and matches:
+
+devcontainer
+
+CI
+
+Dockerfile
+
+Package manager pinned
+
+packageManager field in package.json (e.g. pnpm@9.x)
+
+Corepack enabled
+
+corepack enable documented or enforced
+
+No implicit language installs
+
+Devcontainer / Dockerfile does not install Go, Python, Java, etc. unless required
+
+Fail fast on version mismatch
+
+Preflight script errors if Node / pnpm versions differ
+
+2. Dependency Hygiene
+
+Goal: Deterministic installs, minimal surface area.
+
+Single lockfile
+
+Exactly one of: pnpm-lock.yaml / package-lock.json / yarn.lock
+
+Lockfile committed and respected
+
+CI fails if lockfile changes unexpectedly
+
+No floating versions
+
+No "\*" / ^0.x on critical deps
+
+Remove unused deps
+
+Run pnpm prune or depcheck
+
+Explicit overrides
+
+Use pnpm.overrides for known bad transitive deps
+
+Audit path exists
+
+pnpm audit (or equivalent) documented
+
+3. Devcontainer / Docker Sanity
+
+Goal: Rebuildable, minimal, boring.
+
+Correct workspace root
+
+Container opens at repo root (not one directory up/down)
+
+No missing scripts
+
+All onCreateCommand / postCreateCommand files exist
+
+No optional scripts executed by default
+
+Guard with || true only where justified
+
+BuildKit explicitly enabled
+
+DOCKER_BUILDKIT=1
+
+No cached state dependency
+
+Full rebuild works after docker system prune -af
+
+Named volumes documented
+
+Clear what is safe to delete
+
+4. Environment Variables & Config
+
+Goal: Predictable config, no leaks.
+
+.env.example is complete
+
+Every required var documented
+
+No secrets in repo
+
+Scan for API keys, tokens, certs
+
+Environment layering is explicit
+
+.env.local, .env.ci, .env.docker behavior documented
+
+Fail on missing env
+
+App errors early if required vars missing
+
+Config drift eliminated
+
+One source of truth (no duplicated env loaders)
+
+5. Build & Startup Path
+
+Goal: One way to start the system.
+
+Single canonical dev command
+
+e.g. pnpm run dev or ./dev up
+
+No “magic” side effects
+
+Dev command does not mutate repo unexpectedly
+
+Cold start verified
+
+Works after deleting:
+
+node_modules
+
+.vite
+
+.next
+
+build cache dirs
+
+Port ownership clear
+
+No silent port collisions
+
+Explicit readiness checks
+
+Services wait for dependencies properly
+
+6. Type Safety & Linting
+
+Goal: Errors caught before runtime.
+
+Typecheck is separate
+
+pnpm run typecheck exists
+
+No ignored TS errors
+
+No @ts-ignore without explanation
+
+Strict mode on
+
+strict: true unless justified
+
+Lint rules enforced
+
+CI fails on lint errors
+
+Consistent formatting
+
+Prettier or equivalent, no debate
+
+7. Tests: Minimal but Meaningful
+
+Goal: Catch breakage, not inflate metrics.
+
+Smoke test exists
+
+App boots, main route loads
+
+Security regression tests
+
+SSRF, CSRF, auth boundaries
+
+Critical path coverage
+
+One test per core workflow
+
+Tests deterministic
+
+No reliance on time, network, randomness
+
+Fast test suite
+
+Dev tests < 10–15s
+
+8. Logging & Debuggability
+
+Goal: Failures explain themselves.
+
+Startup logs
+
+Clear “what is running where”
+
+Error messages actionable
+
+Not just stack traces
+
+No noisy logs
+
+Debug logs gated behind flags
+
+Sensitive data redacted
+
+URLs, headers, tokens sanitized
+
+9. CI Alignment
+
+Goal: CI ≈ local.
+
+CI uses same Node/pnpm versions
+
+CI runs the same commands
+
+typecheck → lint → test → build
+
+No CI-only hacks
+
+Fast failure
+
+Typecheck runs before build
+
+Artifacts reproducible
+
+Same commit → same output
+
+10. Repo Hygiene
+
+Goal: New contributors don’t get lost.
+
+README is accurate
+
+No stale instructions
+
+One setup path
+
+“Do this, not three alternatives”
+
+Scripts are named clearly
+
+dx:_, dev:_, build:\*
+
+Dead files removed
+
+Old Dockerfiles, scripts, configs
+
+TODOs triaged
+
+Security / infra TODOs tracked, not forgotten
+
+Final “Stability Seal” Test
+
+Before declaring the dev build clean:
+
+Fresh machine / new container
+
+Clone repo
+
+Run one command
+
+App runs
+
+Tests pass
+
+Rebuild works after full cache purge
+
+If that passes, your dev environment is stable, repeatable, and boring — which is exactly what you want.
