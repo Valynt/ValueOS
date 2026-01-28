@@ -47,6 +47,31 @@ This checklist is a framework for ensuring code quality, consistency, and adhere
 
 ---
 
+## Frontend UX/UI Review
+
+- **Architecture & Component Structure**:
+  - Components are small, single-purpose, and reusable (e.g., Atomic Design).
+  - Project structure separates concerns (components, hooks, services, styles, assets).
+  - State is colocated with usage; avoid excessive prop drilling with appropriate state management.
+- **User Experience & Interactivity**:
+  - UI provides immediate feedback (loading states, skeletons, success/error messages, disabled controls).
+  - Optimistic UI is used for high-confidence actions to improve perceived speed.
+  - Smooth animations and transitions target 60fps; prefer CSS animations over JS-heavy ones.
+  - Progressive disclosure is used for complex features (modals, accordions, tooltips).
+  - URLs reflect current views for shareability and navigation history.
+- **Visual Design & Theming**:
+  - Styling approach is consistent and scalable (CSS Modules, Tailwind, Styled Components).
+  - Design tokens exist for color, typography, spacing, and elevation; theming supports dark/light modes.
+  - Visualizations are clear, labeled, and interactive with appropriate charting libraries.
+  - Micro-interactions support affordances without distracting from primary tasks.
+- **Responsive & Accessible UI**:
+  - Layouts are tested across breakpoints and devices for consistent behavior.
+  - Semantic HTML and ARIA attributes are used for interactive components.
+  - Keyboard navigation is supported across critical flows.
+  - Color contrast meets accessibility guidelines (WCAG).
+
+---
+
 ## Security Vulnerabilities
 
 - **Supabase RLS**: All tables containing tenant data **must** have Row-Level Security enabled and policies that enforce tenant isolation.
