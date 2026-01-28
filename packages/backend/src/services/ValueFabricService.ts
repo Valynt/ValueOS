@@ -12,10 +12,10 @@
  * - Ontology versioning
  */
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../lib/logger.js";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../lib/supabase.js"
-import { llmProxyClient } from "./LlmProxyClient.js"
+import { getSupabaseClient } from "../lib/supabase.js";
+import { llmProxyClient } from "./LlmProxyClient.js";
 import type {
   Benchmark,
   Capability,
@@ -69,16 +69,10 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ ...filters, page, pageSize });
 
-    const cached = this.getCachedData(
-      ValueFabricService.capabilityCache,
-      cacheKey
-    );
+    const cached = this.getCachedData(ValueFabricService.capabilityCache, cacheKey);
     if (cached) return cached;
 
-    let query = this.supabase
-      .from("capabilities")
-      .select("*")
-      .eq("is_active", true);
+    let query = this.supabase.from("capabilities").select("*").eq("is_active", true);
 
     if (filters?.category) {
       query = query.eq("category", filters.category);
@@ -99,11 +93,7 @@ export class ValueFabricService {
 
     if (error) throw error;
     const capabilities = data || [];
-    this.setCachedData(
-      ValueFabricService.capabilityCache,
-      cacheKey,
-      capabilities
-    );
+    this.setCachedData(ValueFabricService.capabilityCache, cacheKey, capabilities);
     return capabilities;
   }
 
@@ -132,10 +122,7 @@ export class ValueFabricService {
     return data;
   }
 
-  async updateCapability(
-    id: string,
-    updates: Partial<Capability>
-  ): Promise<Capability> {
+  async updateCapability(id: string, updates: Partial<Capability>): Promise<Capability> {
     const { data, error } = await this.supabase
       .from("capabilities")
       .update(updates)
@@ -163,10 +150,7 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ ...filters, page, pageSize });
 
-    const cached = this.getCachedData(
-      ValueFabricService.useCaseCache,
-      cacheKey
-    );
+    const cached = this.getCachedData(ValueFabricService.useCaseCache, cacheKey);
     if (cached) return cached;
 
     let query = this.supabase.from("use_cases").select("*");
@@ -377,20 +361,14 @@ export class ValueFabricService {
   ): Promise<SemanticSearchResult<Capability>[]> {
     const embedding = await this.generateEmbedding(queryText);
 
-    const { data, error } = await this.supabase.rpc(
-      "search_capabilities_by_embedding",
-      {
-        query_embedding: embedding,
-        match_count: limit,
-        p_organization_id: organizationId || null,
-      }
-    );
+    const { data, error } = await this.supabase.rpc("search_capabilities_by_embedding", {
+      query_embedding: embedding,
+      match_count: limit,
+      p_organization_id: organizationId || null,
+    });
 
     if (error) {
-      logger.warn(
-        "Semantic search failed, falling back to text search:",
-        error
-      );
+      logger.warn("Semantic search failed, falling back to text search:", error);
       return this.fallbackTextSearch(queryText, limit);
     }
 
@@ -400,9 +378,7 @@ export class ValueFabricService {
       return semanticResults;
     }
 
-    const existingIds = new Set(
-      semanticResults.map((result) => result.item.id)
-    );
+    const existingIds = new Set(semanticResults.map((result) => result.item.id));
     const fallbackResults = await this.fallbackTextSearch(queryText, limit);
 
     for (const result of fallbackResults) {
@@ -440,9 +416,7 @@ export class ValueFabricService {
   // VALUE FABRIC SNAPSHOTS
   // =====================================================
 
-  async getValueFabricSnapshot(
-    valueCaseId: string
-  ): Promise<ValueFabricSnapshot> {
+  async getValueFabricSnapshot(valueCaseId: string): Promise<ValueFabricSnapshot> {
     const [
       businessObjectives,
       valueTrees,
@@ -509,13 +483,10 @@ export class ValueFabricService {
   }
 
   async getValueTreeHierarchy(valueTreeId: string, maxDepth: number = 5) {
-    const { data, error } = await this.supabase.rpc(
-      "get_value_tree_hierarchy",
-      {
-        value_tree_uuid: valueTreeId,
-        max_depth: maxDepth,
-      }
-    );
+    const { data, error } = await this.supabase.rpc("get_value_tree_hierarchy", {
+      value_tree_uuid: valueTreeId,
+      max_depth: maxDepth,
+    });
 
     if (error) throw error;
     return data || [];
@@ -543,8 +514,7 @@ export class ValueFabricService {
       .select("kpi_hypothesis_id, event_timestamp", { count: "exact" })
       .eq("value_case_id", valueCaseId);
 
-    const uniqueKpis = new Set(data?.map((d) => d.kpi_hypothesis_id) || [])
-      .size;
+    const uniqueKpis = new Set(data?.map((d) => d.kpi_hypothesis_id) || []).size;
     const lastTimestamp = data?.[0]?.event_timestamp;
 
     return {
@@ -595,9 +565,7 @@ export class ValueFabricService {
       this.supabase.from("use_cases").select("industry"),
     ]);
 
-    const uniqueIndustries = [
-      ...new Set(industries.data?.map((u) => u.industry).filter(Boolean)),
-    ];
+    const uniqueIndustries = [...new Set(industries.data?.map((u) => u.industry).filter(Boolean))];
 
     return {
       total_capabilities: capabilities.count || 0,
@@ -648,10 +616,7 @@ export class ValueFabricService {
     };
   }
 
-  private getCachedData<T>(
-    cache: Map<string, CacheEntry<T>>,
-    key: string
-  ): T | null {
+  private getCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
     const entry = cache.get(key);
     if (!entry) return null;
 
@@ -663,11 +628,7 @@ export class ValueFabricService {
     return entry.data;
   }
 
-  private setCachedData<T>(
-    cache: Map<string, CacheEntry<T>>,
-    key: string,
-    data: T
-  ): void {
+  private setCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
     cache.set(key, {
       data,
       expiresAt: Date.now() + ValueFabricService.CACHE_TTL_MS,
@@ -697,17 +658,15 @@ export class ValueFabricService {
     tenantId?: string,
     userId?: string
   ): Promise<void> {
-    const { error } = await this.supabase
-      .from("audit_log")
-      .insert({
-        tenant_id: tenantId || null,
-        user_id: userId || null,
-        action: "metric_change",
-        resource_type: resourceType,
-        resource_id: resourceId,
-        details: vmrtTrace,
-        created_at: new Date().toISOString(),
-      });
+    const { error } = await this.supabase.from("audit_log").insert({
+      tenant_id: tenantId || null,
+      user_id: userId || null,
+      action: "metric_change",
+      resource_type: resourceType,
+      resource_id: resourceId,
+      details: vmrtTrace,
+      created_at: new Date().toISOString(),
+    });
 
     if (error) {
       logger.error("Failed to log VMRT metric change:", error);

@@ -1,6 +1,6 @@
 /**
  * VOS (Value Operating System) Type Definitions
- * 
+ *
  * Core ValueOS domain types for value lifecycle management,
  * manifesto validation, benchmarking, and ROI modeling.
  */
@@ -9,12 +9,7 @@
 // Lifecycle Types (re-export from workflow for compatibility)
 // ============================================================================
 
-export type LifecycleStage = 
-  | "opportunity" 
-  | "target" 
-  | "expansion" 
-  | "integrity" 
-  | "realization";
+export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";
 
 // ============================================================================
 // Manifesto Validation
@@ -32,7 +27,7 @@ export interface ManifestoValidationResult {
 export interface ManifestoValidationError {
   field: string;
   message: string;
-  severity: 'error' | 'warning';
+  severity: "error" | "warning";
 }
 
 // ============================================================================
@@ -74,7 +69,7 @@ export interface Milestone {
 }
 
 export interface ResourceRequirement {
-  type: 'human' | 'financial' | 'technical' | 'infrastructure';
+  type: "human" | "financial" | "technical" | "infrastructure";
   description: string;
   quantity?: number;
   cost_estimate?: number;
@@ -83,8 +78,8 @@ export interface ResourceRequirement {
 
 export interface RiskAssessment {
   description: string;
-  probability: 'low' | 'medium' | 'high';
-  impact: 'low' | 'medium' | 'high';
+  probability: "low" | "medium" | "high";
+  impact: "low" | "medium" | "high";
   mitigation_strategy?: string;
 }
 
@@ -92,12 +87,7 @@ export interface RiskAssessment {
 // Confidence Levels
 // ============================================================================
 
-export type ConfidenceLevel = 
-  | 'very_low'
-  | 'low' 
-  | 'medium' 
-  | 'high' 
-  | 'very_high';
+export type ConfidenceLevel = "very_low" | "low" | "medium" | "high" | "very_high";
 
 export interface ConfidenceScore {
   level: ConfidenceLevel;
@@ -136,7 +126,7 @@ export interface BenchmarkComparison {
   benchmark_value: number;
   variance: number;
   variance_percentage: number;
-  interpretation: 'below' | 'at' | 'above';
+  interpretation: "below" | "at" | "above";
 }
 
 // ============================================================================
@@ -257,7 +247,7 @@ export interface ValueMetric {
   id: string;
   name: string;
   description: string;
-  category: 'financial' | 'operational' | 'strategic' | 'customer';
+  category: "financial" | "operational" | "strategic" | "customer";
   value: number;
   unit: string;
   lifecycle_stage: LifecycleStage;
@@ -304,7 +294,7 @@ export interface ValueCase {
   title: string;
   description: string;
   lifecycle_stage: LifecycleStage;
-  status: 'draft' | 'active' | 'completed' | 'archived';
+  status: "draft" | "active" | "completed" | "archived";
   target_output?: TargetAgentOutput;
   roi_calculation?: ROIModelCalculation;
   metrics: ValueMetric[];
