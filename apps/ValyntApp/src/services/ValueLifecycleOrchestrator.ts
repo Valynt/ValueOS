@@ -12,18 +12,18 @@ import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent";
 import { RealizationAgent } from "../lib/agent-fabric/agents/RealizationAgent";
 import { CommunicatorAgent } from "../lib/agent-fabric/agents/CommunicatorAgent";
 import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
-import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
+import { CircuitBreaker } from "./CircuitBreaker";
 import { logger } from "../lib/logger";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
 import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
-import { AgentConfig } from "../types/agent";
+import { AgentConfig } from "./agent-types";
 import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore";
 import { TargetAgentInputSchema } from "../validators/agentInputs";
 import { z } from "zod";
-import { agentTelemetryService } from "../agents/telemetry/AgentTelemetryService";
+import { agentTelemetryService } from "./agents/telemetry/AgentTelemetryService";
 
 export type LifecycleStage =
   | "opportunity"

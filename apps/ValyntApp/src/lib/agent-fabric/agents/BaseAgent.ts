@@ -10,7 +10,7 @@
  */
 
 import { logger } from "../../../utils/logger";
-import { AgentConfig } from "../../../types/agent";
+import { AgentConfig } from "../../../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
 import { LLMGateway, LLMRequest, LLMResponse } from "../LLMGateway";
 import { MemorySystem, MemoryEntry, MemoryQuery } from "../MemorySystem";

@@ -14,7 +14,7 @@
 
 import { logger } from "../lib/logger.js";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../lib/supabase.js";
+import { supabase } from "../lib/supabase.js";
 import { llmProxyClient } from "./LlmProxyClient.js";
 import type {
   Benchmark,
@@ -50,8 +50,8 @@ export class ValueFabricService {
   private static capabilityCache = new Map<string, CacheEntry<Capability[]>>();
   private static useCaseCache = new Map<string, CacheEntry<UseCase[]>>();
 
-  constructor(supabase: SupabaseClient = getSupabaseClient()) {
-    this.supabase = supabase;
+  constructor(supabaseClient: SupabaseClient = supabase) {
+    this.supabase = supabaseClient;
   }
 
   // =====================================================
@@ -368,7 +368,7 @@ export class ValueFabricService {
     });
 
     if (error) {
-      logger.warn("Semantic search failed, falling back to text search:", error);
+      logger.warn("Semantic search failed, falling back to text search:", { error });
       return this.fallbackTextSearch(queryText, limit);
     }
 

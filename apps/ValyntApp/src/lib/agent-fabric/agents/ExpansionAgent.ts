@@ -5,9 +5,9 @@
  * focusing on upsell, cross-sell, and renewal scenarios.
  */
 
-import { BaseAgent } from "../BaseAgent";
+import { BaseAgent } from "./BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
-import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
+import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
 
 export interface ExpansionOpportunity {
   opportunityId: string;

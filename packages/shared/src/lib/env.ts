@@ -13,10 +13,7 @@ export const REQUIRED_ENV_VARS = [
   "DATABASE_URL",
 ] as const;
 
-export function validateRequiredEnv() {}
-
-// Export validateEnvOrThrow if available
-export { validateEnvOrThrow } from '../../../backend/src/config/validateEnv';
+export function validateRequiredEnv() {
   // Skip validation in browser (validation is server-side)
   if (_isBrowser) return;
 

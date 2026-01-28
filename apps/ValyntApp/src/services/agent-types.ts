@@ -1,15 +1,15 @@
 /**
  * Shared Agent Types
- * 
+ *
  * CONSOLIDATION: This file defines the canonical AgentType union.
  * All agent type definitions should reference this file.
- * 
+ *
  * Extracted to avoid circular dependencies between AgentAPI and AgentAuditLogger
  */
 
 /**
  * Agent types supported by the system
- * 
+ *
  * Categories:
  * - VOS Lifecycle: opportunity, target, realization, expansion, integrity
  * - Research: research, benchmark, company-intelligence
@@ -20,26 +20,26 @@
  * - Coordination: coordinator, value-eval
  */
 export type AgentType =
-  | 'opportunity'
-  | 'target'
-  | 'realization'
-  | 'expansion'
-  | 'integrity'
-  | 'company-intelligence'
-  | 'financial-modeling'
-  | 'value-mapping'
+  | "opportunity"
+  | "target"
+  | "realization"
+  | "expansion"
+  | "integrity"
+  | "company-intelligence"
+  | "financial-modeling"
+  | "value-mapping"
   // Added during consolidation
-  | 'system-mapper'
-  | 'intervention-designer'
-  | 'outcome-engineer'
-  | 'coordinator'
-  | 'value-eval'
-  | 'communicator'
+  | "system-mapper"
+  | "intervention-designer"
+  | "outcome-engineer"
+  | "coordinator"
+  | "value-eval"
+  | "communicator"
   // New agents (roadmap implementation)
-  | 'research'
-  | 'benchmark'
-  | 'narrative'
-  | 'groundtruth';
+  | "research"
+  | "benchmark"
+  | "narrative"
+  | "groundtruth";
 
 /**
  * Agent request context
@@ -65,3 +65,47 @@ export interface AgentContext {
    */
   metadata?: Record<string, any>;
 }
+
+/**
+ * Agent configuration interface
+ */
+export interface AgentConfig {
+  /**
+   * Agent type identifier
+   */
+  type: AgentType;
+
+  /**
+   * Agent name
+   */
+  name: string;
+
+  /**
+   * Agent description
+   */
+  description?: string;
+
+  /**
+   * Configuration parameters
+   */
+  parameters?: Record<string, any>;
+
+  /**
+   * Enable MARL capabilities
+   */
+  enableMARL?: boolean;
+
+  /**
+   * MARL configuration
+   */
+  marlConfig?: {
+    learningRate?: number;
+    discountFactor?: number;
+    explorationRate?: number;
+  };
+}
+
+/**
+ * Confidence level for agent responses
+ */
+export type ConfidenceLevel = "low" | "medium" | "high" | "very-high";

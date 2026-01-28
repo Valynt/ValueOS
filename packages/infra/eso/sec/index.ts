@@ -6,6 +6,10 @@ export class SECAdapter implements DataIngestionAdapter {
   name = "SEC";
   private rateLimiter?: RateLimiter;
   private cache?: Cache;
+  private ws?: WebSocket;
+  private dataCallbacks: Set<(data: any) => void> = new Set();
+  private reconnectTimer?: NodeJS.Timeout;
+  private isStreaming = false;
 
   constructor(private config: IngestionConfig) {
     if (config.rateLimit) {
@@ -66,5 +70,84 @@ export class SECAdapter implements DataIngestionAdapter {
       data: rawData,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  async startStreaming(params: { symbols?: string[] } = {}): Promise<void> {
+    if (this.isStreaming) return;
+
+    // For real-time SEC data, we might connect to a financial data WebSocket
+    // This is a placeholder - in reality, you'd connect to a service like Alpha Vantage, IEX, etc.
+    const wsUrl = this.config.baseUrl.replace("https", "wss") + "/stream";
+
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      console.log("SEC WebSocket connected");
+      this.isStreaming = true;
+
+      // Subscribe to specific symbols or general market data
+      const subscription = {
+        type: "subscribe",
+        symbols: params.symbols || ["market-overview"],
+        source: "SEC",
+      };
+      this.ws.send(JSON.stringify(subscription));
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.notifyDataCallbacks(data);
+      } catch (error) {
+        console.error("Failed to parse SEC WebSocket data:", error);
+      }
+    };
+
+    this.ws.onclose = () => {
+      console.log("SEC WebSocket disconnected");
+      this.isStreaming = false;
+      this.scheduleReconnect();
+    };
+
+    this.ws.onerror = (error) => {
+      console.error("SEC WebSocket error:", error);
+    };
+  }
+
+  async stopStreaming(): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+
+    if (this.ws) {
+      this.ws.close();
+      this.ws = undefined;
+    }
+    this.isStreaming = false;
+  }
+
+  onData(callback: (data: any) => void): () => void {
+    this.dataCallbacks.add(callback);
+    return () => this.dataCallbacks.delete(callback);
+  }
+
+  private notifyDataCallbacks(data: any) {
+    this.dataCallbacks.forEach((callback) => {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error("SEC data callback error:", error);
+      }
+    });
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimer) return;
+
+    this.reconnectTimer = setTimeout(() => {
+      console.log("Attempting to reconnect SEC WebSocket...");
+      this.startStreaming();
+    }, 5000); // Reconnect after 5 seconds
   }
 }

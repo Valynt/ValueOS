@@ -14,7 +14,7 @@
 
 import { logger } from "../lib/logger";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { llmProxyClient } from "./LlmProxyClient";
 import type {
   Benchmark,
@@ -49,7 +49,7 @@ export class ValueFabricService {
   private static capabilityCache = new Map<string, CacheEntry<Capability[]>>();
   private static useCaseCache = new Map<string, CacheEntry<UseCase[]>>();
 
-  constructor(supabase: SupabaseClient = getSupabaseClient()) {
+  constructor(supabase: SupabaseClient = supabase!) {
     this.supabase = supabase;
   }
 
@@ -68,16 +68,10 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ ...filters, page, pageSize });
 
-    const cached = this.getCachedData(
-      ValueFabricService.capabilityCache,
-      cacheKey
-    );
+    const cached = this.getCachedData(ValueFabricService.capabilityCache, cacheKey);
     if (cached) return cached;
 
-    let query = this.supabase
-      .from("capabilities")
-      .select("*")
-      .eq("is_active", true);
+    let query = this.supabase.from("capabilities").select("*").eq("is_active", true);
 
     if (filters?.category) {
       query = query.eq("category", filters.category);
@@ -98,11 +92,7 @@ export class ValueFabricService {
 
     if (error) throw error;
     const capabilities = data || [];
-    this.setCachedData(
-      ValueFabricService.capabilityCache,
-      cacheKey,
-      capabilities
-    );
+    this.setCachedData(ValueFabricService.capabilityCache, cacheKey, capabilities);
     return capabilities;
   }
 
@@ -127,14 +117,24 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
+
+    // VMRT audit logging
+    await this.logMetricChange("capabilities", data.id, "CREATE", null, data);
+
     ValueFabricService.invalidateCapabilityCache();
     return data;
   }
 
-  async updateCapability(
-    id: string,
-    updates: Partial<Capability>
-  ): Promise<Capability> {
+  async updateCapability(id: string, updates: Partial<Capability>): Promise<Capability> {
+    // Get old values for audit logging
+    const { data: oldData, error: fetchError } = await this.supabase
+      .from("capabilities")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     const { data, error } = await this.supabase
       .from("capabilities")
       .update(updates)
@@ -143,6 +143,10 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
+
+    // VMRT audit logging
+    await this.logMetricChange("capabilities", id, "UPDATE", oldData, data);
+
     ValueFabricService.invalidateCapabilityCache();
     return data;
   }
@@ -162,10 +166,7 @@ export class ValueFabricService {
     const pageSize = filters?.pageSize ?? 50;
     const cacheKey = JSON.stringify({ ...filters, page, pageSize });
 
-    const cached = this.getCachedData(
-      ValueFabricService.useCaseCache,
-      cacheKey
-    );
+    const cached = this.getCachedData(ValueFabricService.useCaseCache, cacheKey);
     if (cached) return cached;
 
     let query = this.supabase.from("use_cases").select("*");
@@ -319,9 +320,7 @@ export class ValueFabricService {
     return percentiles;
   }
 
-  async createBenchmark(
-    benchmark: Omit<Benchmark, "id" | "created_at">
-  ): Promise<Benchmark> {
+  async createBenchmark(benchmark: Omit<Benchmark, "id" | "created_at">): Promise<Benchmark> {
     const { data, error } = await this.supabase
       .from("benchmarks")
       .insert(benchmark)
@@ -329,6 +328,10 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
+
+    // VMRT audit logging
+    await this.logMetricChange("benchmarks", data.id, "CREATE", null, data);
+
     return data;
   }
 
@@ -343,20 +346,14 @@ export class ValueFabricService {
   ): Promise<SemanticSearchResult<Capability>[]> {
     const embedding = await this.generateEmbedding(queryText);
 
-    const { data, error } = await this.supabase.rpc(
-      "search_capabilities_by_embedding",
-      {
-        query_embedding: embedding,
-        match_count: limit,
-        p_organization_id: organizationId || null,
-      }
-    );
+    const { data, error } = await this.supabase.rpc("search_capabilities_by_embedding", {
+      query_embedding: embedding,
+      match_count: limit,
+      p_organization_id: organizationId || null,
+    });
 
     if (error) {
-      logger.warn(
-        "Semantic search failed, falling back to text search:",
-        error
-      );
+      logger.warn("Semantic search failed, falling back to text search:", error);
       return this.fallbackTextSearch(queryText, limit);
     }
 
@@ -366,9 +363,7 @@ export class ValueFabricService {
       return semanticResults;
     }
 
-    const existingIds = new Set(
-      semanticResults.map((result) => result.item.id)
-    );
+    const existingIds = new Set(semanticResults.map((result) => result.item.id));
     const fallbackResults = await this.fallbackTextSearch(queryText, limit);
 
     for (const result of fallbackResults) {
@@ -406,9 +401,7 @@ export class ValueFabricService {
   // VALUE FABRIC SNAPSHOTS
   // =====================================================
 
-  async getValueFabricSnapshot(
-    valueCaseId: string
-  ): Promise<ValueFabricSnapshot> {
+  async getValueFabricSnapshot(valueCaseId: string): Promise<ValueFabricSnapshot> {
     const [
       businessObjectives,
       valueTrees,
@@ -475,13 +468,10 @@ export class ValueFabricService {
   }
 
   async getValueTreeHierarchy(valueTreeId: string, maxDepth: number = 5) {
-    const { data, error } = await this.supabase.rpc(
-      "get_value_tree_hierarchy",
-      {
-        value_tree_uuid: valueTreeId,
-        max_depth: maxDepth,
-      }
-    );
+    const { data, error } = await this.supabase.rpc("get_value_tree_hierarchy", {
+      value_tree_uuid: valueTreeId,
+      max_depth: maxDepth,
+    });
 
     if (error) throw error;
     return data || [];
@@ -509,8 +499,7 @@ export class ValueFabricService {
       .select("kpi_hypothesis_id, event_timestamp", { count: "exact" })
       .eq("value_case_id", valueCaseId);
 
-    const uniqueKpis = new Set(data?.map((d) => d.kpi_hypothesis_id) || [])
-      .size;
+    const uniqueKpis = new Set(data?.map((d) => d.kpi_hypothesis_id) || []).size;
     const lastTimestamp = data?.[0]?.event_timestamp;
 
     return {
@@ -561,9 +550,7 @@ export class ValueFabricService {
       this.supabase.from("use_cases").select("industry"),
     ]);
 
-    const uniqueIndustries = [
-      ...new Set(industries.data?.map((u) => u.industry).filter(Boolean)),
-    ];
+    const uniqueIndustries = [...new Set(industries.data?.map((u) => u.industry).filter(Boolean))];
 
     return {
       total_capabilities: capabilities.count || 0,
@@ -614,10 +601,7 @@ export class ValueFabricService {
     };
   }
 
-  private getCachedData<T>(
-    cache: Map<string, CacheEntry<T>>,
-    key: string
-  ): T | null {
+  private getCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
     const entry = cache.get(key);
     if (!entry) return null;
 
@@ -629,11 +613,7 @@ export class ValueFabricService {
     return entry.data;
   }
 
-  private setCachedData<T>(
-    cache: Map<string, CacheEntry<T>>,
-    key: string,
-    data: T
-  ): void {
+  private setCachedData<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
     cache.set(key, {
       data,
       expiresAt: Date.now() + ValueFabricService.CACHE_TTL_MS,
@@ -650,5 +630,39 @@ export class ValueFabricService {
 
   private static invalidateUseCaseCache(): void {
     this.invalidateCache(this.useCaseCache);
+  }
+
+  private async logMetricChange(
+    resourceType: string,
+    resourceId: string,
+    action: string,
+    oldValues: any,
+    newValues: any,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    try {
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser();
+      const userId = user?.id;
+
+      if (!userId) {
+        logger.warn("VMRT logging: No authenticated user found");
+        return;
+      }
+
+      await this.supabase.rpc("append_audit_log", {
+        p_user_id: userId,
+        p_action: action,
+        p_resource_type: resourceType,
+        p_resource_id: resourceId,
+        p_old_values: oldValues,
+        p_new_values: newValues,
+        p_metadata: metadata || {},
+      });
+    } catch (error) {
+      logger.error("Failed to log metric change:", error);
+      // Don't throw - audit logging failure shouldn't break the main operation
+    }
   }
 }

@@ -29,7 +29,7 @@ export class Cache {
 
   size(): number {
     // Clean expired entries
-    for (const [key, entry] of this.cache) {
+    for (const [key, entry] of Array.from(this.cache)) {
       if (Date.now() > entry.expiry) {
         this.cache.delete(key);
       }

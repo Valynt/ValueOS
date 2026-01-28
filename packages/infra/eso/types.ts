@@ -11,6 +11,10 @@ export interface DataIngestionAdapter {
   name: string;
   fetchData(params?: Record<string, any>): Promise<any>;
   transformData(rawData: any): Promise<any>;
+  // Real-time streaming support
+  startStreaming?(params?: Record<string, any>): Promise<void>;
+  stopStreaming?(): Promise<void>;
+  onData?(callback: (data: any) => void): () => void;
 }
 
 export interface IngestionConfig {
