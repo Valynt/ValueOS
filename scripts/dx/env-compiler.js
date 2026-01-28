@@ -26,6 +26,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 
+/**
+ * Check if running in a DevContainer environment
+ */
+function checkIsDevContainer() {
+  return (
+    process.env.REMOTE_CONTAINERS === "true" ||
+    process.env.CODESPACES === "true" ||
+    fs.existsSync("/.dockerenv")
+  );
+}
+
 // Local Supabase demo keys (safe to commit - only work with local instance)
 const LOCAL_SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
@@ -38,14 +49,8 @@ const LOCAL_SUPABASE_SERVICE_ROLE_KEY =
 function getUrlConfig(mode, ports) {
   const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
   const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
-  const supabaseApiPort = resolvePort(
-    process.env.SUPABASE_API_PORT,
-    ports.supabase.apiPort
-  );
-  const supabaseDbPort = resolvePort(
-    process.env.SUPABASE_DB_PORT,
-    ports.supabase.dbPort
-  );
+  const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
+  const supabaseDbPort = resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort);
 
   if (mode === "docker") {
     // Docker mode: services communicate via Docker network DNS
@@ -79,7 +84,9 @@ function getUrlConfig(mode, ports) {
     // Backend URLs (localhost)
     API_UPSTREAM: `http://localhost:${backendPort}`,
     FRONTEND_UPSTREAM: `http://localhost:${frontendPort}`,
-    DATABASE_URL: `postgresql://postgres:postgres@localhost:${supabaseDbPort}/postgres`,
+    DATABASE_URL: checkIsDevContainer()
+      ? `postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable`
+      : `postgresql://postgres:postgres@localhost:${supabaseDbPort}/postgres`,
     REDIS_URL: "redis://localhost:6379",
   };
 }
@@ -253,9 +260,7 @@ function validateEnvLocal(expectedMode) {
     content.includes("SUPABASE_SERVICE_KEY=") &&
     !content.includes("SUPABASE_SERVICE_ROLE_KEY=")
   ) {
-    warnings.push(
-      "Deprecated: SUPABASE_SERVICE_KEY should be SUPABASE_SERVICE_ROLE_KEY"
-    );
+    warnings.push("Deprecated: SUPABASE_SERVICE_KEY should be SUPABASE_SERVICE_ROLE_KEY");
   }
 
   // Check URL consistency for mode - these are HARD FAILURES
@@ -265,20 +270,14 @@ function validateEnvLocal(expectedMode) {
 
     if (expectedMode === "local") {
       // Local mode: Docker DNS is a hard failure (browser cannot resolve)
-      if (
-        currentApiUrl.includes("backend:") ||
-        currentApiUrl.includes("frontend:")
-      ) {
+      if (currentApiUrl.includes("backend:") || currentApiUrl.includes("frontend:")) {
         contradictions.push(
           `URL CONTRADICTION: VITE_API_BASE_URL uses Docker DNS (${currentApiUrl}) but mode is "local". Browser cannot resolve Docker hostnames.`
         );
       }
     } else if (expectedMode === "docker") {
       // Docker mode: localhost URLs may work but are suspicious
-      if (
-        currentApiUrl.includes("localhost:") &&
-        !currentApiUrl.includes("/api")
-      ) {
+      if (currentApiUrl.includes("localhost:") && !currentApiUrl.includes("/api")) {
         warnings.push(
           `VITE_API_BASE_URL uses localhost (${currentApiUrl}) in docker mode. This may cause issues.`
         );
@@ -306,10 +305,7 @@ function validateEnvLocal(expectedMode) {
   const supabaseUrlMatch = content.match(/^VITE_SUPABASE_URL=(.*)$/m);
   if (supabaseUrlMatch) {
     const currentSupabaseUrl = supabaseUrlMatch[1].trim();
-    if (
-      !currentSupabaseUrl.includes("localhost") &&
-      !currentSupabaseUrl.includes("127.0.0.1")
-    ) {
+    if (!currentSupabaseUrl.includes("localhost") && !currentSupabaseUrl.includes("127.0.0.1")) {
       warnings.push(
         `VITE_SUPABASE_URL points to remote instance (${currentSupabaseUrl}). Local Supabase will not be used.`
       );
@@ -443,11 +439,7 @@ To switch modes, run:
   // Also update deploy/envs/.env.ports for Docker Compose
   const deployEnvPortsPath = path.join(projectRoot, "deploy/envs/.env.ports");
   if (fs.existsSync(path.dirname(deployEnvPortsPath))) {
-    fs.writeFileSync(
-      deployEnvPortsPath,
-      generateDeployEnvPorts(mode, ports),
-      "utf8"
-    );
+    fs.writeFileSync(deployEnvPortsPath, generateDeployEnvPorts(mode, ports), "utf8");
     console.log(`✓ Wrote ${deployEnvPortsPath}`);
   }
 
