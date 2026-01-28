@@ -194,6 +194,9 @@ export class IntegrationConnectionService extends TenantAwareService {
       throw new AuthorizationError("Integration does not belong to the active tenant");
     }
     await this.validateTenantAccess(userId, integration.tenant_id);
+    if (integration.status === "revoked") {
+      throw new ValidationError("Integration is disconnected");
+    }
 
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
@@ -240,6 +243,9 @@ export class IntegrationConnectionService extends TenantAwareService {
       throw new AuthorizationError("Integration does not belong to the active tenant");
     }
     await this.validateTenantAccess(userId, integration.tenant_id);
+    if (integration.status === "revoked") {
+      throw new ValidationError("Integration is disconnected");
+    }
 
     const provider = integration.provider as IntegrationProvider;
     this.assertProvider(provider);

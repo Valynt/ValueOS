@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { Tree, TreeNode } from "recharts";
 
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tooltip } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
 
 // Example data structure for a value tree node
 export interface ValueTreeNode {
@@ -19,11 +21,44 @@ export interface ValueTreeChartProps {
 }
 
 export const ValueTreeChart: React.FC<ValueTreeChartProps> = ({ data }) => {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.2, 2));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.2, 0.5));
+  const resetZoom = () => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
   // Recharts Tree expects a hierarchical data structure
   return (
-    <Card className="p-4">
-      <Label className="mb-2 block">Value Tree</Label>
-      <div style={{ width: "100%", height: 400 }}>
+    <Card className="p-4 relative overflow-hidden group">
+      <div className="flex justify-between items-center mb-4">
+        <Label className="block">Value Tree</Label>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button size="xs" variant="outline" onClick={handleZoomOut}>
+            <ZoomOut className="h-3 w-3" />
+          </Button>
+          <Button size="xs" variant="outline" onClick={handleZoomIn}>
+            <ZoomIn className="h-3 w-3" />
+          </Button>
+          <Button size="xs" variant="outline" onClick={resetZoom}>
+            <Maximize className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      <div
+        className="cursor-grab active:cursor-grabbing"
+        style={{
+          width: "100%",
+          height: 400,
+          transform: `scale(${zoom}) translate(${offset.x}px, ${offset.y}px)`,
+          transformOrigin: "center center",
+          transition: "transform 0.2s ease-out",
+        }}
+      >
         <Tree
           width={600}
           height={400}
@@ -47,6 +82,9 @@ export const ValueTreeChart: React.FC<ValueTreeChartProps> = ({ data }) => {
             </g>
           )}
         />
+      </div>
+      <div className="absolute bottom-4 right-4 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded border">
+        Zoom: {(zoom * 100).toFixed(0)}%
       </div>
     </Card>
   );

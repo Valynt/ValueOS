@@ -161,6 +161,7 @@ export function IntegrationsPage() {
     const connection = integrationMap.get(provider.id);
     const status = connection?.status ?? "disconnected";
     const badge = statusBadge(status);
+    const hasActiveConnection = !!connection && status !== "disconnected";
 
     const StatusIcon = status === "connected" ? Check : XCircle;
 
@@ -179,18 +180,18 @@ export function IntegrationsPage() {
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">{provider.description}</p>
-            {connection?.lastSyncAt && (
+            {hasActiveConnection && connection?.lastSyncAt && (
               <p className="text-xs text-muted-foreground mt-1">
                 Last sync {formatTimestamp(connection.lastSyncAt)}
               </p>
             )}
-            {connection?.errorMessage && status === "error" && (
+            {hasActiveConnection && connection?.errorMessage && status === "error" && (
               <p className="text-xs text-rose-600 mt-1">{connection.errorMessage}</p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {connection ? (
+          {hasActiveConnection ? (
             <>
               <Button
                 variant="ghost"

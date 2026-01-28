@@ -1,5 +1,5 @@
 {
-  "extends": "@vos/config-v2/tsconfig.base.json",
+  "extends": "./packages/config-v2/tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,

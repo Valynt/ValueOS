@@ -15,6 +15,7 @@ import {
 } from "../BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { BaseAgentConfig } from "../BaseAgent";
+import { AgentType } from "../../../services/agent-types";
 
 export interface CommunicationContext {
   stakeholderId: string;
@@ -136,7 +137,11 @@ export class CommunicatorAgent extends BaseAgent {
   }
 
   async execute<T = unknown>(request: AgentRequest): Promise<AgentResponse<T>> {
-    const result = await this.processCommunicationRequest(request.sessionId || "default", request.query, request.context);
+    const result = await this.processCommunicationRequest(
+      request.sessionId || "default",
+      request.query,
+      request.context
+    );
     return result as AgentResponse<T>;
   }
 
@@ -179,7 +184,7 @@ export class CommunicatorAgent extends BaseAgent {
           recommendations: this.generateCommunicationRecommendations(strategy, commContext),
         },
         strategy.confidence >= 0.8 ? "high" : strategy.confidence >= 0.6 ? "medium" : "low",
-        [`Generated communication strategy with ${strategy.confidence.toFixed(2)} confidence`],
+        undefined,
         {
           executionTime: Date.now() - startTime,
         }
@@ -408,7 +413,7 @@ ValueOS Communicator Agent`;
     this.stakeholderProfiles.set(record.id, profile);
   }
 
-  private async updateMARLFromCommunication(
+  protected async updateMARLFromCommunication(
     strategy: CommunicationStrategy,
     context: CommunicationContext
   ): Promise<void> {
