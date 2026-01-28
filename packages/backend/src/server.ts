@@ -49,6 +49,7 @@ import { validateEnvOrThrow } from "./config/validateEnv.js"
 import { createLogger } from "@shared/lib/logger";
 import { createVersionedApiRouter } from "./versioning.js"
 import { initializeContext } from "@shared/lib/context";
+import { registerDevRoutes } from "./routes/devRoutes.js";
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -367,6 +368,8 @@ app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/teams", teamsRouter);
+
+await registerDevRoutes(app);
 
 // 404 handler for unmatched routes
 app.use(notFoundHandler);
