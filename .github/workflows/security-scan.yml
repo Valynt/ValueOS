@@ -196,26 +196,36 @@ jobs:
   python-safety:
     name: Python Safety Check
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('**/requirements.txt') != '' }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check for requirements.txt
+        id: check_files
+        run: |
+          if find . -name "requirements.txt" | grep -q .; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Python
+        if: steps.check_files.outputs.exists == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install Safety
+        if: steps.check_files.outputs.exists == 'true'
         run: pip install safety
 
       - name: Run Safety check
+        if: steps.check_files.outputs.exists == 'true'
         run: |
           find . -name requirements.txt -exec safety check -r {} \; || true
 
       - name: Generate Safety report
-        if: always()
+        if: always() && steps.check_files.outputs.exists == 'true'
         run: |
           echo "## Python Safety Report" >> $GITHUB_STEP_SUMMARY
           find . -name requirements.txt -exec safety check -r {} \; >> $GITHUB_STEP_SUMMARY || true
@@ -223,15 +233,7 @@ jobs:
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
-    needs:
-      [
-        npm-audit,
-        codeql-analysis,
-        trivy-scan,
-        semgrep-scan,
-        secret-scan,
-        infrastructure-scan,
-      ]
+    needs: [npm-audit, codeql-analysis, trivy-scan, semgrep-scan, secret-scan, infrastructure-scan]
     if: always()
 
     steps:

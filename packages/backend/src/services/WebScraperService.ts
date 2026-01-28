@@ -307,7 +307,6 @@ export class WebScraperService {
         return false;
       }
 
-      // Block localhost and private IPs
       const hostname = url.hostname;
       const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
 

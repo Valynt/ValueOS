@@ -5,7 +5,7 @@
  * focusing on upsell, cross-sell, and renewal scenarios.
  */
 
-import { BaseAgent } from "./BaseAgent";
+import { BaseAgent } from "../BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
 
@@ -110,23 +110,12 @@ export class ExpansionAgent extends BaseAgent {
     ];
   }
 
-  async execute(
-    sessionId: string,
-    input: any,
-    context?: Record<string, any>
-  ): Promise<AgentResponse> {
-    const request: AgentRequest = {
-      sessionId,
-      input,
-      context,
-    };
-    return this.processRequest(request);
-  }
-
   protected async processRequest(request: AgentRequest): Promise<AgentResponse> {
     const startTime = Date.now();
 
     try {
+      // Extract expansion data from request
+      const inputData = request.input || request.query;
       // Extract expansion data from request
       const inputData = this.extractExpansionData(request);
 

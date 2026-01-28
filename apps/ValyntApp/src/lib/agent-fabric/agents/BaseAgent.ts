@@ -18,8 +18,8 @@ import { AuditLogger, AuditLevel } from "../AuditLogger";
 import { createClient } from "@supabase/supabase-js";
 
 // Import types from the correct location
-import { AgentType } from "../../../agent-types";
-import { ConfidenceLevel } from "../../../types/agent";
+import { AgentType } from "../../../services/agent-types";
+import { ConfidenceLevel } from "../../../services/agent-types";
 
 /**
  * MARL State representation for agent interactions

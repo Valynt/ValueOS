@@ -1,9 +1,10 @@
 import { randomUUID } from "crypto";
 import { NextFunction, Request, Response } from "express";
-import { securityAuditService } from "../services/SecurityAuditService.js"
+import { securityAuditService } from "../services/SecurityAuditService.js";
 import { logger } from "@shared/lib/logger";
 import { runWithContext } from "@shared/lib/context";
-import { getTraceContextForLogging } from "../config/telemetry.js"
+import { getTraceContextForLogging } from "../config/telemetry.js";
+import { sanitizeForLogging } from "@shared/lib/piiFilter";
 
 const DEFAULT_IGNORED_PATHS = ["/health", "/metrics"];
 
@@ -18,9 +19,7 @@ function getRequestId(req: Request): string {
 function getActor(req: Request): { id?: string; label: string } {
   const anyReq = req as any;
   const user = anyReq.user || {};
-  const headerActor =
-    (req.headers["x-user-email"] as string) ||
-    (req.headers["x-actor"] as string);
+  const headerActor = (req.headers["x-user-email"] as string) || (req.headers["x-actor"] as string);
   const label = user.email || user.name || headerActor || "anonymous";
 
   return {
@@ -78,11 +77,9 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
             severity: res.statusCode >= 500 ? "high" : "medium",
             eventData: {
               duration_ms: Date.now() - startedAt,
-              org:
-                (req.headers["x-organization-id"] as string) ||
-                (req as any).organizationId,
-              routeParams: req.params,
-              query: req.query,
+              org: (req.headers["x-organization-id"] as string) || (req as any).organizationId,
+              routeParams: sanitizeForLogging(req.params),
+              query: sanitizeForLogging(req.query),
             },
           });
         } catch (error) {

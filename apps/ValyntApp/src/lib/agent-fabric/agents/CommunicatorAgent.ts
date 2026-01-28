@@ -12,7 +12,7 @@ import {
   MARLInteraction,
   MARLRewardFunction,
   MARLPolicy,
-} from "./BaseAgent";
+} from "../BaseAgent";
 import { AgentRequest, AgentResponse } from "./BaseAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 
