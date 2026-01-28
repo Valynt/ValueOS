@@ -18,5 +18,17 @@
     "state": {
       "mode": "local"
     }
+  },
+  {
+    "id": "checkpoint_1769600234709",
+    "timestamp": 1769600234710,
+    "step": "migrations",
+    "state": {}
+  },
+  {
+    "id": "checkpoint_1769603103773",
+    "timestamp": 1769603103773,
+    "step": "migrations",
+    "state": {}
   }
 ]
