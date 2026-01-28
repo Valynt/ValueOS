@@ -195,6 +195,25 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
 export class SecretValidator {
   private secretProvider = getSecretProvider();
   private environment = process.env.NODE_ENV || "development";
+  private static readonly PLACEHOLDER_VALUES = new Set([
+    "changeme",
+    "change-me",
+    "replace_me",
+    "replace-me",
+    "your_secret_here",
+    "your-secret-here",
+    "default",
+    "default-dev-key-must-be-32-bytes!!",
+    "dev_password",
+    "test-key",
+  ]);
+  private static readonly PLACEHOLDER_PATTERNS = [
+    /^\$\{SECRET:[^}]+\}$/i,
+    /^example$/i,
+    /^your[_-].+/i,
+    /^dummy$/i,
+    /^test$/i,
+  ];
 
   /**
    * Validate all configured secrets
@@ -330,6 +349,7 @@ export class SecretValidator {
     secretDef: SecretDefinition
   ): string | null {
     const { pattern, minLength, key } = secretDef;
+    const isNonDev = !["development", "test"].includes(this.environment);
 
     // Check minimum length
     if (minLength && value.length < minLength) {
@@ -346,11 +366,24 @@ export class SecretValidator {
       return "Password should be at least 16 characters long";
     }
 
-    if (
-      key.includes("KEY") &&
-      (value === "dev_password" || value === "test-key")
-    ) {
-      return "Using development/placeholder secret in non-development environment";
+    if (isNonDev) {
+      if (
+        key.includes("KEY") &&
+        (value === "dev_password" || value === "test-key")
+      ) {
+        return "Using development/placeholder secret in non-development environment";
+      }
+      const normalized = value.trim().toLowerCase();
+      if (SecretValidator.PLACEHOLDER_VALUES.has(normalized)) {
+        return "Placeholder secret values are not allowed in non-development environments";
+      }
+      if (
+        SecretValidator.PLACEHOLDER_PATTERNS.some((pattern) =>
+          pattern.test(value.trim())
+        )
+      ) {
+        return "Placeholder secret values are not allowed in non-development environments";
+      }
     }
 
     return null;

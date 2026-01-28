@@ -2,12 +2,20 @@ import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 12 bytes for GCM
+const DEFAULT_DEV_KEYS = new Set(['default-dev-key-must-be-32-bytes!!']);
+const ENVIRONMENT = process.env.NODE_ENV || 'development';
+const IS_NON_DEV = !['development', 'test'].includes(ENVIRONMENT);
 
 // Ensure key is available or fail (unless testing)
 const ENCRYPTION_KEY = process.env.APP_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY;
 
-if (!ENCRYPTION_KEY && process.env.NODE_ENV === 'production') {
-  throw new Error('APP_ENCRYPTION_KEY is required in production');
+if (IS_NON_DEV) {
+  if (!ENCRYPTION_KEY) {
+    throw new Error('APP_ENCRYPTION_KEY is required in non-development environments');
+  }
+  if (DEFAULT_DEV_KEYS.has(ENCRYPTION_KEY)) {
+    throw new Error('APP_ENCRYPTION_KEY must be set to a non-default value');
+  }
 }
 
 // Helper to get key buffer (must be 32 bytes)
