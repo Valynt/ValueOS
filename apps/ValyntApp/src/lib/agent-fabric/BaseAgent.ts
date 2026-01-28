@@ -12,12 +12,13 @@ import { MemorySystem, MemoryEntry, MemoryQuery } from "./MemorySystem";
 import { AuditLogger, AuditLevel } from "./AuditLogger";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { IAgent, AgentRequest, AgentResponse, AgentCapability, AgentType, ConfidenceLevel, ValidationResult, AgentMetadata, AgentHealthStatus, AgentConfiguration, AgentPerformanceMetrics, AgentExecutionMetadata, AgentError } from "../../services/agents/core/IAgent";
 
 // ============================================================================
 // Agent Types
 // ============================================================================
 
-export interface AgentConfig {
+export interface BaseAgentConfig {
   id: string;
   organizationId?: string;
   userId?: string;

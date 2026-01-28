@@ -355,6 +355,19 @@ export interface SensitivityScenario {
   variance: number;
 }
 
+/**
+ * =============================
+ * MANIFESTO COMPLIANCE TYPES
+ * =============================
+ *
+ * The "manifesto" in ValueOS is a set of programmatic compliance rules and validation logic
+ * that ensure value models adhere to core principles such as value reduction, assumption validation,
+ * KPI existence, and explainability. These rules are defined as ManifestoRule objects, validated
+ * at runtime, and summarized in ManifestoComplianceReport. This enables automated, auditable
+ * enforcement of value system integrity across the lifecycle.
+ *
+ * See also: ARCHITECTURE_DESIGN_BRIEF.md (Manifesto Compliance section)
+ */
 // =====================================================
 // MANIFESTO COMPLIANCE TYPES
 // =====================================================

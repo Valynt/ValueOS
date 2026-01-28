@@ -1,3 +1,11 @@
+## Manifesto Compliance
+
+The ValueOS "manifesto" is a set of programmatic compliance rules that enforce core value system principles such as value reduction, assumption validation, KPI existence, and explainability. These rules are defined in TypeScript as `ManifestoRule` objects (see `apps/ValyntApp/src/types/vos.ts`).
+
+At runtime, value models are validated against these rules, and results are summarized in a `ManifestoComplianceReport`. This enables automated, auditable enforcement of value integrity across the lifecycle.
+
+For implementation details, see the Manifesto Compliance types in the codebase.
+
 # Architecture & Design Brief for ValueOS
 
 This brief follows the PRD framework and ValueOS-specific conventions, synthesizing architectural, workflow, and security patterns from the codebase and documentation.

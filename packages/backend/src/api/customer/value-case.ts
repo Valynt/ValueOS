@@ -97,6 +97,12 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     const roiModel = await roiModelService.getByValueCase(tenantId, valueCaseId);
     // Fetch derived KPIs
     const kpiTargets = await kpiTargetService.deriveForValueCase(tenantId, valueCaseId);
+    // Fetch opportunities
+    const opportunitiesResult = await supabaseClient
+      .from("opportunities")
+      .select("id, type, title, description, priority, impact_score")
+      .eq("value_case_id", valueCaseId);
+
     // Build response (adapt as needed)
     const response: ValueCaseResponse = {
       id: valueCaseId,
@@ -109,17 +115,27 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
       persona_fit_score: valueCaseRow.data.persona_fit_score || null,
       created_at: valueCaseRow.data.created_at || "",
       updated_at: valueCaseRow.data.updated_at || "",
-      opportunities: [], // TODO: fetch if needed
+      opportunities: (opportunitiesResult.data || []).map((o) => ({
+        id: o.id,
+        type: o.type,
+        title: o.title,
+        description: o.description,
+        priority: o.priority,
+        impact_score: o.impact_score,
+      })),
       value_drivers: (
         valueTree.nodes as Array<{ id: string; label: string; driverType: string; value?: number }>
-      ).map((n) => ({
-        id: n.id,
-        name: n.label,
-        category: n.driverType,
-        baseline_value: n.value ?? 0,
-        target_value: 0, // TODO: derive if needed
-        unit: "", // TODO: derive if needed
-      })),
+      ).map((n) => {
+        const target = kpiTargets.find((t) => t.node_id === n.id);
+        return {
+          id: n.id,
+          name: n.label,
+          category: n.driverType,
+          baseline_value: n.value ?? 0,
+          target_value: target?.target_value ?? 0,
+          unit: target?.unit ?? "",
+        };
+      }),
       financial_summary: {
         roi: roiModel.outputs["roi"] ?? null,
         npv: roiModel.outputs["npv"] ?? null,

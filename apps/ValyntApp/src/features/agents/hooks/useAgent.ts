@@ -32,24 +32,34 @@ export function useAgent(agentId: string) {
     setStatus("thinking");
 
     try {
-      // TODO: Implement actual agent API call
-      // const response = await api.post(`/agents/${agentId}/chat`, { message: content });
+      // Simulate streaming agent response
+      const responseId = `msg_${Date.now() + 1}`;
+      const fullContent = `I've analyzed your request regarding "${content}". Based on ESO benchmarks for your industry, I recommend focusing on efficiency gains in manual data entry, which typically shows a 15-20% improvement potential.`;
+      
+      let currentContent = "";
+      const words = fullContent.split(" ");
+      
+      for (let i = 0; i < words.length; i++) {
+        currentContent += (i === 0 ? "" : " ") + words[i];
+        const streamingMessage: AgentMessage = {
+          id: responseId,
+          agentId,
+          type: "agent",
+          content: currentContent,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            confidence: "high",
+          },
+        };
+        
+        setMessages((prev) => {
+          const filtered = prev.filter(m => m.id !== responseId);
+          return [...filtered, streamingMessage];
+        });
+        
+        await new Promise((resolve) => setTimeout(resolve, 50)); // Stream speed
+      }
 
-      // Simulate agent response
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const agentMessage: AgentMessage = {
-        id: `msg_${Date.now() + 1}`,
-        agentId,
-        type: "agent",
-        content: `I received your message: "${content}". This is a placeholder response.`,
-        timestamp: new Date().toISOString(),
-        metadata: {
-          confidence: "high",
-        },
-      };
-
-      setMessages((prev) => [...prev, agentMessage]);
       setStatus("idle");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send message");

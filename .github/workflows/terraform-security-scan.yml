@@ -3,15 +3,15 @@ name: Terraform Security Scan
 on:
   pull_request:
     paths:
-      - 'infrastructure/terraform/**'
+      - "infra/terraform/**"
   push:
     branches:
       - main
       - develop
     paths:
-      - 'infrastructure/terraform/**'
+      - "infra/terraform/**"
   schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sunday
+    - cron: "0 0 * * 0" # Weekly on Sunday
   workflow_dispatch:
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
   tfsec:
     name: tfsec Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,7 +31,7 @@ jobs:
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
-          working_directory: infrastructure/terraform
+          working_directory: infra/terraform
           soft_fail: false
           format: sarif
           additional_args: --minimum-severity MEDIUM
@@ -47,7 +47,7 @@ jobs:
         if: always()
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
-          working_directory: infrastructure/terraform
+          working_directory: infra/terraform
           soft_fail: true
           format: markdown
           additional_args: --minimum-severity LOW
@@ -64,11 +64,11 @@ jobs:
             } catch (error) {
               report = 'No security issues found or report generation failed.';
             }
-            
+
             const output = `### tfsec Security Scan Results 🔒
-            
+
             ${report}
-            
+
             *Scanned by: tfsec*
             *Triggered by: @${{ github.actor }}*`;
 
@@ -82,7 +82,7 @@ jobs:
   checkov:
     name: Checkov Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -96,7 +96,7 @@ jobs:
           output_format: sarif
           output_file_path: checkov.sarif
           soft_fail: false
-          skip_check: CKV_AWS_79,CKV_AWS_80  # Skip specific checks if needed
+          skip_check: CKV_AWS_79,CKV_AWS_80 # Skip specific checks if needed
 
       - name: Upload Checkov SARIF
         if: always()
@@ -117,7 +117,7 @@ jobs:
   trivy:
     name: Trivy IaC Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -125,11 +125,11 @@ jobs:
       - name: Run Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'config'
-          scan-ref: 'infrastructure/terraform'
-          format: 'sarif'
-          output: 'trivy.sarif'
-          severity: 'CRITICAL,HIGH,MEDIUM'
+          scan-type: "config"
+          scan-ref: "infrastructure/terraform"
+          format: "sarif"
+          output: "trivy.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
 
       - name: Upload Trivy SARIF
         if: always()
@@ -143,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [tfsec, checkov, trivy]
     if: always()
-    
+
     steps:
       - name: Create Summary
         run: |
