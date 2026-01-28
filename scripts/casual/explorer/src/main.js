@@ -20,11 +20,31 @@ async function init() {
     overlay.style.display = 'none';
   } catch (err) {
     console.error("❌ Initialization Error:", err);
-    overlay.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">
-      <h2>Critical Error</h2>
-      <p>${err.message}</p>
-      <button onclick="location.reload()" style="background: #3b82f6; color: white; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; margin-top: 10px;">Retry</button>
-    </div>`;
+    // Securely clear content
+    overlay.textContent = '';
+
+    // Create error container
+    const container = document.createElement('div');
+    container.style.cssText = "color: #ef4444; padding: 20px; text-align: center;";
+
+    // Create header
+    const header = document.createElement('h2');
+    header.textContent = "Critical Error";
+    container.appendChild(header);
+
+    // Create message (safely)
+    const message = document.createElement('p');
+    message.textContent = err.message;
+    container.appendChild(message);
+
+    // Create retry button
+    const button = document.createElement('button');
+    button.textContent = "Retry";
+    button.style.cssText = "background: #3b82f6; color: white; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; margin-top: 10px;";
+    button.onclick = () => location.reload();
+    container.appendChild(button);
+
+    overlay.appendChild(container);
   }
 }
 
@@ -190,11 +210,21 @@ function showNodeDetails(rel) {
 
   // Evidence
   const evidenceList = document.getElementById('evidence-list');
-  evidenceList.innerHTML = '';
+  evidenceList.textContent = '';
   rel.evidence.forEach(e => {
     const card = document.createElement('div');
     card.className = 'evidence-card';
-    card.innerHTML = `<strong>${e.source_name}</strong><blockquote>"${e.quote}"</blockquote>`;
+
+    // Source name
+    const source = document.createElement('strong');
+    source.textContent = e.source_name;
+    card.appendChild(source);
+
+    // Quote
+    const quote = document.createElement('blockquote');
+    quote.textContent = `"${e.quote}"`;
+    card.appendChild(quote);
+
     evidenceList.appendChild(card);
   });
 
