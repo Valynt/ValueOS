@@ -45,12 +45,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate audit report
-        if: always()
+      - name: Run security audit
         run: |
-          pnpm audit --production --audit-level=high --json > npm-audit-report.json || true
-          echo "## Security Audit Report (production deps, high severity)" >> $GITHUB_STEP_SUMMARY
-          pnpm audit --production --audit-level=high >> $GITHUB_STEP_SUMMARY || true
+          pnpm audit --production --audit-level=high --json > npm-audit-report.json
+          pnpm audit --production --audit-level=high
 
   dependency-review:
     name: Dependency Review
@@ -150,7 +148,7 @@ jobs:
 
       - name: Run Semgrep scan
         run: |
-          semgrep ci --config=auto --sarif --output=semgrep-results.sarif || true
+          semgrep ci --config=auto --sarif --output=semgrep-results.sarif
 
       - name: Upload Semgrep results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -174,7 +172,7 @@ jobs:
           path: ./
           base: main
           head: HEAD
-          extra_args: --debug --only-verified
+          extra_args: --debug --only-verified --fail
 
   infrastructure-scan:
     name: Infrastructure as Code Scan

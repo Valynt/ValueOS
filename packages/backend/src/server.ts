@@ -56,7 +56,7 @@ const createLogger = () => ({
   info: console.log,
   error: console.error,
   warn: console.warn,
-  debug: console.debug
+  debug: console.debug,
 });
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";

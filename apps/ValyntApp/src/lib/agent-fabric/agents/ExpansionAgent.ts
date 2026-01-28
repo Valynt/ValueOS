@@ -6,6 +6,11 @@
  */
 
 import { BaseAgent } from "../BaseAgent";
+import {
+  validateGroundTruthMetadata,
+  assertHighConfidence,
+  assertProvenance,
+} from "../ground-truth/GroundTruthValidator";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
 
@@ -142,6 +147,17 @@ export class ExpansionAgent extends BaseAgent {
         inputData,
         marlState
       );
+
+      // --- Ground Truth Validation Integration ---
+      if (Array.isArray(opportunities)) {
+        for (const opp of opportunities) {
+          if (opp && opp.metadata) {
+            const metadata = validateGroundTruthMetadata(opp.metadata);
+            assertHighConfidence(metadata, 0.9);
+            assertProvenance(metadata);
+          }
+        }
+      }
 
       // Store analysis in memory
       await this.storeExpansionAnalysis(opportunities);

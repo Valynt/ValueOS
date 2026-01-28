@@ -7,7 +7,13 @@ import { Router, Request, Response } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
 import { SecurityMetricsCollector } from "../security/enhancedSecurityLogger.js";
-import { createLogger } from "@shared/lib/logger";
+// Temporary stub for testing
+const createLogger = () => ({
+  info: console.log,
+  error: console.error,
+  warn: console.warn,
+  debug: console.debug,
+});
 
 const router = Router();
 const logger = createLogger({ component: "SecurityMonitoringAPI" });

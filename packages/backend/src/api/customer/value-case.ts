@@ -61,7 +61,10 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     // Validate request parameters
     const { token } = ValueCaseRequestSchema.parse(req.params);
     logger.info("Customer value case request");
-    const endTimer = httpRequestDuration.startTimer({ handler: "getCustomerValueCase", method: req.method });
+    const endTimer = httpRequestDuration.startTimer({
+      handler: "getCustomerValueCase",
+      method: req.method,
+    });
     res.on("finish", () => {
       endTimer({ status: String(res.statusCode) });
     });

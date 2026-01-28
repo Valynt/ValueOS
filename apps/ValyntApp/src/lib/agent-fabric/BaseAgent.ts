@@ -392,6 +392,46 @@ export abstract class BaseAgent implements IAgent {
     };
   }
 
+  /**
+   * Handle errors consistently across all agents
+   */
+  protected handleError<T>(error: Error, context?: string): AgentResponse<T> {
+    this.logger.error("Agent execution failed", {
+      error: error?.message || "Unknown error occurred",
+      stack: error.stack,
+      context,
+    });
+
+    return {
+      success: false,
+      data: undefined as T,
+      confidence: "low" as ConfidenceLevel,
+      metadata: {
+        executionId: uuidv4(),
+        agentType: this.getAgentType(),
+        startTime: new Date(),
+        endTime: new Date(),
+        duration: 0,
+        tokenUsage: {
+          input: 0,
+          output: 0,
+          total: 0,
+          cost: 0,
+        },
+        cacheHit: false,
+        retryCount: 0,
+        circuitBreakerTripped: false,
+      },
+      error: {
+        code: "EXECUTION_ERROR",
+        message: `${context ? `${context}: ` : ""}${error.message}`,
+        details: { stack: error.stack },
+        stack: error.stack,
+        retryable: false,
+      },
+    };
+  }
+
   protected async callLLM(request: Omit<LLMRequest, "id">): Promise<LLMResponse> {
     const fullRequest: LLMRequest = {
       id: uuidv4(),
@@ -631,21 +671,20 @@ export abstract class BaseAgent implements IAgent {
   /**
    * Update MARL from communication context
    */
-  protected async updateMARLFromCommunication(
-    strategy: any,
-    context: any
-  ): Promise<void> {
+  protected async updateMARLFromCommunication(strategy: any, context: any): Promise<void> {
     // Default implementation - subclasses should override
     const interaction: MARLInteraction = {
       interactionId: uuidv4(),
       sessionId: this.config.sessionId || "default",
-      actions: [{
-        agentId: this.config.id,
-        actionType: "communication",
-        parameters: { strategy, context },
-        confidence: "high" as ConfidenceLevel,
-        timestamp: new Date(),
-      }],
+      actions: [
+        {
+          agentId: this.config.id,
+          actionType: "communication",
+          parameters: { strategy, context },
+          confidence: "high" as ConfidenceLevel,
+          timestamp: new Date(),
+        },
+      ],
       outcomes: { success: true },
       timestamp: new Date(),
     };

@@ -7,6 +7,11 @@
 
 import { BaseAgent } from "../BaseAgent";
 import {
+  validateGroundTruthMetadata,
+  assertHighConfidence,
+  assertProvenance,
+} from "../ground-truth/GroundTruthValidator";
+import {
   AgentRequest,
   AgentResponse,
   AgentCapability,
@@ -103,6 +108,13 @@ export class OpportunityAgent extends BaseAgent {
 
       // Analyze the opportunity using LLM
       const analysis = await this.analyzeOpportunity(inputData);
+
+      // --- Ground Truth Validation Integration ---
+      if (analysis && analysis.metadata) {
+        const metadata = validateGroundTruthMetadata(analysis.metadata);
+        assertHighConfidence(metadata, 0.9);
+        assertProvenance(metadata);
+      }
 
       // Store analysis in memory
       await this.storeAnalysis(analysis, request);

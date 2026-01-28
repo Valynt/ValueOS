@@ -186,7 +186,7 @@ export class CommunicatorAgent extends BaseAgent {
         strategy.confidence >= 0.8 ? "high" : strategy.confidence >= 0.6 ? "medium" : "low",
         undefined,
         {
-          executionTime: Date.now() - startTime,
+          duration: Date.now() - startTime,
         }
       );
     } catch (error) {
@@ -215,14 +215,13 @@ export class CommunicatorAgent extends BaseAgent {
       const marlState: MARLState = {
         sessionId,
         agentStates: {
-          [this.agentId]: {
+          [this.config.id]: {
             context,
             history: this.communicationHistory.slice(-5),
           },
         },
         sharedContext: { sessionId, context },
-        interactionHistory: this.getMARLHistory(),
-        timestamp: Date.now(),
+        timestamp: new Date(),
       };
 
       const marlAction = await this.selectMARLAction(marlState);

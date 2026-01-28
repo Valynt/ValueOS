@@ -1,16 +1,19 @@
-/**
- * Metrics Middleware
- */
+import registry, { httpRequestDuration } from "../lib/metrics/httpMetrics";
 
+/**
+ * Express middleware to record request durations using prom-client histogram
+ */
 export function metricsMiddleware(req: any, res: any, next: any) {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+  const end = httpRequestDuration.startTimer({
+    handler: req.path || "unknown",
+    method: req.method,
+  });
+  res.on("finish", () => {
+    end({ status: String(res.statusCode) });
   });
   next();
 }
 
 export function getMetricsRegistry() {
-  return {};
+  return registry;
 }

@@ -6,6 +6,9 @@
   },
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "vscode",
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
   "postCreateCommand": "pnpm install --frozen-lockfile",
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",

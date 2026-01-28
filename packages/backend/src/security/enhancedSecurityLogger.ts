@@ -414,10 +414,10 @@ export class SecurityMetricsCollector {
 
 // Override the original logSecurityEvent to also record metrics
 const originalLogSecurityEvent = logSecurityEvent;
-export function logSecurityEvent(event: SecurityEvent): void {
+globalThis.logSecurityEvent = function (event: SecurityEvent): void {
   // Record metrics
   SecurityMetricsCollector.getInstance().recordEvent(event);
 
   // Log the event
   originalLogSecurityEvent(event);
-}
+};

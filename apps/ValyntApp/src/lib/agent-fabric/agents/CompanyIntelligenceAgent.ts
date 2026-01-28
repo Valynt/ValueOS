@@ -7,7 +7,12 @@
 import { BaseAgent, AgentConfig } from "../BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentType } from "../../../types/agents";
-import { z } from "zod";
+
+import {
+  validateGroundTruthMetadata,
+  assertHighConfidence,
+  assertProvenance,
+} from "../ground-truth/GroundTruthValidator";
 
 type ConfidenceLevel = "high" | "medium" | "low";
 
@@ -19,24 +24,28 @@ const intelligenceSchema = z.object({
     size: z.string().optional(),
     description: z.string().optional(),
   }),
-  key_stakeholders: z.array(z.object({
-    name: z.string(),
-    role: z.string(),
-    influence: z.enum(['high', 'medium', 'low']).optional(),
-  })),
-  strategic_priorities: z.array(z.object({
-    priority: z.string(),
-    description: z.string(),
-    timeframe: z.string().optional(),
-  })),
+  key_stakeholders: z.array(
+    z.object({
+      name: z.string(),
+      role: z.string(),
+      influence: z.enum(["high", "medium", "low"]).optional(),
+    })
+  ),
+  strategic_priorities: z.array(
+    z.object({
+      priority: z.string(),
+      description: z.string(),
+      timeframe: z.string().optional(),
+    })
+  ),
   decision_patterns: z.object({
     style: z.string(),
     speed: z.string().optional(),
     primary_factors: z.array(z.string()).optional(),
   }),
-  confidence_level: z.enum(['high', 'medium', 'low']),
+  confidence_level: z.enum(["high", "medium", "low"]),
   reasoning: z.string(),
-  hallucination_check: z.boolean().optional()
+  hallucination_check: z.boolean().optional(),
 });
 
 export type CompanyIntelligenceResult = z.infer<typeof intelligenceSchema>;
@@ -72,7 +81,7 @@ export class CompanyIntelligenceAgent extends BaseAgent {
         inputTypes: ["text"],
         outputTypes: ["object"],
         requiredPermissions: ["llm_access"],
-      }
+      },
     ];
   }
 
@@ -105,13 +114,19 @@ export class CompanyIntelligenceAgent extends BaseAgent {
         model: "gpt-4",
       });
 
+      // --- Ground Truth Validation Integration ---
+      if (result && result.metadata) {
+        const metadata = validateGroundTruthMetadata(result.metadata);
+        assertHighConfidence(metadata, 0.9);
+        assertProvenance(metadata);
+      }
+
       return this.createResponse(
         true,
         result,
         result.confidence_level as ConfidenceLevel,
         result.reasoning
       );
-
     } catch (error) {
       return this.handleError(error as Error, "CompanyIntelligenceAgent processing failed");
     }

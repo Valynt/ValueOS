@@ -6,6 +6,11 @@
  */
 
 import { BaseAgent } from "../BaseAgent";
+import {
+  validateGroundTruthMetadata,
+  assertHighConfidence,
+  assertProvenance,
+} from "../ground-truth/GroundTruthValidator";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 
@@ -120,6 +125,13 @@ export class IntegrityAgent extends BaseAgent {
 
       // Validate and analyze the ROI model
       const validatedModel = await this.validateROIModel(inputData);
+
+      // --- Ground Truth Validation Integration ---
+      if (validatedModel && validatedModel.metadata) {
+        const metadata = validateGroundTruthMetadata(validatedModel.metadata);
+        assertHighConfidence(metadata, 0.9);
+        assertProvenance(metadata);
+      }
 
       // Store validation results in memory
       await this.storeValidationResults(validatedModel, request);

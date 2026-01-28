@@ -60,17 +60,14 @@ export class LLMFallbackService {
 
   constructor() {
     // Circuit breaker for Together.ai
-    this.togetherAIBreaker = new CircuitBreaker(
-      this.callTogetherAI.bind(this),
-      {
-        timeout: 30000, // 30 seconds
-        errorThresholdPercentage: 50, // Open circuit if 50% of requests fail
-        resetTimeout: 60000, // Try again after 1 minute
-        rollingCountTimeout: 10000, // 10 second window
-        rollingCountBuckets: 10,
-        name: "together-ai",
-      }
-    );
+    this.togetherAIBreaker = new CircuitBreaker(this.callTogetherAI.bind(this), {
+      timeout: 30000, // 30 seconds
+      errorThresholdPercentage: 50, // Open circuit if 50% of requests fail
+      resetTimeout: 60000, // Try again after 1 minute
+      rollingCountTimeout: 10000, // 10 second window
+      rollingCountBuckets: 10,
+      name: "together-ai",
+    });
 
     // Set up event listeners
     this.setupEventListeners();
@@ -104,26 +101,22 @@ export class LLMFallbackService {
 
     try {
       const togetherApiKey = getEnvVar("TOGETHER_API_KEY");
-      if (!togetherApiKey)
-        throw new Error("Together.ai API key not configured");
+      if (!togetherApiKey) throw new Error("Together.ai API key not configured");
 
-      const response = await fetch(
-        "https://api.together.ai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${togetherApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: request.model,
-            messages: [{ role: "user", content: request.prompt }],
-            max_tokens: request.maxTokens || 1000,
-            temperature: request.temperature || 0.7,
-          }),
-          signal: AbortSignal.timeout(25000), // 25 second timeout
-        }
-      );
+      const response = await fetch("https://api.together.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${togetherApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: request.model,
+          messages: [{ role: "user", content: request.prompt }],
+          max_tokens: request.maxTokens || 1000,
+          temperature: request.temperature || 0.7,
+        }),
+        signal: AbortSignal.timeout(25000), // 25 second timeout
+      });
 
       if (!response.ok) {
         const error = await response.text();
@@ -207,36 +200,30 @@ export class LLMFallbackService {
   /**
    * Call Together.ai API with streaming
    */
-  private async *callTogetherAIStream(
-    request: LLMRequest
-  ): AsyncGenerator<string, void, unknown> {
+  private async *callTogetherAIStream(request: LLMRequest): AsyncGenerator<string, void, unknown> {
     const startTime = Date.now();
     this.stats.togetherAI.calls++;
 
     try {
       const togetherApiKey = getEnvVar("TOGETHER_API_KEY");
-      if (!togetherApiKey)
-        throw new Error("Together.ai API key not configured");
+      if (!togetherApiKey) throw new Error("Together.ai API key not configured");
 
-      const response = await fetch(
-        "https://api.together.ai/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${togetherApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: request.model,
-            messages: [{ role: "user", content: request.prompt }],
-            max_tokens: request.maxTokens || 1000,
-            temperature: request.temperature || 0.7,
-            stream: true,
-          }),
-          // Increase timeout for streaming connections
-          signal: AbortSignal.timeout(60000),
-        }
-      );
+      const response = await fetch("https://api.together.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${togetherApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: request.model,
+          messages: [{ role: "user", content: request.prompt }],
+          max_tokens: request.maxTokens || 1000,
+          temperature: request.temperature || 0.7,
+          stream: true,
+        }),
+        // Increase timeout for streaming connections
+        signal: AbortSignal.timeout(60000),
+      });
 
       if (!response.ok) {
         const error = await response.text();
@@ -275,15 +262,15 @@ export class LLMFallbackService {
       if (buffer.trim() && buffer.trim() !== "data: [DONE]") {
         const trimmed = buffer.trim();
         if (trimmed.startsWith("data: ")) {
-           try {
-              const data = JSON.parse(trimmed.slice(6));
-              const content = data.choices[0]?.delta?.content;
-              if (content) {
-                yield content;
-              }
-            } catch (e) {
-              logger.warn("Error parsing SSE data", { line: trimmed, error: e });
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            const content = data.choices[0]?.delta?.content;
+            if (content) {
+              yield content;
             }
+          } catch (e) {
+            logger.warn("Error parsing SSE data", { line: trimmed, error: e });
+          }
         }
       }
 
@@ -293,7 +280,6 @@ export class LLMFallbackService {
         success: true,
         latency: Date.now() - startTime,
       });
-
     } catch (error) {
       this.stats.togetherAI.failures++;
 
@@ -318,10 +304,7 @@ export class LLMFallbackService {
     if (cached) {
       this.stats.cache.hits++;
 
-      logger.cache(
-        "hit",
-        `${request.model}:${request.prompt.substring(0, 50)}`
-      );
+      logger.cache("hit", `${request.model}:${request.prompt.substring(0, 50)}`);
 
       return {
         content: cached.response,
@@ -338,9 +321,7 @@ export class LLMFallbackService {
 
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
-    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
-      request.prompt
-    );
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(request.prompt);
     const estimatedCompletionTokens = request.maxTokens || 1000;
     const estimatedCost = llmCostTracker.calculateCost(
       request.model,
@@ -385,9 +366,7 @@ export class LLMFallbackService {
     // Skip cache for streaming requests for now
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
-    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
-      request.prompt
-    );
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(request.prompt);
     const estimatedCompletionTokens = request.maxTokens || 1000;
     const estimatedCost = llmCostTracker.calculateCost(
       request.model,

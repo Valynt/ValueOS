@@ -25,9 +25,15 @@ permissions:
   id-token: write # For OIDC authentication
 
 jobs:
+  security-scan:
+    name: Security Gates
+    uses: ./.github/workflows/security-scan.yml
+    secrets: inherit
+
   build-and-scan:
     name: Build and Security Scan
     runs-on: ubuntu-latest
+    needs: security-scan
     outputs:
       backend_digest: ${{ steps.build.outputs.backend_digest }}
       frontend_digest: ${{ steps.build.outputs.frontend_digest }}
@@ -111,6 +117,29 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Sign backend image
+        run: |
+          # Install cosign
+          curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+          sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+          sudo chmod +x /usr/local/bin/cosign
+
+          # Sign the backend image using AWS KMS
+          cosign sign --kms aws-kms://arn:aws:kms:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:key/${{ secrets.COSIGN_KMS_KEY_ID }} ${{ env.ECR_REGISTRY }}/valuecanvas-backend:${{ github.sha }}
+
+      - name: Sign frontend image
+        run: |
+          # Sign the frontend image using AWS KMS
+          cosign sign --kms aws-kms://arn:aws:kms:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:key/${{ secrets.COSIGN_KMS_KEY_ID }} ${{ env.ECR_REGISTRY }}/valuecanvas-frontend:${{ github.sha }}
+
+      - name: Verify image signatures
+        run: |
+          # Verify backend image signature
+          cosign verify --kms aws-kms://arn:aws:kms:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:key/${{ secrets.COSIGN_KMS_KEY_ID }} ${{ env.ECR_REGISTRY }}/valuecanvas-backend:${{ github.sha }}
+
+          # Verify frontend image signature
+          cosign verify --kms aws-kms://arn:aws:kms:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:key/${{ secrets.COSIGN_KMS_KEY_ID }} ${{ env.ECR_REGISTRY }}/valuecanvas-frontend:${{ github.sha }}
 
       - name: Scan images for vulnerabilities
         run: |
