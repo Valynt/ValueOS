@@ -7,6 +7,7 @@
  */
 
 import { logger } from "../lib/logger";
+import { fetchWithRetry } from "./utils/fetchWithRetry";
 
 async function fetchWithRetry(
   url: string,

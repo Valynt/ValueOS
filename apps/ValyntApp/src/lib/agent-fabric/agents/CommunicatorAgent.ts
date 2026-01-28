@@ -5,7 +5,14 @@
  * using Multi-Agent Reinforcement Learning (MARL) for optimizing communication effectiveness.
  */
 
-import { BaseAgent, MARLState, MARLAction, MARLInteraction, MARLRewardFunction, MARLPolicy } from "./BaseAgent";
+import {
+  BaseAgent,
+  MARLState,
+  MARLAction,
+  MARLInteraction,
+  MARLRewardFunction,
+  MARLPolicy,
+} from "./BaseAgent";
 import { AgentRequest, AgentResponse } from "./BaseAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 
@@ -61,7 +68,7 @@ export class CommunicatorAgent extends BaseAgent {
       "communication_strategy",
       "feedback_analysis",
       "adaptive_messaging",
-      "channel_optimization"
+      "channel_optimization",
     ];
   }
 
@@ -263,10 +270,10 @@ Channel: ${context.communicationChannel}
 Urgency: ${context.urgency}
 
 Key Messages:
-${strategy.keyMessages.map(msg => `- ${msg}`).join('\n')}
+${strategy.keyMessages.map((msg) => `- ${msg}`).join("\n")}
 
 Expected Outcomes:
-${strategy.expectedOutcomes.map(outcome => `- ${outcome}`).join('\n')}
+${strategy.expectedOutcomes.map((outcome) => `- ${outcome}`).join("\n")}
 
 Please craft a professional, effective message that achieves the communication goal.`;
 
@@ -276,7 +283,7 @@ Please craft a professional, effective message that achieves the communication g
 
 ${strategy.keyMessages[0]}
 
-${strategy.keyMessages.slice(1).join(' ')}
+${strategy.keyMessages.slice(1).join(" ")}
 
 Best regards,
 ValueOS Communicator Agent`;
@@ -347,13 +354,15 @@ ValueOS Communicator Agent`;
         interactionHistory: [],
         timestamp: Date.now(),
       },
-      actions: [{
-        agentId: this.agentId,
-        actionType: "generate_strategy",
-        parameters: { strategy, context },
-        confidence: strategy.confidence,
-        timestamp: Date.now(),
-      }],
+      actions: [
+        {
+          agentId: this.agentId,
+          actionType: "generate_strategy",
+          parameters: { strategy, context },
+          confidence: strategy.confidence,
+          timestamp: Date.now(),
+        },
+      ],
       rewards: { [this.agentId]: strategy.confidence }, // Reward based on confidence
       nextState: {
         sessionId: "current",
@@ -368,7 +377,10 @@ ValueOS Communicator Agent`;
     await this.updateMARLPolicy(interaction);
   }
 
-  private actionToStrategy(action: MARLAction, context: CommunicationContext): CommunicationStrategy {
+  private actionToStrategy(
+    action: MARLAction,
+    context: CommunicationContext
+  ): CommunicationStrategy {
     // Convert MARL action to communication strategy
     return {
       strategyId: `marl-${action.timestamp}`,

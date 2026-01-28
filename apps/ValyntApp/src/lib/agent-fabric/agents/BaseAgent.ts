@@ -270,11 +270,7 @@ export abstract class BaseAgent {
   /**
    * Calculate MARL reward for an action
    */
-  calculateMARLReward(
-    state: MARLState,
-    action: MARLAction,
-    nextState: MARLState
-  ): number {
+  calculateMARLReward(state: MARLState, action: MARLAction, nextState: MARLState): number {
     if (!this.marlEnabled || !this.marlRewardFunction) {
       return 0;
     }
@@ -308,7 +304,7 @@ export abstract class BaseAgent {
     this.logger.info("Shared episodic memory", {
       agentId: this.agentId,
       otherAgentId: otherAgent.getAgentId(),
-      interactionsShared: recentInteractions.length
+      interactionsShared: recentInteractions.length,
     });
   }
 

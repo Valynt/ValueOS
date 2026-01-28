@@ -19,8 +19,12 @@ export function immutableUpdate<T extends Record<string, any>>(obj: T, updates: 
  * @param value The new value to set at the specified path.
  * @returns A new object with the nested update applied, leaving the original unchanged.
  */
-export function immutableNestedUpdate<T>(obj: T, path: string | (string | number)[], value: any): T {
-  const pathArray = typeof path === 'string' ? path.split('.') : path;
+export function immutableNestedUpdate<T>(
+  obj: T,
+  path: string | (string | number)[],
+  value: any
+): T {
+  const pathArray = typeof path === "string" ? path.split(".") : path;
   return setNestedValue(obj, pathArray, value);
 }
 
@@ -28,7 +32,7 @@ function setNestedValue(obj: any, path: (string | number)[], value: any): any {
   if (path.length === 0) return value;
   const [key, ...rest] = path;
   if (Array.isArray(obj)) {
-    const index = typeof key === 'number' ? key : parseInt(key as string, 10);
+    const index = typeof key === "number" ? key : parseInt(key as string, 10);
     if (isNaN(index)) throw new Error(`Invalid array index: ${key}`);
     const newArray = [...obj];
     newArray[index] = setNestedValue(obj[index], rest, value);
