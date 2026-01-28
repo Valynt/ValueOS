@@ -6,22 +6,42 @@ export function Analytics() {
   useEffect(() => {
     if (!gtmId) return;
 
-    const gtmScript = document.createElement("script");
-    gtmScript.innerHTML = `
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','${gtmId}');
-    `;
-    document.head.appendChild(gtmScript);
+    // GTM Initialization
+    // Refactored to avoid innerHTML usage (SEC-003)
+    (function(w: any, d: any, s: string, l: string, i: string){
+      w[l] = w[l] || [];
+      w[l].push({
+        'gtm.start': new Date().getTime(),
+        event: 'gtm.js'
+      });
 
+      const f = d.getElementsByTagName(s)[0];
+      const j = d.createElement(s);
+      const dl = l != 'dataLayer' ? '&l=' + l : '';
+
+      j.async = true;
+      j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl;
+
+      if (f && f.parentNode) {
+        f.parentNode.insertBefore(j, f);
+      } else {
+        d.head.appendChild(j);
+      }
+    })(window, document, 'script', 'dataLayer', gtmId);
+
+    // Noscript Iframe
+    // Using DOM API instead of innerHTML for security
     const gtmNoscript = document.createElement("noscript");
-    gtmNoscript.innerHTML = `
-      <iframe src="https://www.googletagmanager.com/ns.html?id=${gtmId}"
-      height="0" width="0" style="display:none;visibility:hidden"></iframe>
-    `;
+    const iframe = document.createElement("iframe");
+    iframe.src = `https://www.googletagmanager.com/ns.html?id=${gtmId}`;
+    iframe.height = "0";
+    iframe.width = "0";
+    iframe.style.display = "none";
+    iframe.style.visibility = "hidden";
+
+    gtmNoscript.appendChild(iframe);
     document.body.insertBefore(gtmNoscript, document.body.firstChild);
+
   }, [gtmId]);
 
   return null;
