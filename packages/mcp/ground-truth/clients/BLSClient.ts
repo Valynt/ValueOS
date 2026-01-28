@@ -117,7 +117,7 @@ export class BLSClient {
 
       logger.debug("Fetching BLS wage data", { occupationCodes, areaCode, params });
 
-      const response = await fetch(this.baseUrl, {
+      const response = await fetchWithRetry(this.baseUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -163,7 +163,7 @@ export class BLSClient {
 
       logger.debug("Fetching BLS employment data", { seriesIds, startYear, endYear });
 
-      const response = await fetch(this.baseUrl, {
+      const response = await fetchWithRetry(this.baseUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -221,7 +221,7 @@ export class BLSClient {
 
       logger.debug("Fetching BLS industry data", { naicsCodes, year, quarter });
 
-      const response = await fetch(this.baseUrl, {
+      const response = await fetchWithRetry(this.baseUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -270,7 +270,7 @@ export class BLSClient {
 
       logger.debug("Fetching BLS CPI data", { areaCode, itemCode, startYear, endYear });
 
-      const response = await fetch(this.baseUrl, {
+      const response = await fetchWithRetry(this.baseUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

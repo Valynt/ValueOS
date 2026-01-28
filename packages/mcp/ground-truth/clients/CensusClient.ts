@@ -132,7 +132,7 @@ export class CensusClient {
 
       logger.debug("Fetching Census demographic data", { geography, year, url });
 
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) {
         throw new Error(`Census API error: ${response.status} ${response.statusText}`);
       }
@@ -192,7 +192,7 @@ export class CensusClient {
 
       logger.debug("Fetching Census demographic data", { geography, year, url });
 
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) {
         throw new Error(`Census API error: ${response.status} ${response.statusText}`);
       }
@@ -246,7 +246,7 @@ export class CensusClient {
 
       logger.debug("Fetching Census economic data", { geography, year, url });
 
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) {
         throw new Error(`Census API error: ${response.status} ${response.statusText}`);
       }
@@ -298,7 +298,7 @@ export class CensusClient {
 
       logger.debug("Fetching Census business patterns", { naicsCodes, geography, year, url });
 
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) {
         throw new Error(`Census API error: ${response.status} ${response.statusText}`);
       }
@@ -342,7 +342,7 @@ export class CensusClient {
 
       logger.debug("Fetching Census population estimates", { geography, year, url });
 
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       if (!response.ok) {
         throw new Error(`Census API error: ${response.status} ${response.statusText}`);
       }

@@ -134,7 +134,7 @@ export class SECEdgarClient {
 
       logger.debug("Fetching SEC filings", { cik: formattedCik, url });
 
-      const response = await fetch(url, {
+      const response = await fetchWithRetry(url, {
         headers: {
           "User-Agent": this.userAgent,
           Accept: "application/atom+xml",
@@ -163,7 +163,7 @@ export class SECEdgarClient {
       const formattedCik = cik.padStart(10, "0");
       const url = `${this.baseUrl}/cgi-bin/browse-edgar?action=getcompany&CIK=${formattedCik}&output=atom`;
 
-      const response = await fetch(url, {
+      const response = await fetchWithRetry(url, {
         headers: {
           "User-Agent": this.userAgent,
           Accept: "application/atom+xml",
@@ -238,7 +238,7 @@ export class SECEdgarClient {
 
       const url = `${this.baseUrl}/cgi-bin/browse-edgar?${params.toString()}`;
 
-      const response = await fetch(url, {
+      const response = await fetchWithRetry(url, {
         headers: {
           "User-Agent": this.userAgent,
           Accept: "application/atom+xml",
