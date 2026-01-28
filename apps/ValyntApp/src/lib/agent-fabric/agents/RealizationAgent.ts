@@ -8,6 +8,11 @@
 import { BaseAgent } from "../BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
+import {
+  validateGroundTruthMetadata,
+  assertHighConfidence,
+  assertProvenance,
+} from "../ground-truth/GroundTruthValidator";
 
 export interface ValueRealization {
   realizationId: string;
@@ -123,11 +128,6 @@ export class RealizationAgent extends BaseAgent {
         outputTypes: ["text"],
         requiredPermissions: ["llm_access"],
       },
-      import {
-        validateGroundTruthMetadata,
-        assertHighConfidence,
-        assertProvenance,
-      } from "../ground-truth/GroundTruthValidator";
     ];
   }
 
@@ -236,13 +236,13 @@ ${
 ACTUAL OUTCOMES:
 ${
   data.actual
-        // Example: After retrieving ground truth data (e.g., from LLM/memory)
-        // if (result && result.metadata) {
-        //   const metadata = validateGroundTruthMetadata(result.metadata);
-        //   assertHighConfidence(metadata, 0.9);
-        //   assertProvenance(metadata);
-        // }
-    ? `
+    ? // Example: After retrieving ground truth data (e.g., from LLM/memory)
+      // if (result && result.metadata) {
+      //   const metadata = validateGroundTruthMetadata(result.metadata);
+      //   assertHighConfidence(metadata, 0.9);
+      //   assertProvenance(metadata);
+      // }
+      `
 - Realized Value: $${data.actual.realizedValue?.toLocaleString() || "Not specified"}
 - Achievement Date: ${data.actual.achievementDate || "Not specified"}
 - Actual Timeframe: ${data.actual.actualTimeframe || "Not specified"}

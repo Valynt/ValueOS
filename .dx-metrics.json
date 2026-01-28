@@ -110,5 +110,33 @@
     "success": true,
     "timestamp": "2026-01-26T09:12:46.526Z",
     "duration": 139264
+  },
+  {
+    "startTime": 1769595055649,
+    "platform": "linux",
+    "steps": [
+      {
+        "name": "Install dependencies",
+        "success": true,
+        "duration": 28835
+      }
+    ],
+    "success": true,
+    "timestamp": "2026-01-28T10:11:27.331Z",
+    "duration": 31682
+  },
+  {
+    "startTime": 1769595175598,
+    "platform": "linux",
+    "steps": [
+      {
+        "name": "Install dependencies",
+        "success": true,
+        "duration": 18796
+      }
+    ],
+    "success": true,
+    "timestamp": "2026-01-28T10:13:15.402Z",
+    "duration": 19804
   }
 ]

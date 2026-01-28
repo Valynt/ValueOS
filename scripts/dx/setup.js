@@ -320,8 +320,15 @@ async function main() {
     // manage Supabase manually (e.g., using local containers or remote projects).
     if (!process.env.SUPABASE_PROJECT_ID || !process.env.SUPABASE_DB_PASSWORD) {
       console.log('\n⚠️  SUPABASE_PROJECT_ID or SUPABASE_DB_PASSWORD not set — skipping Supabase DB setup and migrations.');
-      console.log('   To run DB setup later: set SUPABASE_PROJECT_ID and SUPABASE_DB_PASSWORD, then run `pnpm run db:setup`.');
+      console.log('   To run DB setup later: set SUPABASE_PROJECT_ID and SUPABASE_DB_PASSWORD, then run `pnpm run setup`.');
     } else {
+      // First, link to Supabase Cloud project
+      const cloudLinkSuccess = exec('scripts/supabase/cloud.sh', 'Link Supabase Cloud project');
+      if (!cloudLinkSuccess) {
+        throw new Error('Supabase Cloud project linking failed');
+      }
+
+      // Then apply migrations
       const dbSetupSuccess = exec('pnpm run db:setup', 'Supabase DB setup & migrations');
       if (!dbSetupSuccess) {
         throw new Error('Supabase DB setup or migrations failed');
