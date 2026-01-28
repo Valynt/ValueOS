@@ -21,10 +21,13 @@ import type { PersonaType } from "../QuantumView";
 // Mock for visual consistency
 const expectVisualConsistency = (container: HTMLElement, expectedElements: string[]) => {
   expectedElements.forEach((elementText) => {
+  expectedElements.forEach((elementText) => {
     const element = screen.getByText(elementText);
     expect(element).toBeInTheDocument();
 
+
     // Check that element has consistent styling
+    expect(element.closest("div")).toHaveAttribute("class");
     expect(element.closest("div")).toHaveAttribute("class");
   });
 };
@@ -32,23 +35,39 @@ const expectVisualConsistency = (container: HTMLElement, expectedElements: strin
 describe("Visual Regression - Template Consistency", () => {
   describe("Trinity Dashboard Visual Tests", () => {
     it("should maintain consistent header structure", () => {
+describe("Visual Regression - Template Consistency", () => {
+  describe("Trinity Dashboard Visual Tests", () => {
+    it("should maintain consistent header structure", () => {
       const { container } = render(<ROICalculator />);
 
+
       // Check header structure
+      const header = container.querySelector("h1");
+      expect(header).toHaveTextContent("Business Case");
+      expect(header?.className).toContain("text-lg");
       const header = container.querySelector("h1");
       expect(header).toHaveTextContent("Business Case");
       expect(header?.className).toContain("text-lg");
     });
 
     it("should render bento cards with consistent styling", () => {
+    it("should render bento cards with consistent styling", () => {
       render(<ROICalculator />);
+
+      const cards = screen.getAllByRole("button");
+      const bentoCards = cards.filter((card) => card.className.includes("bento-card"));
+
 
       const cards = screen.getAllByRole("button");
       const bentoCards = cards.filter((card) => card.className.includes("bento-card"));
 
       expect(bentoCards.length).toBe(3);
 
+
       // Each card should have consistent structure
+      bentoCards.forEach((card) => {
+        expect(card).toHaveAttribute("class");
+        expect(card).toHaveAttribute("tabIndex");
       bentoCards.forEach((card) => {
         expect(card).toHaveAttribute("class");
         expect(card).toHaveAttribute("tabIndex");
@@ -56,9 +75,18 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render metrics with consistent formatting", () => {
+    it("should render metrics with consistent formatting", () => {
       render(<ROICalculator />);
 
+
       // Check metric cards
+      const roiCard = screen.getByText("3-Year ROI").closest("div");
+      const npvCard = screen.getByText("Net Present Value").closest("div");
+      const paybackCard = screen.getByText("Payback Period").closest("div");
+
+      [roiCard, npvCard, paybackCard].forEach((card) => {
+        expect(card).toHaveClass("bento-card");
+        expect(card).toHaveClass("bg-primary/5");
       const roiCard = screen.getByText("3-Year ROI").closest("div");
       const npvCard = screen.getByText("Net Present Value").closest("div");
       const paybackCard = screen.getByText("Payback Period").closest("div");
@@ -70,17 +98,24 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render charts with consistent dimensions", () => {
+    it("should render charts with consistent dimensions", () => {
       render(<ROICalculator />);
+
 
       // Trajectory chart
       const trajectoryChart = screen.getByText("3-Year Trajectory").closest("div");
+      const trajectoryChart = screen.getByText("3-Year Trajectory").closest("div");
       expect(trajectoryChart).toBeInTheDocument();
+
 
       // Value breakdown
       const valueBreakdown = screen.getByText("Value Breakdown").closest("div");
+      const valueBreakdown = screen.getByText("Value Breakdown").closest("div");
       expect(valueBreakdown).toBeInTheDocument();
 
+
       // Strategic insights
+      const insights = screen.getByText("Strategic Insights").closest("div");
       const insights = screen.getByText("Strategic Insights").closest("div");
       expect(insights).toBeInTheDocument();
     });
@@ -88,22 +123,34 @@ describe("Visual Regression - Template Consistency", () => {
 
   describe("Impact Cascade Visual Tests", () => {
     it("should maintain consistent layout structure", () => {
+  describe("Impact Cascade Visual Tests", () => {
+    it("should maintain consistent layout structure", () => {
       const { container } = render(<ImpactCascade />);
+
 
       // Check main container
       const mainContainer = container.querySelector(".flex-1");
+      const mainContainer = container.querySelector(".flex-1");
       expect(mainContainer).toBeInTheDocument();
 
+
       // Check grid layout
+      const grid = container.querySelector(".grid");
       const grid = container.querySelector(".grid");
       expect(grid).toBeInTheDocument();
     });
 
     it("should render agent badges consistently", () => {
+    it("should render agent badges consistently", () => {
       render(<ImpactCascade />);
+
 
       const badges = screen.getAllByTestId(/agent-badge-/);
       expect(badges.length).toBeGreaterThan(0);
+
+      badges.forEach((badge) => {
+        expect(badge).toHaveAttribute("data-testid");
+        expect(badge).toHaveAttribute("data-size");
 
       badges.forEach((badge) => {
         expect(badge).toHaveAttribute("data-testid");
@@ -112,10 +159,16 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render confidence indicators with consistent styling", () => {
+    it("should render confidence indicators with consistent styling", () => {
       render(<ImpactCascade />);
 
       const indicators = screen.getAllByTestId("confidence-indicator");
+
+      const indicators = screen.getAllByTestId("confidence-indicator");
       expect(indicators.length).toBeGreaterThan(0);
+
+      indicators.forEach((indicator) => {
+        expect(indicator).toHaveAttribute("data-size");
 
       indicators.forEach((indicator) => {
         expect(indicator).toHaveAttribute("data-size");
@@ -124,13 +177,22 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render feature library with consistent spacing", () => {
+    it("should render feature library with consistent spacing", () => {
       render(<ImpactCascade />);
+
+      const featureLibrary = screen.getByText("Feature Library").closest("div");
 
       const featureLibrary = screen.getByText("Feature Library").closest("div");
       expect(featureLibrary).toBeInTheDocument();
 
       const features = within(featureLibrary!).getAllByRole("button");
+
+      const features = within(featureLibrary!).getAllByRole("button");
       expect(features.length).toBeGreaterThan(0);
+
+      features.forEach((feature) => {
+        expect(feature).toHaveAttribute("draggable");
+        expect(feature).toHaveAttribute("class");
 
       features.forEach((feature) => {
         expect(feature).toHaveAttribute("draggable");
@@ -140,8 +202,14 @@ describe("Visual Regression - Template Consistency", () => {
   });
 
   describe("Scenario Matrix Visual Tests", () => {
+  describe("Scenario Matrix Visual Tests", () => {
     const mockScenarios = [
       {
+        id: "test-1",
+        title: "Test Scenario 1",
+        description: "Description 1",
+        category: "Financial",
+        icon: "chart",
         id: "test-1",
         title: "Test Scenario 1",
         description: "Description 1",
@@ -152,8 +220,16 @@ describe("Visual Regression - Template Consistency", () => {
         estimatedTime: "15 min",
         estimatedValue: "$50K",
         complexity: "simple",
+        estimatedTime: "15 min",
+        estimatedValue: "$50K",
+        complexity: "simple",
       },
       {
+        id: "test-2",
+        title: "Test Scenario 2",
+        description: "Description 2",
+        category: "Technical",
+        icon: "brain",
         id: "test-2",
         title: "Test Scenario 2",
         description: "Description 2",
@@ -163,9 +239,13 @@ describe("Visual Regression - Template Consistency", () => {
         estimatedTime: "30 min",
         estimatedValue: "$100K",
         complexity: "medium",
+        estimatedTime: "30 min",
+        estimatedValue: "$100K",
+        complexity: "medium",
       },
     ];
 
+    it("should render header with consistent styling", () => {
     it("should render header with consistent styling", () => {
       render(
         <ScenarioSelector
@@ -177,10 +257,14 @@ describe("Visual Regression - Template Consistency", () => {
       );
 
       const header = screen.getByText("Select Scenario").closest("div");
+
+      const header = screen.getByText("Select Scenario").closest("div");
       expect(header).toBeInTheDocument();
+      expect(header).toHaveClass("p-6");
       expect(header).toHaveClass("p-6");
     });
 
+    it("should render search and filters consistently", () => {
     it("should render search and filters consistently", () => {
       render(
         <ScenarioSelector
@@ -192,7 +276,12 @@ describe("Visual Regression - Template Consistency", () => {
       );
 
       const searchInput = screen.getByPlaceholderText("Search scenarios...");
+
+      const searchInput = screen.getByPlaceholderText("Search scenarios...");
       expect(searchInput).toBeInTheDocument();
+      expect(searchInput).toHaveClass("pl-10");
+
+      const filterSelect = screen.getByRole("combobox");
       expect(searchInput).toHaveClass("pl-10");
 
       const filterSelect = screen.getByRole("combobox");
@@ -200,9 +289,15 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render view toggle buttons consistently", () => {
+    it("should render view toggle buttons consistently", () => {
       render(
         <ScenarioSelector scenarios={mockScenarios} onSelect={() => {}} showViewToggle={true} />
+        <ScenarioSelector scenarios={mockScenarios} onSelect={() => {}} showViewToggle={true} />
       );
+
+      const gridButton = screen.getByRole("button", { name: /grid/i });
+      const listButton = screen.getByRole("button", { name: /list/i });
+
 
       const gridButton = screen.getByRole("button", { name: /grid/i });
       const listButton = screen.getByRole("button", { name: /list/i });
@@ -211,7 +306,15 @@ describe("Visual Regression - Template Consistency", () => {
       expect(listButton).toBeInTheDocument();
       expect(gridButton).toHaveAttribute("class");
       expect(listButton).toHaveAttribute("class");
+      expect(gridButton).toHaveAttribute("class");
+      expect(listButton).toHaveAttribute("class");
     });
+
+    it("should render scenario cards with consistent structure", () => {
+      render(<ScenarioSelector scenarios={mockScenarios} onSelect={() => {}} defaultView="grid" />);
+
+      const cards = screen.getAllByRole("button");
+      const scenarioCards = cards.filter((card) => card.textContent?.includes("Test Scenario"));
 
     it("should render scenario cards with consistent structure", () => {
       render(<ScenarioSelector scenarios={mockScenarios} onSelect={() => {}} defaultView="grid" />);
@@ -224,9 +327,14 @@ describe("Visual Regression - Template Consistency", () => {
       scenarioCards.forEach((card) => {
         expect(card).toHaveAttribute("class");
         expect(card).toHaveAttribute("tabIndex");
+
+      scenarioCards.forEach((card) => {
+        expect(card).toHaveAttribute("class");
+        expect(card).toHaveAttribute("tabIndex");
       });
     });
 
+    it("should render AI badges consistently", () => {
     it("should render AI badges consistently", () => {
       render(
         <ScenarioSelector
@@ -237,9 +345,18 @@ describe("Visual Regression - Template Consistency", () => {
       );
 
       const aiBadge = screen.getByText("AI Pick 90%");
+
+      const aiBadge = screen.getByText("AI Pick 90%");
       expect(aiBadge).toBeInTheDocument();
       expect(aiBadge.closest("div")).toHaveClass("absolute");
+      expect(aiBadge.closest("div")).toHaveClass("absolute");
     });
+
+    it("should render complexity badges consistently", () => {
+      render(<ScenarioSelector scenarios={mockScenarios} onSelect={() => {}} />);
+
+      const simpleBadge = screen.getByText("Simple");
+      const mediumBadge = screen.getByText("Medium");
 
     it("should render complexity badges consistently", () => {
       render(<ScenarioSelector scenarios={mockScenarios} onSelect={() => {}} />);
@@ -252,10 +369,14 @@ describe("Visual Regression - Template Consistency", () => {
 
       [simpleBadge, mediumBadge].forEach((badge) => {
         expect(badge.closest("span")).toHaveAttribute("class");
+
+      [simpleBadge, mediumBadge].forEach((badge) => {
+        expect(badge.closest("span")).toHaveAttribute("class");
       });
     });
   });
 
+  describe("Quantum View Visual Tests", () => {
   describe("Quantum View Visual Tests", () => {
     const mockAnalyses = [
       {
@@ -272,6 +393,9 @@ describe("Visual Regression - Template Consistency", () => {
         title: "Financial Analysis",
         summary: "Strong ROI",
         confidence: 85,
+        keyMetrics: [{ label: "ROI", value: "245", unit: "%" }],
+        recommendations: ["Proceed"],
+        risks: ["Low risk"],
         keyMetrics: [{ label: "ROI", value: "245", unit: "%" }],
         recommendations: ["Proceed"],
         risks: ["Low risk"],
@@ -295,19 +419,27 @@ describe("Visual Regression - Template Consistency", () => {
         keyMetrics: [{ label: "Capacity", value: "10000", unit: "users" }],
         recommendations: ["Upgrade"],
         risks: ["Technical debt"],
+        keyMetrics: [{ label: "Capacity", value: "10000", unit: "users" }],
+        recommendations: ["Upgrade"],
+        risks: ["Technical debt"],
         consensus: true,
         aiGenerated: true,
       },
     ];
 
     it("should render header with consistent styling", () => {
+    it("should render header with consistent styling", () => {
       render(<QuantumView analyses={mockAnalyses} />);
+
+      const header = screen.getByText("Quantum View").closest("div");
 
       const header = screen.getByText("Quantum View").closest("div");
       expect(header).toBeInTheDocument();
       expect(header).toHaveClass("h-14");
+      expect(header).toHaveClass("h-14");
     });
 
+    it("should render quick stats with consistent layout", () => {
     it("should render quick stats with consistent layout", () => {
       render(<QuantumView analyses={mockAnalyses} />);
 
@@ -317,9 +449,21 @@ describe("Visual Regression - Template Consistency", () => {
           card.textContent?.includes("Total Personas") ||
           card.textContent?.includes("Consensus") ||
           card.textContent?.includes("Avg Confidence")
+
+      const stats = screen.getAllByRole("button");
+      const statCards = stats.filter(
+        (card) =>
+          card.textContent?.includes("Total Personas") ||
+          card.textContent?.includes("Consensus") ||
+          card.textContent?.includes("Avg Confidence")
       );
 
+
       expect(statCards.length).toBe(3);
+
+      statCards.forEach((card) => {
+        expect(card).toHaveClass("p-4");
+        expect(card).toHaveClass("bg-card");
 
       statCards.forEach((card) => {
         expect(card).toHaveClass("p-4");
@@ -328,7 +472,14 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render persona cards with consistent structure", () => {
+    it("should render persona cards with consistent structure", () => {
       render(<QuantumView analyses={mockAnalyses} />);
+
+      const cards = screen.getAllByRole("button");
+      const personaCards = cards.filter(
+        (card) =>
+          card.textContent?.includes("Financial Analysis") ||
+          card.textContent?.includes("Technical Assessment")
 
       const cards = screen.getAllByRole("button");
       const personaCards = cards.filter(
@@ -337,7 +488,12 @@ describe("Visual Regression - Template Consistency", () => {
           card.textContent?.includes("Technical Assessment")
       );
 
+
       expect(personaCards.length).toBe(2);
+
+      personaCards.forEach((card) => {
+        expect(card).toHaveAttribute("class");
+        expect(card).toHaveAttribute("tabIndex");
 
       personaCards.forEach((card) => {
         expect(card).toHaveAttribute("class");
@@ -346,10 +502,16 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render AI indicators consistently", () => {
+    it("should render AI indicators consistently", () => {
       render(<QuantumView analyses={mockAnalyses} />);
 
       const aiBadges = screen.getAllByText("AI");
+
+      const aiBadges = screen.getAllByText("AI");
       expect(aiBadges.length).toBe(2);
+
+      aiBadges.forEach((badge) => {
+        expect(badge.closest("span")).toHaveClass("bg-primary/20");
 
       aiBadges.forEach((badge) => {
         expect(badge.closest("span")).toHaveClass("bg-primary/20");
@@ -357,10 +519,16 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render consensus indicators consistently", () => {
+    it("should render consensus indicators consistently", () => {
       render(<QuantumView analyses={mockAnalyses} showConsensus={true} />);
 
       const consensusBadges = screen.getAllByText("Consensus");
+
+      const consensusBadges = screen.getAllByText("Consensus");
       expect(consensusBadges.length).toBeGreaterThan(0);
+
+      consensusBadges.forEach((badge) => {
+        expect(badge.closest("div")).toHaveClass("text-green-600");
 
       consensusBadges.forEach((badge) => {
         expect(badge.closest("div")).toHaveClass("text-green-600");
@@ -368,13 +536,19 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should render detail view with consistent spacing", () => {
+    it("should render detail view with consistent spacing", () => {
       render(<QuantumView analyses={mockAnalyses} />);
+
+      const financialCard = screen.getByText("Financial Analysis").closest("button");
 
       const financialCard = screen.getByText("Financial Analysis").closest("button");
       financialCard?.click();
 
       const detailView = screen.getByTestId("analysis-detail-financial");
+
+      const detailView = screen.getByTestId("analysis-detail-financial");
       expect(detailView).toBeInTheDocument();
+
 
       // Check consistent spacing
       const sections = detailView.querySelectorAll('div[class*="space-y-"]');
@@ -384,9 +558,15 @@ describe("Visual Regression - Template Consistency", () => {
 
   describe("Cross-Template Visual Consistency", () => {
     it("should maintain consistent button styling", () => {
+  describe("Cross-Template Visual Consistency", () => {
+    it("should maintain consistent button styling", () => {
       // Test all templates have consistent button classes
       const { container: roiContainer } = render(<ROICalculator />);
       const { container: impactContainer } = render(<ImpactCascade />);
+
+      const roiButtons = roiContainer.querySelectorAll("button");
+      const impactButtons = impactContainer.querySelectorAll("button");
+
 
       const roiButtons = roiContainer.querySelectorAll("button");
       const impactButtons = impactContainer.querySelectorAll("button");
@@ -397,7 +577,13 @@ describe("Visual Regression - Template Consistency", () => {
     });
 
     it("should maintain consistent card styling", () => {
+    it("should maintain consistent card styling", () => {
       render(<ROICalculator />);
+
+      const cards = screen.getAllByRole("button");
+      const bentoCards = cards.filter((card) => card.className.includes("bento-card"));
+
+      bentoCards.forEach((card) => {
 
       const cards = screen.getAllByRole("button");
       const bentoCards = cards.filter((card) => card.className.includes("bento-card"));
@@ -406,13 +592,21 @@ describe("Visual Regression - Template Consistency", () => {
         // Check consistent border and background
         expect(card.className).toContain("border");
         expect(card.className).toContain("rounded");
+        expect(card.className).toContain("border");
+        expect(card.className).toContain("rounded");
       });
     });
 
     it("should maintain consistent text hierarchy", () => {
+    it("should maintain consistent text hierarchy", () => {
       const { container } = render(<ROICalculator />);
 
+
       // Check heading levels
+      const h1 = container.querySelector("h1");
+      const h2 = container.querySelector("h2");
+      const h3 = container.querySelector("h3");
+
       const h1 = container.querySelector("h1");
       const h2 = container.querySelector("h2");
       const h3 = container.querySelector("h3");
@@ -421,6 +615,10 @@ describe("Visual Regression - Template Consistency", () => {
       if (h1) expect(h1.className).toContain("text-lg");
       if (h2) expect(h2.className).toContain("text-sm");
       if (h3) expect(h3.className).toContain("text-sm");
+      if (h1) expect(h1.className).toContain("text-lg");
+      if (h2) expect(h2.className).toContain("text-sm");
+      if (h3) expect(h3.className).toContain("text-sm");
     });
   });
 });
+
