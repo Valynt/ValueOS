@@ -223,7 +223,7 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT, validateRespon
         method: "GET",
         signal: AbortSignal.timeout(5000),
       });
-
+      
       // Deep validation if provided
       if (validateResponse) {
         try {
@@ -234,9 +234,7 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT, validateRespon
             return true;
           }
         } catch (validationError) {
-          traceLogger.warn(`Health validation failed for ${url}`, {
-            error: validationError.message,
-          });
+          traceLogger.warn(`Health validation failed for ${url}`, { error: validationError.message });
         }
       } else {
         // Default validation: 2xx-4xx status codes
@@ -245,7 +243,7 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT, validateRespon
           return true;
         }
       }
-
+      
       if (Date.now() - startTime > 5000) {
         traceLogger.warn(`Health check ${url} returned status ${response.status}`);
       }
@@ -333,9 +331,7 @@ async function startSupabase() {
 
   let useDlx = false;
   if (!commandExists("supabase")) {
-    log.warn(
-      "Supabase CLI not found locally. Will attempt to run via 'pnpm dlx supabase' fallback."
-    );
+    log.warn("Supabase CLI not found locally. Will attempt to run via 'pnpm dlx supabase' fallback.");
     try {
       // Check if pnpm dlx can fetch the supabase CLI
       runCommand("pnpm dlx supabase --version", { silent: true });
@@ -348,21 +344,14 @@ async function startSupabase() {
   }
 
   try {
-    const supabaseStartCmd = useDlx
-      ? "pnpm dlx supabase start --workdir infra/supabase"
-      : "supabase start --workdir infra/supabase";
+    const supabaseStartCmd = useDlx ? "pnpm dlx supabase start --workdir infra/supabase" : "supabase start --workdir infra/supabase";
     traceLogger.info("Running Supabase start command", { command: supabaseStartCmd });
     runCommand(supabaseStartCmd);
     log.success("Supabase started");
     traceLogger.stepSuccess("start_supabase", stepStart);
   } catch (error) {
     traceLogger.stepError("start_supabase", error);
-    log.warn(
-      formatError("ERR_010", {
-        command: useDlx ? "pnpm dlx supabase" : "supabase",
-        error: error.message,
-      })
-    );
+    log.warn(formatError("ERR_010", { command: useDlx ? "pnpm dlx supabase" : "supabase", error: error.message }));
     console.error(error.message);
     // Don't exit - continue with dx postgres for testing
   }
@@ -441,7 +430,7 @@ function stopSupabase() {
 async function startDockerDeps(mode) {
   const stepStart = traceLogger.stepStart("start_docker_deps", { mode });
   const checkpoint = checkpointManager.save("docker_deps", { mode });
-
+  
   log.info("Starting Docker dependencies...");
 
   const composeFile =
@@ -560,7 +549,7 @@ function resetDockerDeps(level = "soft") {
 
 /**
  * Run database migrations
- *
+ * 
  * Step 5a/5b: Migrations against Supabase DB or dx postgres fallback
  */
 async function runMigrations() {
@@ -568,7 +557,7 @@ async function runMigrations() {
 
   const stepStart = traceLogger.stepStart("run_migrations");
   const checkpoint = checkpointManager.save("migrations");
-
+  
   try {
     // Determine command based on Supabase availability
     let command = "supabase db push --workdir infra/supabase";
@@ -581,7 +570,7 @@ async function runMigrations() {
     } else {
       // Step 5b: Fall back to dx postgres container
       let host = process.env.POSTGRES_HOST || "localhost";
-
+      
       // In DevContainer environments, localhost doesn't work - use container IP
       if (checkIsDevContainer()) {
         try {
@@ -594,7 +583,7 @@ async function runMigrations() {
           log.warn("Could not get container IP, falling back to localhost");
         }
       }
-
+      
       const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable`;
       command = `supabase db push --workdir infra/supabase --db-url "${dbUrl}"`;
       log.info(`Step 5b: Pushing migrations to dx postgres container (${host})...`);
@@ -677,12 +666,9 @@ async function verifySchema() {
 
   // Check migration status
   try {
-    const migrationList = runCommand(
-      "supabase migration list --workdir infra/supabase 2>/dev/null || echo ''",
-      {
-        silent: true,
-      }
-    );
+    const migrationList = runCommand("supabase migration list --workdir infra/supabase 2>/dev/null || echo ''", {
+      silent: true,
+    });
 
     if (migrationList.includes("not applied") || migrationList.includes("pending")) {
       log.warn("Pending migrations detected");

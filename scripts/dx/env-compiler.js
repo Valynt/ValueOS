@@ -26,17 +26,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 
-/**
- * Check if running in a DevContainer environment
- */
-function checkIsDevContainer() {
-  return (
-    process.env.REMOTE_CONTAINERS === "true" ||
-    process.env.CODESPACES === "true" ||
-    fs.existsSync("/.dockerenv")
-  );
-}
-
 // Local Supabase demo keys (safe to commit - only work with local instance)
 const LOCAL_SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
@@ -84,9 +73,7 @@ function getUrlConfig(mode, ports) {
     // Backend URLs (localhost)
     API_UPSTREAM: `http://localhost:${backendPort}`,
     FRONTEND_UPSTREAM: `http://localhost:${frontendPort}`,
-    DATABASE_URL: checkIsDevContainer()
-      ? `postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable`
-      : `postgresql://postgres:postgres@localhost:${supabaseDbPort}/postgres`,
+    DATABASE_URL: `postgresql://postgres:postgres@localhost:${supabaseDbPort}/postgres`,
     REDIS_URL: "redis://localhost:6379",
   };
 }
