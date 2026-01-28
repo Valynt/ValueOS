@@ -7,6 +7,27 @@
 
 import { logger } from "../lib/logger";
 
+async function fetchWithRetry(
+  url: string,
+  options: any = {},
+  retries = 3,
+  backoff = 500
+): Promise<Response> {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      lastError = err;
+      logger.warn("Fetch failed, retrying", { url, attempt, error: err });
+      if (attempt < retries)
+        await new Promise((res) => setTimeout(res, backoff * Math.pow(2, attempt)));
+    }
+  }
+  logger.error("Fetch failed after retries", { url, error: lastError });
+  throw lastError;
+}
+
 export interface SECFiling {
   cik: string;
   companyName: string;
@@ -177,7 +198,7 @@ export class SECEdgarClient {
 
       logger.debug("Fetching XBRL data", { accessionNumber, cik, xbrlUrl });
 
-      const response = await fetch(xbrlUrl, {
+      const response = await fetchWithRetry(xbrlUrl, {
         headers: {
           "User-Agent": this.userAgent,
           Accept: "application/xml",
