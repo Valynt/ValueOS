@@ -245,6 +245,35 @@ export function getMergedConfig(): SecretConfig {
 // Export merged config as default
 export const config = getMergedConfig();
 
+function validateSecretConfig(currentConfig: SecretConfig): void {
+  const nodeEnv = process.env.NODE_ENV || "development";
+
+  if (nodeEnv === "production" && !currentConfig.cache.encryptionEnabled) {
+    throw new Error(
+      "SECRETS_CACHE_ENCRYPTION must be enabled in production to protect cached secrets."
+    );
+  }
+
+  const secretsManagerEnabled = process.env.SECRETS_MANAGER_ENABLED === "true";
+  if (nodeEnv === "production" && secretsManagerEnabled) {
+    const provider = process.env.SECRETS_PROVIDER;
+
+    if (!provider) {
+      throw new Error(
+        "SECRETS_PROVIDER must be set when SECRETS_MANAGER_ENABLED is true in production."
+      );
+    }
+
+    if (provider === "vault" && !currentConfig.providers.vault.address) {
+      throw new Error(
+        "VAULT_ADDR must be configured when SECRETS_PROVIDER is set to vault."
+      );
+    }
+  }
+}
+
+validateSecretConfig(config);
+
 // Log configuration on load
 logger.info("Secret management configuration loaded", {
   environment: process.env.NODE_ENV,

@@ -28,6 +28,7 @@ export interface RotationJob {
   cronSchedule: string;
   lastRotation?: Date;
   nextRotation?: Date;
+  lastMissedAlertAt?: Date;
 }
 
 /**
@@ -51,10 +52,12 @@ export interface RotationEvent {
 export class SecretRotationScheduler extends EventEmitter {
   private provider: ISecretProvider;
   private jobs: Map<string, CronJob> = new Map();
+  private jobMetadata: Map<string, RotationJob> = new Map();
   private rotationHistory: RotationEvent[] = [];
   private maxHistorySize: number = 1000;
   private previousVersions: Map<string, SecretValue> = new Map(); // Store previous versions for rollback
   private isRunning: boolean = false;
+  private monitorIntervalId: NodeJS.Timeout | null = null;
 
   constructor(provider: ISecretProvider) {
     super();
@@ -78,6 +81,17 @@ export class SecretRotationScheduler extends EventEmitter {
 
     logger.info("Secret rotation scheduler started");
     this.emit("started");
+
+    const monitorIntervalMs = parseInt(
+      process.env.SECRETS_ROTATION_MONITOR_INTERVAL_MS || "900000",
+      10
+    ); // 15 minutes default
+
+    this.monitorIntervalId = setInterval(() => {
+      this.checkForMissedRotations();
+    }, monitorIntervalMs);
+
+    this.checkForMissedRotations();
   }
 
   /**
@@ -95,7 +109,13 @@ export class SecretRotationScheduler extends EventEmitter {
     }
 
     this.jobs.clear();
+    this.jobMetadata.clear();
     this.isRunning = false;
+
+    if (this.monitorIntervalId) {
+      clearInterval(this.monitorIntervalId);
+      this.monitorIntervalId = null;
+    }
 
     logger.info("Secret rotation scheduler stopped");
     this.emit("stopped");
@@ -143,17 +163,26 @@ export class SecretRotationScheduler extends EventEmitter {
       cronJob.start();
     }
 
+    const nextRotation = this.getNextRotationDate(cronJob, config.cronSchedule);
+
+    this.jobMetadata.set(jobKey, {
+      ...config,
+      nextRotation,
+    });
+
     logger.info("Scheduled secret rotation", {
       tenantId: config.tenantId,
       secretKey: config.secretKey,
       schedule: config.cronSchedule,
       intervalDays: config.policy.intervalDays,
+      nextRotation: nextRotation?.toISOString(),
     });
 
     this.emit("job-scheduled", {
       tenantId: config.tenantId,
       secretKey: config.secretKey,
       schedule: config.cronSchedule,
+      nextRotation,
     });
   }
 
@@ -246,6 +275,8 @@ export class SecretRotationScheduler extends EventEmitter {
         duration,
       });
 
+      this.updateRotationMetadata(tenantId, secretKey);
+
       logger.info("Secret rotation completed successfully", {
         tenantId,
         secretKey,
@@ -269,6 +300,8 @@ export class SecretRotationScheduler extends EventEmitter {
         duration,
         error: error instanceof Error ? error.message : String(error),
       });
+
+      this.updateRotationMetadata(tenantId, secretKey);
 
       logger.error(
         "Secret rotation failed",
@@ -415,6 +448,88 @@ export class SecretRotationScheduler extends EventEmitter {
     }
   }
 
+  private updateRotationMetadata(tenantId: string, secretKey: string): void {
+    const jobKey = this.getJobKey(tenantId, secretKey);
+    const meta = this.jobMetadata.get(jobKey);
+    const cronJob = this.jobs.get(jobKey);
+
+    if (!meta || !cronJob) {
+      return;
+    }
+
+    const nextRotation = this.getNextRotationDate(
+      cronJob,
+      meta.cronSchedule
+    );
+
+    this.jobMetadata.set(jobKey, {
+      ...meta,
+      lastRotation: new Date(),
+      nextRotation,
+      lastMissedAlertAt: undefined,
+    });
+  }
+
+  private getNextRotationDate(
+    cronJob: CronJob,
+    cronSchedule: string
+  ): Date | undefined {
+    try {
+      const nextDate = cronJob.nextDates().toDate();
+      return nextDate;
+    } catch (error) {
+      logger.warn("Failed to compute next rotation date", {
+        schedule: cronSchedule,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  }
+
+  private checkForMissedRotations(currentTime: Date = new Date()): void {
+    for (const [jobKey, meta] of this.jobMetadata.entries()) {
+      if (!meta.nextRotation) {
+        continue;
+      }
+
+      const gracePeriodMs = Math.max(
+        (meta.policy.gracePeriodHours || 0) * 60 * 60 * 1000,
+        0
+      );
+
+      if (currentTime.getTime() <= meta.nextRotation.getTime() + gracePeriodMs) {
+        continue;
+      }
+
+      const lastMissedAlert = meta.lastMissedAlertAt;
+      if (
+        lastMissedAlert &&
+        lastMissedAlert.getTime() >= meta.nextRotation.getTime()
+      ) {
+        continue;
+      }
+
+      logger.warn("Rotation appears overdue", {
+        jobKey,
+        tenantId: meta.tenantId,
+        secretKey: meta.secretKey,
+        expectedAt: meta.nextRotation.toISOString(),
+        gracePeriodHours: meta.policy.gracePeriodHours,
+      });
+
+      this.jobMetadata.set(jobKey, {
+        ...meta,
+        lastMissedAlertAt: currentTime,
+      });
+
+      this.emit("rotation-missed", {
+        tenantId: meta.tenantId,
+        secretKey: meta.secretKey,
+        expectedAt: meta.nextRotation,
+      });
+    }
+  }
+
   /**
    * Get job key
    */
@@ -530,6 +645,10 @@ export function createRotationScheduler(
     );
   });
 
+  scheduler.on("rotation-missed", (event) => {
+    logger.warn("Rotation missed event", event);
+  });
+
   scheduler.on("rollback-success", (event) => {
     logger.info("Rollback success event", event);
   });
@@ -579,6 +698,61 @@ export function createRotationScheduler(
 
   scheduler.on("rotation-failure", (event) => {
     void logAuditEvent(event, "failed");
+  });
+
+  scheduler.on("rotation-missed", (event) => {
+    void auditLogService
+      .createEntry({
+        userId: "system-rotation",
+        userName: "Rotation Scheduler",
+        userEmail: "rotation@valuecanvas.io",
+        action: "secret.rotate.missed",
+        resourceType: "secret",
+        resourceId: `${event.tenantId}:${event.secretKey}`,
+        status: "failed",
+        details: {
+          expected_at: event.expectedAt?.toISOString(),
+        },
+      })
+      .catch((error) => {
+        logger.error(
+          "Failed to write audit entry for missed rotation",
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            tenantId: event.tenantId,
+            secretKey: event.secretKey,
+          }
+        );
+      });
+  });
+
+  scheduler.on("job-scheduled", (event) => {
+    void auditLogService
+      .createEntry({
+        userId: "system-rotation",
+        userName: "Rotation Scheduler",
+        userEmail: "rotation@valuecanvas.io",
+        action: "secret.rotate.scheduled",
+        resourceType: "secret",
+        resourceId: `${event.tenantId}:${event.secretKey}`,
+        status: "success",
+        details: {
+          schedule: event.schedule,
+          next_rotation: event.nextRotation
+            ? event.nextRotation.toISOString()
+            : undefined,
+        },
+      })
+      .catch((error) => {
+        logger.error(
+          "Failed to write audit entry for rotation scheduling",
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            tenantId: event.tenantId,
+            secretKey: event.secretKey,
+          }
+        );
+      });
   });
 
   return scheduler;
