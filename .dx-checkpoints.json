@@ -1,39 +1,7 @@
 [
   {
-    "id": "checkpoint_1769485345199",
-    "timestamp": 1769485345199,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769487822399",
-    "timestamp": 1769487822399,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769598126353",
-    "timestamp": 1769598126353,
-    "step": "docker_deps",
-    "state": {
-      "mode": "local"
-    }
-  },
-  {
-    "id": "checkpoint_1769600234709",
-    "timestamp": 1769600234710,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769603103773",
-    "timestamp": 1769603103773,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769604295647",
-    "timestamp": 1769604295647,
+    "id": "checkpoint_1769616767109",
+    "timestamp": 1769616767109,
     "step": "migrations",
     "state": {}
   }
