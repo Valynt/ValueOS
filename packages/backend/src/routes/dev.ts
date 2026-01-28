@@ -8,17 +8,28 @@
 import { Router, Request, Response } from "express";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { isDevRouteHostAllowed, shouldEnableDevRoutes } from "./devRoutes.js";
 
 const execAsync = promisify(exec);
 const router = Router();
 
-const isDev = process.env.NODE_ENV !== "production";
+const isDevRoutesEnabled = shouldEnableDevRoutes();
 
-if (!isDev) {
-  router.all("*", (_req: Request, res: Response) => {
-    res.status(403).json({ error: "Dev routes disabled in production" });
-  });
-} else {
+router.use((req: Request, res: Response, next) => {
+  if (!isDevRoutesEnabled) {
+    res.status(403).json({ error: "Dev routes disabled" });
+    return;
+  }
+
+  if (!isDevRouteHostAllowed(req.hostname)) {
+    res.status(403).json({ error: "Dev routes disabled for host" });
+    return;
+  }
+
+  next();
+});
+
+if (isDevRoutesEnabled) {
   router.get("/status", (_req: Request, res: Response) => {
     res.json({
       mode: "development",
