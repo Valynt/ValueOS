@@ -4,12 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.19.0 <21",
+    "pnpm": ">=9.15.0"
+  },
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "scripts": {
-    "preinstall": "node scripts/dx/ensure-pnpm.js",
+    "preinstall": "npx only-allow pnpm && node scripts/dx/ensure-pnpm.js",
     "setup": "node scripts/dx/setup.js",
     "setup:local": "node scripts/dx/setup.js",
     "setup:ci": "node scripts/dx/setup-ci.js",
