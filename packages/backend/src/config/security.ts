@@ -16,14 +16,14 @@ export interface SecurityConfig {
       includeSubDomains: boolean;
       preload: boolean;
     };
-    xFrameOptions: 'DENY' | 'SAMEORIGIN' | 'ALLOW-FROM';
+    xFrameOptions: "DENY" | "SAMEORIGIN" | "ALLOW-FROM";
     xContentTypeOptions: boolean;
     xXssProtection: boolean;
     referrerPolicy: string;
     permissionsPolicy: string;
-    crossOriginEmbedderPolicy: 'require-corp' | 'credentialless' | 'unsafe-none';
-    crossOriginOpenerPolicy: 'same-origin' | 'same-origin-allow-popups' | 'unsafe-none';
-    crossOriginResourcePolicy: 'same-origin' | 'same-site' | 'cross-origin';
+    crossOriginEmbedderPolicy: "require-corp" | "credentialless" | "unsafe-none";
+    crossOriginOpenerPolicy: "same-origin" | "same-origin-allow-popups" | "unsafe-none";
+    crossOriginResourcePolicy: "same-origin" | "same-site" | "cross-origin";
   };
   csrf: {
     enabled: boolean;
@@ -31,7 +31,7 @@ export interface SecurityConfig {
     headerName: string;
     cookieName: string;
     secure: boolean;
-    sameSite: 'Strict' | 'Lax' | 'None';
+    sameSite: "Strict" | "Lax" | "None";
   };
   cors: {
     enabled: boolean;
@@ -68,7 +68,7 @@ export const securityConfig: SecurityConfig = {
   headers: {
     csp: {
       enabled: true,
-      reportUri: '/api/csp-report',
+      reportUri: "/api/csp-report",
       productionNonce: true,
     },
     hsts: {
@@ -77,32 +77,33 @@ export const securityConfig: SecurityConfig = {
       includeSubDomains: true,
       preload: true,
     },
-    xFrameOptions: 'DENY',
+    xFrameOptions: "DENY",
     xContentTypeOptions: true,
     xXssProtection: true,
-    referrerPolicy: 'strict-origin-when-cross-origin',
-    permissionsPolicy: 'camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=()',
-    crossOriginEmbedderPolicy: 'require-corp',
-    crossOriginOpenerPolicy: 'same-origin',
-    crossOriginResourcePolicy: 'same-origin',
+    referrerPolicy: "strict-origin-when-cross-origin",
+    permissionsPolicy:
+      "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=()",
+    crossOriginEmbedderPolicy: "require-corp",
+    crossOriginOpenerPolicy: "same-origin",
+    crossOriginResourcePolicy: "same-origin",
   },
   csrf: {
     enabled: true,
-    tokenName: 'csrf_token',
-    headerName: 'x-csrf-token',
-    cookieName: 'csrf_token',
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'Strict' : 'Lax',
+    tokenName: "csrf_token",
+    headerName: "x-csrf-token",
+    cookieName: "csrf_token",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "Strict" : "Lax",
   },
   cors: {
     enabled: true,
-    origins: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [
-      'http://localhost:8080',
-      'http://localhost:5173',
-      'http://localhost:3000',
+    origins: process.env.CORS_ALLOWED_ORIGINS?.split(",") || [
+      "http://localhost:8080",
+      "http://localhost:5173",
+      "http://localhost:3000",
     ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    headers: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    headers: ["Content-Type", "Authorization", "X-CSRF-Token"],
     credentials: true,
     maxAge: 86400, // 24 hours
   },
@@ -111,37 +112,41 @@ export const securityConfig: SecurityConfig = {
     maxFileSize: 10 * 1024 * 1024, // 10MB
     maxFilesPerRequest: 5,
     allowedMimeTypes: [
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'application/pdf',
-      'text/plain',
-      'text/csv',
-      'application/json',
-      'application/xml',
-      'text/xml',
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+      "text/plain",
+      "text/csv",
+      "application/json",
+      "application/xml",
+      "text/xml",
     ],
     allowedExtensions: [
-      '.jpg', '.jpeg', '.png', '.gif', '.webp',
-      '.pdf', '.txt', '.csv', '.json', '.xml'
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+      ".webp",
+      ".pdf",
+      ".txt",
+      ".csv",
+      ".json",
+      ".xml",
     ],
     scanForMalware: false, // Enable if malware scanning service is available
   },
   ssrf: {
     enabled: true,
-    blockedHosts: [
-      'localhost',
-      '127.0.0.1',
-      '::1',
-    ],
+    blockedHosts: ["localhost", "127.0.0.1", "::1"],
     blockedIpRanges: [
-      '127.0.0.0/8',
-      '192.168.0.0/16',
-      '10.0.0.0/8',
-      '172.16.0.0/12',
-      'fc00::/7',
-      'fe80::/10',
+      "127.0.0.0/8",
+      "192.168.0.0/16",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "fc00::/7",
+      "fe80::/10",
     ],
     allowedPorts: [80, 443, 3000, 8000, 5432],
   },
@@ -158,20 +163,24 @@ export const securityConfig: SecurityConfig = {
  * Environment-specific overrides
  */
 export function getSecurityConfig(): SecurityConfig {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isProduction = process.env.NODE_ENV === "production";
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   return {
     ...securityConfig,
     headers: {
       ...securityConfig.headers,
-      crossOriginEmbedderPolicy: isDevelopment ? 'unsafe-none' : securityConfig.headers.crossOriginEmbedderPolicy,
-      crossOriginOpenerPolicy: isDevelopment ? 'unsafe-none' : securityConfig.headers.crossOriginOpenerPolicy,
+      crossOriginEmbedderPolicy: isDevelopment
+        ? "unsafe-none"
+        : securityConfig.headers.crossOriginEmbedderPolicy,
+      crossOriginOpenerPolicy: isDevelopment
+        ? "unsafe-none"
+        : securityConfig.headers.crossOriginOpenerPolicy,
     },
     csrf: {
       ...securityConfig.csrf,
       secure: isProduction,
-      sameSite: isProduction ? 'Strict' : 'Lax',
+      sameSite: isProduction ? "Strict" : "Lax",
     },
   };
 }

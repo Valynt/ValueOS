@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { securityEvents } from "../security/securityLogger.js"
+import { securityEvents } from "../security/securityLogger.js";
 
 export interface CSPConfig {
   defaultSrc: string[];
@@ -104,11 +104,7 @@ function buildCSPString(config: CSPConfig): string {
  * Modern security headers middleware for production environments.
  * Implements CSP, HSTS, X-Frame-Options, NoSniff, and other protections.
  */
-export function securityHeadersMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function securityHeadersMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Select CSP based on environment
   const isDevelopment = process.env.NODE_ENV === "development";
   const baseCSP = isDevelopment ? developmentCSP : productionCSP;
@@ -116,7 +112,7 @@ export function securityHeadersMiddleware(
   // Generate cryptographic nonce for CSP (only in production)
   let nonce: string | undefined;
   if (!isDevelopment) {
-    nonce = crypto.randomBytes(16).toString('base64');
+    nonce = crypto.randomBytes(16).toString("base64");
   }
 
   // Content Security Policy with nonce (production only)
@@ -139,10 +135,7 @@ export function securityHeadersMiddleware(
   }
 
   // Strict Transport Security
-  res.setHeader(
-    "Strict-Transport-Security",
-    "max-age=31536000; includeSubDomains; preload"
-  );
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
 
   // X-Frame-Options - Prevent clickjacking
   res.setHeader("X-Frame-Options", "DENY");
@@ -190,11 +183,11 @@ export function cspReportHandler(req: Request, res: Response): void {
   const report = req.body;
 
   // Log CSP violations for analysis
-  if (securityEvents && typeof securityEvents.cspViolation === 'function') {
+  if (securityEvents && typeof securityEvents.cspViolation === "function") {
     securityEvents.cspViolation(report);
   } else {
     // Fallback if securityEvents is not fully initialized or mock
-    console.warn('CSP Violation:', JSON.stringify(report));
+    console.warn("CSP Violation:", JSON.stringify(report));
   }
 
   // In production, this can be integrated with Sentry or other monitoring tools

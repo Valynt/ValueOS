@@ -10,10 +10,13 @@ import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
 } from "../middleware/securityMiddleware";
-import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware.js"
-import { rateLimiters } from "../middleware/rateLimiter.js"
-import { requirePermission } from "../middleware/rbac.js"
-import { fileUploadSecurityMiddleware, contentTypeValidationMiddleware } from "../middleware/fileUploadSecurity.js";
+import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware.js";
+import { rateLimiters } from "../middleware/rateLimiter.js";
+import { requirePermission } from "../middleware/rbac.js";
+import {
+  fileUploadSecurityMiddleware,
+  contentTypeValidationMiddleware,
+} from "../middleware/fileUploadSecurity.js";
 
 interface LineageMetadata {
   source_origin: string;

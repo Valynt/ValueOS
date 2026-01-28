@@ -446,6 +446,10 @@ export const api = {
 
   testIntegration: (id: string) => apiClient.post(`/api/integrations/${id}/test`),
 
+  syncIntegration: (id: string) => apiClient.post(`/api/integrations/${id}/sync`),
+
+  deleteIntegration: (id: string) => apiClient.delete(`/api/integrations/${id}`),
+
   // User Management
   getCurrentUser: () => apiClient.get("/api/user/me"),
 

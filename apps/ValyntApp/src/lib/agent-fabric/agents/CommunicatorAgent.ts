@@ -14,7 +14,7 @@ import {
   MARLPolicy,
 } from "../BaseAgent";
 import { AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
-import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
+import { BaseAgentConfig } from "../BaseAgent";
 
 export interface CommunicationContext {
   stakeholderId: string;
@@ -52,7 +52,7 @@ export class CommunicatorAgent extends BaseAgent {
   private communicationHistory: CommunicationRecord[] = [];
   private stakeholderProfiles: Map<string, any> = new Map();
 
-  constructor(config: AgentConfig) {
+  constructor(config: BaseAgentConfig) {
     super(config);
     this.initializeMARL();
   }

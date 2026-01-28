@@ -220,7 +220,9 @@ export class NetworkSegmentationManager {
         hostname.startsWith("127.") ||
         hostname.startsWith("192.168.") ||
         hostname.startsWith("10.") ||
-        hostname.startsWith("172.") && hostname.split('.')[1] >= "16" && hostname.split('.')[1] <= "31" ||
+        (hostname.startsWith("172.") &&
+          hostname.split(".")[1] >= "16" &&
+          hostname.split(".")[1] <= "31") ||
         hostname === "::1" ||
         hostname.toLowerCase().includes("internal") ||
         hostname.toLowerCase().includes("local")
@@ -229,11 +231,12 @@ export class NetworkSegmentationManager {
       }
 
       // Check for IPv6 private addresses
-      if (hostname.includes(":") && (
-        hostname.startsWith("fc00:") ||
-        hostname.startsWith("fd00:") ||
-        hostname.startsWith("fe80:")
-      )) {
+      if (
+        hostname.includes(":") &&
+        (hostname.startsWith("fc00:") ||
+          hostname.startsWith("fd00:") ||
+          hostname.startsWith("fe80:"))
+      ) {
         throw new Error("IPv6 private network access blocked (SSRF protection)");
       }
 

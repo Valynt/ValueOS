@@ -3,10 +3,10 @@
  * Implements OWASP file upload security recommendations
  */
 
-import { NextFunction, Request, Response } from 'express';
-import { createLogger } from '@shared/lib/logger';
+import { NextFunction, Request, Response } from "express";
+import { createLogger } from "@shared/lib/logger";
 
-const logger = createLogger({ component: 'FileUploadSecurity' });
+const logger = createLogger({ component: "FileUploadSecurity" });
 
 export interface FileUploadConfig {
   maxFileSize: number; // in bytes
@@ -20,20 +20,28 @@ export interface FileUploadConfig {
 const DEFAULT_CONFIG: FileUploadConfig = {
   maxFileSize: 10 * 1024 * 1024, // 10MB
   allowedMimeTypes: [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'application/pdf',
-    'text/plain',
-    'text/csv',
-    'application/json',
-    'application/xml',
-    'text/xml',
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+    "text/plain",
+    "text/csv",
+    "application/json",
+    "application/xml",
+    "text/xml",
   ],
   allowedExtensions: [
-    '.jpg', '.jpeg', '.png', '.gif', '.webp',
-    '.pdf', '.txt', '.csv', '.json', '.xml'
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".pdf",
+    ".txt",
+    ".csv",
+    ".json",
+    ".xml",
   ],
   maxFilesPerRequest: 5,
   scanForMalware: false,
@@ -52,7 +60,7 @@ export function validateFileUpload(
   if (file.size > mergedConfig.maxFileSize) {
     return {
       valid: false,
-      error: `File size ${file.size} exceeds maximum allowed size ${mergedConfig.maxFileSize}`
+      error: `File size ${file.size} exceeds maximum allowed size ${mergedConfig.maxFileSize}`,
     };
   }
 
@@ -60,32 +68,36 @@ export function validateFileUpload(
   if (!mergedConfig.allowedMimeTypes.includes(file.mimetype)) {
     return {
       valid: false,
-      error: `MIME type ${file.mimetype} is not allowed`
+      error: `MIME type ${file.mimetype} is not allowed`,
     };
   }
 
   // Check file extension
-  const extension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+  const extension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf("."));
   if (!mergedConfig.allowedExtensions.includes(extension)) {
     return {
       valid: false,
-      error: `File extension ${extension} is not allowed`
+      error: `File extension ${extension} is not allowed`,
     };
   }
 
   // Check for null bytes in filename (path traversal attempt)
-  if (file.originalname.includes('\0')) {
+  if (file.originalname.includes("\0")) {
     return {
       valid: false,
-      error: 'Filename contains null bytes'
+      error: "Filename contains null bytes",
     };
   }
 
   // Check for path traversal patterns
-  if (file.originalname.includes('..') || file.originalname.includes('/') || file.originalname.includes('\\')) {
+  if (
+    file.originalname.includes("..") ||
+    file.originalname.includes("/") ||
+    file.originalname.includes("\\")
+  ) {
     return {
       valid: false,
-      error: 'Filename contains path traversal patterns'
+      error: "Filename contains path traversal patterns",
     };
   }
 
@@ -95,9 +107,7 @@ export function validateFileUpload(
 /**
  * File upload security middleware
  */
-export function fileUploadSecurityMiddleware(
-  config: Partial<FileUploadConfig> = {}
-) {
+export function fileUploadSecurityMiddleware(config: Partial<FileUploadConfig> = {}) {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -108,17 +118,17 @@ export function fileUploadSecurityMiddleware(
     const files = req.files as Express.Multer.File[] | undefined;
     const singleFile = req.file as Express.Multer.File | undefined;
 
-    const allFiles = files ? files : (singleFile ? [singleFile] : []);
+    const allFiles = files ? files : singleFile ? [singleFile] : [];
 
     // Check number of files
     if (allFiles.length > mergedConfig.maxFilesPerRequest) {
-      logger.warn('File upload rejected: too many files', {
+      logger.warn("File upload rejected: too many files", {
         count: allFiles.length,
-        maxAllowed: mergedConfig.maxFilesPerRequest
+        maxAllowed: mergedConfig.maxFilesPerRequest,
       });
       return res.status(400).json({
-        error: 'Too many files uploaded',
-        maxAllowed: mergedConfig.maxFilesPerRequest
+        error: "Too many files uploaded",
+        maxAllowed: mergedConfig.maxFilesPerRequest,
       });
     }
 
@@ -126,21 +136,21 @@ export function fileUploadSecurityMiddleware(
     for (const file of allFiles) {
       const validation = validateFileUpload(file, mergedConfig);
       if (!validation.valid) {
-        logger.warn('File upload rejected: validation failed', {
+        logger.warn("File upload rejected: validation failed", {
           filename: file.originalname,
-          error: validation.error
+          error: validation.error,
         });
         return res.status(400).json({
-          error: 'File validation failed',
-          details: validation.error
+          error: "File validation failed",
+          details: validation.error,
         });
       }
     }
 
     // Log successful validation
-    logger.info('File upload validation passed', {
+    logger.info("File upload validation passed", {
       fileCount: allFiles.length,
-      totalSize: allFiles.reduce((sum, f) => sum + f.size, 0)
+      totalSize: allFiles.reduce((sum, f) => sum + f.size, 0),
     });
 
     next();
@@ -155,17 +165,17 @@ export function contentTypeValidationMiddleware(
   res: Response,
   next: NextFunction
 ): void {
-  const contentType = req.headers['content-type'];
+  const contentType = req.headers["content-type"];
 
   if (!contentType) {
-    return res.status(400).json({ error: 'Content-Type header required' });
+    return res.status(400).json({ error: "Content-Type header required" });
   }
 
   // Only allow multipart/form-data for file uploads
-  if (!contentType.startsWith('multipart/form-data')) {
+  if (!contentType.startsWith("multipart/form-data")) {
     return res.status(400).json({
-      error: 'Invalid Content-Type for file upload',
-      allowed: 'multipart/form-data'
+      error: "Invalid Content-Type for file upload",
+      allowed: "multipart/form-data",
     });
   }
 

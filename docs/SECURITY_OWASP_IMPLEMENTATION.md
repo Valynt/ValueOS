@@ -5,6 +5,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 ## Security Headers Configuration
 
 ### Content Security Policy (CSP)
+
 - **Production**: Strict nonce-based CSP
 - **Development**: Relaxed for HMR with `'unsafe-eval'` and `'unsafe-inline'`
 - **Report URI**: `/api/csp-report`
@@ -20,6 +21,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
   - `form-action 'self'`
 
 ### Additional Security Headers
+
 - **Strict-Transport-Security**: `max-age=31536000; includeSubDomains; preload`
 - **X-Frame-Options**: `DENY`
 - **X-Content-Type-Options**: `nosniff`
@@ -35,6 +37,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 ## CSRF Protection
 
 ### Implementation
+
 - Double-submit cookie pattern
 - CSRF token validation on state-changing requests
 - Secure cookie attributes:
@@ -44,6 +47,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
   - `Max-Age=86400` (24 hours)
 
 ### Protected Routes
+
 - POST `/api/documents/upload`
 - POST `/api/agents/*`
 - POST `/api/llm/*`
@@ -52,12 +56,14 @@ This document outlines the comprehensive OWASP security hardening measures imple
 ## XSS Protections
 
 ### Frontend (React/Vite)
+
 - DOMPurify for HTML sanitization
 - Input sanitization for all user inputs
 - CSP with nonces for inline scripts/styles
 - Automatic HTML entity encoding
 
 ### Backend
+
 - Input validation and sanitization
 - CSP headers enforcement
 - XSS protection headers
@@ -65,6 +71,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 ## SSRF Protections
 
 ### Network Segmentation
+
 - Private IP range blocking:
   - `127.0.0.0/8` (localhost)
   - `192.168.0.0/16` (private networks)
@@ -76,6 +83,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 - Port restrictions (80, 443, 3000, 8000, 5432 allowed)
 
 ### Request Validation
+
 - URL parsing and validation
 - Hostname allowlist enforcement
 - Request logging and monitoring
@@ -83,6 +91,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 ## CORS Policy
 
 ### Configuration
+
 - **Origins**: Configurable via `CORS_ALLOWED_ORIGINS` env var
 - **Methods**: `GET, POST, PUT, DELETE, OPTIONS`
 - **Headers**: `Content-Type, Authorization, X-CSRF-Token`
@@ -90,6 +99,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 - **Max Age**: 86400 seconds (24 hours)
 
 ### Default Origins (development)
+
 - `http://localhost:8080`
 - `http://localhost:5173`
 - `http://localhost:3000`
@@ -97,6 +107,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 ## File Upload Security
 
 ### Validation Rules
+
 - **Max File Size**: 10MB per file
 - **Max Files**: 5 files per request
 - **Allowed MIME Types**:
@@ -105,6 +116,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
   - Data: `application/json`, `application/xml`, `text/xml`
 
 ### Security Checks
+
 - File extension validation
 - MIME type verification
 - Path traversal prevention
@@ -112,18 +124,21 @@ This document outlines the comprehensive OWASP security hardening measures imple
 - Content-Type header validation (`multipart/form-data` only)
 
 ### Rate Limiting
+
 - File uploads: 10 per hour per user
 - General API rate limiting: 100 requests per 15 minutes
 
 ## Session/Cookie Security
 
 ### Cookie Attributes
+
 - **HttpOnly**: Prevents JavaScript access
 - **Secure**: HTTPS-only in production
 - **SameSite**: `Strict` (production) / `Lax` (development)
 - **Max-Age**: 24 hours
 
 ### Session Management
+
 - JWT-based authentication with Supabase
 - Automatic token refresh
 - Secure token storage
@@ -132,6 +147,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 ## Testing
 
 ### Test Coverage
+
 - CSRF token validation
 - File upload security
 - Security headers presence
@@ -140,6 +156,7 @@ This document outlines the comprehensive OWASP security hardening measures imple
 - CORS configuration
 
 ### Running Tests
+
 ```bash
 # Backend security tests
 cd packages/backend
@@ -153,6 +170,7 @@ npm test -- --run security
 ## Configuration
 
 ### Environment Variables
+
 ```bash
 # CORS
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://app.example.com
@@ -165,7 +183,9 @@ NODE_ENV=production  # Enables strict security settings
 ```
 
 ### File Upload Configuration
+
 Modify `packages/backend/src/middleware/fileUploadSecurity.ts`:
+
 ```typescript
 const DEFAULT_CONFIG: FileUploadConfig = {
   maxFileSize: 10 * 1024 * 1024, // 10MB
@@ -178,18 +198,21 @@ const DEFAULT_CONFIG: FileUploadConfig = {
 ## Monitoring & Logging
 
 ### Security Events
+
 - CSP violations logged to `/api/csp-report`
 - SSRF attempts logged with `ssrf_check` action
 - File upload rejections logged with validation errors
 - CSRF failures logged with `CSRF validation failed`
 
 ### Alerts
+
 - Configure webhook URL via `ALERT_WEBHOOK_URL`
 - Email alerts via `ALERT_EMAIL_RECIPIENT`
 
 ## Compliance
 
 This implementation addresses the following OWASP Top 10:
+
 - **A01:2021-Broken Access Control**: CSRF protection, CORS policy
 - **A02:2021-Cryptographic Failures**: Secure headers, HTTPS enforcement
 - **A03:2021-Injection**: Input sanitization, SSRF protection
@@ -204,12 +227,14 @@ This implementation addresses the following OWASP Top 10:
 ## Maintenance
 
 ### Regular Updates
+
 - Review and update CSP rules quarterly
 - Monitor CSP violation reports
 - Update allowed file types as needed
 - Review rate limiting thresholds
 
 ### Security Audits
+
 - Run automated security scans
 - Manual code review for security issues
 - Penetration testing validation
