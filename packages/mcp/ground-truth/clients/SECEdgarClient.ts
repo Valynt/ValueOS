@@ -7,6 +7,7 @@
 
 import { logger } from "../lib/logger";
 import { fetchWithRetry } from "./utils/fetchWithRetry";
+<<<<<<< Updated upstream
 
 async function fetchWithRetry(
   url: string,
@@ -28,6 +29,8 @@ async function fetchWithRetry(
   logger.error("Fetch failed after retries", { url, error: lastError });
   throw lastError;
 }
+=======
+>>>>>>> Stashed changes
 
 export interface SECFiling {
   cik: string;
