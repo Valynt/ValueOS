@@ -13,7 +13,7 @@ import {
   MARLRewardFunction,
   MARLPolicy,
 } from "../BaseAgent";
-import { AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
+import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { BaseAgentConfig } from "../BaseAgent";
 
 export interface CommunicationContext {
@@ -61,18 +61,86 @@ export class CommunicatorAgent extends BaseAgent {
     return "communicator";
   }
 
-  getCapabilities(): string[] {
+  protected async processRequest(request: AgentRequest): Promise<AgentResponse> {
+    // Delegate to the communication processing method
+    return await this.processCommunicationRequest(
+      request.sessionId || "default",
+      request.query,
+      request.context
+    );
+  }
+
+  getCapabilities(): AgentCapability[] {
     return [
-      "stakeholder_communication",
-      "message_crafting",
-      "communication_strategy",
-      "feedback_analysis",
-      "adaptive_messaging",
-      "channel_optimization",
+      {
+        id: "stakeholder_communication",
+        name: "Stakeholder Communication",
+        description: "Communicate with stakeholders effectively",
+        category: "communication",
+        inputTypes: ["json", "text"],
+        outputTypes: ["text", "json"],
+        requiredPermissions: ["communication_access"],
+        enabled: true,
+      },
+      {
+        id: "message_crafting",
+        name: "Message Crafting",
+        description: "Craft effective messages for different audiences",
+        category: "generation",
+        inputTypes: ["json", "text"],
+        outputTypes: ["text"],
+        requiredPermissions: ["llm_access"],
+        enabled: true,
+      },
+      {
+        id: "communication_strategy",
+        name: "Communication Strategy",
+        description: "Develop communication strategies",
+        category: "analysis",
+        inputTypes: ["json"],
+        outputTypes: ["json"],
+        requiredPermissions: ["strategy_access"],
+        enabled: true,
+      },
+      {
+        id: "feedback_analysis",
+        name: "Feedback Analysis",
+        description: "Analyze communication feedback",
+        category: "analysis",
+        inputTypes: ["text", "json"],
+        outputTypes: ["json"],
+        requiredPermissions: ["analysis_access"],
+        enabled: true,
+      },
+      {
+        id: "adaptive_messaging",
+        name: "Adaptive Messaging",
+        description: "Adapt messaging based on context and feedback",
+        category: "coordination",
+        inputTypes: ["json"],
+        outputTypes: ["text"],
+        requiredPermissions: ["adaptive_access"],
+        enabled: true,
+      },
+      {
+        id: "channel_optimization",
+        name: "Channel Optimization",
+        description: "Optimize communication channels",
+        category: "analysis",
+        inputTypes: ["json"],
+        outputTypes: ["json"],
+        requiredPermissions: ["channel_access"],
+        enabled: true,
+      },
     ];
   }
 
-  async execute(
+  async execute<T = unknown>(request: AgentRequest): Promise<AgentResponse<T>> {
+    const result = await this.processCommunicationRequest(request.sessionId || "default", request.query, request.context);
+    return result as AgentResponse<T>;
+  }
+
+  private async processCommunicationRequest(
     sessionId: string,
     input: any,
     context?: Record<string, any>
@@ -395,7 +463,7 @@ ValueOS Communicator Agent`;
     };
   }
 
-  private initializeMARL(): void {
+  protected initializeMARL(): void {
     // Initialize MARL components
     const rewardFunction: MARLRewardFunction = {
       calculateReward: (state, action, nextState, agentId) => {

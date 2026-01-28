@@ -6,12 +6,12 @@
  */
 
 import { TenantAwareService } from "./TenantAwareService.js";
-import { NotFoundError, ValidationError } from "./errors.js";
+import { AuthorizationError, NotFoundError, ValidationError } from "./errors.js";
 import { createLogger } from "@shared/lib/logger";
 
 const logger = createLogger({ component: "IntegrationConnectionService" });
 
-export type IntegrationProvider = "hubspot" | "salesforce";
+export type IntegrationProvider = "hubspot" | "salesforce" | "dynamics";
 export type IntegrationStatus = "active" | "expired" | "revoked" | "error";
 
 export interface IntegrationConnection {
@@ -48,6 +48,7 @@ const SUPPORTED_PROVIDERS: IntegrationProvider[] = ["hubspot", "salesforce"];
 const PROVIDER_REQUIREMENTS: Record<IntegrationProvider, { requiresInstanceUrl: boolean }> = {
   hubspot: { requiresInstanceUrl: false },
   salesforce: { requiresInstanceUrl: true },
+  dynamics: { requiresInstanceUrl: true },
 };
 
 const DEFAULT_TEST_TIMEOUT_MS = 8000;
@@ -143,6 +144,9 @@ export class IntegrationConnectionService extends TenantAwareService {
 
   async disconnect(userId: string, tenantId: string, integrationId: string): Promise<IntegrationConnection> {
     const integration = await this.fetchIntegrationById(integrationId);
+    if (integration.tenant_id !== tenantId) {
+      throw new AuthorizationError("Integration does not belong to the active tenant");
+    }
     await this.validateTenantAccess(userId, integration.tenant_id);
 
     const now = new Date().toISOString();
@@ -186,6 +190,9 @@ export class IntegrationConnectionService extends TenantAwareService {
 
   async sync(userId: string, tenantId: string, integrationId: string): Promise<IntegrationConnection> {
     const integration = await this.fetchIntegrationById(integrationId);
+    if (integration.tenant_id !== tenantId) {
+      throw new AuthorizationError("Integration does not belong to the active tenant");
+    }
     await this.validateTenantAccess(userId, integration.tenant_id);
 
     const now = new Date().toISOString();
@@ -229,10 +236,17 @@ export class IntegrationConnectionService extends TenantAwareService {
     integrationId: string
   ): Promise<IntegrationTestResult> {
     const integration = await this.fetchIntegrationById(integrationId, true);
+    if (integration.tenant_id !== tenantId) {
+      throw new AuthorizationError("Integration does not belong to the active tenant");
+    }
     await this.validateTenantAccess(userId, integration.tenant_id);
 
     const provider = integration.provider as IntegrationProvider;
     this.assertProvider(provider);
+
+    if (!integration.access_token) {
+      throw new ValidationError("Access token is missing for this integration");
+    }
 
     let ok = false;
     let message = "Unknown error";

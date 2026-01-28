@@ -23,6 +23,8 @@ const mapStatus = (status?: string): IntegrationStatus => {
   }
 };
 
+const providerIds = new Set(PROVIDERS.map((provider) => provider.id));
+
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<IntegrationConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +32,7 @@ export function useIntegrations() {
 
   const fetchIntegrations = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const response = await api.getIntegrations();
       if (!response.success) {
@@ -37,16 +40,18 @@ export function useIntegrations() {
       }
 
       const items = (response.data as any)?.integrations ?? [];
-      const mapped: IntegrationConnection[] = items.map((item: any) => ({
-        id: item.id,
-        provider: item.provider as IntegrationProviderId,
-        status: mapStatus(item.status),
-        connectedAt: item.connectedAt ?? item.connected_at,
-        lastSyncAt: item.lastUsedAt ?? item.last_used_at,
-        errorMessage: item.errorMessage ?? item.error_message ?? undefined,
-        instanceUrl: item.instanceUrl ?? item.instance_url,
-        scopes: item.scopes ?? [],
-      }));
+      const mapped = items
+        .filter((item: any) => providerIds.has(item.provider))
+        .map((item: any) => ({
+          id: item.id,
+          provider: item.provider as IntegrationProviderId,
+          status: mapStatus(item.status),
+          connectedAt: item.connectedAt ?? item.connected_at,
+          lastSyncAt: item.lastUsedAt ?? item.last_used_at,
+          errorMessage: item.errorMessage ?? item.error_message ?? undefined,
+          instanceUrl: item.instanceUrl ?? item.instance_url,
+          scopes: item.scopes ?? [],
+        }));
 
       setIntegrations(mapped);
     } catch (err) {
@@ -59,6 +64,7 @@ export function useIntegrations() {
   const connect = useCallback(
     async (providerId: IntegrationProviderId, credentials: IntegrationCredentialsInput) => {
     try {
+        setError(null);
         const response = await api.createIntegration({
           provider: providerId,
           accessToken: credentials.accessToken,
@@ -104,6 +110,7 @@ export function useIntegrations() {
 
   const disconnect = useCallback(async (integrationId: string) => {
     try {
+      setError(null);
       const response = await api.deleteIntegration(integrationId);
       if (!response.success) {
         throw new Error(response.error?.message || "Failed to disconnect");
@@ -116,6 +123,7 @@ export function useIntegrations() {
 
   const testConnection = useCallback(async (integrationId: string) => {
     try {
+      setError(null);
       const response = await api.testIntegration(integrationId);
       if (!response.success) {
         throw new Error(response.error?.message || "Failed to test connection");
@@ -136,6 +144,7 @@ export function useIntegrations() {
 
   const sync = useCallback(async (integrationId: string) => {
     try {
+      setError(null);
       const response = await api.syncIntegration(integrationId);
       if (!response.success) {
         throw new Error(response.error?.message || "Failed to sync integration");
