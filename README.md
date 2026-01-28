@@ -39,7 +39,7 @@ pnpm run dev
 
 ## Demo credentials
 
-The local setup seeds a demo tenant and user for development convenience. After running `pnpm run setup` (which applies migrations and seeds) or `pnpm run dx -- --seed`, the following credentials are available:
+The local setup seeds a demo tenant and user for development convenience. After running `pnpm run setup` (which applies migrations and seeds) or `pnpm run dx -- --seed`, the following credentials are available. Demo seeding is blocked in `production` or `staging` unless you explicitly set `ALLOW_DEMO_SEED=1` for a non-production workflow.
 
 - **Email:** demouser@valynt.com
 - **Password:** passw0rd! (default — must be at least 8 characters)

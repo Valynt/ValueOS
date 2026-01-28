@@ -21,6 +21,17 @@ dotenv.config({ path: path.join(projectRoot, ".env.local") });
 // Validate required environment variables (fail fast)
 validateEnv();
 
+const runtimeEnv =
+  process.env.NODE_ENV || process.env.VITE_APP_ENV || "development";
+const allowDemoSeed = process.env.ALLOW_DEMO_SEED === "1";
+
+if ((runtimeEnv === "production" || runtimeEnv === "staging") && !allowDemoSeed) {
+  console.error(
+    `❌ Demo seeding blocked in ${runtimeEnv} environment. Set ALLOW_DEMO_SEED=1 only for non-production workflows.`
+  );
+  process.exit(1);
+}
+
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
 
