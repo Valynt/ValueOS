@@ -21,6 +21,14 @@ export function useAgent(agentId: string) {
 
   const sendMessage = useCallback(
     async (content: string) => {
+      // Feature flag: Show preview mode until backend is wired
+      const AGENT_PREVIEW_MODE = import.meta.env.VITE_AGENT_PREVIEW_MODE === "true";
+      if (!AGENT_PREVIEW_MODE) {
+        setError("Agent functionality is in preview mode. Coming soon!");
+        setStatus("error");
+        return;
+      }
+
       const userMessage: AgentMessage = {
         id: `msg_${Date.now()}`,
         agentId,

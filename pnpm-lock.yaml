@@ -348,6 +348,9 @@ importers:
       '@vitest/runner':
         specifier: ^4.0.15
         version: 4.0.18
+      '@vos/config-v2':
+        specifier: workspace:*
+        version: link:packages/config-v2
       autoprefixer:
         specifier: ^10.4.23
         version: 10.4.23(postcss@8.5.6)
@@ -880,6 +883,9 @@ importers:
       ioredis:
         specifier: ^5.9.1
         version: 5.9.2
+      ipaddr.js:
+        specifier: ^2.3.0
+        version: 2.3.0
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -932,6 +938,8 @@ importers:
       vitest:
         specifier: ^4.0.17
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.30)(@vitest/browser-playwright@4.0.18)(@vitest/ui@4.0.18)(happy-dom@20.3.7)(jiti@1.21.7)(jsdom@27.4.0(@noble/hashes@2.0.1))(msw@2.12.7(@types/node@20.19.30)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/config-v2: {}
 
   packages/infra:
     dependencies:
@@ -6540,6 +6548,10 @@ packages:
   ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
     engines: {node: '>= 0.10'}
+
+  ipaddr.js@2.3.0:
+    resolution: {integrity: sha512-Zv/pA+ciVFbCSBBjGfaKUya/CcGmUHzTydLMaTwrUUEM2DIEO3iZvueGxmacvmN50fGpGVKeTXpb2LcYQxeVdg==}
+    engines: {node: '>= 10'}
 
   is-alphabetical@2.0.1:
     resolution: {integrity: sha512-FWyyY60MeTNyeSRpkM2Iry0G9hpr7/9kD40mD/cGQEuilcZYS4okz8SN2Q6rLCJ8gbCt6fN+rC+6tMGS99LaxQ==}
@@ -13776,7 +13788,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(@vitest/browser-playwright@4.0.18)(@vitest/ui@4.0.18)(happy-dom@20.3.7)(jiti@1.21.7)(jsdom@23.2.0)(msw@2.12.7(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.30)(@vitest/browser-playwright@4.0.18)(@vitest/ui@4.0.18)(happy-dom@20.3.7)(jiti@1.21.7)(jsdom@27.4.0(@noble/hashes@2.0.1))(msw@2.12.7(@types/node@20.19.30)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/utils@2.0.5':
     dependencies:
@@ -16151,6 +16163,8 @@ snapshots:
   ip-address@10.1.0: {}
 
   ipaddr.js@1.9.1: {}
+
+  ipaddr.js@2.3.0: {}
 
   is-alphabetical@2.0.1: {}
 

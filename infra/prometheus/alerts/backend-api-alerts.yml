@@ -53,3 +53,16 @@ groups:
         annotations:
           summary: "Redis Prometheus target is down"
           description: "No scrape data from redis job for 5 minutes."
+
+      - alert: HighValueCaseGetP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket{handler="getCustomerValueCase"}[5m])) by (le)
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "High latency for getCustomerValueCase (P95 > 200ms)"
+          description: "P95 latency for handler getCustomerValueCase is above 200ms for more than 5 minutes."

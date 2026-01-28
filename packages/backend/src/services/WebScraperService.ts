@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { promisify } from "util";
 import { resolve } from "dns";
+import * as ipaddr from "ipaddr.js";
 
 const resolveAsync = promisify(resolve);
 
@@ -63,8 +64,9 @@ export class WebScraperService {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         while (redirectCount <= maxRedirects) {
-          // Validate URL to prevent SSRF
-          if (!(await this.isSafeUrl(currentUrl))) {
+          // Validate URL and get safe IP to prevent SSRF
+          const safeIP = await this.validateUrlAndGetSafeIP(currentUrl);
+          if (!safeIP) {
             logger.warn("Web scraping blocked for unsafe URL", {
               url: currentUrl,
             });
@@ -72,24 +74,28 @@ export class WebScraperService {
           }
 
           // Check rate limit before making request (distributed)
-          const hostname = new URL(currentUrl).hostname;
-          if (!(await this.checkRateLimit(hostname))) {
+          if (!(await this.checkRateLimit(safeIP.hostname))) {
             logger.warn("Rate limit exceeded for domain", {
-              hostname,
+              hostname: safeIP.hostname,
               url: currentUrl,
             });
-            throw new Error(`Rate limit exceeded for ${hostname}`);
+            throw new Error(`Rate limit exceeded for ${safeIP.hostname}`);
           }
 
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
           try {
+            // Construct URL using the validated IP to prevent TOCTOU
+            const urlObj = new URL(currentUrl);
+            const fetchUrl = `${urlObj.protocol}//${safeIP.ip}${urlObj.pathname}${urlObj.search}`;
+
             // Use manual redirect handling to check every hop
-            const response = await fetch(currentUrl, {
+            const response = await fetch(fetchUrl, {
               method: "GET",
               headers: {
                 "User-Agent": this.userAgent,
+                Host: safeIP.hostname, // Set Host header to original hostname
                 Accept:
                   "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
               },
@@ -296,44 +302,47 @@ export class WebScraperService {
   }
 
   /**
-   * Check if URL is safe to scrape (SSRF protection)
+   * Validate URL and return safe IP address for fetching, or null if unsafe
    */
-  private async isSafeUrl(urlString: string): Promise<boolean> {
+  private async validateUrlAndGetSafeIP(
+    urlString: string
+  ): Promise<{ ip: string; hostname: string } | null> {
     try {
       const url = new URL(urlString);
 
       // Only allow HTTP and HTTPS
       if (!["http:", "https:"].includes(url.protocol)) {
-        return false;
+        return null;
       }
 
       const hostname = url.hostname;
       const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
 
       if (blockedHosts.includes(hostname.toLowerCase())) {
-        return false;
+        return null;
       }
 
       const ips = await this.resolveAndCheckIP(hostname);
       if (!ips) {
         logger.warn("DNS resolution failed, blocking request", { url: urlString });
-        return false;
+        return null;
       }
 
+      // Find the first safe IP
       for (const ip of ips) {
-        if (this.isPrivateIP(ip)) {
-          logger.warn("Blocked request to private IP", { hostname, privateIPs: ips });
-          return false;
+        if (!this.isPrivateIP(ip)) {
+          return { ip, hostname };
         }
       }
 
-      return true;
+      logger.warn("All resolved IPs are private, blocking request", { hostname, ips });
+      return null;
     } catch (error) {
       logger.warn("URL safety check failed, blocking request", {
         url: urlString,
         error: (error as Error).message,
       });
-      return false;
+      return null;
     }
   }
 
@@ -374,22 +383,13 @@ export class WebScraperService {
    * Check if IP address is private
    */
   private isPrivateIP(ip: string): boolean {
-    // IPv4 private ranges
-    const ipv4Private = [
-      /^10\./,
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-      /^192\.168\./,
-      /^127\./,
-      /^169\.254\./, // Link-local
-    ];
-
-    // IPv6 private ranges
-    const ipv6Private = [/^::1$/, /^fc00:/, /^fe80:/];
-
-    return (
-      ipv4Private.some((pattern) => pattern.test(ip)) ||
-      ipv6Private.some((pattern) => pattern.test(ip))
-    );
+    try {
+      const addr = ipaddr.parse(ip);
+      const range = addr.range();
+      return ["private", "loopback", "linkLocal", "uniqueLocal", "unspecified"].includes(range);
+    } catch (e) {
+      return true; // Treat invalid IPs as private/unsafe
+    }
   }
 
   /**
@@ -416,3 +416,5 @@ export class WebScraperService {
     };
   }
 }
+
+export const webScraperService = new WebScraperService();

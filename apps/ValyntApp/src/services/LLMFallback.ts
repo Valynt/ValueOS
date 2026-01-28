@@ -370,6 +370,18 @@ export class LLMFallbackService {
    * Stream LLM request
    */
   async *streamRequest(request: LLMRequest): AsyncGenerator<string, void, unknown> {
+    // Check circuit breaker state
+    if (this.togetherAIBreaker.opened) {
+      logger.warn("Circuit breaker open, falling back to non-streaming for LLM request", {
+        model: request.model,
+        userId: request.userId,
+      });
+      // Fallback to non-streaming response
+      const response = await this.processRequest({ ...request, stream: false });
+      yield response.content;
+      return;
+    }
+
     // Skip cache for streaming requests for now
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
@@ -391,8 +403,6 @@ export class LLMFallbackService {
       model: request.model,
     });
 
-    // TODO: Implement circuit breaker for streaming
-    // Currently bypassing breaker for streaming to support AsyncGenerator return type
     try {
       for await (const chunk of this.callTogetherAIStream(request)) {
         yield chunk;

@@ -161,6 +161,36 @@ export interface UseCaseCapability {
   relevance_score: number;
 }
 
+// ============================================================================
+// Domain Types (BusinessObjective, ValueTree)
+// ============================================================================
+
+export interface BusinessObjective {
+  id: string;
+  name: string;
+  description?: string;
+  owner?: string;
+  target_value?: number;
+  unit?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ValueTreeNode {
+  id: string;
+  label: string;
+  driverType?: string;
+  value?: number;
+  children?: ValueTreeNode[];
+}
+
+export interface ValueTree {
+  id: string;
+  name: string;
+  root_id?: string;
+  nodes: ValueTreeNode[];
+}
+
 export interface ValueFabricQuery {
   lifecycle_stage?: LifecycleStage;
   value_case_id?: string;
@@ -172,10 +202,10 @@ export interface ValueFabricQuery {
 export interface ValueFabricSnapshot {
   value_case_id: string;
   lifecycle_stage: LifecycleStage;
-  business_objectives: any[]; // TODO: define BusinessObjective
+  business_objectives: BusinessObjective[];
   capabilities: Capability[];
   use_cases: UseCase[];
-  value_trees: any[]; // TODO: define ValueTree
+  value_trees: ValueTree[];
   roi_models: ROIModel[];
   value_commits: any[]; // TODO: define ValueCommit
   telemetry_summary?: {

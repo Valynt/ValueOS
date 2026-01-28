@@ -19,7 +19,7 @@ export const VEAnalyticsDashboard: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card className="p-4">
-          <Label className="text-xs text-muted-foreground uppercase">Total Models Built</ins>
+          <Label className="text-xs text-muted-foreground uppercase">Total Models Built</Label>
           <p className="text-3xl font-bold">37</p>
           <Badge className="mt-2 bg-green-100 text-green-700">+12% vs last week</Badge>
         </Card>

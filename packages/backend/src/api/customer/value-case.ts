@@ -11,6 +11,7 @@ import { z } from "zod";
 import { ValueTreeService } from "../../services/value/ValueTreeService";
 import { RoiModelService } from "../../services/value/RoiModelService";
 import { KpiTargetService } from "../../services/value/KpiTargetService";
+import { httpRequestDuration } from "../../lib/metrics/httpMetrics";
 
 // Request validation schema
 const ValueCaseRequestSchema = z.object({
@@ -60,6 +61,10 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
     // Validate request parameters
     const { token } = ValueCaseRequestSchema.parse(req.params);
     logger.info("Customer value case request");
+    const endTimer = httpRequestDuration.startTimer({ handler: "getCustomerValueCase", method: req.method });
+    res.on("finish", () => {
+      endTimer({ status: String(res.statusCode) });
+    });
     // Validate token
     const validation = await customerAccessService.validateCustomerToken(token);
     if (!validation.is_valid || !validation.value_case_id) {
