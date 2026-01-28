@@ -9,6 +9,10 @@ import ROICalculator from "../ROICalculator";
 import ImpactCascade from "../ImpactCascade";
 import { ScenarioSelector } from "../../components/SDUI/ScenarioSelector";
 import QuantumView from "../QuantumView";
+<<<<<<< Updated upstream
+=======
+import type { PersonaType } from "../QuantumView";
+>>>>>>> Stashed changes
 
 // Mock for visual consistency
 const expectVisualConsistency = (container: HTMLElement, expectedElements: string[]) => {
@@ -252,7 +256,11 @@ describe("Visual Regression - Template Consistency", () => {
     const mockAnalyses = [
       {
         id: "financial",
+<<<<<<< Updated upstream
         persona: "financial", // type: PersonaType
+=======
+        persona: "financial" as PersonaType,
+>>>>>>> Stashed changes
         title: "Financial Analysis",
         summary: "Strong ROI",
         confidence: 85,
@@ -264,7 +272,11 @@ describe("Visual Regression - Template Consistency", () => {
       },
       {
         id: "technical",
+<<<<<<< Updated upstream
         persona: "technical", // type: PersonaType
+=======
+        persona: "technical" as PersonaType,
+>>>>>>> Stashed changes
         title: "Technical Assessment",
         summary: "Scalable architecture",
         confidence: 78,

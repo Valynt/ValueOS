@@ -11,6 +11,10 @@ import ImpactCascade from "../ImpactCascade";
 import { ScenarioSelector } from "../../components/SDUI/ScenarioSelector";
 import ValueCanvas from "../ValueCanvas";
 import QuantumView from "../QuantumView";
+<<<<<<< Updated upstream
+=======
+import type { PersonaType } from "../QuantumView";
+>>>>>>> Stashed changes
 
 vi.mock("../../components/chat-canvas/ChatCanvasLayout", () => ({
   ChatCanvasLayout: ({
@@ -120,7 +124,11 @@ describe("Template Integration Workflows", () => {
         },
         {
           id: "technical-1",
+<<<<<<< Updated upstream
           persona: "technical", // type: PersonaType
+=======
+          persona: "technical" as PersonaType,
+>>>>>>> Stashed changes
           title: "Technical Assessment",
           summary: "Architecture supports scale",
           confidence: 78,

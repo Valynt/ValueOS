@@ -31,6 +31,7 @@ import { getContext } from "./context";
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogContext {
+  // Optional fields below
   component?: string;
   action?: string;
   userId?: string;
@@ -79,9 +80,7 @@ class Logger {
    */
   debug(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context
-      ? (sanitizeForLogging(context) as LogContext)
-      : undefined;
+    const sanitizedContext = context ? (sanitizeForLogging(context) as LogContext) : undefined;
     this.log("debug", message, sanitizedContext);
   }
 
@@ -90,9 +89,7 @@ class Logger {
    */
   info(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context
-      ? (sanitizeForLogging(context) as LogContext)
-      : undefined;
+    const sanitizedContext = context ? (sanitizeForLogging(context) as LogContext) : undefined;
     this.log("info", message, sanitizedContext);
   }
 
@@ -101,9 +98,7 @@ class Logger {
    */
   warn(message: string, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context
-      ? (sanitizeForLogging(context) as LogContext)
-      : undefined;
+    const sanitizedContext = context ? (sanitizeForLogging(context) as LogContext) : undefined;
     this.log("warn", message, sanitizedContext);
   }
 
@@ -112,9 +107,7 @@ class Logger {
    */
   error(message: string, error?: Error, context?: LogContext): void {
     validateLogMessage(message, context);
-    const sanitizedContext = context
-      ? (sanitizeForLogging(context) as LogContext)
-      : undefined;
+    const sanitizedContext = context ? (sanitizeForLogging(context) as LogContext) : undefined;
     const sanitizedError = error ? sanitizeError(error) : undefined;
     this.log("error", message, {
       ...sanitizedContext,
@@ -125,11 +118,7 @@ class Logger {
   /**
    * Core logging method
    */
-  private log(
-    level: LogLevel,
-    message: string,
-    context?: LogContext & { error?: Error }
-  ): void {
+  private log(level: LogLevel, message: string, context?: LogContext & { error?: Error }): void {
     if (!this.shouldLog(level)) {
       return;
     }
@@ -146,9 +135,7 @@ class Logger {
       message,
       timestamp: new Date().toISOString(),
       context:
-        Object.keys(mergedContext).length > 0
-          ? { ...mergedContext, error: undefined }
-          : undefined,
+        Object.keys(mergedContext).length > 0 ? { ...mergedContext, error: undefined } : undefined,
       error: context?.error,
     };
 
@@ -247,12 +234,9 @@ export const logger = new Logger();
 
 // Export convenience functions
 export const log = {
-  debug: (message: string, context?: LogContext) =>
-    logger.debug(message, context),
-  info: (message: string, context?: LogContext) =>
-    logger.info(message, context),
-  warn: (message: string, context?: LogContext) =>
-    logger.warn(message, context),
+  debug: (message: string, context?: LogContext) => logger.debug(message, context),
+  info: (message: string, context?: LogContext) => logger.info(message, context),
+  warn: (message: string, context?: LogContext) => logger.warn(message, context),
   error: (message: string, error?: Error, context?: LogContext) =>
     logger.error(message, error, context),
 };
@@ -296,8 +280,7 @@ export const secureLog = {
    * Log errors with automatic sanitization
    */
   error: (message: string, error: unknown, context?: LogContext) => {
-    const sanitizedError =
-      error instanceof Error ? error : new Error(String(error));
+    const sanitizedError = error instanceof Error ? error : new Error(String(error));
     logger.error(message, sanitizedError, context);
   },
 };
@@ -312,8 +295,7 @@ export function setupMonitoring() {
     try {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
       // @ts-expect-error - `require` is available in the Node.js production runtime, but may not be typed in all build targets
-      const Sentry =
-        typeof window === "undefined" ? require("@sentry/node") : null;
+      const Sentry = typeof window === "undefined" ? require("@sentry/node") : null;
 
       if (Sentry) {
         logger.addListener((entry) => {
