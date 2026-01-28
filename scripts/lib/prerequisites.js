@@ -41,11 +41,11 @@ export async function checkNode() {
       ? null
       : `
    Required: >= ${required}.0.0
-   
+
    Fix:
    $ nvm install ${required}
    $ nvm use ${required}
-   
+
    Or download from: https://nodejs.org/`,
   };
 }
@@ -54,7 +54,7 @@ export async function checkNode() {
  * Check Docker installation and status
  */
 export async function checkDocker() {
-  const dockerVersion = exec("docker --version");
+  const dockerVersion = exec("sudo docker --version");
 
   if (!dockerVersion) {
     return {
@@ -65,7 +65,7 @@ export async function checkDocker() {
       message: "❌ Docker not installed",
       fix: `
    Install Docker:
-   
+
    macOS: https://docs.docker.com/desktop/install/mac-install/
    Windows: https://docs.docker.com/desktop/install/windows-install/
    Linux: https://docs.docker.com/engine/install/`,
@@ -73,7 +73,7 @@ export async function checkDocker() {
   }
 
   // Check if Docker daemon is running
-  const dockerRunning = exec("docker ps") !== null;
+  const dockerRunning = exec("sudo docker ps") !== null;
 
   if (!dockerRunning) {
     const platform = detectPlatform();
@@ -87,9 +87,9 @@ export async function checkDocker() {
       message: "❌ Docker is not running",
       fix: `
    Start Docker:
-   
+
    ${config.dockerCommand}
-   
+
    Then run setup again.`,
     };
   }
@@ -181,7 +181,7 @@ export async function checkSupabaseCli() {
    Install Supabase CLI:
 
    $ pnpm install -g supabase
-   
+
    Or disable local Supabase check:
    $ export DX_SUPABASE_LOCAL=0`,
     };
@@ -255,7 +255,7 @@ export async function checkDiskSpace() {
         : `
    Required: >= ${requiredGB} GB free space
    Available: ${availableGB.toFixed(1)} GB
-   
+
    Free up disk space and try again.`,
     };
   } catch (error) {
@@ -285,7 +285,7 @@ export async function checkGit() {
       message: "❌ Git not installed",
       fix: `
    Install Git:
-   
+
    macOS: brew install git
    Windows: https://git-scm.com/download/win
    Linux: sudo apt-get install git (or equivalent)`,
