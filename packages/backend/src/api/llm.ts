@@ -7,6 +7,7 @@
 
 import { Request, Response, Router } from 'express';
 import { llmFallback } from '../services/LLMFallback.js'
+import { CostGovernanceError } from '../services/CostGovernanceService.js'
 import { llmRateLimiter } from '../middleware/llmRateLimiter.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -50,7 +51,7 @@ router.post(
   llmRateLimiter,
   async (req: Request, res: Response) => {
   try {
-    const { prompt, model, maxTokens, temperature, stream } = req.body;
+    const { prompt, model, maxTokens, temperature, stream, dealId } = req.body;
     
     // Validate request
     if (!prompt || typeof prompt !== 'string') {
@@ -86,12 +87,14 @@ router.post(
     // Get user info from auth middleware (assumed to be set)
     const userId = (req as any).user?.id || 'anonymous';
     const sessionId = (req as any).sessionId;
+    const tenantId = (req as any).tenantId;
     
     logger.info(
       'LLM chat request received',
       withRequestContext(req, res, {
         userId,
         sessionId,
+        tenantId,
         model,
         promptLength: sanitizedPrompt.length,
         stream: !!stream
@@ -111,7 +114,9 @@ router.post(
           maxTokens,
           temperature,
           userId,
-          sessionId
+          sessionId,
+          tenantId,
+          dealId
         });
 
         for await (const chunk of streamGenerator) {
@@ -121,8 +126,14 @@ router.post(
         res.end();
       } catch (error) {
         logger.error('LLM stream failed', error as Error, withRequestContext(req, res));
+        const message =
+          error instanceof CostGovernanceError
+            ? error.message
+            : "Stream failed";
         // Send error event
-        res.write(`data: ${JSON.stringify({ error: 'Stream failed', done: true })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({ error: message, done: true })}\n\n`
+        );
         res.end();
       }
       return;
@@ -135,7 +146,9 @@ router.post(
       maxTokens,
       temperature,
       userId,
-      sessionId
+      sessionId,
+      tenantId,
+      dealId
     });
     
     // Return response
@@ -156,6 +169,14 @@ router.post(
       }
     });
   } catch (error) {
+    if (error instanceof CostGovernanceError) {
+      return res.status(429).json({
+        error: "Cost governance limit exceeded",
+        message: error.message,
+        details: error.snapshot,
+      });
+    }
+
     logger.error('LLM chat request failed', error as Error, withRequestContext(req, res));
     
     res.status(500).json({

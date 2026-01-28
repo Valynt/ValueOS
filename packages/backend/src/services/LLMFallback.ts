@@ -10,6 +10,7 @@ import { logger } from "../utils/logger.js"
 import { getEnvVar } from "@shared/lib/env";
 import { llmCache } from "./LLMCache.js"
 import { llmCostTracker } from "./LLMCostTracker.js"
+import { costGovernance } from "./CostGovernanceService.js"
 
 export interface LLMRequest {
   prompt: string;
@@ -19,6 +20,7 @@ export interface LLMRequest {
   userId: string;
   sessionId?: string;
   tenantId?: string;
+  dealId?: string;
 }
 
 export interface LLMResponse {
@@ -45,6 +47,7 @@ export interface CircuitBreakerStats {
 type LLMFallbackStats = {
   togetherAI: CircuitBreakerStats & { calls: number; failures: number };
   cache: { hits: number; misses: number };
+  costGovernance: ReturnType<typeof costGovernance.getSummary>;
 };
 
 export class LLMFallbackService {
@@ -145,6 +148,15 @@ export class LLMFallbackService {
         cached: false,
       };
 
+      costGovernance.recordUsage({
+        tenantId: request.tenantId,
+        dealId: request.dealId ?? request.sessionId,
+        tokens: result.totalTokens,
+        cost: result.cost,
+        userId: request.userId,
+        model: request.model,
+      });
+
       // Track usage
       await llmCostTracker.trackUsage({
         userId: request.userId,
@@ -219,6 +231,24 @@ export class LLMFallbackService {
     }
 
     this.stats.cache.misses++;
+    const dealId = request.dealId ?? request.sessionId;
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
+      request.prompt
+    );
+    const estimatedCompletionTokens = request.maxTokens || 1000;
+    const estimatedCost = llmCostTracker.calculateCost(
+      request.model,
+      estimatedPromptTokens,
+      estimatedCompletionTokens
+    );
+    costGovernance.checkRequest({
+      tenantId: request.tenantId,
+      dealId,
+      estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
+      estimatedCost,
+      userId: request.userId,
+      model: request.model,
+    });
 
     // Call Together.ai with circuit breaker
     try {
@@ -251,6 +281,24 @@ export class LLMFallbackService {
     }
 
     this.stats.cache.misses++;
+    const dealId = request.dealId ?? request.sessionId;
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
+      request.prompt
+    );
+    const estimatedCompletionTokens = request.maxTokens || 1000;
+    const estimatedCost = llmCostTracker.calculateCost(
+      request.model,
+      estimatedPromptTokens,
+      estimatedCompletionTokens
+    );
+    costGovernance.checkRequest({
+      tenantId: request.tenantId,
+      dealId,
+      estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
+      estimatedCost,
+      userId: request.userId,
+      model: request.model,
+    });
 
     const startTime = Date.now();
     this.stats.togetherAI.calls++;
@@ -346,6 +394,15 @@ export class LLMFallbackService {
         completionTokens
       );
 
+      costGovernance.recordUsage({
+        tenantId: request.tenantId,
+        dealId: request.dealId ?? request.sessionId,
+        tokens: promptTokens + completionTokens,
+        cost,
+        userId: request.userId,
+        model: request.model,
+      });
+
       // Track usage
       await llmCostTracker.trackUsage({
         userId: request.userId,
@@ -389,6 +446,7 @@ export class LLMFallbackService {
         ...this.stats.togetherAI,
       },
       cache: this.stats.cache,
+      costGovernance: costGovernance.getSummary(),
     };
   }
 

@@ -10,6 +10,7 @@ import { logger } from "../utils/logger";
 import { getEnvVar } from "../lib/env";
 import { llmCache } from "./LLMCache";
 import { llmCostTracker } from "./LLMCostTracker";
+import { costGovernance } from "./CostGovernanceService";
 
 export interface LLMRequest {
   prompt: string;
@@ -20,6 +21,7 @@ export interface LLMRequest {
   sessionId?: string;
   tenantId?: string;
   stream?: boolean;
+  dealId?: string;
 }
 
 export interface LLMResponse {
@@ -46,6 +48,7 @@ export interface CircuitBreakerStats {
 type LLMFallbackStats = {
   togetherAI: CircuitBreakerStats & { calls: number; failures: number };
   cache: { hits: number; misses: number };
+  costGovernance: ReturnType<typeof costGovernance.getSummary>;
 };
 
 export class LLMFallbackService {
@@ -145,6 +148,15 @@ export class LLMFallbackService {
         latency,
         cached: false,
       };
+
+      costGovernance.recordUsage({
+        tenantId: request.tenantId,
+        dealId: request.dealId ?? request.sessionId,
+        tokens: result.totalTokens,
+        cost: result.cost,
+        userId: request.userId,
+        model: request.model,
+      });
 
       // Track usage
       await llmCostTracker.trackUsage({
@@ -325,6 +337,24 @@ export class LLMFallbackService {
     }
 
     this.stats.cache.misses++;
+    const dealId = request.dealId ?? request.sessionId;
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
+      request.prompt
+    );
+    const estimatedCompletionTokens = request.maxTokens || 1000;
+    const estimatedCost = llmCostTracker.calculateCost(
+      request.model,
+      estimatedPromptTokens,
+      estimatedCompletionTokens
+    );
+    costGovernance.checkRequest({
+      tenantId: request.tenantId,
+      dealId,
+      estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
+      estimatedCost,
+      userId: request.userId,
+      model: request.model,
+    });
 
     // Call Together.ai with circuit breaker
     try {
@@ -342,10 +372,41 @@ export class LLMFallbackService {
   async *streamRequest(request: LLMRequest): AsyncGenerator<string, void, unknown> {
     // Skip cache for streaming requests for now
     this.stats.cache.misses++;
+    const dealId = request.dealId ?? request.sessionId;
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
+      request.prompt
+    );
+    const estimatedCompletionTokens = request.maxTokens || 1000;
+    const estimatedCost = llmCostTracker.calculateCost(
+      request.model,
+      estimatedPromptTokens,
+      estimatedCompletionTokens
+    );
+    costGovernance.checkRequest({
+      tenantId: request.tenantId,
+      dealId,
+      estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
+      estimatedCost,
+      userId: request.userId,
+      model: request.model,
+    });
 
     // TODO: Implement circuit breaker for streaming
     // Currently bypassing breaker for streaming to support AsyncGenerator return type
-    yield* this.callTogetherAIStream(request);
+    try {
+      for await (const chunk of this.callTogetherAIStream(request)) {
+        yield chunk;
+      }
+    } finally {
+      costGovernance.recordUsage({
+        tenantId: request.tenantId,
+        dealId,
+        tokens: estimatedPromptTokens + estimatedCompletionTokens,
+        cost: estimatedCost,
+        userId: request.userId,
+        model: request.model,
+      });
+    }
   }
 
   /**
@@ -358,6 +419,7 @@ export class LLMFallbackService {
         ...this.stats.togetherAI,
       },
       cache: this.stats.cache,
+      costGovernance: costGovernance.getSummary(),
     };
   }
 
