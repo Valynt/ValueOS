@@ -33,19 +33,19 @@ export interface EventMeta {
  */
 export type UserEvent =
   | {
-      type: 'user.created';
+      type: "user.created";
       payload: { userId: string; tenantId: string; email: string };
     }
   | {
-      type: 'user.updated';
+      type: "user.updated";
       payload: { userId: string; changes: Record<string, unknown> };
     }
   | {
-      type: 'user.deleted';
+      type: "user.deleted";
       payload: { userId: string; tenantId: string };
     }
   | {
-      type: 'user.role.changed';
+      type: "user.role.changed";
       payload: { userId: string; oldRole: string; newRole: string };
     };
 
@@ -54,15 +54,15 @@ export type UserEvent =
  */
 export type TenantEvent =
   | {
-      type: 'tenant.created';
+      type: "tenant.created";
       payload: { tenantId: string; name: string; plan: string };
     }
   | {
-      type: 'tenant.plan.changed';
+      type: "tenant.plan.changed";
       payload: { tenantId: string; oldPlan: string; newPlan: string };
     }
   | {
-      type: 'tenant.suspended';
+      type: "tenant.suspended";
       payload: { tenantId: string; reason: string };
     };
 
@@ -71,19 +71,19 @@ export type TenantEvent =
  */
 export type AgentEvent =
   | {
-      type: 'agent.task.started';
+      type: "agent.task.started";
       payload: { agentId: string; taskId: string; taskType: string };
     }
   | {
-      type: 'agent.task.completed';
+      type: "agent.task.completed";
       payload: { agentId: string; taskId: string; result: unknown; durationMs: number };
     }
   | {
-      type: 'agent.task.failed';
+      type: "agent.task.failed";
       payload: { agentId: string; taskId: string; error: string };
     }
   | {
-      type: 'agent.tool.invoked';
+      type: "agent.tool.invoked";
       payload: { agentId: string; toolName: string; input: unknown };
     };
 
@@ -92,15 +92,15 @@ export type AgentEvent =
  */
 export type MemoryEvent =
   | {
-      type: 'memory.stored';
+      type: "memory.stored";
       payload: { memoryId: string; type: string; vectorId?: string };
     }
   | {
-      type: 'memory.retrieved';
+      type: "memory.retrieved";
       payload: { memoryId: string; relevanceScore?: number };
     }
   | {
-      type: 'memory.deleted';
+      type: "memory.deleted";
       payload: { memoryId: string };
     };
 
@@ -109,27 +109,22 @@ export type MemoryEvent =
  */
 export type SystemEvent =
   | {
-      type: 'system.health.degraded';
+      type: "system.health.degraded";
       payload: { service: string; reason: string };
     }
   | {
-      type: 'system.health.recovered';
+      type: "system.health.recovered";
       payload: { service: string };
     }
   | {
-      type: 'system.rate.limited';
+      type: "system.rate.limited";
       payload: { tenantId: string; resource: string; limit: number };
     };
 
 /**
  * All domain events union
  */
-export type DomainEvent =
-  | UserEvent
-  | TenantEvent
-  | AgentEvent
-  | MemoryEvent
-  | SystemEvent;
+export type DomainEvent = UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent;
 
 /**
  * Event with metadata wrapper
@@ -141,15 +136,12 @@ export type EnvelopedEvent<T extends DomainEvent = DomainEvent> = T & {
 /**
  * Extract event type string
  */
-export type EventType = DomainEvent['type'];
+export type EventType = DomainEvent["type"];
 
 /**
  * Extract payload type for a specific event type
  */
-export type EventPayload<T extends EventType> = Extract<
-  DomainEvent,
-  { type: T }
->['payload'];
+export type EventPayload<T extends EventType> = Extract<DomainEvent, { type: T }>["payload"];
 
 /**
  * Event handler type
@@ -180,8 +172,48 @@ export function createEvent<T extends EventType>(
     meta: {
       eventId: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
-      source: 'unknown',
+      source: "unknown",
       ...meta,
     },
   } as EnvelopedEvent<Extract<DomainEvent, { type: T }>>;
+}
+
+/**
+ * Event topics for message bus routing
+ */
+export const EVENT_TOPICS = {
+  SAGA_COMMANDS: "saga.commands",
+  WORKFLOW_EVENTS: "workflow.events",
+  AGENT_REQUESTS: "agent.requests",
+  AGENT_RESPONSES: "agent.responses",
+  DEAD_LETTER: "dead.letter",
+} as const;
+
+/**
+ * Agent request event type
+ */
+export type AgentRequestEvent = EnvelopedEvent<{
+  type: "agent.request";
+  payload: {
+    agentId: string;
+    userId: string;
+    sessionId: string;
+    tenantId: string;
+    query: string;
+    context?: Record<string, unknown>;
+    parameters?: Record<string, unknown>;
+    priority: string;
+    timeout: number;
+  };
+}>;
+
+/**
+ * Helper to create base events
+ */
+export function createBaseEvent<T extends EventType>(
+  type: T,
+  payload: EventPayload<T>,
+  meta: Partial<EventMeta> = {}
+): EnvelopedEvent<Extract<DomainEvent, { type: T }>> {
+  return createEvent(type, payload, meta);
 }

@@ -14,7 +14,8 @@ services:
       POSTGRES_DB: valuecanvas_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: dev_password
-      # ports removed for devcontainer best practice
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,8 +23,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - valueos-network
+    network_mode: host
 
   # Redis cache layer for local development
   redis:
@@ -46,16 +46,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - valueos-network
+    network_mode: host
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
-
-networks:
-  valueos-network:
-    name: valueos-network
-    driver: bridge

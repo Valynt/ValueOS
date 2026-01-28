@@ -318,13 +318,6 @@ async function startSupabase() {
     return;
   }
 
-  // Skip Supabase in DevContainer environments (Docker-in-Docker issues)
-  if (checkIsDevContainer()) {
-    log.warn("DevContainer detected - skipping Supabase local startup");
-    log.info("Using valueos-postgres container on port 5432 for development");
-    return;
-  }
-
   // Check explicit override flags first
   if (process.env.DX_FORCE_SUPABASE === "1") {
     log.info("DX_FORCE_SUPABASE=1 detected - forcing Supabase startup");

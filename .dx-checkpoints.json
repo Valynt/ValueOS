@@ -30,5 +30,11 @@
     "timestamp": 1769603103773,
     "step": "migrations",
     "state": {}
+  },
+  {
+    "id": "checkpoint_1769604295647",
+    "timestamp": 1769604295647,
+    "step": "migrations",
+    "state": {}
   }
 ]

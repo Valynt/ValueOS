@@ -71,8 +71,7 @@ class ServerConfigLoader {
       supabase: {
         url: process.env.SUPABASE_URL,
         anonKey: process.env.SUPABASE_ANON_KEY,
-        serviceRoleKey:
-          process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY,
+        serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY,
       },
       security: {
         jwtSecret: process.env.JWT_SECRET,
@@ -121,3 +120,5 @@ export const getServerSupabaseConfig = () => getServerConfig().supabase;
 export const getServerWebhookConfig = () => getServerConfig().webhooks;
 
 export const getServerBillingConfig = () => getServerConfig().billing;
+
+export const getDatabaseConfig = () => getServerConfig().database;

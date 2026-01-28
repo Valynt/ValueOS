@@ -4,7 +4,7 @@
  * Production-grade logging with correlation IDs and safe metadata.
  */
 
-import { redactSensitiveData } from "./redaction.js"
+import { redactSensitiveData } from "./redaction.js";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -71,5 +71,25 @@ export const logger = {
     output(createEntry("error", message, { ...errorMeta, ...meta }));
   },
 };
+
+/**
+ * Create a component-specific logger
+ */
+export function createLogger(options: { component: string }) {
+  return {
+    debug(message: string, meta?: Record<string, unknown>): void {
+      logger.debug(message, { component: options.component, ...meta });
+    },
+    info(message: string, meta?: Record<string, unknown>): void {
+      logger.info(message, { component: options.component, ...meta });
+    },
+    warn(message: string, meta?: Record<string, unknown>): void {
+      logger.warn(message, { component: options.component, ...meta });
+    },
+    error(message: string, error?: unknown, meta?: Record<string, unknown>): void {
+      logger.error(message, error, { component: options.component, ...meta });
+    },
+  };
+}
 
 export default logger;

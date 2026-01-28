@@ -18,11 +18,17 @@ const projectRoot = path.resolve(__dirname, "../..");
 // Validate required environment variables (fail fast)
 validateEnvOrThrow();
 
-console.log("[Environment] Configuration loaded for development (redacted)");
+console.log("[Instrumentation] Environment validation passed");
 
 // Now safe to import modules that depend on env vars
+console.log("[Instrumentation] Starting module imports...");
+
 import express from "express";
+console.log("[Instrumentation] Express imported successfully");
+
 import cors from "cors";
+console.log("[Instrumentation] CORS imported successfully");
+
 import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import billingRouter from "./api/billing/index.js";
@@ -402,7 +408,10 @@ app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
 async function startServer(): Promise<void> {
+  console.log("[Instrumentation] Starting backend server initialization");
+
   // 0. Setup global error handlers for unhandled rejections/exceptions
+  console.log("[Instrumentation] Setting up global error handlers");
   setupGlobalErrorHandlers();
 
   // 1. Validate all secrets before starting any services (production only)
@@ -413,6 +422,7 @@ async function startServer(): Promise<void> {
   }
 
   // 2. Validate production requirements
+  console.log("[Instrumentation] Validating production requirements");
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
@@ -420,6 +430,7 @@ async function startServer(): Promise<void> {
   }
 
   // 3. Initialize infrastructure
+  console.log("[Instrumentation] Initializing infrastructure");
   await initializeContext();
   await initializeSecretVolumeWatcher();
 
@@ -448,6 +459,7 @@ async function startServer(): Promise<void> {
   }
 
   server.listen(PORT, () => {
+    console.log(`[Instrumentation] Server listening on port ${PORT}`);
     logger.info(`Billing API server with WebSocket support running on port ${PORT}`, {
       url: `http://localhost:${PORT}`,
       webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,

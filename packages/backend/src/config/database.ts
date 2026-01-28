@@ -2,4 +2,11 @@
  * Database Configuration - Re-export from shared
  */
 
-export { getDatabaseConfig } from '@shared/config/server-config';
+import { getDatabaseConfig } from "../../../shared/src/config/server-config";
+
+export { getDatabaseConfig };
+
+export function getDatabaseUrl(): string {
+  const config = getDatabaseConfig();
+  return config.url;
+}
