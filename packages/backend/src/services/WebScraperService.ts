@@ -309,35 +309,32 @@ export class WebScraperService {
 
       // Block localhost and private IPs
       const hostname = url.hostname;
-
-      // Check for localhost variants
-      if (this.isIpLike(hostname)) {
-        const ips = await this.resolveAndCheckIP(hostname);
-        if (!ips) return false;
-
-        // Check if any resolved IP is private
-        for (const ip of ips) {
-          if (this.isPrivateIP(ip)) {
-            logger.warn("Blocked request to private IP", { hostname, privateIPs: ips });
-            return false;
-          }
-        }
-      }
-
-      // Block common private hostnames
       const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"];
 
       if (blockedHosts.includes(hostname.toLowerCase())) {
         return false;
       }
 
+      const ips = await this.resolveAndCheckIP(hostname);
+      if (!ips) {
+        logger.warn("DNS resolution failed, blocking request", { url: urlString });
+        return false;
+      }
+
+      for (const ip of ips) {
+        if (this.isPrivateIP(ip)) {
+          logger.warn("Blocked request to private IP", { hostname, privateIPs: ips });
+          return false;
+        }
+      }
+
       return true;
     } catch (error) {
-      logger.warn("DNS resolution failed, allowing request", {
+      logger.warn("URL safety check failed, blocking request", {
         url: urlString,
         error: (error as Error).message,
       });
-      return true; // Allow if we can't verify
+      return false;
     }
   }
 
