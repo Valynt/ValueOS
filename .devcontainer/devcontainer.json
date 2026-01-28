@@ -7,6 +7,9 @@
       "BUILDKIT_INLINE_CACHE": "1"
     }
   },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "vscode",
   "mounts": ["source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"],
