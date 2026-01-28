@@ -10,6 +10,7 @@ import { TargetAgent } from "../lib/agent-fabric/agents/TargetAgent";
 import { ExpansionAgent } from "../lib/agent-fabric/agents/ExpansionAgent";
 import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent";
 import { RealizationAgent } from "../lib/agent-fabric/agents/RealizationAgent";
+import { CommunicatorAgent } from "../lib/agent-fabric/agents/CommunicatorAgent";
 import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
 import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
 import { logger } from "../lib/logger";
@@ -24,7 +25,13 @@ import { TargetAgentInputSchema } from "../validators/agentInputs";
 import { z } from "zod";
 import { agentTelemetryService } from "../agents/telemetry/AgentTelemetryService";
 
-export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";
+export type LifecycleStage =
+  | "opportunity"
+  | "target"
+  | "expansion"
+  | "communicator"
+  | "integrity"
+  | "realization";
 
 export interface LifecycleContext {
   userId: string;
@@ -78,7 +85,12 @@ export class ValidationError extends Error {
   }
 }
 
-const REPLAYABLE_STAGES = new Set<LifecycleStage>(["opportunity", "target", "expansion"]);
+const REPLAYABLE_STAGES = new Set<LifecycleStage>([
+  "opportunity",
+  "target",
+  "expansion",
+  "communicator",
+]);
 const DESTRUCTIVE_STAGES = new Set<LifecycleStage>(["integrity", "realization"]);
 
 export class ValueLifecycleOrchestrator {
@@ -209,6 +221,7 @@ export class ValueLifecycleOrchestrator {
       opportunity: OpportunityAgent,
       target: TargetAgent,
       expansion: ExpansionAgent,
+      communicator: CommunicatorAgent,
       integrity: IntegrityAgent,
       realization: RealizationAgent,
     };
@@ -241,6 +254,7 @@ export class ValueLifecycleOrchestrator {
       opportunity: [],
       target: [], // Handled by Zod now
       expansion: ["value_tree_id"],
+      communicator: ["expansion_opportunity_id"],
       integrity: ["roi_model_id"],
       realization: ["value_commit_id"],
     };
@@ -340,5 +354,196 @@ export class ValueLifecycleOrchestrator {
   ): Promise<void> {
     logger.info("Scheduling next stage", { currentStage, persistedData });
     // Implementation would schedule the next stage
+  }
+
+  /**
+   * Execute MARL handoff between agents for collaborative reasoning
+   */
+  async executeMARLHandoff(
+    fromStage: LifecycleStage,
+    toStage: LifecycleStage,
+    sharedContext: Record<string, any>,
+    lifecycleContext: LifecycleContext
+  ): Promise<StageResult> {
+    const traceId = agentTelemetryService.startExecutionTrace({
+      sessionId: lifecycleContext.sessionId || uuidv4(),
+      agentType: `${fromStage}_to_${toStage}_marl_handoff` as any,
+      userId: lifecycleContext.userId,
+      organizationId: lifecycleContext.organizationId,
+      query: `MARL handoff from ${fromStage} to ${toStage}`,
+      parameters: { fromStage, toStage, sharedContext },
+    });
+
+    try {
+      // Get both agents
+      const fromAgent = this.getAgentForStage(fromStage, lifecycleContext);
+      const toAgent = this.getAgentForStage(toStage, lifecycleContext);
+
+      // Create MARL state for handoff
+      const marlState = {
+        sessionId: lifecycleContext.sessionId || uuidv4(),
+        agentStates: {
+          [fromAgent.getAgentId()]: {
+            stage: fromStage,
+            lastOutput: sharedContext.lastOutput,
+          },
+          [toAgent.getAgentId()]: {
+            stage: toStage,
+            expectedInput: sharedContext.expectedInput,
+          },
+        },
+        sharedContext: {
+          handoffReason: sharedContext.handoffReason || "collaborative_reasoning",
+          sharedMemory: sharedContext.sharedMemory || {},
+          marlContext: sharedContext.marlContext || {},
+        },
+        interactionHistory: [],
+        timestamp: Date.now(),
+      };
+
+      // Execute MARL-enhanced handoff
+      const handoffResult = await this.performMARLHandoff(
+        fromAgent,
+        toAgent,
+        marlState,
+        sharedContext
+      );
+
+      agentTelemetryService.completeExecutionTrace(traceId, {
+        success: handoffResult.success,
+        data: handoffResult.data,
+        confidence: handoffResult.confidence,
+        assumptions: handoffResult.assumptions,
+        error: handoffResult.error,
+        metadata: {
+          executionTime: Date.now() - Date.now(), // Would track actual time
+          handoffType: "marl_collaborative",
+        },
+      });
+
+      return handoffResult;
+    } catch (error) {
+      agentTelemetryService.recordExecutionError(
+        traceId,
+        error instanceof Error ? error : new Error(String(error)),
+        { handoffFailed: true }
+      );
+      throw error;
+    }
+  }
+
+  private async performMARLHandoff(
+    fromAgent: BaseAgent,
+    toAgent: BaseAgent,
+    marlState: any,
+    sharedContext: Record<string, any>
+  ): Promise<StageResult> {
+    // Share episodic memory between agents
+    await fromAgent.shareEpisodicMemory(toAgent);
+    await toAgent.shareEpisodicMemory(fromAgent);
+
+    // Allow agents to select MARL actions
+    const fromAction = await fromAgent.selectMARLAction(marlState);
+    const toAction = await toAgent.selectMARLAction(marlState);
+
+    // Execute the handoff with MARL-enhanced context
+    const enhancedContext = {
+      ...sharedContext,
+      marlActions: {
+        fromAgent: fromAction,
+        toAgent: toAction,
+      },
+      collaborativeMemory: this.mergeAgentMemories(fromAgent, toAgent),
+    };
+
+    // Execute the target agent with enhanced context
+    const result = await this.circuitBreaker.execute(async () => {
+      if (!marlState.sessionId) {
+        throw new Error("Session ID is required for MARL handoff.");
+      }
+      return await toAgent.execute(marlState.sessionId, enhancedContext);
+    });
+
+    // Create MARL interaction record
+    const interaction = {
+      interactionId: `handoff-${fromAgent.getAgentId()}-${toAgent.getAgentId()}-${Date.now()}`,
+      state: marlState,
+      actions: [fromAction, toAction].filter((action) => action !== null),
+      rewards: {
+        [fromAgent.getAgentId()]: fromAgent.calculateMARLReward(
+          marlState,
+          fromAction || ({} as any),
+          {
+            ...marlState,
+            sharedContext: { ...marlState.sharedContext, result },
+          }
+        ),
+        [toAgent.getAgentId()]: toAgent.calculateMARLReward(marlState, toAction || ({} as any), {
+          ...marlState,
+          sharedContext: { ...marlState.sharedContext, result },
+        }),
+      },
+      nextState: {
+        ...marlState,
+        sharedContext: { ...marlState.sharedContext, result },
+        timestamp: Date.now(),
+      },
+      timestamp: Date.now(),
+    };
+
+    // Update MARL policies
+    await fromAgent.updateMARLPolicy(interaction);
+    await toAgent.updateMARLPolicy(interaction);
+
+    return {
+      success: result.success,
+      data: result.data,
+      confidence: result.confidence,
+      assumptions: result.assumptions,
+      error: result.error,
+      stageExecutionId: uuidv4(),
+      lineage: {
+        stage: "communicator" as LifecycleStage, // Handoff creates a new lineage
+        parentExecutionId: sharedContext.parentExecutionId,
+      },
+    };
+  }
+
+  private mergeAgentMemories(fromAgent: BaseAgent, toAgent: BaseAgent): any {
+    // Merge episodic memories for collaborative reasoning
+    const fromMemory = fromAgent.getMARLHistory();
+    const toMemory = toAgent.getMARLHistory();
+
+    // Simple merge - in practice, this would be more sophisticated
+    return {
+      fromAgent: fromMemory.slice(-5), // Last 5 interactions
+      toAgent: toMemory.slice(-5),
+      mergedInsights: this.extractCollaborativeInsights(fromMemory, toMemory),
+    };
+  }
+
+  private extractCollaborativeInsights(fromMemory: any[], toMemory: any[]): any {
+    // Extract patterns and insights from combined agent memories
+    // This is a simplified implementation
+    const insights = {
+      successfulPatterns: [],
+      failurePatterns: [],
+      collaborationOpportunities: [],
+    };
+
+    // Analyze interaction patterns
+    const allInteractions = [...fromMemory, ...toMemory];
+    const successfulInteractions = allInteractions.filter((i) =>
+      Object.values(i.rewards).every((r: any) => r > 0)
+    );
+
+    insights.successfulPatterns = successfulInteractions.map((i) => ({
+      actions: i.actions.map((a: any) => a.actionType),
+      avgReward:
+        Object.values(i.rewards).reduce((sum: number, r: any) => sum + r, 0) /
+        Object.keys(i.rewards).length,
+    }));
+
+    return insights;
   }
 }

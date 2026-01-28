@@ -23,6 +23,7 @@ import type {
   UseCaseCapability,
   ValueFabricQuery,
   ValueFabricSnapshot,
+  VMRTTrace,
 } from "../types/vos";
 
 export interface SemanticSearchResult<T> {
@@ -320,7 +321,10 @@ export class ValueFabricService {
   }
 
   async createBenchmark(
-    benchmark: Omit<Benchmark, "id" | "created_at">
+    benchmark: Omit<Benchmark, "id" | "created_at">,
+    vmrtTrace?: VMRTTrace,
+    tenantId?: string,
+    userId?: string
   ): Promise<Benchmark> {
     const { data, error } = await this.supabase
       .from("benchmarks")
@@ -329,6 +333,36 @@ export class ValueFabricService {
       .single();
 
     if (error) throw error;
+
+    // Log VMRT trace for metric change
+    if (vmrtTrace) {
+      await this.logVMRTMetricChange("benchmark", data.id, vmrtTrace, tenantId, userId);
+    }
+
+    return data;
+  }
+
+  async updateBenchmark(
+    id: string,
+    updates: Partial<Benchmark>,
+    vmrtTrace?: VMRTTrace,
+    tenantId?: string,
+    userId?: string
+  ): Promise<Benchmark> {
+    const { data, error } = await this.supabase
+      .from("benchmarks")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log VMRT trace for metric change
+    if (vmrtTrace) {
+      await this.logVMRTMetricChange("benchmark", id, vmrtTrace, tenantId, userId);
+    }
+
     return data;
   }
 
@@ -650,5 +684,34 @@ export class ValueFabricService {
 
   private static invalidateUseCaseCache(): void {
     this.invalidateCache(this.useCaseCache);
+  }
+
+  // =====================================================
+  // VMRT AUDIT LOGGING
+  // =====================================================
+
+  private async logVMRTMetricChange(
+    resourceType: string,
+    resourceId: string,
+    vmrtTrace: VMRTTrace,
+    tenantId?: string,
+    userId?: string
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from("audit_log")
+      .insert({
+        tenant_id: tenantId || null,
+        user_id: userId || null,
+        action: "metric_change",
+        resource_type: resourceType,
+        resource_id: resourceId,
+        details: vmrtTrace,
+        created_at: new Date().toISOString(),
+      });
+
+    if (error) {
+      logger.error("Failed to log VMRT metric change:", error);
+      // Don't throw, as logging failure shouldn't break the main operation
+    }
   }
 }

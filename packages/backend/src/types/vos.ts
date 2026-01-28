@@ -140,6 +140,65 @@ export interface BenchmarkComparison {
 }
 
 // ============================================================================
+// Value Fabric Ontology
+// ============================================================================
+
+export interface Capability {
+  id: string;
+  name: string;
+  description?: string;
+  tags?: string[];
+  category?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UseCase {
+  id: string;
+  name: string;
+  description?: string;
+  persona?: string;
+  industry?: string;
+  is_template: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UseCaseCapability {
+  use_case_id: string;
+  capability_id: string;
+  relevance_score: number;
+}
+
+export interface ValueFabricQuery {
+  lifecycle_stage?: LifecycleStage;
+  value_case_id?: string;
+  use_case_id?: string;
+  industry?: string;
+  persona?: string;
+}
+
+export interface ValueFabricSnapshot {
+  value_case_id: string;
+  lifecycle_stage: LifecycleStage;
+  business_objectives: any[]; // TODO: define BusinessObjective
+  capabilities: Capability[];
+  use_cases: UseCase[];
+  value_trees: any[]; // TODO: define ValueTree
+  roi_models: ROIModel[];
+  value_commits: any[]; // TODO: define ValueCommit
+  telemetry_summary?: {
+    total_events: number;
+    kpis_tracked: number;
+    last_event_timestamp?: string;
+    coverage_percentage: number;
+  };
+  realization_reports?: any[]; // TODO: define RealizationReport
+  expansion_models?: any[]; // TODO: define ExpansionModel
+}
+
+// ============================================================================
 // ROI Modeling
 // ============================================================================
 
@@ -219,6 +278,19 @@ export interface VMRTSeed {
   default_kpis: string[];
   suggested_benchmarks: string[];
   template_data: Record<string, any>;
+}
+
+export interface VMRTTrace {
+  trace_type: string;
+  reasoning_steps: {
+    step: number;
+    logic: string;
+    formula?: string;
+    variables: Record<string, any>;
+    outcome: string;
+  }[];
+  outcome_category: string;
+  timestamp: string;
 }
 
 export const ALL_VMRT_SEEDS: VMRTSeed[] = [];

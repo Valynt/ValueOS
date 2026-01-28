@@ -58,6 +58,7 @@ export interface ExpansionOpportunity {
 export class ExpansionAgent extends BaseAgent {
   constructor(config: AgentConfig) {
     super(config);
+    this.initializeMARL();
   }
 
   getAgentType(): AgentType {
@@ -109,6 +110,19 @@ export class ExpansionAgent extends BaseAgent {
     ];
   }
 
+  async execute(
+    sessionId: string,
+    input: any,
+    context?: Record<string, any>
+  ): Promise<AgentResponse> {
+    const request: AgentRequest = {
+      sessionId,
+      input,
+      context,
+    };
+    return this.processRequest(request);
+  }
+
   protected async processRequest(request: AgentRequest): Promise<AgentResponse> {
     const startTime = Date.now();
 
@@ -116,8 +130,29 @@ export class ExpansionAgent extends BaseAgent {
       // Extract expansion data from request
       const inputData = this.extractExpansionData(request);
 
-      // Analyze expansion opportunities
-      const opportunities = await this.analyzeExpansionOpportunities(inputData);
+      // Create MARL state for collaborative analysis
+      const marlState = {
+        sessionId: request.sessionId,
+        agentStates: {
+          [this.agentId]: {
+            inputData,
+            analysisHistory: [], // Could be populated from memory
+          },
+        },
+        sharedContext: {
+          context: inputData,
+          sessionId: request.sessionId,
+        },
+        interactionHistory: this.getMARLHistory(),
+        timestamp: Date.now(),
+      };
+
+      // Analyze expansion opportunities with MARL collaboration
+      const opportunities = await this.performCollaborativeAnalysis(
+        request.sessionId,
+        inputData,
+        marlState
+      );
 
       // Store analysis in memory
       await this.storeExpansionAnalysis(opportunities);
@@ -1029,5 +1064,123 @@ ${
     } catch (error) {
       return false;
     }
+  }
+
+  private initializeMARL(): void {
+    // Import required MARL interfaces
+    const {
+      MARLState,
+      MARLAction,
+      MARLInteraction,
+      MARLRewardFunction,
+      MARLPolicy,
+    } = require("./BaseAgent");
+
+    // Reward function for expansion analysis
+    const rewardFunction: MARLRewardFunction = {
+      calculateReward: (state, action, nextState, agentId) => {
+        // Reward based on opportunity quality and revenue potential
+        const opportunities = nextState.sharedContext?.opportunities || [];
+        const totalRevenue = opportunities.reduce(
+          (sum: number, opp: any) => sum + opp.expansionPotential?.additionalRevenue || 0,
+          0
+        );
+        const avgProbability =
+          opportunities.reduce(
+            (sum: number, opp: any) => sum + opp.expansionPotential?.probability || 0,
+            0
+          ) / Math.max(opportunities.length, 1);
+
+        return (totalRevenue / 100000) * 0.5 + avgProbability * 0.5; // Normalized reward
+      },
+    };
+
+    // Policy for collaborative opportunity analysis
+    const policy: MARLPolicy = {
+      selectAction: async (state, agentId) => {
+        // Analyze current state and select best action for opportunity identification
+        const context = state.sharedContext?.context || {};
+        const actionType = this.determineBestActionType(context);
+
+        return {
+          agentId,
+          actionType,
+          parameters: {
+            analysisType: actionType,
+            context,
+            collaborativeInput: state.agentStates,
+          },
+          confidence: 0.85,
+          timestamp: Date.now(),
+        };
+      },
+
+      updatePolicy: async (interaction) => {
+        // Update policy based on interaction outcomes
+        const reward = interaction.rewards[this.agentId] || 0;
+        this.logger.info("MARL policy updated for expansion analysis", {
+          interactionId: interaction.interactionId,
+          reward,
+          agentId: this.agentId,
+        });
+      },
+    };
+
+    this.enableMARL(policy, rewardFunction);
+  }
+
+  private determineBestActionType(context: any): string {
+    // Determine the best analysis type based on available data
+    if (context.renewalDate || context.contractValue) {
+      return "renewal_analysis";
+    } else if (context.industry && context.customerId) {
+      return "cross_sell_analysis";
+    } else if (context.currentValue && context.customerId) {
+      return "upsell_analysis";
+    }
+    return "general_expansion";
+  }
+
+  private async performCollaborativeAnalysis(
+    sessionId: string,
+    inputData: Record<string, any>,
+    marlState: any
+  ): Promise<ExpansionOpportunity[]> {
+    // Use MARL to enhance analysis with collaborative reasoning
+    if (this.isMARLEnabled()) {
+      const marlAction = await this.selectMARLAction(marlState);
+      if (marlAction) {
+        // Adjust analysis based on MARL action
+        const enhancedData = {
+          ...inputData,
+          marlGuidance: marlAction.parameters,
+          collaborativeContext: marlState.agentStates,
+        };
+
+        const opportunities = await this.analyzeExpansionOpportunities(enhancedData);
+
+        // Create interaction record for learning
+        const nextState = {
+          ...marlState,
+          sharedContext: { ...marlState.sharedContext, opportunities },
+          timestamp: Date.now(),
+        };
+
+        const interaction = {
+          interactionId: `expansion-${sessionId}-${Date.now()}`,
+          state: marlState,
+          actions: [marlAction],
+          rewards: { [this.agentId]: this.calculateMARLReward(marlState, marlAction, nextState) },
+          nextState,
+          timestamp: Date.now(),
+        };
+
+        await this.updateMARLPolicy(interaction);
+        return opportunities;
+      }
+    }
+
+    // Fallback to standard analysis
+    return this.analyzeExpansionOpportunities(inputData);
   }
 }

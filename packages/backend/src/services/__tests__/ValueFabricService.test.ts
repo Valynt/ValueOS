@@ -79,4 +79,110 @@ describe('ValueFabricService semantic search and ontology queries', () => {
     const percentiles = await service.getBenchmarkPercentiles('NPS', 'SaaS');
     expect(percentiles).toEqual({ p25: 20, p50: 35, p75: 55, p90: 70 });
   });
+
+  it('creates a benchmark without VMRT logging', async () => {
+    const newBenchmark = {
+      name: 'Test Benchmark',
+      description: 'A test benchmark',
+      industry: 'Tech',
+      metric_name: 'Revenue',
+      metric_value: 1000000,
+      unit: 'USD',
+      source: 'Internal',
+      date_collected: '2024-01-01',
+    };
+
+    supabase.from.mockReturnValue({
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: { id: 'bench-new', ...newBenchmark },
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    const result = await service.createBenchmark(newBenchmark);
+    expect(result.id).toBe('bench-new');
+    expect(result.name).toBe('Test Benchmark');
+  });
+
+  it('creates a benchmark with VMRT logging', async () => {
+    const newBenchmark = {
+      name: 'Test Benchmark',
+      description: 'A test benchmark',
+      industry: 'Tech',
+      metric_name: 'Revenue',
+      metric_value: 1000000,
+      unit: 'USD',
+      source: 'Internal',
+      date_collected: '2024-01-01',
+    };
+
+    const vmrtTrace = {
+      trace_type: 'benchmark_creation',
+      reasoning_steps: [{
+        step: 1,
+        logic: 'Calculated based on industry standards',
+        formula: 'value = baseline * multiplier',
+        variables: { baseline: 500000, multiplier: 2 },
+        outcome: 'Revenue benchmark set to 1000000 USD',
+      }],
+      outcome_category: 'cost_savings',
+      timestamp: new Date().toISOString(),
+    };
+
+    supabase.from.mockReturnValueOnce({
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: { id: 'bench-new', ...newBenchmark },
+            error: null,
+          }),
+        }),
+      }),
+    }).mockReturnValueOnce({
+      insert: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const result = await service.createBenchmark(newBenchmark, vmrtTrace, 'tenant-1', 'user-1');
+    expect(result.id).toBe('bench-new');
+    expect(supabase.from).toHaveBeenCalledWith('audit_log');
+  });
+
+  it('updates a benchmark with VMRT logging', async () => {
+    const updates = { metric_value: 1200000 };
+
+    supabase.from.mockReturnValueOnce({
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'bench-1', ...updates },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    }).mockReturnValueOnce({
+      insert: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const vmrtTrace = {
+      trace_type: 'benchmark_update',
+      reasoning_steps: [{
+        step: 1,
+        logic: 'Updated based on new data',
+        variables: { old_value: 1000000, new_value: 1200000 },
+        outcome: 'Revenue benchmark updated',
+      }],
+      outcome_category: 'performance_improvement',
+      timestamp: new Date().toISOString(),
+    };
+
+    const result = await service.updateBenchmark('bench-1', updates, vmrtTrace, 'tenant-1', 'user-1');
+    expect(result.metric_value).toBe(1200000);
+    expect(supabase.from).toHaveBeenCalledWith('audit_log');
+  });
 });

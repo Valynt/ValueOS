@@ -12,6 +12,10 @@ import { ScenarioSelector } from "../../components/SDUI/ScenarioSelector";
 import ValueCanvas from "../ValueCanvas";
 import QuantumView from "../QuantumView";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+import type { PersonaType } from "../QuantumView";
+>>>>>>> Stashed changes
 =======
 import type { PersonaType } from "../QuantumView";
 >>>>>>> Stashed changes
@@ -125,7 +129,11 @@ describe("Template Integration Workflows", () => {
         {
           id: "technical-1",
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
           persona: "technical", // type: PersonaType
+=======
+          persona: "technical" as PersonaType,
+>>>>>>> Stashed changes
 =======
           persona: "technical" as PersonaType,
 >>>>>>> Stashed changes

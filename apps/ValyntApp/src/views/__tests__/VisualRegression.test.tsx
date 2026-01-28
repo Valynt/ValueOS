@@ -10,6 +10,10 @@ import ImpactCascade from "../ImpactCascade";
 import { ScenarioSelector } from "../../components/SDUI/ScenarioSelector";
 import QuantumView from "../QuantumView";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+import type { PersonaType } from "../QuantumView";
+>>>>>>> Stashed changes
 =======
 import type { PersonaType } from "../QuantumView";
 >>>>>>> Stashed changes
@@ -257,7 +261,11 @@ describe("Visual Regression - Template Consistency", () => {
       {
         id: "financial",
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         persona: "financial", // type: PersonaType
+=======
+        persona: "financial" as PersonaType,
+>>>>>>> Stashed changes
 =======
         persona: "financial" as PersonaType,
 >>>>>>> Stashed changes
@@ -273,7 +281,11 @@ describe("Visual Regression - Template Consistency", () => {
       {
         id: "technical",
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         persona: "technical", // type: PersonaType
+=======
+        persona: "technical" as PersonaType,
+>>>>>>> Stashed changes
 =======
         persona: "technical" as PersonaType,
 >>>>>>> Stashed changes

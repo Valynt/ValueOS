@@ -1,40 +1,40 @@
-import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SDUIRenderer } from '../../sdui/renderer';
-import { OpportunityTemplate } from '../../sdui/templates';
-import { hotSwapComponent, resetRegistry } from '../../sdui/registry';
+import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { SDUIRenderer } from "../renderer";
+import { OpportunityTemplate } from "../templates";
+import { hotSwapComponent, resetRegistry } from "../registry";
 
 const BrokenComponent = () => {
-  throw new Error('Boom');
+  throw new Error("Boom");
 };
 
-describe('SDUIRenderer', () => {
+describe("SDUIRenderer", () => {
   afterEach(() => {
     resetRegistry();
   });
 
-  it('renders schema-driven lifecycle layout', () => {
+  it("renders schema-driven lifecycle layout", () => {
     render(<SDUIRenderer schema={OpportunityTemplate} />);
-    expect(screen.getByTestId('sdui-renderer')).toBeInTheDocument();
-    expect(screen.getByText('Opportunity Discovery')).toBeInTheDocument();
+    expect(screen.getByTestId("sdui-renderer")).toBeInTheDocument();
+    expect(screen.getByText("Opportunity Discovery")).toBeInTheDocument();
     // Verify sections are rendered (3 sections in OpportunityTemplate)
-    const renderer = screen.getByTestId('sdui-renderer');
+    const renderer = screen.getByTestId("sdui-renderer");
     expect(renderer.children.length).toBe(3);
   });
 
-  it('falls back when schema is invalid', () => {
+  it("falls back when schema is invalid", () => {
     render(<SDUIRenderer schema={{}} />);
-    expect(screen.getByTestId('invalid-schema')).toBeInTheDocument();
+    expect(screen.getByTestId("invalid-schema")).toBeInTheDocument();
   });
 
-  it('surfaces unknown component placeholders', () => {
+  it("surfaces unknown component placeholders", () => {
     const template = {
-      type: 'page',
+      type: "page",
       version: 1,
       sections: [
         {
-          type: 'component',
-          component: 'NonexistentWidget',
+          type: "component",
+          component: "NonexistentWidget",
           props: {},
         },
       ],
@@ -44,11 +44,11 @@ describe('SDUIRenderer', () => {
     expect(screen.getByText(/Component unavailable/)).toBeInTheDocument();
   });
 
-  it('wraps components in error boundaries to preserve hydration', () => {
-    hotSwapComponent('InfoBanner', BrokenComponent);
+  it("wraps components in error boundaries to preserve hydration", () => {
+    hotSwapComponent("InfoBanner", BrokenComponent);
     const warn = vi.fn();
     render(<SDUIRenderer schema={OpportunityTemplate} onHydrationWarning={warn} />);
     // Error boundary should catch the error
-    expect(screen.queryByText('Opportunity Discovery')).not.toBeInTheDocument();
+    expect(screen.queryByText("Opportunity Discovery")).not.toBeInTheDocument();
   });
 });
