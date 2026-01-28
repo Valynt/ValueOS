@@ -10,6 +10,24 @@
  */
 
 import { logger } from "../../../utils/logger";
+import { validateGroundTruthMetadata, assertHighConfidence, assertProvenance, GroundTruthMetadata } from "../ground-truth/GroundTruthValidator";
+  /**
+   * Validate and log ground truth metadata (provenance, confidence, cache)
+   * Throws if validation fails. Emits structured logs and metrics.
+   */
+  protected validateAndLogGroundTruth(metadata: unknown, opts?: { minConfidence?: number; context?: Record<string, any> }): GroundTruthMetadata {
+    const parsed = validateGroundTruthMetadata(metadata);
+    assertProvenance(parsed);
+    assertHighConfidence(parsed, opts?.minConfidence ?? 0.9);
+    logger.info("Ground truth validated", {
+      provenance: parsed.provenance,
+      confidence: parsed.confidence,
+      cache_hit: parsed.cache_hit,
+      ...opts?.context,
+    });
+    // TODO: Emit observability metrics here (e.g., to Prometheus, DataDog, etc.)
+    return parsed;
+  }
 import { AgentConfig } from "../../../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
 import { LLMGateway, LLMRequest, LLMResponse } from "../LLMGateway";

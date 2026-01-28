@@ -3,7 +3,7 @@
  * Comprehensive security headers, policies, and configurations
  */
 
-import { Request, Response } from 'express';
+import { Request, Response } from "express";
 
 // Security Headers Configuration
 export interface SecurityHeadersConfig {
@@ -33,20 +33,20 @@ export interface SecurityHeadersConfig {
     preload: boolean;
   };
 
-  xFrameOptions: 'DENY' | 'SAMEORIGIN' | 'ALLOW-FROM';
+  xFrameOptions: "DENY" | "SAMEORIGIN" | "ALLOW-FROM";
 
-  xContentTypeOptions: 'nosniff';
+  xContentTypeOptions: "nosniff";
 
   xXssProtection: {
     enabled: boolean;
-    mode: 'block' | 'report';
+    mode: "block" | "report";
   };
 
-  referrerPolicy: 'strict-origin-when-cross-origin' | 'no-referrer' | 'strict-origin' | string;
+  referrerPolicy: "strict-origin-when-cross-origin" | "no-referrer" | "strict-origin" | string;
 
   permissionsPolicy: Record<string, string[]>;
 
-  dnsPrefetchControl: 'on' | 'off';
+  dnsPrefetchControl: "on" | "off";
 
   // CORS Configuration
   cors: {
@@ -61,7 +61,7 @@ export interface SecurityHeadersConfig {
   session: {
     secure: boolean;
     httpOnly: boolean;
-    sameSite: 'strict' | 'lax' | 'none';
+    sameSite: "strict" | "lax" | "none";
     maxAge: number;
     domain?: string;
     path: string;
@@ -123,16 +123,16 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
     preload: true,
   },
 
-  xFrameOptions: 'DENY',
+  xFrameOptions: "DENY",
 
-  xContentTypeOptions: 'nosniff',
+  xContentTypeOptions: "nosniff",
 
   xXssProtection: {
     enabled: true,
-    mode: 'block',
+    mode: "block",
   },
 
-  referrerPolicy: 'strict-origin-when-cross-origin',
+  referrerPolicy: "strict-origin-when-cross-origin",
 
   permissionsPolicy: {
     camera: [],
@@ -146,12 +146,12 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
     usb: [],
   },
 
-  dnsPrefetchControl: 'off',
+  dnsPrefetchControl: "off",
 
   cors: {
-    origins: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    headers: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Requested-With'],
+    origins: process.env.CORS_ALLOWED_ORIGINS?.split(",") || [],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    headers: ["Content-Type", "Authorization", "X-CSRF-Token", "X-Requested-With"],
     credentials: true,
     maxAge: 86400, // 24 hours
   },
@@ -159,15 +159,15 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
   session: {
     secure: true,
     httpOnly: true,
-    sameSite: 'strict',
+    sameSite: "strict",
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    path: '/',
+    path: "/",
   },
 
   csrf: {
     enabled: true,
-    cookieName: 'csrf_token',
-    headerName: 'x-csrf-token',
+    cookieName: "csrf_token",
+    headerName: "x-csrf-token",
     tokenLength: 32,
     secretLength: 64,
   },
@@ -175,7 +175,7 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
   fileUpload: {
     maxFileSize: 10 * 1024 * 1024, // 10MB
     maxFiles: 5,
-    allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
+    allowedTypes: ["image/jpeg", "image/png", "image/gif", "application/pdf"],
     rateLimit: {
       windowMs: 60 * 60 * 1000, // 1 hour
       maxUploads: 10,
@@ -184,8 +184,8 @@ export const productionSecurityConfig: SecurityHeadersConfig = {
 
   ssrf: {
     enabled: true,
-    allowedHosts: ['api.supabase.co', '*.supabase.co', 'api.openai.com'],
-    blockedHosts: ['localhost', '127.0.0.1', '0.0.0.0', '169.254.169.254'],
+    allowedHosts: ["api.supabase.co", "*.supabase.co", "api.openai.com"],
+    blockedHosts: ["localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254"],
     allowedPorts: [80, 443, 3000, 8000, 5432],
     timeout: 10000, // 10 seconds
   },
@@ -209,11 +209,11 @@ export const developmentSecurityConfig: SecurityHeadersConfig = {
   session: {
     ...productionSecurityConfig.session,
     secure: false, // Allow HTTP in development
-    sameSite: 'lax',
+    sameSite: "lax",
   },
   cors: {
     ...productionSecurityConfig.cors,
-    origins: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'],
+    origins: ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"],
   },
 };
 
@@ -221,7 +221,7 @@ export const developmentSecurityConfig: SecurityHeadersConfig = {
  * Get security configuration based on environment
  */
 export function getSecurityConfig(): SecurityHeadersConfig {
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = process.env.NODE_ENV === "production";
   return isProduction ? productionSecurityConfig : developmentSecurityConfig;
 }
 
@@ -233,57 +233,57 @@ export function applySecurityHeaders(req: Request, res: Response): void {
 
   // Content Security Policy
   const cspDirectives = [
-    `default-src ${config.csp.defaultSrc.join(' ')}`,
-    `script-src ${config.csp.scriptSrc.join(' ')}`,
-    `style-src ${config.csp.styleSrc.join(' ')}`,
-    `img-src ${config.csp.imgSrc.join(' ')}`,
-    `connect-src ${config.csp.connectSrc.join(' ')}`,
-    `font-src ${config.csp.fontSrc.join(' ')}`,
-    `object-src ${config.csp.objectSrc.join(' ')}`,
-    `media-src ${config.csp.mediaSrc.join(' ')}`,
-    `frame-src ${config.csp.frameSrc.join(' ')}`,
-    `worker-src ${config.csp.workerSrc.join(' ')}`,
-    `frame-ancestors ${config.csp.frameAncestors.join(' ')}`,
-    `base-uri ${config.csp.baseUri.join(' ')}`,
-    `form-action ${config.csp.formAction.join(' ')}`,
-    config.csp.upgradeInsecureRequests ? 'upgrade-insecure-requests' : '',
+    `default-src ${config.csp.defaultSrc.join(" ")}`,
+    `script-src ${config.csp.scriptSrc.join(" ")}`,
+    `style-src ${config.csp.styleSrc.join(" ")}`,
+    `img-src ${config.csp.imgSrc.join(" ")}`,
+    `connect-src ${config.csp.connectSrc.join(" ")}`,
+    `font-src ${config.csp.fontSrc.join(" ")}`,
+    `object-src ${config.csp.objectSrc.join(" ")}`,
+    `media-src ${config.csp.mediaSrc.join(" ")}`,
+    `frame-src ${config.csp.frameSrc.join(" ")}`,
+    `worker-src ${config.csp.workerSrc.join(" ")}`,
+    `frame-ancestors ${config.csp.frameAncestors.join(" ")}`,
+    `base-uri ${config.csp.baseUri.join(" ")}`,
+    `form-action ${config.csp.formAction.join(" ")}`,
+    config.csp.upgradeInsecureRequests ? "upgrade-insecure-requests" : "",
     `report-uri ${config.csp.reportUri}`,
   ].filter(Boolean);
 
-  res.setHeader('Content-Security-Policy', cspDirectives.join('; '));
+  res.setHeader("Content-Security-Policy", cspDirectives.join("; "));
 
   // HSTS
   const hstsValue = `max-age=${config.hsts.maxAge}${
-    config.hsts.includeSubDomains ? '; includeSubDomains' : ''
-  }${config.hsts.preload ? '; preload' : ''}`;
-  res.setHeader('Strict-Transport-Security', hstsValue);
+    config.hsts.includeSubDomains ? "; includeSubDomains" : ""
+  }${config.hsts.preload ? "; preload" : ""}`;
+  res.setHeader("Strict-Transport-Security", hstsValue);
 
   // X-Frame-Options
-  res.setHeader('X-Frame-Options', config.xFrameOptions);
+  res.setHeader("X-Frame-Options", config.xFrameOptions);
 
   // X-Content-Type-Options
-  res.setHeader('X-Content-Type-Options', config.xContentTypeOptions);
+  res.setHeader("X-Content-Type-Options", config.xContentTypeOptions);
 
   // X-XSS-Protection
   const xssValue = `1; mode=${config.xXssProtection.mode}`;
-  res.setHeader('X-XSS-Protection', xssValue);
+  res.setHeader("X-XSS-Protection", xssValue);
 
   // Referrer-Policy
-  res.setHeader('Referrer-Policy', config.referrerPolicy);
+  res.setHeader("Referrer-Policy", config.referrerPolicy);
 
   // Permissions-Policy
   const permissions = Object.entries(config.permissionsPolicy)
-    .map(([feature, allowlist]) => `${feature}=(${allowlist.join(' ')})`)
-    .join(', ');
-  res.setHeader('Permissions-Policy', permissions);
+    .map(([feature, allowlist]) => `${feature}=(${allowlist.join(" ")})`)
+    .join(", ");
+  res.setHeader("Permissions-Policy", permissions);
 
   // X-DNS-Prefetch-Control
-  res.setHeader('X-DNS-Prefetch-Control', config.dnsPrefetchControl);
+  res.setHeader("X-DNS-Prefetch-Control", config.dnsPrefetchControl);
 
   // Additional security headers
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
 }
 
 /**
@@ -291,7 +291,7 @@ export function applySecurityHeaders(req: Request, res: Response): void {
  */
 export function validateFileUpload(
   file: Express.Multer.File,
-  config: SecurityHeadersConfig['fileUpload'] = getSecurityConfig().fileUpload
+  config: SecurityHeadersConfig["fileUpload"] = getSecurityConfig().fileUpload
 ): { valid: boolean; error?: string } {
   // Check file size
   if (file.size > config.maxFileSize) {
@@ -305,7 +305,7 @@ export function validateFileUpload(
   if (!config.allowedTypes.includes(file.mimetype)) {
     return {
       valid: false,
-      error: `File type ${file.mimetype} is not allowed. Allowed types: ${config.allowedTypes.join(', ')}`,
+      error: `File type ${file.mimetype} is not allowed. Allowed types: ${config.allowedTypes.join(", ")}`,
     };
   }
 
@@ -320,9 +320,11 @@ export function validateFileUpload(
 /**
  * Generate secure CSRF token
  */
-export function generateCSRFToken(config: SecurityHeadersConfig['csrf'] = getSecurityConfig().csrf): string {
-  const crypto = await import('crypto');
-  return crypto.randomBytes(config.tokenLength).toString('hex');
+export function generateCSRFToken(
+  config: SecurityHeadersConfig["csrf"] = getSecurityConfig().csrf
+): string {
+  const crypto = await import("crypto");
+  return crypto.randomBytes(config.tokenLength).toString("hex");
 }
 
 /**
@@ -330,7 +332,7 @@ export function generateCSRFToken(config: SecurityHeadersConfig['csrf'] = getSec
  */
 export function validateSSRFUrl(
   url: string,
-  config: SecurityHeadersConfig['ssrf'] = getSecurityConfig().ssrf
+  config: SecurityHeadersConfig["ssrf"] = getSecurityConfig().ssrf
 ): { valid: boolean; error?: string } {
   if (!config.enabled) {
     return { valid: true };
@@ -340,30 +342,37 @@ export function validateSSRFUrl(
     const parsedUrl = new URL(url);
 
     // Check blocked hosts
-    if (config.blockedHosts.some(host =>
-      parsedUrl.hostname === host ||
-      parsedUrl.hostname.endsWith('.' + host) ||
-      host.includes('*') && parsedUrl.hostname.includes(host.replace('*', ''))
-    )) {
-      return { valid: false, error: 'URL blocked by SSRF protection' };
+    if (
+      config.blockedHosts.some(
+        (host) =>
+          parsedUrl.hostname === host ||
+          parsedUrl.hostname.endsWith("." + host) ||
+          (host.includes("*") && parsedUrl.hostname.includes(host.replace("*", "")))
+      )
+    ) {
+      return { valid: false, error: "URL blocked by SSRF protection" };
     }
 
     // Check allowed hosts (if whitelist is enabled)
     if (config.allowedHosts.length > 0) {
-      const isAllowed = config.allowedHosts.some(host =>
-        parsedUrl.hostname === host ||
-        parsedUrl.hostname.endsWith('.' + host) ||
-        host.includes('*') && parsedUrl.hostname.includes(host.replace('*', ''))
+      const isAllowed = config.allowedHosts.some(
+        (host) =>
+          parsedUrl.hostname === host ||
+          parsedUrl.hostname.endsWith("." + host) ||
+          (host.includes("*") && parsedUrl.hostname.includes(host.replace("*", "")))
       );
 
       if (!isAllowed) {
-        return { valid: false, error: 'URL not in allowed hosts list' };
+        return { valid: false, error: "URL not in allowed hosts list" };
       }
     }
 
     // Check port
-    const port = parsedUrl.port ? parseInt(parsedUrl.port) :
-      (parsedUrl.protocol === 'https:' ? 443 : 80);
+    const port = parsedUrl.port
+      ? parseInt(parsedUrl.port)
+      : parsedUrl.protocol === "https:"
+        ? 443
+        : 80;
 
     if (!config.allowedPorts.includes(port)) {
       return { valid: false, error: `Port ${port} not allowed` };
@@ -371,6 +380,6 @@ export function validateSSRFUrl(
 
     return { valid: true };
   } catch (error) {
-    return { valid: false, error: 'Invalid URL format' };
+    return { valid: false, error: "Invalid URL format" };
   }
 }

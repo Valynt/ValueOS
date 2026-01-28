@@ -3,6 +3,7 @@
 ## Production Security Headers
 
 ### Content Security Policy (CSP)
+
 ```
 Content-Security-Policy:
   default-src 'self';
@@ -23,31 +24,37 @@ Content-Security-Policy:
 ```
 
 ### HTTP Strict Transport Security (HSTS)
+
 ```
 Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
 ```
 
 ### X-Frame-Options (Clickjacking Protection)
+
 ```
 X-Frame-Options: DENY
 ```
 
 ### X-Content-Type-Options (MIME Sniffing Protection)
+
 ```
 X-Content-Type-Options: nosniff
 ```
 
 ### X-XSS-Protection (Legacy XSS Protection)
+
 ```
 X-XSS-Protection: 1; mode=block
 ```
 
 ### Referrer-Policy
+
 ```
 Referrer-Policy: strict-origin-when-cross-origin
 ```
 
 ### Permissions-Policy (Feature Restrictions)
+
 ```
 Permissions-Policy:
   camera=(),
@@ -62,6 +69,7 @@ Permissions-Policy:
 ```
 
 ### Cross-Origin Policies
+
 ```
 Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Opener-Policy: same-origin
@@ -69,6 +77,7 @@ Cross-Origin-Resource-Policy: same-origin
 ```
 
 ### DNS Prefetch Control
+
 ```
 X-DNS-Prefetch-Control: off
 ```
@@ -76,10 +85,12 @@ X-DNS-Prefetch-Control: off
 ## CORS Configuration
 
 ### Allowed Origins
+
 - Production: Configured via `CORS_ALLOWED_ORIGINS` environment variable
 - Development: `http://localhost:3000`, `http://localhost:5173`, `http://localhost:8080`
 
 ### CORS Headers
+
 ```
 Access-Control-Allow-Origin: [configured origins]
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
@@ -91,6 +102,7 @@ Access-Control-Max-Age: 86400
 ## Session/Cookie Security
 
 ### Secure Cookie Settings
+
 ```
 Secure: true (production) / false (development)
 HttpOnly: true
@@ -102,39 +114,42 @@ Path: /
 ## CSRF Protection
 
 ### CSRF Token Configuration
+
 - **Cookie Name**: `csrf_token`
 - **Header Name**: `x-csrf-token`
 - **Token Length**: 32 bytes (64 hex characters)
 - **Validation**: Double-submit cookie pattern
 
 ### CSRF Token Generation
+
 ```javascript
 // Server-side token generation
-const crypto = require('crypto');
-const token = crypto.randomBytes(32).toString('hex');
+const crypto = require("crypto");
+const token = crypto.randomBytes(32).toString("hex");
 
 // Set in cookie (httpOnly, secure)
-res.cookie('csrf_token', token, {
+res.cookie("csrf_token", token, {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
-  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict",
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
 });
 ```
 
 ### CSRF Token Usage
+
 ```javascript
 // Client-side: Include in requests
 const csrfToken = document.cookie
-  .split('; ')
-  .find(row => row.startsWith('csrf_token='))
-  ?.split('=')[1];
+  .split("; ")
+  .find((row) => row.startsWith("csrf_token="))
+  ?.split("=")[1];
 
-fetch('/api/endpoint', {
-  method: 'POST',
+fetch("/api/endpoint", {
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'X-CSRF-Token': csrfToken,
+    "Content-Type": "application/json",
+    "X-CSRF-Token": csrfToken,
   },
   body: JSON.stringify(data),
 });
@@ -143,28 +158,31 @@ fetch('/api/endpoint', {
 ## File Upload Security
 
 ### Upload Limits
+
 - **Max File Size**: 10MB per file
 - **Max Files**: 5 files per request
 - **Rate Limit**: 10 uploads per hour per user
 
 ### Allowed File Types
+
 - `image/jpeg`
 - `image/png`
 - `image/gif`
 - `application/pdf`
 
 ### Upload Validation
+
 ```javascript
 function validateFileUpload(file) {
   // Size check
   if (file.size > 10 * 1024 * 1024) {
-    throw new Error('File too large');
+    throw new Error("File too large");
   }
 
   // Type check
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf"];
   if (!allowedTypes.includes(file.mimetype)) {
-    throw new Error('File type not allowed');
+    throw new Error("File type not allowed");
   }
 
   // Additional security checks
@@ -179,6 +197,7 @@ function validateFileUpload(file) {
 ## SSRF Protection
 
 ### Blocked Hosts
+
 - `localhost`
 - `127.0.0.1`
 - `0.0.0.0`
@@ -188,6 +207,7 @@ function validateFileUpload(file) {
 - `192.168.0.0/16` (private networks)
 
 ### Allowed Hosts
+
 - `api.supabase.co`
 - `*.supabase.co`
 - `api.openai.com`
@@ -195,6 +215,7 @@ function validateFileUpload(file) {
 - `api.replicate.com`
 
 ### Allowed Ports
+
 - `80` (HTTP)
 - `443` (HTTPS)
 - `3000` (development)
@@ -202,6 +223,7 @@ function validateFileUpload(file) {
 - `5432` (PostgreSQL)
 
 ### SSRF Validation
+
 ```javascript
 function validateSSRFUrl(url) {
   const parsedUrl = new URL(url);
@@ -217,23 +239,22 @@ function validateSSRFUrl(url) {
     /^192\.168\./,
   ];
 
-  if (blockedPatterns.some(pattern => pattern.test(parsedUrl.hostname))) {
-    throw new Error('SSRF protection: Private network access blocked');
+  if (blockedPatterns.some((pattern) => pattern.test(parsedUrl.hostname))) {
+    throw new Error("SSRF protection: Private network access blocked");
   }
 
   // Check allowed hosts
-  const allowedHosts = ['api.supabase.co', 'api.openai.com'];
-  const isAllowed = allowedHosts.some(host =>
-    parsedUrl.hostname === host ||
-    parsedUrl.hostname.endsWith('.' + host)
+  const allowedHosts = ["api.supabase.co", "api.openai.com"];
+  const isAllowed = allowedHosts.some(
+    (host) => parsedUrl.hostname === host || parsedUrl.hostname.endsWith("." + host)
   );
 
   if (!isAllowed) {
-    throw new Error('SSRF protection: Host not in allowlist');
+    throw new Error("SSRF protection: Host not in allowlist");
   }
 
   // Check port
-  const port = parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80);
+  const port = parsedUrl.port || (parsedUrl.protocol === "https:" ? 443 : 80);
   const allowedPorts = [80, 443, 3000, 8000, 5432];
 
   if (!allowedPorts.includes(port)) {
@@ -247,41 +268,44 @@ function validateSSRFUrl(url) {
 ## Input Validation & XSS Protection
 
 ### HTML Sanitization
+
 ```javascript
-import DOMPurify from 'isomorphic-dompurify';
+import DOMPurify from "isomorphic-dompurify";
 
 function sanitizeHtml(input) {
   return DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a'],
-    ALLOWED_ATTR: ['href', 'target'],
+    ALLOWED_TAGS: ["p", "br", "strong", "em", "a"],
+    ALLOWED_ATTR: ["href", "target"],
     ALLOW_DATA_ATTR: false,
   });
 }
 ```
 
 ### String Sanitization
+
 ```javascript
 function sanitizeString(input) {
   return input
-    .replace(/[<>]/g, '') // Remove angle brackets
-    .replace(/javascript:/gi, '') // Remove javascript: URLs
-    .replace(/data:/gi, '') // Remove data: URLs
+    .replace(/[<>]/g, "") // Remove angle brackets
+    .replace(/javascript:/gi, "") // Remove javascript: URLs
+    .replace(/data:/gi, "") // Remove data: URLs
     .trim();
 }
 ```
 
 ### URL Validation
+
 ```javascript
 function sanitizeUrl(input) {
   try {
     const url = new URL(input);
     // Only allow http/https protocols
-    if (!['http:', 'https:'].includes(url.protocol)) {
-      throw new Error('Invalid protocol');
+    if (!["http:", "https:"].includes(url.protocol)) {
+      throw new Error("Invalid protocol");
     }
     return url.toString();
   } catch {
-    throw new Error('Invalid URL');
+    throw new Error("Invalid URL");
   }
 }
 ```
@@ -289,12 +313,14 @@ function sanitizeUrl(input) {
 ## Rate Limiting Configuration
 
 ### API Rate Limits
+
 - **General API**: 100 requests per minute per IP
 - **Authentication**: 5 attempts per 15 minutes per IP
 - **File Uploads**: 10 uploads per hour per user
 - **Agent Execution**: 50 calls per minute per user
 
 ### Rate Limit Headers
+
 ```
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
@@ -305,38 +331,45 @@ X-RateLimit-Retry-After: 60
 ## Security Monitoring & Logging
 
 ### CSP Violation Reporting
+
 ```javascript
-app.post('/api/security/csp-report', express.json({ type: 'application/csp-report' }), (req, res) => {
-  const report = req.body;
+app.post(
+  "/api/security/csp-report",
+  express.json({ type: "application/csp-report" }),
+  (req, res) => {
+    const report = req.body;
 
-  // Log violation
-  logger.warn('CSP Violation', {
-    'csp-report': report['csp-report'],
-    userAgent: req.headers['user-agent'],
-    ip: req.ip,
-  });
+    // Log violation
+    logger.warn("CSP Violation", {
+      "csp-report": report["csp-report"],
+      userAgent: req.headers["user-agent"],
+      ip: req.ip,
+    });
 
-  // Send to monitoring service (Sentry, etc.)
-  // monitoring.captureException(new Error('CSP Violation'), { extra: report });
+    // Send to monitoring service (Sentry, etc.)
+    // monitoring.captureException(new Error('CSP Violation'), { extra: report });
 
-  res.status(204).send();
-});
+    res.status(204).send();
+  }
+);
 ```
 
 ### Security Event Logging
+
 ```javascript
 const securityEvents = {
-  cspViolation: (report) => logger.warn('CSP Violation', report),
-  csrfFailure: (details) => logger.warn('CSRF Failure', details),
-  ssrfAttempt: (url, outcome) => logger.warn('SSRF Attempt', { url, outcome }),
-  fileUploadBlocked: (file, reason) => logger.warn('File Upload Blocked', { file, reason }),
-  rateLimitExceeded: (endpoint, ip) => logger.warn('Rate Limit Exceeded', { endpoint, ip }),
+  cspViolation: (report) => logger.warn("CSP Violation", report),
+  csrfFailure: (details) => logger.warn("CSRF Failure", details),
+  ssrfAttempt: (url, outcome) => logger.warn("SSRF Attempt", { url, outcome }),
+  fileUploadBlocked: (file, reason) => logger.warn("File Upload Blocked", { file, reason }),
+  rateLimitExceeded: (endpoint, ip) => logger.warn("Rate Limit Exceeded", { endpoint, ip }),
 };
 ```
 
 ## Environment Variables
 
 ### Required Security Environment Variables
+
 ```bash
 # CORS
 CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
@@ -360,6 +393,7 @@ LOG_LEVEL=warn
 ## Deployment Checklist
 
 ### Pre-Deployment
+
 - [ ] Set `NODE_ENV=production`
 - [ ] Configure `CORS_ALLOWED_ORIGINS`
 - [ ] Set strong `SESSION_SECRET` and `TCT_SECRET`
@@ -369,6 +403,7 @@ LOG_LEVEL=warn
 - [ ] Review and test all security headers
 
 ### Post-Deployment
+
 - [ ] Verify HSTS preload submission
 - [ ] Test CSP in report-only mode first
 - [ ] Monitor security logs for violations
@@ -378,6 +413,7 @@ LOG_LEVEL=warn
 ## Testing Commands
 
 ### Run Security Tests
+
 ```bash
 # Unit tests
 pnpm test -- packages/backend/src/config/__tests__/securityConfig.test.ts
@@ -390,6 +426,7 @@ pnpm test:e2e -- --grep "security"
 ```
 
 ### Security Scanning
+
 ```bash
 # OWASP ZAP scan
 docker run -t owasp/zap2docker-stable zap-baseline.py \
@@ -404,6 +441,7 @@ pnpm audit
 ```
 
 ### Manual Security Testing
+
 ```bash
 # Test XSS
 curl -X POST https://your-app.com/api/endpoint \

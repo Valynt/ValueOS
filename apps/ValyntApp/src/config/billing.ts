@@ -63,9 +63,9 @@ export const PLANS: Record<PlanTier, PlanConfig> = {
     },
 
     hardCaps: {
-      llm_tokens: true, // Hard cap for free tier
-      agent_executions: true, // Hard cap for free tier
-      api_calls: true, // Hard cap for free tier
+      llm_tokens: false, // Soft cap for free tier (allow grace period)
+      agent_executions: false, // Soft cap for free tier
+      api_calls: false, // Soft cap for free tier
       storage_gb: true, // Hard cap
       user_seats: true, // Hard cap
     },
