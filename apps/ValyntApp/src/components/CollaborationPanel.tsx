@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { CollaborationService, type CollaborationEvent, type GuestToken } from "../services/CollaborationService";
+import {
+  CollaborationService,
+  type CollaborationEvent,
+  type GuestToken,
+} from "../services/CollaborationService";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +19,7 @@ export const CollaborationPanel: React.FC = () => {
     });
 
     service.joinSession("user_123", "Value Engineer");
-    
+
     return unsubscribe;
   }, []);
 
@@ -27,7 +31,10 @@ export const CollaborationPanel: React.FC = () => {
   return (
     <Card className="p-6 mt-6">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <span role="img" aria-label="Users">👥</span> Real-Time Collaboration
+        <span role="img" aria-label="Users">
+          👥
+        </span>{" "}
+        Real-Time Collaboration
       </h3>
 
       <div className="space-y-4 mb-6">
@@ -35,11 +42,18 @@ export const CollaborationPanel: React.FC = () => {
         <div className="space-y-2">
           {events.map((e, i) => (
             <div key={i} className="text-xs p-2 bg-muted rounded flex justify-between">
-              <span><strong>{e.userName}</strong> {e.type === "presence" ? "joined" : "edited the model"}</span>
-              <span className="text-muted-foreground">{new Date(e.timestamp).toLocaleTimeString()}</span>
+              <span>
+                <strong>{e.userName}</strong>{" "}
+                {e.type === "presence" ? "joined" : "edited the model"}
+              </span>
+              <span className="text-muted-foreground">
+                {new Date(e.timestamp).toLocaleTimeString()}
+              </span>
             </div>
           ))}
-          {events.length === 0 && <p className="text-xs text-muted-foreground italic">No activity yet...</p>}
+          {events.length === 0 && (
+            <p className="text-xs text-muted-foreground italic">No activity yet...</p>
+          )}
         </div>
       </div>
 
@@ -55,8 +69,12 @@ export const CollaborationPanel: React.FC = () => {
               https://valynt.app/guest?token={guestToken.token}
             </div>
             <div className="flex justify-between items-center">
-              <Badge variant="secondary">Expires: {new Date(guestToken.expiresAt).toLocaleDateString()}</Badge>
-              <Button onClick={() => setGuestToken(null)} variant="ghost" size="xs">Clear</Button>
+              <Badge variant="secondary">
+                Expires: {new Date(guestToken.expiresAt).toLocaleDateString()}
+              </Badge>
+              <Button onClick={() => setGuestToken(null)} variant="ghost" size="xs">
+                Clear
+              </Button>
             </div>
           </div>
         )}

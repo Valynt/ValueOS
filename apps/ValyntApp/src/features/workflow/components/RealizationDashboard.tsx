@@ -2,7 +2,16 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface MetricVariance {
   name: string;
@@ -27,7 +36,10 @@ export const RealizationDashboard: React.FC = () => {
   return (
     <Card className="p-6 mt-6">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <span role="img" aria-label="Target">🎯</span> Value Realization & Variance Analysis
+        <span role="img" aria-label="Target">
+          🎯
+        </span>{" "}
+        Value Realization & Variance Analysis
       </h3>
 
       <div className="h-[300px] w-full mb-8">
@@ -50,7 +62,10 @@ export const RealizationDashboard: React.FC = () => {
           {data.map((v, i) => {
             const status = getStatus(v);
             return (
-              <div key={i} className="flex justify-between items-center p-3 border rounded-lg bg-muted/20">
+              <div
+                key={i}
+                className="flex justify-between items-center p-3 border rounded-lg bg-muted/20"
+              >
                 <div>
                   <p className="font-medium">{v.name}</p>
                   <p className="text-xs text-muted-foreground">

@@ -39,8 +39,9 @@ function getCookie(req: Request, name: string): string | undefined {
 }
 
 /**
- * CSRF protection using a double-submit cookie + header.
+ * CSRF protection using a double-submit cookie + header with SameSite protection.
  * Rejects requests without a valid X-CSRF-Token header matching the csrf_token cookie.
+ * Also sets secure cookie attributes for session protection.
  */
 export function csrfProtectionMiddleware(req: Request, res: Response, next: NextFunction): void {
   const headerToken = req.header('x-csrf-token');
@@ -49,6 +50,27 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
   if (!headerToken || !cookieToken || headerToken !== cookieToken) {
     return res.status(403).json({ error: 'CSRF validation failed' });
   }
+
+  next();
+}
+
+/**
+ * Enhanced session security middleware - sets secure cookie attributes
+ */
+export function sessionSecurityMiddleware(req: Request, res: Response, next: NextFunction): void {
+  // Set secure session cookie attributes
+  const isProduction = process.env.NODE_ENV === 'production';
+  const secure = isProduction ? '; Secure' : '';
+  const sameSite = isProduction ? '; SameSite=Strict' : '; SameSite=Lax';
+  const httpOnly = '; HttpOnly';
+  const maxAge = '; Max-Age=86400'; // 24 hours
+
+  // Note: This assumes you're using express-session or similar
+  // If using custom session handling, adjust accordingly
+  res.setHeader('Set-Cookie', [
+    `session_id=; Path=/; ${httpOnly}${secure}${sameSite}${maxAge}`,
+    `csrf_token=; Path=/; ${httpOnly}${secure}${sameSite}${maxAge}`,
+  ]);
 
   next();
 }

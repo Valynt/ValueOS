@@ -67,7 +67,8 @@ export class CollaborationService {
    */
   public generateGuestToken(permissions: "view" | "comment" | "edit"): GuestToken {
     return {
-      token: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
+      token:
+        Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
       permissions,
     };

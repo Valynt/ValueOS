@@ -13,8 +13,8 @@ import {
   MARLRewardFunction,
   MARLPolicy,
 } from "../BaseAgent";
-import { AgentRequest, AgentResponse } from "./BaseAgent";
-import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
+import { AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
+import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
 
 export interface CommunicationContext {
   stakeholderId: string;

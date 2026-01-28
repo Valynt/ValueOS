@@ -29,8 +29,12 @@ export const IntegrityVetoPanel: React.FC = () => {
     service.logToVMRT({
       metricId,
       originalValue: new Decimal(proposedValue),
-      validatedValue: validation.isValid ? new Decimal(proposedValue) : (validation.suggestedValue || new Decimal(proposedValue)),
-      reasoning: validation.isValid ? "Within conservative bounds" : validation.reason || "Adjusted to threshold",
+      validatedValue: validation.isValid
+        ? new Decimal(proposedValue)
+        : validation.suggestedValue || new Decimal(proposedValue),
+      reasoning: validation.isValid
+        ? "Within conservative bounds"
+        : validation.reason || "Adjusted to threshold",
       agentId: "IntegrityAgent",
     });
     setTimeout(() => {
@@ -43,7 +47,10 @@ export const IntegrityVetoPanel: React.FC = () => {
   return (
     <Card className="p-6 mt-6 border-l-4 border-l-amber-500">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <span role="img" aria-label="Shield">🛡️</span> IntegrityAgent Veto & VMRT
+        <span role="img" aria-label="Shield">
+          🛡️
+        </span>{" "}
+        IntegrityAgent Veto & VMRT
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -53,7 +60,11 @@ export const IntegrityVetoPanel: React.FC = () => {
         </div>
         <div className="space-y-2">
           <Label>Proposed Value (%)</Label>
-          <Input type="number" value={proposedValue} onChange={(e) => setProposedValue(e.target.value)} />
+          <Input
+            type="number"
+            value={proposedValue}
+            onChange={(e) => setProposedValue(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label>Benchmark Median (%)</Label>
@@ -66,20 +77,26 @@ export const IntegrityVetoPanel: React.FC = () => {
       </Button>
 
       {validation && (
-        <div className={`p-4 rounded-lg mb-4 ${validation.isValid ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+        <div
+          className={`p-4 rounded-lg mb-4 ${validation.isValid ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}
+        >
           <p className="font-bold flex items-center gap-2">
             {validation.isValid ? "✅ Approved" : "❌ Vetoed"}
-            <span className="text-xs font-normal text-gray-500">(Confidence: {validation.confidenceScore})</span>
+            <span className="text-xs font-normal text-gray-500">
+              (Confidence: {validation.confidenceScore})
+            </span>
           </p>
           {!validation.isValid && (
             <div className="mt-2 text-sm">
               <p className="text-red-700">{validation.reason}</p>
-              <p className="mt-1 font-medium">Suggested Value: {validation.suggestedValue?.toString()}%</p>
+              <p className="mt-1 font-medium">
+                Suggested Value: {validation.suggestedValue?.toString()}%
+              </p>
             </div>
           )}
-          <Button 
-            onClick={handleCommit} 
-            className="mt-4 w-full" 
+          <Button
+            onClick={handleCommit}
+            className="mt-4 w-full"
             variant={validation.isValid ? "default" : "destructive"}
             disabled={isLogging}
           >

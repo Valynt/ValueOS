@@ -42,7 +42,7 @@ export class IntegrityService {
   ): Promise<ValidationResult> {
     // Rule: Assumptions should not exceed 120% of the benchmark median without strong evidence
     const threshold = context.benchmarkMedian.mul(1.2);
-    
+
     if (value.gt(threshold)) {
       return {
         isValid: false,

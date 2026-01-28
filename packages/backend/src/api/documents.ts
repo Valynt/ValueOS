@@ -13,6 +13,7 @@ import {
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware.js"
 import { rateLimiters } from "../middleware/rateLimiter.js"
 import { requirePermission } from "../middleware/rbac.js"
+import { fileUploadSecurityMiddleware, contentTypeValidationMiddleware } from "../middleware/fileUploadSecurity.js";
 
 interface LineageMetadata {
   source_origin: string;
@@ -28,6 +29,8 @@ router.use(requirePermission("data.import"));
 router.post(
   "/upload",
   rateLimiters.standard,
+  contentTypeValidationMiddleware,
+  fileUploadSecurityMiddleware(),
   csrfProtectionMiddleware,
   async (req: Request, res: Response) => {
     const { documentId, metadata } = req.body as {

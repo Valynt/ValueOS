@@ -17,34 +17,25 @@ export function AppLayout() {
       <aside className="w-64 border-r bg-muted/30 p-4 flex flex-col">
         <div className="text-xl font-bold mb-8">Valynt</div>
         <nav className="space-y-2 flex-1">
-          <Link
-            to="/dashboard"
-            className="block px-3 py-2 rounded-md hover:bg-muted text-sm"
-          >
+          <Link to="/dashboard" className="block px-3 py-2 rounded-md hover:bg-muted text-sm">
             Dashboard
           </Link>
           {persona === "VE" && (
-            <Link
-              to="/discovery"
-              className="block px-3 py-2 rounded-md hover:bg-muted text-sm"
-            >
+            <Link to="/discovery" className="block px-3 py-2 rounded-md hover:bg-muted text-sm">
               Discovery (VE)
             </Link>
           )}
-          <Link
-            to="/settings"
-            className="block px-3 py-2 rounded-md hover:bg-muted text-sm"
-          >
+          <Link to="/settings" className="block px-3 py-2 rounded-md hover:bg-muted text-sm">
             Settings
           </Link>
         </nav>
-        
+
         <div className="mt-auto pt-4 border-t">
           <label className="text-xs font-bold text-muted-foreground uppercase mb-2 block">
             Active Persona
           </label>
-          <select 
-            value={persona} 
+          <select
+            value={persona}
             onChange={(e) => setPersona(e.target.value as Persona)}
             className="w-full text-sm bg-transparent border rounded p-1"
           >
@@ -58,9 +49,11 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col">
         <header className="h-16 border-b flex items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-              persona === "CFO" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-            }`}>
+            <span
+              className={`px-2 py-0.5 rounded text-xs font-bold ${
+                persona === "CFO" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+              }`}
+            >
               {persona} Mode
             </span>
           </div>

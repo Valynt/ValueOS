@@ -210,16 +210,38 @@ export class NetworkSegmentationManager {
     let safeUrl: URL;
     try {
       safeUrl = new URL(request.url);
-      // Basic SSRF protection - check for private IPs
+      // Enhanced SSRF protection - check for private IPs and localhost
       const hostname = safeUrl.hostname;
+
+      // Check for localhost and private IP ranges
       if (
         hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
         hostname.startsWith("127.") ||
         hostname.startsWith("192.168.") ||
-        hostname.startsWith("10.")
+        hostname.startsWith("10.") ||
+        hostname.startsWith("172.") && hostname.split('.')[1] >= "16" && hostname.split('.')[1] <= "31" ||
+        hostname === "::1" ||
+        hostname.toLowerCase().includes("internal") ||
+        hostname.toLowerCase().includes("local")
       ) {
-        throw new Error("Private network access blocked");
+        throw new Error("Private network access blocked (SSRF protection)");
       }
+
+      // Check for IPv6 private addresses
+      if (hostname.includes(":") && (
+        hostname.startsWith("fc00:") ||
+        hostname.startsWith("fd00:") ||
+        hostname.startsWith("fe80:")
+      )) {
+        throw new Error("IPv6 private network access blocked (SSRF protection)");
+      }
+
+      // Check for DNS rebinding attempts (common SSRF bypass)
+      if (hostname.includes("127.0.0.1") || hostname.includes("localhost")) {
+        throw new Error("DNS rebinding attempt detected");
+      }
+
       securityLogger.log({
         category: "authorization" as const,
         action: "ssrf_check",

@@ -39,6 +39,7 @@ import projectsRouter from "./api/projects.js";
 import analyticsRouter from "./api/analytics.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import teamsRouter from "./api/teams.js";
+import integrationsRouter from "./api/integrations.js";
 import docsApiRouter from "./docs-api/index.js";
 import {
   initializeSecretVolumeWatcher,
@@ -374,6 +375,7 @@ app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/teams", teamsRouter);
+app.use("/api/integrations", integrationsRouter);
 
 await registerDevRoutes(app);
 

@@ -153,17 +153,32 @@ export function securityHeadersMiddleware(
   // X-XSS-Protection - Legacy XSS protection
   res.setHeader("X-XSS-Protection", "1; mode=block");
 
-  // Referrer-Policy
+  // Referrer-Policy - Control referrer information
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
   // Permissions-Policy - Disable unnecessary features
   res.setHeader(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=()"
   );
+
+  // Cross-Origin-Embedder-Policy - COEP for cross-origin isolation
+  res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
+
+  // Cross-Origin-Opener-Policy - COOP for cross-origin isolation
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+
+  // Cross-Origin-Resource-Policy - CORP for resource protection
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
 
   // X-DNS-Prefetch-Control
   res.setHeader("X-DNS-Prefetch-Control", "off");
+
+  // X-Download-Options - Prevent file downloads from executing in IE
+  res.setHeader("X-Download-Options", "noopen");
+
+  // X-Permitted-Cross-Domain-Policies - Prevent Flash/PDF from loading cross-domain
+  res.setHeader("X-Permitted-Cross-Domain-Policies", "none");
 
   next();
 }

@@ -69,6 +69,18 @@ Our CI pipeline (GitHub Actions) enforces:
 4. SBOM Generation
 5. RLS Leakage and Accessibility Gates
 
+### Branch Protection Requirements
+
+To maintain high quality and security standards, the following checks are **required** for all pull requests to `main` and `develop`:
+
+- **Linting and Type Checking**: Ensures code consistency and type safety.
+- **Unit and Integration Tests**: Validates core business logic.
+- **RLS Leakage Tests**: Critical for multi-tenant isolation.
+- **Accessibility Tests**: Ensures WCAG 2.1 AA compliance.
+- **Security Scans**: No high or critical vulnerabilities in dependencies or code.
+
+Administrators should enforce these as "Required" status checks in GitHub repository settings.
+
 ## Documentation
 
 - **ADRs**: Architectural decisions are recorded in `docs/architecture/adr/`.

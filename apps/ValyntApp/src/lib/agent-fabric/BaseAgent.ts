@@ -12,7 +12,75 @@ import { MemorySystem, MemoryEntry, MemoryQuery } from "./MemorySystem";
 import { AuditLogger, AuditLevel } from "./AuditLogger";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { IAgent, AgentRequest, AgentResponse, AgentCapability, AgentType, ConfidenceLevel, ValidationResult, AgentMetadata, AgentHealthStatus, AgentConfiguration, AgentPerformanceMetrics, AgentExecutionMetadata, AgentError } from "../../services/agents/core/IAgent";
+import { AgentType } from "../../services/agent-types";
+import { ConfidenceLevel } from "../../services/agent-types";
+import {
+  IAgent,
+  AgentRequest,
+  AgentResponse,
+  AgentCapability,
+  ValidationResult,
+  AgentMetadata,
+  AgentHealthStatus,
+  AgentConfiguration,
+  AgentPerformanceMetrics,
+  AgentExecutionMetadata,
+  AgentError,
+  ReasoningTrace,
+} from "../../services/agents/core/IAgent";
+
+// ============================================================================
+// MARL Types
+// ============================================================================
+
+/**
+ * MARL State representation for agent interactions
+ */
+export interface MARLState {
+  sessionId: string;
+  agentStates: Record<string, any>; // State of each participating agent
+  sharedContext: Record<string, any>; // Shared context across agents
+  timestamp: Date;
+}
+
+/**
+ * MARL Action representation
+ */
+export interface MARLAction {
+  agentId: string;
+  actionType: string;
+  parameters: Record<string, any>;
+  confidence: ConfidenceLevel;
+  timestamp: Date;
+}
+
+/**
+ * MARL Interaction record
+ */
+export interface MARLInteraction {
+  interactionId: string;
+  sessionId: string;
+  actions: MARLAction[];
+  outcomes: Record<string, any>;
+  timestamp: Date;
+}
+
+/**
+ * MARL Reward Function
+ */
+export interface MARLRewardFunction {
+  calculateReward(interaction: MARLInteraction, agentId: string): number;
+  updateRewards(interactions: MARLInteraction[]): void;
+}
+
+/**
+ * MARL Policy for decision making
+ */
+export interface MARLPolicy {
+  selectAction(state: MARLState, agentId: string): MARLAction;
+  updatePolicy(interactions: MARLInteraction[]): void;
+  getPolicyParameters(): Record<string, any>;
+}
 
 // ============================================================================
 // Agent Types
@@ -34,6 +102,7 @@ export abstract class BaseAgent implements IAgent {
   protected config: BaseAgentConfig;
   protected executionCount = 0;
   protected lastExecutionTime = 0;
+  protected logger = logger;
 
   constructor(config: BaseAgentConfig) {
     this.config = config;
@@ -126,18 +195,30 @@ export abstract class BaseAgent implements IAgent {
         id: "text_generation",
         name: "Text Generation",
         description: "Generate text responses",
+        category: "generation",
+        inputTypes: ["text", "json"],
+        outputTypes: ["text"],
+        requiredPermissions: ["llm_access"],
         enabled: true,
       },
       {
         id: "data_analysis",
         name: "Data Analysis",
         description: "Analyze input data",
+        category: "analysis",
+        inputTypes: ["json", "text"],
+        outputTypes: ["json", "text"],
+        requiredPermissions: ["data_access"],
         enabled: true,
       },
       {
         id: "memory_access",
         name: "Memory Access",
         description: "Access memory system",
+        category: "coordination",
+        inputTypes: ["json"],
+        outputTypes: ["json"],
+        requiredPermissions: ["memory_access"],
         enabled: true,
       },
     ];
@@ -175,7 +256,14 @@ export abstract class BaseAgent implements IAgent {
       inputSchemas: {},
       outputSchemas: {},
       configuration: this.config.configuration || this.getDefaultConfiguration(),
-      health: "healthy",
+      health: {
+        status: "healthy",
+        lastCheck: new Date(),
+        responseTime: 100,
+        errorRate: 0,
+        uptime: 99.9,
+        activeConnections: 1,
+      },
       performance: this.getPerformanceMetrics(),
     };
   }
@@ -186,9 +274,23 @@ export abstract class BaseAgent implements IAgent {
       const timeSinceLastExecution = Date.now() - this.lastExecutionTime;
       const isHealthy = timeSinceLastExecution < 300000; // 5 minutes
 
-      return isHealthy ? "healthy" : "degraded";
+      return {
+        status: isHealthy ? "healthy" : "degraded",
+        lastCheck: new Date(),
+        responseTime: 100, // Mock response time
+        errorRate: 0, // Mock error rate
+        uptime: 99.9, // Mock uptime
+        activeConnections: 1, // Mock active connections
+      };
     } catch (error) {
-      return "unhealthy";
+      return {
+        status: "offline",
+        lastCheck: new Date(),
+        responseTime: 0,
+        errorRate: 100,
+        uptime: 0,
+        activeConnections: 0,
+      };
     }
   }
 
@@ -210,13 +312,12 @@ export abstract class BaseAgent implements IAgent {
 
   getPerformanceMetrics(): AgentPerformanceMetrics {
     return {
-      totalExecutions: this.executionCount,
-      averageExecutionTime: 1000, // Default - would be calculated from actual data
-      successRate: 0.95, // Default - would be calculated from actual data
-      errorRate: 0.05,
-      lastExecutionTime: new Date(this.lastExecutionTime),
-      memoryUsage: 50, // MB - would be measured
-      cacheHitRate: 0.8,
+      avgResponseTime: 1000, // Default - would be calculated from actual data
+      p95ResponseTime: 1500, // Default - would be calculated from actual data
+      successRate: 95, // Default - would be calculated from actual data
+      requestsPerMinute: 60, // Default - would be calculated from actual data
+      avgTokenUsage: 1000, // Default - would be calculated from actual data
+      costPerRequest: 0.01, // Default - would be calculated from actual data
     };
   }
 
@@ -263,7 +364,7 @@ export abstract class BaseAgent implements IAgent {
     success: boolean,
     data: T,
     confidence: ConfidenceLevel,
-    reasoning?: string,
+    reasoning?: ReasoningTrace,
     metadata?: Partial<AgentExecutionMetadata>
   ): AgentResponse<T> {
     return {
@@ -365,9 +466,7 @@ export abstract class BaseAgent implements IAgent {
       }
     }
 
-    throw new Error(
-      `secureInvoke failed after ${maxRetries} attempts: ${lastError?.message}`
-    );
+    throw new Error(`secureInvoke failed after ${maxRetries} attempts: ${lastError?.message}`);
   }
 
   protected async storeMemory(
@@ -406,7 +505,6 @@ export abstract class BaseAgent implements IAgent {
       agentId: this.config.id,
       sessionId: this.config.sessionId,
       userId: this.config.userId,
-      organizationId: this.config.organizationId,
     });
   }
 
@@ -447,6 +545,136 @@ export abstract class BaseAgent implements IAgent {
         halfOpenMaxCalls: 3,
       },
     };
+  }
+
+  // ============================================================================
+  // MARL Methods
+  // ============================================================================
+
+  protected marlEnabled = false;
+  protected marlPolicy?: MARLPolicy;
+  protected marlRewardFunction?: MARLRewardFunction;
+  protected marlHistory: MARLInteraction[] = [];
+
+  /**
+   * Enable MARL for this agent
+   */
+  protected enableMARL(policy: MARLPolicy, rewardFunction: MARLRewardFunction): void {
+    this.marlEnabled = true;
+    this.marlPolicy = policy;
+    this.marlRewardFunction = rewardFunction;
+    this.logger.info("MARL enabled for agent", { agentId: this.config.id });
+  }
+
+  /**
+   * Check if MARL is enabled
+   */
+  protected isMARLEnabled(): boolean {
+    return this.marlEnabled;
+  }
+
+  /**
+   * Initialize MARL with default policy and reward function
+   */
+  protected initializeMARL(): void {
+    // Default implementations - subclasses should override
+    this.marlPolicy = {
+      selectAction: (state: MARLState, agentId: string) => ({
+        agentId,
+        actionType: "default",
+        parameters: {},
+        confidence: "medium" as ConfidenceLevel,
+        timestamp: new Date(),
+      }),
+      updatePolicy: () => {},
+      getPolicyParameters: () => ({}),
+    };
+
+    this.marlRewardFunction = {
+      calculateReward: () => 0,
+      updateRewards: () => {},
+    };
+
+    this.enableMARL(this.marlPolicy, this.marlRewardFunction);
+  }
+
+  /**
+   * Select an action using MARL policy
+   */
+  protected async selectMARLAction(state: MARLState): Promise<MARLAction> {
+    if (!this.marlPolicy) {
+      throw new Error("MARL policy not initialized");
+    }
+    return this.marlPolicy.selectAction(state, this.config.id);
+  }
+
+  /**
+   * Update MARL policy based on interaction
+   */
+  protected async updateMARLPolicy(interaction: MARLInteraction): Promise<void> {
+    if (!this.marlPolicy || !this.marlRewardFunction) {
+      return;
+    }
+
+    this.marlHistory.push(interaction);
+    this.marlPolicy.updatePolicy([interaction]);
+    this.marlRewardFunction.updateRewards([interaction]);
+  }
+
+  /**
+   * Get MARL interaction history
+   */
+  protected getMARLHistory(): MARLInteraction[] {
+    return [...this.marlHistory];
+  }
+
+  /**
+   * Update MARL from communication context
+   */
+  protected async updateMARLFromCommunication(
+    strategy: any,
+    context: any
+  ): Promise<void> {
+    // Default implementation - subclasses should override
+    const interaction: MARLInteraction = {
+      interactionId: uuidv4(),
+      sessionId: this.config.sessionId || "default",
+      actions: [{
+        agentId: this.config.id,
+        actionType: "communication",
+        parameters: { strategy, context },
+        confidence: "high" as ConfidenceLevel,
+        timestamp: new Date(),
+      }],
+      outcomes: { success: true },
+      timestamp: new Date(),
+    };
+
+    await this.updateMARLPolicy(interaction);
+  }
+
+  /**
+   * Share episodic memory with other agents
+   */
+  protected async shareEpisodicMemory(agentIds: string[], content: string): Promise<void> {
+    const memoryEntry: MemoryEntry = {
+      id: uuidv4(),
+      type: "episodic",
+      content,
+      metadata: {
+        agentId: this.config.id,
+        sharedWith: agentIds,
+        timestamp: new Date(),
+      },
+      timestamp: new Date(),
+      expiresAt: undefined,
+    };
+
+    await this.storeMemory("episodic", content, {
+      agentId: this.config.id,
+      sessionId: this.config.sessionId,
+      userId: this.config.userId,
+    });
   }
 
   destroy(): void {

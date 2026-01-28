@@ -11,6 +11,7 @@ export const RESOURCES = {
   ADMIN: "admin",
   USERS: "users",
   API_KEYS: "api_keys",
+  INTEGRATIONS: "integrations",
   VALUE_TREES: "value_trees",
   COMMITMENTS: "commitments",
   AGENTS: "agents",
@@ -59,6 +60,9 @@ export const PERMISSIONS = {
   API_KEYS_VIEW: "api_keys:view" as Permission,
   API_KEYS_CREATE: "api_keys:create" as Permission,
   API_KEYS_DELETE: "api_keys:delete" as Permission,
+
+  INTEGRATIONS_VIEW: "integrations:view" as Permission,
+  INTEGRATIONS_MANAGE: "integrations:manage" as Permission,
 
   ADMIN_ACCESS: "admin:view" as Permission,
   ADMIN_MANAGE: "admin:manage" as Permission,

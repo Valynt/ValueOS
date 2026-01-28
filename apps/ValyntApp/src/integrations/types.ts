@@ -1,65 +1,91 @@
 export type IntegrationType = "crm" | "communication" | "storage" | "analytics" | "auth";
 export type IntegrationStatus = "connected" | "disconnected" | "error" | "pending";
+export type IntegrationProviderId = "hubspot" | "salesforce";
 
-export interface Integration {
+export interface IntegrationConnection {
   id: string;
-  type: IntegrationType;
-  provider: string;
-  name: string;
-  description: string;
-  icon?: string;
+  provider: IntegrationProviderId;
   status: IntegrationStatus;
-  config?: Record<string, unknown>;
   connectedAt?: string;
   lastSyncAt?: string;
+  errorMessage?: string;
+  instanceUrl?: string;
+  scopes?: string[];
 }
 
-export interface IntegrationCredentials {
-  apiKey?: string;
-  clientId?: string;
-  clientSecret?: string;
-  accessToken?: string;
+export interface IntegrationConfigField {
+  key: "accessToken" | "refreshToken" | "instanceUrl";
+  label: string;
+  type: "text" | "password" | "url";
+  placeholder?: string;
+  required?: boolean;
+  helperText?: string;
+}
+
+export interface IntegrationCredentialsInput {
+  accessToken: string;
   refreshToken?: string;
-  expiresAt?: string;
+  instanceUrl?: string;
 }
 
 export interface IntegrationProvider {
-  id: string;
+  id: IntegrationProviderId;
   type: IntegrationType;
   name: string;
   description: string;
   icon: string;
   authType: "oauth" | "apikey" | "basic";
-  configSchema: Record<string, unknown>;
+  fields: IntegrationConfigField[];
 }
 
-// Known providers
+// Known providers (CRM-focused for production readiness)
 export const PROVIDERS: IntegrationProvider[] = [
   {
     id: "salesforce",
     type: "crm",
     name: "Salesforce",
     description: "Connect your Salesforce CRM",
-    icon: "salesforce",
+    icon: "SF",
     authType: "oauth",
-    configSchema: {},
+    fields: [
+      {
+        key: "accessToken",
+        label: "Access Token",
+        type: "password",
+        placeholder: "Paste Salesforce access token",
+        required: true,
+      },
+      {
+        key: "refreshToken",
+        label: "Refresh Token (optional)",
+        type: "password",
+        placeholder: "Paste refresh token if available",
+        required: false,
+      },
+      {
+        key: "instanceUrl",
+        label: "Instance URL",
+        type: "url",
+        placeholder: "https://your-instance.my.salesforce.com",
+        required: true,
+      },
+    ],
   },
   {
     id: "hubspot",
     type: "crm",
     name: "HubSpot",
     description: "Connect your HubSpot CRM",
-    icon: "hubspot",
-    authType: "oauth",
-    configSchema: {},
-  },
-  {
-    id: "slack",
-    type: "communication",
-    name: "Slack",
-    description: "Connect Slack for notifications",
-    icon: "slack",
-    authType: "oauth",
-    configSchema: {},
+    icon: "HS",
+    authType: "apikey",
+    fields: [
+      {
+        key: "accessToken",
+        label: "Private App Token",
+        type: "password",
+        placeholder: "Paste HubSpot private app token",
+        required: true,
+      },
+    ],
   },
 ];

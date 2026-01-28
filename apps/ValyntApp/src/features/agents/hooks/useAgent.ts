@@ -19,53 +19,56 @@ export function useAgent(agentId: string) {
     });
   }, [agentId]);
 
-  const sendMessage = useCallback(async (content: string) => {
-    const userMessage: AgentMessage = {
-      id: `msg_${Date.now()}`,
-      agentId,
-      type: "user",
-      content,
-      timestamp: new Date().toISOString(),
-    };
+  const sendMessage = useCallback(
+    async (content: string) => {
+      const userMessage: AgentMessage = {
+        id: `msg_${Date.now()}`,
+        agentId,
+        type: "user",
+        content,
+        timestamp: new Date().toISOString(),
+      };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setStatus("thinking");
+      setMessages((prev) => [...prev, userMessage]);
+      setStatus("thinking");
 
-    try {
-      // Simulate streaming agent response
-      const responseId = `msg_${Date.now() + 1}`;
-      const fullContent = `I've analyzed your request regarding "${content}". Based on ESO benchmarks for your industry, I recommend focusing on efficiency gains in manual data entry, which typically shows a 15-20% improvement potential.`;
-      
-      let currentContent = "";
-      const words = fullContent.split(" ");
-      
-      for (let i = 0; i < words.length; i++) {
-        currentContent += (i === 0 ? "" : " ") + words[i];
-        const streamingMessage: AgentMessage = {
-          id: responseId,
-          agentId,
-          type: "agent",
-          content: currentContent,
-          timestamp: new Date().toISOString(),
-          metadata: {
-            confidence: "high",
-          },
-        };
-        
-        setMessages((prev) => {
-          const filtered = prev.filter(m => m.id !== responseId);
-          return [...filtered, streamingMessage];
-        });
-        
-        await new Promise((resolve) => setTimeout(resolve, 50)); // Stream speed
+      try {
+        // Simulate streaming agent response
+        const responseId = `msg_${Date.now() + 1}`;
+        const fullContent = `I've analyzed your request regarding "${content}". Based on ESO benchmarks for your industry, I recommend focusing on efficiency gains in manual data entry, which typically shows a 15-20% improvement potential.`;
+
+        let currentContent = "";
+        const words = fullContent.split(" ");
+
+        for (let i = 0; i < words.length; i++) {
+          currentContent += (i === 0 ? "" : " ") + words[i];
+          const streamingMessage: AgentMessage = {
+            id: responseId,
+            agentId,
+            type: "agent",
+            content: currentContent,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              confidence: "high",
+            },
+          };
+
+          setMessages((prev) => {
+            const filtered = prev.filter((m) => m.id !== responseId);
+            return [...filtered, streamingMessage];
+          });
+
+          await new Promise((resolve) => setTimeout(resolve, 50)); // Stream speed
+        }
+
+        setStatus("idle");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to send message");
+        setStatus("error");
       }
-
-      setStatus("idle");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
-      setStatus("error");
-    }
-  }, [agentId]);
+    },
+    [agentId]
+  );
 
   const executeAction = useCallback(async (actionId: string) => {
     setStatus("executing");

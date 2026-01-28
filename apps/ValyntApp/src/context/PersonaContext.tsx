@@ -13,9 +13,7 @@ export const PersonaProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [persona, setPersona] = useState<Persona>("VE");
 
   return (
-    <PersonaContext.Provider value={{ persona, setPersona }}>
-      {children}
-    </PersonaContext.Provider>
+    <PersonaContext.Provider value={{ persona, setPersona }}>{children}</PersonaContext.Provider>
   );
 };
 

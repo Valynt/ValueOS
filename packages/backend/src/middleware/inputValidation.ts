@@ -417,6 +417,26 @@ export const ValidationSchemas = {
     scopes: { type: 'array' as const, required: true }
   },
 
+  // Integrations
+  integrationConnect: {
+    provider: {
+      type: 'string' as const,
+      required: true,
+      enum: ['hubspot', 'salesforce'],
+    },
+    accessToken: { type: 'string' as const, required: true, minLength: 10, maxLength: 4096 },
+    refreshToken: { type: 'string' as const, required: false, minLength: 10, maxLength: 4096 },
+    instanceUrl: {
+      type: 'string' as const,
+      required: false,
+      minLength: 10,
+      maxLength: 2048,
+      pattern: PATTERNS.url,
+    },
+    tokenExpiresAt: { type: 'string' as const, required: false, maxLength: 64 },
+    scopes: { type: 'array' as const, required: false },
+  },
+
   // General user input
   userMessage: {
     content: { type: 'string' as const, required: true, maxLength: 5000 },
