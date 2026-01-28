@@ -12,6 +12,8 @@ Security headers **must** be configured at your gateway/load balancer/CDN level 
 
 ## 🚀 Quick Deploy (Choose Your Gateway)
 
+> **Baseline rule:** Pick exactly one gateway per environment (e.g., Nginx for VM-based staging, Istio for Kubernetes production) and keep the documented baseline consistent with the deployed gateway.
+
 ### Option 1: Nginx (Most Common)
 
 ```bash
@@ -97,6 +99,16 @@ Run the verification script:
 
 🎉 Your gateway security configuration is working correctly!
 ```
+
+---
+
+## 🧭 Baseline + Drift Control (Recommended)
+
+To avoid mismatches between documentation and production gateways:
+
+- **Document the gateway baseline per environment** (e.g., `staging: Nginx`, `production: Istio`).
+- **Validate TLS/mTLS settings** with automated scanners (scheduled checks + CI/CD runs) to confirm TLS 1.2+ and mTLS expectations.
+- **Track configuration drift in CI** by validating gateway configs (lint/validate commands) and diffing approved security headers/TLS settings.
 
 ---
 

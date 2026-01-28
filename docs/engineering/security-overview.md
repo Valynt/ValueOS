@@ -132,6 +132,9 @@ Session (single request session)
 - **Mutual TLS**: Internal service communication
 - **API Security**: HTTPS-only endpoints
 - **Certificate Management**: Automated renewal via ACME
+- **Gateway Baselines**: Each environment standardizes on a single gateway implementation (e.g., Nginx or Istio) with an approved TLS/mTLS profile.
+- **Verification**: TLS settings are validated with automated scanners in CI/CD and scheduled checks to detect drift from the approved baseline.
+- **mTLS Rotation**: Internal service certificates are rotated automatically and monitored for expiration and handshake failures.
 
 ### Row-Level Security (RLS)
 
