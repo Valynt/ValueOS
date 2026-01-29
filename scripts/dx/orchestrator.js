@@ -183,12 +183,22 @@ function runPreflightChecks(supabaseMode) {
  * Run a command and return output
  */
 function runCommand(command, options = {}) {
-  return execSync(command, {
-    cwd: projectRoot,
-    stdio: options.silent ? "pipe" : "inherit",
-    encoding: "utf8",
-    ...options,
-  });
+  try {
+    return execSync(command, {
+      cwd: projectRoot,
+      stdio: options.silent ? "pipe" : "inherit",
+      encoding: "utf8",
+      ...options,
+    });
+  } catch (error) {
+    // Some hardened environments raise EPERM even when the command exits 0.
+    if (error?.status === 0) {
+      const out = (error.stdout || "").toString();
+      if (!options.silent && out) process.stdout.write(out);
+      return out;
+    }
+    throw error;
+  }
 }
 
 async function runWithRetries(label, action, { attempts = RETRY_ATTEMPTS } = {}) {
@@ -238,7 +248,8 @@ function commandExists(cmd) {
   try {
     execSync(`command -v ${cmd}`, { stdio: "ignore" });
     return true;
-  } catch {
+  } catch (error) {
+    if (error?.status === 0) return true;
     const localPath = path.join(projectRoot, "node_modules", ".bin", cmd);
     return fs.existsSync(localPath);
   }

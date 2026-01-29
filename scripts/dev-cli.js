@@ -46,11 +46,18 @@ function run(commandLine, options = {}) {
 }
 
 function runCapture(commandLine) {
-  return execSync(commandLine, {
-    cwd: projectRoot,
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-  }).trim();
+  try {
+    return execSync(commandLine, {
+      cwd: projectRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+      encoding: "utf8",
+    }).trim();
+  } catch (error) {
+    if (error?.status === 0) {
+      return (error.stdout || "").toString().trim();
+    }
+    throw error;
+  }
 }
 
 function printHelp() {
@@ -113,6 +120,50 @@ function ensureNodeVersion() {
 }
 
 function ensurePnpm() {
+  // Corepack defaults to ~/.cache/node/corepack; that path can be readonly in some devcontainers.
+  // Force a writable location inside the workspace to avoid EACCES during prepare.
+  try {
+    const corepackHome = path.join(projectRoot, ".cache", "corepack");
+    fs.mkdirSync(corepackHome, { recursive: true, mode: 0o700 });
+    process.env.COREPACK_HOME = corepackHome;
+  } catch {
+    // If we cannot create the directory, fall back to Corepack defaults.
+  }
+
+  const detectPnpmVersion = () => {
+    try {
+      const out = execSync("pnpm -v", {
+        cwd: projectRoot,
+        stdio: ["ignore", "pipe", "pipe"],
+        encoding: "utf8",
+      });
+      const value = out.toString().trim();
+      if (value) return value;
+    } catch (error) {
+      if (error?.status === 0) {
+        const out = (error.stdout || "").toString().trim();
+        return out || "unknown";
+      }
+      return null;
+    }
+    return null;
+  };
+
+  const pnpmExists = () => {
+    const entries = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
+    return entries.some((entry) => fs.existsSync(path.join(entry, "pnpm")));
+  };
+
+  const existingVersion = detectPnpmVersion();
+  if (existingVersion) {
+    if (existingVersion === pnpmVersion || existingVersion === "unknown") {
+      return; // pnpm is present; either matches or cannot be resolved but we won't block on it.
+    }
+  } else if (pnpmExists()) {
+    console.warn("⚠️  pnpm detected on PATH but version unknown; skipping Corepack.");
+    return;
+  }
+
   try {
     run("corepack enable", { stdio: ci ? "ignore" : "inherit" });
     run(`corepack prepare pnpm@${pnpmVersion} --activate`, {
@@ -122,17 +173,9 @@ function ensurePnpm() {
     console.warn("⚠️  Corepack activation failed; falling back to existing pnpm.");
   }
 
-  let actual = "";
-  try {
-    actual = runCapture("pnpm -v");
-  } catch {
-    console.error("❌ pnpm is not available on PATH.");
-    console.error(`   Fix: corepack prepare pnpm@${pnpmVersion} --activate`);
-    process.exit(1);
-  }
-
+  const actual = detectPnpmVersion();
   if (!actual) {
-    console.warn("⚠️  pnpm version could not be detected.");
+    console.warn("⚠️  pnpm version could not be detected, but continuing.");
     return;
   }
 

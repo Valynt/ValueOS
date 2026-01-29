@@ -28,7 +28,7 @@ enabled = false
 # Host and port to use for the local database URL inside the Supabase Docker network.
 # Use the internal service name `db` and the standard Postgres port 5432 so Supabase
 # components connect to the in-network Postgres instance rather than localhost.
-host = "localhost"
+
 port = 5432
 # Port used by db diff command to initialize the shadow database.
 shadow_port = 54320

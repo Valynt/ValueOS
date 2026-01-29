@@ -16,13 +16,30 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 
+function findExecutable(cmd) {
+  const pathEntries = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
+  for (const entry of pathEntries) {
+    const candidate = path.join(entry, cmd);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).mode & 0o111) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 /**
  * Execute command and return output
  */
 function exec(command) {
   try {
     return execSync(command, { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] }).trim();
-  } catch {
+  } catch (error) {
+    // Some sandboxes throw with EPERM even when the command succeeds (status 0).
+    // Treat "error with output + status 0" as success to avoid false negatives.
+    if (error?.status === 0) {
+      const out = (error.stdout || "").toString().trim();
+      if (out) return out;
+    }
     return null;
   }
 }
@@ -159,7 +176,14 @@ export async function checkDocker() {
  * Check package manager availability
  */
 export async function checkPnpm() {
-  const pnpmVersion = exec("pnpm --version");
+  let pnpmVersion = exec("pnpm --version");
+
+  if (!pnpmVersion) {
+    const pnpmPath = findExecutable("pnpm");
+    if (pnpmPath) {
+      pnpmVersion = "unknown";
+    }
+  }
 
   if (!pnpmVersion) {
     return {

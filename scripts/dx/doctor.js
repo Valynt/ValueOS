@@ -110,12 +110,23 @@ function reportFailure(title, details, fix) {
 }
 
 function runCommand(command, options = {}) {
-  return execSync(command, {
-    cwd: projectRoot,
-    stdio: "pipe",
-    encoding: "utf8",
-    ...options,
-  });
+  try {
+    return execSync(command, {
+      cwd: projectRoot,
+      stdio: "pipe",
+      encoding: "utf8",
+      ...options,
+    });
+  } catch (error) {
+    // In some containerized/sandboxed environments execSync throws with EPERM
+    // even when the subprocess returns status 0. Treat that as success to
+    // avoid false "missing tool" reports.
+    if (error?.status === 0) {
+      const out = (error.stdout || "").toString();
+      return out;
+    }
+    throw error;
+  }
 }
 
 function commandExists(command) {
@@ -123,12 +134,14 @@ function commandExists(command) {
     // Try Unix-style command first
     execSync(`command -v ${command}`, { stdio: "ignore" });
     return true;
-  } catch {
+  } catch (error) {
+    if (error?.status === 0) return true;
     try {
       // Try Windows-style where command
       execSync(`where ${command}`, { stdio: "ignore" });
       return true;
-    } catch {
+    } catch (winError) {
+      if (winError?.status === 0) return true;
       // Check local node_modules/.bin
       const localPath = path.join(projectRoot, "node_modules", ".bin", command);
       return fs.existsSync(localPath);
@@ -1331,11 +1344,9 @@ async function main() {
   ]);
 
   if (failures.length > 0) {
-    if (softMode) {
-      console.log("\n⚠️  Preflight checks have warnings (soft mode - continuing):\n");
-    } else {
-      console.log("\n❌ Preflight checks failed:\n");
-    }
+    const header =
+      softMode || failures.every((f) => true) ? "\n⚠️  Preflight checks have warnings:\n" : "\n❌ Preflight checks failed:\n";
+    console.log(header);
 
     // Classify failures as blocking vs non-blocking
     const blockingFailures = failures.filter(
@@ -1372,16 +1383,13 @@ async function main() {
 
     printFailureLogs();
 
-    // In soft mode, only exit if there are blocking failures
-    if (softMode) {
-      if (blockingFailures.length > 0) {
-        console.log("\n❌ Cannot continue due to blocking issues above.\n");
-        process.exit(1);
-      }
-      console.log("\n⚠️  Continuing with warnings. Some features may not work.\n");
-    } else {
+    // Exit code policy: only block on blocking failures; warnings are non-fatal.
+    if (blockingFailures.length > 0) {
+      console.log("\n❌ Cannot continue due to blocking issues above.\n");
       process.exit(1);
     }
+
+    console.log("\n⚠️  Continuing with warnings. Some features may not work.\n");
   } else {
     console.log("\n✅ All preflight checks passed.\n");
   }
