@@ -37,7 +37,6 @@ export function LoginPage() {
     setError("");
 
     try {
-      console.log("Google sign in initiated");
       await signInWithProvider("google");
       // Redirect happens automatically
     } catch (err: unknown) {
@@ -49,14 +48,20 @@ export function LoginPage() {
   };
 
   const handleBypass = async () => {
-    console.log("handleBypass called");
     setLoading(true);
     setError("");
 
+    const devEmail = import.meta.env.VITE_DEV_EMAIL;
+    const devPassword = import.meta.env.VITE_DEV_PASSWORD;
+
+    if (!devEmail || !devPassword) {
+      setError("Dev credentials not configured in environment");
+      setLoading(false);
+      return;
+    }
+
     try {
-      console.log("Calling login with bypass credentials");
-      await login({ email: "dev@valynt.com", password: "bypass" });
-      console.log("login returned, navigating");
+      await login({ email: devEmail, password: devPassword });
       navigate(from, { replace: true });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Bypass failed";
