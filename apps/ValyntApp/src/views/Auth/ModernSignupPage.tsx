@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { PasswordInput } from "../../components/ui/password-input";
 
 export function ModernSignupPage() {
   const [email, setEmail] = useState("");
@@ -206,10 +207,9 @@ export function ModernSignupPage() {
               >
                 Password
               </label>
-              <input 
+              <PasswordInput
                 id="password" 
                 placeholder="••••••••" 
-                type="password" 
                 autoComplete="new-password" 
                 className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                 required

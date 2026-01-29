@@ -21,6 +21,8 @@ export type {
   TextareaProps,
 } from "./input";
 
+export { PasswordInput } from "./password-input";
+
 // Card
 export {
   Card,
