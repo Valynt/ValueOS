@@ -14,6 +14,8 @@ export const GroundTruthMetadataSchema = z.object({
   cache_hit: z.boolean().optional(),
 });
 
+export type GroundTruthMetadata = z.infer<typeof GroundTruthMetadataSchema>;
+
 // Validate the metadata schema
 export function validateGroundTruthMetadata(metadata: unknown): GroundTruthMetadata {
   try {
