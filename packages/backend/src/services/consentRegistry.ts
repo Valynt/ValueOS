@@ -1,5 +1,5 @@
 import { settings } from "../config/settings.js"
-import { getSupabaseClient as createSupabaseClient } from "../lib/supabase.js"
+import { createServerSupabaseClient } from "../lib/supabase.js"
 import { logger } from "../lib/logger.js"
 import type { ConsentRegistry } from "../types/consent";
 
@@ -12,7 +12,7 @@ export function isConsentRegistryConfigured(): boolean {
 }
 
 function createDatabaseConsentRegistry(): ConsentRegistry {
-  const supabase = createSupabaseClient();
+  const supabase = createServerSupabaseClient();
   return {
     hasConsent: async (tenantId: string, scope: string) => {
       const { data, error } = await supabase

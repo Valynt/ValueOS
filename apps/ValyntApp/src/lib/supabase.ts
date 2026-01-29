@@ -10,3 +10,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+export const getSupabaseClient = () => {
+  if (!supabase) {
+    throw new Error('Supabase client is not initialized. Check environment variables.');
+  }
+  return supabase;
+};
