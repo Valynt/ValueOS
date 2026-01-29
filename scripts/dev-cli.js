@@ -34,6 +34,7 @@ const skipInstall = hasFlag("--skip-install") || process.env.DX_SKIP_INSTALL ===
 const ci = hasFlag("--ci") || process.env.CI === "true";
 const autoShiftPorts = hasFlag("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
 const resetLevel = hasFlag("--hard") ? "hard" : "soft";
+const debug = hasFlag("--debug") || process.env.DX_DEBUG === "1";
 const pnpmVersion = "9.15.0";
 
 function run(commandLine, options = {}) {
@@ -112,12 +113,29 @@ function ensureNodeVersion() {
 }
 
 function ensurePnpm() {
-  run("corepack enable", { stdio: ci ? "ignore" : "inherit" });
-  run(`corepack prepare pnpm@${pnpmVersion} --activate`, {
-    stdio: ci ? "ignore" : "inherit",
-  });
+  try {
+    run("corepack enable", { stdio: ci ? "ignore" : "inherit" });
+    run(`corepack prepare pnpm@${pnpmVersion} --activate`, {
+      stdio: ci ? "ignore" : "inherit",
+    });
+  } catch {
+    console.warn("⚠️  Corepack activation failed; falling back to existing pnpm.");
+  }
 
-  const actual = runCapture("pnpm -v");
+  let actual = "";
+  try {
+    actual = runCapture("pnpm -v");
+  } catch {
+    console.error("❌ pnpm is not available on PATH.");
+    console.error(`   Fix: corepack prepare pnpm@${pnpmVersion} --activate`);
+    process.exit(1);
+  }
+
+  if (!actual) {
+    console.warn("⚠️  pnpm version could not be detected.");
+    return;
+  }
+
   if (actual !== pnpmVersion) {
     console.warn(`⚠️  pnpm ${pnpmVersion} expected but found ${actual}.`);
   }
@@ -127,7 +145,12 @@ function ensureDocker() {
   try {
     runCapture("docker info");
   } catch (error) {
-    console.error("❌ Docker is not available. Start Docker Desktop or install Docker Engine.");
+    const message = error?.message || "";
+    if (message.toLowerCase().includes("permission denied")) {
+      console.error("❌ Docker permission denied. Check /var/run/docker.sock access.");
+    } else {
+      console.error("❌ Docker is not available. Start Docker Desktop or install Docker Engine.");
+    }
     process.exit(1);
   }
 }
@@ -175,20 +198,23 @@ async function main() {
   if (command === "doctor") {
     ensureNodeVersion();
     ensurePnpm();
+    if (debug) {
+      process.env.DX_DEBUG = "1";
+    }
     run(`node scripts/dx/doctor.js --mode ${mode}`);
     return;
   }
 
   if (command === "down") {
     ensureDocker();
-    run("npx tsx scripts/dx/orchestrator.js --down");
+    run("pnpm exec tsx scripts/dx/orchestrator.js --down");
     return;
   }
 
   if (command === "reset") {
     ensureDocker();
     const resetFlag = resetLevel === "hard" ? "--reset hard" : "--reset soft";
-    run(`npx tsx scripts/dx/orchestrator.js ${resetFlag}`);
+    run(`pnpm exec tsx scripts/dx/orchestrator.js ${resetFlag}`);
     return;
   }
 
@@ -224,6 +250,10 @@ async function main() {
 
   ensureNodeVersion();
   ensurePnpm();
+  if (debug) {
+    process.env.DX_DEBUG = "1";
+  }
+  run(`node scripts/dx/env-compiler.js --mode ${mode} --force`);
   run(`node scripts/dx/doctor.js --mode ${mode}${autoShiftPorts ? " --auto-shift-ports" : ""}`);
   applyPortsEnvOverrides();
   ensureDocker();
@@ -237,7 +267,7 @@ async function main() {
 
   const modeFlag = mode === "docker" ? "--mode docker" : "--mode local";
   const seedFlag = seed ? " --seed" : "";
-  run(`npx tsx scripts/dx/orchestrator.js ${modeFlag}${seedFlag}`);
+  run(`pnpm exec tsx scripts/dx/orchestrator.js ${modeFlag}${seedFlag}`);
 }
 
 main().catch((error) => {

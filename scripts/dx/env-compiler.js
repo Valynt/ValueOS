@@ -21,6 +21,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { loadPorts, resolvePort } from "./ports.js";
 import { resolveMode } from "./lib/mode.js";
+import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,6 +33,12 @@ const LOCAL_SUPABASE_ANON_KEY =
 const LOCAL_SUPABASE_SERVICE_ROLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
 
+function appendSslModeDisable(url) {
+  if (!url) return url;
+  if (url.includes("sslmode=")) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}sslmode=disable`;
+}
+
 /**
  * URL configurations per mode
  */
@@ -40,6 +47,11 @@ function getUrlConfig(mode, ports) {
   const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
   const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
   const supabaseDbPort = resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort);
+  const devContainer = isDevContainer();
+  const dockerGateway = resolveDockerHostGateway();
+  const backendHost = devContainer && dockerGateway ? dockerGateway : "localhost";
+  const skipSupabase =
+    process.env.DX_FORCE_SUPABASE === "1" ? false : process.env.DX_SKIP_SUPABASE === "1";
 
   if (mode === "docker") {
     // Docker mode: services communicate via Docker network DNS
@@ -68,13 +80,17 @@ function getUrlConfig(mode, ports) {
 
     // Supabase URL (local instance)
     VITE_SUPABASE_URL: `http://localhost:${supabaseApiPort}`,
-    SUPABASE_URL: `http://localhost:${supabaseApiPort}`,
+    SUPABASE_URL: `http://${backendHost}:${supabaseApiPort}`,
 
     // Backend URLs (localhost)
     API_UPSTREAM: `http://localhost:${backendPort}`,
     FRONTEND_UPSTREAM: `http://localhost:${frontendPort}`,
-    DATABASE_URL: `postgresql://postgres:postgres@localhost:${supabaseDbPort}/postgres`,
-    REDIS_URL: "redis://localhost:6379",
+    DATABASE_URL: skipSupabase
+      ? appendSslModeDisable(
+          `postgresql://postgres:dev_password@${backendHost}:${ports.postgres.port}/valuecanvas_dev`
+        )
+      : appendSslModeDisable(`postgresql://postgres:postgres@${backendHost}:${supabaseDbPort}/postgres`),
+    REDIS_URL: `redis://${backendHost}:${ports.redis.port}`,
   };
 }
 

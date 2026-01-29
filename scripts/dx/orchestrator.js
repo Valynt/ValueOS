@@ -29,8 +29,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
 import { resolveMode } from "./lib/mode.js";
-import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
-import { writeEnvFiles, validateEnvLocal } from "./env-compiler.js";
+import { loadPorts, resolvePort } from "./ports.js";
+import { writeEnvFiles } from "./env-compiler.js";
+import { resolveSupabaseMode, extractUrlHost, isLocalHost } from "./lib/supabase-mode.js";
+import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
 import { CheckpointManager } from "./checkpoint-manager.ts";
 import { TraceLogger } from "./trace-logger.ts";
 import { formatError } from "./error-codes.ts";
@@ -38,9 +40,10 @@ import { formatError } from "./error-codes.ts";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
+const envPath = path.join(projectRoot, ".env.local");
 
-// Load environment variables from .env.local
-config({ path: path.join(projectRoot, ".env.local") });
+// Load environment variables from .env.local (if present)
+config({ path: envPath });
 
 // ANSI colors
 const colors = {
@@ -72,21 +75,16 @@ const HEALTH_CHECK_TIMEOUT = 60000; // 60 seconds
 const HEALTH_CHECK_INTERVAL = 2000; // 2 seconds
 const RETRY_ATTEMPTS = 3;
 const RETRY_BASE_DELAY = 2000;
+const dockerHostGateway = resolveDockerHostGateway();
+const localHosts = dockerHostGateway ? [dockerHostGateway] : [];
+
+function reloadEnv() {
+  config({ path: envPath, override: true });
+}
 
 // Initialize checkpoint manager and trace logger
 const checkpointManager = new CheckpointManager(projectRoot);
 const traceLogger = new TraceLogger(projectRoot);
-
-/**
- * Check if running in a DevContainer environment
- */
-function checkIsDevContainer() {
-  return (
-    process.env.REMOTE_CONTAINERS === "true" ||
-    process.env.CODESPACES === "true" ||
-    fs.existsSync("/.dockerenv")
-  );
-}
 
 /**
  * Check if Docker is available and running
@@ -104,44 +102,80 @@ function checkDockerAvailable() {
   }
 }
 
+function diagnoseDocker() {
+  if (!commandExists("docker")) {
+    return { ok: false, issue: "missing-cli" };
+  }
+
+  try {
+    runCommand("docker info", { silent: true });
+    return { ok: true };
+  } catch (error) {
+    const stderr = error?.stderr ? String(error.stderr) : "";
+    const message = `${error?.message || ""}\n${stderr}`.trim();
+    if (message.toLowerCase().includes("permission denied")) {
+      return { ok: false, issue: "permission", message };
+    }
+    if (
+      message.includes("Cannot connect") ||
+      message.includes("connection refused") ||
+      message.includes("Is the docker daemon running")
+    ) {
+      return { ok: false, issue: "not-running", message };
+    }
+    return { ok: false, issue: "unknown", message };
+  }
+}
+
 /**
  * Run preflight checks to ensure DX can run successfully
  */
-function runPreflightChecks() {
+function runPreflightChecks(supabaseMode) {
   log.info("Running preflight checks...");
 
   // Check Docker availability (platform-aware)
-  if (!checkDockerAvailable()) {
+  const dockerCheck = diagnoseDocker();
+  if (!dockerCheck.ok) {
     log.error("Docker is not available or not running");
-    if (checkIsDevContainer()) {
-      log.error("Fix: Ensure Docker socket is mounted in DevContainer");
-    } else {
+    if (dockerCheck.issue === "permission") {
+      if (isDevContainer()) {
+        log.error("Fix: Ensure /var/run/docker.sock is mounted and accessible by the vscode user.");
+        log.error("      If using Dev Containers, rebuild after enabling docker-outside-of-docker.");
+      } else {
+        log.error("Fix: Add your user to the docker group (or run Docker Desktop).");
+      }
+    } else if (dockerCheck.issue === "not-running") {
       log.error("Fix: Start Docker Desktop or install Docker Engine");
+    } else {
+      log.error("Fix: Verify Docker CLI and daemon are available");
+    }
+    if (dockerCheck.message) {
+      log.error(dockerCheck.message);
     }
     process.exit(1);
   }
   log.success("Docker available");
 
-  // Check DATABASE_URL is set
   if (!process.env.DATABASE_URL) {
     log.error("DATABASE_URL environment variable not set");
-    log.error("Fix: Run 'pnpm run dx:env' to generate environment files");
+    log.error("Fix: Run 'pnpm run dx:env --mode local --force' to generate environment files");
     process.exit(1);
   }
   log.success("DATABASE_URL configured");
 
-  // Check Supabase availability if it should be running
-  const shouldRunSupabase =
-    process.env.DX_FORCE_SUPABASE === "1" ||
-    (process.env.DX_SKIP_SUPABASE !== "1" && checkDockerAvailable());
+  if (supabaseMode?.mode) {
+    const detail = supabaseMode.host ? ` (${supabaseMode.reason}: ${supabaseMode.host})` : ` (${supabaseMode.reason})`;
+    log.info(`Supabase mode: ${supabaseMode.mode}${detail}`);
+  }
 
-  if (shouldRunSupabase && !isSupabaseRunning()) {
-    log.warn("Supabase should be running but is not available");
-    log.info("This may be OK if starting for the first time");
-  } else if (shouldRunSupabase) {
-    log.success("Supabase available");
-  } else {
-    log.info("Supabase skipped (using dx postgres)");
+  if (supabaseMode?.mode === "cloud" && process.env.DX_ALLOW_REMOTE_SUPABASE !== "1") {
+    log.error("Supabase URL points to a remote instance.");
+    log.error("Fix: Run 'pnpm run dx:env --mode local --force' or set DX_ALLOW_REMOTE_SUPABASE=1");
+    process.exit(1);
+  }
+
+  if (supabaseMode?.mode === "local" && !isSupabaseRunning()) {
+    log.warn("Supabase is not running yet; it will be started by DX.");
   }
 }
 
@@ -208,6 +242,27 @@ function commandExists(cmd) {
     const localPath = path.join(projectRoot, "node_modules", ".bin", cmd);
     return fs.existsSync(localPath);
   }
+}
+
+function ensureSslModeDisable(url) {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has("sslmode")) {
+      parsed.searchParams.set("sslmode", "disable");
+    }
+    return parsed.toString();
+  } catch {
+    return url.includes("sslmode=")
+      ? url
+      : `${url}${url.includes("?") ? "&" : "?"}sslmode=disable`;
+  }
+}
+
+function ensureLocalSslModeDisable(url) {
+  if (!url) return url;
+  const host = extractUrlHost(url);
+  return isLocalHost(host, localHosts) ? ensureSslModeDisable(url) : url;
 }
 
 /**
@@ -293,8 +348,12 @@ function getSupabaseDbUrl() {
     const status = runCommand("pnpm supabase status --workdir infra/supabase", { silent: true });
     const dbUrlMatch = status.match(/DB URL:\s*(postgresql:\/\/[^\s]+)/);
     if (dbUrlMatch) {
-      // Append sslmode=disable for local development
-      return `${dbUrlMatch[1]}?sslmode=disable`;
+      const dbUrl = dbUrlMatch[1];
+      const host = extractUrlHost(dbUrl);
+      if (!isLocalHost(host, localHosts)) {
+        return null;
+      }
+      return ensureSslModeDisable(dbUrl);
     }
   } catch {
     // Fall back to nothing
@@ -302,30 +361,69 @@ function getSupabaseDbUrl() {
   return null;
 }
 
+function resolveLocalPostgresHost() {
+  let host = process.env.POSTGRES_HOST || "localhost";
+
+  if (!isDevContainer()) {
+    return host;
+  }
+
+  try {
+    const containerInfo = runCommand("docker inspect valueos-postgres", { silent: true });
+    const parsed = JSON.parse(containerInfo)[0];
+    const networks = parsed?.NetworkSettings?.Networks || {};
+    const networkName = Object.keys(networks)[0];
+    const ip = networkName ? networks[networkName].IPAddress : null;
+
+    if (ip) {
+      log.info(`Using container IP ${ip} for DevContainer environment`);
+      return ip;
+    }
+
+    if (parsed?.HostConfig?.NetworkMode === "host") {
+      const gateway = resolveDockerHostGateway();
+      if (gateway) {
+        log.info(`Using Docker host gateway ${gateway} for DevContainer environment`);
+        return gateway;
+      }
+      log.warn("Could not resolve docker host gateway; falling back to localhost");
+    }
+  } catch {
+    log.warn("Could not get postgres container info, falling back to localhost");
+  }
+
+  const fallbackGateway = resolveDockerHostGateway();
+  return fallbackGateway || host;
+}
+
 /**
  * Start Supabase (idempotent - checks if already running)
  */
-async function startSupabase() {
+async function startSupabase(supabaseMode) {
   const stepStart = traceLogger.stepStart("start_supabase");
   log.info("Starting Supabase...");
+
+  if (supabaseMode?.mode === "skip") {
+    log.warn("Supabase skipped (DX_SKIP_SUPABASE=1)");
+    log.info("Using valueos-postgres container on port 5432 for development");
+    return;
+  }
+
+  if (supabaseMode?.mode === "cloud") {
+    log.warn("Supabase configured for remote instance - skipping local startup");
+    return;
+  }
+
+  if (!checkDockerAvailable()) {
+    log.warn("Docker not available - skipping Supabase");
+    log.info("Using valueos-postgres container on port 5432 for development");
+    return;
+  }
 
   // Check if already running (idempotent)
   if (isSupabaseRunning()) {
     log.success("Supabase already running (idempotent check)");
     traceLogger.stepSuccess("start_supabase", stepStart, { alreadyRunning: true });
-    return;
-  }
-
-  // Check explicit override flags first
-  if (process.env.DX_FORCE_SUPABASE === "1") {
-    log.info("DX_FORCE_SUPABASE=1 detected - forcing Supabase startup");
-  } else if (process.env.DX_SKIP_SUPABASE === "1") {
-    log.warn("DX_SKIP_SUPABASE=1 detected - skipping Supabase");
-    log.info("Using valueos-postgres container on port 5432 for development");
-    return;
-  } else if (!checkDockerAvailable()) {
-    log.warn("Docker not available - skipping Supabase");
-    log.info("Using valueos-postgres container on port 5432 for development");
     return;
   }
 
@@ -366,7 +464,7 @@ async function startSupabase() {
 
   // In containerized environments, port forwarding may not work reliably from shell
   // but containers are accessible. Verify container is running instead.
-  const isContainerized = checkIsDevContainer() || process.env.CONTAINER === "true";
+  const isContainerized = isDevContainer() || process.env.CONTAINER === "true";
 
   if (isContainerized) {
     log.info(
@@ -552,42 +650,42 @@ function resetDockerDeps(level = "soft") {
  * 
  * Step 5a/5b: Migrations against Supabase DB or dx postgres fallback
  */
-async function runMigrations() {
+async function runMigrations(supabaseMode, mode) {
   log.info("Running database migrations...");
 
   const stepStart = traceLogger.stepStart("run_migrations");
   const checkpoint = checkpointManager.save("migrations");
-  
-  try {
-    // Determine command based on Supabase availability
-    let command = "supabase db push --workdir infra/supabase";
-    const supabaseDbUrl = getSupabaseDbUrl();
 
-    if (supabaseDbUrl) {
-      // Step 5a: Supabase is running, use its actual DB URL
-      command = `supabase db push --workdir infra/supabase --db-url "${supabaseDbUrl}"`;
-      log.info("Step 5a: Pushing migrations to Supabase-managed Postgres...");
-    } else {
-      // Step 5b: Fall back to dx postgres container
-      let host = process.env.POSTGRES_HOST || "localhost";
-      
-      // In DevContainer environments, localhost doesn't work - use container IP
-      if (checkIsDevContainer()) {
-        try {
-          const containerInfo = runCommand("docker inspect valueos-postgres", { silent: true });
-          const networks = JSON.parse(containerInfo)[0].NetworkSettings.Networks;
-          const networkName = Object.keys(networks)[0];
-          host = networks[networkName].IPAddress;
-          log.info(`Using container IP ${host} for DevContainer environment`);
-        } catch (error) {
-          log.warn("Could not get container IP, falling back to localhost");
-        }
-      }
-      
-      const dbUrl = `postgresql://postgres:dev_password@${host}:5432/valuecanvas_dev?sslmode=disable`;
-      command = `supabase db push --workdir infra/supabase --db-url "${dbUrl}"`;
-      log.info(`Step 5b: Pushing migrations to dx postgres container (${host})...`);
+  try {
+    if (supabaseMode?.mode === "cloud") {
+      log.error("Refusing to run migrations against remote Supabase.");
+      log.error("Fix: Run 'pnpm run dx:env --mode local --force' or set DX_ALLOW_REMOTE_SUPABASE=1");
+      return { ok: false, fatal: true, error: "remote-supabase" };
     }
+
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      log.error("DATABASE_URL is not set; cannot run migrations.");
+      return { ok: false, fatal: true, error: "missing-database-url" };
+    }
+
+    const databaseHost = extractUrlHost(databaseUrl);
+    if (mode !== "docker" && !isLocalHost(databaseHost, localHosts)) {
+      log.error(`DATABASE_URL points to non-local host (${databaseHost}).`);
+      log.error("Fix: Regenerate env: pnpm run dx:env --mode local --force");
+      return { ok: false, fatal: true, error: "remote-database-url" };
+    }
+
+    const normalizedDbUrl = ensureLocalSslModeDisable(databaseUrl);
+    const supabaseDbUrl = supabaseMode?.mode === "local" ? getSupabaseDbUrl() : null;
+
+    if (supabaseDbUrl && ensureLocalSslModeDisable(supabaseDbUrl) !== normalizedDbUrl) {
+      log.warn("Supabase status DB URL differs from DATABASE_URL; using DATABASE_URL for consistency.");
+    }
+
+    const command = `supabase db push --workdir infra/supabase --db-url "${normalizedDbUrl}"`;
+    const targetLabel = supabaseMode?.mode === "local" ? "local Supabase DB" : "dx postgres";
+    log.info(`Step 5: Pushing migrations to ${targetLabel}...`);
 
     traceLogger.info("Running migration command", { command });
     runCommand(command, { silent: false });
@@ -941,11 +1039,13 @@ function setupShutdownHandler(services) {
 async function main() {
   const args = process.argv.slice(2);
 
-  // Run preflight checks
-  runPreflightChecks();
-
   // Handle --down
   if (args.includes("--down")) {
+    const dockerCheck = diagnoseDocker();
+    if (!dockerCheck.ok) {
+      log.error("Docker is required to stop services.");
+      process.exit(1);
+    }
     stopDockerDeps();
     stopSupabase();
     clearDxState();
@@ -956,6 +1056,11 @@ async function main() {
   // Handle --reset
   const resetIndex = args.indexOf("--reset");
   if (resetIndex !== -1) {
+    const dockerCheck = diagnoseDocker();
+    if (!dockerCheck.ok) {
+      log.error("Docker is required to reset services.");
+      process.exit(1);
+    }
     const level = args[resetIndex + 1] === "hard" ? "hard" : "soft";
     resetDockerDeps(level);
     stopSupabase();
@@ -980,6 +1085,10 @@ async function main() {
 ╚════════════════════════════════════════════════════════════════╝
 `);
 
+  if (process.env.DX_DEBUG === "1") {
+    log.info(`DX debug enabled. Trace: ${path.join(projectRoot, ".dx-trace.log")}`);
+  }
+
   // Check for existing session
   const existingSession = checkExistingSession();
   if (existingSession) {
@@ -993,6 +1102,12 @@ async function main() {
   // Step 1: Compile environment
   log.step(1, "Compiling environment configuration");
   writeEnvFiles(mode, { force: true });
+  reloadEnv();
+
+  const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts });
+
+  // Step 1b: Preflight checks (now that env exists)
+  runPreflightChecks(supabaseMode);
 
   // Step 2: Run doctor checks
   log.step(2, "Running preflight checks");
@@ -1010,7 +1125,7 @@ async function main() {
   // Step 4: Start Supabase (local mode only)
   if (mode === "local") {
     log.step(4, "Starting Supabase");
-    await startSupabase();
+    await startSupabase(supabaseMode);
   } else {
     log.step(4, "Supabase (using Docker service)");
     log.info("Supabase runs as part of Docker Compose in docker mode");
@@ -1019,7 +1134,7 @@ async function main() {
   // Step 5: Run migrations and verify schema
   log.step(5, "Running database migrations");
   let dbInitAttempted = false;
-  let migrationsResult = await runMigrations();
+  let migrationsResult = await runMigrations(supabaseMode, mode);
 
   if (!migrationsResult.ok) {
     // Check if this is a fatal error that shouldn't be auto-recovered
@@ -1032,7 +1147,7 @@ async function main() {
       dbInitAttempted = true;
       const initOk = await autoInitializeDb();
       if (initOk) {
-        migrationsResult = await runMigrations();
+        migrationsResult = await runMigrations(supabaseMode, mode);
         if (migrationsResult.ok) {
           log.success("Migrations succeeded after auto-initialization");
           if (!args.includes("--seed")) {

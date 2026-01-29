@@ -5,7 +5,9 @@
  * Prevents cascading failures when Redis is unavailable
  */
 
-import { log } from "../lib/logger.js"
+import { createLogger } from "../lib/logger.js"
+
+const log = createLogger({ component: "RedisCircuitBreaker" });
 
 export interface CircuitBreakerConfig {
   failureThreshold: number; // Number of failures before opening circuit

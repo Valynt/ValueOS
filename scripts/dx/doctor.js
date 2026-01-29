@@ -11,12 +11,17 @@ import net from "net";
 import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
+import { config } from "dotenv";
 import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from "./ports.js";
+import { resolveSupabaseMode, extractUrlHost, isLocalHost } from "./lib/supabase-mode.js";
+import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
+
+config({ path: path.join(projectRoot, ".env.local") });
 
 const args = process.argv.slice(2);
 let mode;
@@ -26,6 +31,10 @@ try {
   console.error(error.message);
   process.exit(1);
 }
+
+const dockerHostGateway = resolveDockerHostGateway();
+const localHosts = dockerHostGateway ? [dockerHostGateway] : [];
+const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts });
 
 // Soft mode: print warnings but don't block dev server startup
 const softMode =
@@ -259,7 +268,12 @@ function checkDocker() {
     let details = `Docker daemon is not responding. Current context: ${dockerContext}.`;
 
     if (errorMsg.includes("permission denied")) {
-      fix = "Add your user to the docker group: sudo usermod -aG docker $USER && newgrp docker";
+      if (isDevContainer()) {
+        fix =
+          "Ensure /var/run/docker.sock is mounted and accessible (devcontainer.json mounts + docker-outside-of-docker feature). Rebuild the container if needed.";
+      } else {
+        fix = "Add your user to the docker group: sudo usermod -aG docker $USER && newgrp docker";
+      }
       details = `Docker permission denied. Current context: ${dockerContext}.`;
     } else if (errorMsg.includes("Cannot connect") || errorMsg.includes("connection refused")) {
       details = `Cannot connect to Docker daemon. Context: ${dockerContext}. Available: ${contextDetails || "unknown"}.`;
@@ -815,20 +829,7 @@ function printFailureLogs() {
 }
 
 function checkSupabase() {
-  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || "";
-  const localFlag = process.env.DX_SUPABASE_LOCAL;
-
-  // Explicit opt-out
-  if (localFlag === "0" || localFlag === "false") {
-    return;
-  }
-
-  const isLocalSupabase =
-    localFlag === "1" ||
-    localFlag === "true" ||
-    viteSupabaseUrl.includes("localhost") ||
-    viteSupabaseUrl.includes("127.0.0.1");
-  if (!isLocalSupabase) {
+  if (supabaseMode.mode !== "local") {
     return;
   }
 
@@ -836,7 +837,7 @@ function checkSupabase() {
     reportFailure(
       "Supabase CLI missing",
       "Supabase URL is local but CLI is not installed.",
-      "Install with: pnpm install -g supabase (or set DX_SUPABASE_LOCAL=0 to skip)"
+      "Install with: pnpm install -g supabase (or set DX_SKIP_SUPABASE=1 to skip)"
     );
     return;
   }
@@ -861,7 +862,9 @@ function checkSupabase() {
   }
 
   // Check Supabase API health
-  const healthUrl = `http://localhost:${supabaseApiPort}/rest/v1/`;
+  const healthBase =
+    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || `http://localhost:${supabaseApiPort}`;
+  const healthUrl = `${healthBase.replace(/\/$/, "")}/rest/v1/`;
   try {
     runCommand(`curl -sf --max-time 5 "${healthUrl}" > /dev/null`, {
       stdio: "pipe",
@@ -877,35 +880,21 @@ function checkSupabase() {
 
   // Verify env URLs point to local Supabase
   const backendSupabaseUrl = process.env.SUPABASE_URL || "";
-  if (
-    backendSupabaseUrl &&
-    !backendSupabaseUrl.includes("localhost") &&
-    !backendSupabaseUrl.includes("127.0.0.1")
-  ) {
+  if (backendSupabaseUrl) {
+    const backendHost = extractUrlHost(backendSupabaseUrl);
+    if (isLocalHost(backendHost, localHosts)) {
+      return;
+    }
     reportFailure(
       "Backend Supabase URL mismatch",
       `SUPABASE_URL points to ${backendSupabaseUrl} but local Supabase is running.`,
-      "Set SUPABASE_URL=http://localhost:54321 in .env.local"
+      "Set SUPABASE_URL=http://localhost:54321 in .env.local (or use the Docker host gateway in DevContainers)."
     );
   }
 }
 
 function checkSupabaseMigrations() {
-  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || "";
-  const localFlag = process.env.DX_SUPABASE_LOCAL;
-
-  // Skip if not using local Supabase
-  if (localFlag === "0" || localFlag === "false") {
-    return;
-  }
-
-  const isLocalSupabase =
-    localFlag === "1" ||
-    localFlag === "true" ||
-    viteSupabaseUrl.includes("localhost") ||
-    viteSupabaseUrl.includes("127.0.0.1");
-
-  if (!isLocalSupabase || !commandExists("supabase")) {
+  if (supabaseMode.mode !== "local" || !commandExists("supabase")) {
     return;
   }
 
@@ -941,21 +930,8 @@ function checkSupabaseMigrations() {
 }
 
 function checkSupabaseSchema() {
-  const viteSupabaseUrl = process.env.VITE_SUPABASE_URL || "";
-  const localFlag = process.env.DX_SUPABASE_LOCAL;
-
   // Skip if not using local Supabase or in docker mode
-  if (localFlag === "0" || localFlag === "false" || mode === "docker") {
-    return;
-  }
-
-  const isLocalSupabase =
-    localFlag === "1" ||
-    localFlag === "true" ||
-    viteSupabaseUrl.includes("localhost") ||
-    viteSupabaseUrl.includes("127.0.0.1");
-
-  if (!isLocalSupabase || !commandExists("supabase")) {
+  if (supabaseMode.mode !== "local" || mode === "docker" || !commandExists("supabase")) {
     return;
   }
 
@@ -1203,6 +1179,14 @@ async function main() {
   console.log(`  Supabase API:    http://localhost:${supabaseApiPort}`);
   console.log(`  Supabase Studio: http://localhost:${supabaseStudioPort}`);
   console.log("");
+
+  if (supabaseMode?.mode) {
+    const detail = supabaseMode.host
+      ? ` (${supabaseMode.reason}: ${supabaseMode.host})`
+      : ` (${supabaseMode.reason})`;
+    console.log(`Supabase Mode:   ${supabaseMode.mode}${detail}`);
+    console.log("");
+  }
 
   // Phase 2: Independent environment checks (run in parallel)
   await Promise.all([

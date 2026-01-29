@@ -8,7 +8,13 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import os from "os";
+import path from "path";
+import { fileURLToPath } from "url";
 import { detectPlatform, getPlatformConfig } from "./platform.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "../..");
 
 /**
  * Execute command and return output
@@ -21,30 +27,46 @@ function exec(command) {
   }
 }
 
+function getRequiredNodeVersion() {
+  const nvmrcPath = path.join(projectRoot, ".nvmrc");
+  if (fs.existsSync(nvmrcPath)) {
+    const raw = fs.readFileSync(nvmrcPath, "utf8").trim().replace(/^v/, "");
+    if (raw) {
+      const major = parseInt(raw.split(".")[0], 10);
+      if (!Number.isNaN(major)) {
+        return { major, raw };
+      }
+    }
+  }
+  return { major: 20, raw: "20" };
+}
+
 /**
  * Check Node.js version
  */
 export async function checkNode() {
   const nodeVersion = process.version;
   const major = parseInt(nodeVersion.slice(1).split(".")[0]);
-  const required = 18;
+  const required = getRequiredNodeVersion();
+  const requiredMajor = required.major;
+  const requiredRaw = required.raw;
 
-  const passed = major >= required;
+  const passed = major >= requiredMajor;
 
   return {
     name: "Node.js",
     passed,
     version: nodeVersion,
-    required: `>= ${required}.0.0`,
+    required: `>= ${requiredRaw}`,
     message: passed ? `✅ Node.js ${nodeVersion}` : `❌ Node.js ${nodeVersion} is too old`,
     fix: passed
       ? null
       : `
-   Required: >= ${required}.0.0
+   Required: >= ${requiredRaw}
 
    Fix:
-   $ nvm install ${required}
-   $ nvm use ${required}
+   $ nvm install ${requiredRaw}
+   $ nvm use ${requiredRaw}
 
    Or download from: https://nodejs.org/`,
   };
@@ -54,7 +76,7 @@ export async function checkNode() {
  * Check Docker installation and status
  */
 export async function checkDocker() {
-  const dockerVersion = exec("sudo docker --version");
+  const dockerVersion = exec("docker --version");
 
   if (!dockerVersion) {
     return {
@@ -72,25 +94,54 @@ export async function checkDocker() {
     };
   }
 
-  // Check if Docker daemon is running
-  const dockerRunning = exec("sudo docker ps") !== null;
+  const isDevContainer =
+    process.env.REMOTE_CONTAINERS === "true" ||
+    process.env.CODESPACES === "true" ||
+    fs.existsSync("/.dockerenv");
 
-  if (!dockerRunning) {
+  // Check if Docker daemon is running
+  let daemonError = null;
+  try {
+    execSync("docker info", { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+  } catch (error) {
+    daemonError = error;
+  }
+
+  if (daemonError) {
+    const stderr = daemonError?.stderr ? daemonError.stderr.toString() : "";
+    const message = `${daemonError.message || ""}\n${stderr}`.trim().toLowerCase();
     const platform = detectPlatform();
     const config = getPlatformConfig(platform);
+    let fix = `
+   Start Docker:
+
+   ${config.dockerCommand}
+
+   Then run setup again.`;
+
+    if (message.includes("permission denied")) {
+      fix = isDevContainer
+        ? `
+   Docker socket permission denied inside DevContainer.
+   Fix:
+     - Ensure /var/run/docker.sock is mounted
+     - Rebuild the DevContainer with docker-outside-of-docker enabled
+     - Avoid no-new-privileges if sudo is required`
+        : `
+   Add your user to the docker group:
+   $ sudo usermod -aG docker $USER
+   $ newgrp docker`;
+    }
 
     return {
       name: "Docker",
       passed: false,
       version: dockerVersion,
       required: "Docker daemon running",
-      message: "❌ Docker is not running",
-      fix: `
-   Start Docker:
-
-   ${config.dockerCommand}
-
-   Then run setup again.`,
+      message: message.includes("permission denied")
+        ? "❌ Docker permission denied"
+        : "❌ Docker is not running",
+      fix,
     };
   }
 
@@ -107,28 +158,30 @@ export async function checkDocker() {
 /**
  * Check package manager availability
  */
-export async function checkPackageManager() {
-  const npmVersion = exec("npm --version");
+export async function checkPnpm() {
+  const pnpmVersion = exec("pnpm --version");
 
-  if (!npmVersion) {
+  if (!pnpmVersion) {
     return {
-      name: "npm",
+      name: "pnpm",
       passed: false,
       version: null,
-      required: "npm (comes with Node.js)",
-      message: "❌ npm not found",
+      required: "pnpm (via Corepack)",
+      message: "❌ pnpm not found",
       fix: `
-   npm should be installed with Node.js.
-   Reinstall Node.js from: https://nodejs.org/`,
+   Enable Corepack and install pnpm:
+
+   $ corepack enable
+   $ corepack prepare pnpm@9.15.0 --activate`,
     };
   }
 
   return {
-    name: "npm",
+    name: "pnpm",
     passed: true,
-    version: npmVersion,
-    required: "npm (comes with Node.js)",
-    message: `✅ npm ${npmVersion}`,
+    version: pnpmVersion,
+    required: "pnpm (via Corepack)",
+    message: `✅ pnpm ${pnpmVersion}`,
     fix: null,
   };
 }
@@ -139,6 +192,16 @@ export async function checkPackageManager() {
 function isLocalSupabaseExpected() {
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
   const localFlag = process.env.DX_SUPABASE_LOCAL;
+  const skipFlag = process.env.DX_SKIP_SUPABASE;
+  const forceFlag = process.env.DX_FORCE_SUPABASE;
+
+  if (skipFlag === "1" || skipFlag === "true") {
+    return false;
+  }
+
+  if (forceFlag === "1" || forceFlag === "true") {
+    return true;
+  }
 
   if (localFlag === "0" || localFlag === "false") {
     return false;
@@ -166,6 +229,7 @@ export async function checkSupabaseCli() {
         passed: true,
         version: null,
         required: "Optional (not using local Supabase)",
+        optional: true,
         message: "⚠️  Supabase CLI not installed (optional - using remote Supabase)",
         fix: null,
       };
@@ -176,6 +240,7 @@ export async function checkSupabaseCli() {
       passed: false,
       version: null,
       required: "Supabase CLI (local Supabase detected)",
+      optional: false,
       message: "❌ Supabase CLI not installed",
       fix: `
    Install Supabase CLI:
@@ -192,6 +257,7 @@ export async function checkSupabaseCli() {
     passed: true,
     version: supabaseVersion,
     required: localExpected ? "Supabase CLI (local Supabase)" : "Supabase CLI",
+    optional: !localExpected,
     message: `✅ Supabase CLI ${supabaseVersion}`,
     fix: null,
   };
@@ -235,6 +301,7 @@ export async function checkDiskSpace() {
         passed: true,
         version: "Unknown",
         required: `>= ${requiredGB} GB`,
+        optional: true,
         message: "⚠️  Could not check disk space",
         fix: null,
       };
@@ -247,6 +314,7 @@ export async function checkDiskSpace() {
       passed,
       version: `${availableGB.toFixed(1)} GB available`,
       required: `>= ${requiredGB} GB`,
+      optional: true,
       message: passed
         ? `✅ ${availableGB.toFixed(1)} GB available`
         : `❌ Only ${availableGB.toFixed(1)} GB available`,
@@ -264,6 +332,7 @@ export async function checkDiskSpace() {
       passed: true,
       version: "Unknown",
       required: `>= ${requiredGB} GB`,
+      optional: true,
       message: "⚠️  Could not check disk space",
       fix: null,
     };
@@ -282,6 +351,7 @@ export async function checkGit() {
       passed: false,
       version: null,
       required: "Git",
+      optional: true,
       message: "❌ Git not installed",
       fix: `
    Install Git:
@@ -297,6 +367,7 @@ export async function checkGit() {
     passed: true,
     version: gitVersion,
     required: "Git",
+    optional: true,
     message: `✅ ${gitVersion}`,
     fix: null,
   };
@@ -311,7 +382,7 @@ export async function checkPrerequisites() {
   const checks = await Promise.all([
     checkNode(),
     checkDocker(),
-    checkPackageManager(),
+    checkPnpm(),
     checkSupabaseCli(),
     checkDiskSpace(),
     checkGit(),
@@ -322,12 +393,12 @@ export async function checkPrerequisites() {
     console.log(check.message);
   });
 
-  const allPassed = checks.every((c) => c.passed);
-  const failures = checks.filter((c) => !c.passed);
+  const requiredFailures = checks.filter((c) => !c.passed && !c.optional);
+  const optionalFailures = checks.filter((c) => !c.passed && c.optional);
 
-  if (!allPassed) {
+  if (requiredFailures.length > 0) {
     console.log("\n❌ Prerequisites check failed\n");
-    failures.forEach((check) => {
+    requiredFailures.forEach((check) => {
       if (check.fix) {
         console.log(`${check.name}:`);
         console.log(check.fix);
@@ -337,7 +408,18 @@ export async function checkPrerequisites() {
     return false;
   }
 
-  console.log("\n✅ All prerequisites met!\n");
+  if (optionalFailures.length > 0) {
+    console.log("\n⚠️  Optional checks failed (continuing):\n");
+    optionalFailures.forEach((check) => {
+      if (check.fix) {
+        console.log(`${check.name}:`);
+        console.log(check.fix);
+        console.log("");
+      }
+    });
+  }
+
+  console.log("\n✅ All required prerequisites met!\n");
   return true;
 }
 
