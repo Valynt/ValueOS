@@ -1,7 +1,13 @@
 [
   {
-    "id": "checkpoint_1769734691242",
-    "timestamp": 1769734691242,
+    "id": "checkpoint_1769735694759",
+    "timestamp": 1769735694759,
+    "step": "migrations",
+    "state": {}
+  },
+  {
+    "id": "checkpoint_1769735760650",
+    "timestamp": 1769735760650,
     "step": "migrations",
     "state": {}
   }

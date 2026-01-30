@@ -10,6 +10,7 @@
 import { NextFunction, Request, Response } from "express";
 import { getSecurityHeaders } from "../security/SecurityHeaders.js";
 import { getSecurityConfig } from "../security/SecurityConfig.js";
+export { sessionTimeoutMiddleware } from "./sessionTimeoutMiddleware.js";
 
 /**
  * Apply strong security headers to responses.
