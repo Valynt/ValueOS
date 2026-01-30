@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -19,19 +20,30 @@ const navItems = [
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { user, signOut } = useAuth();
   const location = useLocation();
 
+  const handleNavClick = () => {
+    // Close mobile sidebar when navigation occurs
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
     <aside
       className={cn(
-        "flex flex-col border-r bg-card transition-all duration-300",
+        "flex flex-col border-r bg-card transition-all duration-300 h-full",
         collapsed ? "w-16" : "w-64"
       )}
     >
-      {/* Logo */}
+      {/* Logo and mobile close */}
       <div className="h-14 flex items-center justify-between px-4 border-b">
         <div className={cn("flex items-center gap-2", collapsed && "justify-center w-full")}>
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -39,15 +51,28 @@ export function Sidebar() {
           </div>
           {!collapsed && <span className="font-semibold">Valynt</span>}
         </div>
+
+        {/* Mobile close button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="lg:hidden p-1 rounded-md hover:bg-muted transition-colors"
+          >
+            <X className="w-5 h-5" />
+            <span className="sr-only">Close sidebar</span>
+          </button>
+        )}
       </div>
 
-      {/* Toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-16 w-6 h-6 bg-card border rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground z-10"
-      >
-        {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
-      </button>
+      {/* Desktop toggle */}
+      {!onClose && (
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-3 top-16 w-6 h-6 bg-card border rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground z-10 hidden lg:flex"
+        >
+          {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+        </button>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1">
@@ -57,6 +82,7 @@ export function Sidebar() {
             to={item.path}
             prefetch={true}
             intersection={false}
+            onClick={handleNavClick}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",

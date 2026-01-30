@@ -1,4 +1,4 @@
-import { ReactNode, useCallback } from "react";
+import { ReactNode, useCallback, useState, useEffect } from "react";
 import {
   useForm,
   UseFormReturn,
@@ -7,11 +7,13 @@ import {
   Path,
   SubmitHandler,
   FieldError,
+  useWatch,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ZodType } from "zod";
-import { AlertCircle, Check, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Loader2, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export interface FormOptions<T extends FieldValues> {
   schema?: ZodType<T>;
@@ -55,7 +57,10 @@ export function Form<T extends FieldValues>({
   cancelLabel = "Cancel",
   onCancel,
 }: FormProps<T>) {
-  const { handleSubmit, formState: { isSubmitting } } = form;
+  const {
+    handleSubmit,
+    formState: { isSubmitting },
+  } = form;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className={className} noValidate>
@@ -98,6 +103,8 @@ interface FormFieldProps {
   label: string;
   required?: boolean;
   error?: FieldError;
+  success?: boolean;
+  validating?: boolean;
   helpText?: string;
   className?: string;
   children: ReactNode;
@@ -107,25 +114,43 @@ export function FormField({
   label,
   required = false,
   error,
+  success = false,
+  validating = false,
   helpText,
   className,
   children,
 }: FormFieldProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      <label className="block text-sm font-medium">
+      <label className="block text-sm font-medium text-foreground">
         {label}
         {required && <span className="text-destructive ml-1">*</span>}
       </label>
 
-      {children}
+      <div className="relative">
+        {children}
 
-      {helpText && <p className="text-sm text-muted-foreground">{helpText}</p>}
+        {/* Validation indicators */}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {validating && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          {success && !error && <CheckCircle className="w-4 h-4 text-success" />}
+          {error && <AlertCircle className="w-4 h-4 text-destructive" />}
+        </div>
+      </div>
+
+      {helpText && !error && <p className="text-sm text-muted-foreground">{helpText}</p>}
 
       {error && (
-        <p className="text-sm text-destructive flex items-center gap-1">
-          <AlertCircle className="w-4 h-4" />
-          {error.message}
+        <p className="text-sm text-destructive flex items-start gap-1 animate-in slide-in-from-top-1">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>{error.message}</span>
+        </p>
+      )}
+
+      {success && !error && (
+        <p className="text-sm text-success flex items-center gap-1 animate-in slide-in-from-top-1">
+          <CheckCircle className="w-4 h-4" />
+          <span>Looks good!</span>
         </p>
       )}
     </div>
@@ -149,17 +174,39 @@ export function FormInput({
   className,
   ...props
 }: FormInputProps) {
-  const { register, formState: { errors } } = form;
+  const {
+    register,
+    formState: { errors, touchedFields },
+    watch,
+  } = form;
   const error = errors[name] as FieldError | undefined;
+  const touched = touchedFields[name];
+  const value = watch(name);
+
+  // Determine validation state
+  const isValid = touched && !error && value;
+  const isValidating = false; // Could be enhanced with async validation
 
   return (
-    <FormField label={label} required={required} error={error} helpText={helpText}>
+    <FormField
+      label={label}
+      required={required}
+      error={error}
+      success={isValid}
+      validating={isValidating}
+      helpText={helpText}
+    >
       <input
         {...register(name)}
         {...props}
         className={cn(
-          "w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 transition-colors",
-          error ? "border-destructive" : "border-input",
+          "w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 disabled:opacity-50 transition-colors",
+          "placeholder:text-muted-foreground",
+          {
+            "border-destructive focus:ring-destructive": error,
+            "border-success focus:ring-success": isValid && !error,
+            "border-input focus:ring-primary": !error && !isValid,
+          },
           className
         )}
       />
@@ -167,7 +214,10 @@ export function FormInput({
   );
 }
 
-interface FormTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "form"> {
+interface FormTextareaProps extends Omit<
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "form"
+> {
   name: string;
   form: UseFormReturn<FieldValues>;
   label: string;
@@ -184,17 +234,39 @@ export function FormTextarea({
   className,
   ...props
 }: FormTextareaProps) {
-  const { register, formState: { errors } } = form;
+  const {
+    register,
+    formState: { errors, touchedFields },
+    watch,
+  } = form;
   const error = errors[name] as FieldError | undefined;
+  const touched = touchedFields[name];
+  const value = watch(name);
+
+  // Determine validation state
+  const isValid = touched && !error && value;
+  const isValidating = false; // Could be enhanced with async validation
 
   return (
-    <FormField label={label} required={required} error={error} helpText={helpText}>
+    <FormField
+      label={label}
+      required={required}
+      error={error}
+      success={isValid}
+      validating={isValidating}
+      helpText={helpText}
+    >
       <textarea
         {...register(name)}
         {...props}
         className={cn(
-          "w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 transition-colors resize-y min-h-[100px]",
-          error ? "border-destructive" : "border-input",
+          "w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 disabled:opacity-50 transition-colors resize-y min-h-[100px]",
+          "placeholder:text-muted-foreground",
+          {
+            "border-destructive focus:ring-destructive": error,
+            "border-success focus:ring-success": isValid && !error,
+            "border-input focus:ring-primary": !error && !isValid,
+          },
           className
         )}
       />
@@ -223,17 +295,39 @@ export function FormSelect({
   className,
   ...props
 }: FormSelectProps) {
-  const { register, formState: { errors } } = form;
+  const {
+    register,
+    formState: { errors, touchedFields },
+    watch,
+  } = form;
   const error = errors[name] as FieldError | undefined;
+  const touched = touchedFields[name];
+  const value = watch(name);
+
+  // Determine validation state
+  const isValid = touched && !error && value && value !== "";
+  const isValidating = false; // Could be enhanced with async validation
 
   return (
-    <FormField label={label} required={required} error={error} helpText={helpText}>
+    <FormField
+      label={label}
+      required={required}
+      error={error}
+      success={isValid}
+      validating={isValidating}
+      helpText={helpText}
+    >
       <select
         {...register(name)}
         {...props}
         className={cn(
-          "w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 transition-colors",
-          error ? "border-destructive" : "border-input",
+          "w-full px-3 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 disabled:opacity-50 transition-colors",
+          "placeholder:text-muted-foreground",
+          {
+            "border-destructive focus:ring-destructive": error,
+            "border-success focus:ring-success": isValid && !error,
+            "border-input focus:ring-primary": !error && !isValid,
+          },
           className
         )}
       >

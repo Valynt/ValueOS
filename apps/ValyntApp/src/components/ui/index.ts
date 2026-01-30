@@ -1,6 +1,6 @@
 /**
  * ValueOS UI Components
- * 
+ *
  * Base component library following the ValueOS design system.
  */
 
@@ -9,17 +9,8 @@ export { Button, buttonVariants } from "./button";
 export type { ButtonProps } from "./button";
 
 // Input
-export {
-  Input,
-  inputVariants,
-  SearchInput,
-  Textarea,
-} from "./input";
-export type {
-  InputProps,
-  SearchInputProps,
-  TextareaProps,
-} from "./input";
+export { Input, inputVariants, SearchInput, Textarea } from "./input";
+export type { InputProps, SearchInputProps, TextareaProps } from "./input";
 
 // Card
 export {
@@ -36,13 +27,7 @@ export {
 export type { CardProps, MetricCardProps, ActionCardProps } from "./card";
 
 // Badge
-export {
-  Badge,
-  badgeVariants,
-  StatusBadge,
-  VerificationBadge,
-  CountBadge,
-} from "./badge";
+export { Badge, badgeVariants, StatusBadge, VerificationBadge, CountBadge } from "./badge";
 export type {
   BadgeProps,
   StatusType,
@@ -100,3 +85,14 @@ export { RadioGroup, RadioGroupItem } from "./radio-group";
 export { ScrollArea } from "./scroll-area";
 export { Alert, AlertDescription } from "./alert";
 export { Separator } from "./separator";
+
+// Skeleton
+export {
+  Skeleton,
+  SkeletonText,
+  SkeletonCard,
+  SkeletonAvatar,
+  SkeletonButton,
+  skeletonVariants,
+} from "./skeleton";
+export type { SkeletonProps } from "./skeleton";

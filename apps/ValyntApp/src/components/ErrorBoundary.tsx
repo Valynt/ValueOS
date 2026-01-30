@@ -23,7 +23,7 @@ class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error, retryCount: 0 };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error without exposing sensitive information
     console.error("ErrorBoundary caught an error:", error.name);
 
@@ -38,16 +38,17 @@ class ErrorBoundary extends Component<Props, State> {
 
   handleRetry = () => {
     if (this.state.retryCount < 3) {
-      this.setState((prevState) => ({
-        hasError: false,
-        error: undefined,
-        errorInfo: undefined,
-        retryCount: prevState.retryCount + 1,
-      }));
+      this.setState(
+        (prevState) =>
+          ({
+            hasError: false,
+            retryCount: prevState.retryCount + 1,
+          }) as State
+      );
     }
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       // Check if it's an authentication-related error
       const isAuthError =
