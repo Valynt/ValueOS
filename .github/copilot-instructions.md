@@ -47,6 +47,28 @@ Validate: `pnpm run test:rls`
 
 ---
 
+## Global Safety and Compliance Rules
+
+**Systemic Safety:**
+- Block dangerous commands: SQL destructive ops (DROP, TRUNCATE without WHERE), shell cmds (rm -rf, sudo), process manipulation (kill -9), credential exposure
+- Network allowlist: Internal (\*.supabase.co, localhost), LLM providers (api.together.ai, api.openai.com, api.anthropic.com), monitoring (_.sentry.io, _.datadoghq.com), CDN (_.cloudflare.com, _.fastly.net); block GitHub (_.github.com, _.githubusercontent.com), pastebin (_.pastebin.com), ngrok (_.ngrok.io), serveo (\*.serveo.net) (blocked in production for data exfiltration prevention)
+- Recursion depth limit: Dev 10, Staging 7, Prod 5
+
+**Data Sovereignty:**
+- Tenant isolation: All DB ops include tenant_id
+- Block cross-tenant data transfer
+
+**PII Protection:**
+- Detect/block PII: SSN, CC, emails, phones, passports, DOB, healthcare IDs
+- Prevent PII in logs
+
+**Cost Control:**
+- Reasoning loop limits: Dev 20 steps/50 calls, Staging 15/30, Prod 10/20
+
+See `.windsurf/rules/global.md` for full details.
+
+---
+
 ## Agent Development (`src/lib/agent-fabric/agents/`)
 
 **ALL production agents must:**
@@ -204,6 +226,7 @@ pnpm run db:pull            # Pull remote schema
 | `scripts/test-agent-security.sh` | Agent security test runner |
 | `.windsurf/rules/*.md` | AI behavior guidelines (global, agents, backend, frontend, orchestration, memory) |
 | `docs/dx-architecture.md` | DX environment setup & troubleshooting |
+| `docs/ENVIRONMENT.md` | Environment variable details |
 
 ---
 
@@ -235,6 +258,14 @@ logger.info("Workflow started", { workflowId, organizationId, trace_id });
 - **Memory sharing:** Via `MessageBus` events or `SharedArtifacts` table (no cross-tenant direct access)
 - **Design north star:** VALYNT = dark-first, system-level, economically grounded Value Operating System
 - **Styling:** Semantic tokens (teal for Value Intelligence, grey for Structure/Graph/Evidence)
+- **Agents:** Single class per agent in `[AgentName]Agent.ts`, handlebars for prompts, 100% test coverage, mock LLM/Memory
+- **Backend:** Stateless, fetch user context always, service_role only for auth/tenant/cron
+- **Frontend:** Components in `ui-registry.json` and `registry.tsx`, AI content distinct, `useRealtimeUpdates` for WebSocket
+- **Memory:** Tenant-scoped queries, no direct agent-to-agent access, share via MessageBus/SharedArtifacts, audit append-only
+- **Orchestration:** DAGs acyclic, saga compensation, persist state after every transition
+- **Tools:** Implement `Tool<TInput, TOutput>`, register in `ToolRegistry`, check `LocalRules`, `RateLimiter` for external APIs
+- **Communication:** CloudEvents JSON, async default, `trace_id` propagation
+- **Reproducible Builds:** Deterministic outputs, explicit inputs, environment neutrality, no hidden state, build instructions as code
 
 ---
 
@@ -249,5 +280,5 @@ logger.info("Workflow started", { workflowId, organizationId, trace_id });
 
 ---
 
-**Last Updated:** 2026-01-26 | **Next:** Review `.windsurf/rules/` for AI guidelines, `docs/ENVIRONMENT.md` for env setup, `STAGING_DEPLOYMENT_CHECKLIST.md` for release process
+**Last Updated:** 2026-01-30 | **Next:** Review `.windsurf/rules/` for AI guidelines, `docs/ENVIRONMENT.md` for env setup, `STAGING_DEPLOYMENT_CHECKLIST.md` for release process
 ````
