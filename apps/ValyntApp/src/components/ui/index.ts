@@ -15,6 +15,7 @@ export {
   SearchInput,
   Textarea,
 } from "./input";
+export { PasswordInput } from "./password-input";
 export type {
   InputProps,
   SearchInputProps,
