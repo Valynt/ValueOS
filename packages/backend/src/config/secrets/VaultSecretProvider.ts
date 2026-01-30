@@ -453,10 +453,8 @@ export class VaultSecretProvider implements ISecretProvider {
   ): SecretValue {
     // This is a simplified implementation
     // In production, this should generate appropriate values based on secret type
-    const crypto = require("crypto");
-
     return {
-      value: crypto.randomBytes(32).toString("hex"),
+      value: randomBytes(32).toString("hex"),
       rotated_at: new Date().toISOString(),
       previous_version: "rotated",
     };

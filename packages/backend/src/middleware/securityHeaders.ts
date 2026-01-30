@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import crypto from "crypto";
 import { securityEvents } from "../security/securityLogger.js";
 
 export interface CSPConfig {
