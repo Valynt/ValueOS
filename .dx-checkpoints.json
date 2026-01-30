@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "id": "checkpoint_1769734691242",
+    "timestamp": 1769734691242,
+    "step": "migrations",
+    "state": {}
+  }
+]

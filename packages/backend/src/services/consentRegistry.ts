@@ -1,6 +1,6 @@
-import { settings } from "../config/settings.js"
-import { createServerSupabaseClient } from "../lib/supabase.js"
-import { logger } from "../lib/logger.js"
+import { settings } from "../config/settings.js";
+import { createServerSupabaseClient } from "../lib/supabase.js";
+import { logger } from "../lib/logger.js";
 import type { ConsentRegistry } from "../types/consent";
 
 const CONSENT_TABLE = "user_consents";
@@ -36,5 +36,6 @@ function createDatabaseConsentRegistry(): ConsentRegistry {
   };
 }
 
-export const consentRegistry: ConsentRegistry | null =
-  isConsentRegistryConfigured() ? createDatabaseConsentRegistry() : null;
+export const consentRegistry: ConsentRegistry | null = isConsentRegistryConfigured()
+  ? createDatabaseConsentRegistry()
+  : null;
