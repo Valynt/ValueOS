@@ -49,7 +49,8 @@ function getUrlConfig(mode, ports) {
   const supabaseDbPort = resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort);
   const devContainer = isDevContainer();
   const dockerGateway = resolveDockerHostGateway();
-  const backendHost = devContainer && dockerGateway ? dockerGateway : "localhost";
+  // Force loopback for local/devcontainer to avoid host-gateway differences
+  const backendHost = "localhost";
   const skipSupabase =
     process.env.DX_FORCE_SUPABASE === "1" ? false : process.env.DX_SKIP_SUPABASE === "1";
 
@@ -162,6 +163,7 @@ VITE_ENABLE_RATE_LIMITING=false
 VITE_ENABLE_AUDIT_LOGGING=true
 VITE_DEV_TOOLS=true
 VITE_SOURCE_MAPS=true
+SECRETS_VOLUME_WATCH_ENABLED=false
 
 # =============================================================================
 # Caddy Edge (for docker mode)

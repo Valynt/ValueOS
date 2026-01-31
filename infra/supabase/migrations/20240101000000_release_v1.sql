@@ -20,6 +20,23 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- Ensure auth schema and jwt helper exist for local environments
+CREATE SCHEMA IF NOT EXISTS auth;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE p.proname = 'jwt' AND n.nspname = 'auth'
+  ) THEN
+    CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
+    LANGUAGE sql
+    AS $$ SELECT current_setting('request.jwt.claims', true)::jsonb $$;
+  END IF;
+END;
+$$;
+
 --
 -- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
 --
