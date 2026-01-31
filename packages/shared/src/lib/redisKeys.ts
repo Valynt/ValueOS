@@ -9,4 +9,7 @@ export function ns(organizationId: string | undefined | null, key: string): stri
   return `${org}:${sanitized}`;
 }
 
+// Backwards-compatible helper name used by backend
+export const getRedisKey = ns;
+
 export default ns;

@@ -14,6 +14,7 @@ SET idle_in_transaction_session_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
+SET search_path = public, pg_temp;
 SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
@@ -11581,7 +11582,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES 
 --
 -- PostgreSQL database dump complete
 --
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20241229000000_hitl_tables.sql
 -- ================================================
@@ -11654,7 +11655,7 @@ CREATE TRIGGER update_hitl_requests_updated_at
     BEFORE UPDATE ON public.hitl_requests
     FOR EACH ROW
     EXECUTE PROCEDURE update_updated_at_column();
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20241229115900_organizations_tables.sql
 -- ================================================
@@ -11815,7 +11816,7 @@ COMMENT ON TABLE organizations IS 'Multi-tenant organizations for ValueOS';
 COMMENT ON TABLE user_organizations IS 'User membership and roles within organizations';
 COMMENT ON COLUMN organizations.slug IS 'URL-friendly identifier for the organization';
 COMMENT ON COLUMN user_organizations.role IS 'User role: owner (full control), admin (manage users/integrations), member (standard access), viewer (read-only)';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20241229120000_integration_tables.sql
 -- ================================================
@@ -12015,7 +12016,7 @@ COMMENT ON TABLE rate_limit_buckets IS 'Token bucket state for API rate limiting
 COMMENT ON COLUMN integration_connections.credentials IS 'Encrypted OAuth tokens and API keys (use Supabase Vault for encryption)';
 COMMENT ON COLUMN integration_connections.config IS 'Adapter-specific configuration including sync schedule and conflict resolution';
 COMMENT ON COLUMN integration_connections.field_mappings IS 'Custom field mappings between ValueOS and external system';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20241229150000_security_audit_events.sql
 -- ================================================
@@ -12069,7 +12070,7 @@ CREATE POLICY "Service role can insert audit events"
 
 -- Add comment for documentation
 COMMENT ON TABLE security_audit_events IS 'SOC 2 Compliance: Immutable audit trail of security events (CC6.8)';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20241229170000_mfa_enforcement.sql
 -- ================================================
@@ -12179,7 +12180,7 @@ COMMENT ON TABLE mfa_secrets IS 'AUTH-001: MFA secrets for TOTP-based two-factor
 COMMENT ON COLUMN mfa_secrets.secret IS 'Base32-encoded TOTP secret key';
 COMMENT ON COLUMN mfa_secrets.backup_codes IS 'One-time backup codes for account recovery';
 COMMENT ON COLUMN mfa_secrets.enabled IS 'Whether MFA is active for this user';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20241229180000_webauthn_credentials.sql
 -- ================================================
@@ -12271,7 +12272,7 @@ COMMENT ON COLUMN webauthn_credentials.credential_id IS 'Base64-encoded credenti
 COMMENT ON COLUMN webauthn_credentials.public_key IS 'Base64-encoded public key for verification';
 COMMENT ON COLUMN webauthn_credentials.counter IS 'Signature counter for replay protection';
 COMMENT ON COLUMN webauthn_credentials.device_type IS 'platform (TouchID) or cross-platform (YubiKey)';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20241229181000_trusted_devices.sql
 -- ================================================
@@ -12363,7 +12364,7 @@ $$ LANGUAGE plpgsql;
 COMMENT ON TABLE trusted_devices IS 'Trusted Devices: Skip MFA for known devices (30-day trust period)';
 COMMENT ON COLUMN trusted_devices.device_fingerprint IS 'SHA-256 hash of browser characteristics';
 COMMENT ON COLUMN trusted_devices.expires_at IS 'Trust expires after 30 days';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20251213000000_fix_rls_tenant_isolation.sql
 -- ================================================
@@ -12463,6 +12464,9 @@ CREATE POLICY "tenant_isolation_delete" ON agent_sessions
 DROP POLICY IF EXISTS "Users can view predictions in their organization" ON agent_predictions;
 DROP POLICY IF EXISTS "Users can insert predictions" ON agent_predictions;
 DROP POLICY IF EXISTS "Users can update predictions" ON agent_predictions;
+DROP POLICY IF EXISTS "strict_tenant_isolation_select" ON agent_predictions;
+DROP POLICY IF EXISTS "strict_tenant_isolation_insert" ON agent_predictions;
+DROP POLICY IF EXISTS "strict_tenant_isolation_update" ON agent_predictions;
 
 -- CREATE: Strict tenant isolation with NO NULL bypass
 CREATE POLICY "strict_tenant_isolation_select" ON agent_predictions
@@ -12594,6 +12598,7 @@ CREATE TABLE IF NOT EXISTS security_audit_log (
 ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can view audit logs
+DROP POLICY IF EXISTS "admin_only_select" ON security_audit_log;
 CREATE POLICY "admin_only_select" ON security_audit_log
   FOR SELECT
   USING (
@@ -12837,7 +12842,7 @@ SELECT * FROM verify_rls_tenant_isolation();
 --    -- Expected: 0 rows for all tables
 -- 
 -- ============================================================================
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20251213000001_fix_tenant_columns_and_rls.sql
 -- ================================================
@@ -12994,7 +12999,7 @@ BEGIN
   END IF;
 END;
 $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20251226000000_fix_agent_performance_summary_security.sql
 -- ================================================
@@ -13034,7 +13039,7 @@ COMMENT ON VIEW agent_performance_summary IS 'Summary of agent performance metri
 -- Grant appropriate permissions
 GRANT SELECT ON agent_performance_summary TO authenticated;
 REVOKE ALL ON agent_performance_summary FROM anon;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20251226150000_security_hardening_fix_lint_errors.sql
 -- ================================================
@@ -13271,7 +13276,7 @@ BEGIN
   RAISE NOTICE '  3. Review application for any broken permissions';
   RAISE NOTICE '';
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20251230011757_p0_health_check_table.sql
 -- ================================================
@@ -13314,7 +13319,7 @@ $$;
 -- Add comment
 COMMENT ON TABLE _health_check IS 'Health check table for database connectivity tests';
 COMMENT ON FUNCTION create_health_check_table() IS 'Creates health check table if it does not exist';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20251230012508_llm_gating_tables.sql
 -- ================================================
@@ -13664,7 +13669,7 @@ WHERE NOT EXISTS (
   SELECT 1 FROM llm_gating_policies WHERE tenant_id = organizations.id
 )
 ON CONFLICT (tenant_id) DO NOTHING;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20251230012600_llm_gating_rls_enhancement.sql
 -- ================================================
@@ -13982,7 +13987,7 @@ GRANT SELECT ON llm_usage_statistics TO authenticated;
 -- Test service role bypass (run with service_role key)
 -- SELECT * FROM llm_usage; -- Should return all logs
 -- SELECT * FROM llm_gating_policies; -- Should return all budgets
--- UPDATE llm_gating_policies SET used_amount = used_amount + 0.01 WHERE tenant_id = '...'; -- Should work\n
+-- UPDATE llm_gating_policies SET used_amount = used_amount + 0.01 WHERE tenant_id = '...'; -- Should work
 -- ================================================
 -- Source: supabase/migrations/20251230013534_organization_configurations.sql
 -- ================================================
@@ -14367,7 +14372,7 @@ WHERE al.resource_type = 'configuration'
 ORDER BY al.created_at DESC;
 
 COMMENT ON VIEW configuration_change_audit IS 'Audit trail of all configuration changes';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260102000001_progressive_rollouts.sql
 -- ================================================
@@ -14562,7 +14567,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- SELECT cron.schedule('check-feature-rollbacks', '*/5 * * * *', 'SELECT check_and_rollback_features()');
 
 COMMIT;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000001_fix_test_schema.sql
 -- ================================================
@@ -14678,7 +14683,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_security_audit_timestamp ON security_audit_events(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_security_audit_user_id ON security_audit_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_security_audit_tenant_id ON security_audit_events(tenant_id);
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000002_legal_holds.sql
 -- ================================================
@@ -14770,7 +14775,7 @@ CREATE POLICY legal_holds_service_role ON legal_holds
   FOR ALL
   TO service_role
   USING (true);
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000003_user_deletions.sql
 -- ================================================
@@ -14879,7 +14884,7 @@ CREATE TRIGGER check_user_deletion_retention
   BEFORE DELETE ON user_deletions
   FOR EACH ROW
   EXECUTE FUNCTION enforce_user_deletion_retention();
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000004_cross_region_transfers.sql
 -- ================================================
@@ -15012,7 +15017,7 @@ BEGIN
   RETURN v_transfer_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000005_usage_tracking.sql
 -- ================================================
@@ -15249,7 +15254,7 @@ BEGIN
   RETURN v_processed_count;
 END;
 $$ LANGUAGE plpgsql;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000006_audit_log_anonymization.sql
 -- ================================================
@@ -15287,7 +15292,7 @@ CREATE TRIGGER anonymize_audit_logs_after_user_delete
   EXECUTE FUNCTION anonymize_audit_logs_on_user_deletion();
 
 COMMENT ON FUNCTION anonymize_audit_logs_on_user_deletion IS 'Anonymizes audit logs when user is deleted while preserving audit trail';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000007_retention_policies.sql
 -- ================================================
@@ -15524,7 +15529,7 @@ SELECT
 FROM security_incidents;
 
 COMMENT ON VIEW retention_policy_compliance IS 'Shows retention policy compliance status for all tables';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000008_tenant_isolation.sql
 -- ================================================
@@ -15849,7 +15854,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 COMMENT ON FUNCTION log_cross_tenant_access_attempt IS 'Logs cross-tenant access attempts for security monitoring';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000009_data_regions.sql
 -- ================================================
@@ -16099,7 +16104,7 @@ CREATE POLICY data_region_changes_service_role ON data_region_changes
   FOR ALL
   TO service_role
   USING (true);
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000010_scheduled_jobs.sql
 -- ================================================
@@ -16409,7 +16414,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION log_job_execution IS 'Logs execution of a scheduled job';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260103000011_fix_tenant_id_types.sql
 -- ================================================
@@ -16600,7 +16605,7 @@ CREATE POLICY cross_region_transfers_service_role ON cross_region_transfers FOR 
 CREATE POLICY user_consents_service_role ON user_consents FOR ALL TO service_role USING (true);
 CREATE POLICY security_incidents_service_role ON security_incidents FOR ALL TO service_role USING (true);
 CREATE POLICY data_region_changes_service_role ON data_region_changes FOR ALL TO service_role USING (true);
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000001_add_settings_defaults.sql
 -- ================================================
@@ -16845,7 +16850,7 @@ BEGIN
 
   RAISE NOTICE 'Settings defaults migration completed successfully';
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000002_fix_audit_immutability.sql
 -- ================================================
@@ -17162,7 +17167,7 @@ COMMENT ON VIEW audit_trail_health IS
   'Provides health metrics for audit trail tables';
 
 GRANT SELECT ON audit_trail_health TO authenticated;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000002_organization_config_audit_trigger.sql
 -- ================================================
@@ -17422,7 +17427,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_org_config
 COMMENT ON INDEX idx_audit_logs_org_config IS
   'Optimizes queries for organization configuration audit logs. ' ||
   'Supports compliance reporting and security investigations.';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000003_add_performance_indexes.sql
 -- ================================================
@@ -17716,7 +17721,7 @@ BEGIN
   
   RAISE NOTICE 'Performance indexes migration complete. Total indexes: %', v_index_count;
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000003_team_settings_audit_trigger.sql
 -- ================================================
@@ -17832,7 +17837,7 @@ COMMENT ON TRIGGER audit_team_settings_updates ON teams IS
 CREATE INDEX IF NOT EXISTS idx_audit_logs_team_settings
   ON audit_logs(resource_type, resource_id, created_at DESC)
   WHERE resource_type = 'team_settings';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000004_encrypt_credentials.sql
 -- ================================================
@@ -18367,7 +18372,7 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '============================================================';
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000005_cleanup_plaintext_credentials.sql
 -- ================================================
@@ -18683,7 +18688,7 @@ WHERE ti.id = b.id;
 -- Then restore original triggers
 -- (See migration 20260105000004_encrypt_credentials.sql)
 ';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000006_fix_jwt_rls_policies.sql
 -- ================================================
@@ -19054,7 +19059,7 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '============================================================';
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000007_fix_archive_tables_rls.sql
 -- ================================================
@@ -19310,7 +19315,7 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '============================================================';
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000008_fix_foreign_key_actions.sql
 -- ================================================
@@ -19724,7 +19729,7 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '============================================================';
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260105000009_encrypt_credentials_vault.sql
 -- ================================================
@@ -20210,7 +20215,7 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '============================================================';
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260106000000_customer_access_tokens.sql
 -- ================================================
@@ -20367,7 +20372,7 @@ COMMENT ON TABLE customer_access_tokens IS 'Secure tokens for customer portal ac
 COMMENT ON FUNCTION create_customer_access_token IS 'Generate new customer access token';
 COMMENT ON FUNCTION validate_customer_token IS 'Validate token and track usage';
 COMMENT ON FUNCTION revoke_customer_token IS 'Revoke customer access token';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260106000000_enable_realtime.sql
 -- ================================================
@@ -20622,7 +20627,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON canvas_comments TO authenticated;
 COMMENT ON TABLE canvas_elements IS 'Stores collaborative canvas elements for value cases';
 COMMENT ON TABLE canvas_presence IS 'Tracks active users on the collaborative canvas';
 COMMENT ON TABLE canvas_comments IS 'Stores comments and discussions on canvas elements';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260106000001_customer_rls_policies.sql
 -- ================================================
@@ -20719,7 +20724,7 @@ GRANT EXECUTE ON FUNCTION get_value_case_from_token() TO anon, authenticated;
 COMMENT ON FUNCTION get_value_case_from_token IS 'Extract value_case_id from customer token in request';
 COMMENT ON POLICY customer_read_value_cases ON value_cases IS 'Allow customers to read their value case';
 COMMENT ON POLICY customer_read_realization_metrics ON realization_metrics IS 'Allow customers to read their metrics';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260106000001_guest_access.sql
 -- ================================================
@@ -21034,7 +21039,7 @@ COMMENT ON TABLE guest_activity_log IS 'Audit log of guest user activities';
 COMMENT ON FUNCTION validate_guest_token IS 'Validates a guest access token and returns user info';
 COMMENT ON FUNCTION revoke_guest_token IS 'Revokes a guest access token';
 COMMENT ON FUNCTION cleanup_expired_guest_tokens IS 'Removes expired tokens older than 30 days';
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260108000001_add_tenant_id_to_value_cases.sql
 -- ================================================
@@ -21071,7 +21076,7 @@ FOR ALL USING (tenant_id = (SELECT NULLIF((current_setting('request.jwt.claims',
 -- Enable RLS
 ALTER TABLE public.value_cases ENABLE ROW LEVEL SECURITY;
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000002_add_foreign_key_constraints_workflow_executions.sql
 -- ================================================
@@ -21130,7 +21135,7 @@ CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant_id ON public.workflow_
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_user_id ON public.workflow_executions USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_organization_id ON public.workflow_executions USING btree (organization_id);
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000003_convert_agent_memory_embedding_to_vector.sql
 -- ================================================
@@ -21174,7 +21179,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_memory_memory_type ON public.agent_memory U
 -- Add index for tenant_id for tenant isolation
 CREATE INDEX IF NOT EXISTS idx_agent_memory_tenant_id ON public.agent_memory USING btree (tenant_id);
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000004_add_not_null_constraints_and_defaults.sql
 -- ================================================
@@ -21320,7 +21325,7 @@ UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
 UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
 UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000005_add_check_constraints_for_data_validation.sql
 -- ================================================
@@ -21501,7 +21506,7 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000006_normalize_jsonb_fields_where_appropriate.sql
 -- ================================================
@@ -21690,7 +21695,7 @@ UPDATE public.users SET preferences = '{}' WHERE preferences IS NULL OR jsonb_ty
 UPDATE public.agent_performance_summary SET metadata = '{}' WHERE metadata IS NULL OR jsonb_typeof(metadata) != 'object';
 UPDATE public.integration_configs SET config = '{}' WHERE config IS NULL OR jsonb_typeof(config) != 'object';
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000007_add_performance_indexes.sql
 -- ================================================
@@ -21757,7 +21762,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_gin ON public.agent_sessi
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_input_gin ON public.workflow_executions USING gin (input_params) WHERE input_params IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_output_gin ON public.workflow_executions USING gin (output_data) WHERE output_data IS NOT NULL;
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000009_fix_critical_data_integrity_issues.sql
 -- ================================================
@@ -21904,7 +21909,7 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000010_standardize_index_naming.sql
 -- ================================================
@@ -22117,7 +22122,7 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;\n
+COMMIT;
 -- ================================================
 -- Source: supabase/migrations/20260108000011_cleanup_redundant_migration_checks.sql
 -- ================================================
@@ -22180,7 +22185,7 @@ COMMIT;\n
 
 -- RECOMMENDATION: For future schema refactoring, consolidate the initial
 -- migration to remove these redundant defensive checks while maintaining
--- the same end schema.\n
+-- the same end schema.
 -- ================================================
 -- Source: supabase/migrations/20260109111418_add_secret_audit_and_roles.sql
 -- ================================================
@@ -22238,7 +22243,7 @@ BEGIN
     ALTER TABLE user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role, tenant_id);
   END IF;
 END $$;
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260109111419_security_audit_log_permissions.sql
 -- ================================================
@@ -22252,7 +22257,7 @@ CREATE POLICY security_audit_log_service_role_insert
   ON public.security_audit_log
   FOR INSERT
   WITH CHECK (auth.role() = 'service_role');
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260126000000_create_teams_table.sql
 -- ================================================
@@ -22327,13 +22332,13 @@ CREATE POLICY teams_modify ON public.teams
         AND r.name IN ('owner', 'admin')
     )
   );
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260127000000_add_usage_aggregates_idempotency_unique.sql
 -- ================================================
 CREATE UNIQUE INDEX IF NOT EXISTS usage_aggregates_idempotency_key_unique
   ON public.usage_aggregates (idempotency_key);
-\n
+
 -- ================================================
 -- Source: supabase/migrations/20260127000000_fix_remaining_security_linter_errors.sql
 -- ================================================
@@ -22548,4 +22553,3 @@ BEGIN
   RAISE NOTICE '  3. Test workflow_stage_runs access with tenant isolation';
   RAISE NOTICE '';
 END $$;
-\n
