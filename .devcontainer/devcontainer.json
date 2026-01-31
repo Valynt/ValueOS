@@ -4,7 +4,11 @@
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
   "shutdownAction": "stopCompose",
-  "postCreateCommand": "bash -lc 'cd /workspaces/ValueOS && pnpm install --frozen-lockfile && pnpm run dx:doctor || true'",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-extra/features/supabase-cli:1": {}
+  },
+  "postCreateCommand": "bash scripts/dev/post-create.sh",
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
     "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm",

@@ -2,9 +2,24 @@
 
 **Version:** 1.0.0
 **Last Updated:** 2026-01-28
-**Status:** Authoritative Onboarding Source
+**Status:** DEPRECATED - See DEVELOPER_GUIDE.md
+
+⚠️ **DEPRECATED**: This guide has been superseded by [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
+
+The recommended setup is now the unified dev container environment, which provides a batteries-included development stack with all dependencies pre-configured.
+
+### Quick Migration
+
+1. Install VS Code with Dev Containers extension
+2. Open the repository in VS Code
+3. Use Command Palette: `Dev Containers: Reopen in Container`
+4. The environment automatically sets up everything
+
+For complete documentation, see [docs/getting-started/DEVELOPER_GUIDE.md](docs/getting-started/DEVELOPER_GUIDE.md).
 
 ---
+
+## Legacy Content (For Reference Only)
 
 ## 1. Quickstart (Under 10 Minutes)
 

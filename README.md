@@ -2,44 +2,66 @@
 
 ValueOS is a multi-workspace platform for value modeling and lifecycle intelligence. This repository is a monorepo that ships the ValyntApp frontend along with shared packages.
 
-## Setup
+## Quick Start
 
-**Note:** `pnpm run setup` is for workstation bootstrapping only. Docker builds and CI pipelines do not use it; they rely on deterministic `pnpm install --frozen-lockfile`.
+The fastest way to get started is using the unified devcontainer environment, which provides a batteries-included development stack with all dependencies pre-configured.
+
+### Prerequisites
+
+- **VS Code** with Dev Containers extension
+- **Docker Desktop** installed and running
+
+### Setup (Dev Container - Recommended)
+
+1. Clone the repository:
+
+   ```bash
+   git clone <repo-url> valueos && cd valueos
+   ```
+
+2. Open in VS Code and use Command Palette: `Dev Containers: Reopen in Container`
+
+3. The environment will automatically:
+   - Install dependencies
+   - Start all services (Supabase, Redis, etc.)
+   - Apply database migrations
+   - Seed demo data
+
+**Access Points:**
+
+- **Frontend**: `http://localhost:5173`
+- **Supabase Studio**: `http://localhost:54323`
+- **API Gateway**: `http://localhost:54321`
+
+### Alternative: Local Development
+
+If you prefer not to use dev containers:
 
 1. Install Node.js 20+ (use `.nvmrc`) and Docker Desktop.
 2. Enable Corepack and install dependencies:
 
-```bash
-corepack enable
-corepack prepare pnpm@9.15.0 --activate
-pnpm install --frozen-lockfile
-```
+   ```bash
+   corepack enable
+   corepack prepare pnpm@9.15.0 --activate
+   pnpm install --frozen-lockfile
+   ```
 
 3. Generate local environment files:
 
-```bash
-pnpm run dx:env -- --mode local --force
-```
+   ```bash
+   pnpm run dx:env -- --mode local --force
+   ```
 
-For a full, copy/paste local setup, see [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md).
+4. Start the full stack:
+   ```bash
+   pnpm run dx
+   ```
 
-## Running the app
+For detailed setup instructions, see [docs/getting-started/DEVELOPER_GUIDE.md](docs/getting-started/DEVELOPER_GUIDE.md).
 
-Start the full local development stack (recommended):
+## Demo Credentials
 
-```bash
-pnpm run dx
-```
-
-Start only the frontend (requires backend/services already running):
-
-```bash
-pnpm run dev
-```
-
-## Demo credentials
-
-The local setup seeds a demo tenant and user for development convenience. After running `pnpm run setup` (which applies migrations and seeds) or `pnpm run dx -- --seed`, the following credentials are available. Demo seeding is blocked in `production` or `staging` unless you explicitly set `ALLOW_DEMO_SEED=1` for a non-production workflow.
+The setup seeds a demo tenant and user for development convenience. Demo seeding is blocked in production or staging unless you explicitly set `ALLOW_DEMO_SEED=1`.
 
 - **Email:** demouser@valynt.com
 - **Password:** passw0rd! (default — must be at least 8 characters)
@@ -53,17 +75,33 @@ pnpm run seed:demo
 
 Do not use these demo credentials in production environments.
 
-## Common scripts
+## Architecture Overview
+
+ValueOS uses a unified development environment with:
+
+- **Frontend**: React + Vite (ValyntApp)
+- **Backend**: Node.js services with Supabase
+- **Database**: PostgreSQL with Supabase RLS
+- **Orchestration**: Docker Compose for local development
+- **Multi-tenancy**: Organization-scoped data isolation
+
+For detailed architecture diagrams and component relationships, see [docs/getting-started/DEVELOPER_GUIDE.md](docs/getting-started/DEVELOPER_GUIDE.md).
+
+## Common Scripts
 
 Run these from the repo root.
 
-| Task | Command |
-| --- | --- |
-| Lint | `pnpm run lint` |
-| Type-check | `pnpm run typecheck` |
-| Tests (with coverage) | `pnpm run test` |
-| Build | `pnpm run build` |
-| Full CI verification | `pnpm run ci:verify` |
+| Task                  | Command              |
+| --------------------- | -------------------- |
+| Start dev environment | `pnpm run dx`        |
+| Start frontend only   | `pnpm run dev`       |
+| Lint                  | `pnpm run lint`      |
+| Type-check            | `pnpm run typecheck` |
+| Tests (with coverage) | `pnpm run test`      |
+| Build                 | `pnpm run build`     |
+| Full CI verification  | `pnpm run ci:verify` |
+| Database migrations   | `pnpm run db:push`   |
+| Generate types        | `pnpm run db:types`  |
 
 ## Environment variables
 

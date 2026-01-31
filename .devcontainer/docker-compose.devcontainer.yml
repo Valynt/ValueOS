@@ -1,24 +1,185 @@
+version: "3.8"
+
+volumes:
+  postgres-data:
+  redis-data:
+  storage-data:
+  pnpm-store:
+
+networks:
+  valueos-network:
+    driver: bridge
+
 services:
   app:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile.optimized
       args:
+        # Pin Node version for reproducibility (R5)
         NODE_VERSION: "20"
-        VARIANT: "ubuntu-22.04"
     volumes:
       - ..:/workspaces/ValueOS:cached
+      - pnpm-store:/root/.local/share/pnpm
     working_dir: /workspaces/ValueOS
-    command: /bin/sh -c "while sleep 1000; do :; done"
-    init: true
+    command: sleep infinity
     networks:
       - valueos-network
     environment:
-      NODE_ENV: development
-      POSTGRES_HOST: postgres
-      REDIS_HOST: redis
-      DB_HOST: postgres
+      # (C1) Connect to services via internal DNS
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=http://kong:8000
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MTY1ODU3MDUsImV4cCI6MTkyNDEzMzcwNX0.8z-6G9x_xXl5C2s4y1h6n4y2l5h7s4k5j8z-6G9x_xX
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MTY1ODU3MDUsImV4cCI6MTkyNDEzMzcwNX0.8z-6G9x_xXl5C2s4y1h6n8y2l5h7s4k5j8z-6G9x_xX
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
+    depends_on:
+      - db
+      - redis
+      - kong
 
-networks:
-  valueos-network:
-    name: valueos-network
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - valueos-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Supabase Local Stack (R1, R2) ---
+  # We define these manually to avoid 'supabase start' requiring Docker-in-Docker
+
+  db:
+    image: supabase/postgres:15.1.0.117
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c log_min_messages=fatal
+    restart: unless-stopped
+    ports:
+      # Expose for host access if needed (e.g. TablePlus)
+      - "54322:5432"
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Mount init scripts if any exist in infra/supabase/seeds
+      # - ../../infra/supabase/seeds:/docker-entrypoint-initdb.d
+    networks:
+      - valueos-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  studio:
+    image: supabase/studio:20240101-8e0f523
+    restart: unless-stopped
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: postgres
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: http://localhost:54323
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJhcHBuIiwiZXhwIjoxOTI0MTMzNzA1fQ.8z-6G9x_xXl5C2s4y1h6n4y2l5h7s4k5j8z-6G9x_xX}
+    networks:
+      - valueos-network
+    ports:
+      - "54323:3000"
+
+  kong:
+    image: kong:2.8.1
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+    volumes:
+      # We need a basic kong.yml configuration. We will generate a minimal one via script or mount existing.
+      # For now, we assume a standard setup or generated via postCreate if file is missing.
+      - ../config/kong.yml:/var/lib/kong/kong.yml
+    networks:
+      - valueos-network
+    ports:
+      - "54321:8000"
+
+  auth:
+    image: supabase/gotrue:v2.132.3
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_JWT_SECRET: "super-secret-jwt-token-with-at-least-32-characters-long"
+    networks:
+      - valueos-network
+    depends_on:
+      - db
+
+  rest:
+    image: postgrest/postgrest:v12.0.1
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://postgres:postgres@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: "super-secret-jwt-token-with-at-least-32-characters-long"
+    networks:
+      - valueos-network
+    depends_on:
+      - db
+
+  realtime:
+    image: supabase/realtime:v0.26.0
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      DB_SSL: false
+      SLOT_NAME: supabase_realtime
+      TEMPORARY_SLOT: true
+    networks:
+      - valueos-network
+    depends_on:
+      - db
+
+  meta:
+    image: supabase/postgres-meta:v0.68.0
+    restart: unless-stopped
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PASSWORD: postgres
+    networks:
+      - valueos-network
+    depends_on:
+      - db
+
+  storage:
+    image: supabase/storage-api:v0.43.11
+    restart: unless-stopped
+    environment:
+      ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJhcHBuIiwiZXhwIjoxOTI0MTMzNzA1fQ.8z-6G9x_xXl5C2s4y1h6n4y2l5h7s4k5j8z-6G9x_xX}
+      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MTY1ODU3MDUsImV4cCI6MTkyNDEzMzcwNX0.8z-6G9x_xXl5C2s4y1h6n8y2l5h7s4k5j8z-6G9x_xX}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: "super-secret-jwt-token-with-at-least-32-characters-long"
+      DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+    volumes:
+      - storage-data:/var/lib/storage
+    networks:
+      - valueos-network
+    depends_on:
+      - db
+      - rest

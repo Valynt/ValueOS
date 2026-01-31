@@ -1,3 +1,16 @@
+# DEPRECATED: ValueOS Nix Development Environment Template
+#
+# This Nix flake template is DEPRECATED as of 2026-01-31.
+# The recommended development environment is now the unified dev container.
+#
+# Migration Guide:
+# 1. Install VS Code with Dev Containers extension
+# 2. Use "Dev Containers: Reopen in Container" command
+# 3. See docs/getting-started/DEVELOPER_GUIDE.md for details
+#
+# This file is kept for historical reference only.
+# Do not use for new development setups.
+
 # flake.nix
 # Optional: For developers who prefer native Nix development
 # Synced with .tool-versions by scripts/sync-tool-versions.sh
@@ -7,7 +20,7 @@
 #   direnv allow         # Auto-activate with direnv
 
 {
-  description = "ValueOS development environment (Nix path)";
+  description = "ValueOS development environment (Nix path) - DEPRECATED";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
