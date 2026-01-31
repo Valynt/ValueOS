@@ -149,7 +149,7 @@ BEGIN
     -- PRIORITY 2: Fallback to users table lookup if JWT claim missing
     IF org_id IS NULL AND auth.uid() IS NOT NULL THEN
         SELECT organization_id INTO org_id
-        FROM public.users
+        FROM auth.users
         WHERE id = auth.uid()
         LIMIT 1;
     END IF;
@@ -179,7 +179,7 @@ BEGIN
     INTO org_ids
     FROM (
         -- Primary organization from users table
-        SELECT organization_id FROM public.users WHERE id = auth.uid()
+        SELECT organization_id FROM auth.users WHERE id = auth.uid()
         UNION
         -- Additional organizations from user_tenants
         SELECT organization_id FROM public.user_tenants 
@@ -203,7 +203,7 @@ DECLARE
     user_role TEXT;
 BEGIN
     SELECT role INTO user_role
-    FROM public.users
+    FROM auth.users
     WHERE id = auth.uid()
     AND status = 'active';
     
@@ -232,7 +232,7 @@ DECLARE
 BEGIN
     -- Check primary organization
     SELECT role INTO user_role
-    FROM public.users
+    FROM auth.users
     WHERE id = auth.uid()
     AND organization_id = p_org_id
     AND status = 'active';
@@ -269,7 +269,7 @@ AS $$
 BEGIN
     RETURN EXISTS (
         SELECT 1
-        FROM public.users u
+        FROM auth.users u
         JOIN public.organizations o ON u.organization_id = o.id
         WHERE u.id = auth.uid()
         AND u.status = 'active'
@@ -1641,7 +1641,7 @@ BEGIN
         ),
         'export_timestamp', NOW()
     ) INTO user_data
-    FROM public.users u
+    FROM auth.users u
     JOIN public.organizations o ON u.organization_id = o.id
     WHERE u.id = p_user_id;
     
@@ -1678,7 +1678,7 @@ BEGIN
         'DATA_ANONYMIZATION',
         'user',
         p_user_id,
-        (SELECT to_jsonb(u.*) FROM public.users u WHERE u.id = p_user_id),
+        (SELECT to_jsonb(u.*) FROM auth.users u WHERE u.id = p_user_id),
         NULL,
         jsonb_build_object('compliance', 'GDPR', 'requested_by', auth.uid())
     );

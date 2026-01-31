@@ -55,7 +55,7 @@ export class RedisRateLimitStore {
       pipeline.incr(redisKey);
 
       // Set expiry if not set (only on first increment)
-      pipeline.pexpire(redisKey, windowMs);
+      pipeline.pExpire(redisKey, windowMs);
 
       // Execute pipeline
       const results = await pipeline.exec();
@@ -92,7 +92,7 @@ export class RedisRateLimitStore {
     try {
       const pipeline = this.redis.multi();
       pipeline.get(redisKey);
-      pipeline.pttl(redisKey); // Get TTL in milliseconds
+      pipeline.pTTL(redisKey); // Get TTL in milliseconds
 
       const results = await pipeline.exec();
 

@@ -25,17 +25,17 @@ DECLARE
     rls_check RECORD;
     failures INTEGER := 0;
 BEGIN
-    FOR rls_check IN 
+    FOR rls_check IN
         SELECT * FROM security.verify_rls_enabled()
         WHERE status != '✓ OK'
     LOOP
-        RAISE WARNING '  ❌ FAIL: % (RLS: %, Policies: %)', 
-            rls_check.table_name, 
-            rls_check.rls_enabled, 
+        RAISE WARNING '  ❌ FAIL: % (RLS: %, Policies: %)',
+            rls_check.table_name,
+            rls_check.rls_enabled,
             rls_check.policy_count;
         failures := failures + 1;
     END LOOP;
-    
+
     IF failures = 0 THEN
         RAISE NOTICE '  ✅ PASS: All tables have RLS enabled with policies';
     ELSE
@@ -69,7 +69,7 @@ BEGIN
             RAISE NOTICE '  ✅ %: %', health_check.check_name, health_check.value;
         END IF;
     END LOOP;
-    
+
     IF errors > 0 THEN
         RAISE EXCEPTION '  ❌ FAIL: % errors found in health check', errors;
     ELSIF warnings > 0 THEN
@@ -92,8 +92,8 @@ END $$;
 DO $$
 BEGIN
     IF EXISTS (
-        SELECT 1 FROM pg_proc 
-        WHERE proname = 'custom_access_token_hook' 
+        SELECT 1 FROM pg_proc
+        WHERE proname = 'custom_access_token_hook'
         AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
     ) THEN
         RAISE NOTICE '  ✅ PASS: custom_access_token_hook function exists';
@@ -121,13 +121,13 @@ BEGIN
     SELECT count(*) INTO audit_count
     FROM audit.activity_log
     WHERE timestamp > NOW() - INTERVAL '24 hours';
-    
+
     IF audit_count > 0 THEN
         RAISE NOTICE '  ✅ PASS: Audit log active (% entries in last 24h)', audit_count;
     ELSE
         RAISE WARNING '  ⚠️  WARNING: No audit log entries in last 24 hours';
     END IF;
-    
+
     -- Test audit log immutability (should fail)
     BEGIN
         UPDATE audit.activity_log SET action = 'TEST' WHERE id = (
@@ -159,31 +159,21 @@ DECLARE
 BEGIN
     -- Create test organizations (requires service role or admin)
     INSERT INTO public.organizations (id, name, slug, status)
-    VALUES 
+    VALUES
         (org_a, 'Test Org A', 'test-org-a-' || extract(epoch from now())::text, 'active'),
         (org_b, 'Test Org B', 'test-org-b-' || extract(epoch from now())::text, 'active');
-    
-    -- Create test users
-    INSERT INTO public.users (id, organization_id, email, role, status)
-    VALUES 
-        (user_a, org_a, 'test-user-a-' || extract(epoch from now())::text || '@test.com', 'member', 'active'),
-        (user_b, org_b, 'test-user-b-' || extract(epoch from now())::text || '@test.com', 'member', 'active');
-    
+
+    -- Note: User creation skipped as users are managed by Supabase Auth in auth.users
+
     -- Test 1: Simulate user A trying to access org B (should fail with RLS)
     -- Note: This test assumes RLS policies are properly configured
     -- In production, this would be tested via actual API calls with JWT tokens
-    
+
     RAISE NOTICE '  ℹ️  Multi-tenancy isolation requires end-to-end testing with actual JWT tokens';
     RAISE NOTICE '     Run: pnpm run test:rls for comprehensive RLS policy tests';
-    
+
     -- Cleanup test data
-    DELETE FROM public.users WHERE id IN (user_a, user_b);
-    DELETE FROM public.organizations WHERE id IN (org_a, org_b);
-    
-    RAISE NOTICE '  ✅ PASS: Test data created and cleaned up successfully';
-    
-EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING '  ⚠️  WARNING: Could not run isolation test (may require elevated privileges)';
+    -- DELETE FROM auth.users WHERE id IN (user_a, user_b); -- Users managed by auth
     RAISE NOTICE '     Message: %', SQLERRM;
 END $$;
 
@@ -205,14 +195,14 @@ BEGIN
     SELECT count(*) INTO service_ops
     FROM audit.activity_log
     WHERE is_service_operation = TRUE;
-    
+
     SELECT count(*) INTO recent_service_ops
     FROM audit.activity_log
     WHERE is_service_operation = TRUE
       AND timestamp > NOW() - INTERVAL '7 days';
-    
+
     IF service_ops > 0 THEN
-        RAISE NOTICE '  ✅ PASS: Service role operations tracked (total: %, last 7d: %)', 
+        RAISE NOTICE '  ✅ PASS: Service role operations tracked (total: %, last 7d: %)',
             service_ops, recent_service_ops;
     ELSE
         RAISE NOTICE '  ℹ️  INFO: No service role operations logged yet';
@@ -238,25 +228,25 @@ BEGIN
     SELECT EXISTS (
         SELECT 1 FROM pg_extension WHERE extname = 'vector'
     ) INTO vector_enabled;
-    
+
     IF vector_enabled THEN
         RAISE NOTICE '  ✅ PASS: pgvector extension enabled';
-        
+
         -- Check if semantic_memory table exists
         IF EXISTS (
-            SELECT 1 FROM pg_tables 
+            SELECT 1 FROM pg_tables
             WHERE schemaname = 'public' AND tablename = 'semantic_memory'
         ) THEN
             RAISE NOTICE '  ✅ PASS: semantic_memory table exists';
-            
+
             -- Check for vector index
             SELECT EXISTS (
-                SELECT 1 FROM pg_indexes 
-                WHERE schemaname = 'public' 
+                SELECT 1 FROM pg_indexes
+                WHERE schemaname = 'public'
                   AND tablename = 'semantic_memory'
                   AND indexname LIKE '%embedding%'
             ) INTO index_exists;
-            
+
             IF index_exists THEN
                 RAISE NOTICE '  ✅ PASS: Vector similarity index exists';
             ELSE
@@ -288,7 +278,7 @@ BEGIN
     -- Check for slow queries (>1 second)
     SELECT count(*) INTO slow_queries
     FROM security.get_slow_queries(1000);
-    
+
     IF slow_queries > 10 THEN
         RAISE WARNING '  ⚠️  WARNING: % slow queries detected (>1s)', slow_queries;
         RAISE NOTICE '     Run: SELECT * FROM security.get_slow_queries(1000);';
@@ -297,16 +287,16 @@ BEGIN
     ELSE
         RAISE NOTICE '  ✅ PASS: No slow queries detected';
     END IF;
-    
+
     -- Check for table bloat
     FOR table_bloat IN SELECT * FROM security.check_table_bloat() LOOP
         IF table_bloat.bloat_pct > 30 THEN
-            RAISE WARNING '  ⚠️  WARNING: Table % has %.1f%% bloat', 
+            RAISE WARNING '  ⚠️  WARNING: Table % has %.1f%% bloat',
                 table_bloat.table_name, table_bloat.bloat_pct;
             bloat_issues := bloat_issues + 1;
         END IF;
     END LOOP;
-    
+
     IF bloat_issues = 0 THEN
         RAISE NOTICE '  ✅ PASS: No significant table bloat detected';
     END IF;
@@ -332,9 +322,9 @@ BEGIN
         SELECT count(*) INTO policy_count FROM storage.buckets WHERE id IN (
             SELECT bucket_id FROM storage.objects_policies
         );
-        
+
         RAISE NOTICE '  ℹ️  INFO: % storage buckets configured', bucket_count;
-        
+
         IF bucket_count > 0 AND policy_count = 0 THEN
             RAISE WARNING '  ⚠️  WARNING: Storage buckets exist but no RLS policies configured';
         ELSIF bucket_count > 0 THEN

@@ -20,6 +20,10 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- Allow local superuser to create helper in auth schema
+GRANT USAGE ON SCHEMA auth TO postgres;
+GRANT CREATE ON SCHEMA auth TO postgres;
+
 -- Ensure auth schema and jwt helper exist for local environments
 CREATE SCHEMA IF NOT EXISTS auth;
 DO $$
@@ -357,7 +361,7 @@ BEGIN
     client_ip := NULL;
     client_ua := NULL;
   END;
-  
+
   -- Insert audit log
   INSERT INTO public.audit_logs (
     user_id,
@@ -381,7 +385,7 @@ BEGIN
     p_metadata
   )
   RETURNING id INTO log_id;
-  
+
   RETURN log_id;
 END;
 $$;
@@ -410,20 +414,20 @@ BEGIN
   SELECT * INTO request
   FROM public.approval_requests
   WHERE id = p_request_id AND status = 'pending';
-  
+
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Request not found or not pending';
   END IF;
-  
+
   -- Check if request has expired
   IF request.expires_at < NOW() THEN
     UPDATE public.approval_requests
     SET status = 'expired', updated_at = NOW()
     WHERE id = p_request_id;
-    
+
     RAISE EXCEPTION 'Request has expired';
   END IF;
-  
+
   -- Check if approver has permission
   SELECT EXISTS (
     SELECT 1 FROM public.approver_roles
@@ -436,25 +440,25 @@ BEGIN
         (can_approve_data_export AND request.involves_data_export)
       )
   ) INTO approver_valid;
-  
+
   IF NOT approver_valid THEN
     RAISE EXCEPTION 'User does not have permission to approve this request';
   END IF;
-  
+
   -- Check dual control requirement
   IF request.requires_dual_control AND p_second_approver_email IS NULL THEN
     RAISE EXCEPTION 'This request requires dual control (second approver)';
   END IF;
-  
+
   -- Check if already approved
   SELECT id INTO existing_approval
   FROM public.approvals
   WHERE request_id = p_request_id;
-  
+
   IF existing_approval IS NOT NULL THEN
     RAISE EXCEPTION 'Request already processed';
   END IF;
-  
+
   -- Record approval
   INSERT INTO public.approvals (
     request_id,
@@ -471,12 +475,12 @@ BEGIN
     'approved',
     p_notes
   );
-  
+
   -- Update request status
   UPDATE public.approval_requests
   SET status = 'approved', updated_at = NOW()
   WHERE id = p_request_id;
-  
+
   RETURN TRUE;
 END;
 $$;
@@ -517,11 +521,11 @@ BEGIN
       ),
       'critical'
     );
-    
-    RAISE EXCEPTION 'SECURITY VIOLATION: tenant_id cannot be NULL (table: %, operation: %)', 
+
+    RAISE EXCEPTION 'SECURITY VIOLATION: tenant_id cannot be NULL (table: %, operation: %)',
       TG_TABLE_NAME, TG_OP;
   END IF;
-  
+
   -- Validate user has access to this tenant
   IF NOT EXISTS (
     SELECT 1 FROM user_tenants
@@ -546,11 +550,11 @@ BEGIN
       ),
       'critical'
     );
-    
-    RAISE EXCEPTION 'SECURITY VIOLATION: User % does not have access to tenant %', 
+
+    RAISE EXCEPTION 'SECURITY VIOLATION: User % does not have access to tenant %',
       (auth.uid())::text, NEW.tenant_id;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -623,7 +627,7 @@ BEGIN
   INTO result
   FROM prompt_executions
   WHERE prompt_version_id = p_version_id;
-  
+
   RETURN result;
 END;
 $$;
@@ -654,7 +658,7 @@ BEGIN
   WHERE email = user_email
     AND success = FALSE
     AND attempted_at > NOW() - lockout_duration;
-  
+
   RETURN failed_attempts >= max_attempts;
 END;
 $$;
@@ -687,12 +691,12 @@ BEGIN
     WHERE al.module_id = am.id
     AND (ap.status IS NULL OR ap.status != 'completed')
   );
-  
+
   -- Check for verified value commit
   SELECT EXISTS (
     SELECT 1 FROM value_ledger WHERE user_id = p_user_id AND value_realized > 0
   ) INTO v_has_value_commit;
-  
+
   CASE p_level
     WHEN 'practitioner' THEN
       RETURN v_completed_pillars >= 4; -- Core pillars 1-4
@@ -719,21 +723,21 @@ BEGIN
   IF field_name IN ('ssn', 'social_security', 'credit_card', 'password', 'api_key', 'secret') THEN
     RETURN 'restricted';
   END IF;
-  
+
   IF public.contains_pii(field_value) THEN
     RETURN 'restricted';
   END IF;
-  
+
   -- Confidential: Personal info fields
   IF field_name IN ('email', 'phone', 'address', 'dob', 'salary', 'medical') THEN
     RETURN 'confidential';
   END IF;
-  
+
   -- Internal: Business data
   IF field_name IN ('revenue', 'profit', 'cost', 'internal_notes') THEN
     RETURN 'internal';
   END IF;
-  
+
   -- Public: Everything else (default to internal for safety)
   RETURN 'internal';
 END;
@@ -761,9 +765,9 @@ BEGIN
   SET status = 'expired', updated_at = NOW()
   WHERE status = 'pending'
     AND expires_at < NOW();
-  
+
   GET DIAGNOSTICS expired_count = ROW_COUNT;
-  
+
   RETURN expired_count;
 END;
 $$;
@@ -790,14 +794,14 @@ DECLARE
   cutoff_date TIMESTAMPTZ;
   error_msg TEXT;
 BEGIN
-  FOR policy IN 
+  FOR policy IN
     SELECT * FROM public.retention_policies WHERE enabled = true
   LOOP
     cutoff_date := NOW() - (policy.retention_days || ' days')::INTERVAL;
     archived := 0;
     deleted := 0;
     error_msg := NULL;
-    
+
     BEGIN
       -- Archive if configured
       IF policy.archive_before_delete AND policy.archive_table IS NOT NULL THEN
@@ -807,47 +811,47 @@ BEGIN
           policy.table_name,
           policy.date_column
         ) USING cutoff_date;
-        
+
         GET DIAGNOSTICS archived = ROW_COUNT;
       END IF;
-      
+
       -- Delete expired records
       EXECUTE format(
         'DELETE FROM %I WHERE %I < $1',
         policy.table_name,
         policy.date_column
       ) USING cutoff_date;
-      
+
       GET DIAGNOSTICS deleted = ROW_COUNT;
-      
+
       -- Update policy status
-      UPDATE public.retention_policies 
-      SET 
+      UPDATE public.retention_policies
+      SET
         last_run_at = NOW(),
         last_run_status = 'success',
         last_run_archived = archived,
         last_run_deleted = deleted,
         updated_at = NOW()
       WHERE id = policy.id;
-      
+
       -- Return results
       table_name := policy.table_name;
       archived_count := archived;
       deleted_count := deleted;
       status := 'success';
       RETURN NEXT;
-      
+
     EXCEPTION WHEN OTHERS THEN
       error_msg := SQLERRM;
-      
+
       -- Update policy with error
-      UPDATE public.retention_policies 
-      SET 
+      UPDATE public.retention_policies
+      SET
         last_run_at = NOW(),
         last_run_status = 'error: ' || error_msg,
         updated_at = NOW()
       WHERE id = policy.id;
-      
+
       -- Return error
       table_name := policy.table_name;
       archived_count := 0;
@@ -880,7 +884,7 @@ BEGIN
   DELETE FROM agent_sessions
   WHERE updated_at < NOW() - (days_old || ' days')::INTERVAL
     AND status != 'active';
-  
+
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
   RETURN deleted_count;
 END;
@@ -906,7 +910,7 @@ DECLARE
 BEGIN
     DELETE FROM llm_usage
     WHERE created_at < NOW() - INTERVAL '90 days';
-    
+
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     RETURN deleted_count;
 END;
@@ -958,13 +962,13 @@ BEGIN
   SELECT * INTO policy
   FROM public.retention_policies
   WHERE table_name = p_table_name AND enabled = true;
-  
+
   IF NOT FOUND THEN
     RAISE EXCEPTION 'No enabled retention policy found for table: %', p_table_name;
   END IF;
-  
+
   cutoff := NOW() - (policy.retention_days || ' days')::INTERVAL;
-  
+
   -- Count records to be processed
   IF p_dry_run THEN
     EXECUTE format(
@@ -972,12 +976,12 @@ BEGIN
       policy.table_name,
       policy.date_column
     ) USING cutoff INTO deleted;
-    
+
     action := 'dry_run_would_delete';
     row_count := deleted;
     cutoff_date := cutoff;
     RETURN NEXT;
-    
+
     IF policy.archive_before_delete AND policy.archive_table IS NOT NULL THEN
       action := 'dry_run_would_archive';
       row_count := deleted;
@@ -993,24 +997,24 @@ BEGIN
         policy.table_name,
         policy.date_column
       ) USING cutoff;
-      
+
       GET DIAGNOSTICS archived = ROW_COUNT;
-      
+
       action := 'archived';
       row_count := archived;
       cutoff_date := cutoff;
       RETURN NEXT;
     END IF;
-    
+
     -- Delete expired records
     EXECUTE format(
       'DELETE FROM %I WHERE %I < $1',
       policy.table_name,
       policy.date_column
     ) USING cutoff;
-    
+
     GET DIAGNOSTICS deleted = ROW_COUNT;
-    
+
     action := 'deleted';
     row_count := deleted;
     cutoff_date := cutoff;
@@ -1038,27 +1042,27 @@ BEGIN
   IF text_value IS NULL THEN
     RETURN false;
   END IF;
-  
+
   -- Check for email patterns
   IF text_value ~ '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' THEN
     RETURN true;
   END IF;
-  
+
   -- Check for phone patterns
   IF text_value ~ '\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}' THEN
     RETURN true;
   END IF;
-  
+
   -- Check for SSN patterns
   IF text_value ~ '\d{3}-?\d{2}-?\d{4}' THEN
     RETURN true;
   END IF;
-  
+
   -- Check for credit card patterns
   IF text_value ~ '\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}' THEN
     RETURN true;
   END IF;
-  
+
   RETURN false;
 END;
 $$;
@@ -1086,7 +1090,7 @@ BEGIN
   requires_dual := (p_estimated_cost > 100) OR p_action IN (
     'DELETE_USER', 'PURGE_DATABASE', 'MODIFY_BILLING', 'GRANT_ADMIN_ACCESS'
   );
-  
+
   INSERT INTO public.approval_requests (
     agent_name,
     action,
@@ -1109,7 +1113,7 @@ BEGIN
     p_metadata
   )
   RETURNING id INTO request_id;
-  
+
   RETURN request_id;
 END;
 $$;
@@ -1135,7 +1139,7 @@ BEGIN
   IF encrypted IS NULL THEN
     RETURN NULL;
   END IF;
-  
+
   -- Check if user is admin
   BEGIN
     SELECT raw_user_meta_data->>'role' INTO user_role
@@ -1144,16 +1148,16 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     user_role := NULL;
   END;
-  
+
   -- Only admins can decrypt
   IF user_role != 'admin' THEN
     RETURN '[ENCRYPTED]';
   END IF;
-  
+
   IF encryption_key IS NULL OR encryption_key = '' THEN
     RETURN '[ENCRYPTION_KEY_NOT_CONFIGURED]';
   END IF;
-  
+
   RETURN pgp_sym_decrypt(encrypted, encryption_key);
 END;
 $$;
@@ -1176,7 +1180,7 @@ CREATE FUNCTION public.delete_old_secret_audit_logs() RETURNS void
 BEGIN
   DELETE FROM secret_audit_logs
   WHERE timestamp < NOW() - INTERVAL '90 days';
-  
+
   RAISE NOTICE 'Deleted old secret audit logs';
 END;
 $$;
@@ -1204,17 +1208,17 @@ BEGIN
   previous_run AS (
     SELECT id, results FROM latest_two_runs OFFSET 1 LIMIT 1
   )
-  SELECT 
+  SELECT
     (curr_result->>'exampleName')::TEXT as example_name,
     (prev_result->>'overallScore')::FLOAT as previous_score,
     (curr_result->>'overallScore')::FLOAT as current_score,
     ((curr_result->>'overallScore')::FLOAT - (prev_result->>'overallScore')::FLOAT) as score_diff
-  FROM 
+  FROM
     current_run,
     jsonb_array_elements(current_run.results) curr_result,
     previous_run,
     jsonb_array_elements(previous_run.results) prev_result
-  WHERE 
+  WHERE
     curr_result->>'exampleId' = prev_result->>'exampleId'
     AND ((curr_result->>'overallScore')::FLOAT - (prev_result->>'overallScore')::FLOAT) < -p_threshold
   ORDER BY score_diff ASC;
@@ -1240,11 +1244,11 @@ BEGIN
   IF plaintext IS NULL THEN
     RETURN NULL;
   END IF;
-  
+
   IF encryption_key IS NULL OR encryption_key = '' THEN
     RAISE EXCEPTION 'Encryption key not configured';
   END IF;
-  
+
   RETURN pgp_sym_encrypt(plaintext, encryption_key);
 END;
 $$;
@@ -1271,11 +1275,11 @@ DECLARE
   variant_result JSONB;
 BEGIN
   SELECT * INTO test_record FROM ab_tests WHERE id = p_test_id;
-  
+
   IF NOT FOUND THEN
     RETURN NULL;
   END IF;
-  
+
   FOR variant IN SELECT * FROM jsonb_array_elements(test_record.variants)
   LOOP
     SELECT jsonb_build_object(
@@ -1289,10 +1293,10 @@ BEGIN
     INTO variant_result
     FROM prompt_executions
     WHERE prompt_version_id = (variant->>'versionId')::UUID;
-    
+
     results := results || jsonb_build_array(variant_result);
   END LOOP;
-  
+
   RETURN results;
 END;
 $$;
@@ -1368,13 +1372,13 @@ CREATE FUNCTION public.get_agent_accuracy(p_agent_type text, p_days integer DEFA
     AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     DATE(ap.created_at) as date,
     COUNT(*) as prediction_count,
     ROUND(AVG(ap.confidence_score)::DECIMAL, 3) as avg_confidence,
     ROUND(
-      (COUNT(*) FILTER (WHERE ap.hallucination_detected = TRUE)::DECIMAL / 
-      NULLIF(COUNT(*), 0) * 100), 
+      (COUNT(*) FILTER (WHERE ap.hallucination_detected = TRUE)::DECIMAL /
+      NULLIF(COUNT(*), 0) * 100),
       2
     ) as hallucination_rate,
     ROUND(AVG(ABS(ap.variance_percentage))::DECIMAL, 2) as avg_variance
@@ -1442,16 +1446,16 @@ BEGIN
   WHERE agent_id = p_agent_id
   ORDER BY last_calibrated DESC
   LIMIT 1;
-  
+
   IF v_model IS NULL THEN
     -- No calibration model, return raw confidence
     RETURN p_raw_confidence;
   END IF;
-  
+
   -- Apply Platt scaling: C_cal = 1 / (1 + exp(-(A * C_raw + B)))
   v_z := v_model.parameter_a * p_raw_confidence + v_model.parameter_b;
   v_calibrated := 1.0 / (1.0 + EXP(-v_z));
-  
+
   -- Clamp to [0, 1]
   RETURN GREATEST(0.0, LEAST(1.0, v_calibrated));
 END;
@@ -1486,7 +1490,7 @@ BEGIN
     AND metric = p_metric
     AND timestamp >= p_period_start
     AND timestamp < p_period_end;
-  
+
   RETURN total_usage;
 END;
 $$;
@@ -1573,7 +1577,7 @@ BEGIN
   INTO result
   FROM evaluation_runs
   WHERE agent_type = p_agent_type;
-  
+
   RETURN result;
 END;
 $$;
@@ -1598,12 +1602,12 @@ DECLARE
   start_date TIMESTAMPTZ;
 BEGIN
   start_date := NOW() - (p_days || ' days')::INTERVAL;
-  
+
   SELECT jsonb_build_object(
     'totalEvaluations', COUNT(*),
     'enabledCount', COUNT(*) FILTER (WHERE enabled = true),
-    'enabledPercentage', 
-      CASE 
+    'enabledPercentage',
+      CASE
         WHEN COUNT(*) > 0 THEN (COUNT(*) FILTER (WHERE enabled = true)::FLOAT / COUNT(*)::FLOAT * 100)
         ELSE 0
       END,
@@ -1623,7 +1627,7 @@ BEGIN
   FROM feature_flag_evaluations
   WHERE flag_key = p_flag_key
     AND evaluated_at >= start_date;
-  
+
   RETURN result;
 END;
 $$;
@@ -1645,7 +1649,7 @@ CREATE FUNCTION public.get_high_scoring_memories(p_type text, p_min_score double
     AS $$
     BEGIN
       RETURN QUERY
-      SELECT 
+      SELECT
         sm.id,
         sm.type,
         sm.content,
@@ -1694,7 +1698,7 @@ CREATE FUNCTION public.get_llm_usage_stats(p_start_date timestamp with time zone
     AS $$
 BEGIN
     RETURN QUERY
-    SELECT 
+    SELECT
         COUNT(*)::BIGINT as total_requests,
         COALESCE(SUM(estimated_cost), 0)::DECIMAL(10, 2) as total_cost,
         COALESCE(SUM(total_tokens), 0)::BIGINT as total_tokens,
@@ -1702,19 +1706,19 @@ BEGIN
         COALESCE(AVG(latency_ms), 0)::DECIMAL(10, 2) as avg_latency_ms,
         (COUNT(*) FILTER (WHERE success = true)::DECIMAL / NULLIF(COUNT(*), 0) * 100)::DECIMAL(5, 2) as success_rate,
         (
-            SELECT model 
-            FROM llm_usage 
+            SELECT model
+            FROM llm_usage
             WHERE created_at BETWEEN p_start_date AND p_end_date
-            GROUP BY model 
-            ORDER BY COUNT(*) DESC 
+            GROUP BY model
+            ORDER BY COUNT(*) DESC
             LIMIT 1
         ) as top_model,
         (
-            SELECT user_id 
-            FROM llm_usage 
+            SELECT user_id
+            FROM llm_usage
             WHERE created_at BETWEEN p_start_date AND p_end_date
-            GROUP BY user_id 
-            ORDER BY SUM(estimated_cost) DESC 
+            GROUP BY user_id
+            ORDER BY SUM(estimated_cost) DESC
             LIMIT 1
         ) as top_user
     FROM llm_usage
@@ -1739,7 +1743,7 @@ CREATE FUNCTION public.get_memories_by_industry(p_industry text, p_type text DEF
     AS $$
     BEGIN
       RETURN QUERY
-      SELECT 
+      SELECT
         sm.id,
         sm.type,
         sm.content,
@@ -1781,7 +1785,7 @@ CREATE FUNCTION public.get_memory_statistics() RETURNS jsonb
       )
       INTO result
       FROM semantic_memory;
-      
+
       RETURN result;
     END;
     $$;
@@ -1820,7 +1824,7 @@ CREATE FUNCTION public.get_resource_audit_logs(p_resource_type text, p_resource_
     AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     a.id,
     a.user_id,
     a.action,
@@ -1845,7 +1849,7 @@ CREATE FUNCTION public.get_tenant_integration(p_tenant_id uuid, p_provider text)
     AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     ti.id,
     ti.access_token,
     ti.refresh_token,
@@ -1880,20 +1884,20 @@ BEGIN
     AND NOW() >= period_start
     AND NOW() < period_end
   LIMIT 1;
-  
+
   IF NOT FOUND OR quota_rec.quota_amount = 0 THEN
     RETURN 0;
   END IF;
-  
+
   current_usage := public.get_current_usage(
     p_tenant_id,
     p_metric,
     quota_rec.period_start,
     quota_rec.period_end
   );
-  
+
   percentage := ROUND((current_usage / quota_rec.quota_amount) * 100);
-  
+
   RETURN LEAST(percentage, 999); -- Cap at 999%
 END;
 $$;
@@ -1908,7 +1912,7 @@ CREATE FUNCTION public.get_user_audit_logs(p_user_id uuid, p_limit integer DEFAU
     AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     a.id,
     a.action,
     a.resource_type,
@@ -1936,7 +1940,7 @@ DECLARE
   start_date TIMESTAMPTZ;
 BEGIN
   start_date := NOW() - (p_days || ' days')::INTERVAL;
-  
+
   SELECT jsonb_build_object(
     'totalJobs', COUNT(*),
     'totalCost', SUM(cost_usd),
@@ -1946,7 +1950,7 @@ BEGIN
     'byType', (
       SELECT jsonb_object_agg(type, stats)
       FROM (
-        SELECT 
+        SELECT
           type,
           jsonb_build_object(
             'count', COUNT(*),
@@ -1974,7 +1978,7 @@ BEGIN
   FROM llm_job_results
   WHERE user_id = p_user_id
     AND created_at >= start_date;
-  
+
   RETURN result;
 END;
 $$;
@@ -2026,11 +2030,11 @@ BEGIN
     AND NOW() >= period_start
     AND NOW() < period_end
   LIMIT 1;
-  
+
   IF NOT FOUND THEN
     RETURN FALSE; -- No quota = unlimited
   END IF;
-  
+
   -- Get current usage
   current_usage := public.get_current_usage(
     p_tenant_id,
@@ -2038,7 +2042,7 @@ BEGIN
     quota_rec.period_start,
     quota_rec.period_end
   );
-  
+
   RETURN current_usage >= quota_rec.quota_amount;
 END;
 $$;
@@ -2111,7 +2115,7 @@ CREATE FUNCTION public.mark_integration_error(p_integration_id uuid, p_error_mes
     AS $$
 BEGIN
   UPDATE tenant_integrations
-  SET 
+  SET
     status = 'error',
     error_message = p_error_message,
     updated_at = now()
@@ -2131,10 +2135,10 @@ BEGIN
   IF cc IS NULL OR cc = '' THEN
     RETURN cc;
   END IF;
-  
+
   -- Extract digits only
   cc := REGEXP_REPLACE(cc, '[^0-9]', '', 'g');
-  
+
   IF LENGTH(cc) >= 13 THEN
     -- 1234567890123456 -> ****-****-****-3456
     RETURN '****-****-****-' || SUBSTRING(cc FROM LENGTH(cc) - 3);
@@ -2163,7 +2167,7 @@ BEGIN
   IF email IS NULL OR email = '' THEN
     RETURN email;
   END IF;
-  
+
   -- john.doe@example.com -> jo***@example.com
   RETURN REGEXP_REPLACE(email, '(.{2}).*(@.+)', '\1***\2');
 END;
@@ -2188,10 +2192,10 @@ BEGIN
   IF phone IS NULL OR phone = '' THEN
     RETURN phone;
   END IF;
-  
+
   -- Extract digits only
   phone := REGEXP_REPLACE(phone, '[^0-9]', '', 'g');
-  
+
   IF LENGTH(phone) >= 10 THEN
     -- (555) 123-4567 -> (555) ***-4567
     RETURN '(' || SUBSTRING(phone FROM 1 FOR 3) || ') ***-' || SUBSTRING(phone FROM LENGTH(phone) - 3);
@@ -2220,10 +2224,10 @@ BEGIN
   IF ssn IS NULL OR ssn = '' THEN
     RETURN ssn;
   END IF;
-  
+
   -- Extract digits only
   ssn := REGEXP_REPLACE(ssn, '[^0-9]', '', 'g');
-  
+
   IF LENGTH(ssn) = 9 THEN
     -- 123456789 -> ***-**-6789
     RETURN '***-**-' || SUBSTRING(ssn FROM 6);
@@ -2296,7 +2300,7 @@ BEGIN
   SELECT needs_recalibration INTO v_status
   FROM agent_calibration_status
   WHERE agent_id = p_agent_id;
-  
+
   RETURN COALESCE(v_status.needs_recalibration, true);
 END;
 $$;
@@ -2367,11 +2371,11 @@ BEGIN
   IF value IS NULL OR value = '' THEN
     RETURN value;
   END IF;
-  
+
   IF LENGTH(value) <= visible_chars THEN
     RETURN REPEAT('*', LENGTH(value));
   END IF;
-  
+
   RETURN SUBSTRING(value FROM 1 FOR visible_chars) || REPEAT('*', LENGTH(value) - visible_chars);
 END;
 $$;
@@ -2425,7 +2429,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Request not found or not pending';
   END IF;
-  
+
   -- Record rejection
   INSERT INTO public.approvals (
     request_id,
@@ -2440,12 +2444,12 @@ BEGIN
     'rejected',
     p_notes
   );
-  
+
   -- Update request status
   UPDATE public.approval_requests
   SET status = 'rejected', updated_at = NOW()
   WHERE id = p_request_id;
-  
+
   RETURN TRUE;
 END;
 $$;
@@ -2469,7 +2473,7 @@ CREATE FUNCTION public.search_semantic_memory(query_embedding public.vector, mat
       sql_query text;
     BEGIN
       sql_query := format('
-        SELECT 
+        SELECT
           id,
           type,
           content,
@@ -2486,7 +2490,7 @@ CREATE FUNCTION public.search_semantic_memory(query_embedding public.vector, mat
       CASE WHEN filter_clause != '' THEN filter_clause ELSE '' END,
       CASE WHEN match_threshold > 0 THEN format('AND 1 - (embedding <=> $1) >= %s', match_threshold) ELSE '' END
       );
-      
+
       RETURN QUERY EXECUTE sql_query USING query_embedding, match_count;
     END;
     $_$;
@@ -2508,7 +2512,7 @@ CREATE FUNCTION public.search_semantic_memory(query_embedding public.vector, mat
       END IF;
 
       sql_query := format('
-        SELECT 
+        SELECT
           id,
           type,
           content,
@@ -2566,7 +2570,7 @@ BEGIN
       WHERE agent_id = NEW.agent_id
       ORDER BY last_calibrated DESC
       LIMIT 1;
-      
+
       IF latest_calibration IS NOT NULL THEN
         -- Count predictions since last calibration
         SELECT COUNT(*) INTO predictions_since_calibration
@@ -2574,7 +2578,7 @@ BEGIN
         WHERE agent_id = NEW.agent_id
         AND created_at > latest_calibration.last_calibrated
         AND actual_outcome IS NOT NULL;
-        
+
         -- Trigger recalibration if we have 100+ new outcomes
         IF predictions_since_calibration >= 100 THEN
           INSERT INTO agent_retraining_queue (agent_id, reason, priority)
@@ -2588,7 +2592,7 @@ BEGIN
       END IF;
     END;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -2631,7 +2635,7 @@ CREATE FUNCTION public.update_integration_tokens(p_integration_id uuid, p_access
     AS $$
 BEGIN
   UPDATE tenant_integrations
-  SET 
+  SET
     access_token = p_access_token,
     refresh_token = COALESCE(p_refresh_token, refresh_token),
     token_expires_at = p_expires_at,
@@ -2701,7 +2705,7 @@ BEGIN
     attempts = CASE WHEN EXCLUDED.status = 'completed' THEN academy_progress.attempts + 1 ELSE academy_progress.attempts END,
     updated_at = NOW()
   RETURNING * INTO v_progress;
-  
+
   RETURN v_progress;
 END;
 $$;
@@ -2790,7 +2794,7 @@ BEGIN
     SET performance = calculate_version_performance(NEW.prompt_version_id)
     WHERE id = NEW.prompt_version_id;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -2852,31 +2856,31 @@ BEGIN
     error_list := array_append(error_list, 'Password must be at least 12 characters long');
     valid := FALSE;
   END IF;
-  
+
   -- Check for uppercase letter
   IF password !~ '[A-Z]' THEN
     error_list := array_append(error_list, 'Password must contain at least one uppercase letter');
     valid := FALSE;
   END IF;
-  
+
   -- Check for lowercase letter
   IF password !~ '[a-z]' THEN
     error_list := array_append(error_list, 'Password must contain at least one lowercase letter');
     valid := FALSE;
   END IF;
-  
+
   -- Check for number
   IF password !~ '[0-9]' THEN
     error_list := array_append(error_list, 'Password must contain at least one number');
     valid := FALSE;
   END IF;
-  
+
   -- Check for special character
   IF password !~ '[!@#$%^&*(),.?":{}|<>]' THEN
     error_list := array_append(error_list, 'Password must contain at least one special character');
     valid := FALSE;
   END IF;
-  
+
   RETURN QUERY SELECT valid, error_list;
 END;
 $_$;
@@ -2898,7 +2902,7 @@ CREATE FUNCTION public.verify_rls_tenant_isolation() RETURNS TABLE(table_name te
     AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     t.tablename::TEXT,
     t.rowsecurity,
     COUNT(p.policyname)::INTEGER,
@@ -4655,14 +4659,14 @@ Audit trail for all secret access operations.
 Example queries:
 
 -- Get audit logs for a specific tenant
-SELECT * FROM secret_audit_logs 
-WHERE tenant_id = ''tenant-123'' 
-ORDER BY timestamp DESC 
+SELECT * FROM secret_audit_logs
+WHERE tenant_id = ''tenant-123''
+ORDER BY timestamp DESC
 LIMIT 100;
 
 -- Count operations by type for last 24 hours
-SELECT action, result, COUNT(*) 
-FROM secret_audit_logs 
+SELECT action, result, COUNT(*)
+FROM secret_audit_logs
 WHERE timestamp >= NOW() - INTERVAL ''24 hours''
 GROUP BY action, result;
 
@@ -11613,13 +11617,13 @@ CREATE TABLE IF NOT EXISTS public.hitl_requests (
     organization_id UUID NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'escalated', 'expired', 'auto_approved', 'cancelled')),
     priority TEXT NOT NULL DEFAULT 'medium',
-    
+
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at TIMESTAMPTZ NOT NULL,
     resolved_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    
+
     -- JSON payloads for flexibility
     request_payload JSONB NOT NULL DEFAULT '{}'::jsonb, -- Includes data preview, action details
     approvals JSONB NOT NULL DEFAULT '[]'::jsonb,      -- Array of approvals
@@ -11684,20 +11688,20 @@ CREATE TABLE IF NOT EXISTS organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   slug VARCHAR(100) UNIQUE NOT NULL,
-  
+
   -- Organization settings
   settings JSONB NOT NULL DEFAULT '{}'::jsonb,
-  
+
   -- Subscription/billing
   plan VARCHAR(50) DEFAULT 'free' CHECK (plan IN ('free', 'pro', 'enterprise')),
-  
+
   -- Status
   status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),
-  
+
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
+
   -- Optional metadata
   metadata JSONB DEFAULT '{}'::jsonb
 );
@@ -11710,14 +11714,14 @@ CREATE TABLE IF NOT EXISTS user_organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  
+
   -- User's role in this organization
   role VARCHAR(50) NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
-  
+
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
+
   -- A user can only belong to an organization once
   UNIQUE(user_id, organization_id)
 );
@@ -11854,39 +11858,39 @@ CREATE INDEX IF NOT EXISTS idx_rate_limit_last_refill ON rate_limit_buckets(last
 CREATE TABLE IF NOT EXISTS integration_connections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  
+
   -- Adapter details
   adapter_type VARCHAR(50) NOT NULL CHECK (adapter_type IN (
     'salesforce', 'hubspot', 'servicenow', 'slack', 'sharepoint', 'box'
   )),
   display_name VARCHAR(255) NOT NULL,
-  
+
   -- Auth credentials (encrypted via Supabase Vault in production)
   credentials JSONB NOT NULL,
-  
+
   -- Configuration
   config JSONB NOT NULL DEFAULT '{}'::jsonb,
   field_mappings JSONB NOT NULL DEFAULT '{}'::jsonb,
-  
+
   -- Sync state
   last_sync_time TIMESTAMPTZ,
   sync_status VARCHAR(20) DEFAULT 'active' CHECK (sync_status IN (
     'active', 'paused', 'error', 'disabled'
   )),
   sync_error TEXT,
-  
+
   -- Metrics
   total_syncs INT DEFAULT 0,
   successful_syncs INT DEFAULT 0,
   failed_syncs INT DEFAULT 0,
   last_health_check TIMESTAMPTZ,
   health_status JSONB,
-  
+
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES auth.users(id),
-  
+
   -- Constraints
   UNIQUE(organization_id, adapter_type, display_name)
 );
@@ -11901,7 +11905,7 @@ CREATE INDEX IF NOT EXISTS idx_integration_last_sync ON integration_connections(
 CREATE TABLE IF NOT EXISTS sync_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   connection_id UUID NOT NULL REFERENCES integration_connections(id) ON DELETE CASCADE,
-  
+
   -- Sync details
   sync_direction VARCHAR(20) NOT NULL CHECK (sync_direction IN (
     'pull', 'push', 'bidirectional'
@@ -11909,23 +11913,23 @@ CREATE TABLE IF NOT EXISTS sync_history (
   started_at TIMESTAMPTZ NOT NULL,
   completed_at TIMESTAMPTZ,
   duration_ms INT,
-  
+
   -- Metrics
   records_processed INT DEFAULT 0,
   records_created INT DEFAULT 0,
   records_updated INT DEFAULT 0,
   records_failed INT DEFAULT 0,
   conflicts_detected INT DEFAULT 0,
-  
+
   -- Status
   status VARCHAR(20) NOT NULL CHECK (status IN (
     'running', 'completed', 'partial', 'failed'
   )),
   error_message TEXT,
-  
+
   -- Detailed metadata
   metadata JSONB DEFAULT '{}'::jsonb,
-  
+
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -12093,9 +12097,9 @@ COMMENT ON TABLE security_audit_events IS 'SOC 2 Compliance: Immutable audit tra
 -- ================================================
 /**
  * Database Migration: MFA Enforcement
- * 
+ *
  * Adds MFA support columns to users table and role-based enforcement
- * 
+ *
  * AUTH-001: MFA enforcement for privileged roles (super_admin, admin, manager)
  */
 
@@ -12113,7 +12117,7 @@ CREATE TABLE IF NOT EXISTS mfa_secrets (
   last_used_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
+
   CONSTRAINT unique_user_mfa UNIQUE(user_id)
 );
 
@@ -12173,7 +12177,7 @@ BEGIN
   SELECT enabled INTO mfa_enabled
   FROM mfa_secrets
   WHERE user_id = p_user_id;
-  
+
   RETURN COALESCE(mfa_enabled, false);
 END;
 $$ LANGUAGE plpgsql;
@@ -12203,9 +12207,9 @@ COMMENT ON COLUMN mfa_secrets.enabled IS 'Whether MFA is active for this user';
 -- ================================================
 /**
  * WebAuthn Credentials Database Migration
- * 
+ *
  * Stores registered security keys (YubiKey, TouchID, Windows Hello, etc.)
- * 
+ *
  * WebAuthn Support: Passwordless authentication with hardware-backed credentials
  */
 
@@ -12213,27 +12217,27 @@ COMMENT ON COLUMN mfa_secrets.enabled IS 'Whether MFA is active for this user';
 CREATE TABLE IF NOT EXISTS webauthn_credentials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
+
   -- Credential data (WebAuthn spec)
   credential_id TEXT NOT NULL UNIQUE,
   public_key TEXT NOT NULL,
   counter BIGINT NOT NULL DEFAULT 0,
-  
+
   -- Device information
   device_type TEXT NOT NULL CHECK (device_type IN ('platform', 'cross-platform')),
   -- platform: TouchID, FaceID, Windows Hello (built-in)
   -- cross-platform: YubiKey, hardware security keys
-  
+
   aaguid TEXT, -- Authenticator AAGUID
   transports TEXT[], -- ['usb', 'nfc', 'ble', 'internal']
-  
+
   -- User-friendly name
   name TEXT NOT NULL, -- e.g., "My YubiKey", "MacBook TouchID"
-  
+
   -- Timestamps
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_used_at TIMESTAMPTZ,
-  
+
   CONSTRAINT unique_user_credential UNIQUE(user_id, credential_id)
 );
 
@@ -12295,9 +12299,9 @@ COMMENT ON COLUMN webauthn_credentials.device_type IS 'platform (TouchID) or cro
 -- ================================================
 /**
  * Trusted Devices Database Migration
- * 
+ *
  * Stores trusted device fingerprints for MFA bypass
- * 
+ *
  * Trusted Devices: Skip MFA for known devices (30-day trust period)
  */
 
@@ -12305,20 +12309,20 @@ COMMENT ON COLUMN webauthn_credentials.device_type IS 'platform (TouchID) or cro
 CREATE TABLE IF NOT EXISTS trusted_devices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  
+
   -- Device fingerprint (hash of browser+OS+screen characteristics)
   device_fingerprint TEXT NOT NULL,
-  
+
   -- Device information (for display)
   device_name TEXT NOT NULL, -- "Chrome on macOS"
   ip_address INET,
   user_agent TEXT,
-  
+
   -- Trust metadata
   last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   expires_at TIMESTAMPTZ NOT NULL, -- 30 days from creation
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
+
   CONSTRAINT unique_user_device_fingerprint UNIQUE(user_id, device_fingerprint)
 );
 
@@ -12390,7 +12394,7 @@ COMMENT ON COLUMN trusted_devices.expires_at IS 'Trust expires after 30 days';
 -- ============================================================================
 -- Date: 2024-12-13
 -- Priority: CRITICAL - DEPLOYMENT BLOCKER
--- 
+--
 -- NOTE: This migration is designed for production schema with tenant_id columns.
 -- It will be skipped in test environments that use the minimal schema.
 -- ============================================================================
@@ -12400,8 +12404,8 @@ DO $$
 BEGIN
   -- Check if we're in a test environment (minimal schema)
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_name = 'agent_sessions' 
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'agent_sessions'
     AND column_name = 'tenant_id'
   ) THEN
     RAISE NOTICE 'Skipping RLS migration - test environment detected (no tenant_id column)';
@@ -12651,11 +12655,11 @@ BEGIN
       ),
       'critical'
     );
-    
-    RAISE EXCEPTION 'SECURITY VIOLATION: tenant_id cannot be NULL (table: %, operation: %)', 
+
+    RAISE EXCEPTION 'SECURITY VIOLATION: tenant_id cannot be NULL (table: %, operation: %)',
       TG_TABLE_NAME, TG_OP;
   END IF;
-  
+
   -- Validate user has access to this tenant
   IF NOT EXISTS (
     SELECT 1 FROM user_tenants
@@ -12680,11 +12684,11 @@ BEGIN
       ),
       'critical'
     );
-    
-    RAISE EXCEPTION 'SECURITY VIOLATION: User % does not have access to tenant %', 
+
+    RAISE EXCEPTION 'SECURITY VIOLATION: User % does not have access to tenant %',
       (auth.uid())::text, NEW.tenant_id;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -12720,6 +12724,7 @@ DROP POLICY IF EXISTS "workflow_executions_select" ON workflow_executions;
 DROP POLICY IF EXISTS "workflow_executions_insert" ON workflow_executions;
 DROP POLICY IF EXISTS "workflow_executions_update" ON workflow_executions;
 DROP POLICY IF EXISTS "workflow_executions_delete" ON workflow_executions;
+DROP POLICY IF EXISTS "workflow_executions_service" ON workflow_executions;
 
 -- Create strict tenant-isolated policies
 CREATE POLICY "workflow_executions_tenant_select" ON workflow_executions
@@ -12728,9 +12733,7 @@ CREATE POLICY "workflow_executions_tenant_select" ON workflow_executions
     EXISTS (
       SELECT 1 FROM workflows w
       WHERE w.id = workflow_executions.workflow_id
-      AND w.organization_id = (
-        SELECT organization_id FROM users WHERE id = auth.uid()
-      )
+      AND w.organization_id = public.get_user_org_id()
     )
   );
 
@@ -12740,9 +12743,7 @@ CREATE POLICY "workflow_executions_tenant_insert" ON workflow_executions
     EXISTS (
       SELECT 1 FROM workflows w
       WHERE w.id = workflow_executions.workflow_id
-      AND w.organization_id = (
-        SELECT organization_id FROM users WHERE id = auth.uid()
-      )
+      AND w.organization_id = public.get_user_org_id()
     )
   );
 
@@ -12752,9 +12753,7 @@ CREATE POLICY "workflow_executions_tenant_update" ON workflow_executions
     EXISTS (
       SELECT 1 FROM workflows w
       WHERE w.id = workflow_executions.workflow_id
-      AND w.organization_id = (
-        SELECT organization_id FROM users WHERE id = auth.uid()
-      )
+      AND w.organization_id = public.get_user_org_id()
     )
   );
 
@@ -12802,7 +12801,7 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     t.tablename::TEXT,
     t.rowsecurity,
     COUNT(p.policyname)::INTEGER,
@@ -12841,23 +12840,23 @@ SELECT * FROM verify_rls_tenant_isolation();
 -- ============================================================================
 -- MIGRATION COMPLETE
 -- ============================================================================
--- 
+--
 -- CRITICAL: After applying this migration, run the following tests:
--- 
+--
 -- 1. Test cross-tenant access is blocked:
 --    npm run test:security -- rls-tenant-isolation
--- 
+--
 -- 2. Verify audit logs are working:
 --    SELECT * FROM security_audit_log ORDER BY created_at DESC LIMIT 10;
--- 
+--
 -- 3. Check for any NULL tenant_id values:
---    SELECT 'agent_sessions' as table_name, COUNT(*) 
+--    SELECT 'agent_sessions' as table_name, COUNT(*)
 --    FROM agent_sessions WHERE tenant_id IS NULL
 --    UNION ALL
---    SELECT 'agent_predictions', COUNT(*) 
+--    SELECT 'agent_predictions', COUNT(*)
 --    FROM agent_predictions WHERE tenant_id IS NULL;
 --    -- Expected: 0 rows for all tables
--- 
+--
 -- ============================================================================
 
 -- ================================================
@@ -13029,9 +13028,9 @@ DROP VIEW IF EXISTS agent_performance_summary;
 
 -- Recreate with explicit SECURITY INVOKER (PostgreSQL 15+)
 -- This ensures the view respects the caller's RLS policies, not the definer's
-CREATE VIEW agent_performance_summary 
+CREATE VIEW agent_performance_summary
 WITH (security_invoker = true) AS
-SELECT 
+SELECT
   agent_type,
   COUNT(*) as total_predictions,
   AVG(confidence_score) as avg_confidence_score,
@@ -13040,8 +13039,8 @@ SELECT
   COUNT(*) FILTER (WHERE confidence_level = 'high') as high_confidence_count,
   COUNT(*) FILTER (WHERE hallucination_detected = TRUE) as hallucination_count,
   ROUND(
-    COUNT(*) FILTER (WHERE hallucination_detected = TRUE)::DECIMAL / 
-    NULLIF(COUNT(*), 0) * 100, 
+    COUNT(*) FILTER (WHERE hallucination_detected = TRUE)::DECIMAL /
+    NULLIF(COUNT(*), 0) * 100,
     2
   ) as hallucination_rate_pct,
   COUNT(*) FILTER (WHERE actual_outcome IS NOT NULL) as predictions_with_actuals,
@@ -13063,7 +13062,7 @@ REVOKE ALL ON agent_performance_summary FROM anon;
 -- Security Hardening Migration
 -- Fixes 6 security lint errors identified in audit
 -- Created: 2025-12-26
--- 
+--
 -- This migration implements:
 -- 1. Removes SECURITY DEFINER from views (use SECURITY INVOKER)
 -- 2. Revokes PUBLIC grants on all sensitive tables/views
@@ -13082,7 +13081,7 @@ DROP VIEW IF EXISTS public.recent_confidence_violations;
 CREATE VIEW public.recent_confidence_violations
 WITH (security_invoker = true)
 AS
-SELECT 
+SELECT
   cv.*,
   ap.agent_type,
   ap.user_id,
@@ -13095,7 +13094,7 @@ WHERE cv.created_at >= now() - interval '7 days';
 REVOKE ALL ON public.recent_confidence_violations FROM PUBLIC;
 GRANT SELECT ON public.recent_confidence_violations TO authenticated;
 
-COMMENT ON VIEW public.recent_confidence_violations IS 
+COMMENT ON VIEW public.recent_confidence_violations IS
 'SECURITY INVOKER view - relies on RLS policies on underlying tables';
 
 -- ============================================================================
@@ -13108,23 +13107,23 @@ DECLARE
   r record;
 BEGIN
   -- Revoke from tables
-  FOR r IN 
-    SELECT schemaname, tablename 
-    FROM pg_tables 
+  FOR r IN
+    SELECT schemaname, tablename
+    FROM pg_tables
     WHERE schemaname = 'public'
   LOOP
     EXECUTE format('REVOKE ALL ON %I.%I FROM PUBLIC;', r.schemaname, r.tablename);
   END LOOP;
 
   -- Revoke from views
-  FOR r IN 
-    SELECT schemaname, viewname 
-    FROM pg_views 
+  FOR r IN
+    SELECT schemaname, viewname
+    FROM pg_views
     WHERE schemaname = 'public'
   LOOP
     EXECUTE format('REVOKE ALL ON %I.%I FROM PUBLIC;', r.schemaname, r.viewname);
   END LOOP;
-  
+
   RAISE NOTICE 'Revoked PUBLIC access from all public schema objects';
 END $$;
 
@@ -13177,11 +13176,11 @@ CREATE POLICY "ap_tenant_isolation" ON public.agent_predictions
   );
 
 -- Performance indexes for RLS policies
-CREATE INDEX IF NOT EXISTS idx_confidence_violations_created_at 
+CREATE INDEX IF NOT EXISTS idx_confidence_violations_created_at
   ON public.confidence_violations(created_at);
-CREATE INDEX IF NOT EXISTS idx_agent_predictions_user 
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_user
   ON public.agent_predictions(user_id);
-CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant 
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant
   ON public.agent_predictions(tenant_id);
 
 -- ============================================================================
@@ -13218,7 +13217,7 @@ ALTER VIEW public.recent_confidence_violations OWNER TO view_reader;
 -- STABLE
 -- AS $$
 --   -- Explicit tenant check
---   SELECT cv.* 
+--   SELECT cv.*
 --   FROM public.confidence_violations cv
 --   WHERE EXISTS (
 --     SELECT 1 FROM public.user_tenants ut
@@ -13226,7 +13225,7 @@ ALTER VIEW public.recent_confidence_violations OWNER TO view_reader;
 --     AND ut.user_id = p_user_id  -- Ensure user can only query themselves
 --   );
 -- $$;
--- 
+--
 -- REVOKE ALL ON FUNCTION public.get_user_violations(TEXT) FROM PUBLIC;
 -- GRANT EXECUTE ON FUNCTION public.get_user_violations(TEXT) TO authenticated;
 -- ALTER FUNCTION public.get_user_violations(TEXT) OWNER TO view_reader;
@@ -13245,14 +13244,14 @@ DO $$
 DECLARE
   s record;
 BEGIN
-  FOR s IN 
-    SELECT sequence_schema, sequence_name 
-    FROM information_schema.sequences 
+  FOR s IN
+    SELECT sequence_schema, sequence_name
+    FROM information_schema.sequences
     WHERE sequence_schema = 'public'
   LOOP
     EXECUTE format('REVOKE ALL ON SEQUENCE %I.%I FROM PUBLIC;', s.sequence_schema, s.sequence_name);
   END LOOP;
-  
+
   RAISE NOTICE 'Revoked PUBLIC access from all sequences';
 END $$;
 
@@ -13275,7 +13274,7 @@ BEGIN
   JOIN pg_class c ON c.relname = t.tablename
   WHERE t.schemaname = 'public'
   AND c.relrowsecurity = true;
-  
+
   RAISE NOTICE '';
   RAISE NOTICE '========================================';
   RAISE NOTICE 'Security Hardening Complete';
@@ -13298,7 +13297,7 @@ END $$;
 -- Source: supabase/migrations/20251230011757_p0_health_check_table.sql
 -- ================================================
 -- P0 Production Readiness: Health Check Table
--- 
+--
 -- Creates a dedicated table for database health checks
 -- Used by bootstrap process to verify database connectivity
 
@@ -13310,7 +13309,7 @@ CREATE TABLE IF NOT EXISTS _health_check (
 );
 
 -- Insert a single row for health checks
-INSERT INTO _health_check (count) 
+INSERT INTO _health_check (count)
 VALUES (1)
 ON CONFLICT DO NOTHING;
 
@@ -13326,8 +13325,8 @@ BEGIN
     count INTEGER DEFAULT 1,
     updated_at TIMESTAMPTZ DEFAULT NOW()
   );
-  
-  INSERT INTO _health_check (count) 
+
+  INSERT INTO _health_check (count)
   VALUES (1)
   ON CONFLICT DO NOTHING;
 END;
@@ -13341,7 +13340,7 @@ COMMENT ON FUNCTION create_health_check_table() IS 'Creates health check table i
 -- Source: supabase/migrations/20251230012508_llm_gating_tables.sql
 -- ================================================
 -- LLM Gating & Cost Control Tables
--- 
+--
 -- Implements the database schema for LLM gating policies and usage tracking
 -- as specified in the technical specification
 
@@ -13352,18 +13351,18 @@ COMMENT ON FUNCTION create_health_check_table() IS 'Creates health check table i
 CREATE TABLE IF NOT EXISTS llm_gating_policies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  
+
   -- Budget configuration
   monthly_budget_limit DECIMAL(10, 2) NOT NULL CHECK (monthly_budget_limit > 0),
   hard_stop_threshold DECIMAL(3, 2) NOT NULL DEFAULT 0.95 CHECK (hard_stop_threshold BETWEEN 0 AND 1),
   per_request_limit DECIMAL(10, 2) CHECK (per_request_limit IS NULL OR per_request_limit > 0),
   grace_period_hours INTEGER DEFAULT 24 CHECK (grace_period_hours IS NULL OR grace_period_hours > 0),
-  
+
   -- Model configuration
   default_model VARCHAR(100) NOT NULL,
   routing_rules JSONB NOT NULL DEFAULT '[]'::jsonb,
   enable_auto_downgrade BOOLEAN DEFAULT true,
-  
+
   -- Manifesto enforcement
   manifesto_enforcement JSONB NOT NULL DEFAULT '{
     "strictMode": true,
@@ -13371,14 +13370,14 @@ CREATE TABLE IF NOT EXISTS llm_gating_policies (
     "conservativeQuantification": true,
     "valueFirstCheck": true
   }'::jsonb,
-  
+
   -- Priority configuration
   priority_tier VARCHAR(20) DEFAULT 'medium' CHECK (priority_tier IN ('low', 'medium', 'high', 'critical')),
-  
+
   -- Metadata
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
+
   -- Constraints
   UNIQUE(tenant_id)
 );
@@ -13402,35 +13401,35 @@ COMMENT ON COLUMN llm_gating_policies.manifesto_enforcement IS 'Manifesto compli
 
 CREATE TABLE IF NOT EXISTS llm_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  
+
   -- Tenant and user context
   tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  
+
   -- Model and tokens
   model VARCHAR(100) NOT NULL,
   input_tokens INTEGER NOT NULL CHECK (input_tokens >= 0),
   output_tokens INTEGER NOT NULL CHECK (output_tokens >= 0),
   total_tokens INTEGER NOT NULL CHECK (total_tokens >= 0),
-  
+
   -- Cost calculation
   cost DECIMAL(10, 6) NOT NULL CHECK (cost >= 0),
-  
+
   -- Request context
   task_type VARCHAR(50),
   agent_id VARCHAR(100),
   session_id UUID,
   trace_id VARCHAR(100),
-  
+
   -- Response metadata
   latency_ms INTEGER,
   model_downgraded BOOLEAN DEFAULT false,
   original_model VARCHAR(100),
-  
+
   -- Manifesto & Audit trail
   audit_log_id UUID UNIQUE REFERENCES audit_logs(id) ON DELETE SET NULL,
   confidence FLOAT,
-  
+
   -- Timestamp
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -13478,7 +13477,7 @@ COMMENT ON COLUMN llm_usage.response_hash IS 'SHA-256 hash of response for audit
 -- ============================================================================
 
 CREATE OR REPLACE VIEW llm_budget_status AS
-SELECT 
+SELECT
   p.tenant_id,
   p.monthly_budget_limit,
   p.hard_stop_threshold,
@@ -13498,7 +13497,7 @@ COMMENT ON VIEW llm_budget_status IS 'Real-time budget status for all tenants (3
 -- ============================================================================
 
 CREATE OR REPLACE VIEW llm_usage_stats AS
-SELECT 
+SELECT
   tenant_id,
   DATE_TRUNC('day', created_at) AS date,
   model,
@@ -13532,13 +13531,13 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     p.tenant_id,
     p.monthly_budget_limit,
     COALESCE(SUM(u.cost) FILTER (WHERE u.created_at >= NOW() - INTERVAL '30 days'), 0),
     p.monthly_budget_limit - COALESCE(SUM(u.cost) FILTER (WHERE u.created_at >= NOW() - INTERVAL '30 days'), 0),
     (COALESCE(SUM(u.cost) FILTER (WHERE u.created_at >= NOW() - INTERVAL '30 days'), 0) / p.monthly_budget_limit * 100)::DECIMAL(5, 2),
-    COALESCE(SUM(u.cost) FILTER (WHERE u.created_at >= NOW() - INTERVAL '30 days'), 0) > p.monthly_budget_limit 
+    COALESCE(SUM(u.cost) FILTER (WHERE u.created_at >= NOW() - INTERVAL '30 days'), 0) > p.monthly_budget_limit
       AND COALESCE(SUM(u.cost) FILTER (WHERE u.created_at >= NOW() - INTERVAL '30 days'), 0) < (p.monthly_budget_limit * 1.1),
     p.monthly_budget_limit * 1.1
   FROM llm_gating_policies p
@@ -13567,49 +13566,49 @@ BEGIN
   SELECT * INTO v_policy
   FROM llm_gating_policies
   WHERE tenant_id = p_tenant_id;
-  
+
   IF NOT FOUND THEN
     RETURN QUERY SELECT false, NULL::TEXT;
     RETURN;
   END IF;
-  
+
   -- Get current status
   SELECT * INTO v_status
   FROM get_budget_status(p_tenant_id);
-  
+
   -- Check hard stop threshold
   IF v_status.usage_percentage >= (v_policy.hard_stop_threshold * 100) THEN
     -- Check grace period
     IF NOT v_status.in_grace_period THEN
-      RETURN QUERY SELECT 
+      RETURN QUERY SELECT
         true,
-        format('Budget limit reached (%s%% of %s USD)', 
-          v_status.usage_percentage, 
+        format('Budget limit reached (%s%% of %s USD)',
+          v_status.usage_percentage,
           v_policy.monthly_budget_limit);
       RETURN;
     END IF;
   END IF;
-  
+
   -- Check if request would exceed budget
   IF (v_status.used_amount + p_estimated_cost) > v_policy.monthly_budget_limit THEN
-    RETURN QUERY SELECT 
+    RETURN QUERY SELECT
       true,
       format('Request would exceed budget limit (projected: %s USD, limit: %s USD)',
         v_status.used_amount + p_estimated_cost,
         v_policy.monthly_budget_limit);
     RETURN;
   END IF;
-  
+
   -- Check per-request limit
   IF v_policy.per_request_limit IS NOT NULL AND p_estimated_cost > v_policy.per_request_limit THEN
-    RETURN QUERY SELECT 
+    RETURN QUERY SELECT
       true,
       format('Request cost (%s USD) exceeds per-request limit (%s USD)',
         p_estimated_cost,
         v_policy.per_request_limit);
     RETURN;
   END IF;
-  
+
   -- All checks passed
   RETURN QUERY SELECT false, NULL::TEXT;
 END;
@@ -13669,7 +13668,7 @@ INSERT INTO llm_gating_policies (
   routing_rules,
   manifesto_enforcement
 )
-SELECT 
+SELECT
   id,
   1000.00,
   0.95,
@@ -13691,7 +13690,7 @@ ON CONFLICT (tenant_id) DO NOTHING;
 -- Source: supabase/migrations/20251230012600_llm_gating_rls_enhancement.sql
 -- ================================================
 -- LLM Gating RLS Enhancement
--- 
+--
 -- Implements the exact RLS policies as specified in the technical requirements:
 -- 1. Tenant isolation for LlmUsageLog and TenantLlmBudget
 -- 2. Service role bypass for Gating Service operations
@@ -13775,7 +13774,7 @@ DROP POLICY IF EXISTS "Strict tenant isolation - usage logs" ON llm_usage;
 CREATE POLICY "Strict tenant isolation - usage logs" ON llm_usage
   FOR ALL
   USING (
-    CASE 
+    CASE
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
       ELSE tenant_id = (auth.jwt() ->> 'org_id')::UUID
     END
@@ -13785,7 +13784,7 @@ DROP POLICY IF EXISTS "Strict tenant isolation - budgets" ON llm_gating_policies
 CREATE POLICY "Strict tenant isolation - budgets" ON llm_gating_policies
   FOR ALL
   USING (
-    CASE 
+    CASE
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
       ELSE tenant_id = (auth.jwt() ->> 'org_id')::UUID
     END
@@ -13839,7 +13838,7 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     tlb.monthly_budget_limit,
     tlb.used_amount,
     tlb.hard_stop_threshold,
@@ -13866,8 +13865,8 @@ DECLARE
 BEGIN
   -- Get pricing rates (in production, this would query a pricing table)
   -- For now, use hardcoded rates based on existing BudgetTracker.ts
-  SELECT 
-    CASE 
+  SELECT
+    CASE
       WHEN p_model_name LIKE '%llama-3-70b%' THEN 0.0009
       WHEN p_model_name LIKE '%llama-3-8b%' THEN 0.0002
       WHEN p_model_name LIKE '%mixtral-8x7b%' THEN 0.0006
@@ -13878,7 +13877,7 @@ BEGIN
       WHEN p_model_name LIKE '%gpt-4%' THEN 0.03
       ELSE 0.03 -- Default conservative estimate
     END::DECIMAL(10, 6),
-    CASE 
+    CASE
       WHEN p_model_name LIKE '%llama-3-70b%' THEN 0.0009
       WHEN p_model_name LIKE '%llama-3-8b%' THEN 0.0002
       WHEN p_model_name LIKE '%mixtral-8x7b%' THEN 0.0006
@@ -13938,7 +13937,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- View: Real-time budget status with RLS
 CREATE OR REPLACE VIEW tenant_budget_status AS
-SELECT 
+SELECT
   tlb.tenant_id,
   tlb.monthly_budget_limit,
   tlb.used_amount,
@@ -13950,14 +13949,14 @@ SELECT
   AVG(lul.latency_ms) AS avg_latency,
   SUM(lul.cost) AS total_cost_30d
 FROM llm_gating_policies tlb
-LEFT JOIN llm_usage lul ON lul.tenant_id = tlb.tenant_id 
+LEFT JOIN llm_usage lul ON lul.tenant_id = tlb.tenant_id
   AND lul.created_at >= NOW() - INTERVAL '30 days'
-GROUP BY tlb.tenant_id, tlb.monthly_budget_limit, tlb.used_amount, 
+GROUP BY tlb.tenant_id, tlb.monthly_budget_limit, tlb.used_amount,
          tlb.hard_stop_threshold, tlb.hard_stop_active;
 
 -- View: Usage statistics with RLS
 CREATE OR REPLACE VIEW llm_usage_statistics AS
-SELECT 
+SELECT
   tenant_id,
   DATE_TRUNC('day', created_at) AS date,
   model,
@@ -14009,7 +14008,7 @@ GRANT SELECT ON llm_usage_statistics TO authenticated;
 -- Source: supabase/migrations/20251230013534_organization_configurations.sql
 -- ================================================
 -- Organization Configurations Table
--- 
+--
 -- Comprehensive configuration management for multi-tenant organizations
 -- Based on the Configuration & Settings Matrix specification
 
@@ -14023,7 +14022,7 @@ ALTER TABLE IF EXISTS public.audit_logs ADD COLUMN IF NOT EXISTS changes JSONB D
 CREATE TABLE IF NOT EXISTS organization_configurations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  
+
   -- ========================================================================
   -- 1. Multi-Tenant & Organization Settings
   -- ========================================================================
@@ -14032,16 +14031,16 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
     "maxUsers": 10,
     "maxStorageGB": 10
   }'::jsonb,
-  
+
   custom_branding JSONB DEFAULT NULL,
-  
+
   data_residency JSONB NOT NULL DEFAULT '{
     "primaryRegion": "us-east-1"
   }'::jsonb,
-  
+
   domain_management JSONB DEFAULT NULL,
   namespace_isolation JSONB DEFAULT NULL,
-  
+
   -- ========================================================================
   -- 2. Identity & Access Management (IAM)
   -- ========================================================================
@@ -14057,17 +14056,17 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
       "requireSpecialChars": false
     }
   }'::jsonb,
-  
+
   sso_config JSONB DEFAULT NULL,
-  
+
   session_control JSONB NOT NULL DEFAULT '{
     "timeoutMinutes": 60,
     "idleTimeoutMinutes": 30,
     "maxConcurrentSessions": 3
   }'::jsonb,
-  
+
   ip_whitelist JSONB DEFAULT NULL,
-  
+
   -- ========================================================================
   -- 3. AI Orchestration & Agent Fabric
   -- ========================================================================
@@ -14078,13 +14077,13 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
     "alertThreshold": 80,
     "alertRecipients": []
   }'::jsonb,
-  
+
   model_routing JSONB NOT NULL DEFAULT '{
     "defaultModel": "together-llama-3-70b",
     "routingRules": [],
     "enableAutoDowngrade": true
   }'::jsonb,
-  
+
   agent_toggles JSONB NOT NULL DEFAULT '{
     "enabledAgents": {
       "opportunityAgent": true,
@@ -14094,22 +14093,22 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
       "valueAgent": true
     }
   }'::jsonb,
-  
+
   hitl_thresholds JSONB NOT NULL DEFAULT '{
     "autoApprovalThreshold": 0.9,
     "humanReviewThreshold": 0.7,
     "rejectionThreshold": 0.5,
     "reviewers": []
   }'::jsonb,
-  
+
   ground_truth_sync JSONB DEFAULT NULL,
-  
+
   formula_versioning JSONB NOT NULL DEFAULT '{
     "activeVersion": "1.0.0",
     "availableVersions": ["1.0.0"],
     "autoUpdate": false
   }'::jsonb,
-  
+
   -- ========================================================================
   -- 4. Operational & Performance Settings
   -- ========================================================================
@@ -14117,29 +14116,29 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
     "enabledFeatures": {},
     "betaFeatures": {}
   }'::jsonb,
-  
+
   rate_limiting JSONB NOT NULL DEFAULT '{
     "requestsPerMinute": 60,
     "requestsPerHour": 1000,
     "requestsPerDay": 10000,
     "burstAllowance": 10
   }'::jsonb,
-  
+
   observability JSONB NOT NULL DEFAULT '{
     "traceSamplingRate": 0.1,
     "logVerbosity": "info",
     "enableMetrics": true,
     "enableTracing": true
   }'::jsonb,
-  
+
   cache_management JSONB NOT NULL DEFAULT '{
     "cacheTTL": 300,
     "enableCache": true,
     "cacheStrategy": "lru"
   }'::jsonb,
-  
+
   webhooks JSONB DEFAULT NULL,
-  
+
   -- ========================================================================
   -- 5. Security, Audit & Governance
   -- ========================================================================
@@ -14147,30 +14146,30 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
     "enableHashChaining": true,
     "verificationFrequencyHours": 24
   }'::jsonb,
-  
+
   retention_policies JSONB NOT NULL DEFAULT '{
     "dataRetentionDays": 365,
     "logRetentionDays": 90,
     "auditRetentionDays": 2555,
     "financialRetentionYears": 7
   }'::jsonb,
-  
+
   manifesto_strictness JSONB NOT NULL DEFAULT '{
     "mode": "warning",
     "enabledRules": []
   }'::jsonb,
-  
+
   secret_rotation JSONB NOT NULL DEFAULT '{
     "autoRotation": false,
     "rotationFrequencyDays": 90
   }'::jsonb,
-  
+
   rls_monitoring JSONB NOT NULL DEFAULT '{
     "enabled": true,
     "alertOnViolations": true,
     "performanceThresholdMs": 100
   }'::jsonb,
-  
+
   -- ========================================================================
   -- 6. Billing & Usage Analytics
   -- ========================================================================
@@ -14179,28 +14178,28 @@ CREATE TABLE IF NOT EXISTS organization_configurations (
     "refreshIntervalSeconds": 30,
     "showCostBreakdown": true
   }'::jsonb,
-  
+
   value_metering JSONB NOT NULL DEFAULT '{
     "enabled": false,
     "billableMilestones": [],
     "pricingModel": "per_user"
   }'::jsonb,
-  
+
   subscription_plan JSONB NOT NULL DEFAULT '{
     "tier": "free",
     "billingCycle": "monthly",
     "autoRenew": true
   }'::jsonb,
-  
+
   invoicing JSONB NOT NULL DEFAULT '{
     "paymentMethod": "credit_card",
     "billingEmail": ""
   }'::jsonb,
-  
+
   -- Metadata
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  
+
   -- Constraints
   UNIQUE(organization_id)
 );
@@ -14213,10 +14212,10 @@ CREATE INDEX IF NOT EXISTS idx_org_configs_org ON organization_configurations(or
 CREATE INDEX IF NOT EXISTS idx_org_configs_updated ON organization_configurations(updated_at DESC);
 
 -- GIN indexes for JSONB queries
-CREATE INDEX IF NOT EXISTS idx_org_configs_tenant_status ON organization_configurations 
+CREATE INDEX IF NOT EXISTS idx_org_configs_tenant_status ON organization_configurations
   USING GIN ((tenant_provisioning->'status'));
 
-CREATE INDEX IF NOT EXISTS idx_org_configs_subscription_tier ON organization_configurations 
+CREATE INDEX IF NOT EXISTS idx_org_configs_subscription_tier ON organization_configurations
   USING GIN ((subscription_plan->'tier'));
 
 -- ============================================================================
@@ -14281,7 +14280,7 @@ BEGIN
   SELECT to_jsonb(organization_configurations.*) INTO v_config
   FROM organization_configurations
   WHERE organization_id = p_organization_id;
-  
+
   RETURN v_config;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -14300,7 +14299,7 @@ BEGIN
     'UPDATE organization_configurations SET %I = $1, updated_at = NOW() WHERE organization_id = $2',
     p_setting
   ) USING p_value, p_organization_id;
-  
+
   RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -14321,7 +14320,7 @@ INSERT INTO organization_configurations (
   audit_integrity,
   token_dashboard
 )
-SELECT 
+SELECT
   id,
   jsonb_build_object(
     'organizationId', id,
@@ -14365,7 +14364,7 @@ SELECT
   }'::jsonb
 FROM organizations
 WHERE NOT EXISTS (
-  SELECT 1 FROM organization_configurations 
+  SELECT 1 FROM organization_configurations
   WHERE organization_id = organizations.id
 )
 ON CONFLICT (organization_id) DO NOTHING;
@@ -14375,7 +14374,7 @@ ON CONFLICT (organization_id) DO NOTHING;
 -- ============================================================================
 
 CREATE OR REPLACE VIEW configuration_change_audit AS
-SELECT 
+SELECT
   al.id,
   al.organization_id,
   al.user_id,
@@ -14424,7 +14423,7 @@ CREATE TABLE IF NOT EXISTS feature_usage (
   user_id UUID NOT NULL REFERENCES auth.users(id),
   enabled BOOLEAN NOT NULL,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  
+
   -- Index for fast queries
   CONSTRAINT feature_usage_unique UNIQUE (feature_name, user_id, timestamp)
 );
@@ -14526,23 +14525,23 @@ USING (
 
 -- View for rollout metrics
 CREATE OR REPLACE VIEW feature_rollout_metrics AS
-SELECT 
+SELECT
   fr.feature_name,
   fr.percentage,
   fr.active,
   COUNT(DISTINCT fu.user_id) FILTER (WHERE fu.timestamp > NOW() - INTERVAL '24 hours') as total_users_24h,
   COUNT(DISTINCT fu.user_id) FILTER (WHERE fu.enabled AND fu.timestamp > NOW() - INTERVAL '24 hours') as enabled_users_24h,
   COUNT(fe.id) FILTER (WHERE fe.timestamp > NOW() - INTERVAL '24 hours') as errors_24h,
-  CASE 
+  CASE
     WHEN COUNT(DISTINCT fu.user_id) FILTER (WHERE fu.enabled AND fu.timestamp > NOW() - INTERVAL '24 hours') > 0
-    THEN (COUNT(fe.id) FILTER (WHERE fe.timestamp > NOW() - INTERVAL '24 hours')::DECIMAL / 
+    THEN (COUNT(fe.id) FILTER (WHERE fe.timestamp > NOW() - INTERVAL '24 hours')::DECIMAL /
           COUNT(DISTINCT fu.user_id) FILTER (WHERE fu.enabled AND fu.timestamp > NOW() - INTERVAL '24 hours')) * 100
     ELSE 0
   END as error_rate_24h,
   fr.error_threshold,
-  CASE 
+  CASE
     WHEN COUNT(DISTINCT fu.user_id) FILTER (WHERE fu.enabled AND fu.timestamp > NOW() - INTERVAL '24 hours') > 0
-    THEN (COUNT(fe.id) FILTER (WHERE fe.timestamp > NOW() - INTERVAL '24 hours')::DECIMAL / 
+    THEN (COUNT(fe.id) FILTER (WHERE fe.timestamp > NOW() - INTERVAL '24 hours')::DECIMAL /
           COUNT(DISTINCT fu.user_id) FILTER (WHERE fu.enabled AND fu.timestamp > NOW() - INTERVAL '24 hours')) * 100 > fr.error_threshold
     ELSE false
   END as should_rollback
@@ -14560,20 +14559,20 @@ RETURNS void AS $$
 DECLARE
   feature_record RECORD;
 BEGIN
-  FOR feature_record IN 
+  FOR feature_record IN
     SELECT feature_name, error_rate_24h, error_threshold
     FROM feature_rollout_metrics
-    WHERE active = true 
+    WHERE active = true
     AND auto_rollback = true
     AND should_rollback = true
   LOOP
     UPDATE feature_rollouts
-    SET 
+    SET
       active = false,
       rollback_reason = 'Auto-rollback: Error rate ' || feature_record.error_rate_24h || '% exceeded threshold ' || feature_record.error_threshold || '%',
       rollback_at = NOW()
     WHERE feature_name = feature_record.feature_name;
-    
+
     RAISE NOTICE 'Auto-rolled back feature: %', feature_record.feature_name;
   END LOOP;
 END;
@@ -14592,35 +14591,35 @@ COMMIT;
 -- This migration ensures the test database has all required columns
 
 -- Add missing columns to organizations table if they don't exist
-DO $$ 
+DO $$
 BEGIN
   -- Add slug column
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='organizations' AND column_name='slug') THEN
     ALTER TABLE organizations ADD COLUMN slug TEXT NOT NULL DEFAULT '';
   END IF;
 
   -- Add metadata column
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='organizations' AND column_name='metadata') THEN
     ALTER TABLE organizations ADD COLUMN metadata JSONB DEFAULT '{}'::jsonb;
   END IF;
 
   -- Add plan_tier column
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='organizations' AND column_name='plan_tier') THEN
     ALTER TABLE organizations ADD COLUMN plan_tier TEXT DEFAULT 'free';
   END IF;
 
   -- Add status column
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='organizations' AND column_name='status') THEN
     ALTER TABLE organizations ADD COLUMN status TEXT DEFAULT 'active';
   END IF;
 END $$;
 
 -- Update existing test organizations to have slugs
-UPDATE organizations 
+UPDATE organizations
 SET slug = 'test-org-' || SUBSTRING(id::TEXT FROM 1 FOR 8)
 WHERE slug = '' OR slug IS NULL;
 
@@ -14639,7 +14638,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 -- Add tenant_id column to user_tenants if it doesn't exist
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='user_tenants' AND column_name='status') THEN
     ALTER TABLE user_tenants ADD COLUMN status TEXT DEFAULT 'active';
   END IF;
@@ -14687,9 +14686,9 @@ CREATE TABLE IF NOT EXISTS security_audit_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-DO $$ 
+DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='security_audit_events' AND column_name='tenant_id') THEN
     ALTER TABLE security_audit_events ADD COLUMN tenant_id TEXT;
   ELSE
@@ -15383,7 +15382,7 @@ DECLARE
 BEGIN
   -- If consent was withdrawn, use withdrawal date; otherwise use created date
   withdrawal_date := COALESCE(OLD.withdrawn_at, OLD.created_at);
-  
+
   IF withdrawal_date > NOW() - retention_period THEN
     RAISE EXCEPTION 'Cannot delete consent records before retention period expires (2 years after withdrawal). Withdrawal date: %, Current time: %', withdrawal_date, NOW();
   END IF;
@@ -15557,10 +15556,10 @@ COMMENT ON VIEW retention_policy_compliance IS 'Shows retention policy complianc
 -- Add tenant_id to cases table if not exists
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='cases' AND column_name='tenant_id') THEN
     ALTER TABLE cases ADD COLUMN tenant_id TEXT REFERENCES tenants(id);
-    
+
     -- Backfill tenant_id from user_tenants
     UPDATE cases SET tenant_id = (
       SELECT tenant_id::text FROM user_tenants
@@ -15575,10 +15574,10 @@ CREATE INDEX IF NOT EXISTS idx_cases_tenant_id ON cases(tenant_id);
 -- Add tenant_id to messages table if not exists
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='messages' AND column_name='tenant_id') THEN
     ALTER TABLE messages ADD COLUMN tenant_id TEXT REFERENCES tenants(id);
-    
+
     -- Backfill tenant_id from user_tenants
     UPDATE messages SET tenant_id = (
       SELECT tenant_id::text FROM user_tenants
@@ -15651,7 +15650,7 @@ CREATE POLICY service_role_messages ON messages
   WITH CHECK (true);
 
 -- Enable RLS on agent_sessions table
-DO $$ 
+DO $$
 DECLARE r RECORD;
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_sessions' AND column_name='tenant_id') THEN
@@ -15691,7 +15690,7 @@ CREATE POLICY service_role_agent_sessions ON agent_sessions
   WITH CHECK (true);
 
 -- Enable RLS on agent_predictions table
-DO $$ 
+DO $$
 DECLARE r RECORD;
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agent_predictions' AND column_name='tenant_id') THEN
@@ -15882,7 +15881,7 @@ COMMENT ON FUNCTION log_cross_tenant_access_attempt IS 'Logs cross-tenant access
 -- Add data_region column to tenants table
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='tenants' AND column_name='data_region') THEN
     ALTER TABLE tenants ADD COLUMN data_region TEXT NOT NULL DEFAULT 'us'
       CHECK (data_region IN ('eu', 'us', 'ap', 'uk', 'ca'));
@@ -15895,7 +15894,7 @@ CREATE INDEX IF NOT EXISTS idx_tenants_data_region ON tenants(data_region);
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='organizations') THEN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                    WHERE table_name='organizations' AND column_name='data_region') THEN
       ALTER TABLE organizations ADD COLUMN data_region TEXT NOT NULL DEFAULT 'us'
         CHECK (data_region IN ('eu', 'us', 'ap', 'uk', 'ca'));
@@ -16071,7 +16070,7 @@ BEGIN
   SELECT data_region INTO v_region
   FROM tenants
   WHERE id = p_tenant_id;
-  
+
   RETURN v_region;
 END;
 $$ LANGUAGE plpgsql;
@@ -16627,7 +16626,7 @@ CREATE POLICY data_region_changes_service_role ON data_region_changes FOR ALL TO
 -- Source: supabase/migrations/20260105000001_add_settings_defaults.sql
 -- ================================================
 -- Sprint 1 Fix #3: Add Explicit Database Defaults for Settings
--- 
+--
 -- This migration ensures all settings JSONB columns have explicit defaults
 -- and are never null, preventing the "nullish boolean trap" issue.
 --
@@ -16639,34 +16638,34 @@ CREATE POLICY data_region_changes_service_role ON data_region_changes FOR ALL TO
 -- ============================================================================
 
 -- SKIPPED: Permission denied for auth.users modification
--- DO $$ 
+-- DO $$
 -- BEGIN
 --   IF NOT EXISTS (
---     SELECT 1 FROM information_schema.columns 
---     WHERE table_schema = 'auth' 
---     AND table_name = 'users' 
+--     SELECT 1 FROM information_schema.columns
+--     WHERE table_schema = 'auth'
+--     AND table_name = 'users'
 --     AND column_name = 'user_preferences'
 --   ) THEN
---     ALTER TABLE auth.users 
+--     ALTER TABLE auth.users
 --       ADD COLUMN user_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
 --   END IF;
 -- END $$;
--- 
+--
 -- -- Ensure existing column has proper default
--- ALTER TABLE auth.users 
+-- ALTER TABLE auth.users
 --   ALTER COLUMN user_preferences SET DEFAULT '{}'::jsonb;
--- 
+--
 -- -- Ensure column is NOT NULL
--- ALTER TABLE auth.users 
+-- ALTER TABLE auth.users
 --   ALTER COLUMN user_preferences SET NOT NULL;
--- 
+--
 -- -- Update any existing NULL values to empty object
--- UPDATE auth.users 
--- SET user_preferences = '{}'::jsonb 
+-- UPDATE auth.users
+-- SET user_preferences = '{}'::jsonb
 -- WHERE user_preferences IS NULL;
--- 
+--
 -- -- Add comment
--- COMMENT ON COLUMN auth.users.user_preferences IS 
+-- COMMENT ON COLUMN auth.users.user_preferences IS
 --   'User-level settings (theme, notifications, etc.). Always {} never null. Keys are stored without "user." prefix.';
 
 -- ============================================================================
@@ -16674,39 +16673,39 @@ CREATE POLICY data_region_changes_service_role ON data_region_changes FOR ALL TO
 -- ============================================================================
 
 -- Check if teams table exists
-DO $$ 
+DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM information_schema.tables 
-    WHERE table_schema = 'public' 
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
     AND table_name = 'teams'
   ) THEN
     -- Add column if it doesn't exist
     IF NOT EXISTS (
-      SELECT 1 FROM information_schema.columns 
-      WHERE table_schema = 'public' 
-      AND table_name = 'teams' 
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+      AND table_name = 'teams'
       AND column_name = 'team_settings'
     ) THEN
-      ALTER TABLE public.teams 
+      ALTER TABLE public.teams
         ADD COLUMN team_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
     END IF;
 
     -- Ensure existing column has proper default
-    ALTER TABLE public.teams 
+    ALTER TABLE public.teams
       ALTER COLUMN team_settings SET DEFAULT '{}'::jsonb;
 
     -- Ensure column is NOT NULL
-    ALTER TABLE public.teams 
+    ALTER TABLE public.teams
       ALTER COLUMN team_settings SET NOT NULL;
 
     -- Update any existing NULL values
-    UPDATE public.teams 
-    SET team_settings = '{}'::jsonb 
+    UPDATE public.teams
+    SET team_settings = '{}'::jsonb
     WHERE team_settings IS NULL;
 
     -- Add comment
-    COMMENT ON COLUMN public.teams.team_settings IS 
+    COMMENT ON COLUMN public.teams.team_settings IS
       'Team-level settings (permissions, workflows, etc.). Always {} never null. Keys are stored without "team." prefix.';
   END IF;
 END $$;
@@ -16716,53 +16715,53 @@ END $$;
 -- ============================================================================
 
 -- Rename 'settings' to 'organization_settings' for consistency
-DO $$ 
+DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'organizations' 
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'organizations'
     AND column_name = 'settings'
   ) AND NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'organizations' 
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'organizations'
     AND column_name = 'organization_settings'
   ) THEN
-    ALTER TABLE public.organizations 
+    ALTER TABLE public.organizations
       RENAME COLUMN settings TO organization_settings;
   END IF;
 END $$;
 
 -- Ensure organization_settings exists with proper default
-DO $$ 
+DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'organizations' 
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'organizations'
     AND column_name = 'organization_settings'
   ) THEN
-    ALTER TABLE public.organizations 
+    ALTER TABLE public.organizations
       ADD COLUMN organization_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
   END IF;
 END $$;
 
 -- Ensure existing column has proper default
-ALTER TABLE public.organizations 
+ALTER TABLE public.organizations
   ALTER COLUMN organization_settings SET DEFAULT '{}'::jsonb;
 
 -- Ensure column is NOT NULL
-ALTER TABLE public.organizations 
+ALTER TABLE public.organizations
   ALTER COLUMN organization_settings SET NOT NULL;
 
 -- Update any existing NULL values
-UPDATE public.organizations 
-SET organization_settings = '{}'::jsonb 
+UPDATE public.organizations
+SET organization_settings = '{}'::jsonb
 WHERE organization_settings IS NULL;
 
 -- Add comment
-COMMENT ON COLUMN public.organizations.organization_settings IS 
+COMMENT ON COLUMN public.organizations.organization_settings IS
   'Organization-level settings (security, billing, etc.). Always {} never null. Keys are stored without "organization." prefix.';
 
 -- ============================================================================
@@ -16773,20 +16772,20 @@ COMMENT ON COLUMN public.organizations.organization_settings IS
 -- SKIPPED: auth.users modification
 -- UPDATE auth.users
 -- SET user_preferences = (user_preferences->'user')
--- WHERE user_preferences ? 'user' 
+-- WHERE user_preferences ? 'user'
 --   AND jsonb_typeof(user_preferences->'user') = 'object';
 
 -- Fix team_settings with redundant "team" nesting
-DO $$ 
+DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM information_schema.tables 
-    WHERE table_schema = 'public' 
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
     AND table_name = 'teams'
   ) THEN
     UPDATE public.teams
     SET team_settings = (team_settings->'team')
-    WHERE team_settings ? 'team' 
+    WHERE team_settings ? 'team'
       AND jsonb_typeof(team_settings->'team') = 'object';
   END IF;
 END $$;
@@ -16794,7 +16793,7 @@ END $$;
 -- Fix organization_settings with redundant "organization" nesting
 UPDATE public.organizations
 SET organization_settings = (organization_settings->'organization')
-WHERE organization_settings ? 'organization' 
+WHERE organization_settings ? 'organization'
   AND jsonb_typeof(organization_settings->'organization') = 'object';
 
 -- ============================================================================
@@ -16803,24 +16802,24 @@ WHERE organization_settings ? 'organization'
 
 -- Index for user preferences queries
 -- SKIPPED: auth.users index
--- CREATE INDEX IF NOT EXISTS idx_users_preferences_gin 
+-- CREATE INDEX IF NOT EXISTS idx_users_preferences_gin
 --   ON auth.users USING GIN (user_preferences);
 
 -- Index for team settings queries
-DO $$ 
+DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM information_schema.tables 
-    WHERE table_schema = 'public' 
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
     AND table_name = 'teams'
   ) THEN
-    CREATE INDEX IF NOT EXISTS idx_teams_settings_gin 
+    CREATE INDEX IF NOT EXISTS idx_teams_settings_gin
       ON public.teams USING GIN (team_settings);
   END IF;
 END $$;
 
 -- Index for organization settings queries
-CREATE INDEX IF NOT EXISTS idx_organizations_settings_gin 
+CREATE INDEX IF NOT EXISTS idx_organizations_settings_gin
   ON public.organizations USING GIN (organization_settings);
 
 -- ============================================================================
@@ -16828,29 +16827,29 @@ CREATE INDEX IF NOT EXISTS idx_organizations_settings_gin
 -- ============================================================================
 
 -- Verify no NULL values exist
-DO $$ 
+DO $$
 DECLARE
   null_count INTEGER;
 BEGIN
   -- SKIPPED: Check users
   -- SELECT COUNT(*) INTO null_count
-  -- FROM auth.users 
+  -- FROM auth.users
   -- WHERE user_preferences IS NULL;
-  
+
   -- IF null_count > 0 THEN
   --   RAISE WARNING 'Found % NULL user_preferences', null_count;
   -- END IF;
 
   -- Check teams
   IF EXISTS (
-    SELECT 1 FROM information_schema.tables 
-    WHERE table_schema = 'public' 
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
     AND table_name = 'teams'
   ) THEN
     SELECT COUNT(*) INTO null_count
-    FROM public.teams 
+    FROM public.teams
     WHERE team_settings IS NULL;
-    
+
     IF null_count > 0 THEN
       RAISE WARNING 'Found % NULL team_settings', null_count;
     END IF;
@@ -16858,9 +16857,9 @@ BEGIN
 
   -- Check organizations
   SELECT COUNT(*) INTO null_count
-  FROM public.organizations 
+  FROM public.organizations
   WHERE organization_settings IS NULL;
-  
+
   IF null_count > 0 THEN
     RAISE WARNING 'Found % NULL organization_settings', null_count;
   END IF;
@@ -16890,10 +16889,10 @@ CREATE POLICY deny_audit_logs_delete ON audit_logs
   FOR DELETE
   USING (false);
 
-COMMENT ON POLICY deny_audit_logs_update ON audit_logs IS 
+COMMENT ON POLICY deny_audit_logs_update ON audit_logs IS
   'Audit logs are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_audit_logs_delete ON audit_logs IS 
+COMMENT ON POLICY deny_audit_logs_delete ON audit_logs IS
   'Audit logs are immutable - deletes are not allowed';
 
 -- ============================================================================
@@ -16910,10 +16909,10 @@ CREATE POLICY deny_security_audit_delete ON security_audit_events
   FOR DELETE
   USING (false);
 
-COMMENT ON POLICY deny_security_audit_update ON security_audit_events IS 
+COMMENT ON POLICY deny_security_audit_update ON security_audit_events IS
   'Security audit events are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_security_audit_delete ON security_audit_events IS 
+COMMENT ON POLICY deny_security_audit_delete ON security_audit_events IS
   'Security audit events are immutable - deletes are not allowed';
 
 -- ============================================================================
@@ -16930,10 +16929,10 @@ CREATE POLICY deny_secret_audit_delete ON secret_audit_logs
   FOR DELETE
   USING (false);
 
-COMMENT ON POLICY deny_secret_audit_update ON secret_audit_logs IS 
+COMMENT ON POLICY deny_secret_audit_update ON secret_audit_logs IS
   'Secret audit logs are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_secret_audit_delete ON secret_audit_logs IS 
+COMMENT ON POLICY deny_secret_audit_delete ON secret_audit_logs IS
   'Secret audit logs are immutable - deletes are not allowed';
 
 -- ============================================================================
@@ -16950,10 +16949,10 @@ CREATE POLICY deny_secret_audit_legacy_delete ON secret_audit_logs_legacy
   FOR DELETE
   USING (false);
 
-COMMENT ON POLICY deny_secret_audit_legacy_update ON secret_audit_logs_legacy IS 
+COMMENT ON POLICY deny_secret_audit_legacy_update ON secret_audit_logs_legacy IS
   'Legacy secret audit logs are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_secret_audit_legacy_delete ON secret_audit_logs_legacy IS 
+COMMENT ON POLICY deny_secret_audit_legacy_delete ON secret_audit_logs_legacy IS
   'Legacy secret audit logs are immutable - deletes are not allowed';
 
 -- ============================================================================
@@ -16970,10 +16969,10 @@ CREATE POLICY deny_audit_logs_archive_delete ON audit_logs_archive
   FOR DELETE
   USING (false);
 
-COMMENT ON POLICY deny_audit_logs_archive_update ON audit_logs_archive IS 
+COMMENT ON POLICY deny_audit_logs_archive_update ON audit_logs_archive IS
   'Archived audit logs are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_audit_logs_archive_delete ON audit_logs_archive IS 
+COMMENT ON POLICY deny_audit_logs_archive_delete ON audit_logs_archive IS
   'Archived audit logs are immutable - deletes are not allowed';
 
 -- ============================================================================
@@ -16990,10 +16989,10 @@ CREATE POLICY deny_audit_log_access_delete ON audit_log_access
   FOR DELETE
   USING (false);
 
-COMMENT ON POLICY deny_audit_log_access_update ON audit_log_access IS 
+COMMENT ON POLICY deny_audit_log_access_update ON audit_log_access IS
   'Audit log access records are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_audit_log_access_delete ON audit_log_access IS 
+COMMENT ON POLICY deny_audit_log_access_delete ON audit_log_access IS
   'Audit log access records are immutable - deletes are not allowed';
 
 -- ============================================================================
@@ -17010,10 +17009,10 @@ CREATE POLICY deny_agent_audit_delete ON agent_audit_log
   FOR DELETE
   USING (false);
 
-COMMENT ON POLICY deny_agent_audit_update ON agent_audit_log IS 
+COMMENT ON POLICY deny_agent_audit_update ON agent_audit_log IS
   'Agent audit logs are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_agent_audit_delete ON agent_audit_log IS 
+COMMENT ON POLICY deny_agent_audit_delete ON agent_audit_log IS
   'Agent audit logs are immutable - deletes are not allowed';
 
 -- ============================================================================
@@ -17033,10 +17032,10 @@ CREATE POLICY deny_login_attempts_delete ON login_attempts
     auth.jwt() ->> 'role' = 'service_role'
   );
 
-COMMENT ON POLICY deny_login_attempts_update ON login_attempts IS 
+COMMENT ON POLICY deny_login_attempts_update ON login_attempts IS
   'Login attempts are immutable - updates are not allowed';
 
-COMMENT ON POLICY deny_login_attempts_delete ON login_attempts IS 
+COMMENT ON POLICY deny_login_attempts_delete ON login_attempts IS
   'Login attempts can only be deleted by service role for cleanup';
 
 -- ============================================================================
@@ -17060,7 +17059,7 @@ DECLARE
   v_deleted BIGINT;
 BEGIN
   v_cutoff_date := NOW() - (p_retention_days || ' days')::INTERVAL;
-  
+
   -- Archive audit_logs
   WITH archived AS (
     INSERT INTO audit_logs_archive
@@ -17069,18 +17068,18 @@ BEGIN
     RETURNING *
   )
   SELECT COUNT(*) INTO v_archived FROM archived;
-  
+
   -- Note: We don't delete from audit_logs due to immutability
   -- This function is for future use when archival strategy is defined
-  
-  RETURN QUERY SELECT 
+
+  RETURN QUERY SELECT
     'audit_logs'::TEXT,
     v_archived,
     0::BIGINT;
 END;
 $$;
 
-COMMENT ON FUNCTION archive_old_audit_logs IS 
+COMMENT ON FUNCTION archive_old_audit_logs IS
   'Archives old audit logs to archive table. Does not delete due to immutability requirements.';
 
 -- ============================================================================
@@ -17101,7 +17100,7 @@ SECURITY DEFINER
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     'audit_logs'::TEXT,
     COUNT(*)::BIGINT,
     MIN(created_at),
@@ -17109,10 +17108,10 @@ BEGIN
     false, -- Placeholder for gap detection
     'OK'::TEXT
   FROM audit_logs
-  
+
   UNION ALL
-  
-  SELECT 
+
+  SELECT
     'security_audit_events'::TEXT,
     COUNT(*)::BIGINT,
     MIN(timestamp),
@@ -17120,10 +17119,10 @@ BEGIN
     false,
     'OK'::TEXT
   FROM security_audit_events
-  
+
   UNION ALL
-  
-  SELECT 
+
+  SELECT
     'secret_audit_logs'::TEXT,
     COUNT(*)::BIGINT,
     MIN(timestamp),
@@ -17134,7 +17133,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION verify_audit_trail_integrity IS 
+COMMENT ON FUNCTION verify_audit_trail_integrity IS
   'Verifies audit trail integrity by checking for gaps and anomalies';
 
 -- ============================================================================
@@ -17149,7 +17148,7 @@ GRANT EXECUTE ON FUNCTION verify_audit_trail_integrity TO authenticated;
 -- ============================================================================
 
 CREATE OR REPLACE VIEW audit_trail_health AS
-SELECT 
+SELECT
   'audit_logs' as table_name,
   COUNT(*) as record_count,
   MIN(created_at) as oldest_record,
@@ -17160,7 +17159,7 @@ FROM audit_logs
 
 UNION ALL
 
-SELECT 
+SELECT
   'security_audit_events' as table_name,
   COUNT(*) as record_count,
   MIN(timestamp) as oldest_record,
@@ -17171,7 +17170,7 @@ FROM security_audit_events
 
 UNION ALL
 
-SELECT 
+SELECT
   'secret_audit_logs' as table_name,
   COUNT(*) as record_count,
   MIN(timestamp) as oldest_record,
@@ -17180,7 +17179,7 @@ SELECT
   COUNT(*) FILTER (WHERE timestamp > NOW() - INTERVAL '7 days') as last_7d
 FROM secret_audit_logs;
 
-COMMENT ON VIEW audit_trail_health IS 
+COMMENT ON VIEW audit_trail_health IS
   'Provides health metrics for audit trail tables';
 
 GRANT SELECT ON audit_trail_health TO authenticated;
@@ -17190,7 +17189,7 @@ GRANT SELECT ON audit_trail_health TO authenticated;
 -- ================================================
 -- Organization Configurations Audit Trigger
 -- Phase 2 Task 3: Audit Log Trigger
--- 
+--
 -- Ensures every UPDATE on organization_configurations triggers an audit log entry
 -- Tracks all configuration changes for compliance and security
 
@@ -17208,7 +17207,7 @@ DECLARE
 BEGIN
   -- Get current user ID from auth context
   v_user_id := auth.uid();
-  
+
   -- If no user context (e.g., system update), use a system user ID
   IF v_user_id IS NULL THEN
     v_user_id := '00000000-0000-0000-0000-000000000000'::UUID;
@@ -17251,7 +17250,7 @@ BEGIN
 
   -- Calculate changes (only fields that actually changed)
   v_changes := jsonb_build_object();
-  
+
   -- Check each field for changes
   IF OLD.auth_policy IS DISTINCT FROM NEW.auth_policy THEN
     v_changes := v_changes || jsonb_build_object(
@@ -17364,7 +17363,7 @@ CREATE TRIGGER audit_organization_configuration_updates
 -- Add Comment
 -- ============================================================================
 
-COMMENT ON FUNCTION audit_organization_configuration_changes() IS 
+COMMENT ON FUNCTION audit_organization_configuration_changes() IS
   'Audit trigger function that logs all changes to organization configurations. ' ||
   'Tracks old and new values, calculates specific changes, and stores metadata. ' ||
   'Required for SOC2 compliance and security monitoring.';
@@ -17423,7 +17422,7 @@ BEGIN
 
     -- Verify trigger fired
     IF v_audit_count_after > v_audit_count_before THEN
-      RAISE NOTICE 'Audit trigger test PASSED: % new audit log(s) created', 
+      RAISE NOTICE 'Audit trigger test PASSED: % new audit log(s) created',
         v_audit_count_after - v_audit_count_before;
     ELSE
       RAISE WARNING 'Audit trigger test FAILED: No audit logs created';
@@ -17437,7 +17436,7 @@ END $$;
 -- Create Index for Audit Log Queries
 -- ============================================================================
 
-CREATE INDEX IF NOT EXISTS idx_audit_logs_org_config 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_org_config
   ON audit_logs(resource_type, resource_id, created_at DESC)
   WHERE resource_type = 'organization_configuration';
 
@@ -17458,19 +17457,19 @@ COMMENT ON INDEX idx_audit_logs_org_config IS
 -- ============================================================================
 
 -- user_organizations composite index for RLS policies
-CREATE INDEX IF NOT EXISTS idx_user_organizations_user_org_active 
-ON user_organizations(user_id, organization_id) 
+CREATE INDEX IF NOT EXISTS idx_user_organizations_user_org_active
+ON user_organizations(user_id, organization_id)
 WHERE status = 'active';
 
-COMMENT ON INDEX idx_user_organizations_user_org_active IS 
+COMMENT ON INDEX idx_user_organizations_user_org_active IS
   'Optimizes RLS policy lookups for active user-organization relationships';
 
 -- user_tenants composite index for RLS policies
-CREATE INDEX IF NOT EXISTS idx_user_tenants_user_tenant_active 
-ON user_tenants(user_id, tenant_id) 
+CREATE INDEX IF NOT EXISTS idx_user_tenants_user_tenant_active
+ON user_tenants(user_id, tenant_id)
 WHERE status = 'active';
 
-COMMENT ON INDEX idx_user_tenants_user_tenant_active IS 
+COMMENT ON INDEX idx_user_tenants_user_tenant_active IS
   'Optimizes RLS policy lookups for active user-tenant relationships';
 
 -- ============================================================================
@@ -17478,25 +17477,25 @@ COMMENT ON INDEX idx_user_tenants_user_tenant_active IS
 -- ============================================================================
 
 -- integration_connections by organization and type
-CREATE INDEX IF NOT EXISTS idx_integration_connections_org_type 
+CREATE INDEX IF NOT EXISTS idx_integration_connections_org_type
 ON integration_connections(organization_id, adapter_type);
 
-COMMENT ON INDEX idx_integration_connections_org_type IS 
+COMMENT ON INDEX idx_integration_connections_org_type IS
   'Optimizes queries for integrations by organization and adapter type';
 
 -- sync_history by connection and time
-CREATE INDEX IF NOT EXISTS idx_sync_history_connection_time 
+CREATE INDEX IF NOT EXISTS idx_sync_history_connection_time
 ON sync_history(connection_id, started_at DESC);
 
-COMMENT ON INDEX idx_sync_history_connection_time IS 
+COMMENT ON INDEX idx_sync_history_connection_time IS
   'Optimizes sync history queries by connection and time';
 
 -- sync_history by status for monitoring
-CREATE INDEX IF NOT EXISTS idx_sync_history_status_time 
+CREATE INDEX IF NOT EXISTS idx_sync_history_status_time
 ON sync_history(status, started_at DESC)
 WHERE status IN ('running', 'failed');
 
-COMMENT ON INDEX idx_sync_history_status_time IS 
+COMMENT ON INDEX idx_sync_history_status_time IS
   'Optimizes queries for active and failed syncs';
 
 -- ============================================================================
@@ -17504,38 +17503,38 @@ COMMENT ON INDEX idx_sync_history_status_time IS
 -- ============================================================================
 
 -- audit_logs by organization and time
-CREATE INDEX IF NOT EXISTS idx_audit_logs_org_time 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_org_time
 ON audit_logs(organization_id, created_at DESC);
 
-COMMENT ON INDEX idx_audit_logs_org_time IS 
+COMMENT ON INDEX idx_audit_logs_org_time IS
   'Optimizes audit log queries by organization and time';
 
 -- audit_logs by user and time
-CREATE INDEX IF NOT EXISTS idx_audit_logs_user_time 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_time
 ON audit_logs(user_id, created_at DESC);
 
-COMMENT ON INDEX idx_audit_logs_user_time IS 
+COMMENT ON INDEX idx_audit_logs_user_time IS
   'Optimizes audit log queries by user and time';
 
 -- audit_logs by action and time
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action_time 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_time
 ON audit_logs(action, created_at DESC);
 
-COMMENT ON INDEX idx_audit_logs_action_time IS 
+COMMENT ON INDEX idx_audit_logs_action_time IS
   'Optimizes audit log queries by action type and time';
 
 -- security_audit_events by tenant and time
-CREATE INDEX IF NOT EXISTS idx_security_audit_events_tenant_time 
+CREATE INDEX IF NOT EXISTS idx_security_audit_events_tenant_time
 ON security_audit_events(tenant_id, timestamp DESC);
 
-COMMENT ON INDEX idx_security_audit_events_tenant_time IS 
+COMMENT ON INDEX idx_security_audit_events_tenant_time IS
   'Optimizes security audit queries by tenant and time';
 
 -- security_audit_events by action
-CREATE INDEX IF NOT EXISTS idx_security_audit_events_action 
+CREATE INDEX IF NOT EXISTS idx_security_audit_events_action
 ON security_audit_events(action, timestamp DESC);
 
-COMMENT ON INDEX idx_security_audit_events_action IS 
+COMMENT ON INDEX idx_security_audit_events_action IS
   'Optimizes security audit queries by action type';
 
 -- ============================================================================
@@ -17543,42 +17542,42 @@ COMMENT ON INDEX idx_security_audit_events_action IS
 -- ============================================================================
 
 -- llm_gating_policies by tenant
-CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_tenant 
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_tenant
 ON llm_gating_policies(tenant_id);
 
-COMMENT ON INDEX idx_llm_gating_policies_tenant IS 
+COMMENT ON INDEX idx_llm_gating_policies_tenant IS
   'Optimizes LLM gating policy lookups by tenant';
 
 -- llm_usage by tenant and time
-CREATE INDEX IF NOT EXISTS idx_llm_usage_tenant_time 
+CREATE INDEX IF NOT EXISTS idx_llm_usage_tenant_time
 ON llm_usage(tenant_id, created_at DESC);
 
-COMMENT ON INDEX idx_llm_usage_tenant_time IS 
+COMMENT ON INDEX idx_llm_usage_tenant_time IS
   'Optimizes LLM usage queries by tenant and time';
 
 -- llm_usage by user and time
-CREATE INDEX IF NOT EXISTS idx_llm_usage_user_time 
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_time
 ON llm_usage(user_id, created_at DESC)
 WHERE user_id IS NOT NULL;
 
-COMMENT ON INDEX idx_llm_usage_user_time IS 
+COMMENT ON INDEX idx_llm_usage_user_time IS
   'Optimizes LLM usage queries by user and time';
 
 -- llm_usage by model for analytics
-CREATE INDEX IF NOT EXISTS idx_llm_usage_model_time 
+CREATE INDEX IF NOT EXISTS idx_llm_usage_model_time
 ON llm_usage(model, created_at DESC);
 
-COMMENT ON INDEX idx_llm_usage_model_time IS 
+COMMENT ON INDEX idx_llm_usage_model_time IS
   'Optimizes LLM usage analytics by model';
 
 -- llm_calls by tenant (if tenant_id exists)
 DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'llm_calls' AND column_name = 'tenant_id'
   ) THEN
-    CREATE INDEX IF NOT EXISTS idx_llm_calls_tenant_time 
+    CREATE INDEX IF NOT EXISTS idx_llm_calls_tenant_time
     ON llm_calls(tenant_id, created_at DESC);
   END IF;
 END $$;
@@ -17588,24 +17587,24 @@ END $$;
 -- ============================================================================
 
 -- agent_sessions by tenant and time
-CREATE INDEX IF NOT EXISTS idx_agent_sessions_tenant_time 
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_tenant_time
 ON agent_sessions(tenant_id, created_at DESC);
 
-COMMENT ON INDEX idx_agent_sessions_tenant_time IS 
+COMMENT ON INDEX idx_agent_sessions_tenant_time IS
   'Optimizes agent session queries by tenant and time';
 
 -- agent_predictions by tenant and time
-CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant_time 
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant_time
 ON agent_predictions(tenant_id, created_at DESC);
 
-COMMENT ON INDEX idx_agent_predictions_tenant_time IS 
+COMMENT ON INDEX idx_agent_predictions_tenant_time IS
   'Optimizes agent prediction queries by tenant and time';
 
 -- agent_memory by organization and session
-CREATE INDEX IF NOT EXISTS idx_agent_memory_org_session 
+CREATE INDEX IF NOT EXISTS idx_agent_memory_org_session
 ON agent_memory(organization_id, session_id);
 
-COMMENT ON INDEX idx_agent_memory_org_session IS 
+COMMENT ON INDEX idx_agent_memory_org_session IS
   'Optimizes agent memory queries by organization and session';
 
 -- ============================================================================
@@ -17613,19 +17612,19 @@ COMMENT ON INDEX idx_agent_memory_org_session IS
 -- ============================================================================
 
 -- approval_requests_archive by tenant and time
-CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant_time 
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant_time
 ON approval_requests_archive(tenant_id, created_at DESC)
 WHERE tenant_id IS NOT NULL;
 
-COMMENT ON INDEX idx_approval_requests_archive_tenant_time IS 
+COMMENT ON INDEX idx_approval_requests_archive_tenant_time IS
   'Optimizes archived approval request queries by tenant and time';
 
 -- approvals_archive by tenant and time
-CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant_time 
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant_time
 ON approvals_archive(tenant_id, created_at DESC)
 WHERE tenant_id IS NOT NULL;
 
-COMMENT ON INDEX idx_approvals_archive_tenant_time IS 
+COMMENT ON INDEX idx_approvals_archive_tenant_time IS
   'Optimizes archived approval queries by tenant and time';
 
 -- ============================================================================
@@ -17633,31 +17632,31 @@ COMMENT ON INDEX idx_approvals_archive_tenant_time IS
 -- ============================================================================
 
 -- integration_connections config
-CREATE INDEX IF NOT EXISTS idx_integration_connections_config_gin 
+CREATE INDEX IF NOT EXISTS idx_integration_connections_config_gin
 ON integration_connections USING GIN (config);
 
-COMMENT ON INDEX idx_integration_connections_config_gin IS 
+COMMENT ON INDEX idx_integration_connections_config_gin IS
   'Optimizes JSONB queries on integration configuration';
 
 -- integration_connections field_mappings
-CREATE INDEX IF NOT EXISTS idx_integration_connections_mappings_gin 
+CREATE INDEX IF NOT EXISTS idx_integration_connections_mappings_gin
 ON integration_connections USING GIN (field_mappings);
 
-COMMENT ON INDEX idx_integration_connections_mappings_gin IS 
+COMMENT ON INDEX idx_integration_connections_mappings_gin IS
   'Optimizes JSONB queries on field mappings';
 
 -- llm_gating_policies routing_rules
-CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_routing_gin 
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_routing_gin
 ON llm_gating_policies USING GIN (routing_rules);
 
-COMMENT ON INDEX idx_llm_gating_policies_routing_gin IS 
+COMMENT ON INDEX idx_llm_gating_policies_routing_gin IS
   'Optimizes JSONB queries on LLM routing rules';
 
 -- llm_gating_policies manifesto_enforcement
-CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_manifesto_gin 
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_manifesto_gin
 ON llm_gating_policies USING GIN (manifesto_enforcement);
 
-COMMENT ON INDEX idx_llm_gating_policies_manifesto_gin IS 
+COMMENT ON INDEX idx_llm_gating_policies_manifesto_gin IS
   'Optimizes JSONB queries on manifesto enforcement configuration';
 
 -- ============================================================================
@@ -17665,20 +17664,20 @@ COMMENT ON INDEX idx_llm_gating_policies_manifesto_gin IS
 -- ============================================================================
 
 -- integration_usage_log foreign keys
-CREATE INDEX IF NOT EXISTS idx_integration_usage_log_integration 
+CREATE INDEX IF NOT EXISTS idx_integration_usage_log_integration
 ON integration_usage_log(integration_id);
 
-CREATE INDEX IF NOT EXISTS idx_integration_usage_log_user 
+CREATE INDEX IF NOT EXISTS idx_integration_usage_log_user
 ON integration_usage_log(user_id);
 
 -- webhook_events tenant_id (if exists)
 DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM information_schema.columns 
+    SELECT 1 FROM information_schema.columns
     WHERE table_name = 'webhook_events' AND column_name = 'tenant_id'
   ) THEN
-    CREATE INDEX IF NOT EXISTS idx_webhook_events_tenant 
+    CREATE INDEX IF NOT EXISTS idx_webhook_events_tenant
     ON webhook_events(tenant_id);
   END IF;
 END $$;
@@ -17688,24 +17687,24 @@ END $$;
 -- ============================================================================
 
 -- audit_logs BRIN index for time-series queries
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at_brin 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at_brin
 ON audit_logs USING BRIN (created_at);
 
-COMMENT ON INDEX idx_audit_logs_created_at_brin IS 
+COMMENT ON INDEX idx_audit_logs_created_at_brin IS
   'BRIN index for efficient time-range queries on large audit log table';
 
 -- llm_usage BRIN index for time-series queries
-CREATE INDEX IF NOT EXISTS idx_llm_usage_created_at_brin 
+CREATE INDEX IF NOT EXISTS idx_llm_usage_created_at_brin
 ON llm_usage USING BRIN (created_at);
 
-COMMENT ON INDEX idx_llm_usage_created_at_brin IS 
+COMMENT ON INDEX idx_llm_usage_created_at_brin IS
   'BRIN index for efficient time-range queries on large LLM usage table';
 
 -- sync_history BRIN index for time-series queries
-CREATE INDEX IF NOT EXISTS idx_sync_history_started_at_brin 
+CREATE INDEX IF NOT EXISTS idx_sync_history_started_at_brin
 ON sync_history USING BRIN (started_at);
 
-COMMENT ON INDEX idx_sync_history_started_at_brin IS 
+COMMENT ON INDEX idx_sync_history_started_at_brin IS
   'BRIN index for efficient time-range queries on large sync history table';
 
 -- ============================================================================
@@ -17735,7 +17734,7 @@ BEGIN
   FROM pg_indexes
   WHERE schemaname = 'public'
   AND indexname LIKE 'idx_%';
-  
+
   RAISE NOTICE 'Performance indexes migration complete. Total indexes: %', v_index_count;
 END $$;
 
@@ -17744,7 +17743,7 @@ END $$;
 -- ================================================
 -- Team Settings Audit Trigger
 -- Phase 3: Enhanced Audit Logging
--- 
+--
 -- Ensures all Team-tier changes trigger audit logs with old and new values
 
 -- ============================================================================
@@ -17883,7 +17882,7 @@ DECLARE
 BEGIN
   -- Check if key already exists
   IF NOT EXISTS (
-    SELECT 1 FROM pgsodium.key 
+    SELECT 1 FROM pgsodium.key
     WHERE name = 'integration_credentials_key'
   ) THEN
     -- Generate a new encryption key
@@ -17895,7 +17894,7 @@ BEGIN
       'integration_credentials'::bytea
     )
     RETURNING id INTO v_key_id;
-    
+
     RAISE NOTICE 'Created encryption key with ID: %', v_key_id;
   ELSE
     RAISE NOTICE 'Encryption key already exists';
@@ -17907,18 +17906,18 @@ END $$;
 -- ============================================================================
 
 -- Add encrypted credentials column
-ALTER TABLE integration_connections 
+ALTER TABLE integration_connections
 ADD COLUMN IF NOT EXISTS credentials_encrypted BYTEA;
 
 -- Add key ID reference
-ALTER TABLE integration_connections 
-ADD COLUMN IF NOT EXISTS credentials_key_id BIGINT 
+ALTER TABLE integration_connections
+ADD COLUMN IF NOT EXISTS credentials_key_id BIGINT
 REFERENCES pgsodium.key(id);
 
-COMMENT ON COLUMN integration_connections.credentials_encrypted IS 
+COMMENT ON COLUMN integration_connections.credentials_encrypted IS
   'Encrypted OAuth tokens and API keys using pgsodium';
 
-COMMENT ON COLUMN integration_connections.credentials_key_id IS 
+COMMENT ON COLUMN integration_connections.credentials_key_id IS
   'Reference to encryption key in pgsodium.key table';
 
 -- ============================================================================
@@ -17926,24 +17925,24 @@ COMMENT ON COLUMN integration_connections.credentials_key_id IS
 -- ============================================================================
 
 -- Add encrypted token columns
-ALTER TABLE tenant_integrations 
+ALTER TABLE tenant_integrations
 ADD COLUMN IF NOT EXISTS access_token_encrypted BYTEA;
 
-ALTER TABLE tenant_integrations 
+ALTER TABLE tenant_integrations
 ADD COLUMN IF NOT EXISTS refresh_token_encrypted BYTEA;
 
 -- Add key ID reference
-ALTER TABLE tenant_integrations 
-ADD COLUMN IF NOT EXISTS token_key_id BIGINT 
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS token_key_id BIGINT
 REFERENCES pgsodium.key(id);
 
-COMMENT ON COLUMN tenant_integrations.access_token_encrypted IS 
+COMMENT ON COLUMN tenant_integrations.access_token_encrypted IS
   'Encrypted access token using pgsodium';
 
-COMMENT ON COLUMN tenant_integrations.refresh_token_encrypted IS 
+COMMENT ON COLUMN tenant_integrations.refresh_token_encrypted IS
   'Encrypted refresh token using pgsodium';
 
-COMMENT ON COLUMN tenant_integrations.token_key_id IS 
+COMMENT ON COLUMN tenant_integrations.token_key_id IS
   'Reference to encryption key in pgsodium.key table';
 
 -- ============================================================================
@@ -17970,26 +17969,26 @@ BEGIN
     WHERE name = 'integration_credentials_key'
     AND status = 'valid'
     LIMIT 1;
-    
+
     IF v_key_id IS NULL THEN
       RAISE EXCEPTION 'Encryption key not found';
     END IF;
   ELSE
     v_key_id := p_key_id;
   END IF;
-  
+
   -- Encrypt the plaintext
   v_encrypted := pgsodium.crypto_aead_det_encrypt(
     p_plaintext::bytea,
     NULL,  -- No additional data
     v_key_id
   );
-  
+
   RETURN v_encrypted;
 END;
 $$;
 
-COMMENT ON FUNCTION encrypt_credentials IS 
+COMMENT ON FUNCTION encrypt_credentials IS
   'Encrypts credentials using pgsodium deterministic AEAD encryption';
 
 -- Function to decrypt credentials
@@ -18009,7 +18008,7 @@ BEGIN
   IF p_encrypted IS NULL THEN
     RETURN NULL;
   END IF;
-  
+
   -- Get key ID if not provided
   IF p_key_id IS NULL THEN
     SELECT id INTO v_key_id
@@ -18017,26 +18016,26 @@ BEGIN
     WHERE name = 'integration_credentials_key'
     AND status = 'valid'
     LIMIT 1;
-    
+
     IF v_key_id IS NULL THEN
       RAISE EXCEPTION 'Encryption key not found';
     END IF;
   ELSE
     v_key_id := p_key_id;
   END IF;
-  
+
   -- Decrypt the ciphertext
   v_decrypted := pgsodium.crypto_aead_det_decrypt(
     p_encrypted,
     NULL,  -- No additional data
     v_key_id
   );
-  
+
   RETURN convert_from(v_decrypted, 'UTF8');
 END;
 $$;
 
-COMMENT ON FUNCTION decrypt_credentials IS 
+COMMENT ON FUNCTION decrypt_credentials IS
   'Decrypts credentials using pgsodium deterministic AEAD decryption';
 
 -- ============================================================================
@@ -18064,81 +18063,81 @@ BEGIN
   WHERE name = 'integration_credentials_key'
   AND status = 'valid'
   LIMIT 1;
-  
+
   IF v_key_id IS NULL THEN
     RAISE EXCEPTION 'Encryption key not found';
   END IF;
-  
+
   -- Migrate integration_connections
-  FOR v_record IN 
-    SELECT id, credentials 
-    FROM integration_connections 
-    WHERE credentials IS NOT NULL 
+  FOR v_record IN
+    SELECT id, credentials
+    FROM integration_connections
+    WHERE credentials IS NOT NULL
     AND credentials_encrypted IS NULL
   LOOP
     BEGIN
       UPDATE integration_connections
-      SET 
+      SET
         credentials_encrypted = encrypt_credentials(credentials::text, v_key_id),
         credentials_key_id = v_key_id
       WHERE id = v_record.id;
-      
+
       v_migrated := v_migrated + 1;
     EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Failed to encrypt credentials for integration_connections.id=%: %', 
+      RAISE WARNING 'Failed to encrypt credentials for integration_connections.id=%: %',
         v_record.id, SQLERRM;
       v_failed := v_failed + 1;
     END;
   END LOOP;
-  
-  RETURN QUERY SELECT 
+
+  RETURN QUERY SELECT
     'integration_connections'::TEXT,
     v_migrated,
     v_failed;
-  
+
   -- Reset counters for next table
   v_migrated := 0;
   v_failed := 0;
-  
+
   -- Migrate tenant_integrations access_token
-  FOR v_record IN 
+  FOR v_record IN
     SELECT id, access_token, refresh_token
-    FROM tenant_integrations 
+    FROM tenant_integrations
     WHERE (access_token IS NOT NULL OR refresh_token IS NOT NULL)
     AND access_token_encrypted IS NULL
   LOOP
     BEGIN
       UPDATE tenant_integrations
-      SET 
-        access_token_encrypted = CASE 
-          WHEN access_token IS NOT NULL 
+      SET
+        access_token_encrypted = CASE
+          WHEN access_token IS NOT NULL
           THEN encrypt_credentials(access_token, v_key_id)
           ELSE NULL
         END,
-        refresh_token_encrypted = CASE 
-          WHEN refresh_token IS NOT NULL 
+        refresh_token_encrypted = CASE
+          WHEN refresh_token IS NOT NULL
           THEN encrypt_credentials(refresh_token, v_key_id)
           ELSE NULL
         END,
         token_key_id = v_key_id
       WHERE id = v_record.id;
-      
+
       v_migrated := v_migrated + 1;
     EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Failed to encrypt tokens for tenant_integrations.id=%: %', 
+      RAISE WARNING 'Failed to encrypt tokens for tenant_integrations.id=%: %',
         v_record.id, SQLERRM;
       v_failed := v_failed + 1;
     END;
   END LOOP;
-  
-  RETURN QUERY SELECT 
+
+  RETURN QUERY SELECT
     'tenant_integrations'::TEXT,
     v_migrated,
     v_failed;
 END;
 $$;
 
-COMMENT ON FUNCTION migrate_credentials_to_encrypted IS 
+COMMENT ON FUNCTION migrate_credentials_to_encrypted IS
   'Migrates existing plaintext credentials to encrypted storage';
 
 -- ============================================================================
@@ -18148,7 +18147,7 @@ COMMENT ON FUNCTION migrate_credentials_to_encrypted IS
 -- View for integration_connections with decrypted credentials
 -- Only accessible by service_role
 CREATE OR REPLACE VIEW integration_connections_decrypted AS
-SELECT 
+SELECT
   id,
   organization_id,
   adapter_type,
@@ -18169,7 +18168,7 @@ SELECT
   created_by
 FROM integration_connections;
 
-COMMENT ON VIEW integration_connections_decrypted IS 
+COMMENT ON VIEW integration_connections_decrypted IS
   'View with decrypted credentials - only accessible by service_role';
 
 -- Grant access only to service_role
@@ -18178,7 +18177,7 @@ GRANT SELECT ON integration_connections_decrypted TO service_role;
 
 -- View for tenant_integrations with decrypted tokens
 CREATE OR REPLACE VIEW tenant_integrations_decrypted AS
-SELECT 
+SELECT
   id,
   tenant_id,
   provider,
@@ -18198,7 +18197,7 @@ SELECT
   updated_at
 FROM tenant_integrations;
 
-COMMENT ON VIEW tenant_integrations_decrypted IS 
+COMMENT ON VIEW tenant_integrations_decrypted IS
   'View with decrypted tokens - only accessible by service_role';
 
 -- Grant access only to service_role
@@ -18224,11 +18223,11 @@ BEGIN
   WHERE name = 'integration_credentials_key'
   AND status = 'valid'
   LIMIT 1;
-  
+
   IF v_key_id IS NULL THEN
     RAISE EXCEPTION 'Encryption key not found';
   END IF;
-  
+
   -- Encrypt credentials if provided as plaintext
   IF NEW.credentials IS NOT NULL AND NEW.credentials_encrypted IS NULL THEN
     NEW.credentials_encrypted := encrypt_credentials(NEW.credentials::text, v_key_id);
@@ -18236,7 +18235,7 @@ BEGIN
     -- Clear plaintext after encryption
     NEW.credentials := NULL;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -18248,7 +18247,7 @@ CREATE TRIGGER encrypt_credentials_before_insert
   FOR EACH ROW
   EXECUTE FUNCTION encrypt_integration_credentials_trigger();
 
-COMMENT ON TRIGGER encrypt_credentials_before_insert ON integration_connections IS 
+COMMENT ON TRIGGER encrypt_credentials_before_insert ON integration_connections IS
   'Auto-encrypts credentials on insert/update';
 
 -- Trigger function for tenant_integrations
@@ -18266,11 +18265,11 @@ BEGIN
   WHERE name = 'integration_credentials_key'
   AND status = 'valid'
   LIMIT 1;
-  
+
   IF v_key_id IS NULL THEN
     RAISE EXCEPTION 'Encryption key not found';
   END IF;
-  
+
   -- Encrypt access_token if provided as plaintext
   IF NEW.access_token IS NOT NULL AND NEW.access_token_encrypted IS NULL THEN
     NEW.access_token_encrypted := encrypt_credentials(NEW.access_token, v_key_id);
@@ -18278,7 +18277,7 @@ BEGIN
     -- Clear plaintext after encryption
     NEW.access_token := NULL;
   END IF;
-  
+
   -- Encrypt refresh_token if provided as plaintext
   IF NEW.refresh_token IS NOT NULL AND NEW.refresh_token_encrypted IS NULL THEN
     NEW.refresh_token_encrypted := encrypt_credentials(NEW.refresh_token, v_key_id);
@@ -18286,7 +18285,7 @@ BEGIN
     -- Clear plaintext after encryption
     NEW.refresh_token := NULL;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -18298,7 +18297,7 @@ CREATE TRIGGER encrypt_tokens_before_insert
   FOR EACH ROW
   EXECUTE FUNCTION encrypt_tenant_tokens_trigger();
 
-COMMENT ON TRIGGER encrypt_tokens_before_insert ON tenant_integrations IS 
+COMMENT ON TRIGGER encrypt_tokens_before_insert ON tenant_integrations IS
   'Auto-encrypts tokens on insert/update';
 
 -- ============================================================================
@@ -18334,13 +18333,13 @@ CREATE TABLE IF NOT EXISTS credential_access_log (
   user_agent TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_time 
+CREATE INDEX IF NOT EXISTS idx_credential_access_log_time
 ON credential_access_log(accessed_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_user 
+CREATE INDEX IF NOT EXISTS idx_credential_access_log_user
 ON credential_access_log(accessed_by, accessed_at DESC);
 
-COMMENT ON TABLE credential_access_log IS 
+COMMENT ON TABLE credential_access_log IS
   'Audit log for credential access and decryption operations';
 
 -- Enable RLS on credential_access_log
@@ -18426,35 +18425,35 @@ BEGIN
   RAISE NOTICE 'Pre-flight Checks for Plaintext Cleanup';
   RAISE NOTICE '============================================================';
   RAISE NOTICE '';
-  
+
   -- Check integration_connections
   SELECT COUNT(*) INTO v_unencrypted_integrations
   FROM integration_connections
-  WHERE credentials IS NOT NULL 
+  WHERE credentials IS NOT NULL
   AND credentials_encrypted IS NULL;
-  
+
   IF v_unencrypted_integrations > 0 THEN
-    RAISE WARNING '⚠️  Found % integration_connections with unencrypted credentials', 
+    RAISE WARNING '⚠️  Found % integration_connections with unencrypted credentials',
       v_unencrypted_integrations;
     RAISE EXCEPTION 'ABORT: Run migrate_credentials_to_encrypted() first!';
   ELSE
     RAISE NOTICE '✅ All integration_connections credentials are encrypted';
   END IF;
-  
+
   -- Check tenant_integrations
   SELECT COUNT(*) INTO v_unencrypted_tenants
   FROM tenant_integrations
   WHERE (access_token IS NOT NULL OR refresh_token IS NOT NULL)
   AND (access_token_encrypted IS NULL AND refresh_token_encrypted IS NULL);
-  
+
   IF v_unencrypted_tenants > 0 THEN
-    RAISE WARNING '⚠️  Found % tenant_integrations with unencrypted tokens', 
+    RAISE WARNING '⚠️  Found % tenant_integrations with unencrypted tokens',
       v_unencrypted_tenants;
     RAISE EXCEPTION 'ABORT: Run migrate_credentials_to_encrypted() first!';
   ELSE
     RAISE NOTICE '✅ All tenant_integrations tokens are encrypted';
   END IF;
-  
+
   RAISE NOTICE '';
   RAISE NOTICE '✅ Pre-flight checks passed';
   RAISE NOTICE '';
@@ -18466,19 +18465,19 @@ END $$;
 
 -- Backup integration_connections
 CREATE TABLE IF NOT EXISTS integration_connections_plaintext_backup AS
-SELECT 
+SELECT
   id,
   credentials,
   created_at as backup_created_at
 FROM integration_connections
 WHERE credentials IS NOT NULL;
 
-COMMENT ON TABLE integration_connections_plaintext_backup IS 
+COMMENT ON TABLE integration_connections_plaintext_backup IS
   'Backup of plaintext credentials before cleanup - DELETE AFTER VERIFICATION';
 
 -- Backup tenant_integrations
 CREATE TABLE IF NOT EXISTS tenant_integrations_plaintext_backup AS
-SELECT 
+SELECT
   id,
   access_token,
   refresh_token,
@@ -18486,7 +18485,7 @@ SELECT
 FROM tenant_integrations
 WHERE access_token IS NOT NULL OR refresh_token IS NOT NULL;
 
-COMMENT ON TABLE tenant_integrations_plaintext_backup IS 
+COMMENT ON TABLE tenant_integrations_plaintext_backup IS
   'Backup of plaintext tokens before cleanup - DELETE AFTER VERIFICATION';
 
 -- Log backup creation
@@ -18495,16 +18494,16 @@ DECLARE
   v_integration_backup_count INTEGER;
   v_tenant_backup_count INTEGER;
 BEGIN
-  SELECT COUNT(*) INTO v_integration_backup_count 
+  SELECT COUNT(*) INTO v_integration_backup_count
   FROM integration_connections_plaintext_backup;
-  
-  SELECT COUNT(*) INTO v_tenant_backup_count 
+
+  SELECT COUNT(*) INTO v_tenant_backup_count
   FROM tenant_integrations_plaintext_backup;
-  
+
   RAISE NOTICE '✅ Created backup tables:';
-  RAISE NOTICE '   - integration_connections_plaintext_backup: % records', 
+  RAISE NOTICE '   - integration_connections_plaintext_backup: % records',
     v_integration_backup_count;
-  RAISE NOTICE '   - tenant_integrations_plaintext_backup: % records', 
+  RAISE NOTICE '   - tenant_integrations_plaintext_backup: % records',
     v_tenant_backup_count;
   RAISE NOTICE '';
 END $$;
@@ -18514,18 +18513,18 @@ END $$;
 -- ============================================================================
 
 -- Drop credentials column from integration_connections
-ALTER TABLE integration_connections 
+ALTER TABLE integration_connections
 DROP COLUMN IF EXISTS credentials;
 
-COMMENT ON TABLE integration_connections IS 
+COMMENT ON TABLE integration_connections IS
   'Integration connections with encrypted credentials (plaintext removed)';
 
 -- Drop token columns from tenant_integrations
-ALTER TABLE tenant_integrations 
+ALTER TABLE tenant_integrations
 DROP COLUMN IF EXISTS access_token,
 DROP COLUMN IF EXISTS refresh_token;
 
-COMMENT ON TABLE tenant_integrations IS 
+COMMENT ON TABLE tenant_integrations IS
   'Tenant integrations with encrypted tokens (plaintext removed)';
 
 -- ============================================================================
@@ -18547,24 +18546,24 @@ BEGIN
   WHERE name = 'integration_credentials_key'
   AND status = 'valid'
   LIMIT 1;
-  
+
   IF v_key_id IS NULL THEN
     RAISE EXCEPTION 'Encryption key not found';
   END IF;
-  
+
   -- Note: credentials column no longer exists
   -- Application must provide credentials_encrypted directly
   -- or use encrypt_credentials() function
-  
+
   IF NEW.credentials_key_id IS NULL THEN
     NEW.credentials_key_id := v_key_id;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
 
-COMMENT ON FUNCTION encrypt_integration_credentials_trigger IS 
+COMMENT ON FUNCTION encrypt_integration_credentials_trigger IS
   'Updated trigger after plaintext column removal';
 
 -- Update tenant_integrations trigger
@@ -18582,24 +18581,24 @@ BEGIN
   WHERE name = 'integration_credentials_key'
   AND status = 'valid'
   LIMIT 1;
-  
+
   IF v_key_id IS NULL THEN
     RAISE EXCEPTION 'Encryption key not found';
   END IF;
-  
+
   -- Note: access_token and refresh_token columns no longer exist
   -- Application must provide encrypted tokens directly
   -- or use encrypt_credentials() function
-  
+
   IF NEW.token_key_id IS NULL THEN
     NEW.token_key_id := v_key_id;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
 
-COMMENT ON FUNCTION encrypt_tenant_tokens_trigger IS 
+COMMENT ON FUNCTION encrypt_tenant_tokens_trigger IS
   'Updated trigger after plaintext column removal';
 
 -- ============================================================================
@@ -18608,7 +18607,7 @@ COMMENT ON FUNCTION encrypt_tenant_tokens_trigger IS
 
 -- Create verification view
 CREATE OR REPLACE VIEW credential_encryption_status AS
-SELECT 
+SELECT
   'integration_connections' as table_name,
   COUNT(*) as total_records,
   COUNT(*) FILTER (WHERE credentials_encrypted IS NOT NULL) as encrypted_records,
@@ -18621,27 +18620,27 @@ FROM integration_connections
 
 UNION ALL
 
-SELECT 
+SELECT
   'tenant_integrations' as table_name,
   COUNT(*) as total_records,
   COUNT(*) FILTER (
-    WHERE access_token_encrypted IS NOT NULL 
+    WHERE access_token_encrypted IS NOT NULL
     OR refresh_token_encrypted IS NOT NULL
   ) as encrypted_records,
   COUNT(*) FILTER (
-    WHERE access_token_encrypted IS NULL 
+    WHERE access_token_encrypted IS NULL
     AND refresh_token_encrypted IS NULL
   ) as unencrypted_records,
   ROUND(
     100.0 * COUNT(*) FILTER (
-      WHERE access_token_encrypted IS NOT NULL 
+      WHERE access_token_encrypted IS NOT NULL
       OR refresh_token_encrypted IS NOT NULL
     ) / NULLIF(COUNT(*), 0),
     2
   ) as encryption_percentage
 FROM tenant_integrations;
 
-COMMENT ON VIEW credential_encryption_status IS 
+COMMENT ON VIEW credential_encryption_status IS
   'Shows encryption status across credential tables';
 
 GRANT SELECT ON credential_encryption_status TO authenticated;
@@ -18683,7 +18682,7 @@ END $$;
 -- Rollback Instructions (If Needed)
 -- ============================================================================
 
-COMMENT ON SCHEMA public IS 
+COMMENT ON SCHEMA public IS
 'ROLLBACK INSTRUCTIONS (if needed):
 
 -- Restore plaintext columns from backup
@@ -18696,7 +18695,7 @@ WHERE ic.id = b.id;
 ALTER TABLE tenant_integrations ADD COLUMN access_token TEXT;
 ALTER TABLE tenant_integrations ADD COLUMN refresh_token TEXT;
 UPDATE tenant_integrations ti
-SET 
+SET
   access_token = b.access_token,
   refresh_token = b.refresh_token
 FROM tenant_integrations_plaintext_backup b
@@ -18716,7 +18715,7 @@ WHERE ti.id = b.id;
 
 -- ============================================================================
 -- SECURITY ISSUE: JWT-based RLS policies are vulnerable to manipulation
--- 
+--
 -- Problem: Using auth.jwt() ->> 'org_id' or auth.jwt() ->> 'role' in policies
 -- Risk: JWT claims can be manipulated if not properly validated
 -- Solution: Use auth.uid() with lookup tables for tenant/org membership
@@ -18734,13 +18733,13 @@ LANGUAGE SQL
 SECURITY DEFINER
 STABLE  -- Mark as STABLE for query planner optimization
 AS $$
-  SELECT ARRAY_AGG(tenant_id) 
+  SELECT ARRAY_AGG(tenant_id)
   FROM user_tenants
-  WHERE user_id = p_user_id 
+  WHERE user_id = p_user_id
   AND status = 'active';
 $$;
 
-COMMENT ON FUNCTION get_user_tenant_ids IS 
+COMMENT ON FUNCTION get_user_tenant_ids IS
   'Returns array of active tenant IDs for a user (optimized with STABLE)';
 
 -- Function to get user's organization IDs
@@ -18750,13 +18749,13 @@ LANGUAGE SQL
 SECURITY DEFINER
 STABLE
 AS $$
-  SELECT ARRAY_AGG(organization_id) 
+  SELECT ARRAY_AGG(organization_id)
   FROM user_organizations
-  WHERE user_id = p_user_id 
+  WHERE user_id = p_user_id
   AND status = 'active';
 $$;
 
-COMMENT ON FUNCTION get_user_organization_ids IS 
+COMMENT ON FUNCTION get_user_organization_ids IS
   'Returns array of active organization IDs for a user';
 
 -- Function to check if user is admin in any organization
@@ -18774,7 +18773,7 @@ AS $$
   );
 $$;
 
-COMMENT ON FUNCTION is_user_admin IS 
+COMMENT ON FUNCTION is_user_admin IS
   'Returns true if user is admin/owner in any organization';
 
 -- Function to check if user is admin in specific organization
@@ -18793,7 +18792,7 @@ AS $$
   );
 $$;
 
-COMMENT ON FUNCTION is_user_org_admin IS 
+COMMENT ON FUNCTION is_user_org_admin IS
   'Returns true if user is admin/owner in specific organization';
 
 -- ============================================================================
@@ -18834,7 +18833,7 @@ CREATE POLICY llm_gating_policies_service_role ON llm_gating_policies
   USING (true)
   WITH CHECK (true);
 
-COMMENT ON POLICY llm_gating_policies_select ON llm_gating_policies IS 
+COMMENT ON POLICY llm_gating_policies_select ON llm_gating_policies IS
   'Users can view LLM gating policies for their tenants (auth.uid() based)';
 
 -- ============================================================================
@@ -18862,7 +18861,7 @@ CREATE POLICY llm_usage_service_role ON llm_usage
   USING (true)
   WITH CHECK (true);
 
-COMMENT ON POLICY llm_usage_tenant_select ON llm_usage IS 
+COMMENT ON POLICY llm_usage_tenant_select ON llm_usage IS
   'Users can view LLM usage for their tenants (auth.uid() based)';
 
 -- ============================================================================
@@ -18877,7 +18876,7 @@ DROP POLICY IF EXISTS "Service role full access to metrics" ON agent_accuracy_me
 CREATE POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics
   FOR SELECT
   USING (
-    organization_id IS NULL 
+    organization_id IS NULL
     OR organization_id = ANY(get_user_organization_ids(auth.uid()))
   );
 
@@ -18887,7 +18886,7 @@ CREATE POLICY agent_accuracy_metrics_service_role ON agent_accuracy_metrics
   USING (true)
   WITH CHECK (true);
 
-COMMENT ON POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics IS 
+COMMENT ON POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics IS
   'Users can view metrics for their organizations (auth.uid() based)';
 
 -- ============================================================================
@@ -18904,7 +18903,7 @@ CREATE POLICY agent_retraining_queue_service_role ON agent_retraining_queue
   USING (true)
   WITH CHECK (true);
 
-COMMENT ON POLICY agent_retraining_queue_service_role ON agent_retraining_queue IS 
+COMMENT ON POLICY agent_retraining_queue_service_role ON agent_retraining_queue IS
   'Only service role can manage retraining queue';
 
 -- ============================================================================
@@ -18927,7 +18926,7 @@ CREATE POLICY backup_logs_select ON backup_logs
     is_user_admin(auth.uid())
   );
 
-COMMENT ON POLICY backup_logs_select ON backup_logs IS 
+COMMENT ON POLICY backup_logs_select ON backup_logs IS
   'Admins can view backup logs (auth.uid() based)';
 
 -- ============================================================================
@@ -18960,7 +18959,7 @@ CREATE POLICY cost_alerts_update ON cost_alerts
     is_user_admin(auth.uid())
   );
 
-COMMENT ON POLICY cost_alerts_select ON cost_alerts IS 
+COMMENT ON POLICY cost_alerts_select ON cost_alerts IS
   'Admins can view cost alerts (auth.uid() based)';
 
 -- ============================================================================
@@ -18983,7 +18982,7 @@ CREATE POLICY rate_limit_violations_select ON rate_limit_violations
     is_user_admin(auth.uid())
   );
 
-COMMENT ON POLICY rate_limit_violations_select ON rate_limit_violations IS 
+COMMENT ON POLICY rate_limit_violations_select ON rate_limit_violations IS
   'Admins can view rate limit violations (auth.uid() based)';
 
 -- ============================================================================
@@ -19012,12 +19011,12 @@ GRANT EXECUTE ON FUNCTION is_user_org_admin TO authenticated;
 -- ============================================================================
 
 CREATE OR REPLACE VIEW jwt_policy_audit AS
-SELECT 
+SELECT
   schemaname,
   tablename,
   policyname,
-  CASE 
-    WHEN qual LIKE '%auth.jwt()%' OR with_check LIKE '%auth.jwt()%' 
+  CASE
+    WHEN qual LIKE '%auth.jwt()%' OR with_check LIKE '%auth.jwt()%'
     THEN '⚠️ USES JWT'
     ELSE '✅ SAFE'
   END as status,
@@ -19025,14 +19024,14 @@ SELECT
   with_check as with_check_clause
 FROM pg_policies
 WHERE schemaname = 'public'
-ORDER BY 
-  CASE 
+ORDER BY
+  CASE
     WHEN qual LIKE '%auth.jwt()%' OR with_check LIKE '%auth.jwt()%' THEN 0
     ELSE 1
   END,
   tablename;
 
-COMMENT ON VIEW jwt_policy_audit IS 
+COMMENT ON VIEW jwt_policy_audit IS
   'Audits RLS policies for JWT usage (should show all SAFE after migration)';
 
 GRANT SELECT ON jwt_policy_audit TO authenticated;
@@ -19051,25 +19050,25 @@ BEGIN
   FROM pg_policies
   WHERE schemaname = 'public'
   AND (qual LIKE '%auth.jwt()%' OR with_check LIKE '%auth.jwt()%');
-  
+
   -- Count total policies
   SELECT COUNT(*) INTO v_total_policies
   FROM pg_policies
   WHERE schemaname = 'public';
-  
+
   RAISE NOTICE '============================================================';
   RAISE NOTICE 'JWT-Based RLS Policy Migration Complete';
   RAISE NOTICE '============================================================';
   RAISE NOTICE '';
   RAISE NOTICE 'Total policies: %', v_total_policies;
   RAISE NOTICE 'Policies still using JWT: %', v_jwt_policies;
-  
+
   IF v_jwt_policies > 0 THEN
     RAISE WARNING '⚠️  Some policies still use JWT - review jwt_policy_audit view';
   ELSE
     RAISE NOTICE '✅ All policies migrated to auth.uid() pattern';
   END IF;
-  
+
   RAISE NOTICE '';
   RAISE NOTICE 'Verification:';
   RAISE NOTICE '  SELECT * FROM jwt_policy_audit WHERE status = ''⚠️ USES JWT'';';
@@ -19087,7 +19086,7 @@ END $$;
 
 -- ============================================================================
 -- ISSUE: Archive tables have RLS enabled but missing SELECT policies
--- 
+--
 -- Tables affected:
 -- - audit_logs_archive (RLS enabled, no policies)
 -- - approval_requests_archive (fixed in 20260105000001)
@@ -19124,10 +19123,10 @@ CREATE POLICY audit_logs_archive_service_role ON audit_logs_archive
   USING (true)
   WITH CHECK (true);
 
-COMMENT ON POLICY audit_logs_archive_select_own ON audit_logs_archive IS 
+COMMENT ON POLICY audit_logs_archive_select_own ON audit_logs_archive IS
   'Users can view their own archived audit logs';
 
-COMMENT ON POLICY audit_logs_archive_select_admin ON audit_logs_archive IS 
+COMMENT ON POLICY audit_logs_archive_select_admin ON audit_logs_archive IS
   'Admins can view all archived audit logs in their organizations';
 
 -- ============================================================================
@@ -19136,12 +19135,12 @@ COMMENT ON POLICY audit_logs_archive_select_admin ON audit_logs_archive IS
 
 -- Create verification view
 CREATE OR REPLACE VIEW archive_tables_rls_status AS
-SELECT 
+SELECT
   t.tablename,
   t.rowsecurity as rls_enabled,
   COUNT(p.policyname) as policy_count,
   ARRAY_AGG(p.policyname ORDER BY p.policyname) FILTER (WHERE p.policyname IS NOT NULL) as policies,
-  CASE 
+  CASE
     WHEN t.rowsecurity = false THEN '❌ RLS DISABLED'
     WHEN COUNT(p.policyname) = 0 THEN '⚠️ NO POLICIES'
     WHEN COUNT(p.policyname) FILTER (WHERE p.cmd = 'SELECT') = 0 THEN '⚠️ NO SELECT POLICY'
@@ -19152,8 +19151,8 @@ LEFT JOIN pg_policies p ON t.tablename = p.tablename AND t.schemaname = p.schema
 WHERE t.schemaname = 'public'
 AND t.tablename LIKE '%archive%'
 GROUP BY t.tablename, t.rowsecurity
-ORDER BY 
-  CASE 
+ORDER BY
+  CASE
     WHEN t.rowsecurity = false THEN 0
     WHEN COUNT(p.policyname) = 0 THEN 1
     WHEN COUNT(p.policyname) FILTER (WHERE p.cmd = 'SELECT') = 0 THEN 2
@@ -19161,7 +19160,7 @@ ORDER BY
   END,
   t.tablename;
 
-COMMENT ON VIEW archive_tables_rls_status IS 
+COMMENT ON VIEW archive_tables_rls_status IS
   'Shows RLS status for all archive tables';
 
 GRANT SELECT ON archive_tables_rls_status TO authenticated;
@@ -19184,36 +19183,36 @@ GRANT SELECT ON archive_tables_rls_status TO authenticated;
 -- ============================================================================
 
 -- audit_logs_archive indexes
-CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_user 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_user
 ON audit_logs_archive(user_id, archived_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_created 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_created
 ON audit_logs_archive(created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_archived 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_archived
 ON audit_logs_archive(archived_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_action 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_action
 ON audit_logs_archive(action, archived_at DESC);
 
-COMMENT ON INDEX idx_audit_logs_archive_user IS 
+COMMENT ON INDEX idx_audit_logs_archive_user IS
   'Optimizes queries for user audit logs';
 
 -- approval_requests_archive indexes (if not already created)
-CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant 
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant
 ON approval_requests_archive(tenant_id, created_at DESC)
 WHERE tenant_id IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_requester 
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_requester
 ON approval_requests_archive(requester_id, created_at DESC)
 WHERE requester_id IS NOT NULL;
 
 -- approvals_archive indexes (if not already created)
-CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant 
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant
 ON approvals_archive(tenant_id, created_at DESC)
 WHERE tenant_id IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_approvals_archive_approver 
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_approver
 ON approvals_archive(approver_id, created_at DESC)
 WHERE approver_id IS NOT NULL;
 
@@ -19236,34 +19235,34 @@ SECURITY DEFINER
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     t.tablename::TEXT,
     t.rowsecurity,
     EXISTS (
-      SELECT 1 FROM pg_policies 
-      WHERE tablename = t.tablename 
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
       AND cmd = 'SELECT'
     ) as has_select,
     EXISTS (
-      SELECT 1 FROM pg_policies 
-      WHERE tablename = t.tablename 
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
       AND cmd = 'INSERT'
     ) as has_insert,
     EXISTS (
-      SELECT 1 FROM pg_policies 
-      WHERE tablename = t.tablename 
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
       AND cmd = 'UPDATE'
       AND qual = 'false'
     ) as has_update_deny,
     EXISTS (
-      SELECT 1 FROM pg_policies 
-      WHERE tablename = t.tablename 
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
       AND cmd = 'DELETE'
       AND qual = 'false'
     ) as has_delete_deny,
-    CASE 
+    CASE
       WHEN NOT t.rowsecurity THEN '❌ RLS DISABLED'
-      WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t.tablename AND cmd = 'SELECT') 
+      WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t.tablename AND cmd = 'SELECT')
         THEN '⚠️ NO SELECT POLICY'
       WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t.tablename AND cmd = 'UPDATE' AND qual = 'false')
         THEN '⚠️ NO UPDATE DENY'
@@ -19278,7 +19277,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION verify_archive_table_security IS 
+COMMENT ON FUNCTION verify_archive_table_security IS
   'Verifies that archive tables have proper RLS and immutability policies';
 
 GRANT EXECUTE ON FUNCTION verify_archive_table_security TO authenticated;
@@ -19298,17 +19297,17 @@ BEGIN
   FROM pg_tables
   WHERE schemaname = 'public'
   AND tablename LIKE '%archive%';
-  
+
   -- Count protected tables
   SELECT COUNT(*) INTO v_protected_count
   FROM archive_tables_rls_status
   WHERE status = '✅ PROTECTED';
-  
+
   -- Count unprotected tables
   SELECT COUNT(*) INTO v_unprotected_count
   FROM archive_tables_rls_status
   WHERE status != '✅ PROTECTED';
-  
+
   RAISE NOTICE '============================================================';
   RAISE NOTICE 'Archive Tables RLS Fix Complete';
   RAISE NOTICE '============================================================';
@@ -19317,14 +19316,14 @@ BEGIN
   RAISE NOTICE 'Protected tables: %', v_protected_count;
   RAISE NOTICE 'Unprotected tables: %', v_unprotected_count;
   RAISE NOTICE '';
-  
+
   IF v_unprotected_count > 0 THEN
     RAISE WARNING '⚠️  Some archive tables still need protection';
     RAISE NOTICE 'Run: SELECT * FROM archive_tables_rls_status WHERE status != ''✅ PROTECTED'';';
   ELSE
     RAISE NOTICE '✅ All archive tables are properly protected';
   END IF;
-  
+
   RAISE NOTICE '';
   RAISE NOTICE 'Verification:';
   RAISE NOTICE '  SELECT * FROM archive_tables_rls_status;';
@@ -19343,10 +19342,10 @@ END $$;
 
 -- ============================================================================
 -- ISSUE: 19 foreign keys lack explicit ON DELETE actions
--- 
+--
 -- Risk: Orphaned records, failed deletions, data integrity issues
 -- Solution: Add appropriate ON DELETE actions based on relationship type
--- 
+--
 -- Categories:
 -- - CASCADE: Dependent data (should be deleted with parent)
 -- - SET NULL: Audit/history references (preserve record, null reference)
@@ -19362,120 +19361,120 @@ END $$;
 -- Cases belong to tenants, should be deleted with tenant
 ALTER TABLE cases
 DROP CONSTRAINT IF EXISTS cases_tenant_id_fkey,
-ADD CONSTRAINT cases_tenant_id_fkey 
-  FOREIGN KEY (tenant_id) 
-  REFERENCES tenants(id) 
+ADD CONSTRAINT cases_tenant_id_fkey
+  FOREIGN KEY (tenant_id)
+  REFERENCES tenants(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT cases_tenant_id_fkey ON cases IS 
+COMMENT ON CONSTRAINT cases_tenant_id_fkey ON cases IS
   'Cases are deleted when tenant is deleted (CASCADE)';
 
 -- 2. messages_tenant_id_fkey
 -- Messages belong to tenants, should be deleted with tenant
 ALTER TABLE messages
 DROP CONSTRAINT IF EXISTS messages_tenant_id_fkey,
-ADD CONSTRAINT messages_tenant_id_fkey 
-  FOREIGN KEY (tenant_id) 
-  REFERENCES tenants(id) 
+ADD CONSTRAINT messages_tenant_id_fkey
+  FOREIGN KEY (tenant_id)
+  REFERENCES tenants(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT messages_tenant_id_fkey ON messages IS 
+COMMENT ON CONSTRAINT messages_tenant_id_fkey ON messages IS
   'Messages are deleted when tenant is deleted (CASCADE)';
 
 -- 3. workflows_tenant_id_fkey
 -- Workflows belong to tenants, should be deleted with tenant
 ALTER TABLE workflows
 DROP CONSTRAINT IF EXISTS workflows_tenant_id_fkey,
-ADD CONSTRAINT workflows_tenant_id_fkey 
-  FOREIGN KEY (tenant_id) 
-  REFERENCES tenants(id) 
+ADD CONSTRAINT workflows_tenant_id_fkey
+  FOREIGN KEY (tenant_id)
+  REFERENCES tenants(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT workflows_tenant_id_fkey ON workflows IS 
+COMMENT ON CONSTRAINT workflows_tenant_id_fkey ON workflows IS
   'Workflows are deleted when tenant is deleted (CASCADE)';
 
 -- 4. integration_usage_log_integration_id_fkey
 -- Usage logs belong to integration, should be deleted with integration
 ALTER TABLE integration_usage_log
 DROP CONSTRAINT IF EXISTS integration_usage_log_integration_id_fkey,
-ADD CONSTRAINT integration_usage_log_integration_id_fkey 
-  FOREIGN KEY (integration_id) 
-  REFERENCES tenant_integrations(id) 
+ADD CONSTRAINT integration_usage_log_integration_id_fkey
+  FOREIGN KEY (integration_id)
+  REFERENCES tenant_integrations(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT integration_usage_log_integration_id_fkey ON integration_usage_log IS 
+COMMENT ON CONSTRAINT integration_usage_log_integration_id_fkey ON integration_usage_log IS
   'Usage logs are deleted when integration is deleted (CASCADE)';
 
 -- 5. agent_metrics_agent_id_fkey
 -- Metrics belong to agent, should be deleted with agent
 ALTER TABLE agent_metrics
 DROP CONSTRAINT IF EXISTS agent_metrics_agent_id_fkey,
-ADD CONSTRAINT agent_metrics_agent_id_fkey 
-  FOREIGN KEY (agent_id) 
-  REFERENCES agents(id) 
+ADD CONSTRAINT agent_metrics_agent_id_fkey
+  FOREIGN KEY (agent_id)
+  REFERENCES agents(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT agent_metrics_agent_id_fkey ON agent_metrics IS 
+COMMENT ON CONSTRAINT agent_metrics_agent_id_fkey ON agent_metrics IS
   'Metrics are deleted when agent is deleted (CASCADE)';
 
 -- 6. agent_predictions_calibration_model_id_fkey
 -- Predictions belong to calibration model, should be deleted with model
 ALTER TABLE agent_predictions
 DROP CONSTRAINT IF EXISTS agent_predictions_calibration_model_id_fkey,
-ADD CONSTRAINT agent_predictions_calibration_model_id_fkey 
-  FOREIGN KEY (calibration_model_id) 
-  REFERENCES agent_calibration_models(id) 
+ADD CONSTRAINT agent_predictions_calibration_model_id_fkey
+  FOREIGN KEY (calibration_model_id)
+  REFERENCES agent_calibration_models(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT agent_predictions_calibration_model_id_fkey ON agent_predictions IS 
+COMMENT ON CONSTRAINT agent_predictions_calibration_model_id_fkey ON agent_predictions IS
   'Predictions are deleted when calibration model is deleted (CASCADE)';
 
 -- 7. task_queue_agent_id_fkey
 -- Tasks belong to agent, should be deleted with agent
 ALTER TABLE task_queue
 DROP CONSTRAINT IF EXISTS task_queue_agent_id_fkey,
-ADD CONSTRAINT task_queue_agent_id_fkey 
-  FOREIGN KEY (agent_id) 
-  REFERENCES agents(id) 
+ADD CONSTRAINT task_queue_agent_id_fkey
+  FOREIGN KEY (agent_id)
+  REFERENCES agents(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT task_queue_agent_id_fkey ON task_queue IS 
+COMMENT ON CONSTRAINT task_queue_agent_id_fkey ON task_queue IS
   'Tasks are deleted when agent is deleted (CASCADE)';
 
 -- 8. message_bus_from_agent_id_fkey
 -- Messages from agent should be deleted with agent
 ALTER TABLE message_bus
 DROP CONSTRAINT IF EXISTS message_bus_from_agent_id_fkey,
-ADD CONSTRAINT message_bus_from_agent_id_fkey 
-  FOREIGN KEY (from_agent_id) 
-  REFERENCES agents(id) 
+ADD CONSTRAINT message_bus_from_agent_id_fkey
+  FOREIGN KEY (from_agent_id)
+  REFERENCES agents(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT message_bus_from_agent_id_fkey ON message_bus IS 
+COMMENT ON CONSTRAINT message_bus_from_agent_id_fkey ON message_bus IS
   'Messages are deleted when sender agent is deleted (CASCADE)';
 
 -- 9. message_bus_to_agent_id_fkey
 -- Messages to agent should be deleted with agent
 ALTER TABLE message_bus
 DROP CONSTRAINT IF EXISTS message_bus_to_agent_id_fkey,
-ADD CONSTRAINT message_bus_to_agent_id_fkey 
-  FOREIGN KEY (to_agent_id) 
-  REFERENCES agents(id) 
+ADD CONSTRAINT message_bus_to_agent_id_fkey
+  FOREIGN KEY (to_agent_id)
+  REFERENCES agents(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT message_bus_to_agent_id_fkey ON message_bus IS 
+COMMENT ON CONSTRAINT message_bus_to_agent_id_fkey ON message_bus IS
   'Messages are deleted when recipient agent is deleted (CASCADE)';
 
 -- 10. approver_roles_user_id_fkey
 -- Approver roles belong to user, should be deleted with user
 ALTER TABLE approver_roles
 DROP CONSTRAINT IF EXISTS approver_roles_user_id_fkey,
-ADD CONSTRAINT approver_roles_user_id_fkey 
-  FOREIGN KEY (user_id) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT approver_roles_user_id_fkey
+  FOREIGN KEY (user_id)
+  REFERENCES auth.users(id)
   ON DELETE CASCADE;
 
-COMMENT ON CONSTRAINT approver_roles_user_id_fkey ON approver_roles IS 
+COMMENT ON CONSTRAINT approver_roles_user_id_fkey ON approver_roles IS
   'Approver roles are deleted when user is deleted (CASCADE)';
 
 -- ============================================================================
@@ -19487,108 +19486,108 @@ COMMENT ON CONSTRAINT approver_roles_user_id_fkey ON approver_roles IS
 -- Audit logs should be preserved even if agent is deleted
 ALTER TABLE agent_audit_log
 DROP CONSTRAINT IF EXISTS agent_audit_log_agent_id_fkey,
-ADD CONSTRAINT agent_audit_log_agent_id_fkey 
-  FOREIGN KEY (agent_id) 
-  REFERENCES agents(id) 
+ADD CONSTRAINT agent_audit_log_agent_id_fkey
+  FOREIGN KEY (agent_id)
+  REFERENCES agents(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT agent_audit_log_agent_id_fkey ON agent_audit_log IS 
+COMMENT ON CONSTRAINT agent_audit_log_agent_id_fkey ON agent_audit_log IS
   'Audit logs preserved when agent deleted, reference nulled (SET NULL)';
 
 -- 12. audit_logs_user_id_fkey
 -- Audit logs should be preserved even if user is deleted
 ALTER TABLE audit_logs
 DROP CONSTRAINT IF EXISTS audit_logs_user_id_fkey,
-ADD CONSTRAINT audit_logs_user_id_fkey 
-  FOREIGN KEY (user_id) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT audit_logs_user_id_fkey
+  FOREIGN KEY (user_id)
+  REFERENCES auth.users(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT audit_logs_user_id_fkey ON audit_logs IS 
+COMMENT ON CONSTRAINT audit_logs_user_id_fkey ON audit_logs IS
   'Audit logs preserved when user deleted, reference nulled (SET NULL)';
 
 -- 13. approval_requests_requester_id_fkey
 -- Approval requests should be preserved for audit trail
 ALTER TABLE approval_requests
 DROP CONSTRAINT IF EXISTS approval_requests_requester_id_fkey,
-ADD CONSTRAINT approval_requests_requester_id_fkey 
-  FOREIGN KEY (requester_id) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT approval_requests_requester_id_fkey
+  FOREIGN KEY (requester_id)
+  REFERENCES auth.users(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT approval_requests_requester_id_fkey ON approval_requests IS 
+COMMENT ON CONSTRAINT approval_requests_requester_id_fkey ON approval_requests IS
   'Approval requests preserved when requester deleted, reference nulled (SET NULL)';
 
 -- 14. approvals_approver_id_fkey
 -- Approvals should be preserved for audit trail
 ALTER TABLE approvals
 DROP CONSTRAINT IF EXISTS approvals_approver_id_fkey,
-ADD CONSTRAINT approvals_approver_id_fkey 
-  FOREIGN KEY (approver_id) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT approvals_approver_id_fkey
+  FOREIGN KEY (approver_id)
+  REFERENCES auth.users(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT approvals_approver_id_fkey ON approvals IS 
+COMMENT ON CONSTRAINT approvals_approver_id_fkey ON approvals IS
   'Approvals preserved when approver deleted, reference nulled (SET NULL)';
 
 -- 15. approvals_second_approver_id_fkey
 -- Second approvals should be preserved for audit trail
 ALTER TABLE approvals
 DROP CONSTRAINT IF EXISTS approvals_second_approver_id_fkey,
-ADD CONSTRAINT approvals_second_approver_id_fkey 
-  FOREIGN KEY (second_approver_id) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT approvals_second_approver_id_fkey
+  FOREIGN KEY (second_approver_id)
+  REFERENCES auth.users(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT approvals_second_approver_id_fkey ON approvals IS 
+COMMENT ON CONSTRAINT approvals_second_approver_id_fkey ON approvals IS
   'Approvals preserved when second approver deleted, reference nulled (SET NULL)';
 
 -- 16. approver_roles_granted_by_fkey
 -- Role grants should be preserved for audit trail
 ALTER TABLE approver_roles
 DROP CONSTRAINT IF EXISTS approver_roles_granted_by_fkey,
-ADD CONSTRAINT approver_roles_granted_by_fkey 
-  FOREIGN KEY (granted_by) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT approver_roles_granted_by_fkey
+  FOREIGN KEY (granted_by)
+  REFERENCES auth.users(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT approver_roles_granted_by_fkey ON approver_roles IS 
+COMMENT ON CONSTRAINT approver_roles_granted_by_fkey ON approver_roles IS
   'Role grants preserved when granter deleted, reference nulled (SET NULL)';
 
 -- 17. integration_usage_log_user_id_fkey
 -- Usage logs should be preserved for audit trail
 ALTER TABLE integration_usage_log
 DROP CONSTRAINT IF EXISTS integration_usage_log_user_id_fkey,
-ADD CONSTRAINT integration_usage_log_user_id_fkey 
-  FOREIGN KEY (user_id) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT integration_usage_log_user_id_fkey
+  FOREIGN KEY (user_id)
+  REFERENCES auth.users(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT integration_usage_log_user_id_fkey ON integration_usage_log IS 
+COMMENT ON CONSTRAINT integration_usage_log_user_id_fkey ON integration_usage_log IS
   'Usage logs preserved when user deleted, reference nulled (SET NULL)';
 
 -- 18. tenant_integrations_connected_by_fkey
 -- Integration connections should be preserved, but track who connected
 ALTER TABLE tenant_integrations
 DROP CONSTRAINT IF EXISTS tenant_integrations_connected_by_fkey,
-ADD CONSTRAINT tenant_integrations_connected_by_fkey 
-  FOREIGN KEY (connected_by) 
-  REFERENCES auth.users(id) 
+ADD CONSTRAINT tenant_integrations_connected_by_fkey
+  FOREIGN KEY (connected_by)
+  REFERENCES auth.users(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT tenant_integrations_connected_by_fkey ON tenant_integrations IS 
+COMMENT ON CONSTRAINT tenant_integrations_connected_by_fkey ON tenant_integrations IS
   'Integrations preserved when connector deleted, reference nulled (SET NULL)';
 
 -- 19. resource_artifacts_replaced_by_fkey
 -- Artifact replacement history should be preserved
 ALTER TABLE resource_artifacts
 DROP CONSTRAINT IF EXISTS resource_artifacts_replaced_by_fkey,
-ADD CONSTRAINT resource_artifacts_replaced_by_fkey 
-  FOREIGN KEY (replaced_by) 
-  REFERENCES resource_artifacts(id) 
+ADD CONSTRAINT resource_artifacts_replaced_by_fkey
+  FOREIGN KEY (replaced_by)
+  REFERENCES resource_artifacts(id)
   ON DELETE SET NULL;
 
-COMMENT ON CONSTRAINT resource_artifacts_replaced_by_fkey ON resource_artifacts IS 
+COMMENT ON CONSTRAINT resource_artifacts_replaced_by_fkey ON resource_artifacts IS
   'Artifacts preserved when replacement deleted, reference nulled (SET NULL)';
 
 -- ============================================================================
@@ -19596,14 +19595,14 @@ COMMENT ON CONSTRAINT resource_artifacts_replaced_by_fkey ON resource_artifacts 
 -- ============================================================================
 
 CREATE OR REPLACE VIEW foreign_key_actions_audit AS
-SELECT 
+SELECT
   tc.table_name,
   kcu.column_name,
   ccu.table_name AS foreign_table_name,
   ccu.column_name AS foreign_column_name,
   rc.delete_rule,
   rc.update_rule,
-  CASE 
+  CASE
     WHEN rc.delete_rule IS NULL THEN '❌ NO ACTION'
     WHEN rc.delete_rule = 'NO ACTION' THEN '⚠️ NO ACTION'
     WHEN rc.delete_rule = 'CASCADE' THEN '✅ CASCADE'
@@ -19623,15 +19622,15 @@ LEFT JOIN information_schema.referential_constraints AS rc
   AND rc.constraint_schema = tc.table_schema
 WHERE tc.constraint_type = 'FOREIGN KEY'
   AND tc.table_schema = 'public'
-ORDER BY 
-  CASE 
+ORDER BY
+  CASE
     WHEN rc.delete_rule IS NULL THEN 0
     WHEN rc.delete_rule = 'NO ACTION' THEN 1
     ELSE 2
   END,
   tc.table_name;
 
-COMMENT ON VIEW foreign_key_actions_audit IS 
+COMMENT ON VIEW foreign_key_actions_audit IS
   'Audits foreign key delete actions (should show all with actions after migration)';
 
 GRANT SELECT ON foreign_key_actions_audit TO authenticated;
@@ -19652,11 +19651,11 @@ SECURITY DEFINER
 AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     tc.constraint_name::TEXT,
     tc.table_name::TEXT,
     rc.delete_rule::TEXT,
-    CASE 
+    CASE
       WHEN rc.delete_rule = 'CASCADE' THEN '✅ Will delete dependent records'
       WHEN rc.delete_rule = 'SET NULL' THEN '✅ Will null reference'
       WHEN rc.delete_rule = 'RESTRICT' THEN '✅ Will prevent deletion'
@@ -19673,7 +19672,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION test_foreign_key_cascade IS 
+COMMENT ON FUNCTION test_foreign_key_cascade IS
   'Tests and reports foreign key cascade behavior';
 
 GRANT EXECUTE ON FUNCTION test_foreign_key_cascade TO authenticated;
@@ -19695,31 +19694,31 @@ BEGIN
   FROM information_schema.table_constraints
   WHERE constraint_type = 'FOREIGN KEY'
   AND table_schema = 'public';
-  
+
   -- Count FKs with actions
   SELECT COUNT(*) INTO v_with_actions
   FROM information_schema.referential_constraints
   WHERE constraint_schema = 'public'
   AND delete_rule != 'NO ACTION';
-  
+
   -- Count FKs without actions
   SELECT COUNT(*) INTO v_without_actions
   FROM information_schema.referential_constraints
   WHERE constraint_schema = 'public'
   AND delete_rule = 'NO ACTION';
-  
+
   -- Count CASCADE
   SELECT COUNT(*) INTO v_cascade_count
   FROM information_schema.referential_constraints
   WHERE constraint_schema = 'public'
   AND delete_rule = 'CASCADE';
-  
+
   -- Count SET NULL
   SELECT COUNT(*) INTO v_set_null_count
   FROM information_schema.referential_constraints
   WHERE constraint_schema = 'public'
   AND delete_rule = 'SET NULL';
-  
+
   RAISE NOTICE '============================================================';
   RAISE NOTICE 'Foreign Key Actions Migration Complete';
   RAISE NOTICE '============================================================';
@@ -19732,13 +19731,13 @@ BEGIN
   RAISE NOTICE '  CASCADE: %', v_cascade_count;
   RAISE NOTICE '  SET NULL: %', v_set_null_count;
   RAISE NOTICE '';
-  
+
   IF v_without_actions = 0 THEN
     RAISE NOTICE '✅ All foreign keys have explicit delete actions';
   ELSE
     RAISE WARNING '⚠️  % foreign keys still have NO ACTION', v_without_actions;
   END IF;
-  
+
   RAISE NOTICE '';
   RAISE NOTICE 'Verification:';
   RAISE NOTICE '  SELECT * FROM foreign_key_actions_audit WHERE status LIKE ''❌%%'';';
@@ -19754,7 +19753,7 @@ END $$;
 -- Purpose: Encrypt OAuth tokens and API keys using Supabase Vault (NOT pgsodium)
 -- Priority: CRITICAL
 -- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #1
--- 
+--
 -- IMPORTANT: This replaces 20260105000004_encrypt_credentials.sql
 -- Supabase recommends Vault over pgsodium for new implementations
 
@@ -19767,7 +19766,7 @@ END $$;
 -- Note: The extension is called 'vault', not 'supabase_vault'
 CREATE EXTENSION IF NOT EXISTS vault CASCADE;
 
-COMMENT ON EXTENSION vault IS 
+COMMENT ON EXTENSION vault IS
   'Supabase Vault for secure secret storage (recommended over pgsodium)';
 
 -- ============================================================================
@@ -19775,26 +19774,26 @@ COMMENT ON EXTENSION vault IS
 -- ============================================================================
 
 -- Instead of storing encrypted data directly, we store references to Vault secrets
-ALTER TABLE integration_connections 
+ALTER TABLE integration_connections
 ADD COLUMN IF NOT EXISTS credentials_secret_id UUID REFERENCES vault.secrets(id);
 
-COMMENT ON COLUMN integration_connections.credentials_secret_id IS 
+COMMENT ON COLUMN integration_connections.credentials_secret_id IS
   'Reference to encrypted credentials in Supabase Vault';
 
 -- ============================================================================
 -- 3. Add secret reference columns to tenant_integrations
 -- ============================================================================
 
-ALTER TABLE tenant_integrations 
+ALTER TABLE tenant_integrations
 ADD COLUMN IF NOT EXISTS access_token_secret_id UUID REFERENCES vault.secrets(id);
 
-ALTER TABLE tenant_integrations 
+ALTER TABLE tenant_integrations
 ADD COLUMN IF NOT EXISTS refresh_token_secret_id UUID REFERENCES vault.secrets(id);
 
-COMMENT ON COLUMN tenant_integrations.access_token_secret_id IS 
+COMMENT ON COLUMN tenant_integrations.access_token_secret_id IS
   'Reference to encrypted access token in Supabase Vault';
 
-COMMENT ON COLUMN tenant_integrations.refresh_token_secret_id IS 
+COMMENT ON COLUMN tenant_integrations.refresh_token_secret_id IS
   'Reference to encrypted refresh token in Supabase Vault';
 
 -- ============================================================================
@@ -19820,12 +19819,12 @@ BEGIN
     p_name,
     p_description
   ) INTO v_secret_id;
-  
+
   RETURN v_secret_id;
 END;
 $$;
 
-COMMENT ON FUNCTION store_credentials_in_vault IS 
+COMMENT ON FUNCTION store_credentials_in_vault IS
   'Stores credentials in Supabase Vault and returns secret ID';
 
 -- Function to retrieve credentials from Vault
@@ -19843,17 +19842,17 @@ BEGIN
   IF p_secret_id IS NULL THEN
     RETURN NULL;
   END IF;
-  
+
   -- Retrieve decrypted secret from Vault
   SELECT decrypted_secret INTO v_decrypted
   FROM vault.decrypted_secrets
   WHERE id = p_secret_id;
-  
+
   RETURN v_decrypted;
 END;
 $$;
 
-COMMENT ON FUNCTION get_credentials_from_vault IS 
+COMMENT ON FUNCTION get_credentials_from_vault IS
   'Retrieves decrypted credentials from Supabase Vault';
 
 -- Function to update credentials in Vault
@@ -19878,7 +19877,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION update_credentials_in_vault IS 
+COMMENT ON FUNCTION update_credentials_in_vault IS
   'Updates credentials in Supabase Vault';
 
 -- ============================================================================
@@ -19901,10 +19900,10 @@ DECLARE
   v_secret_id UUID;
 BEGIN
   -- Migrate integration_connections
-  FOR v_record IN 
-    SELECT id, credentials 
-    FROM integration_connections 
-    WHERE credentials IS NOT NULL 
+  FOR v_record IN
+    SELECT id, credentials
+    FROM integration_connections
+    WHERE credentials IS NOT NULL
     AND credentials_secret_id IS NULL
   LOOP
     BEGIN
@@ -19914,33 +19913,33 @@ BEGIN
         'integration_' || v_record.id::text,
         'Integration credentials'
       );
-      
+
       -- Update record with secret ID
       UPDATE integration_connections
       SET credentials_secret_id = v_secret_id
       WHERE id = v_record.id;
-      
+
       v_migrated := v_migrated + 1;
     EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Failed to migrate credentials for integration_connections.id=%: %', 
+      RAISE WARNING 'Failed to migrate credentials for integration_connections.id=%: %',
         v_record.id, SQLERRM;
       v_failed := v_failed + 1;
     END;
   END LOOP;
-  
-  RETURN QUERY SELECT 
+
+  RETURN QUERY SELECT
     'integration_connections'::TEXT,
     v_migrated,
     v_failed;
-  
+
   -- Reset counters for next table
   v_migrated := 0;
   v_failed := 0;
-  
+
   -- Migrate tenant_integrations access_token
-  FOR v_record IN 
+  FOR v_record IN
     SELECT id, access_token, refresh_token
-    FROM tenant_integrations 
+    FROM tenant_integrations
     WHERE (access_token IS NOT NULL OR refresh_token IS NOT NULL)
     AND access_token_secret_id IS NULL
   LOOP
@@ -19952,12 +19951,12 @@ BEGIN
           'access_token_' || v_record.id::text,
           'Access token'
         );
-        
+
         UPDATE tenant_integrations
         SET access_token_secret_id = v_secret_id
         WHERE id = v_record.id;
       END IF;
-      
+
       -- Store refresh token in Vault
       IF v_record.refresh_token IS NOT NULL THEN
         v_secret_id := store_credentials_in_vault(
@@ -19965,28 +19964,28 @@ BEGIN
           'refresh_token_' || v_record.id::text,
           'Refresh token'
         );
-        
+
         UPDATE tenant_integrations
         SET refresh_token_secret_id = v_secret_id
         WHERE id = v_record.id;
       END IF;
-      
+
       v_migrated := v_migrated + 1;
     EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Failed to migrate tokens for tenant_integrations.id=%: %', 
+      RAISE WARNING 'Failed to migrate tokens for tenant_integrations.id=%: %',
         v_record.id, SQLERRM;
       v_failed := v_failed + 1;
     END;
   END LOOP;
-  
-  RETURN QUERY SELECT 
+
+  RETURN QUERY SELECT
     'tenant_integrations'::TEXT,
     v_migrated,
     v_failed;
 END;
 $$;
 
-COMMENT ON FUNCTION migrate_credentials_to_vault IS 
+COMMENT ON FUNCTION migrate_credentials_to_vault IS
   'Migrates existing plaintext credentials to Supabase Vault';
 
 -- ============================================================================
@@ -19996,7 +19995,7 @@ COMMENT ON FUNCTION migrate_credentials_to_vault IS
 -- View for integration_connections with decrypted credentials
 -- Only accessible by service_role
 CREATE OR REPLACE VIEW integration_connections_decrypted AS
-SELECT 
+SELECT
   ic.id,
   ic.organization_id,
   ic.adapter_type,
@@ -20017,7 +20016,7 @@ SELECT
   ic.created_by
 FROM integration_connections ic;
 
-COMMENT ON VIEW integration_connections_decrypted IS 
+COMMENT ON VIEW integration_connections_decrypted IS
   'View with decrypted credentials from Vault - only accessible by service_role';
 
 -- Grant access only to service_role
@@ -20026,7 +20025,7 @@ GRANT SELECT ON integration_connections_decrypted TO service_role;
 
 -- View for tenant_integrations with decrypted tokens
 CREATE OR REPLACE VIEW tenant_integrations_decrypted AS
-SELECT 
+SELECT
   ti.id,
   ti.tenant_id,
   ti.provider,
@@ -20046,7 +20045,7 @@ SELECT
   ti.updated_at
 FROM tenant_integrations ti;
 
-COMMENT ON VIEW tenant_integrations_decrypted IS 
+COMMENT ON VIEW tenant_integrations_decrypted IS
   'View with decrypted tokens from Vault - only accessible by service_role';
 
 -- Grant access only to service_role
@@ -20073,12 +20072,12 @@ BEGIN
       'integration_' || NEW.id::text,
       'Integration credentials for ' || NEW.display_name
     );
-    
+
     NEW.credentials_secret_id := v_secret_id;
     -- Clear plaintext after storing in Vault
     NEW.credentials := NULL;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -20090,7 +20089,7 @@ CREATE TRIGGER store_credentials_in_vault_trigger
   FOR EACH ROW
   EXECUTE FUNCTION store_integration_credentials_trigger();
 
-COMMENT ON TRIGGER store_credentials_in_vault_trigger ON integration_connections IS 
+COMMENT ON TRIGGER store_credentials_in_vault_trigger ON integration_connections IS
   'Auto-stores credentials in Vault on insert/update';
 
 -- Trigger function for tenant_integrations
@@ -20109,12 +20108,12 @@ BEGIN
       'access_token_' || NEW.id::text,
       'Access token for ' || NEW.provider
     );
-    
+
     NEW.access_token_secret_id := v_secret_id;
     -- Clear plaintext after storing in Vault
     NEW.access_token := NULL;
   END IF;
-  
+
   -- If refresh_token provided as plaintext, store in Vault
   IF NEW.refresh_token IS NOT NULL AND NEW.refresh_token_secret_id IS NULL THEN
     v_secret_id := store_credentials_in_vault(
@@ -20122,12 +20121,12 @@ BEGIN
       'refresh_token_' || NEW.id::text,
       'Refresh token for ' || NEW.provider
     );
-    
+
     NEW.refresh_token_secret_id := v_secret_id;
     -- Clear plaintext after storing in Vault
     NEW.refresh_token := NULL;
   END IF;
-  
+
   RETURN NEW;
 END;
 $$;
@@ -20139,7 +20138,7 @@ CREATE TRIGGER store_tokens_in_vault_trigger
   FOR EACH ROW
   EXECUTE FUNCTION store_tenant_tokens_trigger();
 
-COMMENT ON TRIGGER store_tokens_in_vault_trigger ON tenant_integrations IS 
+COMMENT ON TRIGGER store_tokens_in_vault_trigger ON tenant_integrations IS
   'Auto-stores tokens in Vault on insert/update';
 
 -- ============================================================================
@@ -20168,16 +20167,16 @@ CREATE TABLE IF NOT EXISTS credential_access_log (
   user_agent TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_time 
+CREATE INDEX IF NOT EXISTS idx_credential_access_log_time
 ON credential_access_log(accessed_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_user 
+CREATE INDEX IF NOT EXISTS idx_credential_access_log_user
 ON credential_access_log(accessed_by, accessed_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_secret 
+CREATE INDEX IF NOT EXISTS idx_credential_access_log_secret
 ON credential_access_log(secret_id, accessed_at DESC);
 
-COMMENT ON TABLE credential_access_log IS 
+COMMENT ON TABLE credential_access_log IS
   'Audit log for credential access via Vault';
 
 -- Enable RLS on credential_access_log
@@ -20257,7 +20256,7 @@ CREATE TABLE IF NOT EXISTS customer_access_tokens (
 CREATE INDEX idx_customer_tokens_token ON customer_access_tokens(token);
 CREATE INDEX idx_customer_tokens_value_case ON customer_access_tokens(value_case_id);
 CREATE INDEX idx_customer_tokens_expires ON customer_access_tokens(expires_at);
-CREATE INDEX idx_customer_tokens_active ON customer_access_tokens(expires_at, revoked_at) 
+CREATE INDEX idx_customer_tokens_active ON customer_access_tokens(expires_at, revoked_at)
   WHERE revoked_at IS NULL;
 
 -- Function to generate secure random token
@@ -20284,7 +20283,7 @@ BEGIN
   -- Generate unique token
   v_token := generate_customer_token();
   v_expires_at := NOW() + (p_expires_in_days || ' days')::INTERVAL;
-  
+
   -- Insert token
   INSERT INTO customer_access_tokens (
     value_case_id,
@@ -20295,7 +20294,7 @@ BEGIN
     v_token,
     v_expires_at
   );
-  
+
   RETURN QUERY SELECT v_token, v_expires_at;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -20314,32 +20313,32 @@ BEGIN
   SELECT * INTO v_token_record
   FROM customer_access_tokens
   WHERE token = p_token;
-  
+
   -- Token not found
   IF NOT FOUND THEN
     RETURN QUERY SELECT NULL::UUID, FALSE, 'Invalid token';
     RETURN;
   END IF;
-  
+
   -- Token revoked
   IF v_token_record.revoked_at IS NOT NULL THEN
     RETURN QUERY SELECT NULL::UUID, FALSE, 'Token has been revoked';
     RETURN;
   END IF;
-  
+
   -- Token expired
   IF v_token_record.expires_at < NOW() THEN
     RETURN QUERY SELECT NULL::UUID, FALSE, 'Token has expired';
     RETURN;
   END IF;
-  
+
   -- Update access tracking
   UPDATE customer_access_tokens
-  SET 
+  SET
     last_accessed_at = NOW(),
     access_count = access_count + 1
   WHERE token = p_token;
-  
+
   -- Return valid token
   RETURN QUERY SELECT v_token_record.value_case_id, TRUE, NULL::TEXT;
 END;
@@ -20354,13 +20353,13 @@ CREATE OR REPLACE FUNCTION revoke_customer_token(
 RETURNS BOOLEAN AS $$
 BEGIN
   UPDATE customer_access_tokens
-  SET 
+  SET
     revoked_at = NOW(),
     revoked_by = p_revoked_by,
     revoke_reason = p_reason
   WHERE token = p_token
     AND revoked_at IS NULL;
-  
+
   RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -20373,7 +20372,7 @@ CREATE POLICY customer_tokens_tenant_isolation ON customer_access_tokens
   FOR ALL
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE tenant_id = current_setting('app.current_tenant_id', true)::UUID
     )
   );
@@ -20429,9 +20428,9 @@ CREATE POLICY "Users can view canvas elements for their value cases"
   ON canvas_elements FOR SELECT
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20441,9 +20440,9 @@ CREATE POLICY "Users can insert canvas elements for their value cases"
   ON canvas_elements FOR INSERT
   WITH CHECK (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20453,9 +20452,9 @@ CREATE POLICY "Users can update canvas elements for their value cases"
   ON canvas_elements FOR UPDATE
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20465,9 +20464,9 @@ CREATE POLICY "Users can delete canvas elements for their value cases"
   ON canvas_elements FOR DELETE
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20521,9 +20520,9 @@ CREATE POLICY "Users can view presence for their value cases"
   ON canvas_presence FOR SELECT
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20582,9 +20581,9 @@ CREATE POLICY "Users can view comments for their value cases"
   ON canvas_comments FOR SELECT
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20594,9 +20593,9 @@ CREATE POLICY "Users can insert comments for their value cases"
   ON canvas_comments FOR INSERT
   WITH CHECK (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20660,22 +20659,22 @@ DECLARE
 BEGIN
   -- Get token from request header or setting
   v_token := current_setting('request.headers', true)::json->>'x-customer-token';
-  
+
   IF v_token IS NULL THEN
     v_token := current_setting('app.customer_token', true);
   END IF;
-  
+
   IF v_token IS NULL THEN
     RETURN NULL;
   END IF;
-  
+
   -- Validate token and get value_case_id
   SELECT value_case_id INTO v_value_case_id
   FROM customer_access_tokens
   WHERE token = v_token
     AND expires_at > NOW()
     AND revoked_at IS NULL;
-  
+
   RETURN v_value_case_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
@@ -20790,7 +20789,7 @@ CREATE TABLE IF NOT EXISTS guest_activity_log (
   guest_access_token_id UUID NOT NULL REFERENCES guest_access_tokens(id) ON DELETE CASCADE,
   value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
   activity_type TEXT NOT NULL CHECK (activity_type IN (
-    'access', 'view_element', 'add_comment', 'view_metric', 
+    'access', 'view_element', 'add_comment', 'view_metric',
     'export_pdf', 'export_excel', 'share_email'
   )),
   activity_data JSONB,
@@ -20809,7 +20808,7 @@ CREATE POLICY "Users can view guest users in their organization"
   ON guest_users FOR SELECT
   USING (
     organization_id IN (
-      SELECT organization_id FROM user_organizations 
+      SELECT organization_id FROM user_organizations
       WHERE user_id = auth.uid()
     )
   );
@@ -20818,7 +20817,7 @@ CREATE POLICY "Users can create guest users in their organization"
   ON guest_users FOR INSERT
   WITH CHECK (
     organization_id IN (
-      SELECT organization_id FROM user_organizations 
+      SELECT organization_id FROM user_organizations
       WHERE user_id = auth.uid()
     )
   );
@@ -20827,7 +20826,7 @@ CREATE POLICY "Users can update guest users in their organization"
   ON guest_users FOR UPDATE
   USING (
     organization_id IN (
-      SELECT organization_id FROM user_organizations 
+      SELECT organization_id FROM user_organizations
       WHERE user_id = auth.uid()
     )
   );
@@ -20836,7 +20835,7 @@ CREATE POLICY "Users can delete guest users in their organization"
   ON guest_users FOR DELETE
   USING (
     organization_id IN (
-      SELECT organization_id FROM user_organizations 
+      SELECT organization_id FROM user_organizations
       WHERE user_id = auth.uid()
     )
   );
@@ -20846,9 +20845,9 @@ CREATE POLICY "Users can view guest tokens for their value cases"
   ON guest_access_tokens FOR SELECT
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20858,9 +20857,9 @@ CREATE POLICY "Users can create guest tokens for their value cases"
   ON guest_access_tokens FOR INSERT
   WITH CHECK (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20870,9 +20869,9 @@ CREATE POLICY "Users can update guest tokens for their value cases"
   ON guest_access_tokens FOR UPDATE
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20882,9 +20881,9 @@ CREATE POLICY "Users can delete guest tokens for their value cases"
   ON guest_access_tokens FOR DELETE
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20895,9 +20894,9 @@ CREATE POLICY "Users can view guest activity for their value cases"
   ON guest_activity_log FOR SELECT
   USING (
     value_case_id IN (
-      SELECT id FROM value_cases 
+      SELECT id FROM value_cases
       WHERE organization_id IN (
-        SELECT organization_id FROM user_organizations 
+        SELECT organization_id FROM user_organizations
         WHERE user_id = auth.uid()
       )
     )
@@ -20987,13 +20986,13 @@ BEGIN
 
   -- Update last accessed
   UPDATE guest_access_tokens
-  SET 
+  SET
     last_accessed_at = now(),
     access_count = access_count + 1
   WHERE id = token_record.id;
 
   -- Return valid token info
-  RETURN QUERY SELECT 
+  RETURN QUERY SELECT
     true,
     token_record.guest_user_id,
     token_record.value_case_id,
@@ -21013,7 +21012,7 @@ CREATE OR REPLACE FUNCTION revoke_guest_token(
 RETURNS BOOLEAN AS $$
 BEGIN
   UPDATE guest_access_tokens
-  SET 
+  SET
     revoked = true,
     revoked_at = now(),
     revoked_by = revoked_by_user,
@@ -21252,31 +21251,6 @@ BEGIN
     END IF;
 END $$;
 
--- Fix users table boolean fields
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'users'
-               AND column_name = 'is_active'
-               AND table_schema = 'public') THEN
-        ALTER TABLE public.users
-        ALTER COLUMN is_active SET DEFAULT true,
-        ALTER COLUMN is_active SET NOT NULL;
-    END IF;
-END $$;
-
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'users'
-               AND column_name = 'email_verified'
-               AND table_schema = 'public') THEN
-        ALTER TABLE public.users
-        ALTER COLUMN email_verified SET DEFAULT false,
-        ALTER COLUMN email_verified SET NOT NULL;
-    END IF;
-END $$;
-
 -- Fix agent_performance_summary table boolean fields
 DO $$
 BEGIN
@@ -21335,8 +21309,6 @@ UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL
 UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
 UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
 UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
-UPDATE public.users SET is_active = true WHERE is_active IS NULL;
-UPDATE public.users SET email_verified = false WHERE email_verified IS NULL;
 UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
 UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
 UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
@@ -21408,17 +21380,6 @@ BEGIN
 END $$;
 
 -- Add CHECK constraints for users table
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'users'
-               AND column_name = 'role'
-               AND table_schema = 'public') THEN
-        ALTER TABLE public.users ADD CONSTRAINT chk_users_role
-        CHECK (role IN ('user', 'admin', 'super_admin'));
-    END IF;
-END $$;
-
 -- Add CHECK constraints for agent_memory table
 DO $$
 BEGIN
@@ -21627,22 +21588,7 @@ BEGIN
     END IF;
 END $$;
 
--- Normalize users.preferences JSONB field
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'users'
-               AND column_name = 'preferences'
-               AND table_schema = 'public') THEN
 
-        -- Add CHECK constraint for preferences JSONB structure
-        ALTER TABLE public.users ADD CONSTRAINT chk_users_preferences_structure
-        CHECK (
-            preferences IS NULL OR
-            jsonb_typeof(preferences) = 'object'
-        );
-    END IF;
-END $$;
 
 -- Normalize agent_performance_summary.metadata JSONB field
 DO $$
@@ -21708,7 +21654,6 @@ UPDATE public.workflow_executions SET input_params = '{}' WHERE input_params IS 
 UPDATE public.workflow_executions SET output_data = '{}' WHERE output_data IS NULL OR jsonb_typeof(output_data) != 'object';
 UPDATE public.agent_memory SET metadata = '{}' WHERE metadata IS NULL OR jsonb_typeof(metadata) != 'object';
 UPDATE public.organizations SET settings = '{}' WHERE settings IS NULL OR jsonb_typeof(settings) != 'object';
-UPDATE public.users SET preferences = '{}' WHERE preferences IS NULL OR jsonb_typeof(preferences) != 'object';
 UPDATE public.agent_performance_summary SET metadata = '{}' WHERE metadata IS NULL OR jsonb_typeof(metadata) != 'object';
 UPDATE public.integration_configs SET config = '{}' WHERE config IS NULL OR jsonb_typeof(config) != 'object';
 
@@ -21742,10 +21687,6 @@ CREATE INDEX IF NOT EXISTS idx_agent_sessions_user_created ON public.agent_sessi
 
 -- Indexes for organizations performance
 CREATE INDEX IF NOT EXISTS idx_organizations_tenant_active ON public.organizations USING btree (tenant_id, is_active) WHERE is_active = true;
-
--- Indexes for users performance
-CREATE INDEX IF NOT EXISTS idx_users_tenant_active ON public.users USING btree (tenant_id, is_active) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_users_email_tenant ON public.users USING btree (email, tenant_id);
 
 -- Indexes for agent_performance_summary performance
 CREATE INDEX IF NOT EXISTS idx_agent_performance_tenant_created ON public.agent_performance_summary USING btree (tenant_id, created_at DESC);
@@ -21835,14 +21776,6 @@ BEGIN
         ALTER TABLE public.organizations ALTER COLUMN name SET NOT NULL;
     END IF;
 
-    -- Ensure users.email is NOT NULL
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'users'
-               AND column_name = 'email'
-               AND is_nullable = 'YES') THEN
-        ALTER TABLE public.users ALTER COLUMN email SET NOT NULL;
-    END IF;
-
     -- Ensure agent_sessions.user_id is NOT NULL
     IF EXISTS (SELECT 1 FROM information_schema.columns
                WHERE table_name = 'agent_sessions'
@@ -21871,24 +21804,6 @@ END $$;
 -- ============================================
 -- HIGH PRIORITY: Add missing CHECK constraints
 -- ============================================
-
--- Add CHECK constraint for users.role with correct values
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.columns
-               WHERE table_name = 'users'
-               AND column_name = 'role'
-               AND table_schema = 'public') THEN
-        -- Drop existing constraint if it exists with wrong values
-        IF EXISTS (SELECT 1 FROM information_schema.table_constraints
-                   WHERE table_name = 'users' AND constraint_name = 'chk_users_role') THEN
-            ALTER TABLE public.users DROP CONSTRAINT chk_users_role;
-        END IF;
-        -- Add correct constraint
-        ALTER TABLE public.users ADD CONSTRAINT chk_users_role
-        CHECK (role IN ('member', 'manager', 'admin'));
-    END IF;
-END $$;
 
 -- Add CHECK constraint for organizations.tier with correct values
 DO $$
@@ -22361,7 +22276,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS usage_aggregates_idempotency_key_unique
 -- ================================================
 -- Migration: Fix Remaining Database Security Linter Errors
 -- Created: 2025-12-27
--- 
+--
 -- This migration fixes 4 remaining security linter errors:
 -- 1. user_pillar_progress view - Add SECURITY INVOKER
 -- 2. secret_audit_summary view - Add SECURITY INVOKER
@@ -22382,7 +22297,7 @@ DROP VIEW IF EXISTS public.user_pillar_progress;
 CREATE VIEW public.user_pillar_progress
 WITH (security_invoker = true)
 AS
-SELECT 
+SELECT
   ap.user_id,
   am.pillar,
   COUNT(al.id) as total_lessons,
@@ -22397,7 +22312,7 @@ JOIN academy_lessons al ON al.module_id = am.id
 LEFT JOIN academy_progress ap ON ap.lesson_id = al.id
 GROUP BY ap.user_id, am.pillar;
 
-COMMENT ON VIEW public.user_pillar_progress IS 
+COMMENT ON VIEW public.user_pillar_progress IS
 'SECURITY INVOKER view - User progress across academy pillars. Relies on RLS policies on academy_progress, academy_modules, and academy_lessons tables.';
 
 -- Grant permissions
@@ -22414,7 +22329,7 @@ DROP VIEW IF EXISTS public.secret_audit_summary;
 CREATE VIEW public.secret_audit_summary
 WITH (security_invoker = true)
 AS
-SELECT 
+SELECT
   tenant_id,
   action,
   result,
@@ -22425,7 +22340,7 @@ WHERE timestamp >= NOW() - INTERVAL '30 days'
 GROUP BY tenant_id, action, result, DATE_TRUNC('day', timestamp)
 ORDER BY day DESC, tenant_id, action;
 
-COMMENT ON VIEW public.secret_audit_summary IS 
+COMMENT ON VIEW public.secret_audit_summary IS
 'SECURITY INVOKER view - Daily summary of secret access operations by tenant and action type. Relies on RLS policy on secret_audit_logs table.';
 
 -- Grant permissions
@@ -22442,7 +22357,7 @@ DROP VIEW IF EXISTS public.secret_audit_failures;
 CREATE VIEW public.secret_audit_failures
 WITH (security_invoker = true)
 AS
-SELECT 
+SELECT
   tenant_id,
   user_id,
   secret_key,
@@ -22454,7 +22369,7 @@ WHERE result = 'FAILURE'
 AND timestamp >= NOW() - INTERVAL '7 days'
 ORDER BY timestamp DESC;
 
-COMMENT ON VIEW public.secret_audit_failures IS 
+COMMENT ON VIEW public.secret_audit_failures IS
 'SECURITY INVOKER view - Recent failed secret access attempts for security monitoring. Relies on RLS policy on secret_audit_logs table.';
 
 -- Grant permissions
@@ -22476,18 +22391,18 @@ DROP POLICY IF EXISTS "workflow_stage_runs_service_delete" ON public.workflow_st
 
 -- Policy: Users can view stage runs for executions they can access
 -- Relies on tenant isolation through parent workflow_executions table
-CREATE POLICY "workflow_stage_runs_tenant_select" 
+CREATE POLICY "workflow_stage_runs_tenant_select"
 ON public.workflow_stage_runs
 FOR SELECT
 TO authenticated
 USING (
   EXISTS (
-    SELECT 1 
+    SELECT 1
     FROM public.workflow_executions we
     WHERE we.id = workflow_stage_runs.execution_id
     AND we.tenant_id IN (
-      SELECT tenant_id 
-      FROM public.user_tenants 
+      SELECT tenant_id
+      FROM public.user_tenants
       WHERE user_id = (auth.uid())::text
     )
   )
@@ -22519,7 +22434,7 @@ GRANT SELECT ON public.workflow_stage_runs TO authenticated;
 GRANT ALL ON public.workflow_stage_runs TO service_role;
 
 -- Add performance index for RLS policy lookup
-CREATE INDEX IF NOT EXISTS idx_workflow_stage_runs_execution_tenant 
+CREATE INDEX IF NOT EXISTS idx_workflow_stage_runs_execution_tenant
 ON public.workflow_stage_runs(execution_id);
 
 -- ============================================================================
@@ -22537,20 +22452,20 @@ BEGIN
   FROM pg_views
   WHERE schemaname = 'public'
   AND viewname IN ('user_pillar_progress', 'secret_audit_summary', 'secret_audit_failures');
-  
+
   -- Check RLS on workflow_stage_runs
   SELECT c.relrowsecurity INTO rls_enabled
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = 'public'
   AND c.relname = 'workflow_stage_runs';
-  
+
   -- Count policies on workflow_stage_runs
   SELECT COUNT(*) INTO policy_count
   FROM pg_policies
   WHERE schemaname = 'public'
   AND tablename = 'workflow_stage_runs';
-  
+
   RAISE NOTICE '';
   RAISE NOTICE '========================================================================';
   RAISE NOTICE 'Security Linter Errors Fixed';

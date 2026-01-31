@@ -119,7 +119,7 @@ DECLARE
 BEGIN
     -- Check for orphaned records (users without tenants)
     SELECT COUNT(*) INTO orphaned_records
-    FROM users u
+    FROM auth.users u
     LEFT JOIN tenants t ON u.tenant_id = t.id
     WHERE t.id IS NULL;
 

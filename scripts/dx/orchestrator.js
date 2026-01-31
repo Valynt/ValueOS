@@ -694,7 +694,7 @@ async function runMigrations(supabaseMode, mode) {
       log.warn("Supabase status DB URL differs from DATABASE_URL; using DATABASE_URL for consistency.");
     }
 
-    const command = `PGSSLMODE=disable supabase db push --workdir infra/supabase --db-url "${normalizedDbUrl}"`;
+    const command = `PGSSLMODE=disable supabase db push --yes --workdir infra/supabase --db-url "${normalizedDbUrl}"`;
     const targetLabel = supabaseMode?.mode === "local" ? "local Supabase DB" : "dx postgres";
     log.info(`Step 5: Pushing migrations to ${targetLabel}...`);
 

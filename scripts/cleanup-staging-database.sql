@@ -18,11 +18,11 @@ DECLARE
     db_name TEXT;
 BEGIN
     SELECT current_database() INTO db_name;
-    
+
     IF db_name LIKE '%prod%' OR db_name LIKE '%production%' THEN
         RAISE EXCEPTION 'SAFETY CHECK FAILED: This appears to be a production database (%). Aborting cleanup.', db_name;
     END IF;
-    
+
     RAISE NOTICE 'Database: %', db_name;
     RAISE NOTICE 'Proceeding with cleanup...';
     RAISE NOTICE '';
@@ -40,17 +40,17 @@ DECLARE
 BEGIN
     -- Check if backup log table exists and has recent backups
     IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'audit' AND tablename = 'backup_log') THEN
-        SELECT * INTO latest_backup 
-        FROM audit.backup_log 
-        WHERE status = 'success' 
-        ORDER BY created_at DESC 
+        SELECT * INTO latest_backup
+        FROM audit.backup_log
+        WHERE status = 'success'
+        ORDER BY created_at DESC
         LIMIT 1;
-        
+
         IF latest_backup IS NOT NULL THEN
-            RAISE NOTICE '  ✅ Latest backup: % (% ago)', 
-                latest_backup.created_at, 
+            RAISE NOTICE '  ✅ Latest backup: % (% ago)',
+                latest_backup.created_at,
                 NOW() - latest_backup.created_at;
-                
+
             IF NOW() - latest_backup.created_at > INTERVAL '24 hours' THEN
                 RAISE WARNING '  ⚠️  Backup is older than 24 hours!';
             END IF;
@@ -60,7 +60,7 @@ BEGIN
     ELSE
         RAISE NOTICE '  ℹ️  Backup log table not found (manual verification required)';
     END IF;
-    
+
     RAISE NOTICE '';
     RAISE NOTICE '  ⚠️  MANUAL VERIFICATION REQUIRED:';
     RAISE NOTICE '     Ensure you have a recent database backup before proceeding';
@@ -84,9 +84,9 @@ DECLARE
     total_rows BIGINT := 0;
 BEGIN
     RAISE NOTICE '  Current row counts:';
-    
-    FOR table_stats IN 
-        SELECT 
+
+    FOR table_stats IN
+        SELECT
             schemaname,
             tablename,
             n_live_tup as row_count
@@ -95,14 +95,14 @@ BEGIN
         ORDER BY n_live_tup DESC
     LOOP
         IF table_stats.row_count > 0 THEN
-            RAISE NOTICE '    - %.%: % rows', 
-                table_stats.schemaname, 
-                table_stats.tablename, 
+            RAISE NOTICE '    - %.%: % rows',
+                table_stats.schemaname,
+                table_stats.tablename,
                 table_stats.row_count;
             total_rows := total_rows + table_stats.row_count;
         END IF;
     END LOOP;
-    
+
     RAISE NOTICE '';
     RAISE NOTICE '  Total rows to delete: %', total_rows;
     RAISE NOTICE '';
@@ -122,73 +122,73 @@ DECLARE
 BEGIN
     -- Delete from all tables with organization_id (tenant data)
     -- Order matters: child tables first, then parent tables
-    
+
     -- 3.1 Workflow-related data
     RAISE NOTICE '  Deleting workflow data...';
-    
+
     DELETE FROM workflow_executions;
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     total_deleted := total_deleted + deleted_count;
     RAISE NOTICE '    - workflow_executions: % rows', deleted_count;
-    
+
     DELETE FROM workflow_definitions WHERE id NOT IN (
         SELECT unnest(ARRAY[]::uuid[]) -- Preserve specific workflows if needed
     );
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     total_deleted := total_deleted + deleted_count;
     RAISE NOTICE '    - workflow_definitions: % rows', deleted_count;
-    
+
     -- 3.2 Agent-related data
     RAISE NOTICE '  Deleting agent data...';
-    
+
     DELETE FROM agent_audit_log;
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     total_deleted := total_deleted + deleted_count;
     RAISE NOTICE '    - agent_audit_log: % rows', deleted_count;
-    
+
     DELETE FROM semantic_memory;
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     total_deleted := total_deleted + deleted_count;
     RAISE NOTICE '    - semantic_memory: % rows', deleted_count;
-    
+
     -- 3.3 Billing-related data (if exists)
     IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'billing_usage_events') THEN
         RAISE NOTICE '  Deleting billing data...';
-        
+
         DELETE FROM billing_invoice_items;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - billing_invoice_items: % rows', deleted_count;
-        
+
         DELETE FROM billing_invoices;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - billing_invoices: % rows', deleted_count;
-        
+
         DELETE FROM billing_usage_daily_totals;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - billing_usage_daily_totals: % rows', deleted_count;
-        
+
         DELETE FROM billing_usage_events;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - billing_usage_events: % rows', deleted_count;
-        
+
         DELETE FROM billing_entitlements;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - billing_entitlements: % rows', deleted_count;
-        
+
         DELETE FROM billing_subscriptions;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - billing_subscriptions: % rows', deleted_count;
     END IF;
-    
+
     -- 3.4 User and organization data
     RAISE NOTICE '  Deleting user and organization data...';
-    
+
     -- Delete user_tenants (multi-org memberships)
     IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'user_tenants') THEN
         DELETE FROM user_tenants;
@@ -196,36 +196,36 @@ BEGIN
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - user_tenants: % rows', deleted_count;
     END IF;
-    
+
     -- Delete users (will cascade to related records)
-    DELETE FROM users;
+    DELETE FROM auth.users;
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     total_deleted := total_deleted + deleted_count;
     RAISE NOTICE '    - users: % rows', deleted_count;
-    
+
     -- Delete organizations (will cascade to all tenant-scoped data)
     DELETE FROM organizations;
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     total_deleted := total_deleted + deleted_count;
     RAISE NOTICE '    - organizations: % rows', deleted_count;
-    
+
     -- 3.5 Session and security data
     RAISE NOTICE '  Deleting session data...';
-    
+
     IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'security' AND tablename = 'sessions') THEN
         DELETE FROM security.sessions;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - security.sessions: % rows', deleted_count;
     END IF;
-    
+
     IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'security' AND tablename = 'rate_limits') THEN
         DELETE FROM security.rate_limits;
         GET DIAGNOSTICS deleted_count = ROW_COUNT;
         total_deleted := total_deleted + deleted_count;
         RAISE NOTICE '    - security.rate_limits: % rows', deleted_count;
     END IF;
-    
+
     RAISE NOTICE '';
     RAISE NOTICE '  Total rows deleted: %', total_deleted;
     RAISE NOTICE '';
@@ -243,7 +243,7 @@ BEGIN
     RAISE NOTICE '  ℹ️  Keeping audit logs for compliance';
     RAISE NOTICE '     To delete audit logs, uncomment the DELETE statement in this section';
     RAISE NOTICE '';
-    
+
     -- Uncomment to delete audit logs (⚠️ May violate compliance requirements)
     -- DELETE FROM audit.activity_log WHERE timestamp < NOW() - INTERVAL '90 days';
 END $$;
@@ -260,16 +260,16 @@ DECLARE
     seq RECORD;
 BEGIN
     -- Reset all sequences to start from 1
-    FOR seq IN 
+    FOR seq IN
         SELECT sequence_schema, sequence_name
         FROM information_schema.sequences
         WHERE sequence_schema IN ('public', 'security')
     LOOP
-        EXECUTE format('ALTER SEQUENCE %I.%I RESTART WITH 1', 
+        EXECUTE format('ALTER SEQUENCE %I.%I RESTART WITH 1',
             seq.sequence_schema, seq.sequence_name);
         RAISE NOTICE '  - Reset %.%', seq.sequence_schema, seq.sequence_name;
     END LOOP;
-    
+
     RAISE NOTICE '';
 END $$;
 
@@ -299,9 +299,9 @@ DECLARE
     non_empty_tables INTEGER := 0;
 BEGIN
     RAISE NOTICE '  Remaining row counts:';
-    
-    FOR table_stats IN 
-        SELECT 
+
+    FOR table_stats IN
+        SELECT
             schemaname,
             tablename,
             n_live_tup as row_count
@@ -311,17 +311,17 @@ BEGIN
         ORDER BY n_live_tup DESC
     LOOP
         IF table_stats.row_count > 0 THEN
-            RAISE NOTICE '    - %.%: % rows', 
-                table_stats.schemaname, 
-                table_stats.tablename, 
+            RAISE NOTICE '    - %.%: % rows',
+                table_stats.schemaname,
+                table_stats.tablename,
                 table_stats.row_count;
             remaining_rows := remaining_rows + table_stats.row_count;
             non_empty_tables := non_empty_tables + 1;
         END IF;
     END LOOP;
-    
+
     RAISE NOTICE '';
-    
+
     IF remaining_rows = 0 THEN
         RAISE NOTICE '  ✅ SUCCESS: All user data deleted';
     ELSIF non_empty_tables <= 5 THEN
@@ -330,7 +330,7 @@ BEGIN
         RAISE WARNING '  ⚠️  WARNING: % rows remaining in % tables', remaining_rows, non_empty_tables;
         RAISE NOTICE '     Review remaining data manually';
     END IF;
-    
+
     RAISE NOTICE '';
 END $$;
 
@@ -350,7 +350,7 @@ BEGIN
         -- Count storage objects
         SELECT count(*) INTO object_count FROM storage.objects;
         SELECT count(*) INTO bucket_count FROM storage.buckets;
-        
+
         RAISE NOTICE '  ℹ️  Storage buckets: %', bucket_count;
         RAISE NOTICE '  ℹ️  Storage objects: %', object_count;
         RAISE NOTICE '';
