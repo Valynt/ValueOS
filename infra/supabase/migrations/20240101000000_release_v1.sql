@@ -12733,7 +12733,7 @@ CREATE POLICY "workflow_executions_tenant_select" ON workflow_executions
     EXISTS (
       SELECT 1 FROM workflows w
       WHERE w.id = workflow_executions.workflow_id
-      AND w.organization_id = public.get_user_org_id()
+      AND w.organization_id = public.get_user_org_id()::uuid
     )
   );
 
@@ -12743,7 +12743,7 @@ CREATE POLICY "workflow_executions_tenant_insert" ON workflow_executions
     EXISTS (
       SELECT 1 FROM workflows w
       WHERE w.id = workflow_executions.workflow_id
-      AND w.organization_id = public.get_user_org_id()
+      AND w.organization_id = public.get_user_org_id()::uuid
     )
   );
 
@@ -12753,7 +12753,7 @@ CREATE POLICY "workflow_executions_tenant_update" ON workflow_executions
     EXISTS (
       SELECT 1 FROM workflows w
       WHERE w.id = workflow_executions.workflow_id
-      AND w.organization_id = public.get_user_org_id()
+      AND w.organization_id = public.get_user_org_id()::uuid
     )
   );
 
