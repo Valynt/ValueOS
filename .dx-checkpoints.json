@@ -1,37 +1,7 @@
 [
   {
-    "id": "checkpoint_1769735694759",
-    "timestamp": 1769735694759,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769735760650",
-    "timestamp": 1769735760650,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769736246747",
-    "timestamp": 1769736246747,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769736325645",
-    "timestamp": 1769736325645,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769744188950",
-    "timestamp": 1769744188950,
-    "step": "migrations",
-    "state": {}
-  },
-  {
-    "id": "checkpoint_1769821747958",
-    "timestamp": 1769821747958,
+    "id": "checkpoint_1769822811006",
+    "timestamp": 1769822811006,
     "step": "migrations",
     "state": {}
   }
