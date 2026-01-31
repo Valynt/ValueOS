@@ -18,6 +18,16 @@
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
     "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm",
-    "DOCKER_BUILDKIT": "1"
+    "DOCKER_BUILDKIT": "1",
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "telemetry.telemetryLevel": "off",
+        "redhat.telemetry.enabled": false,
+        "git.telemetry.telemetryLevel": "off"
+      }
+    }
   }
 }
