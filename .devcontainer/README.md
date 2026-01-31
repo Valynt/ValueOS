@@ -1,19 +1,21 @@
-# ValueCanvas Development Container
+# ValueOS Development Container
 
-This directory contains the configuration for ValueCanvas development containers, providing a consistent and secure development environment.
+This directory contains the configuration for the unified ValueOS development container, providing a consistent and secure development environment with all services included.
 
 ## 🏗️ Architecture
 
-ValueCanvas provides **two development container options**:
+ValueOS uses a **single unified development container** that includes:
 
-1. **VS Code Dev Container** (`.devcontainer/`) - Recommended for VS Code users
-2. **Docker Compose Development** (`docker-compose.dev.yml`) - Standalone option
+- VS Code Dev Container with all Supabase services
+- Kong API gateway for service routing
+- Redis for caching
+- Full database and authentication stack
 
-Both are hardened following **Operation Fortress** security standards while maintaining developer productivity.
+This replaces the previous split architecture. Legacy configurations are archived in `docs/legacy/`.
 
 ## 🚀 Quick Start
 
-### Option 1: VS Code Dev Container (Recommended)
+### VS Code Dev Container (Only Option)
 
 1. **Prerequisites:**
    - [Docker Desktop](https://www.docker.com/products/docker-desktop)
@@ -34,33 +36,10 @@ Both are hardened following **Operation Fortress** security standards while main
    - ✅ Hot module reloading
    - ✅ Security hardened
    - ✅ Git configuration shared from host
-   - ✅ Git credential helper configured
    - ✅ GitHub CLI and Git LFS included
-
-### Option 2: Docker Compose Development
-
-1. **Prerequisites:**
-   - [Docker](https://docs.docker.com/get-docker/)
-   - [Docker Compose](https://docs.docker.com/compose/install/)
-
-2. **Setup:**
-   ```bash
-   # Copy environment template
-   cp .env.dev.example .env.local
-
-   # Edit .env.local with your credentials
-   # IMPORTANT: Update Supabase URL, API keys, etc.
-
-   # Start services
-   docker-compose -f docker-compose.dev.yml up
-
-   # Access the app at http://localhost:5173
-   ```
-
-3. **Stop Services:**
-   ```bash
-   docker-compose -f docker-compose.dev.yml down
-   ```
+   - ✅ Full Supabase stack (DB, Auth, REST, Realtime, Storage, Meta)
+   - ✅ Kong API gateway
+   - ✅ Redis caching
 
 ## 🔒 Security Features
 
@@ -81,18 +60,20 @@ Both development environments include:
 
 **IMPORTANT:** Development containers use **WEAK PASSWORDS** suitable only for local development:
 
-| Component | Development Password | Production |
-|-----------|---------------------|------------|
-| PostgreSQL | `valuecanvas_dev_password_CHANGE_ME` | Strong, rotated secrets |
-| Redis | `redis_dev_password_CHANGE_ME` | Strong, rotated secrets |
-| Exposed Ports | 5432, 6379, 5173 | Internal only via reverse proxy |
+| Component     | Development Password                 | Production                      |
+| ------------- | ------------------------------------ | ------------------------------- |
+| PostgreSQL    | `valuecanvas_dev_password_CHANGE_ME` | Strong, rotated secrets         |
+| Redis         | `redis_dev_password_CHANGE_ME`       | Strong, rotated secrets         |
+| Exposed Ports | 5432, 6379, 5173                     | Internal only via reverse proxy |
 
 **Security features relaxed in development:**
+
 - Circuit breaker: Disabled (for easier debugging)
 - Rate limiting: Disabled (no request throttling)
 - Port exposure: Database ports exposed to host (convenience)
 
 **Security features enforced in production:**
+
 - All security features enabled
 - Strong passwords from environment variables
 - No ports exposed except via nginx reverse proxy
@@ -105,63 +86,37 @@ Both development environments include:
 .devcontainer/
 ├── Dockerfile.optimized       # Multi-stage optimized dev container (preferred)
 ├── Dockerfile                 # Minimal fallback Dockerfile
-├── devcontainer.json          # VS Code/Gitpod configuration
+├── devcontainer.json          # VS Code configuration
+├── docker-compose.devcontainer.yml # Unified development stack
 ├── README.md                  # This file
-└── scripts/
-    ├── on-create.sh           # Runs once when container is created
-    ├── post-create.sh         # Runs after container creation (installs deps)
-    ├── post-start.sh          # Runs every time container starts
-    ├── update-content.sh      # Runs when content is updated (git pull)
-    ├── healthcheck.sh         # Container health verification
-    └── lib/
-        └── common.sh          # Shared shell functions
+├── SELF_HEALING.md            # Troubleshooting guide
+└── monitoring/                # Monitoring configurations
 
-(Root directory)
-├── docker-compose.deps.yml    # Development dependencies (Postgres, Redis)
-├── infra/docker/
-│   └── docker-compose.dev.yml # Full development compose configuration
-├── .env.example               # Environment template
-└── .env.local                 # Your local config (git-ignored)
+scripts/dev/
+├── post-create.sh             # Idempotent dependency installation
+└── migrate.sh                 # Database migration script
+
+docs/legacy/                   # Archived deprecated configurations
+├── devcontainer/              # Old docker-compose files
+└── scripts/                   # Old scripts and Nix files
 ```
 
 ## 🔧 Lifecycle Scripts
 
-The devcontainer uses a series of scripts that run at different lifecycle stages:
+The devcontainer uses a simplified lifecycle:
 
-| Script | When | Purpose | Failure Behavior |
-|--------|------|---------|------------------|
-| `on-create.sh` | Container first created | Git config, directories, aliases | Fails build on critical errors |
-| `post-create.sh` | After content cloned | Install dependencies, generate clients | Fails on pnpm install failure |
-| `post-start.sh` | Every container start | Quick health checks | Never fails (advisory only) |
-| `update-content.sh` | After git pull | Incremental dependency updates | Fails on pnpm install failure |
-| `healthcheck.sh` | On demand / Docker HEALTHCHECK | Verify container health | Returns exit code 0/1/2 |
+| Script                       | When                     | Purpose                              | Failure Behavior         |
+| ---------------------------- | ------------------------ | ------------------------------------ | ------------------------ |
+| `scripts/dev/post-create.sh` | After container creation | Install dependencies, run migrations | Fails on critical errors |
 
 ### Script Design Principles
 
 All scripts follow these principles for reliability:
 
 1. **Fail fast on critical errors** - Uses `set -euo pipefail`
-2. **Continue on non-critical errors** - Optional tools don't block setup
-3. **Idempotent** - Safe to run multiple times
-4. **Timeout protection** - Network operations have timeouts
-5. **Retry with backoff** - Network failures retry automatically
-6. **Clear error messages** - Includes recovery hints
-
-### Health Check Usage
-
-```bash
-# Standard check
-.devcontainer/scripts/healthcheck.sh
-
-# Verbose output
-.devcontainer/scripts/healthcheck.sh --verbose
-
-# JSON output (for automation)
-.devcontainer/scripts/healthcheck.sh --json
-
-# Include service checks
-.devcontainer/scripts/healthcheck.sh --services
-```
+2. **Idempotent** - Safe to run multiple times
+3. **Timeout protection** - Network operations have timeouts
+4. **Clear error messages** - Includes recovery hints
 
 ## 🛠️ Customization
 
@@ -182,6 +137,7 @@ Edit `.devcontainer/devcontainer.json`:
 ### Modifying Security Settings
 
 **Dev Container:**
+
 ```json
 "runArgs": [
   "--security-opt=no-new-privileges",
@@ -190,6 +146,7 @@ Edit `.devcontainer/devcontainer.json`:
 ```
 
 **Docker Compose:**
+
 ```yaml
 security_opt:
   - no-new-privileges:true
@@ -257,12 +214,14 @@ VITE_PORT=5174
 The dev container shares your `.gitconfig` from the host:
 
 1. **Verify git config is mounted:**
+
    ```bash
    # Inside container
    cat ~/.gitconfig
    ```
 
 2. **Configure git if needed:**
+
    ```bash
    git config --global user.name "Your Name"
    git config --global user.email "your.email@example.com"

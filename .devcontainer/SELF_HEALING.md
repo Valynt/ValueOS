@@ -29,23 +29,18 @@ The ValueOS DevContainer includes an automated self-healing system that monitors
 
 ### Automatic Mode
 
-Self-healing runs automatically when the DevContainer starts via `post-start.sh`:
+Self-healing ran automatically in the legacy setup via `post-start.sh`. The current unified devcontainer uses a simplified lifecycle.
+
+### Manual Mode (Legacy)
+
+The self-healing scripts are archived in `docs/legacy/scripts/devcontainer-scripts/`:
 
 ```bash
-# Triggered on container start
-.devcontainer/scripts/post-start.sh
-```
+# One-time check (legacy)
+bash docs/legacy/scripts/devcontainer-scripts/self-heal.sh
 
-### Manual Mode
-
-Run self-healing manually:
-
-```bash
-# One-time check
-bash .devcontainer/scripts/self-heal.sh
-
-# Watch mode (checks every 60 seconds)
-bash .devcontainer/scripts/self-heal.sh --watch
+# Watch mode (checks every 60 seconds) (legacy)
+bash docs/legacy/scripts/devcontainer-scripts/self-heal.sh --watch
 ```
 
 ## How It Works
@@ -81,22 +76,25 @@ Self-healing output uses color-coded messages:
 
 ## Integration
 
-The script integrates with:
+The script integrated with the legacy setup:
 
-- **docker-compose.dev.yml** - Service definitions
-- **deploy/envs/.env.ports** - Port configuration
-- **.devcontainer/scripts/post-start.sh** - Automatic trigger
+- **docker-compose.devcontainer.yml** - Current service definitions
+- **docs/legacy/devcontainer/docker-compose.\*.yml** - Legacy service definitions
+- **docs/legacy/scripts/devcontainer-scripts/post-start.sh** - Legacy automatic trigger
 
 ## Troubleshooting
 
 ### Service Won't Start
 
 ```bash
-# Check Docker logs
-docker compose -f infra/docker/docker-compose.dev.yml logs [service-name]
+# Check Docker logs (current)
+docker compose -f .devcontainer/docker-compose.devcontainer.yml logs [service-name]
 
-# Manual restart
-docker compose -f infra/docker/docker-compose.dev.yml restart [service-name]
+# Manual restart (current)
+docker compose -f .devcontainer/docker-compose.devcontainer.yml restart [service-name]
+
+# Legacy commands (archived in docs/legacy/)
+# docker compose -f infra/docker/docker-compose.dev.yml logs [service-name]
 ```
 
 ### Port Conflicts

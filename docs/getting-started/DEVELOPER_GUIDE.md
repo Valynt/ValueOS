@@ -468,9 +468,9 @@ docker network inspect valueos-network
 
 ⚠️ **Deprecated**: The following documentation is no longer maintained:
 
-- `scripts/flake.nix` - Nix development environment (superseded by dev containers)
-- `pragmatic-reproducibility/templates/flake.nix` - Alternative Nix setup
-- Old Docker Compose files in `.devcontainer/docker-compose.*.yml` (consolidated)
+- `docs/legacy/scripts/flake.nix` - Nix development environment (superseded by dev containers)
+- `docs/legacy/scripts/pragmatic-flake.nix` - Alternative Nix setup
+- Old Docker Compose files in `docs/legacy/devcontainer/docker-compose.*.yml` (consolidated)
 
 For historical context, these files remain available but are not recommended for new development.
 
