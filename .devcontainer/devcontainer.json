@@ -12,7 +12,11 @@
   },
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "vscode",
-  "runArgs": ["--security-opt=seccomp=unconfined", "--security-opt=apparmor=unconfined"],
+  "runArgs": [
+    "--security-opt=seccomp=unconfined",
+    "--security-opt=apparmor=unconfined",
+    "--network=host"
+  ],
   "mounts": ["source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"],
   "postCreateCommand": "pnpm install --frozen-lockfile",
   "remoteEnv": {
