@@ -21,6 +21,8 @@
     "dx:docker": "node scripts/dev-cli.js up --mode docker",
     "dx:doctor": "node scripts/dx/doctor.js",
     "dx:doctor:soft": "node scripts/dx/doctor.js --soft",
+    "dx:devcontainer-diagnostic": "node scripts/dx/devcontainer-diagnostic.js",
+    "dx:local-dev-diagnostic": "node scripts/dx/local-dev-diagnostic.js",
     "dx:env": "node scripts/dx/env-compiler.js",
     "dx:env:validate": "node scripts/dx/env-compiler.js --validate",
     "dx:down": "node scripts/dev-cli.js down",

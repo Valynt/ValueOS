@@ -1,15 +1,14 @@
-version: "3.9"
-
 services:
   app:
     build:
-      context: .
+      context: ..
       dockerfile: .devcontainer/Dockerfile.optimized
       args:
         NODE_VERSION: "20"
         VARIANT: "ubuntu-22.04"
     volumes:
       - ..:/workspaces/ValueOS:cached
+    working_dir: /workspaces/ValueOS
     command: /bin/sh -c "while sleep 1000; do :; done"
     init: true
     networks:

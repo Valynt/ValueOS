@@ -1,24 +1,10 @@
 {
   "name": "ValueOS Dev Container",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": "..",
-    "args": {
-      "BUILDKIT_INLINE_CACHE": "1"
-    }
-  },
-  "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
-  },
+  "dockerComposeFile": "docker-compose.devcontainer.yml",
+  "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
-  "remoteUser": "vscode",
-  "runArgs": [
-    "--security-opt=seccomp=unconfined",
-    "--security-opt=apparmor=unconfined",
-    "--network=host"
-  ],
-  "mounts": ["source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"],
-  "postCreateCommand": "pnpm install --frozen-lockfile",
+  "shutdownAction": "stopCompose",
+  "postCreateCommand": "bash -lc 'cd /workspaces/ValueOS && pnpm install --frozen-lockfile && pnpm run dx:doctor || true'",
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
     "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm",

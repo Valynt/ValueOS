@@ -178,7 +178,7 @@ RUN mkdir -p \
     ~/.local/bin
 
 # Set working directory
-WORKDIR /workspaces/valuecanvas
+WORKDIR /workspaces/ValueOS
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \

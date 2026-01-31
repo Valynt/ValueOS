@@ -64,5 +64,23 @@
     "timestamp": 1769881418936,
     "step": "migrations",
     "state": {}
+  },
+  {
+    "id": "checkpoint_1769892475293",
+    "timestamp": 1769892475293,
+    "step": "migrations",
+    "state": {}
+  },
+  {
+    "id": "checkpoint_1769894087111",
+    "timestamp": 1769894087111,
+    "step": "migrations",
+    "state": {}
+  },
+  {
+    "id": "checkpoint_1769894153839",
+    "timestamp": 1769894153839,
+    "step": "migrations",
+    "state": {}
   }
 ]
