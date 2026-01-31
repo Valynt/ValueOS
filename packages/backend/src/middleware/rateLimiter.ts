@@ -19,7 +19,14 @@ import { RedisRateLimitStore, RateLimitEntry } from "./redisRateLimitStore.js"
 /**
  * Rate limit tier
  */
-export type RateLimitTier = "strict" | "standard" | "loose";
+export const RateLimitTier = {
+  STRICT: "strict",
+  STANDARD: "standard",
+  LOOSE: "loose",
+} as const;
+
+export type RateLimitTierValue =
+  (typeof RateLimitTier)[keyof typeof RateLimitTier];
 
 /**
  * Rate limit configuration
@@ -47,21 +54,21 @@ export interface RateLimitConfig {
 /**
  * Tier configurations
  */
-const TIER_CONFIGS: Record<RateLimitTier, RateLimitConfig> = {
-  strict: {
+const TIER_CONFIGS: Record<RateLimitTierValue, RateLimitConfig> = {
+  [RateLimitTier.STRICT]: {
     windowMs: 60 * 1000, // 1 minute
     max: 5,
     message:
       "Too many requests to expensive endpoints. Please try again later.",
     statusCode: 429,
   },
-  standard: {
+  [RateLimitTier.STANDARD]: {
     windowMs: 60 * 1000, // 1 minute
     max: 60,
     message: "Too many requests. Please try again later.",
     statusCode: 429,
   },
-  loose: {
+  [RateLimitTier.LOOSE]: {
     windowMs: 60 * 1000, // 1 minute
     max: 300,
     message: "Too many requests. Please try again later.",
@@ -240,7 +247,7 @@ const store = new HybridRateLimitStore();
 export function getRateLimitKey(req: Request): string {
   return RateLimitKeyService.generateSecureKey(req, {
     service: "general",
-    tier: "standard", // Will be overridden in createRateLimiter
+    tier: RateLimitTier.STANDARD, // Will be overridden in createRateLimiter
   });
 }
 
@@ -248,7 +255,7 @@ export function getRateLimitKey(req: Request): string {
  * Create rate limiter middleware
  */
 export function createRateLimiter(
-  tier: RateLimitTier,
+  tier: RateLimitTierValue,
   customConfig?: Partial<RateLimitConfig>
 ): (req: Request, res: Response, next: NextFunction) => void {
   const config = { ...TIER_CONFIGS[tier], ...customConfig };
@@ -363,7 +370,11 @@ export function resetRateLimit(
   tenantId: string = "global"
 ): void {
   // Reset for all tiers using consistent key generation
-  const tiers: RateLimitTier[] = ["strict", "standard", "loose"];
+  const tiers: RateLimitTierValue[] = [
+    RateLimitTier.STRICT,
+    RateLimitTier.STANDARD,
+    RateLimitTier.LOOSE,
+  ];
   tiers.forEach((tier) => {
     const key = RateLimitKeyService.generateUserKey(userId, tenantId, {
       service: "general",

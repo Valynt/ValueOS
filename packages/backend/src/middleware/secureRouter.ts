@@ -5,14 +5,16 @@ import {
 } from './securityMiddleware';
 import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware.js'
 import { serviceIdentityMiddleware } from './serviceIdentityMiddleware.js'
-import { rateLimiters, RateLimitTier } from './rateLimiter.js'
+import { rateLimiters, RateLimitTier, type RateLimitTierValue } from './rateLimiter.js'
 import { requestAuditMiddleware } from './requestAuditMiddleware.js'
 
 /**
  * Factory for new routers with standard security middlewares pre-applied.
  * Use for future auth/state-changing routes to ensure consistent protections.
  */
-export function createSecureRouter(tier: RateLimitTier = 'standard'): ReturnType<typeof Router> {
+export function createSecureRouter(
+  tier: RateLimitTierValue = RateLimitTier.STANDARD
+): ReturnType<typeof Router> {
   const router = Router();
   router.use(requestAuditMiddleware());
   router.use(securityHeadersMiddleware);
@@ -22,4 +24,3 @@ export function createSecureRouter(tier: RateLimitTier = 'standard'): ReturnType
   router.use(rateLimiters[tier]);
   return router;
 }
-
