@@ -1999,7 +1999,7 @@ CREATE FUNCTION public.get_user_org_id() RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
-  RETURN auth.jwt() ->> 'organization_id';
+  RETURN auth.jwt() ->> 'org_id';
 END;
 $$;
 
@@ -2808,7 +2808,7 @@ CREATE FUNCTION public.user_has_org_access(org_id text) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
-  RETURN org_id = (auth.jwt() ->> 'organization_id');
+  RETURN org_id = (auth.jwt() ->> 'org_id');
 END;
 $$;
 
@@ -9408,7 +9408,7 @@ CREATE POLICY "Users can view history of own components" ON public.component_his
 --
 
 DROP POLICY IF EXISTS "Users can view org metrics" ON public.agent_accuracy_metrics;
-CREATE POLICY "Users can view org metrics" ON public.agent_accuracy_metrics FOR SELECT USING (((organization_id IS NULL) OR (organization_id = (auth.jwt() ->> 'organization_id'::text))));
+CREATE POLICY "Users can view org metrics" ON public.agent_accuracy_metrics FOR SELECT USING (((organization_id IS NULL) OR (organization_id = (auth.jwt() ->> 'org_id'::text))));
 
 
 --
