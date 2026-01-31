@@ -31,8 +31,8 @@ BEGIN
     WHERE p.proname = 'jwt' AND n.nspname = 'auth'
   ) THEN
     CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
-    LANGUAGE sql
-    AS $$ SELECT current_setting('request.jwt.claims', true)::jsonb $$;
+    LANGUAGE plpgsql
+    AS $fn$ BEGIN RETURN current_setting('request.jwt.claims', true)::jsonb; END; $fn$;
   END IF;
 END;
 $$;
