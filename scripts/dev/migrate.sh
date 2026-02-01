@@ -26,9 +26,11 @@ DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-postgres}"
 DB_NAME="${DB_NAME:-postgres}"
 SUPABASE_WORKDIR="${SUPABASE_WORKDIR:-infra/supabase}"
+# Disable SSL for local development (container postgres doesn't have TLS)
+DB_SSLMODE="${DB_SSLMODE:-disable}"
 
 # Construct database URL
-DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}}"
+DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}}"
 
 # Parse arguments
 DRY_RUN=false
