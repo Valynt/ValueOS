@@ -127,25 +127,30 @@ trap cleanup_on_error EXIT
 ###############################################################################
 log STEP "1/6 Preflight Checks"
 
-# Check if we're in the devcontainer
-if [[ ! -f "/.dockerenv" ]] && [[ -z "${CODESPACES:-}" ]] && [[ -z "${REMOTE_CONTAINERS:-}" ]]; then
+# Detect if we're inside a devcontainer (services managed externally)
+INSIDE_DEVCONTAINER=false
+if [[ -f "/.dockerenv" ]] || [[ -n "${CODESPACES:-}" ]] || [[ -n "${REMOTE_CONTAINERS:-}" ]] || [[ -n "${DEVCONTAINER:-}" ]]; then
+    INSIDE_DEVCONTAINER=true
+fi
+
+# Check Docker availability
+if command -v docker &> /dev/null && docker info &> /dev/null 2>&1; then
+    log SUCCESS "Docker available"
+    DOCKER_AVAILABLE=true
+elif [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
+    # Inside devcontainer without Docker CLI - services are managed by the host
+    log INFO "Inside devcontainer - Docker services managed by host"
+    log INFO "Skipping Docker operations, verifying service connectivity..."
+    DOCKER_AVAILABLE=false
+else
+    # Not in devcontainer and no Docker - this is an error
     log WARN "Not running inside devcontainer - running host preflight"
     if [[ -f "$SCRIPT_DIR/host-preflight.sh" ]]; then
         bash "$SCRIPT_DIR/host-preflight.sh" || exit 1
     fi
-fi
-
-# Check Docker availability
-if ! command -v docker &> /dev/null; then
     log ERROR "Docker CLI not found"
     exit 1
 fi
-
-if ! docker info &> /dev/null; then
-    log ERROR "Docker daemon not accessible. Check docker.sock mount."
-    exit 1
-fi
-log SUCCESS "Docker available"
 
 # Check required files
 if [[ ! -f "$COMPOSE_FILE" ]]; then
@@ -167,33 +172,38 @@ fi
 ###############################################################################
 log STEP "2/6 Starting Docker Services"
 
-cd "$PROJECT_ROOT/.devcontainer"
+if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
+    cd "$PROJECT_ROOT/.devcontainer"
 
-# Build compose command
-COMPOSE_CMD="docker compose -f docker-compose.devcontainer.yml"
-if [[ -f ".env.dev" ]]; then
-    COMPOSE_CMD="$COMPOSE_CMD --env-file .env.dev"
-fi
+    # Build compose command
+    COMPOSE_CMD="docker compose -f docker-compose.devcontainer.yml"
+    if [[ -f ".env.dev" ]]; then
+        COMPOSE_CMD="$COMPOSE_CMD --env-file .env.dev"
+    fi
 
-# Add studio profile if requested
-if [[ "$ENABLE_STUDIO" == "true" ]]; then
-    COMPOSE_CMD="$COMPOSE_CMD --profile studio"
-fi
+    # Add studio profile if requested
+    if [[ "$ENABLE_STUDIO" == "true" ]]; then
+        COMPOSE_CMD="$COMPOSE_CMD --profile studio"
+    fi
 
-# Start services with wait
-log INFO "Starting services (this may take a minute on first run)..."
-if $VERBOSE; then
-    $COMPOSE_CMD up -d --wait 2>&1 | tee -a "$LOG_FILE"
+    # Start services with wait
+    log INFO "Starting services (this may take a minute on first run)..."
+    if $VERBOSE; then
+        $COMPOSE_CMD up -d --wait 2>&1 | tee -a "$LOG_FILE"
+    else
+        $COMPOSE_CMD up -d --wait >> "$LOG_FILE" 2>&1
+    fi
+
+    if [[ $? -ne 0 ]]; then
+        log ERROR "Docker Compose failed to start services"
+        $COMPOSE_CMD logs --tail=50 >> "$LOG_FILE" 2>&1
+        exit 2
+    fi
+    log SUCCESS "Docker services started"
 else
-    $COMPOSE_CMD up -d --wait >> "$LOG_FILE" 2>&1
+    log INFO "Docker not available - services should be started by devcontainer"
+    log SUCCESS "Skipped (managed by host)"
 fi
-
-if [[ $? -ne 0 ]]; then
-    log ERROR "Docker Compose failed to start services"
-    $COMPOSE_CMD logs --tail=50 >> "$LOG_FILE" 2>&1
-    exit 2
-fi
-log SUCCESS "Docker services started"
 
 ###############################################################################
 # Step 3: Wait for Database Health
@@ -203,8 +213,22 @@ log STEP "3/6 Waiting for Database"
 wait_for_db() {
     local elapsed=0
     while [[ $elapsed -lt $DB_TIMEOUT ]]; do
-        if docker exec valueos-db pg_isready -U postgres -d postgres &> /dev/null; then
-            return 0
+        if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
+            # Use docker exec when Docker is available
+            if docker exec valueos-db pg_isready -U postgres -d postgres &> /dev/null; then
+                return 0
+            fi
+        else
+            # Use network connectivity check when inside devcontainer
+            if pg_isready -h db -U postgres -d postgres &> /dev/null 2>&1; then
+                return 0
+            elif nc -z db 5432 &> /dev/null 2>&1; then
+                # Fallback to netcat if pg_isready not available
+                return 0
+            elif curl -s --max-time 2 "http://rest:3000/" &> /dev/null 2>&1; then
+                # If PostgREST responds, DB is up
+                return 0
+            fi
         fi
         sleep $HEALTH_CHECK_INTERVAL
         elapsed=$((elapsed + HEALTH_CHECK_INTERVAL))
@@ -219,13 +243,24 @@ if wait_for_db; then
     log SUCCESS "Database is healthy"
 else
     log ERROR "Database did not become healthy within ${DB_TIMEOUT}s"
-    docker logs valueos-db --tail=50 >> "$LOG_FILE" 2>&1
+    if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
+        docker logs valueos-db --tail=50 >> "$LOG_FILE" 2>&1
+    fi
     exit 3
 fi
 
 # Ensure shadow database exists
 log INFO "Ensuring shadow database exists..."
-docker exec valueos-db psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
+    docker exec valueos-db psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+else
+    # Use psql directly if available, otherwise skip
+    if command -v psql &> /dev/null; then
+        PGPASSWORD=postgres psql -h db -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+    else
+        log INFO "psql not available, shadow DB creation skipped (will be created on first migration)"
+    fi
+fi
 log SUCCESS "Shadow database ready"
 
 ###############################################################################
@@ -244,10 +279,10 @@ else
         exit 4
     fi
 
-    # Run migrations with explicit shadow DB URL (no docker.sock needed)
+    # Run migrations with explicit DB URL (sslmode=disable for local dev)
     log INFO "Applying migrations..."
     if supabase db push \
-        --db-url "postgresql://postgres:postgres@db:5432/postgres" \
+        --db-url "postgresql://postgres:postgres@db:5432/postgres?sslmode=disable" \
         --workdir infra/supabase \
         2>&1 | tee -a "$LOG_FILE"; then
         log SUCCESS "Migrations applied successfully"
@@ -287,11 +322,21 @@ log STEP "6/6 Verifying Gateway"
 wait_for_gateway() {
     local elapsed=0
     while [[ $elapsed -lt $GATEWAY_TIMEOUT ]]; do
-        # Check Kong health
-        if docker exec valueos-kong kong health &> /dev/null; then
-            # Also verify auth endpoint
-            if curl -fsS http://kong:8000/auth/v1/health &> /dev/null 2>&1 || \
-               curl -fsS http://localhost:54321/auth/v1/health &> /dev/null 2>&1; then
+        if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
+            # Check Kong health via docker exec
+            if docker exec valueos-kong kong health &> /dev/null; then
+                # Also verify auth endpoint
+                if curl -fsS http://kong:8000/auth/v1/health &> /dev/null 2>&1 || \
+                   curl -fsS http://localhost:54321/auth/v1/health &> /dev/null 2>&1; then
+                    return 0
+                fi
+            fi
+        else
+            # Inside devcontainer - check via network
+            if curl -fsS --max-time 2 http://kong:8000/auth/v1/health &> /dev/null 2>&1; then
+                return 0
+            elif curl -fsS --max-time 2 http://kong:8000/ &> /dev/null 2>&1; then
+                # Kong is responding even if auth isn't ready yet
                 return 0
             fi
         fi
