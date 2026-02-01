@@ -118,7 +118,9 @@ services:
   # Kong API Gateway
   ###########################################################################
   kong:
-    image: kong:3.9
+    build:
+      context: ./kong
+      dockerfile: Dockerfile
     container_name: valueos-kong
     restart: unless-stopped
     environment:
@@ -129,8 +131,6 @@ services:
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
       KONG_LOG_LEVEL: warn
-    volumes:
-      - ../config/kong.yml:/var/lib/kong/kong.yml:ro
     networks:
       - valueos-network
     ports:
@@ -333,7 +333,7 @@ services:
   # Supabase Studio (Optional - enable with profile)
   ###########################################################################
   studio:
-    image: supabase/studio:20240101-5e5586d
+    image: supabase/studio:latest
     container_name: valueos-studio
     restart: unless-stopped
     profiles:
