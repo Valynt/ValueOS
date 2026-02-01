@@ -16,15 +16,24 @@ if (!isPnpm) {
   process.exit(1);
 }
 
-// Check Node version
+// Check Node version (major version match required, minor/patch warnings only)
 const expectedNodeVersion = "20.19.0";
 const currentNodeVersion = process.version.slice(1); // remove 'v'
-if (currentNodeVersion !== expectedNodeVersion) {
+const [expectedMajor] = expectedNodeVersion.split(".");
+const [currentMajor] = currentNodeVersion.split(".");
+
+if (currentMajor !== expectedMajor) {
   console.error(
-    `❌ Node.js version mismatch. Expected ${expectedNodeVersion}, got ${currentNodeVersion}.`
+    `❌ Node.js major version mismatch. Expected ${expectedMajor}.x, got ${currentNodeVersion}.`
   );
-  console.error("   Use: nvm use 20.19.0 or update .nvmrc");
+  console.error("   Use: nvm use 20 or update .nvmrc");
   process.exit(1);
+}
+
+if (currentNodeVersion !== expectedNodeVersion) {
+  console.warn(
+    `⚠️  Node.js version ${currentNodeVersion} differs from pinned ${expectedNodeVersion} (continuing)`
+  );
 }
 
 // Check pnpm version

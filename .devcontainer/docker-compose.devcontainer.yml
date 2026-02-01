@@ -1,3 +1,14 @@
+###############################################################################
+# ValueOS DevContainer Docker Compose
+#
+# This file defines all services needed for local development.
+# Key invariants:
+#   - All services use the same JWT_SECRET for token validation
+#   - Startup order is gated by health checks
+#   - Services communicate via Docker DNS (no localhost inside containers)
+#   - Migrations run after DB is healthy, before app is ready
+###############################################################################
+
 version: "3.8"
 
 volumes:
@@ -11,34 +22,55 @@ networks:
     driver: bridge
 
 services:
+  ###########################################################################
+  # Application Container
+  ###########################################################################
   app:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile.optimized
       args:
-        # Pin Node version for reproducibility (R5)
         NODE_VERSION: "20"
     volumes:
       - ..:/workspaces/ValueOS:cached
       - pnpm-store:/root/.local/share/pnpm
+      # Bind mount .env.dev for runtime access
+      - ./.env.dev:/workspaces/ValueOS/.env.local:ro
     working_dir: /workspaces/ValueOS
     command: sleep infinity
     networks:
       - valueos-network
     environment:
-      # (C1) Connect to services via internal DNS
-      - REDIS_URL=redis://redis:6379
-      - SUPABASE_URL=http://kong:8000
-      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MTY1ODU3MDUsImV4cCI6MTkyNDEzMzcwNX0.8z-6G9x_xXl5C2s4y1h6n4y2l5h7s4k5j8z-6G9x_xX
-      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MTY1ODU3MDUsImV4cCI6MTkyNDEzMzcwNX0.8z-6G9x_xXl5C2s4y1h6n8y2l5h7s4k5j8z-6G9x_xX
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
+      # Core service URLs (Docker internal DNS)
+      REDIS_URL: redis://redis:6379
+      SUPABASE_URL: http://kong:8000
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres_shadow
+      # JWT keys (aligned with all services)
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.YI5mC4lgC5wJMvBRu-GZxXgRmXxMGk9wB7nHI55HXD8}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      # Dev flags
+      NODE_ENV: development
+      DEV_SEED: ${DEV_SEED:-0}
     depends_on:
-      - db
-      - redis
-      - kong
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kong:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
 
+  ###########################################################################
+  # Redis Cache
+  ###########################################################################
   redis:
     image: redis:7-alpine
+    container_name: valueos-redis
     restart: unless-stopped
     volumes:
       - redis-data:/data
@@ -47,131 +79,183 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 5
+      start_period: 5s
 
-  # --- Supabase Local Stack (R1, R2) ---
-  # We define these manually to avoid 'supabase start' requiring Docker-in-Docker
-
+  ###########################################################################
+  # PostgreSQL Database (Supabase-compatible)
+  ###########################################################################
   db:
-    image: supabase/postgres:15.1.0.117
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c log_min_messages=fatal
+    image: supabase/postgres:15.1.1.78
+    container_name: valueos-db
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c log_min_messages=warning
+      -c wal_level=logical
     restart: unless-stopped
     ports:
-      # Expose for host access if needed (e.g. TablePlus)
-      - "54322:5432"
+      - "${POSTGRES_HOST_PORT:-54322}:5432"
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # Mount init scripts if any exist in infra/supabase/seeds
-      # - ../../infra/supabase/seeds:/docker-entrypoint-initdb.d
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - valueos-network
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres && psql -U postgres -c 'SELECT 1'"]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
 
-  studio:
-    image: supabase/studio:latest
-    restart: unless-stopped
-    environment:
-      STUDIO_PG_META_URL: http://meta:8080
-      POSTGRES_PASSWORD: postgres
-      SUPABASE_URL: http://kong:8000
-      SUPABASE_PUBLIC_URL: http://localhost:54323
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJhcHBuIiwiZXhwIjoxOTI0MTMzNzA1fQ.8z-6G9x_xXl5C2s4y1h6n4y2l5h7s4k5j8z-6G9x_xX}
-    networks:
-      - valueos-network
-    ports:
-      - "54323:3000"
-
+  ###########################################################################
+  # Kong API Gateway
+  ###########################################################################
   kong:
-    image: kong:2.8.1
+    image: kong:3.4-alpine
+    container_name: valueos-kong
     restart: unless-stopped
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
       KONG_DNS_ORDER: LAST,A,CNAME
       KONG_PLUGINS: request-transformer,cors,key-auth,acl
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_LOG_LEVEL: warn
     volumes:
-      # We need a basic kong.yml configuration. We will generate a minimal one via script or mount existing.
-      # For now, we assume a standard setup or generated via postCreate if file is missing.
-      - ../config/kong.yml:/var/lib/kong/kong.yml
+      - ../config/kong.yml:/var/lib/kong/kong.yml:ro
     networks:
       - valueos-network
     ports:
-      - "54321:8000"
+      - "${KONG_PORT:-54321}:8000"
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    depends_on:
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+      realtime:
+        condition: service_started
+      storage:
+        condition: service_started
 
+  ###########################################################################
+  # GoTrue Authentication Service
+  ###########################################################################
   auth:
-    image: supabase/gotrue:v2.132.3
+    image: supabase/gotrue:v2.143.0
+    container_name: valueos-auth
     restart: unless-stopped
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
-      GOTRUE_SITE_URL: http://localhost:3000
-      GOTRUE_JWT_SECRET: "super-secret-jwt-token-with-at-least-32-characters-long"
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres
+      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:5173}
+      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:5173,http://localhost:3001}
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      API_EXTERNAL_URL: http://localhost:54321
     networks:
       - valueos-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9999/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
+  ###########################################################################
+  # PostgREST API
+  ###########################################################################
   rest:
-    image: postgrest/postgrest:v12.0.1
+    image: postgrest/postgrest:v12.0.2
+    container_name: valueos-rest
     restart: unless-stopped
     environment:
-      PGRST_DB_URI: postgres://postgres:postgres@db:5432/postgres
+      PGRST_DB_URI: postgresql://authenticator:postgres@db:5432/postgres
       PGRST_DB_SCHEMAS: public,storage,graphql_public
       PGRST_DB_ANON_ROLE: anon
-      PGRST_JWT_SECRET: "super-secret-jwt-token-with-at-least-32-characters-long"
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      PGRST_APP_SETTINGS_JWT_EXP: 3600
     networks:
       - valueos-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
+  ###########################################################################
+  # Realtime Service
+  ###########################################################################
   realtime:
-    image: supabase/realtime:latest
+    image: supabase/realtime:v2.25.50
+    container_name: valueos-realtime
     restart: unless-stopped
     environment:
+      PORT: 4000
       DB_HOST: db
       DB_PORT: 5432
-      DB_USER: postgres
+      DB_USER: supabase_admin
       DB_PASSWORD: postgres
       DB_NAME: postgres
-      DB_SSL: false
-      SLOT_NAME: supabase_realtime
-      TEMPORARY_SLOT: true
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabasekey
+      API_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      FLY_ALLOC_ID: abc123
+      FLY_APP_NAME: realtime
+      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE:-EixNiA+B8vTo7N1/EBRQ/uVoXnLwYyMIPvlTXinHVxD1rNInFVcJ9f4OPvoSNhGo}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      ENABLE_TAILSCALE: "false"
+      DNS_NODES: "''"
     networks:
       - valueos-network
+    command: >
+      sh -c "/app/bin/migrate && /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' && /app/bin/server"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
-  meta:
-    image: supabase/postgres-meta:v0.68.0
-    restart: unless-stopped
-    environment:
-      PG_META_PORT: 8080
-      PG_META_DB_HOST: db
-      PG_META_DB_PASSWORD: postgres
-    networks:
-      - valueos-network
-    depends_on:
-      - db
-
+  ###########################################################################
+  # Storage Service
+  ###########################################################################
   storage:
-    image: supabase/storage-api:v0.43.11
+    image: supabase/storage-api:v0.46.4
+    container_name: valueos-storage
     restart: unless-stopped
     environment:
-      ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJhcHBuIiwiZXhwIjoxOTI0MTMzNzA1fQ.8z-6G9x_xXl5C2s4y1h6n4y2l5h7s4k5j8z-6G9x_xX}
-      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1cGFiYXNlLWJvbnNhaSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MTY1ODU3MDUsImV4cCI6MTkyNDEzMzcwNX0.8z-6G9x_xXl5C2s4y1h6n8y2l5h7s4k5j8z-6G9x_xX}
+      ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.YI5mC4lgC5wJMvBRu-GZxXgRmXxMGk9wB7nHI55HXD8}
       POSTGREST_URL: http://rest:3000
-      PGRST_JWT_SECRET: "super-secret-jwt-token-with-at-least-32-characters-long"
-      DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+      PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      DATABASE_URL: postgresql://supabase_storage_admin:postgres@db:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
       TENANT_ID: stub
       REGION: stub
@@ -180,6 +264,62 @@ services:
       - storage-data:/var/lib/storage
     networks:
       - valueos-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     depends_on:
-      - db
-      - rest
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+
+  ###########################################################################
+  # Postgres Meta (for Studio)
+  ###########################################################################
+  meta:
+    image: supabase/postgres-meta:v0.80.0
+    container_name: valueos-meta
+    restart: unless-stopped
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: postgres
+    networks:
+      - valueos-network
+    depends_on:
+      db:
+        condition: service_healthy
+
+  ###########################################################################
+  # Supabase Studio (Optional - enable with profile)
+  ###########################################################################
+  studio:
+    image: supabase/studio:20240101-5e5586d
+    container_name: valueos-studio
+    restart: unless-stopped
+    profiles:
+      - studio
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: postgres
+      DEFAULT_ORGANIZATION_NAME: ValueOS
+      DEFAULT_PROJECT_NAME: Development
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.YI5mC4lgC5wJMvBRu-GZxXgRmXxMGk9wB7nHI55HXD8}
+    networks:
+      - valueos-network
+    ports:
+      - "${STUDIO_PORT:-54323}:3000"
+    depends_on:
+      kong:
+        condition: service_healthy
+      meta:
+        condition: service_started

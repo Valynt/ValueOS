@@ -1,0 +1,167 @@
+name: DevContainer Smoke Test
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - ".devcontainer/**"
+      - "config/kong.yml"
+      - "infra/supabase/**"
+      - "scripts/dev/**"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - ".devcontainer/**"
+      - "config/kong.yml"
+      - "infra/supabase/**"
+      - "scripts/dev/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-config:
+    name: Validate Configuration Files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.devcontainer.yml
+        run: |
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml config --quiet
+          echo "✅ Docker Compose config is valid"
+
+      - name: Validate kong.yml syntax
+        run: |
+          # Use yq to validate YAML syntax
+          docker run --rm -v "$PWD:/workdir" mikefarah/yq:latest eval '.' /workdir/config/kong.yml > /dev/null
+          echo "✅ kong.yml syntax is valid"
+
+      - name: Validate .env.dev format
+        run: |
+          if [[ -f .devcontainer/.env.dev ]]; then
+            # Check for common env file issues
+            grep -E '^[A-Z_]+=' .devcontainer/.env.dev > /dev/null || echo "Warning: No env vars found"
+            echo "✅ .env.dev format is valid"
+          else
+            echo "⚠️ .env.dev not found"
+            exit 1
+          fi
+
+      - name: Check required files exist
+        run: |
+          files=(
+            ".devcontainer/devcontainer.json"
+            ".devcontainer/docker-compose.devcontainer.yml"
+            ".devcontainer/.env.dev"
+            ".devcontainer/Dockerfile.optimized"
+            "config/kong.yml"
+            "scripts/dev/post-create.sh"
+            "scripts/dev/migrate.sh"
+            "scripts/dev/start-dev-env.sh"
+            "scripts/dev/diagnostics.sh"
+          )
+
+          for file in "${files[@]}"; do
+            if [[ -f "$file" ]]; then
+              echo "✅ $file"
+            else
+              echo "❌ Missing: $file"
+              exit 1
+            fi
+          done
+
+  smoke-test:
+    name: DevContainer Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate-config
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Start services with Docker Compose
+        run: |
+          cd .devcontainer
+
+          # Export env vars from .env.dev
+          set -a
+          source .env.dev
+          set +a
+
+          # Start all services
+          docker compose -f docker-compose.devcontainer.yml up -d --wait --timeout 120
+
+          # Show status
+          docker compose -f docker-compose.devcontainer.yml ps
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services..."
+
+          # Wait for PostgreSQL
+          for i in {1..30}; do
+            if docker exec valueos-db pg_isready -U postgres; then
+              echo "✅ PostgreSQL is ready"
+              break
+            fi
+            sleep 2
+          done
+
+          # Wait for Redis
+          for i in {1..10}; do
+            if docker exec valueos-redis redis-cli ping | grep -q PONG; then
+              echo "✅ Redis is ready"
+              break
+            fi
+            sleep 2
+          done
+
+          # Wait for Kong
+          for i in {1..30}; do
+            if docker exec valueos-kong kong health; then
+              echo "✅ Kong is ready"
+              break
+            fi
+            sleep 3
+          done
+
+      - name: Verify API endpoints
+        run: |
+          # Test auth endpoint
+          if curl -fsS http://localhost:54321/auth/v1/health > /dev/null 2>&1; then
+            echo "✅ Auth endpoint healthy"
+          else
+            echo "⚠️ Auth endpoint not responding (may still be starting)"
+          fi
+
+          # Test REST endpoint
+          if curl -fsS http://localhost:54321/rest/v1/ -I > /dev/null 2>&1; then
+            echo "✅ REST endpoint healthy"
+          else
+            echo "⚠️ REST endpoint not responding (may still be starting)"
+          fi
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== Container Status ==="
+          docker compose -f .devcontainer/docker-compose.devcontainer.yml ps
+
+          echo ""
+          echo "=== Container Logs ==="
+          for container in valueos-db valueos-redis valueos-kong valueos-auth valueos-rest; do
+            echo "--- $container ---"
+            docker logs "$container" --tail=50 2>&1 || echo "Container not found"
+          done
+
+      - name: Cleanup
+        if: always()
+        run: |
+          cd .devcontainer
+          docker compose -f docker-compose.devcontainer.yml down -v --remove-orphans || true

@@ -4,24 +4,55 @@
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
   "shutdownAction": "stopCompose",
+
+  // Load environment from .env.dev
+  "runArgs": ["--env-file", ".devcontainer/.env.dev"],
+
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers-extra/features/supabase-cli:1": {}
+    "ghcr.io/devcontainers-extra/features/supabase-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": true,
+      "installDockerBuildx": true
+    }
   },
+
   "postCreateCommand": "bash scripts/dev/post-create.sh",
+
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
     "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm",
     "DOCKER_BUILDKIT": "1",
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    // Ensure services use Docker DNS names
+    "SUPABASE_URL": "http://kong:8000",
+    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres",
+    "REDIS_URL": "redis://redis:6379"
   },
+
   "customizations": {
     "vscode": {
       "settings": {
         "telemetry.telemetryLevel": "off",
         "redhat.telemetry.enabled": false,
         "git.telemetry.telemetryLevel": "off"
-      }
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker"
+      ]
     }
+  },
+
+  // Forward ports to host
+  "forwardPorts": [5173, 3001, 54321, 54322, 54323],
+  "portsAttributes": {
+    "5173": { "label": "Frontend", "onAutoForward": "notify" },
+    "3001": { "label": "Backend", "onAutoForward": "notify" },
+    "54321": { "label": "Supabase API", "onAutoForward": "notify" },
+    "54322": { "label": "PostgreSQL", "onAutoForward": "silent" },
+    "54323": { "label": "Supabase Studio", "onAutoForward": "notify" }
   }
 }
