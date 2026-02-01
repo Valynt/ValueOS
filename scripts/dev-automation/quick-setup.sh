@@ -42,15 +42,27 @@ print_warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
-# 1. Check and setup Node.js version
+# 1. Check and setup Node.js version (single source of truth: .nvmrc)
 print_status "Setting up Node.js version..."
-NVMRC_PATH=".config/.nvmrc"
-if [ -f "$NVMRC_PATH" ]; then
-    REQUIRED_NODE_VERSION=$(cat "$NVMRC_PATH" | tr -d '\n')
-    CURRENT_NODE_VERSION=$(node --version | sed 's/v//')
+if [ -f ".nvmrc" ]; then
+    NVMRC_PATH=".nvmrc"
+elif [ -f ".config/.nvmrc" ]; then
+    NVMRC_PATH=".config/.nvmrc"
+else
+    NVMRC_PATH=""
+fi
 
+if [ -n "$NVMRC_PATH" ]; then
+    REQUIRED_NODE_VERSION=$(tr -d '\n' < "$NVMRC_PATH")
     echo "Required Node.js version: v$REQUIRED_NODE_VERSION"
-    echo "Current Node.js version: v$CURRENT_NODE_VERSION"
+
+    if command -v node >/dev/null 2>&1; then
+        CURRENT_NODE_VERSION=$(node --version | sed 's/v//')
+        echo "Current Node.js version: v$CURRENT_NODE_VERSION"
+    else
+        CURRENT_NODE_VERSION=""
+        print_warning "Node.js not found; will attempt nvm install if available"
+    fi
 
     # Setup nvm if available
     if [ -d "/usr/local/share/nvm" ]; then
@@ -71,7 +83,7 @@ if [ -f "$NVMRC_PATH" ]; then
         print_warning "nvm not found, using current Node.js version"
     fi
 else
-    print_warning "$NVMRC_PATH not found, using default Node.js version"
+    print_warning "No .nvmrc found, using current Node.js version"
 fi
 
 # 2. Check prerequisites

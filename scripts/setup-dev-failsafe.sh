@@ -28,6 +28,11 @@ fail() {
   exit 1
 }
 
+version_ge() {
+  # returns 0 if $1 >= $2
+  [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]
+}
+
 # ============================================================================
 # STEP 1: Verify Prerequisites
 # ============================================================================
@@ -37,9 +42,14 @@ command -v node >/dev/null 2>&1 || fail "Node.js not found. Install Node.js v20.
 command -v npm >/dev/null 2>&1 || fail "npm not found"
 command -v docker >/dev/null 2>&1 || fail "Docker not found"
 
-NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" != "20" ] && [ "$NODE_VERSION" != "22" ]; then
-  fail "Node.js version mismatch. Expected v20.x or v22.x, got v$NODE_VERSION"
+REQUIRED_NODE_VERSION=$(cat .nvmrc 2>/dev/null || cat .config/.nvmrc 2>/dev/null || echo "20.19.0")
+REQUIRED_NODE_MAJOR=${REQUIRED_NODE_VERSION%%.*}
+
+NODE_VERSION_FULL=$(node --version | cut -d'v' -f2)
+NODE_VERSION_MAJOR=${NODE_VERSION_FULL%%.*}
+
+if [ "$NODE_VERSION_MAJOR" != "$REQUIRED_NODE_MAJOR" ] || ! version_ge "$NODE_VERSION_FULL" "$REQUIRED_NODE_VERSION"; then
+  fail "Node.js version mismatch. Expected >=v${REQUIRED_NODE_VERSION} (major ${REQUIRED_NODE_MAJOR}), got v${NODE_VERSION_FULL}"
 fi
 
 log_verify "✓ Node.js $(node --version)"
@@ -72,7 +82,7 @@ log_verify "✓ Clean state achieved"
 # ============================================================================
 log_step "3. Installing dependencies..."
 
-pnpm install --frozen-lockfile || fail "pnpm install --frozen-lockfile failed - check package-lock.json"
+pnpm install --frozen-lockfile || fail "pnpm install --frozen-lockfile failed - check pnpm-lock.yaml"
 
 log_verify "✓ Dependencies installed from lockfile"
 

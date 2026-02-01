@@ -4,7 +4,7 @@ This document outlines the repeatable build configuration for ValueOS.
 
 ## Node.js Version Management
 
-The project uses Node.js version 22 as specified in `.config/.nvmrc`.
+The project uses Node.js **20.19.0** as specified in the root `.nvmrc` (mirrored to `.config/.nvmrc` for legacy scripts).
 
 ### Automated Setup
 
@@ -16,38 +16,38 @@ bash scripts/dev-automation/quick-setup.sh
 
 This script will:
 
-1. Read the required Node.js version from `.config/.nvmrc`
-2. Automatically install and switch to the correct Node.js version using nvm
-3. Install dependencies with `npm ci`
+1. Read the required Node.js version from `.nvmrc`
+2. Automatically install and switch to the correct Node.js version using nvm (if available)
+3. Install dependencies with `pnpm install --frozen-lockfile`
 4. Set up environment files
-5. Generate Prisma client
+5. Generate Prisma client (if present)
 6. Configure Git hooks
-7. Build the project
-8. Run tests
+7. Build the project (best-effort)
+8. Run tests (best-effort)
 
 ### Manual Node.js Setup
 
 If you need to set up Node.js manually:
 
 ```bash
-# Install and use Node.js 22
+# Install and use Node.js 20.19.0
 export NVM_DIR="/usr/local/share/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-nvm install 22
-nvm use 22
+nvm install 20.19.0
+nvm use 20.19.0
 ```
 
 ## Build Reproducibility
 
 ### Dependencies
 
-- Uses `npm ci` for deterministic dependency installation
-- Dependencies are locked in `package-lock.json`
-- Package manager is pinned to npm@10.8.2
+- Uses `pnpm install --frozen-lockfile` for deterministic dependency installation
+- Dependencies are locked in `pnpm-lock.yaml`
+- Package manager is pinned via `packageManager: pnpm@9.15.0` in `package.json` (corepack-enabled)
 
 ### Environment
 
-- Required Node.js version is explicitly defined in `.config/.nvmrc`
+- Required Node.js version is explicitly defined in `.nvmrc` (mirrored in `.config/.nvmrc`)
 - Environment variables are managed through `.env` files
 - Port configurations are in `.env.ports`
 
@@ -63,12 +63,15 @@ To verify the repeatable build setup:
 
 ```bash
 # Check Node.js version
-node --version  # Should be v22.x.x
+node --version  # Should be v20.19.x
 
-# Run full build verification
+# Check package manager
+pnpm --version  # Should be 9.15.x
+
+# Run full build verification (may be heavy)
 pnpm run ci:verify
 
-# Run comprehensive checks
+# Run comprehensive checks (DX sweep)
 pnpm run dx:check
 ```
 
