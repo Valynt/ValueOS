@@ -273,27 +273,12 @@ if [[ "$SKIP_MIGRATIONS" == "true" ]]; then
 else
     cd "$PROJECT_ROOT"
 
-    # Check if supabase CLI is available
-    if ! command -v supabase &> /dev/null; then
-        log ERROR "Supabase CLI not found. Install it with: npm install -g supabase"
-        exit 4
-    fi
-
-    # Run migrations with explicit DB URL (sslmode=disable for local dev)
     log INFO "Applying migrations..."
-    if supabase db push \
-        --db-url "postgresql://postgres:postgres@db:5432/postgres?sslmode=disable" \
-        --workdir infra/supabase \
-        2>&1 | tee -a "$LOG_FILE"; then
+    if bash "$SCRIPT_DIR/migrate.sh" 2>&1 | tee -a "$LOG_FILE"; then
         log SUCCESS "Migrations applied successfully"
     else
-        # Check if it's just "already applied" which is fine
-        if grep -q "already applied\|up to date" "$LOG_FILE" 2>/dev/null; then
-            log SUCCESS "Migrations already up to date"
-        else
-            log ERROR "Migration failed - see log for details"
-            exit 4
-        fi
+        log ERROR "Migration failed - see log for details"
+        exit 4
     fi
 fi
 

@@ -91,7 +91,7 @@ export class SECAdapter implements DataIngestionAdapter {
         symbols: params.symbols || ["market-overview"],
         source: "SEC",
       };
-      this.ws.send(JSON.stringify(subscription));
+      this.ws?.send(JSON.stringify(subscription));
     };
 
     this.ws.onmessage = (event) => {

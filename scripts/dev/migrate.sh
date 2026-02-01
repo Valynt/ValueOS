@@ -75,7 +75,7 @@ apply_migrations_psql() {
     echo "   Using psql to apply migrations..."
 
     # Use public.schema_migrations (same as Supabase CLI)
-    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 <<-'EOSQL'
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<-'EOSQL'
         CREATE TABLE IF NOT EXISTS public.schema_migrations (
             version TEXT PRIMARY KEY
         );
@@ -121,14 +121,26 @@ EOSQL
 
         echo "   Applying: $filename"
 
-        # Use ON_ERROR_STOP=0 to continue on errors (for idempotent migrations)
-        # Many Supabase migrations use IF NOT EXISTS but some don't
-        if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$migration_file" 2>&1 | grep -v "^NOTICE:" | grep -v "already exists" | head -20; then
-            # Record migration as applied (same format as Supabase CLI)
-            psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c \
-                "INSERT INTO public.schema_migrations (version) VALUES ('${version}') ON CONFLICT (version) DO NOTHING;"
-            APPLIED_COUNT=$((APPLIED_COUNT + 1))
+        # Fail fast on any SQL error and only record success after apply succeeds.
+        set +e
+        migration_output=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$migration_file" 2>&1)
+        migration_exit=$?
+        set -e
+
+        if [[ $migration_exit -ne 0 ]]; then
+            echo "$migration_output" | tail -40
+            echo -e "${RED}❌ Migration failed: $filename${NC}"
+            return 1
         fi
+
+        if [[ "$DEBUG" == "true" ]]; then
+            echo "$migration_output" | grep -v "^NOTICE:" | tail -20 || true
+        fi
+
+        # Record migration as applied (same format as Supabase CLI)
+        psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c \
+            "INSERT INTO public.schema_migrations (version) VALUES ('${version}') ON CONFLICT (version) DO NOTHING;"
+        APPLIED_COUNT=$((APPLIED_COUNT + 1))
     done
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -140,6 +152,15 @@ EOSQL
     fi
 
     return 0
+}
+
+###############################################################################
+# Function: Apply migrations using Supabase CLI
+###############################################################################
+apply_migrations_supabase() {
+    supabase db push \
+        --db-url "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable" \
+        --workdir "${SUPABASE_WORKDIR}"
 }
 
 ###############################################################################
@@ -174,11 +195,10 @@ if command -v supabase &> /dev/null && [[ -f "${PROJECT_ROOT}/${SUPABASE_WORKDIR
         exit $?
     fi
 
-    # Some other error - print it and try psql anyway
-    echo -e "${YELLOW}⚠️  Supabase CLI failed, falling back to psql...${NC}"
-    if [[ "$DEBUG" == "true" ]]; then
-        echo "$OUTPUT"
-    fi
+    # Non-TLS errors should fail loudly.
+    echo "$OUTPUT"
+    echo -e "${RED}❌ Supabase CLI migration failed (non-TLS error).${NC}"
+    exit 1
 fi
 
 # Fall back to psql
