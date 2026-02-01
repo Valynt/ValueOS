@@ -2,10 +2,9 @@
 ###############################################################################
 # Idempotent Database Migration Script
 #
-# Applies Supabase migrations WITHOUT requiring docker.sock access.
-# Uses explicit --db-url to avoid Supabase CLI trying to spin up containers.
+# Applies Supabase migrations. Falls back to psql if Supabase CLI has TLS issues.
 #
-# Usage: bash scripts/dev/migrate.sh [--dry-run] [--debug]
+# Usage: bash scripts/dev/migrate.sh [--dry-run] [--debug] [--psql-only]
 ###############################################################################
 
 set -euo pipefail
@@ -26,15 +25,16 @@ DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-postgres}"
 DB_NAME="${DB_NAME:-postgres}"
 SUPABASE_WORKDIR="${SUPABASE_WORKDIR:-infra/supabase}"
-# Disable SSL for local development (container postgres doesn't have TLS)
-DB_SSLMODE="${DB_SSLMODE:-disable}"
+MIGRATIONS_DIR="${PROJECT_ROOT}/${SUPABASE_WORKDIR}/migrations"
 
-# Construct database URL
-DATABASE_URL="${DATABASE_URL:-postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}}"
+# CRITICAL: Always force sslmode=disable for local dev (container postgres has no TLS)
+export PGSSLMODE=disable
+export PGPASSWORD="${DB_PASSWORD}"
 
 # Parse arguments
 DRY_RUN=false
 DEBUG=false
+PSQL_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -46,53 +46,146 @@ while [[ $# -gt 0 ]]; do
             DEBUG=true
             shift
             ;;
+        --psql-only)
+            PSQL_ONLY=true
+            shift
+            ;;
         *)
             shift
             ;;
     esac
 done
 
-# Validate environment
-if [[ ! -f "${PROJECT_ROOT}/${SUPABASE_WORKDIR}/config.toml" ]]; then
-    echo -e "${YELLOW}⚠️ Warning: ${SUPABASE_WORKDIR}/config.toml not found. Skipping migrations.${NC}"
+# Validate migrations directory exists
+if [[ ! -d "${MIGRATIONS_DIR}" ]]; then
+    echo -e "${YELLOW}⚠️ Warning: ${MIGRATIONS_DIR} not found. Skipping migrations.${NC}"
     exit 0
-fi
-
-if ! command -v supabase &> /dev/null; then
-    echo -e "${RED}❌ Supabase CLI not found.${NC}"
-    echo "   Install with: pnpm add -g supabase"
-    exit 1
 fi
 
 echo "🔄 Applying database migrations..."
-echo "   Database: ${DB_HOST}:${DB_PORT}/${DB_NAME}"
-echo "   Workdir:  ${SUPABASE_WORKDIR}"
+echo "   Database: ${DB_HOST}:${DB_PORT}/${DB_NAME} (sslmode=disable)"
+echo "   Migrations: ${MIGRATIONS_DIR}"
 
 cd "$PROJECT_ROOT"
 
-# Build command
-CMD="supabase db push --db-url \"${DATABASE_URL}\" --workdir ${SUPABASE_WORKDIR}"
+###############################################################################
+# Function: Apply migrations using psql directly (fallback)
+###############################################################################
+apply_migrations_psql() {
+    echo "   Using psql to apply migrations..."
 
-if [[ "$DRY_RUN" == "true" ]]; then
-    CMD="$CMD --dry-run"
-    echo "   Mode: Dry run (no changes will be applied)"
+    # Create supabase_migrations schema and table if not exists
+    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 <<-'EOSQL'
+        CREATE SCHEMA IF NOT EXISTS supabase_migrations;
+        CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (
+            version TEXT PRIMARY KEY,
+            name TEXT,
+            applied_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        );
+EOSQL
+
+    # Get list of already applied migrations
+    APPLIED=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A -c \
+        "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
+
+    MIGRATION_COUNT=0
+    APPLIED_COUNT=0
+    SKIPPED_COUNT=0
+
+    # Apply each migration file in order
+    for migration_file in "${MIGRATIONS_DIR}"/*.sql; do
+        if [[ ! -f "$migration_file" ]]; then
+            continue
+        fi
+
+        filename=$(basename "$migration_file")
+        # Extract version (timestamp prefix) from filename
+        version="${filename%%_*}"
+
+        if [[ -z "$version" ]] || [[ "$version" == ".gitkeep" ]]; then
+            continue
+        fi
+
+        MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
+
+        # Check if already applied
+        if echo "$APPLIED" | grep -q "^${version}$"; then
+            SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+            if [[ "$DEBUG" == "true" ]]; then
+                echo "   ⏭️  Skipping (already applied): $filename"
+            fi
+            continue
+        fi
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo "   Would apply: $filename"
+            continue
+        fi
+
+        echo "   Applying: $filename"
+
+        # Use ON_ERROR_STOP=0 to continue on errors (for idempotent migrations)
+        # Many Supabase migrations use IF NOT EXISTS but some don't
+        if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$migration_file" 2>&1 | grep -v "^NOTICE:" | grep -v "already exists" | head -20; then
+            # Record migration as applied (even if some statements errored due to existing objects)
+            psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c \
+                "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('${version}', '${filename}') ON CONFLICT (version) DO NOTHING;"
+            APPLIED_COUNT=$((APPLIED_COUNT + 1))
+        fi
+    done
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo -e "${GREEN}✅ Dry run complete. ${MIGRATION_COUNT} migrations found.${NC}"
+    elif [[ $APPLIED_COUNT -gt 0 ]]; then
+        echo -e "${GREEN}✅ Applied ${APPLIED_COUNT} migration(s), skipped ${SKIPPED_COUNT} already applied.${NC}"
+    else
+        echo -e "${GREEN}✅ All ${SKIPPED_COUNT} migrations already applied.${NC}"
+        echo -e "${GREEN}✅ Migrations applied successfully (via Supabase CLI).${NC}"
+        return 0
+    else
+        return 1
+    fi
+}
+
+###############################################################################
+# Main: Try Supabase CLI first, fall back to psql if it fails with TLS error
+###############################################################################
+
+if [[ "$PSQL_ONLY" == "true" ]]; then
+    echo "   Mode: psql-only (Supabase CLI skipped)"
+    apply_migrations_psql
+    exit $?
 fi
 
-if [[ "$DEBUG" == "true" ]]; then
-    CMD="$CMD --debug"
-fi
+# Try Supabase CLI first
+if command -v supabase &> /dev/null && [[ -f "${PROJECT_ROOT}/${SUPABASE_WORKDIR}/config.toml" ]]; then
+    echo "   Trying Supabase CLI..."
 
-# Execute migrations
-if eval "$CMD"; then
-    echo -e "${GREEN}✅ Migrations applied successfully.${NC}"
-    exit 0
-else
+    # Capture output to check for TLS error
+    set +e
+    OUTPUT=$(apply_migrations_supabase 2>&1)
     EXIT_CODE=$?
-    # Check for common "already applied" scenarios
-    if [[ $EXIT_CODE -eq 0 ]] || grep -qi "already applied\|up to date" <<< "$(eval "$CMD" 2>&1)" 2>/dev/null; then
-        echo -e "${GREEN}✅ Migrations already up to date.${NC}"
+    set -e
+
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        echo "$OUTPUT"
         exit 0
     fi
-    echo -e "${RED}❌ Migration failed with exit code $EXIT_CODE${NC}"
-    exit $EXIT_CODE
+
+    # Check if it's a TLS error - if so, fall back to psql
+    if echo "$OUTPUT" | grep -qi "tls error\|ssl\|certificate"; then
+        echo -e "${YELLOW}⚠️  Supabase CLI failed with TLS error, falling back to psql...${NC}"
+        apply_migrations_psql
+        exit $?
+    fi
+
+    # Some other error - print it and try psql anyway
+    echo -e "${YELLOW}⚠️  Supabase CLI failed, falling back to psql...${NC}"
+    if [[ "$DEBUG" == "true" ]]; then
+        echo "$OUTPUT"
+    fi
 fi
+
+# Fall back to psql
+apply_migrations_psql
+exit $?

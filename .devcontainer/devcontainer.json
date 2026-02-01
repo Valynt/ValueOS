@@ -26,7 +26,8 @@
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     // Ensure services use Docker DNS names
     "SUPABASE_URL": "http://kong:8000",
-    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres",
+    // CRITICAL: sslmode=disable required - container postgres has no TLS
+    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres?sslmode=disable",
     "REDIS_URL": "redis://redis:6379"
   },
 

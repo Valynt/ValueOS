@@ -43,16 +43,18 @@ if [ ! -f "${PROJECT_ROOT}/.env.local" ]; then
 fi
 
 ###############################################################################
-# Step 3: Wait for Database
+# Step 3: Wait for Database (using same connection params as migrations)
 ###############################################################################
 echo "⏳ Waiting for database to be ready..."
 
+# Use the exact same connection string that migrations will use
+DB_URL="postgresql://postgres:postgres@db:5432/postgres?sslmode=disable"
 MAX_ATTEMPTS=30
 ATTEMPT=0
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if PGPASSWORD=postgres psql -h db -U postgres -c '\q' 2>/dev/null; then
-        echo "✅ Database is ready."
+    if psql "$DB_URL" -c "SELECT 1" >/dev/null 2>&1; then
+        echo "✅ Database is ready (verified with sslmode=disable)."
         break
     fi
     ATTEMPT=$((ATTEMPT + 1))
@@ -61,15 +63,21 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
 done
 
 if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo "⚠️ Warning: Database not ready after $MAX_ATTEMPTS attempts."
-    echo "   Continuing anyway - migrations may fail."
+    echo "❌ Error: Database not ready after $MAX_ATTEMPTS attempts."
+    echo "   Cannot proceed with migrations."
+    exit 1
 fi
 
 ###############################################################################
-# Step 4: Apply Migrations
+# Step 4: Apply Migrations (required - fail if migrations fail)
 ###############################################################################
 echo "🔄 Applying database migrations..."
-bash "${SCRIPT_DIR}/migrate.sh" || echo "⚠️ Migration warning (may be OK if already applied)"
+if ! bash "${SCRIPT_DIR}/migrate.sh"; then
+    echo "❌ Migration failed. Development environment is NOT ready."
+    echo "   Run 'bash scripts/dev/migrate.sh --debug' for details."
+    exit 1
+fi
+echo "✅ Migrations applied successfully."
 
 ###############################################################################
 # Step 5: Optional Seed

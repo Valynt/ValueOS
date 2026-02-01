@@ -44,8 +44,9 @@ services:
       # Core service URLs (Docker internal DNS)
       REDIS_URL: redis://redis:6379
       SUPABASE_URL: http://kong:8000
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
-      SHADOW_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres_shadow
+      # CRITICAL: sslmode=disable required - container postgres has no TLS
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
+      SHADOW_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres_shadow?sslmode=disable
       # JWT keys (aligned with all services)
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.YI5mC4lgC5wJMvBRu-GZxXgRmXxMGk9wB7nHI55HXD8}
