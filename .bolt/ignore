@@ -1,37 +1,34 @@
-# Bolt.new context slimming for frontend UI/UX work
-# Strategy: ignore everything, then re-include only what UI work needs.
+# Ultra-slim Bolt context for Valynt frontend UI work.
+# Ignore everything, then include only minimal frontend files.
 
 *
 
-# Keep this config folder/file
+# Keep bolt config itself
 !.bolt/
 !.bolt/ignore
 
-# Keep minimal workspace/tooling files
-!package.json
-!pnpm-lock.yaml
-!pnpm-workspace.yaml
-!tsconfig.json
-!tsconfig.app.json
-!tsconfig.node.json
-!vite.config.ts
-!vitest.config.ts
-!postcss.config.js
-!tailwind.config.js
-!eslint.config.js
-!prettier.config.cjs
-!.npmrc
-!.nvmrc
-!.env.example
-!README.md
-
-# Keep the frontend app you care about
+# Keep only Valynt app
 !apps/
 apps/*
 !apps/ValyntApp/
-!apps/ValyntApp/**
+apps/ValyntApp/*
 
-# Strip heavy/non-UI content inside ValyntApp
+# Minimal app config/runtime files
+!apps/ValyntApp/package.json
+!apps/ValyntApp/tsconfig.json
+!apps/ValyntApp/tsconfig.node.json
+!apps/ValyntApp/vite.config.ts
+!apps/ValyntApp/tailwind.config.js
+!apps/ValyntApp/postcss.config.cjs
+!apps/ValyntApp/index.html
+
+# Frontend source and public assets
+!apps/ValyntApp/src/
+!apps/ValyntApp/src/**
+!apps/ValyntApp/public/
+!apps/ValyntApp/public/**
+
+# Drop heavy/non-UI content inside app
 apps/ValyntApp/node_modules/
 apps/ValyntApp/dist/
 apps/ValyntApp/build/
@@ -41,45 +38,16 @@ apps/ValyntApp/src/**/__tests__/
 apps/ValyntApp/src/**/*.test.*
 apps/ValyntApp/src/**/*.spec.*
 apps/ValyntApp/src/**/*.stories.*
-apps/ValyntApp/src/mcp-*/
 apps/ValyntApp/src/backend/
+apps/ValyntApp/src/mcp-*/
 
-# Keep shared types/utilities commonly imported by frontend
-!packages/
-packages/*
-!packages/shared/
-!packages/shared/**
-!packages/sdui-types/
-!packages/sdui-types/**
-
-# Exclude common large/generated/sensitive files globally
+# Global excludes (safety)
 **/node_modules/
-**/.pnpm-store/
-**/.turbo/
 **/dist/
 **/build/
 **/coverage/
 **/.cache/
 **/*.log
-**/.DS_Store
 **/.env
 **/.env.*
 !**/.env.example
-
-# Exclude backend/ops/docs-heavy areas by default (root only)
-/.git/
-/.github/
-/.devcontainer/
-/.vscode/
-/.storybook/
-/docs/
-/infra/
-/ops/
-/deploy/
-/scripts/
-/supabase/
-/tests/
-/pragmatic-reproducibility/
-/ValueOS/
-/config/
-/public/
