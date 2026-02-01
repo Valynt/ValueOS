@@ -74,19 +74,16 @@ cd "$PROJECT_ROOT"
 apply_migrations_psql() {
     echo "   Using psql to apply migrations..."
 
-    # Create supabase_migrations schema and table if not exists
+    # Use public.schema_migrations (same as Supabase CLI)
     psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 <<-'EOSQL'
-        CREATE SCHEMA IF NOT EXISTS supabase_migrations;
-        CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (
-            version TEXT PRIMARY KEY,
-            name TEXT,
-            applied_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        CREATE TABLE IF NOT EXISTS public.schema_migrations (
+            version TEXT PRIMARY KEY
         );
 EOSQL
 
-    # Get list of already applied migrations
+    # Get list of already applied migrations from public.schema_migrations
     APPLIED=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A -c \
-        "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
+        "SELECT version FROM public.schema_migrations ORDER BY version;" 2>/dev/null || echo "")
 
     MIGRATION_COUNT=0
     APPLIED_COUNT=0
@@ -127,9 +124,9 @@ EOSQL
         # Use ON_ERROR_STOP=0 to continue on errors (for idempotent migrations)
         # Many Supabase migrations use IF NOT EXISTS but some don't
         if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$migration_file" 2>&1 | grep -v "^NOTICE:" | grep -v "already exists" | head -20; then
-            # Record migration as applied (even if some statements errored due to existing objects)
+            # Record migration as applied (same format as Supabase CLI)
             psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c \
-                "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('${version}', '${filename}') ON CONFLICT (version) DO NOTHING;"
+                "INSERT INTO public.schema_migrations (version) VALUES ('${version}') ON CONFLICT (version) DO NOTHING;"
             APPLIED_COUNT=$((APPLIED_COUNT + 1))
         fi
     done
@@ -140,11 +137,9 @@ EOSQL
         echo -e "${GREEN}✅ Applied ${APPLIED_COUNT} migration(s), skipped ${SKIPPED_COUNT} already applied.${NC}"
     else
         echo -e "${GREEN}✅ All ${SKIPPED_COUNT} migrations already applied.${NC}"
-        echo -e "${GREEN}✅ Migrations applied successfully (via Supabase CLI).${NC}"
-        return 0
-    else
-        return 1
     fi
+
+    return 0
 }
 
 ###############################################################################

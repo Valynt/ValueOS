@@ -66,20 +66,20 @@ packages/*
 **/.env.*
 !**/.env.example
 
-# Exclude backend/ops/docs-heavy areas by default
-.git/
-.github/
-.devcontainer/
-.vscode/
-.storybook/
-docs/
-infra/
-ops/
-deploy/
-scripts/
-supabase/
-tests/
-pragmatic-reproducibility/
-ValueOS/
-config/
-public/
+# Exclude backend/ops/docs-heavy areas by default (root only)
+/.git/
+/.github/
+/.devcontainer/
+/.vscode/
+/.storybook/
+/docs/
+/infra/
+/ops/
+/deploy/
+/scripts/
+/supabase/
+/tests/
+/pragmatic-reproducibility/
+/ValueOS/
+/config/
+/public/
