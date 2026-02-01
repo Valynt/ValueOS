@@ -142,9 +142,10 @@ export class LLMFallbackService {
         cached: false,
       };
 
+      const usageDealId = request.dealId ?? request.sessionId;
       costGovernance.recordUsage({
-        tenantId: request.tenantId,
-        dealId: request.dealId ?? request.sessionId,
+        ...(request.tenantId ? { tenantId: request.tenantId } : {}),
+        ...(usageDealId ? { dealId: usageDealId } : {}),
         tokens: result.totalTokens,
         cost: result.cost,
         userId: request.userId,
@@ -154,7 +155,7 @@ export class LLMFallbackService {
       // Track usage
       await llmCostTracker.trackUsage({
         userId: request.userId,
-        sessionId: request.sessionId,
+        ...(request.sessionId ? { sessionId: request.sessionId } : {}),
         provider: "together_ai",
         model: request.model,
         promptTokens: result.promptTokens,
@@ -321,13 +322,7 @@ export class LLMFallbackService {
 
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
-<<<<<<< ours
     const estimatedPromptTokens = costGovernance.estimatePromptTokens(request.prompt);
-=======
-    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
-      request.prompt
-    );
->>>>>>> theirs
     const estimatedCompletionTokens = request.maxTokens || 1000;
     const estimatedCost = llmCostTracker.calculateCost(
       request.model,
@@ -335,8 +330,8 @@ export class LLMFallbackService {
       estimatedCompletionTokens
     );
     costGovernance.checkRequest({
-      tenantId: request.tenantId,
-      dealId,
+      ...(request.tenantId ? { tenantId: request.tenantId } : {}),
+      ...(dealId ? { dealId } : {}),
       estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
       estimatedCost,
       userId: request.userId,
@@ -372,13 +367,7 @@ export class LLMFallbackService {
     // Skip cache for streaming requests for now
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
-<<<<<<< ours
     const estimatedPromptTokens = costGovernance.estimatePromptTokens(request.prompt);
-=======
-    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
-      request.prompt
-    );
->>>>>>> theirs
     const estimatedCompletionTokens = request.maxTokens || 1000;
     const estimatedCost = llmCostTracker.calculateCost(
       request.model,
@@ -386,27 +375,24 @@ export class LLMFallbackService {
       estimatedCompletionTokens
     );
     costGovernance.checkRequest({
-      tenantId: request.tenantId,
-      dealId,
+      ...(request.tenantId ? { tenantId: request.tenantId } : {}),
+      ...(dealId ? { dealId } : {}),
       estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
       estimatedCost,
       userId: request.userId,
       model: request.model,
     });
 
-<<<<<<< ours
-=======
     // TODO: Implement circuit breaker for streaming
     // Currently bypassing breaker for streaming to support AsyncGenerator return type
->>>>>>> theirs
     try {
       for await (const chunk of this.callTogetherAIStream(request)) {
         yield chunk;
       }
     } finally {
       costGovernance.recordUsage({
-        tenantId: request.tenantId,
-        dealId,
+        ...(request.tenantId ? { tenantId: request.tenantId } : {}),
+        ...(dealId ? { dealId } : {}),
         tokens: estimatedPromptTokens + estimatedCompletionTokens,
         cost: estimatedCost,
         userId: request.userId,

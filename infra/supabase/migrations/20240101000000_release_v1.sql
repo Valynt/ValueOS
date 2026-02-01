@@ -13084,7 +13084,6 @@ AS
 SELECT
   cv.*,
   ap.agent_type,
-  ap.user_id,
   ap.session_id
 FROM public.confidence_violations cv
 LEFT JOIN public.agent_predictions ap ON ap.id = cv.prediction_id
