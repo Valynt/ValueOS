@@ -298,11 +298,11 @@ services:
     networks:
       - valueos-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000/status"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5000/status || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 30
+      start_period: 90s
     depends_on:
       db:
         condition: service_healthy
@@ -351,6 +351,10 @@ services:
       - valueos-network
     ports:
       - "${STUDIO_PORT:-54323}:3000"
+    healthcheck:
+      # Disable image-baked healthcheck - Studio is optional (profile-gated)
+      # and the built-in check probes /api/platform/profile which may not be available
+      disable: true
     depends_on:
       kong:
         condition: service_healthy
