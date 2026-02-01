@@ -52,7 +52,7 @@ type LLMFallbackStats = {
 };
 
 export class LLMFallbackService {
-  private togetherAIBreaker: CircuitBreaker;
+  private togetherAIBreaker: CircuitBreaker<[LLMRequest], LLMResponse>;
   private stats = {
     togetherAI: { calls: 0, failures: 0 },
     cache: { hits: 0, misses: 0 },
@@ -405,10 +405,25 @@ export class LLMFallbackService {
    * Get circuit breaker statistics
    */
   getStats(): LLMFallbackStats {
+    const breakerStats = this.togetherAIBreaker.stats as Record<string, unknown>;
+    const getCount = (key: string): number => {
+      const value = breakerStats[key];
+      return typeof value === "number" ? value : 0;
+    };
+
     return {
       togetherAI: {
-        ...this.togetherAIBreaker.stats,
-        ...this.stats.togetherAI,
+        state: this.togetherAIBreaker.opened
+          ? "open"
+          : this.togetherAIBreaker.halfOpen
+            ? "half-open"
+            : "closed",
+        failures: getCount("failures"),
+        successes: getCount("successes"),
+        fallbacks: getCount("fallbacks"),
+        rejects: getCount("rejects"),
+        fires: getCount("fires"),
+        calls: this.stats.togetherAI.calls,
       },
       cache: this.stats.cache,
       costGovernance: costGovernance.getSummary(),
