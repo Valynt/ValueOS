@@ -111,6 +111,31 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     ALTER SCHEMA storage OWNER TO supabase_storage_admin;
     ALTER SCHEMA _realtime OWNER TO supabase_realtime_admin;
 
+    -- Grant database-level permissions
+    GRANT ALL PRIVILEGES ON DATABASE postgres TO supabase_auth_admin;
+    GRANT ALL PRIVILEGES ON DATABASE postgres TO supabase_storage_admin;
+    GRANT ALL PRIVILEGES ON DATABASE postgres TO supabase_realtime_admin;
+    GRANT ALL PRIVILEGES ON DATABASE postgres TO supabase_admin;
+
+    -- Grant supabase_auth_admin full access to auth schema and public schema for migrations
+    GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
+    GRANT ALL ON SCHEMA public TO supabase_auth_admin;
+    GRANT CREATE ON SCHEMA public TO supabase_auth_admin;
+
+    -- Grant storage admin full access to storage schema
+    GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+    GRANT ALL ON SCHEMA public TO supabase_storage_admin;
+    GRANT CREATE ON SCHEMA storage TO supabase_storage_admin;
+
+    -- Grant realtime admin full access
+    GRANT ALL ON SCHEMA _realtime TO supabase_realtime_admin;
+    GRANT ALL ON SCHEMA public TO supabase_realtime_admin;
+    GRANT CREATE ON SCHEMA _realtime TO supabase_realtime_admin;
+
+    -- Grant supabase_admin (used by realtime) full access
+    GRANT ALL ON SCHEMA _realtime TO supabase_admin;
+    GRANT ALL ON SCHEMA public TO supabase_admin;
+
     GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
     GRANT USAGE ON SCHEMA auth TO supabase_auth_admin;
     GRANT USAGE ON SCHEMA storage TO supabase_storage_admin;
