@@ -117,7 +117,7 @@ services:
   # Kong API Gateway
   ###########################################################################
   kong:
-    image: kong:3.4-alpine
+    image: kong:3.9
     container_name: valueos-kong
     restart: unless-stopped
     environment:
@@ -200,15 +200,46 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: 3600
     networks:
       - valueos-network
+    # PostgREST v12+ is a distroless image with no shell/curl/wget
+    # Use healthcheck-proxy sidecar for HTTP health checks
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ready || exit 1"]
+      test: ["NONE"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 10s
+      start_period: 15s
     depends_on:
       db:
         condition: service_healthy
+
+  ###########################################################################
+  # PostgREST Health Check Proxy (provides curl for healthcheck)
+  ###########################################################################
+  rest-healthcheck:
+    image: curlimages/curl:8.5.0
+    container_name: valueos-rest-healthcheck
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          if curl -fsS http://rest:3000/ > /dev/null 2>&1; then
+            echo "PostgREST healthy"
+          else
+            echo "PostgREST not ready"
+          fi
+          sleep 10
+        done
+    networks:
+      - valueos-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://rest:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    depends_on:
+      - rest
 
   ###########################################################################
   # Realtime Service
