@@ -76,7 +76,7 @@ services:
       retries: 10
 
   studio:
-    image: supabase/studio:20240101-8e0f523
+    image: supabase/studio:latest
     restart: unless-stopped
     environment:
       STUDIO_PG_META_URL: http://meta:8080
@@ -135,7 +135,7 @@ services:
       - db
 
   realtime:
-    image: supabase/realtime:v0.26.0
+    image: supabase/realtime:latest
     restart: unless-stopped
     environment:
       DB_HOST: db
