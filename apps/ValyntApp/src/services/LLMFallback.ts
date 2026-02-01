@@ -321,7 +321,13 @@ export class LLMFallbackService {
 
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
+<<<<<<< ours
     const estimatedPromptTokens = costGovernance.estimatePromptTokens(request.prompt);
+=======
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
+      request.prompt
+    );
+>>>>>>> theirs
     const estimatedCompletionTokens = request.maxTokens || 1000;
     const estimatedCost = llmCostTracker.calculateCost(
       request.model,
@@ -366,7 +372,13 @@ export class LLMFallbackService {
     // Skip cache for streaming requests for now
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
+<<<<<<< ours
     const estimatedPromptTokens = costGovernance.estimatePromptTokens(request.prompt);
+=======
+    const estimatedPromptTokens = costGovernance.estimatePromptTokens(
+      request.prompt
+    );
+>>>>>>> theirs
     const estimatedCompletionTokens = request.maxTokens || 1000;
     const estimatedCost = llmCostTracker.calculateCost(
       request.model,
@@ -382,6 +394,11 @@ export class LLMFallbackService {
       model: request.model,
     });
 
+<<<<<<< ours
+=======
+    // TODO: Implement circuit breaker for streaming
+    // Currently bypassing breaker for streaming to support AsyncGenerator return type
+>>>>>>> theirs
     try {
       for await (const chunk of this.callTogetherAIStream(request)) {
         yield chunk;
