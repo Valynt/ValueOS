@@ -102,7 +102,8 @@ export function getSupabaseConfig(): {
   anonKey: string;
   serviceRoleKey?: string;
 } {
-  const serviceRoleKey = getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY");
+  const serviceRoleKey =
+    getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY");
   const config: { url: string; anonKey: string; serviceRoleKey?: string } = {
     url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
     anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
