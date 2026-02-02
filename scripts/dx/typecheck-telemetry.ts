@@ -455,6 +455,7 @@ async function main(): Promise<void> {
     const strictZones = await loadStrictZones();
     // Check strict zones using raw errors
     let strictFailed = false;
+    let budgetFailed = false;
     for (const zone of strictZones) {
       const zoneErrors = errors.filter((e) => e.file.startsWith(zone));
       if (zoneErrors.length > 0) {
@@ -467,8 +468,24 @@ async function main(): Promise<void> {
       }
     }
 
+    const budgetPath = path.join(projectRoot, ".typecheck-budget.json");
+    if (fs.existsSync(budgetPath)) {
+      try {
+        const budget = JSON.parse(fs.readFileSync(budgetPath, "utf8"));
+        const maxTotalErrors = budget?.maxTotalErrors;
+        if (typeof maxTotalErrors === "number" && report.totalErrors > maxTotalErrors) {
+          console.error(
+            `\n❌ TYPECHECK BUDGET EXCEEDED: ${report.totalErrors} errors > ${maxTotalErrors} budget.`
+          );
+          budgetFailed = true;
+        }
+      } catch (e) {
+        console.warn("⚠️ Failed to read .typecheck-budget.json:", e);
+      }
+    }
+
     const ratchetFailed = await enforceRatchet(report);
-    if (strictFailed || ratchetFailed) {
+    if (strictFailed || ratchetFailed || budgetFailed) {
       console.error("\n💥 Verification Failed. See above for details.");
       process.exit(1);
     }
