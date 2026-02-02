@@ -9,6 +9,7 @@ import { logger } from "../../lib/logger.js"
 import { getAuditLogger, AgentAuditLog } from "../AgentAuditLogger.js"
 import { getSecureSharedContext } from "../SecureSharedContext.js"
 import { secureMessageBus } from "../../lib/agent-fabric/SecureMessageBus";
+import { emailService } from "../EmailService.js";
 
 // ============================================================================
 // Types
@@ -82,11 +83,8 @@ export interface MonitoringConfig {
     replayAttacks: number; // per minute
     compromisedAgents: number; // total
   };
-  escalationRules: {
-    highSensitivityAccess: AlertType[];
-    agentCompromised: AlertType[];
-    circuitBreakerOpened: AlertType[];
-  };
+  escalationRules: Partial<Record<SecurityEventType, AlertType[]>>;
+  notificationEmails?: string[];
   retentionPeriod: number; // days
 }
 
@@ -112,10 +110,11 @@ export class SecurityMonitor {
       compromisedAgents: 1, // 1 total
     },
     escalationRules: {
-      highSensitivityAccess: ["immediate_notification", "email_alert"],
-      agentCompromised: ["immediate_notification", "slack_notification", "pager_duty"],
-      circuitBreakerOpened: ["immediate_notification", "security_team_escalation"],
+      high_sensitivity_data_access: ["immediate_notification", "email_alert"],
+      agent_compromised: ["immediate_notification", "slack_notification", "pager_duty"],
+      circuit_breaker_opened: ["immediate_notification", "security_team_escalation"],
     },
+    notificationEmails: process.env.SECURITY_ALERT_EMAIL ? [process.env.SECURITY_ALERT_EMAIL] : ['security@valuecanvas.com'],
     retentionPeriod: 30, // 30 days
   };
 
@@ -462,11 +461,45 @@ export class SecurityMonitor {
   }
 
   /**
-   * Send email alert (placeholder)
+   * Send email alert
    */
-  private sendEmailAlert(alert: SecurityAlert): void {
-    logger.info("Email alert sent", { alertId: alert.id, message: alert.message });
-    // TODO: Integrate with email service
+  private async sendEmailAlert(alert: SecurityAlert): Promise<void> {
+    const recipients = this.config.notificationEmails || [];
+
+    if (recipients.length === 0) {
+      logger.warn("No notification emails configured for security alert", { alertId: alert.id });
+      return;
+    }
+
+    const subject = `Security Alert: [${alert.severity.toUpperCase()}] ${alert.type}`;
+    const text = `
+Security Alert Received
+
+ID: ${alert.id}
+Type: ${alert.type}
+Severity: ${alert.severity.toUpperCase()}
+Timestamp: ${alert.timestamp.toISOString()}
+
+Message:
+${alert.message}
+
+Details:
+Event ID: ${alert.eventId}
+Escalation Level: ${alert.escalationLevel}
+    `.trim();
+
+    for (const to of recipients) {
+      try {
+        await emailService.send({
+          to,
+          subject,
+          text,
+        });
+        logger.info("Email alert sent", { alertId: alert.id, recipient: to });
+      } catch (error) {
+        logger.error("Failed to send email alert", { alertId: alert.id, recipient: to, error });
+      }
+    }
   }
 
   /**
