@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { __setEnvSourceForTests } from '../../lib/env';
+import { __setEnvSourceForTests } from '@shared/lib/env';
 import { LLMCostTracker } from '../LLMCostTracker.js'
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,6 +9,7 @@ vi.mock('@supabase/supabase-js', () => {
     lastInsertPayload: null,
     lastUpdatePayload: null,
     selectResponse: { data: null, error: null },
+    responses: {},
     insertCount: 0,
   };
 
@@ -28,7 +29,10 @@ vi.mock('@supabase/supabase-js', () => {
         state.lastUpdatePayload = payload;
         return { error: null };
       },
-      then: (resolve: (value: any) => void) => resolve(state.selectResponse),
+      then: (resolve: (value: any) => void) => {
+        const response = state.responses?.[table] || state.selectResponse;
+        resolve(response);
+      },
     } as any;
   };
 
@@ -60,6 +64,8 @@ describe('LLMCostTracker', () => {
     supabase.state.lastUpdatePayload = null;
     // @ts-ignore
     supabase.state.selectResponse = { data: null, error: null };
+    // @ts-ignore
+    supabase.state.responses = {};
     // @ts-ignore
     supabase.state.insertCount = 0;
   });
@@ -126,17 +132,21 @@ describe('LLMCostTracker', () => {
 
   it('dedupes alerts within hour and still persists', async () => {
     const tracker = new LLMCostTracker();
+    // Force cache expiration
+    (tracker as any).lastCheckTime = 0;
+
     // @ts-ignore
     const supabase = createClient();
 
-    // Mock getHourlyCost to trigger alert
-    vi.spyOn(tracker, 'getHourlyCost').mockResolvedValue(60);
-    vi.spyOn(tracker, 'getDailyCost').mockResolvedValue(0);
-    vi.spyOn(tracker, 'getMonthlyCost').mockResolvedValue(0);
-
-    // First call: DB returns no existing alerts
+    // First call: High cost in usage, no existing alerts
     // @ts-ignore
-    supabase.state.selectResponse = { data: [], error: null };
+    supabase.state.responses = {
+      llm_usage: {
+        data: [{ estimated_cost: 60, timestamp: new Date().toISOString() }],
+        error: null
+      },
+      cost_alerts: { data: [], error: null }
+    };
 
     await tracker.checkCostThresholds();
 
@@ -145,10 +155,18 @@ describe('LLMCostTracker', () => {
     // @ts-ignore
     expect(supabase.state.lastInsertPayload.level).toBe('critical');
 
-    // Second call: DB returns existing alerts
-    // This simulates that an alert was found in DB
+    // Second call: High cost, BUT existing alert in DB
+    // We also need to bypass cache to test the dedupe logic
+    (tracker as any).lastCheckTime = 0;
+
     // @ts-ignore
-    supabase.state.selectResponse = { data: [{ id: 1 }], error: null };
+    supabase.state.responses = {
+      llm_usage: {
+        data: [{ estimated_cost: 60, timestamp: new Date().toISOString() }],
+        error: null
+      },
+      cost_alerts: { data: [{ id: 1 }], error: null }
+    };
 
     await tracker.checkCostThresholds();
 

@@ -7,7 +7,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../lib/logger.js"
-import { getEnvVar, getLLMCostTrackerConfig } from "@shared/lib/env";
+import { getEnvVar, getLLMCostTrackerConfig, getSupabaseConfig } from "@shared/lib/env";
 
 const TOKENS_PER_MILLION = 1_000_000;
 const SECONDS_PER_MINUTE = 60;
@@ -174,9 +174,13 @@ export class LLMCostTracker {
   private supabase?: SupabaseClient;
   private enabled = false;
   private static warnedMissingConfig = false;
+  private lastCheckTime = 0;
+  private cachedAlerts: CostAlert[] = [];
+  private checkPromise: Promise<CostAlert[]> | null = null;
+  private static CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
-    const { supabaseUrl, supabaseServiceRoleKey } = getLLMCostTrackerConfig();
+    const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       if (!LLMCostTracker.warnedMissingConfig) {
@@ -329,76 +333,132 @@ export class LLMCostTracker {
    * Check if cost thresholds are exceeded
    */
   async checkCostThresholds(): Promise<CostAlert[]> {
-    if (!this.isEnabled()) return [];
+    if (!this.isEnabled() || !this.supabase) return [];
 
-    const alerts: CostAlert[] = [];
-
-    // Check hourly threshold
-    const hourlyCost = await this.getHourlyCost();
-    if (hourlyCost >= COST_THRESHOLDS.hourly.critical) {
-      alerts.push({
-        level: "critical",
-        period: "hourly",
-        threshold: COST_THRESHOLDS.hourly.critical,
-        actual: hourlyCost,
-        message: `CRITICAL: Hourly LLM cost ($${hourlyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.hourly.critical})`,
-      });
-    } else if (hourlyCost >= COST_THRESHOLDS.hourly.warning) {
-      alerts.push({
-        level: "warning",
-        period: "hourly",
-        threshold: COST_THRESHOLDS.hourly.warning,
-        actual: hourlyCost,
-        message: `WARNING: Hourly LLM cost ($${hourlyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.hourly.warning})`,
-      });
+    // Return cached alerts if within interval
+    if (Date.now() - this.lastCheckTime < LLMCostTracker.CHECK_INTERVAL) {
+      return this.cachedAlerts;
     }
 
-    // Check daily threshold
-    const dailyCost = await this.getDailyCost();
-    if (dailyCost >= COST_THRESHOLDS.daily.critical) {
-      alerts.push({
-        level: "critical",
-        period: "daily",
-        threshold: COST_THRESHOLDS.daily.critical,
-        actual: dailyCost,
-        message: `CRITICAL: Daily LLM cost ($${dailyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.daily.critical})`,
-      });
-    } else if (dailyCost >= COST_THRESHOLDS.daily.warning) {
-      alerts.push({
-        level: "warning",
-        period: "daily",
-        threshold: COST_THRESHOLDS.daily.warning,
-        actual: dailyCost,
-        message: `WARNING: Daily LLM cost ($${dailyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.daily.warning})`,
-      });
+    // Coalesce concurrent checks
+    if (this.checkPromise) {
+      return this.checkPromise;
     }
 
-    // Check monthly threshold
-    const monthlyCost = await this.getMonthlyCost();
-    if (monthlyCost >= COST_THRESHOLDS.monthly.critical) {
-      alerts.push({
-        level: "critical",
-        period: "monthly",
-        threshold: COST_THRESHOLDS.monthly.critical,
-        actual: monthlyCost,
-        message: `CRITICAL: Monthly LLM cost ($${monthlyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.monthly.critical})`,
-      });
-    } else if (monthlyCost >= COST_THRESHOLDS.monthly.warning) {
-      alerts.push({
-        level: "warning",
-        period: "monthly",
-        threshold: COST_THRESHOLDS.monthly.warning,
-        actual: monthlyCost,
-        message: `WARNING: Monthly LLM cost ($${monthlyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.monthly.warning})`,
-      });
-    }
+    this.checkPromise = (async () => {
+      try {
+        const now = new Date();
+        const oneHourAgo = new Date(now.getTime() - ONE_HOUR_MS);
+        const oneDayAgo = new Date(now.getTime() - ONE_DAY_MS);
+        const oneMonthAgo = new Date(now.getTime() - ONE_MONTH_MS);
 
-    // Send alerts
-    for (const alert of alerts) {
-      await this.sendAlert(alert);
-    }
+        // Optimization: Fetch usage once for the longest period (monthly)
+        // Note: For extremely high volume, this might need further optimization (e.g., db-side aggregation)
+        // but it's significantly better than 3 separate fetches.
+        const { data, error } = await this.supabase!
+          .from("llm_usage")
+          .select("estimated_cost, timestamp")
+          .gte("timestamp", oneMonthAgo.toISOString())
+          .lte("timestamp", now.toISOString());
 
-    return alerts;
+        if (error || !data) {
+          logger.error("Failed to check cost thresholds", error);
+          return this.cachedAlerts; // Return stale cache on error
+        }
+
+        let hourlyCost = 0;
+        let dailyCost = 0;
+        let monthlyCost = 0;
+
+        const oneHourAgoTime = oneHourAgo.getTime();
+        const oneDayAgoTime = oneDayAgo.getTime();
+
+        for (const record of data) {
+          const recordTime = new Date(record.timestamp).getTime();
+          const cost = record.estimated_cost;
+
+          monthlyCost += cost;
+          if (recordTime >= oneDayAgoTime) {
+            dailyCost += cost;
+          }
+          if (recordTime >= oneHourAgoTime) {
+            hourlyCost += cost;
+          }
+        }
+
+        const alerts: CostAlert[] = [];
+
+        // Check hourly threshold
+        if (hourlyCost >= COST_THRESHOLDS.hourly.critical) {
+          alerts.push({
+            level: "critical",
+            period: "hourly",
+            threshold: COST_THRESHOLDS.hourly.critical,
+            actual: hourlyCost,
+            message: `CRITICAL: Hourly LLM cost ($${hourlyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.hourly.critical})`,
+          });
+        } else if (hourlyCost >= COST_THRESHOLDS.hourly.warning) {
+          alerts.push({
+            level: "warning",
+            period: "hourly",
+            threshold: COST_THRESHOLDS.hourly.warning,
+            actual: hourlyCost,
+            message: `WARNING: Hourly LLM cost ($${hourlyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.hourly.warning})`,
+          });
+        }
+
+        // Check daily threshold
+        if (dailyCost >= COST_THRESHOLDS.daily.critical) {
+          alerts.push({
+            level: "critical",
+            period: "daily",
+            threshold: COST_THRESHOLDS.daily.critical,
+            actual: dailyCost,
+            message: `CRITICAL: Daily LLM cost ($${dailyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.daily.critical})`,
+          });
+        } else if (dailyCost >= COST_THRESHOLDS.daily.warning) {
+          alerts.push({
+            level: "warning",
+            period: "daily",
+            threshold: COST_THRESHOLDS.daily.warning,
+            actual: dailyCost,
+            message: `WARNING: Daily LLM cost ($${dailyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.daily.warning})`,
+          });
+        }
+
+        // Check monthly threshold
+        if (monthlyCost >= COST_THRESHOLDS.monthly.critical) {
+          alerts.push({
+            level: "critical",
+            period: "monthly",
+            threshold: COST_THRESHOLDS.monthly.critical,
+            actual: monthlyCost,
+            message: `CRITICAL: Monthly LLM cost ($${monthlyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.monthly.critical})`,
+          });
+        } else if (monthlyCost >= COST_THRESHOLDS.monthly.warning) {
+          alerts.push({
+            level: "warning",
+            period: "monthly",
+            threshold: COST_THRESHOLDS.monthly.warning,
+            actual: monthlyCost,
+            message: `WARNING: Monthly LLM cost ($${monthlyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.monthly.warning})`,
+          });
+        }
+
+        // Send alerts
+        for (const alert of alerts) {
+          await this.sendAlert(alert);
+        }
+
+        this.cachedAlerts = alerts;
+        this.lastCheckTime = Date.now();
+        return alerts;
+      } finally {
+        this.checkPromise = null;
+      }
+    })();
+
+    return this.checkPromise;
   }
 
   /**
