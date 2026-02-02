@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useState, useEffect } from "react";
+import { ReactNode, useCallback, useState, useEffect, useId } from "react";
 import {
   useForm,
   UseFormReturn,
@@ -108,6 +108,9 @@ interface FormFieldProps {
   helpText?: string;
   className?: string;
   children: ReactNode;
+  inputId?: string;
+  helpTextId?: string;
+  errorId?: string;
 }
 
 export function FormField({
@@ -119,10 +122,13 @@ export function FormField({
   helpText,
   className,
   children,
+  inputId,
+  helpTextId,
+  errorId,
 }: FormFieldProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      <label className="block text-sm font-medium text-foreground">
+      <label htmlFor={inputId} className="block text-sm font-medium text-foreground">
         {label}
         {required && <span className="text-destructive ml-1">*</span>}
       </label>
@@ -138,10 +144,17 @@ export function FormField({
         </div>
       </div>
 
-      {helpText && !error && <p className="text-sm text-muted-foreground">{helpText}</p>}
+      {helpText && !error && (
+        <p id={helpTextId} className="text-sm text-muted-foreground">
+          {helpText}
+        </p>
+      )}
 
       {error && (
-        <p className="text-sm text-destructive flex items-start gap-1 animate-in slide-in-from-top-1">
+        <p
+          id={errorId}
+          className="text-sm text-destructive flex items-start gap-1 animate-in slide-in-from-top-1"
+        >
           <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>{error.message}</span>
         </p>
@@ -187,6 +200,11 @@ export function FormInput({
   const isValid = touched && !error && value;
   const isValidating = false; // Could be enhanced with async validation
 
+  const generatedId = useId();
+  const inputId = props.id || generatedId;
+  const helpTextId = helpText ? `${inputId}-help` : undefined;
+  const errorId = error ? `${inputId}-error` : undefined;
+
   return (
     <FormField
       label={label}
@@ -195,8 +213,17 @@ export function FormInput({
       success={isValid}
       validating={isValidating}
       helpText={helpText}
+      inputId={inputId}
+      helpTextId={helpTextId}
+      errorId={errorId}
     >
       <input
+        id={inputId}
+        aria-describedby={
+          [(!error ? helpTextId : undefined), errorId]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         {...register(name)}
         {...props}
         className={cn(
@@ -247,6 +274,11 @@ export function FormTextarea({
   const isValid = touched && !error && value;
   const isValidating = false; // Could be enhanced with async validation
 
+  const generatedId = useId();
+  const inputId = props.id || generatedId;
+  const helpTextId = helpText ? `${inputId}-help` : undefined;
+  const errorId = error ? `${inputId}-error` : undefined;
+
   return (
     <FormField
       label={label}
@@ -255,8 +287,17 @@ export function FormTextarea({
       success={isValid}
       validating={isValidating}
       helpText={helpText}
+      inputId={inputId}
+      helpTextId={helpTextId}
+      errorId={errorId}
     >
       <textarea
+        id={inputId}
+        aria-describedby={
+          [(!error ? helpTextId : undefined), errorId]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         {...register(name)}
         {...props}
         className={cn(
@@ -308,6 +349,11 @@ export function FormSelect({
   const isValid = touched && !error && value && value !== "";
   const isValidating = false; // Could be enhanced with async validation
 
+  const generatedId = useId();
+  const inputId = props.id || generatedId;
+  const helpTextId = helpText ? `${inputId}-help` : undefined;
+  const errorId = error ? `${inputId}-error` : undefined;
+
   return (
     <FormField
       label={label}
@@ -316,8 +362,17 @@ export function FormSelect({
       success={isValid}
       validating={isValidating}
       helpText={helpText}
+      inputId={inputId}
+      helpTextId={helpTextId}
+      errorId={errorId}
     >
       <select
+        id={inputId}
+        aria-describedby={
+          [(!error ? helpTextId : undefined), errorId]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         {...register(name)}
         {...props}
         className={cn(
