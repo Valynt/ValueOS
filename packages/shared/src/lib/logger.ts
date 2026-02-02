@@ -134,10 +134,19 @@ class Logger {
       level,
       message,
       timestamp: new Date().toISOString(),
-      context:
-        Object.keys(mergedContext).length > 0 ? { ...mergedContext, error: undefined } : undefined,
-      error: context?.error,
     };
+
+    // Only add context if there are meaningful keys (excluding error)
+    const contextWithoutError = { ...mergedContext };
+    delete (contextWithoutError as Record<string, unknown>).error;
+    if (Object.keys(contextWithoutError).length > 0) {
+      entry.context = contextWithoutError;
+    }
+
+    // Only add error if it exists
+    if (context?.error) {
+      entry.error = context.error;
+    }
 
     // Notify listeners (for monitoring services)
     this.listeners.forEach((listener) => {

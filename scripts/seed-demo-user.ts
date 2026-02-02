@@ -21,8 +21,7 @@ dotenv.config({ path: path.join(projectRoot, ".env.local") });
 // Validate required environment variables (fail fast)
 validateEnv();
 
-const runtimeEnv =
-  process.env.NODE_ENV || process.env.VITE_APP_ENV || "development";
+const runtimeEnv = process.env.NODE_ENV || process.env.VITE_APP_ENV || "development";
 const allowDemoSeed = process.env.ALLOW_DEMO_SEED === "1";
 
 if ((runtimeEnv === "production" || runtimeEnv === "staging") && !allowDemoSeed) {
@@ -32,8 +31,9 @@ if ((runtimeEnv === "production" || runtimeEnv === "staging") && !allowDemoSeed)
   process.exit(1);
 }
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+// Prefer SUPABASE_URL (container-internal) over VITE_SUPABASE_URL (browser-facing)
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -67,7 +67,9 @@ async function seedDemoData() {
     const demoUserId = "00000000-0000-0000-0000-000000000001"; // Fixed UUID for determinism
 
     if (demoUserPassword.length < 8) {
-      console.error('❌ Demo password must be at least 8 characters long. Set DEMO_USER_PASSWORD to a longer value.');
+      console.error(
+        "❌ Demo password must be at least 8 characters long. Set DEMO_USER_PASSWORD to a longer value."
+      );
       process.exit(1);
     }
 
@@ -96,9 +98,7 @@ async function seedDemoData() {
     } else {
       // User already exists, fetch their ID
       const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const existingUser = existingUsers.users.find(
-        (u) => u.email === demoUserEmail
-      );
+      const existingUser = existingUsers.users.find((u) => u.email === demoUserEmail);
       userId = existingUser?.id;
     }
 
@@ -107,20 +107,15 @@ async function seedDemoData() {
     }
 
     // Create user-tenant relationship
-    const { error: userTenantError } = await supabase
-      .from("user_tenants")
-      .upsert({
-        user_id: userId,
-        tenant_id: tenant.id,
-        role: "admin",
-        is_active: true,
-      });
+    const { error: userTenantError } = await supabase.from("user_tenants").upsert({
+      user_id: userId,
+      tenant_id: tenant.id,
+      role: "admin",
+      is_active: true,
+    });
 
     if (userTenantError) {
-      console.error(
-        "❌ Failed to create user-tenant relationship:",
-        userTenantError
-      );
+      console.error("❌ Failed to create user-tenant relationship:", userTenantError);
       throw userTenantError;
     }
 
@@ -157,9 +152,7 @@ async function seedDemoData() {
     console.log(`   Password: ${demoUserPassword}`);
     console.log(`   Role:     admin`);
     console.log(`   UUID:     ${demoUserId}`);
-    console.log(
-      "\n🌐 Open http://localhost:5173 and login with the above credentials."
-    );
+    console.log("\n🌐 Open http://localhost:5173 and login with the above credentials.");
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("❌ Seeding failed:", errorMessage);

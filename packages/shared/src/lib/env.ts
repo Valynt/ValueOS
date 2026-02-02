@@ -102,11 +102,15 @@ export function getSupabaseConfig(): {
   anonKey: string;
   serviceRoleKey?: string;
 } {
-  return {
+  const serviceRoleKey = getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY");
+  const config: { url: string; anonKey: string; serviceRoleKey?: string } = {
     url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
     anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
-    serviceRoleKey: getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY"),
   };
+  if (serviceRoleKey) {
+    config.serviceRoleKey = serviceRoleKey;
+  }
+  return config;
 }
 
 export function getGroundtruthConfig(): {
@@ -114,14 +118,18 @@ export function getGroundtruthConfig(): {
   apiKey?: string;
   timeout: number;
 } {
-  return {
+  const apiKey = getEnvVar("VITE_GROUNDTRUTH_API_KEY") || getEnvVar("GROUNDTRUTH_API_KEY");
+  const config: { baseUrl: string; apiKey?: string; timeout: number } = {
     baseUrl:
       getEnvVar("VITE_GROUNDTRUTH_URL") ||
       getEnvVar("GROUNDTRUTH_URL") ||
       "https://api.groundtruth.example.com",
-    apiKey: getEnvVar("VITE_GROUNDTRUTH_API_KEY") || getEnvVar("GROUNDTRUTH_API_KEY"),
     timeout: Number(getEnvVar("GROUNDTRUTH_TIMEOUT") || "30000"),
   };
+  if (apiKey) {
+    config.apiKey = apiKey;
+  }
+  return config;
 }
 
 export function getLLMCostTrackerConfig(): {

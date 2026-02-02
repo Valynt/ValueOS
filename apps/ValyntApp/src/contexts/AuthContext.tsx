@@ -214,48 +214,93 @@ const useAuthMethods = ({
   setSession: (session: Session | null) => void;
 }) => {
   const login = async (credentials: LoginCredentials) => {
+    const loginLogger = (msg: string, data?: Record<string, unknown>) => {
+      const timestamp = new Date().toISOString();
+      console.log(`[Auth ${timestamp}] ${msg}`, data || "");
+      logger.debug(msg, data);
+    };
+
+    loginLogger("🔐 Login attempt started", { email: credentials.email });
+
     // Input validation
     if (!credentials.email || !credentials.password) {
+      loginLogger("❌ Validation failed: missing credentials");
       throw new Error("Email and password are required");
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(credentials.email)) {
+      loginLogger("❌ Validation failed: invalid email format");
       throw new Error("Invalid email format");
     }
 
     if (credentials.password.length < 8) {
+      loginLogger("❌ Validation failed: password too short");
       throw new Error("Password must be at least 8 characters");
     }
 
+    loginLogger("✓ Input validation passed");
+
     if (!supabase) {
+      loginLogger("❌ Supabase client not initialized");
       throw new Error("Supabase not configured");
     }
+
+    loginLogger("📡 Calling Supabase signInWithPassword...");
+    const startTime = performance.now();
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
       });
 
+      const elapsed = (performance.now() - startTime).toFixed(0);
+      loginLogger(`📡 Supabase response received in ${elapsed}ms`);
+
       if (error) {
+        loginLogger("❌ Supabase auth error", {
+          code: error.status,
+          message: error.message,
+          name: error.name,
+        });
         logger.error("Login failed", error);
         throw new Error("Invalid credentials");
       }
       if (!data.user || !data.session) {
+        loginLogger("❌ Login failed - missing user or session in response", {
+          hasUser: !!data.user,
+          hasSession: !!data.session,
+        });
         logger.error("Login failed - missing session");
         throw new Error("Invalid credentials");
       }
 
+      loginLogger("✅ Login successful!", {
+        userId: data.user.id,
+        email: data.user.email,
+        sessionExpires: data.session.expires_at,
+      });
+
       setUser(data.user);
+      loginLogger("✓ User state updated");
+
       setSession(data.session);
+      loginLogger("✓ Session state updated");
+
       setUserClaims(computeUserClaims(data.user));
+      loginLogger("✓ User claims computed");
+
       logger.info("User logged in", { email: credentials.email });
       analyticsClient.identify(data.user.id, {
         email: data.user.email,
         created_at: data.user.created_at,
       });
       analyticsClient.track("user_login", { workflow: "activation" });
+      loginLogger("🎉 Login flow complete - ready for redirect");
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      loginLogger("❌ Login catch block", { error: errMsg });
       logger.error("Login failed", error as Error);
       throw error;
     }

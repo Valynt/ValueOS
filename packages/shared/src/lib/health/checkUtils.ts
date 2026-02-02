@@ -137,8 +137,8 @@ export async function checkHttpEndpoint(
 ): Promise<HealthCheckResult> {
   const circuitBreaker = getCircuitBreaker(`http:${url}`);
 
-  return circuitBreaker
-    .execute(async () => {
+  try {
+    const result = await circuitBreaker.execute(async () => {
       const startTime = Date.now();
 
       return new Promise<HealthCheckResult>((resolve) => {
@@ -178,11 +178,23 @@ export async function checkHttpEndpoint(
           });
         });
       });
-    })
-    .catch(() => ({
+    });
+
+    // Handle null result from circuit breaker (circuit is open)
+    if (result === null) {
+      return {
+        healthy: false,
+        message: "Circuit breaker open - service temporarily unavailable",
+      };
+    }
+
+    return result;
+  } catch {
+    return {
       healthy: false,
       message: "Circuit breaker open - service temporarily unavailable",
-    }));
+    };
+  }
 }
 
 /**

@@ -82,5 +82,13 @@
     "timestamp": 1769894153839,
     "step": "migrations",
     "state": {}
+  },
+  {
+    "id": "checkpoint_1769994916982",
+    "timestamp": 1769994916982,
+    "step": "docker_deps",
+    "state": {
+      "mode": "local"
+    }
   }
 ]
