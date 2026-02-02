@@ -68,6 +68,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         END IF;
     END
     \$\$;
+    -- Set search_path for auth admin (required for migrations)
+    ALTER ROLE supabase_auth_admin SET search_path TO auth, public, extensions;
 
     -- supabase_storage_admin: Used by Storage service
     DO \$\$
