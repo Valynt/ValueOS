@@ -22,9 +22,17 @@ This runs:
 Run dependency and SBOM scans locally:
 
 ```bash
-npm run security:scan
-npm run security:sbom
+pnpm run security:scan
+pnpm run security:sbom
 ```
+
+### Release Branch Gate
+
+Release branches (`release/**`) run a dedicated CI job that:
+
+- Generates an SBOM and fails if the artifact is missing.
+- Blocks releases if high-severity dependency vulnerabilities are detected.
+- Publishes the SBOM as a CI artifact for release verification.
 
 ### Secret Scanning (Local)
 

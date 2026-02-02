@@ -1,0 +1,57 @@
+name: Release Security Gate
+
+on:
+  push:
+    branches:
+      - 'release/**'
+  workflow_dispatch:
+
+jobs:
+  sbom-and-vulnerability-gate:
+    name: SBOM + Vulnerability Gate (Release)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            node_modules
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Generate SBOM
+        run: pnpm run security:sbom
+
+      - name: Verify SBOM artifact
+        run: |
+          if [ ! -s sbom.json ]; then
+            echo "::error::SBOM artifact missing or empty."
+            exit 1
+          fi
+
+      - name: Block high severity vulnerabilities (release policy)
+        run: pnpm run security:scan
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-release-${{ github.sha }}
+          path: sbom.json
+          if-no-files-found: error
