@@ -2,6 +2,7 @@
  * Type exports for @valueos/shared
  */
 
+export * from "./actions";
 export * from "./api";
 export * from "./domain";
 export * from "./events";
