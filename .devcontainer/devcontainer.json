@@ -5,9 +5,6 @@
   "workspaceFolder": "${containerWorkspaceFolder}",
   "shutdownAction": "stopCompose",
 
-  // Load environment from .env.dev
-  "runArgs": ["--env-file", ".env.dev"],
-
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers-extra/features/supabase-cli:1": {},
