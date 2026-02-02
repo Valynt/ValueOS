@@ -887,7 +887,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     // requestOverride handler
     this.registerHandler("requestOverride", async (action: unknown, context) => {
       try {
-        const { actionId, violations, justification } = action;
+        const { actionId, violations, justification } = action as any;
 
         const requestId = await manifestoEnforcer.requestOverride(
           actionId,
@@ -911,7 +911,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     // approveOverride handler
     this.registerHandler("approveOverride", async (action: unknown, context) => {
       try {
-        const { requestId, reason } = action;
+        const { requestId, reason } = action as any;
 
         await manifestoEnforcer.decideOverride(requestId, true, context.userId, reason);
 
@@ -930,7 +930,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     // rejectOverride handler
     this.registerHandler("rejectOverride", async (action: unknown, context) => {
       try {
-        const { requestId, reason } = action;
+        const { requestId, reason } = action as any;
 
         await manifestoEnforcer.decideOverride(requestId, false, context.userId, reason);
 

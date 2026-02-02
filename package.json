@@ -53,6 +53,7 @@
     "db:sync": "bash infra/scripts/apply_migrations.sh",
     "db:seed": "bash infra/scripts/seed_data.sh",
     "dev:verify": "tsx scripts/dev-verify.ts",
+    "dev:recover": "tsx scripts/dev-recover.ts",
     "dev": "pnpm dev:verify && pnpm db:sync && pnpm --filter valynt-app dev",
     "dev:smoke": "pnpm dev &>/dev/null & sleep 8 && curl -sf http://localhost:5173 -o /dev/null && echo '✅ Dev server responding' && kill %1 || (echo '❌ Dev server failed' && exit 1)",
     "health": "node scripts/dx/health.js",
