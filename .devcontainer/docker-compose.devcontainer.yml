@@ -71,7 +71,6 @@ services:
   ###########################################################################
   redis:
     image: redis:7-alpine
-    container_name: valueos-redis
     restart: unless-stopped
     volumes:
       - redis-data:/data
@@ -89,7 +88,6 @@ services:
   ###########################################################################
   db:
     image: supabase/postgres:15.1.1.78
-    container_name: valueos-db
     command: >
       postgres
       -c config_file=/etc/postgresql/postgresql.conf
@@ -121,7 +119,6 @@ services:
     build:
       context: ./kong
       dockerfile: Dockerfile
-    container_name: valueos-kong
     restart: unless-stopped
     environment:
       KONG_DATABASE: "off"
@@ -156,7 +153,6 @@ services:
   ###########################################################################
   auth:
     image: supabase/gotrue:v2.143.0
-    container_name: valueos-auth
     restart: unless-stopped
     environment:
       GOTRUE_API_HOST: 0.0.0.0
@@ -190,7 +186,6 @@ services:
   ###########################################################################
   rest:
     image: postgrest/postgrest:v12.0.2
-    container_name: valueos-rest
     restart: unless-stopped
     environment:
       # CRITICAL: sslmode=disable required - container postgres has no TLS
@@ -220,7 +215,6 @@ services:
   ###########################################################################
   rest-healthcheck:
     image: curlimages/curl:8.5.0
-    container_name: valueos-rest-healthcheck
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -249,7 +243,6 @@ services:
   ###########################################################################
   realtime:
     image: supabase/realtime:v2.25.50
-    container_name: valueos-realtime
     restart: unless-stopped
     environment:
       PORT: 4000
@@ -281,7 +274,6 @@ services:
   ###########################################################################
   storage:
     image: supabase/storage-api:v0.46.4
-    container_name: valueos-storage
     restart: unless-stopped
     environment:
       ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
@@ -317,7 +309,6 @@ services:
   ###########################################################################
   meta:
     image: supabase/postgres-meta:v0.80.0
-    container_name: valueos-meta
     restart: unless-stopped
     environment:
       PG_META_PORT: 8080
@@ -337,7 +328,6 @@ services:
   ###########################################################################
   studio:
     image: supabase/studio:latest
-    container_name: valueos-studio
     restart: unless-stopped
     profiles:
       - studio

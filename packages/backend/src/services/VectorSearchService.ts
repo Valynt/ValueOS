@@ -1,8 +1,8 @@
 /**
  * Vector Search Service
- * 
+ *
  * Production-ready service for querying semantic_memory table with pgvector
- * 
+ *
  * Features:
  * - Type-safe query methods
  * - Configurable thresholds
@@ -11,9 +11,17 @@
  * - Error handling
  */
 
-import { supabase } from '@/lib/supabase';
-import { getSemanticThreshold, semanticMemoryConfig } from '@/config/llm';
-import { logger } from '@/lib/logger';
+import { supabase } from "../lib/supabase";
+// TODO: Create llm config or import from shared
+const semanticMemoryConfig = { cosine_threshold: 0.7, max_results: 10 };
+const getSemanticThreshold = (type?: string) => 0.7;
+// TODO: Create logger or import from shared
+const logger = {
+  info: console.info,
+  error: console.error,
+  warn: console.warn,
+  debug: console.debug,
+};
 
 // ============================================================================
 // Types
@@ -21,7 +29,12 @@ import { logger } from '@/lib/logger';
 
 export interface SemanticMemory {
   id: string;
-  type: 'value_proposition' | 'target_definition' | 'opportunity' | 'integrity_check' | 'workflow_result';
+  type:
+    | "value_proposition"
+    | "target_definition"
+    | "opportunity"
+    | "integrity_check"
+    | "workflow_result";
   content: string;
   embedding: number[];
   metadata: Record<string, any>;
@@ -31,7 +44,7 @@ export interface SemanticMemory {
 
 export interface SearchOptions {
   /** Memory type to filter */
-  type?: SemanticMemory['type'];
+  type?: SemanticMemory["type"];
   /** Similarity threshold (0-1), defaults to type-specific threshold */
   threshold?: number;
   /** Maximum results */
@@ -75,37 +88,37 @@ export class VectorSearchService {
       limit = 10,
       filters = {},
       useCache = true,
-      requireLineage = true
+      requireLineage = true,
     } = options;
 
     try {
       // Check cache
       const cacheKey = this.getCacheKey(queryEmbedding, options);
       if (useCache && this.cache.has(cacheKey)) {
-        logger.debug('Vector search cache hit', { cacheKey });
+        logger.debug("Vector search cache hit", { cacheKey });
         return this.cache.get(cacheKey)!;
       }
 
       // Determine threshold
-      const effectiveThreshold = threshold || 
-        (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
+      const effectiveThreshold =
+        threshold || (type ? getSemanticThreshold(type) : semanticMemoryConfig.cosine_threshold);
 
       // Build filter clause
       const filterClause = this.buildFilterClause(type, filters, requireLineage);
 
       // Execute search
       const startTime = Date.now();
-      const { data, error } = await supabase.rpc('search_semantic_memory', {
+      const { data, error } = await supabase.rpc("search_semantic_memory", {
         query_embedding: queryEmbedding,
         match_threshold: effectiveThreshold,
         match_count: limit,
-        filter_clause: filterClause
+        filter_clause: filterClause,
       });
 
       const duration = Date.now() - startTime;
 
       if (error) {
-        logger.error('Vector search failed', { error, duration });
+        logger.error("Vector search failed", { error, duration });
         throw error;
       }
 
@@ -113,12 +126,12 @@ export class VectorSearchService {
       const results: SearchResult[] = (data || []).map((row: any) => {
         const lineage = {
           source_origin: row.metadata?.source_origin,
-          data_sensitivity_level: row.metadata?.data_sensitivity_level
+          data_sensitivity_level: row.metadata?.data_sensitivity_level,
         };
 
         const evidenceLog = lineage.source_origin
-          ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || 'unspecified'})`
-          : 'Lineage unavailable';
+          ? `Source: ${lineage.source_origin} (sensitivity: ${lineage.data_sensitivity_level || "unspecified"})`
+          : "Lineage unavailable";
 
         return {
           memory: {
@@ -127,11 +140,11 @@ export class VectorSearchService {
             content: row.content,
             embedding: row.embedding,
             metadata: row.metadata,
-            created_at: row.created_at
+            created_at: row.created_at,
           },
           similarity: row.similarity,
           lineage,
-          evidenceLog
+          evidenceLog,
         };
       });
 
@@ -141,16 +154,16 @@ export class VectorSearchService {
         setTimeout(() => this.cache.delete(cacheKey), this.cacheTTL);
       }
 
-      logger.info('Vector search completed', {
+      logger.info("Vector search completed", {
         duration,
         resultCount: results.length,
         threshold: effectiveThreshold,
-        type
+        type,
       });
 
       return results;
     } catch (error) {
-      logger.error('Vector search error', { error, options });
+      logger.error("Vector search error", { error, options });
       throw error;
     }
   }
@@ -161,11 +174,11 @@ export class VectorSearchService {
   async searchByIndustry(
     queryEmbedding: number[],
     industry: string,
-    options: Omit<SearchOptions, 'filters'> = {}
+    options: Omit<SearchOptions, "filters"> = {}
   ): Promise<SearchResult[]> {
     return this.searchByEmbedding(queryEmbedding, {
       ...options,
-      filters: { industry }
+      filters: { industry },
     });
   }
 
@@ -175,27 +188,24 @@ export class VectorSearchService {
   async searchByWorkflow(
     queryEmbedding: number[],
     workflowId: string,
-    options: Omit<SearchOptions, 'filters'> = {}
+    options: Omit<SearchOptions, "filters"> = {}
   ): Promise<SearchResult[]> {
     return this.searchByEmbedding(queryEmbedding, {
       ...options,
-      filters: { workflowId }
+      filters: { workflowId },
     });
   }
 
   /**
    * Find similar memories to an existing memory
    */
-  async findSimilar(
-    memoryId: string,
-    options: SearchOptions = {}
-  ): Promise<SearchResult[]> {
+  async findSimilar(memoryId: string, options: SearchOptions = {}): Promise<SearchResult[]> {
     try {
       // Get the source memory
       const { data: sourceMemory, error } = await supabase
-        .from('semantic_memory')
-        .select('embedding, type')
-        .eq('id', memoryId)
+        .from("semantic_memory")
+        .select("embedding, type")
+        .eq("id", memoryId)
         .single();
 
       if (error || !sourceMemory) {
@@ -205,10 +215,10 @@ export class VectorSearchService {
       // Search for similar memories
       return this.searchByEmbedding(sourceMemory.embedding, {
         type: sourceMemory.type,
-        ...options
+        ...options,
       });
     } catch (error) {
-      logger.error('Find similar memories failed', { error, memoryId });
+      logger.error("Find similar memories failed", { error, memoryId });
       throw error;
     }
   }
@@ -218,14 +228,14 @@ export class VectorSearchService {
    */
   async checkDuplicate(
     queryEmbedding: number[],
-    type: SemanticMemory['type'],
+    type: SemanticMemory["type"],
     duplicateThreshold: number = 0.95
   ): Promise<boolean> {
     const results = await this.searchByEmbedding(queryEmbedding, {
       type,
       threshold: duplicateThreshold,
       limit: 1,
-      useCache: false
+      useCache: false,
     });
 
     return results.length > 0;
@@ -242,13 +252,11 @@ export class VectorSearchService {
     try {
       // Total count
       const { count: total } = await supabase
-        .from('semantic_memory')
-        .select('id', { count: 'exact', head: true });
+        .from("semantic_memory")
+        .select("id", { count: "exact", head: true });
 
       // Count by type
-      const { data: typeData } = await supabase
-        .from('semantic_memory')
-        .select('type');
+      const { data: typeData } = await supabase.from("semantic_memory").select("type");
 
       const byType: Record<string, number> = {};
       typeData?.forEach((row: any) => {
@@ -257,17 +265,17 @@ export class VectorSearchService {
 
       // Recent count (last 7 days)
       const { count: recentCount } = await supabase
-        .from('semantic_memory')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+        .from("semantic_memory")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
       return {
         total: total || 0,
         byType,
-        recentCount: recentCount || 0
+        recentCount: recentCount || 0,
       };
     } catch (error) {
-      logger.error('Failed to get memory stats', { error });
+      logger.error("Failed to get memory stats", { error });
       throw error;
     }
   }
@@ -277,7 +285,7 @@ export class VectorSearchService {
    */
   async analyzeSimilarityDistribution(
     queryEmbedding: number[],
-    type?: SemanticMemory['type']
+    type?: SemanticMemory["type"]
   ): Promise<{
     count: number;
     average: number;
@@ -300,14 +308,14 @@ export class VectorSearchService {
         type,
         threshold: 0.0,
         limit: 100,
-        useCache: false
+        useCache: false,
       });
 
       if (results.length === 0) {
-        throw new Error('No memories found for analysis');
+        throw new Error("No memories found for analysis");
       }
 
-      const similarities = results.map(r => r.similarity);
+      const similarities = results.map((r) => r.similarity);
       const sorted = similarities.sort((a, b) => b - a);
 
       // Calculate statistics
@@ -315,36 +323,35 @@ export class VectorSearchService {
       const average = sum / similarities.length;
       const median = sorted[Math.floor(sorted.length / 2)];
 
-      const variance = similarities.reduce(
-        (sum, val) => sum + Math.pow(val - average, 2),
-        0
-      ) / similarities.length;
+      const variance =
+        similarities.reduce((sum, val) => sum + Math.pow(val - average, 2), 0) /
+        similarities.length;
       const stdDev = Math.sqrt(variance);
 
       // Distribution buckets
       const distribution = {
-        veryHigh: similarities.filter(s => s >= 0.90).length,
-        high: similarities.filter(s => s >= 0.80 && s < 0.90).length,
-        medium: similarities.filter(s => s >= 0.70 && s < 0.80).length,
-        low: similarities.filter(s => s >= 0.60 && s < 0.70).length,
-        veryLow: similarities.filter(s => s < 0.60).length
+        veryHigh: similarities.filter((s) => s >= 0.9).length,
+        high: similarities.filter((s) => s >= 0.8 && s < 0.9).length,
+        medium: similarities.filter((s) => s >= 0.7 && s < 0.8).length,
+        low: similarities.filter((s) => s >= 0.6 && s < 0.7).length,
+        veryLow: similarities.filter((s) => s < 0.6).length,
       };
 
       // Recommend threshold (average - 1 std dev, clamped to reasonable range)
-      const recommendedThreshold = Math.max(0.50, Math.min(0.85, average - stdDev));
+      const recommendedThreshold = Math.max(0.5, Math.min(0.85, average - stdDev));
 
       return {
         count: results.length,
-        average,
-        median,
-        stdDev,
-        min: sorted[sorted.length - 1],
-        max: sorted[0],
+        average: average!,
+        median: median!,
+        stdDev: stdDev!,
+        min: sorted[sorted.length - 1]!,
+        max: sorted[0]!,
         distribution,
-        recommendedThreshold
+        recommendedThreshold,
       };
     } catch (error) {
-      logger.error('Similarity distribution analysis failed', { error });
+      logger.error("Similarity distribution analysis failed", { error });
       throw error;
     }
   }
@@ -354,7 +361,7 @@ export class VectorSearchService {
    */
   clearCache(): void {
     this.cache.clear();
-    logger.debug('Vector search cache cleared');
+    logger.debug("Vector search cache cleared");
   }
 
   // ============================================================================
@@ -362,7 +369,7 @@ export class VectorSearchService {
   // ============================================================================
 
   private buildFilterClause(
-    type?: SemanticMemory['type'],
+    type?: SemanticMemory["type"],
     filters: Record<string, any> = {},
     requireLineage: boolean = true
   ): string {
@@ -374,7 +381,7 @@ export class VectorSearchService {
       "metadata->>'source_origin' <> ''",
       "metadata->>'data_sensitivity_level' <> ''",
       "LOWER(metadata->>'source_origin') <> 'unknown'",
-      "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'"
+      "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'",
     ];
 
     // Type filter
@@ -399,11 +406,11 @@ export class VectorSearchService {
     Object.entries(filters).forEach(([key, value]) => {
       if (value === null || value === undefined) return;
 
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         conditions.push(`metadata->>'${key}' = '${value}'`);
-      } else if (typeof value === 'number') {
+      } else if (typeof value === "number") {
         conditions.push(`(metadata->>'${key}')::float = ${value}`);
-      } else if (typeof value === 'boolean') {
+      } else if (typeof value === "boolean") {
         conditions.push(`(metadata->>'${key}')::boolean = ${value}`);
       } else if (Array.isArray(value)) {
         // Array contains check
@@ -411,7 +418,7 @@ export class VectorSearchService {
       }
     });
 
-    return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    return conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   }
 
   private getCacheKey(embedding: number[], options: SearchOptions): string {
@@ -421,7 +428,7 @@ export class VectorSearchService {
       type: options.type,
       threshold: options.threshold,
       limit: options.limit,
-      filters: options.filters
+      filters: options.filters,
     });
 
     return `${embeddingHash}:${optionsHash}`;
@@ -429,12 +436,13 @@ export class VectorSearchService {
 
   private hashEmbedding(embedding: number[]): string {
     // Simple hash for cache key (first/last/middle values)
+    if (embedding.length === 0) return "0:0:0";
     const samples = [
       embedding[0],
       embedding[Math.floor(embedding.length / 2)],
-      embedding[embedding.length - 1]
+      embedding[embedding.length - 1],
     ];
-    return samples.map(v => v.toFixed(4)).join(':');
+    return samples.map((v) => v!.toFixed(4)).join(":");
   }
 }
 

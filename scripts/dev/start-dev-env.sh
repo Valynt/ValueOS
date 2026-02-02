@@ -214,8 +214,8 @@ wait_for_db() {
     local elapsed=0
     while [[ $elapsed -lt $DB_TIMEOUT ]]; do
         if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-            # Use docker exec when Docker is available
-            if docker exec valueos-db pg_isready -U postgres -d postgres &> /dev/null; then
+            # Use docker compose exec when Docker is available
+            if $COMPOSE_CMD exec -T db pg_isready -U postgres -d postgres &> /dev/null; then
                 return 0
             fi
         else
@@ -244,7 +244,7 @@ if wait_for_db; then
 else
     log ERROR "Database did not become healthy within ${DB_TIMEOUT}s"
     if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-        docker logs valueos-db --tail=50 >> "$LOG_FILE" 2>&1
+        $COMPOSE_CMD logs db --tail=50 >> "$LOG_FILE" 2>&1
     fi
     exit 3
 fi
@@ -252,7 +252,7 @@ fi
 # Ensure shadow database exists
 log INFO "Ensuring shadow database exists..."
 if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-    docker exec valueos-db psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+    $COMPOSE_CMD exec -T db psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
 else
     # Use psql directly if available, otherwise skip
     if command -v psql &> /dev/null; then
@@ -308,8 +308,8 @@ wait_for_gateway() {
     local elapsed=0
     while [[ $elapsed -lt $GATEWAY_TIMEOUT ]]; do
         if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-            # Check Kong health via docker exec
-            if docker exec valueos-kong kong health &> /dev/null; then
+            # Check Kong health via docker compose exec
+            if $COMPOSE_CMD exec -T kong kong health &> /dev/null; then
                 # Also verify auth endpoint
                 if curl -fsS http://kong:8000/auth/v1/health &> /dev/null 2>&1 || \
                    curl -fsS http://localhost:54321/auth/v1/health &> /dev/null 2>&1; then

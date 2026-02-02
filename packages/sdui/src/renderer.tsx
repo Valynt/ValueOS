@@ -4,18 +4,20 @@ import {
   Grid,
   HorizontalSplit,
   VerticalSplit,
-} from "../components/SDUI/CanvasLayout";
-import { ErrorBoundary } from "../components/Common/ErrorBoundary";
-import { SectionErrorFallback, UnknownComponentFallback } from "../components/SDUI";
+} from "./components/SDUI/CanvasLayout/index";
+import { SDUIErrorBoundary } from "./components/SDUIErrorBoundary";
+import { SectionErrorFallback, UnknownComponentFallback } from "./components/SDUI";
 import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
-import { RegistryPlaceholderComponent, resolveComponent } from "./registry";
+import { RegistryPlaceholderComponent, resolveComponentWithVersion } from "./registry";
 import { DataBindingResolver } from "./DataBindingResolver";
 import { DataSourceContext } from "./DataBindingSchema";
 import { useDataBindings } from "./useDataBinding";
 import { sanitizeProps } from "./security/sanitization";
 import { incrementSecurityMetric } from "./security/metrics";
-import { logger } from "../lib/logger";
+import { createLogger } from "./lib/logger";
 import { useSchemaStore } from "./SchemaStore";
+
+const logger = createLogger({ component: "SDUIRenderer" });
 
 interface SDUIRendererProps {
   schema?: unknown; // Optional when using streaming
@@ -237,8 +239,9 @@ const renderSection = (
   }
 
   // Handle component types (original logic)
-  const entry = resolveComponent(section as SDUIComponentSection);
-  if (!entry) {
+  const componentSection = section as SDUIComponentSection;
+  const entry = resolveComponentWithVersion(componentSection.component, componentSection.version);
+  if (!entry.component) {
     // Log missing component for monitoring
     incrementSecurityMetric("component_not_found", {
       component: section.component,
@@ -263,7 +266,7 @@ const renderSection = (
 
   return (
     <div key={`${section.component}-${index}`} className="space-y-2">
-      <ErrorBoundary fallback={<SectionErrorFallback componentName={section.component} />}>
+      <SDUIErrorBoundary fallback={<SectionErrorFallback componentName={section.component} />}>
         <ComponentWithBindings
           section={section}
           Component={Component}
@@ -271,7 +274,7 @@ const renderSection = (
           context={context}
           debugOverlay={debugOverlay}
         />
-      </ErrorBoundary>
+      </SDUIErrorBoundary>
     </div>
   );
 };
@@ -297,6 +300,7 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
         schemaStore.stopStreaming();
       };
     }
+    return;
   }, [enableStreaming, schemaId, wsUrl, schemaStore]);
 
   // Determine which schema to use

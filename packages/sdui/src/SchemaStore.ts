@@ -8,7 +8,7 @@ import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { SDUIPageDefinition } from "./schema";
 import { SchemaPatcher } from "./SchemaPatcher";
-import { createLogger } from "../lib/logger";
+import { createLogger } from "./lib/logger";
 
 const logger = createLogger({ component: "SchemaStore" });
 
