@@ -14,6 +14,7 @@ import { getServiceConfigManager, getAgentAPIConfig } from "../config/ServiceCon
 import { z } from "zod";
 import { agentCache } from "../services/CacheService.js"
 import { getMetricsCollector } from "../services/MetricsCollector.js"
+import { sanitizeAgentInput } from "../utils/security.js"
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -84,6 +85,23 @@ router.post(
     }
 
     const { query, context, parameters, sessionId } = validationResult.data;
+    const { sanitized, safe, severity, violations } = sanitizeAgentInput(query);
+    const sanitizedQuery = typeof sanitized === "string" ? sanitized : String(sanitized);
+
+    if (!safe) {
+      logger.warn("Blocked unsafe agent prompt", {
+        agentId,
+        severity,
+        violations,
+        userId: (req as any).user?.id,
+        tenantId: (req as any).tenantId,
+      });
+
+      return res.status(400).json({
+        error: "Invalid request",
+        message: "Agent prompt rejected due to unsafe content",
+      });
+    }
 
     // Add tenant context validation
     const tenantId = (req as any).tenantId;
@@ -97,7 +115,7 @@ router.post(
     // Check Cache
     try {
       const startTime = Date.now();
-      const cachedResponse = await agentCache.get(query, { ...context, agentId, tenantId });
+      const cachedResponse = await agentCache.get(sanitizedQuery, { ...context, agentId, tenantId });
       if (cachedResponse) {
         // Record Cache Hit Metric
         try {
@@ -134,7 +152,7 @@ router.post(
           userId,
           sessionId,
           tenantId,
-          query,
+          query: sanitizedQuery,
           context,
           parameters,
           priority: "normal",

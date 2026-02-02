@@ -6,6 +6,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
+import { validatePassword } from '../utils/security.js';
 
 const logger = createLogger({ component: 'InputValidation' });
 
@@ -378,12 +379,28 @@ export const ValidationSchemas = {
 
   signup: {
     email: { type: 'email' as const, required: true },
-    password: { type: 'string' as const, required: true, minLength: 8 },
+    password: {
+      type: 'string' as const,
+      required: true,
+      minLength: 12,
+      customValidator: (value: string) => {
+        const result = validatePassword(value);
+        return result.valid || result.errors.join('. ');
+      },
+    },
     fullName: { type: 'string' as const, required: true, minLength: 2, maxLength: 100 }
   },
 
   updatePassword: {
-    newPassword: { type: 'string' as const, required: true, minLength: 8 }
+    newPassword: {
+      type: 'string' as const,
+      required: true,
+      minLength: 12,
+      customValidator: (value: string) => {
+        const result = validatePassword(value);
+        return result.valid || result.errors.join('. ');
+      },
+    }
   },
 
   adminInviteUser: {
