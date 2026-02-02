@@ -120,22 +120,18 @@ if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
 fi
 
 ###############################################################################
-# Step 4: Apply Migrations (required - fail if migrations fail)
+# Step 4: Apply Migrations (via Supabase CLI)
 ###############################################################################
-echo "🔄 Applying database migrations..."
+echo "🔄 Applying database migrations (Supabase)..."
 
-# Ensure database environment variables are set for migration scripts
-export PGHOST="${DB_HOST:-db}"
-export DB_HOST="${DB_HOST:-db}"
-export DB_PASSWORD="${DB_PASSWORD:-postgres}"
-export DB_NAME="${DB_NAME:-postgres}"
+# Ensure Supabase CLI uses the correct DB URL and SSL mode
+export PGSSLMODE=disable
+echo "   Using DB_URL: $DB_URL"
 
-echo "   Using DB_HOST: $DB_HOST"
-echo "   Using DB_NAME: $DB_NAME"
-
-if ! bash "${SCRIPT_DIR}/migrate.sh"; then
+# We use --workdir infra/supabase to point to the correct configuration
+if ! supabase db push --yes --workdir infra/supabase --db-url "$DB_URL"; then
     echo "❌ Migration failed. Development environment is NOT ready."
-    echo "   Run 'bash scripts/dev/migrate.sh --debug' for details."
+    echo "   Check Supabase CLI output above."
     exit 1
 fi
 echo "✅ Migrations applied successfully."
