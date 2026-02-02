@@ -1,13 +1,13 @@
 /**
  * Component Targeting System
- * 
+ *
  * Intelligent component identification and selection for atomic mutations.
  * Supports fuzzy matching, natural language descriptions, and semantic search.
  */
 
-import { SDUIComponentSection, SDUIPageDefinition } from './schema';
-import { ComponentSelector } from './AtomicUIActions';
-import { logger } from '@shared/lib/logger';
+import { SDUIComponentSection, SDUIPageDefinition } from "./schema";
+import { ComponentSelector } from "./AtomicUIActions";
+import { logger } from "@shared/lib/logger";
 
 /**
  * Component match result
@@ -41,10 +41,7 @@ export class ComponentTargeting {
   /**
    * Find components matching selector
    */
-  findComponents(
-    layout: SDUIPageDefinition,
-    selector: ComponentSelector
-  ): ComponentMatch[] {
+  findComponents(layout: SDUIPageDefinition, selector: ComponentSelector): ComponentMatch[] {
     const matches: ComponentMatch[] = [];
 
     for (let i = 0; i < layout.sections.length; i++) {
@@ -65,10 +62,7 @@ export class ComponentTargeting {
   /**
    * Find single best matching component
    */
-  findBestMatch(
-    layout: SDUIPageDefinition,
-    selector: ComponentSelector
-  ): ComponentMatch | null {
+  findBestMatch(layout: SDUIPageDefinition, selector: ComponentSelector): ComponentMatch | null {
     const matches = this.findComponents(layout, selector);
     return matches.length > 0 ? matches[0] : null;
   }
@@ -92,7 +86,7 @@ export class ComponentTargeting {
           section,
           index,
           confidence: 1.0,
-          reason: 'Exact ID match',
+          reason: "Exact ID match",
         };
       }
       // ID specified but doesn't match - no match
@@ -103,7 +97,7 @@ export class ComponentTargeting {
     if (selector.index !== undefined) {
       if (index === selector.index) {
         confidence += 0.9;
-        reasons.push('Index match');
+        reasons.push("Index match");
       } else {
         // Index specified but doesn't match - no match
         return null;
@@ -114,7 +108,7 @@ export class ComponentTargeting {
     if (selector.type) {
       if (section.component === selector.type) {
         confidence += 0.8;
-        reasons.push('Type match');
+        reasons.push("Type match");
       } else {
         // Type specified but doesn't match - no match
         return null;
@@ -159,7 +153,7 @@ export class ComponentTargeting {
         section,
         index,
         confidence: Math.min(confidence, 1.0),
-        reason: reasons.join(', '),
+        reason: reasons.join(", "),
       };
     }
 
@@ -204,12 +198,12 @@ export class ComponentTargeting {
     if (a === b) return true;
 
     // String comparison (case-insensitive)
-    if (typeof a === 'string' && typeof b === 'string') {
+    if (typeof a === "string" && typeof b === "string") {
       return a.toLowerCase() === b.toLowerCase();
     }
 
     // Deep equality for objects/arrays
-    if (typeof a === 'object' && typeof b === 'object') {
+    if (typeof a === "object" && typeof b === "object") {
       return JSON.stringify(a) === JSON.stringify(b);
     }
 
@@ -266,15 +260,15 @@ export class ComponentTargeting {
    */
   private getComponentAliases(componentType: string): string[] {
     const aliasMap: Record<string, string[]> = {
-      StatCard: ['metric', 'stat', 'kpi', 'card', 'number'],
-      InteractiveChart: ['chart', 'graph', 'visualization', 'plot'],
-      DataTable: ['table', 'grid', 'list'],
-      PageHeader: ['header', 'title', 'heading'],
-      Card: ['card', 'panel', 'box'],
-      Grid: ['grid', 'layout'],
-      Stack: ['stack', 'column'],
-      Tabs: ['tabs', 'tabbed'],
-      Alert: ['alert', 'message', 'notification'],
+      StatCard: ["metric", "stat", "kpi", "card", "number"],
+      InteractiveChart: ["chart", "graph", "visualization", "plot"],
+      DataTable: ["table", "grid", "list"],
+      PageHeader: ["header", "title", "heading"],
+      Card: ["card", "panel", "box"],
+      Grid: ["grid", "layout"],
+      Stack: ["stack", "column"],
+      Tabs: ["tabs", "tabbed"],
+      Alert: ["alert", "message", "notification"],
     };
 
     return aliasMap[componentType] || [];
@@ -297,11 +291,11 @@ export class ComponentTargeting {
     // Extract component type
     let type: string | undefined;
     const typePatterns = [
-      { pattern: /chart|graph/, type: 'InteractiveChart' },
-      { pattern: /metric|stat|kpi/, type: 'StatCard' },
-      { pattern: /table|grid/, type: 'DataTable' },
-      { pattern: /card/, type: 'Card' },
-      { pattern: /header|title/, type: 'PageHeader' },
+      { pattern: /chart|graph/, type: "InteractiveChart" },
+      { pattern: /metric|stat|kpi/, type: "StatCard" },
+      { pattern: /table|grid/, type: "DataTable" },
+      { pattern: /card/, type: "Card" },
+      { pattern: /header|title/, type: "PageHeader" },
     ];
 
     for (const { pattern, type: componentType } of typePatterns) {
@@ -313,13 +307,7 @@ export class ComponentTargeting {
 
     // Extract index
     let index: number | undefined;
-    const indexPatterns = [
-      /first/i,
-      /second/i,
-      /third/i,
-      /fourth/i,
-      /fifth/i,
-    ];
+    const indexPatterns = [/first/i, /second/i, /third/i, /fourth/i, /fifth/i];
 
     for (let i = 0; i < indexPatterns.length; i++) {
       if (indexPatterns[i].test(descLower)) {
@@ -351,20 +339,14 @@ export class ComponentTargeting {
   /**
    * Get all components of a specific type
    */
-  getComponentsByType(
-    layout: SDUIPageDefinition,
-    type: string
-  ): ComponentMatch[] {
+  getComponentsByType(layout: SDUIPageDefinition, type: string): ComponentMatch[] {
     return this.findComponents(layout, { type });
   }
 
   /**
    * Get component at specific index
    */
-  getComponentAtIndex(
-    layout: SDUIPageDefinition,
-    index: number
-  ): ComponentMatch | null {
+  getComponentAtIndex(layout: SDUIPageDefinition, index: number): ComponentMatch | null {
     if (index < 0 || index >= layout.sections.length) {
       return null;
     }
@@ -374,18 +356,14 @@ export class ComponentTargeting {
       section,
       index,
       confidence: 1.0,
-      reason: 'Direct index access',
+      reason: "Direct index access",
     };
   }
 
   /**
    * Find components with specific prop value
    */
-  findComponentsByProp(
-    layout: SDUIPageDefinition,
-    propPath: string,
-    value: any
-  ): ComponentMatch[] {
+  findComponentsByProp(layout: SDUIPageDefinition, propPath: string, value: any): ComponentMatch[] {
     const matches: ComponentMatch[] = [];
 
     for (let i = 0; i < layout.sections.length; i++) {
@@ -409,7 +387,7 @@ export class ComponentTargeting {
    * Get nested property value
    */
   private getNestedProp(obj: any, path: string): any {
-    const parts = path.split('.');
+    const parts = path.split(".");
     let current = obj;
 
     for (const part of parts) {

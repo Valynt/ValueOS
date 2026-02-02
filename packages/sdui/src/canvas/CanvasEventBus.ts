@@ -1,18 +1,18 @@
 /**
  * Canvas → Agent Event System
- * 
+ *
  * Allows canvas components to send events back to the agent
  * for bidirectional interaction
- * 
+ *
  * @example
  * ```typescript
  * const eventBus = new CanvasEventBus();
- * 
+ *
  * // Subscribe to events (in chat component)
  * eventBus.subscribe((event) => {
  *   sendToAgent({ type: 'canvas_event', payload: event });
  * });
- * 
+ *
  * // Emit event (in canvas component)
  * eventBus.emit({
  *   type: 'drill_down',
@@ -22,8 +22,8 @@
  * ```
  */
 
-import { CanvasEvent, CanvasEventPayload } from './types';
-import { logger } from '@shared/lib/logger';
+import { CanvasEvent, CanvasEventPayload } from "./types";
+import { logger } from "@shared/lib/logger";
 
 export type CanvasEventListener = (event: CanvasEventPayload) => void;
 
@@ -31,7 +31,7 @@ export class CanvasEventBus {
   private listeners: Array<{
     id: string;
     callback: CanvasEventListener;
-    eventTypes?: CanvasEvent['type'][];
+    eventTypes?: CanvasEvent["type"][];
   }> = [];
 
   private eventCounter = 0;
@@ -57,14 +57,14 @@ export class CanvasEventBus {
       tenantId: options?.tenantId,
     };
 
-    logger.debug('Canvas event emitted', {
+    logger.debug("Canvas event emitted", {
       eventType: event.type,
       canvasId,
       sessionId: options?.sessionId,
     });
 
     // Notify matching listeners
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       // Filter by event type if specified
       if (listener.eventTypes && !listener.eventTypes.includes(event.type)) {
         return;
@@ -73,7 +73,7 @@ export class CanvasEventBus {
       try {
         listener.callback(payload);
       } catch (error) {
-        logger.error('Canvas event listener error', error as Error, {
+        logger.error("Canvas event listener error", error as Error, {
           listenerId: listener.id,
           eventType: event.type,
         });
@@ -83,15 +83,12 @@ export class CanvasEventBus {
 
   /**
    * Subscribe to canvas events
-   * 
+   *
    * @param callback - Function to call when event is emitted
    * @param eventTypes - Optional filter for specific event types
    * @returns Unsubscribe function
    */
-  subscribe(
-    callback: CanvasEventListener,
-    eventTypes?: CanvasEvent['type'][]
-  ): () => void {
+  subscribe(callback: CanvasEventListener, eventTypes?: CanvasEvent["type"][]): () => void {
     const listenerId = `listener_${++this.eventCounter}`;
 
     this.listeners.push({
@@ -100,17 +97,17 @@ export class CanvasEventBus {
       eventTypes,
     });
 
-    logger.debug('Canvas event listener registered', {
+    logger.debug("Canvas event listener registered", {
       listenerId,
-      eventTypes: eventTypes || 'all',
+      eventTypes: eventTypes || "all",
     });
 
     // Return unsubscribe function
     return () => {
-      const index = this.listeners.findIndex(l => l.id === listenerId);
+      const index = this.listeners.findIndex((l) => l.id === listenerId);
       if (index > -1) {
         this.listeners.splice(index, 1);
-        logger.debug('Canvas event listener unregistered', { listenerId });
+        logger.debug("Canvas event listener unregistered", { listenerId });
       }
     };
   }
@@ -127,7 +124,7 @@ export class CanvasEventBus {
    */
   clearAllListeners(): void {
     this.listeners = [];
-    logger.info('All canvas event listeners cleared');
+    logger.info("All canvas event listeners cleared");
   }
 
   /**
@@ -142,7 +139,7 @@ export class CanvasEventBus {
       tenantId?: string;
     }
   ): void {
-    events.forEach(event => this.emit(event, canvasId, options));
+    events.forEach((event) => this.emit(event, canvasId, options));
   }
 }
 

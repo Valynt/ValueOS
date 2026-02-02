@@ -1,11 +1,11 @@
 /**
  * Data Binding Resolver
- * 
+ *
  * Resolves dynamic data bindings from various sources (agents, MCP tools, Supabase).
  * Supports caching, transforms, live refresh, and tenant-aware permissions.
  */
 
-import { logger } from '@shared/lib/logger';
+import { logger } from "@shared/lib/logger";
 import {
   DataBinding,
   DataSourceContext,
@@ -14,21 +14,18 @@ import {
   ResolvedBinding,
   TransformFunction,
   validateDataBinding,
-} from './DataBindingSchema';
-import { hasPermission, TenantContext } from './TenantContext';
-import { ToolRegistry } from '../services/ToolRegistry';
-import { SemanticMemoryService } from '../services/SemanticMemory';
-import { createClient } from '@supabase/supabase-js';
-import PQueue from 'p-queue';
-import { incrementSecurityMetric } from './security/metrics';
+} from "./DataBindingSchema";
+import { hasPermission, TenantContext } from "./TenantContext";
+import { ToolRegistry } from "../services/ToolRegistry";
+import { SemanticMemoryService } from "../services/SemanticMemory";
+import { createClient } from "@supabase/supabase-js";
+import PQueue from "p-queue";
+import { incrementSecurityMetric } from "./security/metrics";
 
 /**
  * Data source resolver function
  */
-type DataSourceResolver = (
-  binding: DataBinding,
-  context: DataSourceContext
-) => Promise<any>;
+type DataSourceResolver = (binding: DataBinding, context: DataSourceContext) => Promise<any>;
 
 /**
  * Cache entry
@@ -56,23 +53,23 @@ export class DataBindingResolver {
   private toolRegistry?: ToolRegistry;
   private semanticMemory?: SemanticMemoryService;
   private supabaseClient?: ReturnType<typeof createClient>;
-  
+
   // SECURITY: Request queue and rate limiting
   private requestQueue: PQueue;
   private rateLimiter: Map<string, RateLimitEntry> = new Map();
   private cacheCleanupInterval?: NodeJS.Timeout;
   private rateLimitCleanupInterval?: NodeJS.Timeout;
-  
+
   // Rate limit configuration
   private readonly MAX_CONCURRENT_REQUESTS = 5;
   private readonly REQUEST_TIMEOUT_MS = 10000; // 10 seconds
   private readonly RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
   private readonly RATE_LIMIT_MAX_REQUESTS = 100; // 100 requests per minute per org
-  
+
   // Cache configuration with LRU eviction
   private readonly MAX_CACHE_SIZE = 1000; // Maximum cache entries
   private cacheAccessOrder: string[] = []; // Track access order for LRU
-  
+
   // Performance metrics
   private performanceMetrics = {
     cacheHits: 0,
@@ -95,7 +92,10 @@ export class DataBindingResolver {
       this.supabaseClient = createClient(options.supabaseUrl, options.supabaseKey);
     } else if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
       // Fallback to environment-configured Supabase client for test harnesses
-      this.supabaseClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+      this.supabaseClient = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_KEY
+      );
     }
 
     // Initialize request queue with concurrency limits
@@ -108,75 +108,78 @@ export class DataBindingResolver {
     this.initializeResolvers();
     this.startCleanupIntervals();
   }
-  
+
   /**
    * Start periodic cleanup of expired cache and rate limit entries
    */
   private startCleanupIntervals(): void {
     // Cleanup cache every 5 minutes
-    this.cacheCleanupInterval = setInterval(() => {
-      this.cleanupExpiredCache();
-    }, 5 * 60 * 1000);
-    
+    this.cacheCleanupInterval = setInterval(
+      () => {
+        this.cleanupExpiredCache();
+      },
+      5 * 60 * 1000
+    );
+
     // Cleanup rate limits every minute
     this.rateLimitCleanupInterval = setInterval(() => {
       this.cleanupExpiredRateLimits();
     }, 60 * 1000);
   }
-  
+
   /**
    * Cleanup expired cache entries
    */
   private cleanupExpiredCache(): void {
     const now = Date.now();
     let removedCount = 0;
-    
+
     for (const [key, entry] of this.cache.entries()) {
       if (now > entry.timestamp + entry.ttl) {
         this.cache.delete(key);
         removedCount++;
       }
     }
-    
+
     if (removedCount > 0) {
-      logger.info('DataBindingResolver cache cleanup', {
+      logger.info("DataBindingResolver cache cleanup", {
         removedCount,
         remainingEntries: this.cache.size,
       });
     }
   }
-  
+
   /**
    * Cleanup expired rate limit entries
    */
   private cleanupExpiredRateLimits(): void {
     const now = Date.now();
     let removedCount = 0;
-    
+
     for (const [key, entry] of this.rateLimiter.entries()) {
       if (now > entry.resetTime) {
         this.rateLimiter.delete(key);
         removedCount++;
       }
     }
-    
+
     if (removedCount > 0) {
-      logger.debug('DataBindingResolver rate limit cleanup', {
+      logger.debug("DataBindingResolver rate limit cleanup", {
         removedCount,
         activeOrgs: this.rateLimiter.size,
       });
     }
   }
-  
+
   /**
    * Check and update rate limit for an organization
    */
   private checkRateLimit(organizationId: string, source: string): void {
     const rateLimitKey = `${organizationId}:${source}`;
     const now = Date.now();
-    
+
     let entry = this.rateLimiter.get(rateLimitKey);
-    
+
     if (!entry || now > entry.resetTime) {
       // Create new rate limit window
       entry = {
@@ -185,27 +188,27 @@ export class DataBindingResolver {
       };
       this.rateLimiter.set(rateLimitKey, entry);
     }
-    
+
     // Increment count
     entry.count++;
-    
+
     // Check if limit exceeded
     if (entry.count > this.RATE_LIMIT_MAX_REQUESTS) {
-      incrementSecurityMetric('rate_limit_hit', {
+      incrementSecurityMetric("rate_limit_hit", {
         organizationId,
         source,
         count: entry.count,
         limit: this.RATE_LIMIT_MAX_REQUESTS,
       });
-      
+
       throw new Error(
         `Rate limit exceeded for data source: ${source}. ` +
-        `Maximum ${this.RATE_LIMIT_MAX_REQUESTS} requests per minute. ` +
-        `Try again in ${Math.ceil((entry.resetTime - now) / 1000)} seconds.`
+          `Maximum ${this.RATE_LIMIT_MAX_REQUESTS} requests per minute. ` +
+          `Try again in ${Math.ceil((entry.resetTime - now) / 1000)} seconds.`
       );
     }
   }
-  
+
   /**
    * Destroy the resolver and cleanup resources
    */
@@ -218,8 +221,8 @@ export class DataBindingResolver {
     }
     this.cache.clear();
     this.rateLimiter.clear();
-    
-    logger.info('DataBindingResolver destroyed and resources cleaned up');
+
+    logger.info("DataBindingResolver destroyed and resources cleaned up");
   }
 
   /**
@@ -227,21 +230,17 @@ export class DataBindingResolver {
    */
   private initializeResolvers(): void {
     // Realization Engine resolver
-    this.resolvers.set('realization_engine', async (binding, context) => {
-      return this.resolveFromSupabase(
-        'feedback_loops',
-        binding.$bind,
-        {
-          organization_id: context.organizationId,
-          realization_stage: 'active',
-          ...binding.$params,
-        }
-      );
+    this.resolvers.set("realization_engine", async (binding, context) => {
+      return this.resolveFromSupabase("feedback_loops", binding.$bind, {
+        organization_id: context.organizationId,
+        realization_stage: "active",
+        ...binding.$params,
+      });
     });
 
     // System Mapper resolver
-    this.resolvers.set('system_mapper', async (binding, context) => {
-      const table = binding.$bind.startsWith('entities') ? 'entities' : 'relationships';
+    this.resolvers.set("system_mapper", async (binding, context) => {
+      const table = binding.$bind.startsWith("entities") ? "entities" : "relationships";
       return this.resolveFromSupabase(table, binding.$bind, {
         organization_id: context.organizationId,
         ...binding.$params,
@@ -249,33 +248,33 @@ export class DataBindingResolver {
     });
 
     // Intervention Designer resolver
-    this.resolvers.set('intervention_designer', async (binding, context) => {
-      return this.resolveFromSupabase('intervention_points', binding.$bind, {
+    this.resolvers.set("intervention_designer", async (binding, context) => {
+      return this.resolveFromSupabase("intervention_points", binding.$bind, {
         organization_id: context.organizationId,
         ...binding.$params,
       });
     });
 
     // Outcome Engineer resolver
-    this.resolvers.set('outcome_engineer', async (binding, context) => {
-      return this.resolveFromSupabase('outcome_hypotheses', binding.$bind, {
+    this.resolvers.set("outcome_engineer", async (binding, context) => {
+      return this.resolveFromSupabase("outcome_hypotheses", binding.$bind, {
         organization_id: context.organizationId,
         ...binding.$params,
       });
     });
 
     // Value Eval resolver
-    this.resolvers.set('value_eval', async (binding, context) => {
-      return this.resolveFromSupabase('value_evaluations', binding.$bind, {
+    this.resolvers.set("value_eval", async (binding, context) => {
+      return this.resolveFromSupabase("value_evaluations", binding.$bind, {
         organization_id: context.organizationId,
         ...binding.$params,
       });
     });
 
     // Semantic Memory resolver
-    this.resolvers.set('semantic_memory', async (binding, context) => {
+    this.resolvers.set("semantic_memory", async (binding, context) => {
       if (!this.semanticMemory) {
-        throw new Error('SemanticMemoryService not configured');
+        throw new Error("SemanticMemoryService not configured");
       }
 
       const params = binding.$params || {};
@@ -291,43 +290,39 @@ export class DataBindingResolver {
     });
 
     // Tool Registry resolver
-    this.resolvers.set('tool_registry', async (binding, context) => {
+    this.resolvers.set("tool_registry", async (binding, context) => {
       if (!this.toolRegistry) {
-        throw new Error('ToolRegistry not configured');
+        throw new Error("ToolRegistry not configured");
       }
 
       const params = binding.$params || {};
       const toolName = params.tool;
 
       if (!toolName) {
-        throw new Error('Tool name required in $params.tool');
+        throw new Error("Tool name required in $params.tool");
       }
 
-      const result = await this.toolRegistry.executeTool(
-        toolName,
-        params.parameters || {},
-        {
-          userId: context.userId || 'system',
-          organizationId: context.organizationId,
-          sessionId: context.sessionId,
-        }
-      );
+      const result = await this.toolRegistry.executeTool(toolName, params.parameters || {}, {
+        userId: context.userId || "system",
+        organizationId: context.organizationId,
+        sessionId: context.sessionId,
+      });
 
       return this.extractValueFromPath(result, binding.$bind);
     });
 
     // MCP Tool resolver (alias for tool_registry)
-    this.resolvers.set('mcp_tool', async (binding, context) => {
-      return this.resolvers.get('tool_registry')!(binding, context);
+    this.resolvers.set("mcp_tool", async (binding, context) => {
+      return this.resolvers.get("tool_registry")!(binding, context);
     });
 
     // Supabase resolver
-    this.resolvers.set('supabase', async (binding, context) => {
+    this.resolvers.set("supabase", async (binding, context) => {
       const params = binding.$params || {};
       const table = params.table;
 
       if (!table) {
-        throw new Error('Table name required in $params.table');
+        throw new Error("Table name required in $params.table");
       }
 
       return this.resolveFromSupabase(table, binding.$bind, {
@@ -340,24 +335,21 @@ export class DataBindingResolver {
   /**
    * Resolve a data binding
    */
-  async resolve(
-    binding: DataBinding,
-    context: DataSourceContext
-  ): Promise<ResolvedBinding> {
+  async resolve(binding: DataBinding, context: DataSourceContext): Promise<ResolvedBinding> {
     const startTime = Date.now();
 
     try {
       // Validate binding
       const validation = validateDataBinding(binding);
       if (!validation.valid) {
-        incrementSecurityMetric('binding_error', {
+        incrementSecurityMetric("binding_error", {
           errors: validation.errors,
           source: binding.$source,
         });
         return {
           value: binding.$fallback,
           success: false,
-          error: validation.errors.join(', '),
+          error: validation.errors.join(", "),
           timestamp: new Date().toISOString(),
           source: binding.$source,
           cached: false,
@@ -371,7 +363,7 @@ export class DataBindingResolver {
       const cacheKey = this.getCacheKey(binding, context);
       const cached = this.getFromCache(cacheKey);
       if (cached !== null) {
-        logger.debug('Resolved binding from cache', {
+        logger.debug("Resolved binding from cache", {
           source: binding.$source,
           path: binding.$bind,
           cacheKey,
@@ -410,16 +402,19 @@ export class DataBindingResolver {
       }
 
       const duration = Date.now() - startTime;
-      
+
       // Track performance metrics
       this.performanceMetrics.totalResolveTime += duration;
       this.performanceMetrics.resolveCount++;
-      
-      logger.debug('Resolved binding', {
+
+      logger.debug("Resolved binding", {
         source: binding.$source,
         path: binding.$bind,
         duration,
-        avgResolveTime: (this.performanceMetrics.totalResolveTime / this.performanceMetrics.resolveCount).toFixed(2) + 'ms',
+        avgResolveTime:
+          (this.performanceMetrics.totalResolveTime / this.performanceMetrics.resolveCount).toFixed(
+            2
+          ) + "ms",
       });
 
       return {
@@ -434,7 +429,7 @@ export class DataBindingResolver {
       const duration = Date.now() - startTime;
       this.performanceMetrics.totalResolveTime += duration;
       this.performanceMetrics.resolveCount++;
-      logger.error('Failed to resolve binding', {
+      logger.error("Failed to resolve binding", {
         source: binding.$source,
         path: binding.$bind,
         error: error instanceof Error ? error.message : String(error),
@@ -464,10 +459,7 @@ export class DataBindingResolver {
   /**
    * Resolve all bindings in an object recursively
    */
-  async resolveObject(
-    obj: any,
-    context: DataSourceContext
-  ): Promise<any> {
+  async resolveObject(obj: any, context: DataSourceContext): Promise<any> {
     if (isDataBinding(obj)) {
       const resolved = await this.resolve(obj, context);
       return resolved.value;
@@ -477,7 +469,7 @@ export class DataBindingResolver {
       return Promise.all(obj.map((item) => this.resolveObject(item, context)));
     }
 
-    if (typeof obj === 'object' && obj !== null) {
+    if (typeof obj === "object" && obj !== null) {
       const resolved: any = {};
       for (const [key, value] of Object.entries(obj)) {
         resolved[key] = await this.resolveObject(value, context);
@@ -504,7 +496,7 @@ export class DataBindingResolver {
     }
 
     // Build query
-    let query = this.supabaseClient.from(table).select('*');
+    let query = this.supabaseClient.from(table).select("*");
 
     // Apply filters
     for (const [key, value] of Object.entries(filter)) {
@@ -532,11 +524,11 @@ export class DataBindingResolver {
    * - Array methods: "loops.length", "values.sum"
    */
   private extractValueFromPath(data: any, path: string): any {
-    if (!path || path === '.') {
+    if (!path || path === ".") {
       return data;
     }
 
-    const parts = path.split('.');
+    const parts = path.split(".");
     let current = data;
 
     for (const part of parts) {
@@ -563,20 +555,20 @@ export class DataBindingResolver {
       }
 
       // Array methods
-      if (part === 'length' && Array.isArray(current)) {
+      if (part === "length" && Array.isArray(current)) {
         return current.length;
       }
-      if (part === 'sum' && Array.isArray(current)) {
+      if (part === "sum" && Array.isArray(current)) {
         return current.reduce((sum, val) => sum + (Number(val) || 0), 0);
       }
-      if (part === 'average' && Array.isArray(current)) {
+      if (part === "average" && Array.isArray(current)) {
         const sum = current.reduce((s, val) => s + (Number(val) || 0), 0);
         return current.length > 0 ? sum / current.length : 0;
       }
-      if (part === 'max' && Array.isArray(current)) {
+      if (part === "max" && Array.isArray(current)) {
         return Math.max(...current.map((v) => Number(v) || 0));
       }
-      if (part === 'min' && Array.isArray(current)) {
+      if (part === "min" && Array.isArray(current)) {
         return Math.min(...current.map((v) => Number(v) || 0));
       }
 
@@ -592,42 +584,36 @@ export class DataBindingResolver {
    */
   private applyTransform(value: any, transform: TransformFunction): any {
     switch (transform) {
-      case 'currency':
+      case "currency":
         return this.formatCurrency(value);
-      case 'percentage':
+      case "percentage":
         return this.formatPercentage(value);
-      case 'number':
+      case "number":
         return this.formatNumber(value);
-      case 'date':
+      case "date":
         return this.formatDate(value);
-      case 'relative_time':
+      case "relative_time":
         return this.formatRelativeTime(value);
-      case 'round':
+      case "round":
         return Math.round((Number(value) || 0) * 100) / 100;
-      case 'uppercase':
+      case "uppercase":
         return String(value).toUpperCase();
-      case 'lowercase':
+      case "lowercase":
         return String(value).toLowerCase();
-      case 'truncate':
+      case "truncate":
         return this.truncate(String(value), 50);
-      case 'array_length':
+      case "array_length":
         return Array.isArray(value) ? value.length : 0;
-      case 'sum':
-        return Array.isArray(value)
-          ? value.reduce((sum, val) => sum + (Number(val) || 0), 0)
-          : 0;
-      case 'average':
+      case "sum":
+        return Array.isArray(value) ? value.reduce((sum, val) => sum + (Number(val) || 0), 0) : 0;
+      case "average":
         if (!Array.isArray(value) || value.length === 0) return 0;
         const sum = value.reduce((s, val) => s + (Number(val) || 0), 0);
         return sum / value.length;
-      case 'max':
-        return Array.isArray(value)
-          ? Math.max(...value.map((v) => Number(v) || 0))
-          : value;
-      case 'min':
-        return Array.isArray(value)
-          ? Math.min(...value.map((v) => Number(v) || 0))
-          : value;
+      case "max":
+        return Array.isArray(value) ? Math.max(...value.map((v) => Number(v) || 0)) : value;
+      case "min":
+        return Array.isArray(value) ? Math.min(...value.map((v) => Number(v) || 0)) : value;
       default:
         return value;
     }
@@ -674,10 +660,10 @@ export class DataBindingResolver {
   private formatDate(value: any): string {
     try {
       const date = new Date(value);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch {
       return String(value);
@@ -696,10 +682,10 @@ export class DataBindingResolver {
       const diffHours = Math.floor(diffMs / 3600000);
       const diffDays = Math.floor(diffMs / 86400000);
 
-      if (diffMins < 1) return 'just now';
-      if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-      if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      if (diffMins < 1) return "just now";
+      if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+      if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
       return this.formatDate(value);
     } catch {
       return String(value);
@@ -711,7 +697,7 @@ export class DataBindingResolver {
    */
   private truncate(str: string, maxLength: number): string {
     if (str.length <= maxLength) return str;
-    return str.substring(0, maxLength - 3) + '...';
+    return str.substring(0, maxLength - 3) + "...";
   }
 
   /**
@@ -756,13 +742,13 @@ export class DataBindingResolver {
     if (this.cache.size >= this.MAX_CACHE_SIZE && !this.cache.has(key)) {
       this.evictLRU();
     }
-    
+
     this.cache.set(key, {
       value,
       timestamp: Date.now(),
       ttl,
     });
-    
+
     // Update access order
     this.updateAccessOrder(key);
   }
@@ -779,7 +765,7 @@ export class DataBindingResolver {
     // Add to end (most recently used)
     this.cacheAccessOrder.push(key);
   }
-  
+
   /**
    * Remove key from access order tracking
    */
@@ -789,47 +775,51 @@ export class DataBindingResolver {
       this.cacheAccessOrder.splice(index, 1);
     }
   }
-  
+
   /**
    * Evict least recently used cache entry
    */
   private evictLRU(): void {
     if (this.cacheAccessOrder.length === 0) return;
-    
+
     // First entry is least recently used
     const lruKey = this.cacheAccessOrder[0];
     this.cache.delete(lruKey);
     this.cacheAccessOrder.shift();
     this.performanceMetrics.evictionCount++;
-    
-    logger.debug('LRU cache eviction', {
+
+    logger.debug("LRU cache eviction", {
       evictedKey: lruKey,
       cacheSize: this.cache.size,
       totalEvictions: this.performanceMetrics.evictionCount,
     });
   }
-  
+
   /**
    * Get performance metrics
    */
   public getPerformanceMetrics() {
-    const hitRate = this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses > 0
-      ? (this.performanceMetrics.cacheHits / (this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses)) * 100
-      : 0;
-    
-    const avgResolveTime = this.performanceMetrics.resolveCount > 0
-      ? this.performanceMetrics.totalResolveTime / this.performanceMetrics.resolveCount
-      : 0;
-    
+    const hitRate =
+      this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses > 0
+        ? (this.performanceMetrics.cacheHits /
+            (this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses)) *
+          100
+        : 0;
+
+    const avgResolveTime =
+      this.performanceMetrics.resolveCount > 0
+        ? this.performanceMetrics.totalResolveTime / this.performanceMetrics.resolveCount
+        : 0;
+
     return {
       ...this.performanceMetrics,
       cacheSize: this.cache.size,
       maxCacheSize: this.MAX_CACHE_SIZE,
-      hitRate: hitRate.toFixed(2) + '%',
-      avgResolveTime: avgResolveTime.toFixed(2) + 'ms',
+      hitRate: hitRate.toFixed(2) + "%",
+      avgResolveTime: avgResolveTime.toFixed(2) + "ms",
     };
   }
-  
+
   /**
    * Clear cache
    */

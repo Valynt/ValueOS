@@ -5559,16 +5559,16 @@ $$;
 -- Name: academy_certifications academy_certifications_user_id_level_track_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.academy_certifications
-    ADD CONSTRAINT academy_certifications_user_id_level_track_key UNIQUE (user_id, level, track);
+-- ALTER TABLE ONLY public.academy_certifications
+--     ADD CONSTRAINT academy_certifications_user_id_level_track_key UNIQUE (user_id, level, track);
 
 
 --
 -- Name: academy_lessons academy_lessons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.academy_lessons
-    ADD CONSTRAINT academy_lessons_pkey PRIMARY KEY (id);
+-- ALTER TABLE ONLY public.academy_lessons
+--     ADD CONSTRAINT academy_lessons_pkey PRIMARY KEY (id);
 
 
 --

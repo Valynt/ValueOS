@@ -1,4 +1,4 @@
-import { logger } from "../../lib/logger";
+import { logger } from "@shared/lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw, AlertCircle } from "lucide-react";
 import { captureException } from "../../lib/sentry";

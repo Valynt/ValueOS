@@ -1,15 +1,15 @@
 /**
  * Streaming Canvas Renderer
- * 
+ *
  * Renders canvas incrementally as agent generates layout
  * Shows skeleton loaders for progressive loading UX
  */
 
-import React, { useEffect, useState } from 'react';
-import { CanvasLayout } from './types';
-import { createLogger } from '../../lib/logger';
+import React, { useEffect, useState } from "react";
+import { CanvasLayout } from "./types";
+import { createLogger } from "@shared/lib/logger";
 
-const logger = createLogger({ component: 'StreamingCanvas' });
+const logger = createLogger({ component: "StreamingCanvas" });
 
 export interface StreamingCanvasProps {
   canvasId: string;
@@ -17,71 +17,71 @@ export interface StreamingCanvasProps {
   wsUrl?: string;
 }
 
-export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({ 
+export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({
   canvasId,
   onEvent,
-  wsUrl = '/api/canvas/stream'
+  wsUrl = "/api/canvas/stream",
 }) => {
   const [layout, setLayout] = useState<CanvasLayout | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [chunks, setChunks] = useState<Partial<CanvasLayout>[]>([]);
-  
+
   useEffect(() => {
     // Connect to WebSocket for streaming updates
     const ws = new WebSocket(`${wsUrl}/${canvasId}`);
 
     ws.onopen = () => {
-      logger.info('Streaming canvas WebSocket connected', { canvasId, wsUrl });
+      logger.info("Streaming canvas WebSocket connected", { canvasId, wsUrl });
     };
-    
+
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
-        if (data.type === 'start') {
+
+        if (data.type === "start") {
           setIsStreaming(true);
           setChunks([]);
-        } else if (data.type === 'chunk') {
+        } else if (data.type === "chunk") {
           setIsStreaming(true);
-          setChunks(prev => [...prev, data.chunk]);
-        } else if (data.type === 'complete') {
+          setChunks((prev) => [...prev, data.chunk]);
+        } else if (data.type === "complete") {
           setLayout(data.layout);
           setIsStreaming(false);
           setChunks([]);
-        } else if (data.type === 'error') {
-          logger.error('Streaming canvas error message received', new Error(String(data.error)), {
+        } else if (data.type === "error") {
+          logger.error("Streaming canvas error message received", new Error(String(data.error)), {
             canvasId,
           });
           setIsStreaming(false);
         }
       } catch (error) {
-        logger.error('Streaming canvas failed to parse message', error as Error, { canvasId });
+        logger.error("Streaming canvas failed to parse message", error as Error, { canvasId });
       }
     };
 
     ws.onerror = (error) => {
-      logger.error('Streaming canvas WebSocket error', error as Error, { canvasId });
+      logger.error("Streaming canvas WebSocket error", error as Error, { canvasId });
       setIsStreaming(false);
     };
 
     ws.onclose = () => {
-      logger.info('Streaming canvas WebSocket disconnected', { canvasId });
+      logger.info("Streaming canvas WebSocket disconnected", { canvasId });
       setIsStreaming(false);
     };
-    
+
     return () => {
       ws.close();
     };
   }, [canvasId, wsUrl]);
-  
+
   if (isStreaming && chunks.length > 0) {
     return <StreamingSkeletons chunks={chunks} />;
   }
-  
+
   if (!layout) {
     return <EmptyCanvas message="Waiting for agent..." />;
   }
-  
+
   // Render actual layout
   return (
     <div className="h-full w-full">
@@ -94,23 +94,21 @@ export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({
 /**
  * Show skeleton loaders for streaming components
  */
-const StreamingSkeletons: React.FC<{ chunks: Partial<CanvasLayout>[] }> = ({ 
-  chunks 
-}) => {
+const StreamingSkeletons: React.FC<{ chunks: Partial<CanvasLayout>[] }> = ({ chunks }) => {
   return (
     <div className="space-y-4 p-4 animate-pulse">
       {chunks.map((chunk, i) => (
         <div key={i}>
-          {chunk.type === 'Component' && (chunk as any).component === 'LineChart' && (
+          {chunk.type === "Component" && (chunk as any).component === "LineChart" && (
             <div className="h-64 bg-gray-800 rounded-lg"></div>
           )}
-          {chunk.type === 'Component' && (chunk as any).component === 'KPICard' && (
+          {chunk.type === "Component" && (chunk as any).component === "KPICard" && (
             <div className="h-32 bg-gray-800 rounded-lg"></div>
           )}
-          {chunk.type === 'Component' && (chunk as any).component === 'DataTable' && (
+          {chunk.type === "Component" && (chunk as any).component === "DataTable" && (
             <div className="h-96 bg-gray-800 rounded-lg"></div>
           )}
-          {(!chunk.type || chunk.type === 'VerticalSplit' || chunk.type === 'Grid') && (
+          {(!chunk.type || chunk.type === "VerticalSplit" || chunk.type === "Grid") && (
             <div className="h-48 bg-gray-800 rounded-lg"></div>
           )}
         </div>

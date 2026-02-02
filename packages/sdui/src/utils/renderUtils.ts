@@ -2,17 +2,14 @@
  * Utility functions for SDUI rendering
  */
 
-import { logger } from '@shared/lib/logger';
-import { SDUIComponentSection, SDUIPageDefinition } from '../schema';
-import { ComponentMetadata, RenderPerformanceMetrics } from '../types';
+import { logger } from "@shared/lib/logger";
+import { SDUIComponentSection, SDUIPageDefinition } from "../schema";
+import { ComponentMetadata, RenderPerformanceMetrics } from "../types";
 
 /**
  * Generate a unique key for a component section
  */
-export function generateSectionKey(
-  section: SDUIComponentSection,
-  index: number
-): string {
+export function generateSectionKey(section: SDUIComponentSection, index: number): string {
   return `${section.component}-${section.version}-${index}`;
 }
 
@@ -68,11 +65,9 @@ export function calculatePerformanceMetrics(
 
   const renderTime = totalTime - hydrationTime;
 
-  const errorCount = components.filter((comp) => comp.status === 'error').length;
+  const errorCount = components.filter((comp) => comp.status === "error").length;
 
-  const hydratedComponentCount = components.filter(
-    (comp) => comp.hydration?.success
-  ).length;
+  const hydratedComponentCount = components.filter((comp) => comp.hydration?.success).length;
 
   return {
     totalTime,
@@ -91,7 +86,7 @@ export function calculatePerformanceMetrics(
  */
 export function mergeData(...sources: Array<Record<string, any> | null>): Record<string, any> {
   return sources.reduce((acc, source) => {
-    if (source && typeof source === 'object') {
+    if (source && typeof source === "object") {
       return { ...acc, ...source };
     }
     return acc;
@@ -102,7 +97,7 @@ export function mergeData(...sources: Array<Record<string, any> | null>): Record
  * Deep clone an object (for immutability)
  */
 export function deepClone<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object') {
+  if (obj === null || typeof obj !== "object") {
     return obj;
   }
 
@@ -135,7 +130,7 @@ export function sanitizeProps(props: Record<string, any>): Record<string, any> {
 
   for (const key in props) {
     // Skip internal properties (starting with _)
-    if (!key.startsWith('_')) {
+    if (!key.startsWith("_")) {
       sanitized[key] = props[key];
     }
   }
@@ -162,7 +157,7 @@ export function validateRequiredProps(
  * Format error message for display
  */
 export function formatErrorMessage(error: Error, context?: string): string {
-  const prefix = context ? `[${context}] ` : '';
+  const prefix = context ? `[${context}] ` : "";
   return `${prefix}${error.message}`;
 }
 
@@ -172,7 +167,7 @@ export function formatErrorMessage(error: Error, context?: string): string {
 export function isValidEndpoint(endpoint: string): boolean {
   try {
     // Check if it's a relative path
-    if (endpoint.startsWith('/')) {
+    if (endpoint.startsWith("/")) {
       return true;
     }
 
@@ -189,7 +184,7 @@ export function isValidEndpoint(endpoint: string): boolean {
  */
 export function normalizeEndpoint(endpoint: string, baseUrl?: string): string {
   // If it's already a full URL, return as-is
-  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+  if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
     return endpoint;
   }
 
@@ -328,14 +323,14 @@ export async function batchPromises<T>(
  * Check if code is running in browser environment
  */
 export function isBrowser(): boolean {
-  return typeof window !== 'undefined' && typeof document !== 'undefined';
+  return typeof window !== "undefined" && typeof document !== "undefined";
 }
 
 /**
  * Check if code is running in development mode
  */
 export function isDevelopment(): boolean {
-  return process.env.NODE_ENV === 'development';
+  return process.env.NODE_ENV === "development";
 }
 
 /**

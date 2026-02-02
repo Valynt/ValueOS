@@ -6,7 +6,7 @@
  */
 
 import React, { ComponentType, ReactNode } from "react";
-import { logger } from "../../lib/logger";
+import { logger } from "@shared/lib/logger";
 import { AlertTriangle, RefreshCw, Info, Loader2 } from "lucide-react";
 
 /**

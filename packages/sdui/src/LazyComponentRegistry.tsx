@@ -7,71 +7,133 @@
 
 import React, { lazy, Suspense, ComponentType } from "react";
 import { RegistryEntry, SDUIComponentSection } from "./registry";
-import { logger } from "../lib/logger";
+import { logger } from "@shared/lib/logger";
 import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetry";
 
 // Lazy component loaders
 const lazyComponents = {
   // Layout components
-  VerticalSplit: lazy(() => import("../components/SDUI/CanvasLayout").then(mod => ({ default: mod.VerticalSplit }))),
-  HorizontalSplit: lazy(() => import("../components/SDUI/CanvasLayout").then(mod => ({ default: mod.HorizontalSplit }))),
-  Grid: lazy(() => import("../components/SDUI/CanvasLayout").then(mod => ({ default: mod.Grid }))),
-  DashboardPanel: lazy(() => import("../components/SDUI/CanvasLayout").then(mod => ({ default: mod.DashboardPanel }))),
+  VerticalSplit: lazy(() =>
+    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.VerticalSplit }))
+  ),
+  HorizontalSplit: lazy(() =>
+    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.HorizontalSplit }))
+  ),
+  Grid: lazy(() =>
+    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.Grid }))
+  ),
+  DashboardPanel: lazy(() =>
+    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.DashboardPanel }))
+  ),
 
   // Core components
-  InfoBanner: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.InfoBanner }))),
-  DiscoveryCard: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.DiscoveryCard }))),
-  ValueTreeCard: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ValueTreeCard }))),
-  ValueHypothesisCard: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ValueHypothesisCard }))),
-  ExpansionBlock: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ExpansionBlock }))),
+  InfoBanner: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.InfoBanner }))),
+  DiscoveryCard: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.DiscoveryCard }))
+  ),
+  ValueTreeCard: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ValueTreeCard }))
+  ),
+  ValueHypothesisCard: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ValueHypothesisCard }))
+  ),
+  ExpansionBlock: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ExpansionBlock }))
+  ),
 
   // Metrics and forms
-  MetricBadge: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.MetricBadge }))),
-  KPIForm: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.KPIForm }))),
-  ValueCommitForm: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ValueCommitForm }))),
-  RealizationDashboard: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.RealizationDashboard }))),
+  MetricBadge: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.MetricBadge }))
+  ),
+  KPIForm: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.KPIForm }))),
+  ValueCommitForm: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ValueCommitForm }))
+  ),
+  RealizationDashboard: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.RealizationDashboard }))
+  ),
 
   // Navigation
-  SideNavigation: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.SideNavigation }))),
-  TabBar: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.TabBar }))),
-  Breadcrumbs: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.Breadcrumbs }))),
+  SideNavigation: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.SideNavigation }))
+  ),
+  TabBar: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.TabBar }))),
+  Breadcrumbs: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.Breadcrumbs }))
+  ),
 
   // Data display
-  DataTable: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.DataTable }))),
-  ConfidenceIndicator: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ConfidenceIndicator }))),
+  DataTable: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.DataTable }))),
+  ConfidenceIndicator: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ConfidenceIndicator }))
+  ),
 
   // Agent components
-  AgentResponseCard: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.AgentResponseCard }))),
-  AgentWorkflowPanel: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.AgentWorkflowPanel }))),
-  NarrativeBlock: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.NarrativeBlock }))),
-  SDUIForm: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.SDUIForm }))),
-  ScenarioSelector: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ScenarioSelector }))),
+  AgentResponseCard: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.AgentResponseCard }))
+  ),
+  AgentWorkflowPanel: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.AgentWorkflowPanel }))
+  ),
+  NarrativeBlock: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.NarrativeBlock }))
+  ),
+  SDUIForm: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.SDUIForm }))),
+  ScenarioSelector: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ScenarioSelector }))
+  ),
 
   // Workflow components
-  WorkflowStatusBar: lazy(() => import("../components/Workflow/WorkflowStatusBar").then(mod => ({ default: mod.WorkflowStatusBar }))),
-  HumanCheckpoint: lazy(() => import("../components/Workflow/HumanCheckpoint").then(mod => ({ default: mod.HumanCheckpoint }))),
-  ConfidenceDisplay: lazy(() => import("../components/Agent/ConfidenceDisplay").then(mod => ({ default: mod.ConfidenceDisplay }))),
+  WorkflowStatusBar: lazy(() =>
+    import("../components/Workflow/WorkflowStatusBar").then((mod) => ({
+      default: mod.WorkflowStatusBar,
+    }))
+  ),
+  HumanCheckpoint: lazy(() =>
+    import("../components/Workflow/HumanCheckpoint").then((mod) => ({
+      default: mod.HumanCheckpoint,
+    }))
+  ),
+  ConfidenceDisplay: lazy(() =>
+    import("../components/Agent/ConfidenceDisplay").then((mod) => ({
+      default: mod.ConfidenceDisplay,
+    }))
+  ),
 
   // Utility components
-  JsonViewer: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.JsonViewer }))),
-  TextBlock: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.TextBlock }))),
-  ConfirmationDialog: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ConfirmationDialog }))),
-  ProgressBar: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.ProgressBar }))),
+  JsonViewer: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.JsonViewer }))),
+  TextBlock: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.TextBlock }))),
+  ConfirmationDialog: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ConfirmationDialog }))
+  ),
+  ProgressBar: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.ProgressBar }))
+  ),
 
   // Panels and containers
-  LifecyclePanel: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.LifecyclePanel }))),
-  IntegrityReviewPanel: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.IntegrityReviewPanel }))),
+  LifecyclePanel: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.LifecyclePanel }))
+  ),
+  IntegrityReviewPanel: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.IntegrityReviewPanel }))
+  ),
 
   // Development tools
-  ComponentPreview: lazy(() => import("../components/SDUI/ComponentPreview").then(mod => ({ default: mod.ComponentPreview }))),
+  ComponentPreview: lazy(() =>
+    import("../components/SDUI/ComponentPreview").then((mod) => ({ default: mod.ComponentPreview }))
+  ),
 
   // Fallback components (loaded immediately as they're essential)
-  UnknownComponentFallback: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.UnknownComponentFallback }))),
-  SectionErrorFallback: lazy(() => import("../components/SDUI").then(mod => ({ default: mod.SectionErrorFallback }))),
+  UnknownComponentFallback: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.UnknownComponentFallback }))
+  ),
+  SectionErrorFallback: lazy(() =>
+    import("../components/SDUI").then((mod) => ({ default: mod.SectionErrorFallback }))
+  ),
 };
 
 // Component metadata registry (loaded immediately)
-const componentMetadata: Record<string, Omit<RegistryEntry, 'component'>> = {
+const componentMetadata: Record<string, Omit<RegistryEntry, "component">> = {
   // Layout components
   VerticalSplit: {
     versions: [1],
@@ -213,7 +275,8 @@ const componentMetadata: Record<string, Omit<RegistryEntry, 'component'>> = {
   ConfidenceDisplay: {
     versions: [1],
     requiredProps: [],
-    description: "Displays agent confidence levels and hallucination status with regeneration options.",
+    description:
+      "Displays agent confidence levels and hallucination status with regeneration options.",
   },
 
   // Utility components
@@ -390,12 +453,10 @@ export class LazyComponentRegistry {
           component,
           ...metadata,
         };
-
       } catch (error) {
         loadingPromises.delete(componentName);
         throw error;
       }
-
     } catch (error) {
       const loadTime = Date.now() - startTime;
 
@@ -439,7 +500,7 @@ export class LazyComponentRegistry {
         // Try to access the component to trigger loading
         try {
           const result = Component;
-          if (result && typeof result === 'function') {
+          if (result && typeof result === "function") {
             clearTimeout(timeout);
             resolve();
           } else {
@@ -453,9 +514,10 @@ export class LazyComponentRegistry {
       });
 
       return Component;
-
     } catch (error) {
-      throw new Error(`Failed to load component ${componentName}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to load component ${componentName}: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 
@@ -464,7 +526,7 @@ export class LazyComponentRegistry {
    */
   static async preloadComponents(componentNames: string[]): Promise<void> {
     const preloadPromises = componentNames
-      .filter(name => !componentCache.has(name) && !loadingPromises.has(name))
+      .filter((name) => !componentCache.has(name) && !loadingPromises.has(name))
       .map(async (componentName) => {
         const lazyLoader = lazyComponents[componentName as keyof typeof lazyComponents];
         if (lazyLoader) {
@@ -481,14 +543,14 @@ export class LazyComponentRegistry {
 
     logger.info(`Preloaded ${componentNames.length} components`, {
       requested: componentNames.length,
-      successful: preloadPromises.filter(p => p.status === 'fulfilled').length,
+      successful: preloadPromises.filter((p) => p.status === "fulfilled").length,
     });
   }
 
   /**
    * Get component metadata without loading the component
    */
-  static getComponentMetadata(componentName: string): Omit<RegistryEntry, 'component'> | undefined {
+  static getComponentMetadata(componentName: string): Omit<RegistryEntry, "component"> | undefined {
     return componentMetadata[componentName];
   }
 
@@ -522,7 +584,7 @@ export class LazyComponentRegistry {
   static clearCache(): void {
     componentCache.clear();
     loadingPromises.clear();
-    logger.info('Component cache cleared');
+    logger.info("Component cache cleared");
   }
 }
 
@@ -547,9 +609,7 @@ export function resolveComponentLazy(section: SDUIComponentSection): RegistryEnt
 
   // Wrap with Suspense for loading states
   const WrappedComponent = (props: any) => (
-    <Suspense
-      fallback={<ComponentLoadingFallback componentName={section.component} />}
-    >
+    <Suspense fallback={<ComponentLoadingFallback componentName={section.component} />}>
       <LazyComponent {...props} />
     </Suspense>
   );
@@ -565,14 +625,14 @@ export function resolveComponentLazy(section: SDUIComponentSection): RegistryEnt
  */
 export function preloadCriticalComponents(): void {
   const criticalComponents = [
-    'AgentResponseCard',
-    'TextBlock',
-    'MetricBadge',
-    'ValueHypothesisCard',
-    'InfoBanner',
+    "AgentResponseCard",
+    "TextBlock",
+    "MetricBadge",
+    "ValueHypothesisCard",
+    "InfoBanner",
   ];
 
-  LazyComponentRegistry.preloadComponents(criticalComponents).catch(error => {
-    logger.warn('Failed to preload critical components', { error });
+  LazyComponentRegistry.preloadComponents(criticalComponents).catch((error) => {
+    logger.warn("Failed to preload critical components", { error });
   });
 }

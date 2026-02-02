@@ -1,22 +1,22 @@
 /**
  * WebSocket Manager
- * 
+ *
  * Manages WebSocket connections with reconnection logic, heartbeat,
  * and channel subscription system for real-time data streams.
  */
 
-import { TenantContext } from '../TenantContext';
-import { createLogger } from '@shared/lib/logger';
+import { TenantContext } from "../TenantContext";
+import { createLogger } from "@shared/lib/logger";
 
 /**
  * WebSocket connection state
  */
-export type ConnectionState = 
-  | 'disconnected'
-  | 'connecting'
-  | 'connected'
-  | 'reconnecting'
-  | 'error';
+export type ConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "error";
 
 /**
  * WebSocket message
@@ -56,7 +56,7 @@ export interface WebSocketConfig {
  * Connection event
  */
 export interface ConnectionEvent {
-  type: 'open' | 'close' | 'error' | 'reconnect';
+  type: "open" | "close" | "error" | "reconnect";
   timestamp: string;
   attempt?: number;
   error?: Error;
@@ -69,8 +69,8 @@ export class WebSocketManager {
   private static instance: WebSocketManager;
   private ws: WebSocket | null = null;
   private config: Required<WebSocketConfig>;
-  private logger = createLogger({ component: 'WebSocketManager' });
-  private state: ConnectionState = 'disconnected';
+  private logger = createLogger({ component: "WebSocketManager" });
+  private state: ConnectionState = "disconnected";
   private subscriptions: Map<string, Set<ChannelSubscription>> = new Map();
   private reconnectAttempts = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -101,7 +101,7 @@ export class WebSocketManager {
       WebSocketManager.instance = new WebSocketManager(config);
     }
     if (!WebSocketManager.instance) {
-      throw new Error('WebSocketManager not initialized. Provide config on first call.');
+      throw new Error("WebSocketManager not initialized. Provide config on first call.");
     }
     return WebSocketManager.instance;
   }
@@ -118,25 +118,25 @@ export class WebSocketManager {
    */
   public connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (this.state === 'connected' || this.state === 'connecting') {
+      if (this.state === "connected" || this.state === "connecting") {
         resolve();
         return;
       }
 
-      this.setState('connecting');
-      this.log('Connecting to WebSocket server...');
+      this.setState("connecting");
+      this.log("Connecting to WebSocket server...");
 
       try {
         this.ws = new WebSocket(this.config.url, this.config.protocols);
 
         this.ws.onopen = () => {
-          this.log('WebSocket connected');
-          this.setState('connected');
+          this.log("WebSocket connected");
+          this.setState("connected");
           this.reconnectAttempts = 0;
           this.startHeartbeat();
           this.authenticate();
           this.flushMessageQueue();
-          this.emitEvent({ type: 'open', timestamp: new Date().toISOString() });
+          this.emitEvent({ type: "open", timestamp: new Date().toISOString() });
           resolve();
         };
 
@@ -145,11 +145,11 @@ export class WebSocketManager {
         };
 
         this.ws.onerror = (error) => {
-          this.log('WebSocket error:', error);
-          this.setState('error');
-          const connectionError = new Error('WebSocket connection error');
+          this.log("WebSocket error:", error);
+          this.setState("error");
+          const connectionError = new Error("WebSocket connection error");
           this.emitEvent({
-            type: 'error',
+            type: "error",
             timestamp: new Date().toISOString(),
             error: connectionError,
           });
@@ -157,22 +157,22 @@ export class WebSocketManager {
         };
 
         this.ws.onclose = (event) => {
-          this.log('WebSocket closed:', event.code, event.reason);
+          this.log("WebSocket closed:", event.code, event.reason);
           this.stopHeartbeat();
           this.emitEvent({
-            type: 'close',
+            type: "close",
             timestamp: new Date().toISOString(),
           });
 
           if (this.config.reconnect && !event.wasClean) {
             this.reconnect();
           } else {
-            this.setState('disconnected');
+            this.setState("disconnected");
           }
         };
       } catch (error) {
-        this.log('Failed to create WebSocket:', error);
-        this.setState('error');
+        this.log("Failed to create WebSocket:", error);
+        this.setState("error");
         reject(error);
       }
     });
@@ -182,17 +182,17 @@ export class WebSocketManager {
    * Disconnect from WebSocket server
    */
   public disconnect(): void {
-    this.log('Disconnecting from WebSocket server...');
+    this.log("Disconnecting from WebSocket server...");
     this.config.reconnect = false;
     this.stopHeartbeat();
     this.clearReconnectTimer();
 
     if (this.ws) {
-      this.ws.close(1000, 'Client disconnect');
+      this.ws.close(1000, "Client disconnect");
       this.ws = null;
     }
 
-    this.setState('disconnected');
+    this.setState("disconnected");
   }
 
   /**
@@ -200,26 +200,28 @@ export class WebSocketManager {
    */
   private reconnect(): void {
     if (this.reconnectAttempts >= this.config.reconnectMaxAttempts) {
-      this.log('Max reconnection attempts reached');
-      this.setState('error');
+      this.log("Max reconnection attempts reached");
+      this.setState("error");
       return;
     }
 
-    this.setState('reconnecting');
+    this.setState("reconnecting");
     this.reconnectAttempts++;
 
     const delay = this.config.reconnectInterval * Math.pow(2, this.reconnectAttempts - 1);
-    this.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.config.reconnectMaxAttempts})`);
+    this.log(
+      `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.config.reconnectMaxAttempts})`
+    );
 
     this.emitEvent({
-      type: 'reconnect',
+      type: "reconnect",
       timestamp: new Date().toISOString(),
       attempt: this.reconnectAttempts,
     });
 
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch((error) => {
-        this.log('Reconnection failed:', error);
+        this.log("Reconnection failed:", error);
       });
     }, delay);
   }
@@ -243,7 +245,7 @@ export class WebSocketManager {
 
     // Send subscription message to server
     this.send({
-      type: 'subscribe',
+      type: "subscribe",
       channel,
       data: {},
       timestamp: new Date().toISOString(),
@@ -265,7 +267,7 @@ export class WebSocketManager {
       if (channelSubs.size === 0) {
         this.subscriptions.delete(channel);
         this.send({
-          type: 'unsubscribe',
+          type: "unsubscribe",
           channel,
           data: {},
           timestamp: new Date().toISOString(),
@@ -279,15 +281,15 @@ export class WebSocketManager {
    * Send message to WebSocket server
    */
   public send(message: WebSocketMessage): void {
-    if (this.state !== 'connected') {
-      this.log('WebSocket not connected, queueing message');
+    if (this.state !== "connected") {
+      this.log("WebSocket not connected, queueing message");
       this.messageQueue.push(message);
       return;
     }
 
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
-      this.log('Sent message:', message);
+      this.log("Sent message:", message);
     } else {
       this.messageQueue.push(message);
     }
@@ -299,10 +301,10 @@ export class WebSocketManager {
   private handleMessage(data: string): void {
     try {
       const message: WebSocketMessage = JSON.parse(data);
-      this.log('Received message:', message);
+      this.log("Received message:", message);
 
       // Handle heartbeat response
-      if (message.type === 'pong') {
+      if (message.type === "pong") {
         this.handleHeartbeatResponse();
         return;
       }
@@ -320,7 +322,7 @@ export class WebSocketManager {
       }
 
       // Route message to wildcard subscribers
-      const wildcardSubs = this.subscriptions.get('*');
+      const wildcardSubs = this.subscriptions.get("*");
       if (wildcardSubs) {
         wildcardSubs.forEach((sub) => {
           if (!sub.filter || sub.filter(message.data)) {
@@ -329,7 +331,7 @@ export class WebSocketManager {
         });
       }
     } catch (error) {
-      this.log('Failed to parse message:', error);
+      this.log("Failed to parse message:", error);
     }
   }
 
@@ -338,12 +340,12 @@ export class WebSocketManager {
    */
   private authenticate(): void {
     if (!this.tenantContext) {
-      this.log('No tenant context, skipping authentication');
+      this.log("No tenant context, skipping authentication");
       return;
     }
 
     this.send({
-      type: 'authenticate',
+      type: "authenticate",
       data: {
         tenantId: this.tenantContext.tenantId,
         organizationId: this.tenantContext.organizationId,
@@ -384,14 +386,14 @@ export class WebSocketManager {
    */
   private sendHeartbeat(): void {
     this.send({
-      type: 'ping',
+      type: "ping",
       data: {},
       timestamp: new Date().toISOString(),
     });
 
     // Set timeout for heartbeat response
     this.heartbeatTimeoutTimer = setTimeout(() => {
-      this.log('Heartbeat timeout, reconnecting...');
+      this.log("Heartbeat timeout, reconnecting...");
       this.ws?.close();
     }, this.config.heartbeatTimeout);
   }
@@ -447,14 +449,14 @@ export class WebSocketManager {
    * Check if connected
    */
   public isConnected(): boolean {
-    return this.state === 'connected';
+    return this.state === "connected";
   }
 
   /**
    * Add event listener
    */
   public addEventListener(
-    type: ConnectionEvent['type'],
+    type: ConnectionEvent["type"],
     callback: (event: ConnectionEvent) => void
   ): () => void {
     if (!this.eventListeners.has(type)) {
@@ -484,7 +486,7 @@ export class WebSocketManager {
    */
   private log(...args: any[]): void {
     if (this.config.debug) {
-      this.logger.debug('WebSocket manager debug', { args });
+      this.logger.debug("WebSocket manager debug", { args });
     }
   }
 

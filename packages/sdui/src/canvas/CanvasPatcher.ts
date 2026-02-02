@@ -17,9 +17,9 @@
  * ```
  */
 
-import { CanvasDelta, CanvasLayout } from './types';
-import { logger } from '../../lib/logger';
-import { immutableUpdate, immutableNestedUpdate } from '../../utils/immutableUtils';
+import { CanvasDelta, CanvasLayout } from "./types";
+import { logger } from "@shared/lib/logger";
+import { immutableUpdate, immutableNestedUpdate } from "../../utils/immutableUtils";
 
 export class CanvasPatcher {
   /**
@@ -28,7 +28,7 @@ export class CanvasPatcher {
   static applyDelta(currentLayout: CanvasLayout, delta: CanvasDelta): CanvasLayout {
     let newLayout = currentLayout;
 
-    logger.info('Applying canvas delta', {
+    logger.info("Applying canvas delta", {
       operationCount: delta.operations.length,
       reason: delta.reason,
     });
@@ -36,37 +36,56 @@ export class CanvasPatcher {
     for (const op of delta.operations) {
       try {
         switch (op.op) {
-          case 'replace':
-            newLayout = immutableNestedUpdate(newLayout, op.path.split('/').filter(Boolean), () => op.value);
+          case "replace":
+            newLayout = immutableNestedUpdate(
+              newLayout,
+              op.path.split("/").filter(Boolean),
+              () => op.value
+            );
             break;
-          case 'add':
-            newLayout = immutableNestedUpdate(newLayout, op.path.split('/').filter(Boolean), (current) => {
-              if (Array.isArray(current)) {
-                return [...current, op.value];
+          case "add":
+            newLayout = immutableNestedUpdate(
+              newLayout,
+              op.path.split("/").filter(Boolean),
+              (current) => {
+                if (Array.isArray(current)) {
+                  return [...current, op.value];
+                }
+                return op.value;
               }
-              return op.value;
-            });
+            );
             break;
-          case 'remove':
-            newLayout = immutableNestedUpdate(newLayout, op.path.split('/').filter(Boolean), (current) => {
-              if (Array.isArray(current)) {
-                return current.filter((_, index) => index !== parseInt(op.path.split('/').pop() || '-1'));
+          case "remove":
+            newLayout = immutableNestedUpdate(
+              newLayout,
+              op.path.split("/").filter(Boolean),
+              (current) => {
+                if (Array.isArray(current)) {
+                  return current.filter(
+                    (_, index) => index !== parseInt(op.path.split("/").pop() || "-1")
+                  );
+                }
+                return current;
               }
-              return current;
-            });
+            );
             break;
-          case 'update_props':
+          case "update_props":
             newLayout = this.updateComponentPropsImmutable(newLayout, op.componentId, op.props);
             break;
-          case 'update_data':
+          case "update_data":
             newLayout = this.updateComponentDataImmutable(newLayout, op.componentId, op.data);
             break;
-          case 'reorder':
-            newLayout = this.reorderChildrenImmutable(newLayout, op.parentPath, op.fromIndex, op.toIndex);
+          case "reorder":
+            newLayout = this.reorderChildrenImmutable(
+              newLayout,
+              op.parentPath,
+              op.fromIndex,
+              op.toIndex
+            );
             break;
         }
       } catch (error) {
-        logger.error('Failed to apply patch operation', error as Error, {
+        logger.error("Failed to apply patch operation", error as Error, {
           operation: op.op,
           delta: delta.reason,
         });
@@ -85,15 +104,15 @@ export class CanvasPatcher {
     componentId: string,
     newProps: Record<string, any>
   ): CanvasLayout {
-    if (layout.type === 'Component' && layout.componentId === componentId) {
+    if (layout.type === "Component" && layout.componentId === componentId) {
       return immutableUpdate(layout, { props: { ...layout.props, ...newProps } });
     }
 
-    if ('children' in layout && layout.children) {
+    if ("children" in layout && layout.children) {
       return immutableUpdate(layout, {
         children: layout.children.map((child: CanvasLayout) =>
           this.updateComponentPropsImmutable(child, componentId, newProps)
-        )
+        ),
       });
     }
 
@@ -108,15 +127,15 @@ export class CanvasPatcher {
     componentId: string,
     newData: any
   ): CanvasLayout {
-    if (layout.type === 'Component' && layout.componentId === componentId) {
+    if (layout.type === "Component" && layout.componentId === componentId) {
       return immutableUpdate(layout, { props: { ...layout.props, data: newData } });
     }
 
-    if ('children' in layout && layout.children) {
+    if ("children" in layout && layout.children) {
       return immutableUpdate(layout, {
         children: layout.children.map((child: CanvasLayout) =>
           this.updateComponentDataImmutable(child, componentId, newData)
-        )
+        ),
       });
     }
 
@@ -132,16 +151,18 @@ export class CanvasPatcher {
     fromIndex: number,
     toIndex: number
   ): CanvasLayout {
-    const parts = parentPath.split('/').filter(Boolean);
+    const parts = parentPath.split("/").filter(Boolean);
 
     const reorder = (node: any, remainingPath: string[]): any => {
       if (remainingPath.length === 0) {
         const children = Array.isArray(node)
           ? node
-          : ('children' in node ? node.children : undefined);
+          : "children" in node
+            ? node.children
+            : undefined;
 
         if (!Array.isArray(children)) {
-          throw new Error('Cannot reorder: node has no children');
+          throw new Error("Cannot reorder: node has no children");
         }
 
         if (
@@ -150,7 +171,7 @@ export class CanvasPatcher {
           toIndex < 0 ||
           toIndex > children.length
         ) {
-          throw new Error('Invalid reorder indexes');
+          throw new Error("Invalid reorder indexes");
         }
 
         const newChildren = [...children];
@@ -163,7 +184,7 @@ export class CanvasPatcher {
       const [head, ...tail] = remainingPath;
 
       if (!head) {
-        throw new Error('Invalid path: empty segment');
+        throw new Error("Invalid path: empty segment");
       }
 
       if (Array.isArray(node)) {
@@ -172,14 +193,12 @@ export class CanvasPatcher {
           throw new Error(`Invalid path index: ${head}`);
         }
 
-        return node.map((child: any, i: number) =>
-          i === index ? reorder(child, tail) : child
-        );
+        return node.map((child: any, i: number) => (i === index ? reorder(child, tail) : child));
       }
 
-      if (node && typeof node === 'object' && head in node) {
+      if (node && typeof node === "object" && head in node) {
         return immutableUpdate(node, {
-          [head]: reorder(node[head], tail)
+          [head]: reorder(node[head], tail),
         });
       }
 
@@ -193,11 +212,11 @@ export class CanvasPatcher {
    * Get component by ID (deep search)
    */
   static findComponentById(layout: CanvasLayout, componentId: string): CanvasLayout | null {
-    if (layout.type === 'Component' && layout.componentId === componentId) {
+    if (layout.type === "Component" && layout.componentId === componentId) {
       return layout;
     }
 
-    if ('children' in layout && layout.children) {
+    if ("children" in layout && layout.children) {
       for (const child of layout.children) {
         const found = this.findComponentById(child, componentId);
         if (found) return found;
@@ -214,11 +233,11 @@ export class CanvasPatcher {
     const ids: string[] = [];
 
     const traverse = (node: CanvasLayout): void => {
-      if (node.type === 'Component') {
+      if (node.type === "Component") {
         ids.push(node.componentId);
       }
 
-      if ('children' in node && node.children) {
+      if ("children" in node && node.children) {
         node.children.forEach(traverse);
       }
     };
@@ -237,7 +256,7 @@ export class CanvasPatcher {
     const errors: string[] = [];
 
     for (const op of delta.operations) {
-      if (op.op === 'update_props' || op.op === 'update_data') {
+      if (op.op === "update_props" || op.op === "update_data") {
         const found = this.findComponentById(layout, op.componentId);
         if (!found) {
           errors.push(`Component not found: ${op.componentId}`);

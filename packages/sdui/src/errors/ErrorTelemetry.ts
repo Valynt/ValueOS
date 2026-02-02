@@ -1,19 +1,19 @@
 /**
  * Error Telemetry
- * 
+ *
  * Captures and reports errors to monitoring services like Sentry.
  * Includes context, breadcrumbs, and user information.
  */
 
-import { TenantContext } from '../TenantContext';
-import { createLogger } from '@shared/lib/logger';
+import { TenantContext } from "../TenantContext";
+import { createLogger } from "@shared/lib/logger";
 
-const telemetryLogger = createLogger({ component: 'ErrorTelemetry' });
+const telemetryLogger = createLogger({ component: "ErrorTelemetry" });
 
 /**
  * Error severity level
  */
-export type ErrorSeverity = 'fatal' | 'error' | 'warning' | 'info' | 'debug';
+export type ErrorSeverity = "fatal" | "error" | "warning" | "info" | "debug";
 
 /**
  * Error context
@@ -170,7 +170,7 @@ export class ErrorTelemetry {
     //   sampleRate: this.config.sampleRate,
     // });
 
-    telemetryLogger.info('Initialized error telemetry with Sentry DSN', {
+    telemetryLogger.info("Initialized error telemetry with Sentry DSN", {
       environment: this.config.environment,
     });
   }
@@ -180,7 +180,7 @@ export class ErrorTelemetry {
    */
   public captureError(
     error: Error,
-    severity: ErrorSeverity = 'error',
+    severity: ErrorSeverity = "error",
     context?: ErrorContext
   ): void {
     if (!this.config.enabled) {
@@ -219,7 +219,7 @@ export class ErrorTelemetry {
    * Capture exception
    */
   public captureException(error: Error, context?: ErrorContext): void {
-    this.captureError(error, 'error', context);
+    this.captureError(error, "error", context);
   }
 
   /**
@@ -227,7 +227,7 @@ export class ErrorTelemetry {
    */
   public captureMessage(
     message: string,
-    severity: ErrorSeverity = 'info',
+    severity: ErrorSeverity = "info",
     context?: ErrorContext
   ): void {
     const error = new Error(message);
@@ -237,7 +237,7 @@ export class ErrorTelemetry {
   /**
    * Add breadcrumb
    */
-  public addBreadcrumb(breadcrumb: Omit<Breadcrumb, 'timestamp'>): void {
+  public addBreadcrumb(breadcrumb: Omit<Breadcrumb, "timestamp">): void {
     this.breadcrumbs.push({
       ...breadcrumb,
       timestamp: new Date().toISOString(),
@@ -259,7 +259,7 @@ export class ErrorTelemetry {
   /**
    * Set user
    */
-  public setUser(user: ErrorContext['user']): void {
+  public setUser(user: ErrorContext["user"]): void {
     this.context.user = user;
   }
 
@@ -313,7 +313,7 @@ export class ErrorTelemetry {
     }
 
     // Add first line of stack trace
-    const stackLine = error.stack?.split('\n')[1];
+    const stackLine = error.stack?.split("\n")[1];
     if (stackLine) {
       fingerprint.push(stackLine.trim());
     }
@@ -335,7 +335,7 @@ export class ErrorTelemetry {
     //   fingerprint: report.fingerprint,
     // });
 
-    telemetryLogger.debug('Sending error telemetry to Sentry', {
+    telemetryLogger.debug("Sending error telemetry to Sentry", {
       error: report.error.message,
       severity: report.severity,
       context: report.context,
@@ -347,13 +347,13 @@ export class ErrorTelemetry {
    */
   private logError(report: ErrorReport): void {
     const level =
-      report.severity === 'fatal' || report.severity === 'error'
-        ? 'error'
-        : report.severity === 'warning'
-          ? 'warn'
-          : 'info';
+      report.severity === "fatal" || report.severity === "error"
+        ? "error"
+        : report.severity === "warning"
+          ? "warn"
+          : "info";
 
-    telemetryLogger[level]('Error telemetry captured', {
+    telemetryLogger[level]("Error telemetry captured", {
       error: report.error,
       severity: report.severity,
       context: report.context,
@@ -373,16 +373,12 @@ export function initializeErrorTelemetry(config: TelemetryConfig): ErrorTelemetr
 /**
  * Capture error
  */
-export function captureError(
-  error: Error,
-  severity?: ErrorSeverity,
-  context?: ErrorContext
-): void {
+export function captureError(error: Error, severity?: ErrorSeverity, context?: ErrorContext): void {
   const telemetry = ErrorTelemetry.getInstance();
   if (telemetry) {
     telemetry.captureError(error, severity, context);
   } else {
-    telemetryLogger.error('ErrorTelemetry not initialized', error, { context });
+    telemetryLogger.error("ErrorTelemetry not initialized", error, { context });
   }
 }
 
@@ -390,7 +386,7 @@ export function captureError(
  * Capture exception
  */
 export function captureException(error: Error, context?: ErrorContext): void {
-  captureError(error, 'error', context);
+  captureError(error, "error", context);
 }
 
 /**
@@ -405,14 +401,14 @@ export function captureMessage(
   if (telemetry) {
     telemetry.captureMessage(message, severity, context);
   } else {
-    telemetryLogger.warn('ErrorTelemetry not initialized', { message, context });
+    telemetryLogger.warn("ErrorTelemetry not initialized", { message, context });
   }
 }
 
 /**
  * Add breadcrumb
  */
-export function addBreadcrumb(breadcrumb: Omit<Breadcrumb, 'timestamp'>): void {
+export function addBreadcrumb(breadcrumb: Omit<Breadcrumb, "timestamp">): void {
   const telemetry = ErrorTelemetry.getInstance();
   if (telemetry) {
     telemetry.addBreadcrumb(breadcrumb);

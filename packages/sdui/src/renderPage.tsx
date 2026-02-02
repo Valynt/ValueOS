@@ -1,18 +1,15 @@
 import { logger } from "@shared/lib/logger";
 import React, { ReactElement } from "react";
 import { ErrorBoundary } from "../components/Common/ErrorBoundary";
-import {
-  SectionErrorFallback,
-  UnknownComponentFallback,
-} from "../components/SDUI";
+import { SectionErrorFallback, UnknownComponentFallback } from "../components/SDUI";
 import {
   SDUIComponentSection,
   SDUIPageDefinition,
   SDUIValidationError,
   validateSDUISchema,
 } from "./schema";
-import { resolveComponentLazy, preloadCriticalComponents } from './LazyComponentRegistry';
-import { resolveComponent } from './registry';
+import { resolveComponentLazy, preloadCriticalComponents } from "./LazyComponentRegistry";
+import { resolveComponent } from "./registry";
 import { useDataHydration } from "./hooks/useDataHydration";
 import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
 import { LoadingFallback } from "./components/LoadingFallback";
@@ -190,15 +187,11 @@ const DebugOverlay: React.FC<{
             v{section.version}
           </span>
         </div>
-        <span className="text-[10px] uppercase tracking-wide opacity-70">
-          {status}
-        </span>
+        <span className="text-[10px] uppercase tracking-wide opacity-70">{status}</span>
       </div>
       {message && <p className="mt-1 text-[11px] opacity-80">{message}</p>}
       {section.hydrateWith && section.hydrateWith.length > 0 && (
-        <p className="mt-1 text-[11px] opacity-80">
-          Hydration: {section.hydrateWith.join(", ")}
-        </p>
+        <p className="mt-1 text-[11px] opacity-80">Hydration: {section.hydrateWith.join(", ")}</p>
       )}
     </div>
   );
@@ -224,7 +217,8 @@ const SectionRenderer: React.FC<{
   } = options;
 
   // Resolve component from lazy registry first, fallback to synchronous registry
-  const entry = options.enableLazyLoading !== false ? resolveComponentLazy(section) : resolveComponent(section);
+  const entry =
+    options.enableLazyLoading !== false ? resolveComponentLazy(section) : resolveComponent(section);
 
   // Use data hydration hook if hydrateWith is specified
   const {
@@ -269,11 +263,7 @@ const SectionRenderer: React.FC<{
       <div key={`${section.component}-${index}`} className="space-y-2">
         <LoadingComponent componentName={section.component} />
         {debug && (
-          <DebugOverlay
-            section={section}
-            status="loading"
-            message="Fetching data from endpoints"
-          />
+          <DebugOverlay section={section} status="loading" message="Fetching data from endpoints" />
         )}
       </div>
     );
@@ -283,10 +273,7 @@ const SectionRenderer: React.FC<{
   if (hydrationError && !section.fallback) {
     return (
       <div key={`${section.component}-${index}`} className="space-y-2">
-        <ErrorFallback
-          componentName={section.component}
-          error={hydrationError}
-        />
+        <ErrorFallback componentName={section.component} error={hydrationError} />
         {debug && (
           <DebugOverlay
             section={section}
@@ -314,12 +301,8 @@ const SectionRenderer: React.FC<{
         <div key={`${section.component}-${index}`} className="space-y-2">
           <ComponentErrorBoundary
             componentName={section.fallback.component!}
-            onError={(error) =>
-              onRenderError?.(error, section.fallback!.component!)
-            }
-            fallback={
-              <ErrorFallback componentName={section.fallback.component!} />
-            }
+            onError={(error) => onRenderError?.(error, section.fallback!.component!)}
+            fallback={<ErrorFallback componentName={section.fallback.component!} />}
           >
             <FallbackComponent {...(section.fallback.props || {})} />
           </ComponentErrorBoundary>
@@ -338,16 +321,10 @@ const SectionRenderer: React.FC<{
     return (
       <div key={`${section.component}-${index}`} className="space-y-2">
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
-          <p className="text-sm">
-            {section.fallback.message || "Component unavailable"}
-          </p>
+          <p className="text-sm">{section.fallback.message || "Component unavailable"}</p>
         </div>
         {debug && (
-          <DebugOverlay
-            section={section}
-            status="error"
-            message="Using fallback message"
-          />
+          <DebugOverlay section={section} status="error" message="Using fallback message" />
         )}
       </div>
     );
@@ -388,11 +365,7 @@ const SectionRenderer: React.FC<{
 /**
  * Internal component that renders the page structure
  */
-const PageRenderer: React.FC<PageRendererProps> = ({
-  page,
-  options,
-  warnings,
-}) => {
+const PageRenderer: React.FC<PageRendererProps> = ({ page, options, warnings }) => {
   const { debug = false, onWarning } = options;
 
   // Log warnings if handler provided
@@ -500,7 +473,7 @@ export function renderPage(
 
     // Preload critical components asynchronously (don't block rendering)
     preloadCriticalComponents().catch((error: any) => {
-      logger.warn('Failed to preload critical components', { error });
+      logger.warn("Failed to preload critical components", { error });
     });
   }
 
@@ -518,11 +491,7 @@ export function renderPage(
         options.onRenderError?.(error, "PageRenderer");
       }}
     >
-      <PageRenderer
-        page={page}
-        options={effectiveOptions}
-        warnings={warnings}
-      />
+      <PageRenderer page={page} options={effectiveOptions} warnings={warnings} />
     </ErrorBoundary>
   );
 
@@ -550,10 +519,7 @@ export const RenderPageComponent: React.FC<{
     if (error instanceof SDUIValidationError) {
       onError?.(error);
       return (
-        <div
-          className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900"
-          role="alert"
-        >
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-900" role="alert">
           <p className="text-sm font-semibold mb-2">Invalid Page Definition</p>
           <ul className="list-disc pl-5 space-y-1 text-sm">
             {error.errors.map((err, idx) => (

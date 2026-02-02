@@ -8,7 +8,7 @@
  * - CDN cache (L4) - External CDN integration
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "@shared/lib/logger";
 
 /**
  * Cache entry with metadata

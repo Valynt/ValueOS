@@ -1,23 +1,23 @@
 /**
  * SDUI Security Metrics
- * 
+ *
  * Tracks security-related events for monitoring and alerting.
  */
 
-import { logger } from '@shared/lib/logger';
+import { logger } from "@shared/lib/logger";
 
 /**
  * Security event types
  */
 export type SecurityEventType =
-  | 'xss_blocked'
-  | 'rate_limit_hit'
-  | 'tenant_violation'
-  | 'recursion_limit'
-  | 'invalid_schema'
-  | 'component_not_found'
-  | 'binding_error'
-  | 'session_invalid';
+  | "xss_blocked"
+  | "rate_limit_hit"
+  | "tenant_violation"
+  | "recursion_limit"
+  | "invalid_schema"
+  | "component_not_found"
+  | "binding_error"
+  | "session_invalid";
 
 /**
  * Security metric counters
@@ -58,36 +58,36 @@ export function incrementSecurityMetric(
 ): void {
   // Map event type to metric
   const metricMap: Record<SecurityEventType, keyof SecurityMetrics> = {
-    xss_blocked: 'xssBlocked',
-    rate_limit_hit: 'rateLimitHits',
-    tenant_violation: 'tenantViolations',
-    recursion_limit: 'recursionLimits',
-    invalid_schema: 'invalidSchemas',
-    component_not_found: 'componentNotFound',
-    binding_error: 'bindingErrors',
-    session_invalid: 'sessionInvalid',
+    xss_blocked: "xssBlocked",
+    rate_limit_hit: "rateLimitHits",
+    tenant_violation: "tenantViolations",
+    recursion_limit: "recursionLimits",
+    invalid_schema: "invalidSchemas",
+    component_not_found: "componentNotFound",
+    binding_error: "bindingErrors",
+    session_invalid: "sessionInvalid",
   };
-  
+
   const metricKey = metricMap[event];
   metrics[metricKey]++;
-  
+
   // Log security event
   logger.warn(`Security event: ${event}`, {
     event,
     count: metrics[metricKey],
     metadata,
   });
-  
+
   // Alert on critical thresholds
-  if (event === 'xss_blocked' && metrics.xssBlocked % 10 === 0) {
-    logger.error('High XSS attempt rate detected', new Error('Security Alert'), {
+  if (event === "xss_blocked" && metrics.xssBlocked % 10 === 0) {
+    logger.error("High XSS attempt rate detected", new Error("Security Alert"), {
       xssBlocked: metrics.xssBlocked,
       sinceMinutes: (Date.now() - lastResetTime) / 60000,
     });
   }
-  
-  if (event === 'tenant_violation') {
-    logger.error('Tenant isolation violation detected', new Error('Security Critical'), {
+
+  if (event === "tenant_violation") {
+    logger.error("Tenant isolation violation detected", new Error("Security Critical"), {
       tenantViolations: metrics.tenantViolations,
       metadata,
     });
@@ -145,28 +145,28 @@ Security Metrics (last ${elapsed.toFixed(1)} minutes):
 export function checkCriticalThresholds(): { critical: boolean; alerts: string[] } {
   const alerts: string[] = [];
   let critical = false;
-  
+
   // Any tenant violation is critical
   if (metrics.tenantViolations > 0) {
     critical = true;
     alerts.push(`CRITICAL: ${metrics.tenantViolations} tenant isolation violations detected`);
   }
-  
+
   // High XSS attempt rate
   if (metrics.xssBlocked > 50) {
     critical = true;
     alerts.push(`CRITICAL: ${metrics.xssBlocked} XSS attempts blocked - possible attack`);
   }
-  
+
   // High rate limit hits
   if (metrics.rateLimitHits > 100) {
     alerts.push(`WARNING: ${metrics.rateLimitHits} rate limit hits - possible DoS attempt`);
   }
-  
+
   // High recursion limit hits
   if (metrics.recursionLimits > 10) {
     alerts.push(`WARNING: ${metrics.recursionLimits} recursion limits hit - check schemas`);
   }
-  
+
   return { critical, alerts };
 }
