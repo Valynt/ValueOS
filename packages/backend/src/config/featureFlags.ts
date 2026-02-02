@@ -12,7 +12,7 @@
  *   if (featureFlags.ENABLE_UNIFIED_ORCHESTRATION) { ... }
  */
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../lib/logger.js";
 
 /**
  * Feature flag configuration
@@ -58,15 +58,30 @@ export interface FeatureFlags {
    * When disabled: Services maintain backward compatibility
    */
   DISABLE_LEGACY_BUSINESS_CASES: boolean;
+
+  /**
+   * Enable Value Commitment Service
+   * Sprint 0: Disabled until fully implemented
+   */
+  ENABLE_VALUE_COMMITMENT_SERVICE: boolean;
+
+  /**
+   * Enable Agent placeholder/mock mode
+   * Sprint 0: Must be false in production
+   */
+  ENABLE_AGENT_PLACEHOLDER_MODE: boolean;
+
+  /**
+   * Enable client-side LLM streaming
+   * Sprint 0: Disabled in production until breaker integration complete
+   */
+  ENABLE_CLIENT_LLM_STREAMING: boolean;
 }
 
 /**
  * Parse boolean from environment variable
  */
-function parseBoolean(
-  value: string | undefined,
-  defaultValue: boolean = false
-): boolean {
+function parseBoolean(value: string | undefined, defaultValue: boolean = false): boolean {
   if (value === undefined) return defaultValue;
   return value.toLowerCase() === "true" || value === "1";
 }
@@ -114,6 +129,23 @@ function loadFeatureFlags(): FeatureFlags {
       import.meta.env.VITE_ENABLE_ASYNC_AGENT_EXECUTION,
       false // Default: disabled (gradual rollout)
     ),
+    DISABLE_LEGACY_BUSINESS_CASES: parseBoolean(
+      import.meta.env.VITE_DISABLE_LEGACY_BUSINESS_CASES,
+      false // Default: disabled (maintain backward compatibility)
+    ),
+    // Sprint 0: Security flags - default OFF in production
+    ENABLE_VALUE_COMMITMENT_SERVICE: parseBoolean(
+      import.meta.env.VITE_ENABLE_VALUE_COMMITMENT_SERVICE,
+      false // Default: disabled (stubbed implementation)
+    ),
+    ENABLE_AGENT_PLACEHOLDER_MODE: parseBoolean(
+      import.meta.env.VITE_ENABLE_AGENT_PLACEHOLDER_MODE,
+      import.meta.env.MODE !== "production" // Default: disabled in prod
+    ),
+    ENABLE_CLIENT_LLM_STREAMING: parseBoolean(
+      import.meta.env.VITE_ENABLE_CLIENT_LLM_STREAMING,
+      import.meta.env.MODE !== "production" // Default: disabled in prod
+    ),
   };
 
   // Log feature flag status on startup
@@ -127,6 +159,9 @@ function loadFeatureFlags(): FeatureFlags {
     rateLimiting: flags.ENABLE_RATE_LIMITING,
     auditLogging: flags.ENABLE_AUDIT_LOGGING,
     asyncAgentExecution: flags.ENABLE_ASYNC_AGENT_EXECUTION,
+    valueCommitmentService: flags.ENABLE_VALUE_COMMITMENT_SERVICE,
+    agentPlaceholderMode: flags.ENABLE_AGENT_PLACEHOLDER_MODE,
+    clientLlmStreaming: flags.ENABLE_CLIENT_LLM_STREAMING,
   });
 
   return flags;
@@ -170,10 +205,7 @@ export function getDisabledFeatures(): string[] {
  *     // Use new feature
  *   }
  */
-export function shouldEnableForUser(
-  userId: string,
-  percentage: number
-): boolean {
+export function shouldEnableForUser(userId: string, percentage: number): boolean {
   if (percentage >= 100) return true;
   if (percentage <= 0) return false;
 

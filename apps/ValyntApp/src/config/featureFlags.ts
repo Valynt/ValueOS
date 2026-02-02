@@ -48,6 +48,24 @@ export interface FeatureFlags {
   
   /** Enable audit logging */
   ENABLE_AUDIT_LOGGING: boolean;
+
+  /**
+   * Enable Value Commitment Service
+   * Sprint 0: Disabled until fully implemented
+   */
+  ENABLE_VALUE_COMMITMENT_SERVICE: boolean;
+
+  /**
+   * Enable Agent placeholder/mock mode
+   * Sprint 0: Must be false in production
+   */
+  ENABLE_AGENT_PLACEHOLDER_MODE: boolean;
+
+  /**
+   * Enable client-side LLM streaming
+   * Sprint 0: Disabled in production until breaker integration complete
+   */
+  ENABLE_CLIENT_LLM_STREAMING: boolean;
 }
 
 /**
@@ -97,6 +115,19 @@ function loadFeatureFlags(): FeatureFlags {
       import.meta.env.VITE_ENABLE_AUDIT_LOGGING,
       true // Default: enabled (compliance)
     ),
+    // Sprint 0: Security flags - default OFF in production
+    ENABLE_VALUE_COMMITMENT_SERVICE: parseBoolean(
+      import.meta.env.VITE_ENABLE_VALUE_COMMITMENT_SERVICE,
+      false // Default: disabled (stubbed implementation)
+    ),
+    ENABLE_AGENT_PLACEHOLDER_MODE: parseBoolean(
+      import.meta.env.VITE_ENABLE_AGENT_PLACEHOLDER_MODE,
+      import.meta.env.MODE !== "production" // Default: disabled in prod
+    ),
+    ENABLE_CLIENT_LLM_STREAMING: parseBoolean(
+      import.meta.env.VITE_ENABLE_CLIENT_LLM_STREAMING,
+      import.meta.env.MODE !== "production" // Default: disabled in prod
+    ),
   };
 
   // Log feature flag status on startup
@@ -109,6 +140,9 @@ function loadFeatureFlags(): FeatureFlags {
     circuitBreaker: flags.ENABLE_CIRCUIT_BREAKER,
     rateLimiting: flags.ENABLE_RATE_LIMITING,
     auditLogging: flags.ENABLE_AUDIT_LOGGING,
+    valueCommitmentService: flags.ENABLE_VALUE_COMMITMENT_SERVICE,
+    agentPlaceholderMode: flags.ENABLE_AGENT_PLACEHOLDER_MODE,
+    clientLlmStreaming: flags.ENABLE_CLIENT_LLM_STREAMING,
   });
 
   return flags;

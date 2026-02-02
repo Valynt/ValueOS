@@ -2,6 +2,7 @@ import { logger } from "../lib/logger";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import { incrementScraperBlocked } from "../middleware/metricsMiddleware";
 
 export interface WebScraperResult {
   url: string;
@@ -63,6 +64,8 @@ export class WebScraperService {
           // Validate URL to prevent SSRF
           if (!(await this.isSafeUrl(currentUrl))) {
             logger.warn("Web scraping blocked for unsafe URL", { url: currentUrl });
+            // Sprint 3: Track blocked requests for observability
+            incrementScraperBlocked('ssrf_protection');
             return null;
           }
 

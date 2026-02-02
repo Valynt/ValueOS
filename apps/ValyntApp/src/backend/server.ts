@@ -32,7 +32,7 @@ import {
   getLatencySnapshot,
   latencyMetricsMiddleware,
 } from "../middleware/latencyMetricsMiddleware";
-import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
+import { getMetricsRegistry, incrementWsAuthFailure, metricsMiddleware } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
@@ -82,6 +82,14 @@ function getWebSocketToken(req: IncomingMessage): string | null {
     return bearerToken;
   }
 
+  // Sprint 1: Reject query-string tokens in production (security hardening)
+  if (settings.NODE_ENV === "production") {
+    logger.warn("WebSocket authentication: query-string tokens rejected in production", {
+      clientIp: req.socket.remoteAddress,
+    });
+    return null;
+  }
+
   const url = new URL(req.url ?? "", "http://localhost");
   return url.searchParams.get("access_token") ?? url.searchParams.get("token");
 }
@@ -101,6 +109,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
 
   if (!token) {
     logger.warn("WebSocket authentication failed: missing token", { clientIp });
+    incrementWsAuthFailure('missing_token');
     ws.close(WS_POLICY_VIOLATION_CODE, "Authentication required");
     return;
   }
@@ -108,6 +117,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   const verified = await verifyAccessToken(token);
   if (!verified) {
     logger.warn("WebSocket authentication failed: invalid token", { clientIp });
+    incrementWsAuthFailure('invalid_token');
     ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
     return;
   }
@@ -117,6 +127,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
 
   if (!userId) {
     logger.warn("WebSocket authentication failed: missing user id", { clientIp });
+    incrementWsAuthFailure('missing_user_id');
     ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
     return;
   }
@@ -132,6 +143,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
           userId,
           requestedTenantId,
         });
+        incrementWsAuthFailure('tenant_access_denied');
         ws.close(WS_POLICY_VIOLATION_CODE, "Tenant access denied");
         return;
       }
@@ -141,6 +153,7 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
 
   if (!tenantId) {
     logger.warn("WebSocket authentication failed: missing tenant context", { clientIp, userId });
+    incrementWsAuthFailure('missing_tenant_context');
     ws.close(WS_POLICY_VIOLATION_CODE, "Tenant context required");
     return;
   }
@@ -229,15 +242,19 @@ app.use(latencyMetricsMiddleware());
 // Health check
 app.use(healthRouter);
 
-// Prometheus metrics endpoint
-app.get("/metrics", async (_req: express.Request, res: express.Response) => {
-  const registry = getMetricsRegistry();
-  res.set("Content-Type", registry.contentType);
-  res.end(await registry.metrics());
-});
+// Prometheus metrics endpoint - PROTECTED (Sprint 1: P0 fix)
+app.get(
+  "/metrics",
+  serviceIdentityMiddleware,
+  async (_req: express.Request, res: express.Response) => {
+    const registry = getMetricsRegistry();
+    res.set("Content-Type", registry.contentType);
+    res.end(await registry.metrics());
+  }
+);
 
-// Latency metrics snapshot
-app.get("/metrics/latency", (_req, res) => {
+// Latency metrics snapshot - PROTECTED (Sprint 1: P0 fix)
+app.get("/metrics/latency", serviceIdentityMiddleware, (_req, res) => {
   res.json({
     routes: getLatencySnapshot(),
     timestamp: new Date().toISOString(),

@@ -1,0 +1,86 @@
+name: Security Gate
+
+# Block merges on P0/P1 security findings
+# Sprint 0: Prevent accidental exposure while work is in flight
+
+on:
+  pull_request:
+    branches: [main, develop]
+  workflow_call:
+
+jobs:
+  security-findings-check:
+    name: Check P0/P1 Security Findings
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for critical/high severity alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔒 Checking for P0/P1 security findings..."
+
+          # Get code scanning alerts for this PR
+          ALERTS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/code-scanning/alerts?state=open&severity=critical,high" \
+            2>/dev/null || echo "[]")
+
+          CRITICAL_COUNT=$(echo "$ALERTS" | jq '[.[] | select(.rule.severity == "critical" or .rule.security_severity_level == "critical")] | length')
+          HIGH_COUNT=$(echo "$ALERTS" | jq '[.[] | select(.rule.severity == "high" or .rule.security_severity_level == "high")] | length')
+
+          echo "## Security Gate Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical (P0) | $CRITICAL_COUNT | $([ $CRITICAL_COUNT -eq 0 ] && echo '✅' || echo '❌ BLOCKING') |" >> $GITHUB_STEP_SUMMARY
+          echo "| High (P1) | $HIGH_COUNT | $([ $HIGH_COUNT -eq 0 ] && echo '✅' || echo '❌ BLOCKING') |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$CRITICAL_COUNT" -gt 0 ] || [ "$HIGH_COUNT" -gt 0 ]; then
+            echo "::error::❌ MERGE BLOCKED: Found $CRITICAL_COUNT P0 (critical) and $HIGH_COUNT P1 (high) security findings"
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Merge Blocked" >> $GITHUB_STEP_SUMMARY
+            echo "Resolve all P0/P1 security findings before merging." >> $GITHUB_STEP_SUMMARY
+            echo "View findings: https://github.com/${{ github.repository }}/security/code-scanning" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "::notice::✅ No P0/P1 security findings detected"
+          echo "### ✅ Security Gate Passed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check Dependabot alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔒 Checking Dependabot alerts..."
+
+          # Get open Dependabot alerts
+          VULN_ALERTS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/dependabot/alerts?state=open&severity=critical,high" \
+            2>/dev/null || echo "[]")
+
+          CRITICAL_DEPS=$(echo "$VULN_ALERTS" | jq '[.[] | select(.security_advisory.severity == "critical")] | length')
+          HIGH_DEPS=$(echo "$VULN_ALERTS" | jq '[.[] | select(.security_advisory.severity == "high")] | length')
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | $CRITICAL_DEPS | $([ $CRITICAL_DEPS -eq 0 ] && echo '✅' || echo '⚠️ WARNING') |" >> $GITHUB_STEP_SUMMARY
+          echo "| High | $HIGH_DEPS | $([ $HIGH_DEPS -eq 0 ] && echo '✅' || echo '⚠️ WARNING') |" >> $GITHUB_STEP_SUMMARY
+
+          # Warn but don't block on Dependabot (give time to update)
+          if [ "$CRITICAL_DEPS" -gt 0 ]; then
+            echo "::warning::Found $CRITICAL_DEPS critical dependency vulnerabilities - please update soon"
+          fi

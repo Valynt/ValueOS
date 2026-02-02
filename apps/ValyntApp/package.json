@@ -71,5 +71,6 @@
     "typescript": "^5.9.3",
     "vite": "^6.1.6",
     "vitest": "^4.0.17"
-  }
+  },
+  "tsErrorBaseline": 4240
 }

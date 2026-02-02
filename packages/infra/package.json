@@ -26,5 +26,6 @@
     "@types/node": "^20.19.29",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
-  }
+  },
+  "tsErrorBaseline": 6
 }

@@ -13083,7 +13083,7 @@ WITH (security_invoker = true)
 AS
 SELECT
   cv.*,
-  ap.agent_type,
+  ap.agent_type AS prediction_agent_type,
   ap.session_id
 FROM public.confidence_violations cv
 LEFT JOIN public.agent_predictions ap ON ap.id = cv.prediction_id
@@ -13158,15 +13158,12 @@ CREATE POLICY "cv_tenant_isolation" ON public.confidence_violations
     )
   );
 
--- Agent predictions: tenant isolation with user ownership
+-- Agent predictions: tenant isolation
 CREATE POLICY "ap_tenant_isolation" ON public.agent_predictions
   FOR SELECT
   TO authenticated
   USING (
-    -- User can see their own predictions
-    user_id = (auth.uid())::text
-    OR
-    -- Or predictions from their tenant
+    -- User can see predictions from their tenant
     EXISTS (
       SELECT 1 FROM public.user_tenants ut
       WHERE ut.user_id = (auth.uid())::text
@@ -13177,8 +13174,8 @@ CREATE POLICY "ap_tenant_isolation" ON public.agent_predictions
 -- Performance indexes for RLS policies
 CREATE INDEX IF NOT EXISTS idx_confidence_violations_created_at
   ON public.confidence_violations(created_at);
-CREATE INDEX IF NOT EXISTS idx_agent_predictions_user
-  ON public.agent_predictions(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_session
+  ON public.agent_predictions(session_id);
 CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant
   ON public.agent_predictions(tenant_id);
 
@@ -17363,13 +17360,10 @@ CREATE TRIGGER audit_organization_configuration_updates
 -- ============================================================================
 
 COMMENT ON FUNCTION audit_organization_configuration_changes() IS
-  'Audit trigger function that logs all changes to organization configurations. ' ||
-  'Tracks old and new values, calculates specific changes, and stores metadata. ' ||
-  'Required for SOC2 compliance and security monitoring.';
+  'Audit trigger function that logs all changes to organization configurations. Tracks old and new values, calculates specific changes, and stores metadata. Required for SOC2 compliance and security monitoring.';
 
 COMMENT ON TRIGGER audit_organization_configuration_updates ON organization_configurations IS
-  'Automatically creates audit log entries for all organization configuration updates. ' ||
-  'Captures user context, changed fields, and timestamps for compliance tracking.';
+  'Automatically creates audit log entries for all organization configuration updates. Captures user context, changed fields, and timestamps for compliance tracking.';
 
 -- ============================================================================
 -- Grant Permissions
@@ -17440,8 +17434,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_org_config
   WHERE resource_type = 'organization_configuration';
 
 COMMENT ON INDEX idx_audit_logs_org_config IS
-  'Optimizes queries for organization configuration audit logs. ' ||
-  'Supports compliance reporting and security investigations.';
+  'Optimizes queries for organization configuration audit logs. Supports compliance reporting and security investigations.';
 
 -- ================================================
 -- Source: supabase/migrations/20260105000003_add_performance_indexes.sql
@@ -17456,20 +17449,18 @@ COMMENT ON INDEX idx_audit_logs_org_config IS
 -- ============================================================================
 
 -- user_organizations composite index for RLS policies
-CREATE INDEX IF NOT EXISTS idx_user_organizations_user_org_active
-ON user_organizations(user_id, organization_id)
-WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_user_organizations_user_org
+ON user_organizations(user_id, organization_id);
 
-COMMENT ON INDEX idx_user_organizations_user_org_active IS
-  'Optimizes RLS policy lookups for active user-organization relationships';
+COMMENT ON INDEX idx_user_organizations_user_org IS
+  'Optimizes RLS policy lookups for user-organization relationships';
 
 -- user_tenants composite index for RLS policies
-CREATE INDEX IF NOT EXISTS idx_user_tenants_user_tenant_active
-ON user_tenants(user_id, tenant_id)
-WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_user_tenants_user_tenant
+ON user_tenants(user_id, tenant_id);
 
-COMMENT ON INDEX idx_user_tenants_user_tenant_active IS
-  'Optimizes RLS policy lookups for active user-tenant relationships';
+COMMENT ON INDEX idx_user_tenants_user_tenant IS
+  'Optimizes RLS policy lookups for user-tenant relationships';
 
 -- ============================================================================
 -- 2. Integration Tables
@@ -17587,7 +17578,7 @@ END $$;
 
 -- agent_sessions by tenant and time
 CREATE INDEX IF NOT EXISTS idx_agent_sessions_tenant_time
-ON agent_sessions(tenant_id, created_at DESC);
+ON agent_sessions(tenant_id, started_at DESC);
 
 COMMENT ON INDEX idx_agent_sessions_tenant_time IS
   'Optimizes agent session queries by tenant and time';
@@ -17610,21 +17601,19 @@ COMMENT ON INDEX idx_agent_memory_org_session IS
 -- 6. Archive Tables
 -- ============================================================================
 
--- approval_requests_archive by tenant and time
-CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant_time
-ON approval_requests_archive(tenant_id, created_at DESC)
-WHERE tenant_id IS NOT NULL;
+-- approval_requests_archive by archived_at time
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_time
+ON approval_requests_archive(archived_at DESC);
 
-COMMENT ON INDEX idx_approval_requests_archive_tenant_time IS
-  'Optimizes archived approval request queries by tenant and time';
+COMMENT ON INDEX idx_approval_requests_archive_time IS
+  'Optimizes archived approval request queries by archive time';
 
--- approvals_archive by tenant and time
-CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant_time
-ON approvals_archive(tenant_id, created_at DESC)
-WHERE tenant_id IS NOT NULL;
+-- approvals_archive by archived_at time
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_time
+ON approvals_archive(archived_at DESC);
 
-COMMENT ON INDEX idx_approvals_archive_tenant_time IS
-  'Optimizes archived approval queries by tenant and time';
+COMMENT ON INDEX idx_approvals_archive_time IS
+  'Optimizes archived approval queries by archive time';
 
 -- ============================================================================
 -- 7. JSONB Indexes for Configuration Queries
@@ -17824,26 +17813,35 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
--- Create Trigger
+-- Create Trigger (only if teams table exists)
 -- ============================================================================
 
-DROP TRIGGER IF EXISTS audit_team_settings_updates ON teams;
-
-CREATE TRIGGER audit_team_settings_updates
-  AFTER UPDATE ON teams
-  FOR EACH ROW
-  WHEN (OLD.team_settings IS DISTINCT FROM NEW.team_settings OR OLD.name IS DISTINCT FROM NEW.name)
-  EXECUTE FUNCTION audit_team_settings_changes();
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'teams') THEN
+    DROP TRIGGER IF EXISTS audit_team_settings_updates ON teams;
+    CREATE TRIGGER audit_team_settings_updates
+      AFTER UPDATE ON teams
+      FOR EACH ROW
+      WHEN (OLD.team_settings IS DISTINCT FROM NEW.team_settings OR OLD.name IS DISTINCT FROM NEW.name)
+      EXECUTE FUNCTION audit_team_settings_changes();
+  END IF;
+END $$;
 
 -- ============================================================================
--- Comments
+-- Comments (only if teams table exists)
 -- ============================================================================
 
 COMMENT ON FUNCTION audit_team_settings_changes() IS
   'Audit trigger for team settings changes. Logs old and new values for compliance.';
 
-COMMENT ON TRIGGER audit_team_settings_updates ON teams IS
-  'Automatically creates audit log entries for team settings updates.';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'teams') THEN
+    COMMENT ON TRIGGER audit_team_settings_updates ON teams IS
+      'Automatically creates audit log entries for team settings updates.';
+  END IF;
+END $$;
 
 -- ============================================================================
 -- Index for Team Audit Logs
@@ -17877,7 +17875,7 @@ COMMENT ON EXTENSION pgsodium IS 'Modern cryptography for PostgreSQL using libso
 -- This creates a key for development/testing only
 DO $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
 BEGIN
   -- Check if key already exists
   IF NOT EXISTS (
@@ -17885,12 +17883,13 @@ BEGIN
     WHERE name = 'integration_credentials_key'
   ) THEN
     -- Generate a new encryption key
+    -- key_context must be exactly 8 bytes
     INSERT INTO pgsodium.key (name, status, key_type, key_context)
     VALUES (
       'integration_credentials_key',
       'valid',
       'aead-det',  -- Deterministic authenticated encryption
-      'integration_credentials'::bytea
+      'intgcred'::bytea  -- 8 bytes exactly
     )
     RETURNING id INTO v_key_id;
 
@@ -17910,7 +17909,7 @@ ADD COLUMN IF NOT EXISTS credentials_encrypted BYTEA;
 
 -- Add key ID reference
 ALTER TABLE integration_connections
-ADD COLUMN IF NOT EXISTS credentials_key_id BIGINT
+ADD COLUMN IF NOT EXISTS credentials_key_id UUID
 REFERENCES pgsodium.key(id);
 
 COMMENT ON COLUMN integration_connections.credentials_encrypted IS
@@ -17932,7 +17931,7 @@ ADD COLUMN IF NOT EXISTS refresh_token_encrypted BYTEA;
 
 -- Add key ID reference
 ALTER TABLE tenant_integrations
-ADD COLUMN IF NOT EXISTS token_key_id BIGINT
+ADD COLUMN IF NOT EXISTS token_key_id UUID
 REFERENCES pgsodium.key(id);
 
 COMMENT ON COLUMN tenant_integrations.access_token_encrypted IS
@@ -17951,14 +17950,14 @@ COMMENT ON COLUMN tenant_integrations.token_key_id IS
 -- Function to encrypt credentials
 CREATE OR REPLACE FUNCTION encrypt_credentials(
   p_plaintext TEXT,
-  p_key_id BIGINT DEFAULT NULL
+  p_key_id UUID DEFAULT NULL
 )
 RETURNS BYTEA
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
   v_encrypted BYTEA;
 BEGIN
   -- Get key ID if not provided
@@ -17993,14 +17992,14 @@ COMMENT ON FUNCTION encrypt_credentials IS
 -- Function to decrypt credentials
 CREATE OR REPLACE FUNCTION decrypt_credentials(
   p_encrypted BYTEA,
-  p_key_id BIGINT DEFAULT NULL
+  p_key_id UUID DEFAULT NULL
 )
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
   v_decrypted BYTEA;
 BEGIN
   -- Return NULL if input is NULL
@@ -18051,7 +18050,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
   v_migrated BIGINT := 0;
   v_failed BIGINT := 0;
   v_record RECORD;
@@ -18214,7 +18213,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
 BEGIN
   -- Get encryption key
   SELECT id INTO v_key_id
@@ -18256,7 +18255,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
 BEGIN
   -- Get encryption key
   SELECT id INTO v_key_id
@@ -18537,7 +18536,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
 BEGIN
   -- Get encryption key
   SELECT id INTO v_key_id
@@ -18572,7 +18571,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_key_id BIGINT;
+  v_key_id UUID;
 BEGIN
   -- Get encryption key
   SELECT id INTO v_key_id

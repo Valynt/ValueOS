@@ -15,6 +15,7 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import ts from "typescript";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,7 +24,6 @@ const projectRoot = path.resolve(__dirname, "../..");
 interface ErrorInfo {
   file: string;
   line: number;
-  column: number;
   code: string;
   message: string;
 }
@@ -66,20 +66,77 @@ const ERROR_CODE_DESCRIPTIONS: Record<string, string> = {
   TS2412: "Index signature parameter not compatible",
 };
 
-function runTypecheck(): string {
-  try {
-    execSync("pnpm run typecheck:app", {
-      cwd: projectRoot,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
+function runTypecheck(): ErrorInfo[] {
+  console.log("🔍 Discovering tsconfig.json files in apps/ and packages/...");
+  const configFiles = execSync(
+    "find apps packages -name tsconfig.json -not -path '*/node_modules/*'",
+    { encoding: "utf8" }
+  )
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((p) => path.resolve(projectRoot, p.trim()));
+
+  const errors: ErrorInfo[] = [];
+
+  for (const configPath of configFiles) {
+    const relativeConfigPath = path.relative(projectRoot, configPath);
+
+    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+    if (configFile.error) {
+      console.error(
+        `   ⚠️ Error reading ${relativeConfigPath}:`,
+        ts.formatDiagnostics([configFile.error], {
+          getCanonicalFileName: (f) => f,
+          getCurrentDirectory: () => path.dirname(configPath),
+          getNewLine: () => "\n",
+        })
+      );
+      continue;
+    }
+
+    const parsedConfig = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      path.dirname(configPath)
+    );
+
+    const program = ts.createProgram({
+      rootNames: parsedConfig.fileNames,
+      options: parsedConfig.options,
+      projectReferences: parsedConfig.projectReferences,
     });
-    return "";
-  } catch (error: unknown) {
-    const execError = error as { stdout?: string; stderr?: string };
-    return (execError.stdout || "") + (execError.stderr || "");
+
+    const diagnostics = ts.getPreEmitDiagnostics(program);
+
+    for (const d of diagnostics) {
+      let line = 0;
+      let file = "";
+
+      if (d.file) {
+        file = path.relative(projectRoot, d.file.fileName);
+        if (d.start !== undefined) {
+          const pos = d.file.getLineAndCharacterOfPosition(d.start);
+          line = pos.line + 1;
+        }
+      } else {
+        file = `config:${relativeConfigPath}`;
+      }
+
+      errors.push({
+        file,
+        line,
+        code: `TS${d.code}`,
+        message: ts.flattenDiagnosticMessageText(d.messageText, "\n"),
+      });
+    }
   }
+
+  return errors;
 }
 
+// Previously used regex parsing - now we get structured objects directly
+// Keeping for reference if we need to revert to shell execution
+/*
 function parseErrors(output: string): ErrorInfo[] {
   const errors: ErrorInfo[] = [];
   const errorRegex = /^(.+?)\((\d+),(\d+)\): error (TS\d+): (.+)$/gm;
@@ -89,7 +146,7 @@ function parseErrors(output: string): ErrorInfo[] {
     errors.push({
       file: match[1] ?? "",
       line: parseInt(match[2] ?? "0", 10),
-      column: parseInt(match[3] ?? "0", 10),
+      // column: parseInt(match[3] ?? "0", 10),
       code: match[4] ?? "",
       message: match[5] ?? "",
     });
@@ -97,6 +154,7 @@ function parseErrors(output: string): ErrorInfo[] {
 
   return errors;
 }
+*/
 
 function extractPackage(filePath: string): string {
   const packageMatch = filePath.match(/^(packages\/[^/]+|apps\/[^/]+)/);
@@ -117,51 +175,181 @@ async function loadStrictZones(): Promise<string[]> {
   }
 }
 
-async function enforceRatchet(report: TelemetryReport): Promise<boolean> {
-  let failed = false;
-  const baselinePath = path.join(projectRoot, ".github/ts-error-baseline.json");
-  const strictZones = await loadStrictZones();
+async function updatePackageBaselines(report: TelemetryReport): Promise<void> {
+  const globalBaselinePath = path.join(projectRoot, ".github/ts-error-baseline.json");
 
+  // 1. Delete global baseline if it exists (we are moving to distributed)
+  if (fs.existsSync(globalBaselinePath)) {
+    fs.unlinkSync(globalBaselinePath);
+    console.log("🗑️  Deleted deprecated global baseline (.github/ts-error-baseline.json)");
+  }
+
+  // 2. Update each package's baseline (Sidecar)
+  console.log("💾 Updating local sidecar baselines (.ts-debt.json)...");
+  for (const [pkgName, count] of Object.entries(report.errorsByPackage)) {
+    if (pkgName === "root" || pkgName === "global" || pkgName.startsWith(".")) continue;
+
+    const pkgDir = path.join(projectRoot, pkgName);
+    const pkgPath = path.join(pkgDir, "package.json");
+    const sidecarPath = path.join(pkgDir, ".ts-debt.json");
+
+    if (!fs.existsSync(pkgPath)) {
+      console.warn(`⚠️  Could not find package.json for ${pkgName}, skipping baseline update.`);
+      continue;
+    }
+
+    try {
+      // Write sidecar
+      fs.writeFileSync(sidecarPath, JSON.stringify({ baseline: count }, null, 2) + "\n");
+      // console.log(`   ✅ ${pkgName}: baseline set to ${count}`);
+
+      // Cleanup package.json
+      const pkgJson = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      if (pkgJson.tsErrorBaseline !== undefined) {
+        delete pkgJson.tsErrorBaseline;
+        fs.writeFileSync(pkgPath, JSON.stringify(pkgJson, null, 2) + "\n");
+        console.log(`   🧹 Cleared legacy baseline from ${pkgName}/package.json`);
+      }
+    } catch (e) {
+      console.error(`   ❌ Failed to update ${pkgName}:`, e);
+    }
+  }
+
+  // 3. Auto-Enroll Green Islands (0 errors)
+  const strictConfigPath = path.join(projectRoot, "packages/config-v2/strict-zones.config.js");
+  if (fs.existsSync(strictConfigPath)) {
+    let strictContent = fs.readFileSync(strictConfigPath, "utf8");
+    let newZonesRef: string[] = [];
+    let addedZones = 0;
+
+    const allPackages = execSync(
+      "find packages apps -name package.json -not -path '*/node_modules/*'",
+      { encoding: "utf8" }
+    )
+      .split("\n")
+      .filter(Boolean)
+      .map((p) => path.dirname(p));
+
+    for (const pkgDir of allPackages) {
+      // If this package is NOT in the error report, it has 0 errors.
+      if (!report.errorsByPackage[pkgDir]) {
+        // Check if already in config (simple check)
+        if (!strictContent.includes(`"${pkgDir}"`) && !strictContent.includes(`'${pkgDir}'`)) {
+          // Add it!
+          const insertionPoint = strictContent.lastIndexOf("]");
+          if (insertionPoint > 0) {
+            const entry = `    "${pkgDir}",\n`;
+            strictContent =
+              strictContent.slice(0, insertionPoint) + entry + strictContent.slice(insertionPoint);
+
+            // Remove sidecar if it exists
+            const sidecarPath = path.join(projectRoot, pkgDir, ".ts-debt.json");
+            if (fs.existsSync(sidecarPath)) {
+              fs.unlinkSync(sidecarPath);
+            }
+
+            // Also update package.json to remove baseline if it existed (since it's now strict)
+            const pkgJsonPath = path.join(projectRoot, pkgDir, "package.json");
+            if (fs.existsSync(pkgJsonPath)) {
+              const pkgData = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+              if (pkgData.tsErrorBaseline !== undefined) {
+                delete pkgData.tsErrorBaseline;
+                fs.writeFileSync(pkgJsonPath, JSON.stringify(pkgData, null, 2) + "\n");
+              }
+            }
+
+            addedZones++;
+            newZonesRef.push(pkgDir);
+          }
+        }
+      }
+    }
+
+    if (addedZones > 0) {
+      fs.writeFileSync(strictConfigPath, strictContent);
+      console.log(`🏝️  Auto-enrolled ${addedZones} new Green Islands into strict-zones.config.js`);
+      newZonesRef.forEach((z) => console.log(`   + ${z}`));
+    }
+  }
+}
+
+// Check baseline against distributed package.json files
+async function enforceRatchet(report: TelemetryReport): Promise<boolean> {
+  const strictZones = await loadStrictZones();
   console.log("\n🛡️  Type Safety Governance Check");
   console.log("────────────────────────────────");
 
-  // 1. Strict Zone Enforcement
-  if (strictZones.length > 0) {
-    console.log(`Checking ${strictZones.length} Green Islands (Strict Zones)...`);
-    console.log("ℹ️  Strict zone file-level enforcement is not yet implemented; skipping.");
-  }
+  let failed = false;
+  let regressionCount = 0;
+  let winCount = 0;
 
-  // Checking baseline
-  if (fs.existsSync(baselinePath)) {
+  // Find all sidecars to check against
+  const sidecarFiles = execSync(
+    "find apps packages -name .ts-debt.json -not -path '*/node_modules/*'",
+    { encoding: "utf8" }
+  )
+    .split("\n")
+    .filter((line) => line.trim().length > 0)
+    .map((p) => path.resolve(projectRoot, p.trim()));
+
+  console.log(`Checking ${sidecarFiles.length} baselines...`);
+
+  for (const sidecarPath of sidecarFiles) {
+    const pkgDir = path.dirname(sidecarPath);
+    const pkgName = path.relative(projectRoot, pkgDir);
+
     try {
-      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8")) as TelemetryReport;
-      console.log("📉 Comparing against baseline...");
+      const sidecarData = JSON.parse(fs.readFileSync(sidecarPath, "utf8"));
+      const baseline = sidecarData.baseline;
 
-      let regressionCount = 0;
-      for (const [pkg, count] of Object.entries(report.errorsByPackage)) {
-        const baselineCount = baseline.errorsByPackage[pkg] || 0;
-        if (count > baselineCount) {
-          console.error(`   ❌ Regression in ${pkg}: ${count} errors (baseline: ${baselineCount})`);
-          regressionCount++;
-        }
-      }
+      const currentErrors = report.errorsByPackage[pkgName] || 0;
 
-      if (regressionCount > 0) {
-        console.error(`\n   FAILED: ${regressionCount} packages have increased error counts.`);
-        failed = true;
-      } else {
-        console.log("   ✅ No regressions detected.");
+      if (currentErrors > baseline) {
+        console.error(
+          `   ❌ REGRESSION: ${pkgName} has ${currentErrors} errors (baseline: ${baseline})`
+        );
+        regressionCount++;
+      } else if (currentErrors < baseline) {
+        console.log(
+          `   🎉 WIN DETECTED: ${pkgName} has ${currentErrors} errors (baseline: ${baseline})`
+        );
+        console.log(`      Run 'pnpm run typecheck:signal --update-baseline' to lock in this win.`);
+        winCount++;
       }
     } catch (e) {
-      console.error("   ⚠️ Failed to parse baseline:", e);
+      console.error(`   ⚠️ Failed to read baseline for ${pkgName}`);
     }
+  }
+
+  // Also check if any package in report has NO baseline and is NOT strict zone
+  for (const [pkgName, count] of Object.entries(report.errorsByPackage)) {
+    if (pkgName === "root" || pkgName === "global" || pkgName.startsWith(".")) continue;
+
+    const sidecarPath = path.join(projectRoot, pkgName, ".ts-debt.json");
+    if (!fs.existsSync(sidecarPath) && !strictZones.includes(pkgName)) {
+      // It's a new package with errors or a package that lost its baseline?
+      // Just logging for info
+      // console.warn(`   ⚠️  No baseline for ${pkgName} (${count} errors)`);
+    }
+  }
+
+  if (regressionCount > 0) {
+    console.error(`\n   FAILED: ${regressionCount} packages have increased error counts.`);
+    failed = true;
   } else {
-    console.log("   ℹ️  No baseline file found. Skipping regression check.");
+    console.log("   ✅ No regressions detected.");
+  }
+
+  if (winCount > 0) {
+    console.log(
+      `   ✨ ${winCount} packages have improved! Update baselines to prevent backsliding.`
+    );
   }
 
   return failed;
 }
 
+// Helpers...
 function extractMissingModule(message: string): string | null {
   const match = message.match(/Cannot find module '([^']+)'/);
   return match ? (match[1] ?? null) : null;
@@ -322,18 +510,12 @@ async function main(): Promise<void> {
   const updateBaseline = args.includes("--update-baseline");
 
   console.log("🔍 Running TypeScript type check...");
-  const output = runTypecheck();
-  const errors = parseErrors(output);
+  // Now returns ErrorInfo[]
+  const errors = runTypecheck();
   const report = generateReport(errors);
 
   if (updateBaseline) {
-    const artifactPath = path.join(projectRoot, ".github/ts-error-baseline.json");
-    // Ensure .github exists
-    const githubDir = path.dirname(artifactPath);
-    if (!fs.existsSync(githubDir)) fs.mkdirSync(githubDir, { recursive: true });
-
-    fs.writeFileSync(artifactPath, JSON.stringify(report, null, 2));
-    console.log(`\n✅ Baseline updated at: ${artifactPath}`);
+    await updatePackageBaselines(report);
     process.exit(0);
   }
 

@@ -18,6 +18,7 @@
 
     /* Path Aliases */
     "paths": {
+      // Existing @ aliases (preferred style)
       "@/*": ["./src/*"],
       "@lib/*": ["./src/lib/*"],
       "@pages/*": ["./src/pages/*"],
@@ -33,7 +34,26 @@
       "@mcp-common/*": ["./packages/mcp/common/*"],
       "@sdui/*": ["./packages/sdui/src/*"],
       "@valueos/design-system": ["./packages/components/design-system/src"],
-      "@valueos/design-system/*": ["./packages/components/design-system/src/*"]
+      "@valueos/design-system/*": ["./packages/components/design-system/src/*"],
+
+      // Legacy / non-@ imports observed in the repo (map common bare specifiers)
+      "components/*": [
+        "./src/components/*",
+        "./packages/components/design-system/src/*",
+        "./packages/components/design-system/src/primitives/*"
+      ],
+      "components": ["./src/components", "./packages/components/design-system/src"],
+      "components/ui/*": [
+        "./src/components/ui/*",
+        "./packages/components/design-system/src/primitives/*"
+      ],
+      "lib/*": ["./src/lib/*", "./packages/shared/src/lib/*", "./packages/backend/src/lib/*"],
+      "hooks/*": ["./src/hooks/*", "./packages/shared/src/hooks/*"],
+      "hooks": ["./src/hooks", "./packages/shared/src/hooks"],
+
+      // Fallbacks for a few specific missed imports
+      "lib/trpc": ["./packages/shared/src/lib/trpc", "./src/lib/trpc"],
+      "lib/utils": ["./packages/shared/src/lib/utils", "./src/lib/utils"]
     },
 
     /* Linting - Strict Configuration */
