@@ -9,6 +9,39 @@ export interface Rule {
   action: (context: any) => void | Promise<void>;
 }
 
+export interface EnforcementResult {
+  allowed: boolean;
+  violations: RuleViolation[];
+  warnings: RuleWarning[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface RuleViolation {
+  ruleId: string;
+  ruleName: string;
+  message: string;
+  severity: "error" | "critical";
+}
+
+export interface RuleWarning {
+  ruleId: string;
+  ruleName: string;
+  message: string;
+}
+
+export async function enforceRules(
+  context: Record<string, unknown>,
+  ruleIds?: string[]
+): Promise<EnforcementResult> {
+  // Stub implementation - returns allowed by default
+  return {
+    allowed: true,
+    violations: [],
+    warnings: [],
+    metadata: { ruleIds, contextKeys: Object.keys(context) },
+  };
+}
+
 export class RulesEngine {
   private rules: Map<string, Rule> = new Map();
 

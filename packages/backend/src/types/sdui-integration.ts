@@ -1,6 +1,6 @@
 /**
  * SDUI (Server-Driven UI) Integration Type Definitions
- * 
+ *
  * Types for dynamic UI generation, workspace state management,
  * canonical actions, and manifesto-driven UI updates.
  */
@@ -20,20 +20,15 @@ export interface SDUIUpdate {
 }
 
 export type SDUIUpdateType =
-  | 'component_add'
-  | 'component_update'
-  | 'component_remove'
-  | 'layout_change'
-  | 'state_sync'
-  | 'validation_result'
-  | 'navigation';
+  | "component_add"
+  | "component_update"
+  | "component_remove"
+  | "layout_change"
+  | "state_sync"
+  | "validation_result"
+  | "navigation";
 
-export type SDUIOperation =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'replace'
-  | 'merge';
+export type SDUIOperation = "create" | "update" | "delete" | "replace" | "merge";
 
 export interface SDUIPayload {
   component?: UIComponent;
@@ -115,14 +110,14 @@ export interface OpportunityData {
 
 export interface TargetData {
   goals?: string[];
-  kpis?: Array<{name: string; target: number; unit: string}>;
-  timeline?: {start: string; end: string};
+  kpis?: Array<{ name: string; target: number; unit: string }>;
+  timeline?: { start: string; end: string };
   [key: string]: any;
 }
 
 export interface RealizationData {
   implementation_plan?: string;
-  milestones?: Array<{name: string; date: string; status: string}>;
+  milestones?: Array<{ name: string; date: string; status: string }>;
   [key: string]: any;
 }
 
@@ -134,7 +129,7 @@ export interface ExpansionData {
 
 export interface IntegrityData {
   validation_results?: ManifestoCheckResult[];
-  audit_trail?: Array<{timestamp: string; action: string; user: string}>;
+  audit_trail?: Array<{ timestamp: string; action: string; user: string }>;
   [key: string]: any;
 }
 
@@ -143,7 +138,7 @@ export interface UIState {
   expanded_sections?: string[];
   selected_items?: string[];
   filters?: Record<string, any>;
-  sort?: {field: string; direction: 'asc' | 'desc'};
+  sort?: { field: string; direction: "asc" | "desc" };
 }
 
 export interface ValidationState {
@@ -169,7 +164,7 @@ export interface SyncStatus {
   is_synced: boolean;
   last_sync: string;
   pending_changes: number;
-  conflict_resolution?: 'local' | 'remote' | 'manual';
+  conflict_resolution?: "local" | "remote" | "manual";
 }
 
 // ============================================================================
@@ -206,13 +201,13 @@ export interface CanonicalAction {
 }
 
 export type ActionType =
-  | 'create_opportunity'
-  | 'update_target'
-  | 'validate_manifesto'
-  | 'execute_workflow'
-  | 'sync_state'
-  | 'navigate'
-  | 'custom';
+  | "create_opportunity"
+  | "update_target"
+  | "validate_manifesto"
+  | "execute_workflow"
+  | "sync_state"
+  | "navigate"
+  | "custom";
 
 export interface ActionContext {
   workspace_id: string;
@@ -233,7 +228,7 @@ export interface ActionPayload {
 
 export interface ActionMetadata {
   timestamp: string;
-  source: 'user' | 'agent' | 'system';
+  source: "user" | "agent" | "system";
   idempotency_key?: string;
   retry_count?: number;
 }
@@ -245,9 +240,9 @@ export interface ActionMetadata {
 export interface ManifestoCheckResult {
   rule_id: string;
   rule_name: string;
-  status: 'passed' | 'failed' | 'warning';
+  status: "passed" | "failed" | "warning";
   message: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
+  severity: "critical" | "high" | "medium" | "low";
   context?: Record<string, any>;
   timestamp: string;
 }
@@ -255,7 +250,7 @@ export interface ManifestoCheckResult {
 export interface ManifestoValidation {
   workspace_id: string;
   lifecycle_stage: string;
-  overall_status: 'valid' | 'invalid' | 'needs_review';
+  overall_status: "valid" | "invalid" | "needs_review";
   checks: ManifestoCheckResult[];
   score: number;
   validated_at: string;
@@ -269,7 +264,7 @@ export interface NavigationUpdate {
   target_view: string;
   target_stage?: string;
   parameters?: Record<string, any>;
-  transition?: 'push' | 'replace' | 'back';
+  transition?: "push" | "replace" | "back";
 }
 
 // ============================================================================
@@ -292,7 +287,7 @@ export interface StageCompletionEvent {
   workspace_id: string;
   stage_id: string;
   lifecycle_stage: string;
-  status: 'completed' | 'failed' | 'skipped';
+  status: "completed" | "failed" | "skipped";
   output_data: Record<string, any>;
   timestamp: string;
 }
@@ -305,4 +300,40 @@ export interface WorkflowProgress {
   total_stages: number;
   progress_percentage: number;
   estimated_completion?: string;
+}
+
+// ============================================================================
+// Action Handler Types (Stub exports for ActionRouter compatibility)
+// ============================================================================
+
+export interface ActionContext {
+  userId: string;
+  organizationId: string;
+  workspaceId?: string;
+  sessionId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ActionResult<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  code?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ActionHandler<TInput = unknown, TOutput = unknown> {
+  name: string;
+  description?: string;
+  validate?: (input: TInput) => boolean | Promise<boolean>;
+  execute: (input: TInput, context: ActionContext) => Promise<ActionResult<TOutput>>;
+}
+
+export interface ManifestoViolation {
+  ruleId: string;
+  ruleName: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  path?: string;
+  suggestion?: string;
 }
