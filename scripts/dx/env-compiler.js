@@ -90,7 +90,9 @@ function getUrlConfig(mode, ports) {
       ? appendSslModeDisable(
           `postgresql://postgres:dev_password@${backendHost}:${ports.postgres.port}/valuecanvas_dev`
         )
-      : appendSslModeDisable(`postgresql://postgres:postgres@${backendHost}:${supabaseDbPort}/postgres`),
+      : appendSslModeDisable(
+          `postgresql://postgres:postgres@${backendHost}:${supabaseDbPort}/postgres`
+        ),
     REDIS_URL: `redis://${backendHost}:${ports.redis.port}`,
   };
 }
@@ -433,9 +435,20 @@ To switch modes, run:
     return;
   }
 
-  // Write .env.local
-  fs.writeFileSync(envLocalPath, envLocalContent, "utf8");
-  console.log(`✓ Wrote ${envLocalPath} for mode: ${mode}`);
+  // Write .env.local (handle read-only bind mounts from Codespaces/devcontainers)
+  try {
+    fs.writeFileSync(envLocalPath, envLocalContent, "utf8");
+    console.log(`✓ Wrote ${envLocalPath} for mode: ${mode}`);
+  } catch (err) {
+    if (err.code === "EROFS" || err.code === "EACCES") {
+      console.log(
+        `⚠️  Skipped ${envLocalPath} (read-only mount, likely Codespaces-injected secrets)`
+      );
+      console.log(`   Using existing .env.local with injected secrets.`);
+    } else {
+      throw err;
+    }
+  }
 
   // Write .env.ports
   fs.writeFileSync(envPortsPath, envPortsContent, "utf8");
