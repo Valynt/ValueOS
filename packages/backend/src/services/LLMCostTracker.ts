@@ -5,9 +5,9 @@
  * Provides cost analytics, alerts, and optimization recommendations.
  */
 
+import { getEnvVar, getLLMCostTrackerConfig, getSupabaseConfig } from "@shared/lib/env";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../lib/logger.js"
-import { getEnvVar, getLLMCostTrackerConfig } from "@shared/lib/env";
 
 const TOKENS_PER_MILLION = 1_000_000;
 const SECONDS_PER_MINUTE = 60;
@@ -176,7 +176,7 @@ export class LLMCostTracker {
   private static warnedMissingConfig = false;
 
   constructor() {
-    const { supabaseUrl, supabaseServiceRoleKey } = getLLMCostTrackerConfig();
+    const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       if (!LLMCostTracker.warnedMissingConfig) {
@@ -408,7 +408,7 @@ export class LLMCostTracker {
     if (!this.isEnabled() || !this.supabase) return;
 
     // Check for duplicate alerts within 1 hour using database
-    const alertKey = `${alert.period}-${alert.level}`;
+    const _alertKey = `${alert.period}-${alert.level}`;
     const oneHourAgo = new Date(Date.now() - ONE_HOUR_MS).toISOString();
 
     const { data: existingAlerts, error: checkError } = await this.supabase
@@ -541,50 +541,38 @@ export class LLMCostTracker {
       };
     }
 
-    const { data, error } = await this.supabase
-      .from("llm_usage")
-      .select("*")
-      .gte("timestamp", startDate.toISOString())
-      .lte("timestamp", endDate.toISOString());
+    const { data, error } = await this.supabase.rpc('get_llm_cost_analytics', {
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+    });
 
-    if (error || !data) {
-      throw new Error(`Failed to get cost analytics: ${error?.message}`);
+    if (error) {
+      throw new Error(`Failed to get cost analytics: ${error.message}`);
     }
 
-    const analytics = {
-      totalCost: 0,
-      costByModel: {} as Record<string, number>,
-      costByUser: {} as Record<string, number>,
-      costByEndpoint: {} as Record<string, number>,
-      totalTokens: 0,
-      averageCostPerRequest: 0,
-      requestCount: data.length,
+    // If data is null (which shouldn't happen with our RPC unless it fails entirely), return empty.
+    if (!data) {
+      return {
+        totalCost: 0,
+        costByModel: {},
+        costByUser: {},
+        costByEndpoint: {},
+        totalTokens: 0,
+        averageCostPerRequest: 0,
+        requestCount: 0,
+      };
+    }
+
+    // Cast the response to the expected type
+    return data as {
+      totalCost: number;
+      costByModel: Record<string, number>;
+      costByUser: Record<string, number>;
+      costByEndpoint: Record<string, number>;
+      totalTokens: number;
+      averageCostPerRequest: number;
+      requestCount: number;
     };
-
-    for (const record of data) {
-      analytics.totalCost += record.estimated_cost;
-      analytics.totalTokens += record.total_tokens;
-
-      // By model
-      analytics.costByModel[record.model] =
-        (analytics.costByModel[record.model] || 0) + record.estimated_cost;
-
-      // By user
-      analytics.costByUser[record.user_id] =
-        (analytics.costByUser[record.user_id] || 0) + record.estimated_cost;
-
-      // By endpoint
-      analytics.costByEndpoint[record.endpoint] =
-        (analytics.costByEndpoint[record.endpoint] || 0) +
-        record.estimated_cost;
-    }
-
-    analytics.averageCostPerRequest =
-      analytics.requestCount > 0
-        ? analytics.totalCost / analytics.requestCount
-        : 0;
-
-    return analytics;
   }
 
   /**
