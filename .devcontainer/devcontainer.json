@@ -17,7 +17,7 @@
     }
   },
 
-  "postCreateCommand": "bash scripts/dev/setup.sh > setup.log 2>&1",
+  "postCreateCommand": "bash scripts/dev/setup.sh",
 
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
@@ -36,7 +36,10 @@
       "settings": {
         "telemetry.telemetryLevel": "off",
         "redhat.telemetry.enabled": false,
-        "git.telemetry.telemetryLevel": "off"
+        "git.telemetry.telemetryLevel": "off",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "files.trimTrailingWhitespace": true
       },
       "extensions": [
         "dbaeumer.vscode-eslint",
