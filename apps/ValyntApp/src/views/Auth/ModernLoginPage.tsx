@@ -130,7 +130,10 @@ export function ModernLoginPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center">
+          <div
+            role="alert"
+            className="p-3 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center"
+          >
             {error}
           </div>
         )}

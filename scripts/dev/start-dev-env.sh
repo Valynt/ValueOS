@@ -274,6 +274,11 @@ else
     cd "$PROJECT_ROOT"
 
     log INFO "Applying migrations..."
+    export PGHOST="${DB_HOST:-db}"
+    export DB_HOST="${DB_HOST:-db}"
+    export DB_PASSWORD="${DB_PASSWORD:-postgres}"
+    export DB_NAME="${DB_NAME:-postgres}"
+
     if bash "$SCRIPT_DIR/migrate.sh" 2>&1 | tee -a "$LOG_FILE"; then
         log SUCCESS "Migrations applied successfully"
     else
