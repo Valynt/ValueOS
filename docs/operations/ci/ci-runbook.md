@@ -2,12 +2,18 @@
 
 This runbook documents the CI testing process and introduces checks to keep test quality high.
 
-CI test stages:
+CI pipeline entry point:
+
+- Standard workflow runs `pnpm run ci:verify`.
+- The command executes checks in this order: lint → typecheck → test → build.
+- Additional CI-only checks (legacy route validation, docs path linting, typecheck telemetry) are included inside `ci:verify`.
+
+Detailed test stages (within or adjacent to `ci:verify`):
 
 1. Lint: `pnpm run lint` — fail fast on style & console usage
-2. Typecheck: `pnpm run typecheck` — TypeScript type correctness
-3. Unit: `pnpm run test:unit` — Quick feedback; must pass before other stages
-4. Integration: `pnpm run test:integration` — Postgres/Redis/Message bus checks; uses services
+2. Typecheck: `pnpm run typecheck:islands` + telemetry — TypeScript type correctness
+3. Tests: `pnpm run test` — unit + integration through Turbo
+4. Build: `pnpm run build` — production build validation
 5. RLS: `pnpm run test:rls` — Supabase policy enforcement checks
 6. E2E: `pnpm run test:smoke` — Playwright runs on the running app
 
