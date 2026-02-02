@@ -9,9 +9,9 @@ const shouldFix = args.includes("--fix");
 
 /**
  * ValueOS Dev Verify (The Ironclad Boot)
- * 
+ *
  * CORE PRINCIPLE: Force Determinism at the Gateway.
- * 
+ *
  * Optimized for zero-dependency execution.
  */
 
@@ -52,12 +52,13 @@ function checkEnv(): boolean {
   try {
     const envContent = fs.readFileSync(envPath, "utf8");
     const exampleLines = fs.readFileSync(examplePath, "utf8").split("\n");
-    
-    const getKeys = (content: string) => 
-      content.split("\n")
-        .filter(l => l.trim() && !l.trim().startsWith("#"))
-        .map(l => l.split("=")[0].trim())
-        .filter(k => k);
+
+    const getKeys = (content: string) =>
+      content
+        .split("\n")
+        .filter((l) => l.trim() && !l.trim().startsWith("#"))
+        .map((l) => l.split("=")[0].trim())
+        .filter((k) => k);
 
     const envKeys = getKeys(envContent);
     const missingLines: string[] = [];
@@ -76,7 +77,10 @@ function checkEnv(): boolean {
     if (missingKeys.length > 0) {
       if (shouldFix) {
         console.log(`🛠️  Auto-fixing: Patching .env with ${missingKeys.length} missing keys...`);
-        fs.appendFileSync(envPath, "\n# Added by dev-verify --fix\n" + missingLines.join("\n") + "\n");
+        fs.appendFileSync(
+          envPath,
+          "\n# Added by dev-verify --fix\n" + missingLines.join("\n") + "\n"
+        );
         console.log("✅ .env patched.");
         return true;
       } else {
@@ -105,8 +109,13 @@ function checkPort(port: number, name: string): Promise<boolean> {
       resolve(true);
     });
 
-    socket.on("error", () => { resolve(false); });
-    socket.on("timeout", () => { socket.destroy(); resolve(false); });
+    socket.on("error", () => {
+      resolve(false);
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
 
     socket.connect(port, "127.0.0.1");
   });
@@ -124,10 +133,10 @@ function checkDockerImages(): boolean {
       if (shouldFix) {
         console.log(`🛠️  Auto-fixing: Pulling ${img}...`);
         try {
-           execSync(`docker pull ${img}`, { stdio: "inherit" });
+          execSync(`docker pull ${img}`, { stdio: "inherit" });
         } catch (pullError) {
-           console.error(`❌ Failed to pull ${img}`);
-           allPresent = false;
+          console.error(`❌ Failed to pull ${img}`);
+          allPresent = false;
         }
       } else {
         console.warn(`⚠️  Missing Docker image: ${img}`);
@@ -154,7 +163,9 @@ function checkGovernanceIntegrity(): boolean {
       }
     }
     return allValid;
-  } catch (e) { return false; }
+  } catch (e) {
+    return false;
+  }
 }
 
 function checkSchemaDrift(): boolean {
@@ -175,7 +186,7 @@ async function main() {
   const env = checkEnv();
   const gov = checkGovernanceIntegrity();
   const img = checkDockerImages();
-  
+
   let pg = await checkPort(5432, "Postgres");
   let ls = await checkPort(4566, "LocalStack");
 
@@ -186,13 +197,15 @@ async function main() {
       try {
         execSync(`${composeCmd} up -d`, { stdio: "inherit" });
       } catch (e) {
-        console.warn("⚠️  Initial 'up' failed (likely name conflict). Attempting 'down' then 'up'...");
+        console.warn(
+          "⚠️  Initial 'up' failed (likely name conflict). Attempting 'down' then 'up'..."
+        );
         execSync(`${composeCmd} down`, { stdio: "inherit" });
         execSync(`${composeCmd} up -d`, { stdio: "inherit" });
       }
-      
+
       console.log("⏳ Waiting for health checks...");
-      await new Promise(r => setTimeout(r, 5000));
+      await new Promise((r) => setTimeout(r, 5000));
       pg = await checkPort(5432, "Postgres");
       ls = await checkPort(4566, "LocalStack");
     } catch (e) {
@@ -214,7 +227,7 @@ async function main() {
   spawnSync("pnpm", ["dx:doctor", "--soft"], { stdio: "inherit" });
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error(err);
   process.exit(1);
 });

@@ -18,11 +18,28 @@ async function smokeTest() {
   let failures = 0;
 
   for (const pkg of packagesToCheck) {
+    const aliasPath = aliases[pkg];
     try {
-      console.log(`📦 Importing ${pkg}...`);
-      await import(pkg);
+      console.log(`📦 Importing ${pkg} from ${aliasPath}...`);
+      // Use resolved path. If it's a directory, adding /index.ts might be safer for specific resolution
+      // but let's try the path first so tsx can use its resolution logic.
+      await import(aliasPath);
       console.log(`✅ Success: ${pkg}`);
     } catch (e: any) {
+        // Retry with /index.ts if it looks like a directory import failure
+        if (e.code === 'ERR_UNSUPPORTED_DIR_IMPORT') {
+             try {
+                 await import(path.join(aliasPath, 'index.ts'));
+                 console.log(`✅ Success (with index.ts): ${pkg}`);
+                 continue;
+             } catch (e2: any) {
+                 console.error(`❌ FAILED (retry): ${pkg}`);
+                 console.error(e2.message);
+                 failures++;
+                 continue;
+             }
+        }
+
       console.error(`❌ FAILED: ${pkg}`);
       console.error(e.message);
       failures++;
