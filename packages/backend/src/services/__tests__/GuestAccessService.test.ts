@@ -283,6 +283,7 @@ describe('GuestAccessService', () => {
             },
             guest_name: 'John Guest',
             guest_email: 'guest@example.com',
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             error_message: null,
           },
         ],
@@ -304,6 +305,7 @@ describe('GuestAccessService', () => {
       expect(result.isValid).toBe(true);
       expect(result.guestUserId).toBe('guest-123');
       expect(result.valueCaseId).toBe('vc-123');
+      expect(result.expiresAt).toBeDefined();
     });
 
     it('should reject invalid token', async () => {

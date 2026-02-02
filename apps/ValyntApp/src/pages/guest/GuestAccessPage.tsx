@@ -7,8 +7,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Shield, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { GuestValueCalculator } from './GuestValueCalculator';
+import { getGuestAccessService, GuestPermissions } from '@/GuestAccessService';
 
 // Guest access token structure (matches GuestAccessService)
 interface GuestAccessToken {
@@ -16,13 +17,7 @@ interface GuestAccessToken {
   valueCaseId: string;
   guestEmail: string;
   guestName: string;
-  permissions: {
-    can_view: boolean;
-    can_comment: boolean;
-    can_edit: boolean;
-    can_export: boolean;
-    can_share: boolean;
-  };
+  permissions: GuestPermissions;
   expiresAt: string;
   createdAt: string;
 }
@@ -70,6 +65,7 @@ export function GuestAccessPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [accessState, setAccessState] = useState<AccessState>({ status: 'loading' });
+  const guestAccessService = getGuestAccessService();
 
   const tokenParam = searchParams.get('token');
 
@@ -87,51 +83,53 @@ export function GuestAccessPage() {
 
   async function validateToken(token: string) {
     try {
-      // In production, this would call the GuestAccessService API
-      // For now, we'll simulate validation and return mock data
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const validation = await guestAccessService.validateToken(token);
 
-      // Mock validation - in production, decode JWT or call API
-      // For demo, accept any token that looks valid
-      if (token.length < 10) {
-        setAccessState({ 
-          status: 'invalid', 
-          message: 'Invalid access token format.' 
+      if (!validation.isValid) {
+        if (validation.errorMessage?.toLowerCase().includes('expired')) {
+          setAccessState({
+            status: 'expired',
+            message: 'This access link has expired. Please request a new one.',
+          });
+          return;
+        }
+
+        setAccessState({
+          status: 'invalid',
+          message: validation.errorMessage || 'Invalid access token format.',
         });
         return;
       }
 
-      // Mock token data
-      const mockToken: GuestAccessToken = {
-        id: 'guest_' + token.slice(0, 8),
-        valueCaseId: 'case_123',
-        guestEmail: 'guest@example.com',
-        guestName: 'Guest User',
-        permissions: {
-          can_view: true,
-          can_comment: true,
-          can_edit: true,
-          can_export: true,
-          can_share: false,
-        },
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+      if (!validation.valueCaseId || !validation.permissions || !validation.guestName) {
+        setAccessState({
+          status: 'error',
+          message: 'Missing access details. Please request a new link.',
+        });
+        return;
+      }
+
+      if (validation.expiresAt && new Date(validation.expiresAt) < new Date()) {
+        setAccessState({
+          status: 'expired',
+          message: 'This access link has expired. Please request a new one.',
+        });
+        return;
+      }
+
+      const validatedToken: GuestAccessToken = {
+        id: token.slice(0, 12),
+        valueCaseId: validation.valueCaseId,
+        guestEmail: validation.guestEmail || '',
+        guestName: validation.guestName,
+        permissions: validation.permissions,
+        expiresAt: validation.expiresAt || new Date().toISOString(),
         createdAt: new Date().toISOString(),
       };
 
-      // Check expiration
-      if (new Date(mockToken.expiresAt) < new Date()) {
-        setAccessState({ 
-          status: 'expired', 
-          message: 'This access link has expired. Please request a new one.' 
-        });
-        return;
-      }
-
       // Mock value case data
       const mockValueCase: ValueCaseData = {
-        id: 'case_123',
+        id: validation.valueCaseId,
         companyName: 'Acme Corp',
         title: 'Digital Transformation ROI Analysis',
         valueDrivers: [
@@ -205,7 +203,7 @@ export function GuestAccessPage() {
 
       setAccessState({
         status: 'valid',
-        token: mockToken,
+        token: validatedToken,
         valueCase: mockValueCase,
       });
 
