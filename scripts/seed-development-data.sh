@@ -16,6 +16,17 @@ PROJECT_NAME="valueos"
 POSTGRES_USER="postgres"
 POSTGRES_DB="valuecanvas_dev"
 
+# Determine Compose Command
+COMPOSE_CMD=""
+if docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+elif docker-compose version &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+else
+    # Fallback to direct docker exec if compose not available
+    COMPOSE_CMD="docker exec valueos-db" # Fallback guess
+fi
+
 # 1. Wait for database to be ready
 echo -e "${YELLOW}⏳ Waiting for database...${NC}"
 
@@ -23,7 +34,7 @@ max_attempts=30
 attempt=1
 
 while [ $attempt -le $max_attempts ]; do
-    if docker exec valueos-postgres pg_isready -U $POSTGRES_USER -d $POSTGRES_DB &> /dev/null; then
+    if $COMPOSE_CMD exec -T db pg_isready -U $POSTGRES_USER -d $POSTGRES_DB &> /dev/null || docker exec valueos-db pg_isready -U $POSTGRES_USER -d $POSTGRES_DB &> /dev/null; then
         echo -e "${GREEN}✅ Database is ready${NC}"
         break
     fi
@@ -56,7 +67,7 @@ echo -e "${YELLOW}📊 Seeding development data...${NC}"
 
 # Create development user
 echo -e "${YELLOW}👤 Creating development user...${NC}"
-docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+$COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
 INSERT INTO users (id, email, name, role, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
@@ -73,7 +84,7 @@ VALUES (
 
 # Create sample organization
 echo -e "${YELLOW}🏢 Creating sample organization...${NC}"
-docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+$COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
 INSERT INTO organizations (id, name, slug, domain, created_at, updated_at)
 VALUES (
     gen_random_uuid(),
@@ -90,7 +101,7 @@ VALUES (
 
 # Create sample projects
 echo -e "${YELLOW}📁 Creating sample projects...${NC}"
-docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+$COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
 INSERT INTO projects (id, name, slug, description, status, created_at, updated_at)
 VALUES
     (
@@ -116,7 +127,7 @@ ON CONFLICT (slug) DO NOTHING;
 
 # Create sample configuration data
 echo -e "${YELLOW}⚙️ Creating sample configuration...${NC}"
-docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+$COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
 INSERT INTO configurations (id, key, value, description, created_at, updated_at)
 VALUES
     (
@@ -161,7 +172,7 @@ ON CONFLICT (key) DO UPDATE SET
 echo -e "${YELLOW}🧪 Creating test data...${NC}"
 
 # Create sample API keys for testing
-docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+$COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
 INSERT INTO api_keys (id, name, key_hash, permissions, created_at, expires_at)
 VALUES (
     gen_random_uuid(),
@@ -174,7 +185,7 @@ VALUES (
 " 2>/dev/null || echo -e "${YELLOW}⚠️ API keys table may not exist yet${NC}"
 
 # Create sample audit logs
-docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+$COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
 INSERT INTO audit_logs (id, user_id, action, resource_type, resource_id, details, created_at)
 SELECT
     gen_random_uuid(),
@@ -194,26 +205,26 @@ ON CONFLICT DO NOTHING;
 echo -e "${YELLOW}🔍 Verifying seeded data...${NC}"
 
 # Check if we have any users
-user_count=$(docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ' || echo "0")
+user_count=$($COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ' || echo "0")
 echo -e "${GREEN}✅ Users: $user_count${NC}"
 
 # Check if we have any organizations
-org_count=$(docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM organizations;" 2>/dev/null | tr -d ' ' || echo "0")
+org_count=$($COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM organizations;" 2>/dev/null | tr -d ' ' || echo "0")
 echo -e "${GREEN}✅ Organizations: $org_count${NC}"
 
 # Check if we have any projects
-project_count=$(docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM projects;" 2>/dev/null | tr -d ' ' || echo "0")
+project_count=$($COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM projects;" 2>/dev/null | tr -d ' ' || echo "0")
 echo -e "${GREEN}✅ Projects: $project_count${NC}"
 
 # Check if we have any configurations
-config_count=$(docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM configurations;" 2>/dev/null | tr -d ' ' || echo "0")
+config_count=$($COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -t -c "SELECT COUNT(*) FROM configurations;" 2>/dev/null | tr -d ' ' || echo "0")
 echo -e "${GREEN}✅ Configurations: $config_count${NC}"
 
 # 6. Create development helper data
 echo -e "${YELLOW}🛠️ Creating development helpers...${NC}"
 
 # Create a simple health check record
-docker exec ${PROJECT_NAME}-postgres-1 psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
+$COMPOSE_CMD exec -T db psql -U $POSTGRES_USER -d $POSTGRES_DB -c "
 CREATE TABLE IF NOT EXISTS dev_health_check (
     id SERIAL PRIMARY KEY,
     service_name VARCHAR(100) NOT NULL,

@@ -1,6 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { collectDefaultMetrics, Counter, Gauge, Histogram, Registry } from "prom-client";
-import { getRedactionMetrics } from "@valueos/shared/lib/piiFilter";
+import { collectDefaultMetrics, Counter, Histogram, Registry } from "prom-client";
 
 type MetricsLabels = {
   method: string;
@@ -34,58 +33,6 @@ const httpRequestErrors = new Counter<MetricsLabels>({
   labelNames: ["method", "route", "status_code", "tenant_id"],
   registers: [registry],
 });
-
-// Sprint 1: Audit log redaction metrics
-const auditLogRedactionTotal = new Gauge({
-  name: "audit_log_redaction_total",
-  help: "Total number of PII/secret redactions performed in audit logs",
-  registers: [registry],
-});
-
-const auditLogRedactionByType = new Gauge({
-  name: "audit_log_redaction_by_type",
-  help: "Number of redactions by field type",
-  labelNames: ["field_type"],
-  registers: [registry],
-});
-
-// Update redaction metrics periodically
-setInterval(() => {
-  const metrics = getRedactionMetrics();
-  auditLogRedactionTotal.set(metrics.total);
-  for (const [type, count] of Object.entries(metrics.byType)) {
-    auditLogRedactionByType.labels({ field_type: type }).set(count);
-  }
-}, 5000); // Update every 5 seconds
-
-// Sprint 3: Additional observability metrics
-const webScraperRequestBlocked = new Counter({
-  name: "webscraper_request_blocked_total",
-  help: "Total number of web scraper requests blocked due to SSRF or other security checks",
-  labelNames: ["reason"],
-  registers: [registry],
-});
-
-const wsAuthFailure = new Counter({
-  name: "ws_auth_failure_total",
-  help: "Total number of WebSocket authentication failures",
-  labelNames: ["reason"],
-  registers: [registry],
-});
-
-/**
- * Increment web scraper blocked request counter
- */
-export function incrementScraperBlocked(reason: string): void {
-  webScraperRequestBlocked.labels({ reason }).inc();
-}
-
-/**
- * Increment WebSocket auth failure counter
- */
-export function incrementWsAuthFailure(reason: string): void {
-  wsAuthFailure.labels({ reason }).inc();
-}
 
 const resolveRouteLabel = (req: Request): string => {
   if (req.route?.path) {

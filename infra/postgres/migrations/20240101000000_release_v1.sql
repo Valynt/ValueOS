@@ -48,7 +48,7 @@ $$;
 --
 
 COMMENT ON SCHEMA public IS 'To create masked views, use pattern:
-CREATE VIEW table_name_masked AS
+CREATE OR REPLACE VIEW table_name_masked AS
 SELECT
   id,
   title,
@@ -120,88 +120,130 @@ COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access met
 -- Name: academy_pillar; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.academy_pillar AS ENUM (
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'academy_pillar') THEN
+        CREATE TYPE public.academy_pillar AS ENUM (
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7'
+        );
+    END IF;
+END
+$$;
 
 
 --
 -- Name: certification_level; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.certification_level AS ENUM (
-    'practitioner',
-    'professional',
-    'architect'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'certification_level') THEN
+        CREATE TYPE public.certification_level AS ENUM (
+            'practitioner',
+            'professional',
+            'architect'
+        );
+    END IF;
+END
+$$;
 
 
 --
 -- Name: content_type; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.content_type AS ENUM (
-    'video',
-    'article',
-    'lab',
-    'quiz',
-    'exercise',
-    'template'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'content_type') THEN
+        CREATE TYPE public.content_type AS ENUM (
+            'video',
+            'article',
+            'lab',
+            'quiz',
+            'exercise',
+            'template'
+        );
+    END IF;
+END
+$$;
 
 
 --
 -- Name: lifecycle_stage_resource; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.lifecycle_stage_resource AS ENUM (
-    'opportunity',
-    'alignment',
-    'realization',
-    'expansion'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'lifecycle_stage_resource') THEN
+        CREATE TYPE public.lifecycle_stage_resource AS ENUM (
+            'opportunity',
+            'alignment',
+            'realization',
+            'expansion'
+        );
+    END IF;
+END
+$$;
 
 
 --
 -- Name: progress_status; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.progress_status AS ENUM (
-    'not_started',
-    'in_progress',
-    'completed'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'progress_status') THEN
+        CREATE TYPE public.progress_status AS ENUM (
+            'not_started',
+            'in_progress',
+            'completed'
+        );
+    END IF;
+END
+$$;
 
 
 --
 -- Name: role_track; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.role_track AS ENUM (
-    'value_engineer',
-    'account_executive',
-    'customer_success',
-    'developer',
-    'leadership'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'role_track') THEN
+        CREATE TYPE public.role_track AS ENUM (
+            'value_engineer',
+            'account_executive',
+            'customer_success',
+            'developer',
+            'leadership'
+        );
+    END IF;
+END
+$$;
 
 
 --
 -- Name: sensitivity_level; Type: TYPE; Schema: public; Owner: -
 --
 
-CREATE TYPE public.sensitivity_level AS ENUM (
-    'public',
-    'internal',
-    'confidential',
-    'restricted'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sensitivity_level') THEN
+        CREATE TYPE public.sensitivity_level AS ENUM (
+            'public',
+            'internal',
+            'confidential',
+            'restricted'
+        );
+    END IF;
+END
+$$;
 
 
 --
@@ -215,7 +257,7 @@ COMMENT ON TYPE public.sensitivity_level IS 'Phase 3: Data sensitivity classific
 -- Name: add_user_to_tenant_transaction(uuid, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid) RETURNS json
+CREATE OR REPLACE FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid) RETURNS json
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -347,7 +389,7 @@ COMMENT ON FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, 
 -- Name: append_audit_log(uuid, text, text, text, jsonb, jsonb, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.append_audit_log(p_user_id uuid, p_action text, p_resource_type text, p_resource_id text, p_old_values jsonb DEFAULT NULL::jsonb, p_new_values jsonb DEFAULT NULL::jsonb, p_metadata jsonb DEFAULT NULL::jsonb) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.append_audit_log(p_user_id uuid, p_action text, p_resource_type text, p_resource_id text, p_old_values jsonb DEFAULT NULL::jsonb, p_new_values jsonb DEFAULT NULL::jsonb, p_metadata jsonb DEFAULT NULL::jsonb) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -404,7 +446,7 @@ COMMENT ON FUNCTION public.append_audit_log(p_user_id uuid, p_action text, p_res
 -- Name: approve_request(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.approve_request(p_request_id uuid, p_second_approver_email text DEFAULT NULL::text, p_notes text DEFAULT NULL::text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.approve_request(p_request_id uuid, p_second_approver_email text DEFAULT NULL::text, p_notes text DEFAULT NULL::text) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -499,7 +541,7 @@ COMMENT ON FUNCTION public.approve_request(p_request_id uuid, p_second_approver_
 -- Name: audit_tenant_access(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.audit_tenant_access() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.audit_tenant_access() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -566,7 +608,7 @@ $$;
 -- Name: audit_trigger(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.audit_trigger() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.audit_trigger() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO 'public', 'pg_temp'
     AS $$
@@ -612,7 +654,7 @@ $$;
 -- Name: calculate_version_performance(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.calculate_version_performance(p_version_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.calculate_version_performance(p_version_id uuid) RETURNS jsonb
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -646,7 +688,7 @@ COMMENT ON FUNCTION public.calculate_version_performance(p_version_id uuid) IS '
 -- Name: check_account_lockout(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.check_account_lockout(user_email text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.check_account_lockout(user_email text) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -677,7 +719,7 @@ COMMENT ON FUNCTION public.check_account_lockout(user_email text) IS 'Returns tr
 -- Name: check_certification_eligibility(uuid, public.certification_level); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.check_certification_eligibility(p_user_id uuid, p_level public.certification_level) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.check_certification_eligibility(p_user_id uuid, p_level public.certification_level) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -717,7 +759,7 @@ $$;
 -- Name: classify_data_sensitivity(text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.classify_data_sensitivity(field_name text, field_value text) RETURNS public.sensitivity_level
+CREATE OR REPLACE FUNCTION public.classify_data_sensitivity(field_name text, field_value text) RETURNS public.sensitivity_level
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -757,7 +799,7 @@ COMMENT ON FUNCTION public.classify_data_sensitivity(field_name text, field_valu
 -- Name: cleanup_expired_approval_requests(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cleanup_expired_approval_requests() RETURNS integer
+CREATE OR REPLACE FUNCTION public.cleanup_expired_approval_requests() RETURNS integer
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -786,7 +828,7 @@ COMMENT ON FUNCTION public.cleanup_expired_approval_requests() IS 'Phase 2: Mark
 -- Name: cleanup_expired_data(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cleanup_expired_data() RETURNS TABLE(table_name text, archived_count bigint, deleted_count bigint, status text)
+CREATE OR REPLACE FUNCTION public.cleanup_expired_data() RETURNS TABLE(table_name text, archived_count bigint, deleted_count bigint, status text)
     LANGUAGE plpgsql SECURITY DEFINER
     AS $_$
 DECLARE
@@ -877,7 +919,7 @@ COMMENT ON FUNCTION public.cleanup_expired_data() IS 'Phase 3: Executes retentio
 -- Name: cleanup_old_agent_sessions(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cleanup_old_agent_sessions(days_old integer DEFAULT 30) RETURNS integer
+CREATE OR REPLACE FUNCTION public.cleanup_old_agent_sessions(days_old integer DEFAULT 30) RETURNS integer
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -904,7 +946,7 @@ COMMENT ON FUNCTION public.cleanup_old_agent_sessions(days_old integer) IS 'Clea
 -- Name: cleanup_old_llm_usage(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cleanup_old_llm_usage() RETURNS integer
+CREATE OR REPLACE FUNCTION public.cleanup_old_llm_usage() RETURNS integer
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -930,7 +972,7 @@ COMMENT ON FUNCTION public.cleanup_old_llm_usage() IS 'Deletes LLM usage records
 -- Name: cleanup_old_login_attempts(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cleanup_old_login_attempts() RETURNS void
+CREATE OR REPLACE FUNCTION public.cleanup_old_login_attempts() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -951,7 +993,7 @@ COMMENT ON FUNCTION public.cleanup_old_login_attempts() IS 'Removes login attemp
 -- Name: cleanup_table_data(text, boolean); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.cleanup_table_data(p_table_name text, p_dry_run boolean DEFAULT true) RETURNS TABLE(action text, row_count bigint, cutoff_date timestamp with time zone)
+CREATE OR REPLACE FUNCTION public.cleanup_table_data(p_table_name text, p_dry_run boolean DEFAULT true) RETURNS TABLE(action text, row_count bigint, cutoff_date timestamp with time zone)
     LANGUAGE plpgsql SECURITY DEFINER
     AS $_$
 DECLARE
@@ -1037,7 +1079,7 @@ COMMENT ON FUNCTION public.cleanup_table_data(p_table_name text, p_dry_run boole
 -- Name: contains_pii(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.contains_pii(text_value text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.contains_pii(text_value text) RETURNS boolean
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -1081,7 +1123,7 @@ COMMENT ON FUNCTION public.contains_pii(text_value text) IS 'Detects if text con
 -- Name: create_approval_request(text, text, text, numeric, boolean, boolean, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.create_approval_request(p_agent_name text, p_action text, p_description text, p_estimated_cost numeric, p_is_destructive boolean, p_involves_data_export boolean, p_metadata jsonb DEFAULT '{}'::jsonb) RETURNS uuid
+CREATE OR REPLACE FUNCTION public.create_approval_request(p_agent_name text, p_action text, p_description text, p_estimated_cost numeric, p_is_destructive boolean, p_involves_data_export boolean, p_metadata jsonb DEFAULT '{}'::jsonb) RETURNS uuid
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -1132,7 +1174,7 @@ COMMENT ON FUNCTION public.create_approval_request(p_agent_name text, p_action t
 -- Name: decrypt_field(bytea, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.decrypt_field(encrypted bytea, encryption_key text DEFAULT current_setting('app.encryption_key'::text, true)) RETURNS text
+CREATE OR REPLACE FUNCTION public.decrypt_field(encrypted bytea, encryption_key text DEFAULT current_setting('app.encryption_key'::text, true)) RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -1176,7 +1218,7 @@ COMMENT ON FUNCTION public.decrypt_field(encrypted bytea, encryption_key text) I
 -- Name: delete_old_secret_audit_logs(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.delete_old_secret_audit_logs() RETURNS void
+CREATE OR REPLACE FUNCTION public.delete_old_secret_audit_logs() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1192,7 +1234,7 @@ $$;
 -- Name: detect_regressions(text, double precision); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.detect_regressions(p_agent_type text, p_threshold double precision DEFAULT 0.05) RETURNS TABLE(example_name text, previous_score double precision, current_score double precision, score_diff double precision)
+CREATE OR REPLACE FUNCTION public.detect_regressions(p_agent_type text, p_threshold double precision DEFAULT 0.05) RETURNS TABLE(example_name text, previous_score double precision, current_score double precision, score_diff double precision)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -1239,7 +1281,7 @@ COMMENT ON FUNCTION public.detect_regressions(p_agent_type text, p_threshold dou
 -- Name: encrypt_field(text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.encrypt_field(plaintext text, encryption_key text DEFAULT current_setting('app.encryption_key'::text, true)) RETURNS bytea
+CREATE OR REPLACE FUNCTION public.encrypt_field(plaintext text, encryption_key text DEFAULT current_setting('app.encryption_key'::text, true)) RETURNS bytea
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1267,7 +1309,7 @@ COMMENT ON FUNCTION public.encrypt_field(plaintext text, encryption_key text) IS
 -- Name: get_ab_test_results(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_ab_test_results(p_test_id uuid) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_ab_test_results(p_test_id uuid) RETURNS jsonb
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1319,7 +1361,7 @@ SET default_table_access_method = heap;
 -- Name: prompt_versions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.prompt_versions (
+CREATE TABLE IF NOT EXISTS public.prompt_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     prompt_key text NOT NULL,
     version integer NOT NULL,
@@ -1346,7 +1388,7 @@ COMMENT ON TABLE public.prompt_versions IS 'Stores versioned LLM prompts with me
 -- Name: get_active_prompt_version(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_active_prompt_version(p_prompt_key text) RETURNS public.prompt_versions
+CREATE OR REPLACE FUNCTION public.get_active_prompt_version(p_prompt_key text) RETURNS public.prompt_versions
     LANGUAGE sql STABLE
     AS $$
   SELECT *
@@ -1369,7 +1411,7 @@ COMMENT ON FUNCTION public.get_active_prompt_version(p_prompt_key text) IS 'Retu
 -- Name: get_agent_accuracy(text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_agent_accuracy(p_agent_type text, p_days integer DEFAULT 30) RETURNS TABLE(date date, prediction_count bigint, avg_confidence numeric, hallucination_rate numeric, avg_variance numeric)
+CREATE OR REPLACE FUNCTION public.get_agent_accuracy(p_agent_type text, p_days integer DEFAULT 30) RETURNS TABLE(date date, prediction_count bigint, avg_confidence numeric, hallucination_rate numeric, avg_variance numeric)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -1404,7 +1446,7 @@ COMMENT ON FUNCTION public.get_agent_accuracy(p_agent_type text, p_days integer)
 -- Name: get_agent_session_stats(timestamp without time zone, timestamp without time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_agent_session_stats(start_date timestamp without time zone DEFAULT (now() - '7 days'::interval), end_date timestamp without time zone DEFAULT now()) RETURNS TABLE(total_sessions bigint, active_sessions bigint, completed_sessions bigint, error_sessions bigint, abandoned_sessions bigint, avg_duration_minutes numeric, unique_users bigint)
+CREATE OR REPLACE FUNCTION public.get_agent_session_stats(start_date timestamp without time zone DEFAULT (now() - '7 days'::interval), end_date timestamp without time zone DEFAULT now()) RETURNS TABLE(total_sessions bigint, active_sessions bigint, completed_sessions bigint, error_sessions bigint, abandoned_sessions bigint, avg_duration_minutes numeric, unique_users bigint)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -1434,7 +1476,7 @@ COMMENT ON FUNCTION public.get_agent_session_stats(start_date timestamp without 
 -- Name: get_calibrated_confidence(text, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_calibrated_confidence(p_agent_id text, p_raw_confidence numeric) RETURNS numeric
+CREATE OR REPLACE FUNCTION public.get_calibrated_confidence(p_agent_id text, p_raw_confidence numeric) RETURNS numeric
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1468,7 +1510,7 @@ $$;
 -- Name: get_current_org_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_current_org_id() RETURNS uuid
+CREATE OR REPLACE FUNCTION public.get_current_org_id() RETURNS uuid
     LANGUAGE sql STABLE
     AS $$
   SELECT NULLIF((current_setting('request.jwt.claims', true)::jsonb ->> 'org_id'), '')::uuid
@@ -1479,7 +1521,7 @@ $$;
 -- Name: get_current_usage(uuid, text, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_current_usage(p_tenant_id uuid, p_metric text, p_period_start timestamp with time zone DEFAULT date_trunc('month'::text, now()), p_period_end timestamp with time zone DEFAULT (date_trunc('month'::text, now()) + '1 mon'::interval)) RETURNS numeric
+CREATE OR REPLACE FUNCTION public.get_current_usage(p_tenant_id uuid, p_metric text, p_period_start timestamp with time zone DEFAULT date_trunc('month'::text, now()), p_period_end timestamp with time zone DEFAULT (date_trunc('month'::text, now()) + '1 mon'::interval)) RETURNS numeric
     LANGUAGE plpgsql STABLE
     AS $$
 DECLARE
@@ -1502,7 +1544,7 @@ $$;
 -- Name: get_current_user_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_current_user_id() RETURNS uuid
+CREATE OR REPLACE FUNCTION public.get_current_user_id() RETURNS uuid
     LANGUAGE sql STABLE
     AS $$
   SELECT NULLIF((current_setting('request.jwt.claims', true)::jsonb ->> 'sub'), '')::uuid
@@ -1513,7 +1555,7 @@ $$;
 -- Name: get_daily_llm_cost(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_daily_llm_cost(p_user_id uuid DEFAULT NULL::uuid) RETURNS numeric
+CREATE OR REPLACE FUNCTION public.get_daily_llm_cost(p_user_id uuid DEFAULT NULL::uuid) RETURNS numeric
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1546,7 +1588,7 @@ COMMENT ON FUNCTION public.get_daily_llm_cost(p_user_id uuid) IS 'Returns total 
 -- Name: get_evaluation_statistics(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_evaluation_statistics(p_agent_type text) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_evaluation_statistics(p_agent_type text) RETURNS jsonb
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1596,7 +1638,7 @@ COMMENT ON FUNCTION public.get_evaluation_statistics(p_agent_type text) IS 'Get 
 -- Name: get_flag_analytics(text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_flag_analytics(p_flag_key text, p_days integer DEFAULT 7) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_flag_analytics(p_flag_key text, p_days integer DEFAULT 7) RETURNS jsonb
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1646,7 +1688,7 @@ COMMENT ON FUNCTION public.get_flag_analytics(p_flag_key text, p_days integer) I
 -- Name: get_high_scoring_memories(text, double precision, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_high_scoring_memories(p_type text, p_min_score double precision DEFAULT 0.7, p_limit integer DEFAULT 10) RETURNS TABLE(id uuid, type text, content text, metadata jsonb, score double precision, created_at timestamp with time zone)
+CREATE OR REPLACE FUNCTION public.get_high_scoring_memories(p_type text, p_min_score double precision DEFAULT 0.7, p_limit integer DEFAULT 10) RETURNS TABLE(id uuid, type text, content text, metadata jsonb, score double precision, created_at timestamp with time zone)
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -1671,7 +1713,7 @@ CREATE FUNCTION public.get_high_scoring_memories(p_type text, p_min_score double
 -- Name: get_hourly_llm_cost(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_hourly_llm_cost() RETURNS numeric
+CREATE OR REPLACE FUNCTION public.get_hourly_llm_cost() RETURNS numeric
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1695,7 +1737,7 @@ COMMENT ON FUNCTION public.get_hourly_llm_cost() IS 'Returns total LLM cost for 
 -- Name: get_llm_usage_stats(timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_llm_usage_stats(p_start_date timestamp with time zone DEFAULT (now() - '24:00:00'::interval), p_end_date timestamp with time zone DEFAULT now()) RETURNS TABLE(total_requests bigint, total_cost numeric, total_tokens bigint, avg_cost_per_request numeric, avg_latency_ms numeric, success_rate numeric, top_model text, top_user uuid)
+CREATE OR REPLACE FUNCTION public.get_llm_usage_stats(p_start_date timestamp with time zone DEFAULT (now() - '24:00:00'::interval), p_end_date timestamp with time zone DEFAULT now()) RETURNS TABLE(total_requests bigint, total_cost numeric, total_tokens bigint, avg_cost_per_request numeric, avg_latency_ms numeric, success_rate numeric, top_model text, top_user uuid)
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1740,7 +1782,7 @@ COMMENT ON FUNCTION public.get_llm_usage_stats(p_start_date timestamp with time 
 -- Name: get_memories_by_industry(text, text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_memories_by_industry(p_industry text, p_type text DEFAULT NULL::text, p_limit integer DEFAULT 10) RETURNS TABLE(id uuid, type text, content text, metadata jsonb, created_at timestamp with time zone)
+CREATE OR REPLACE FUNCTION public.get_memories_by_industry(p_industry text, p_type text DEFAULT NULL::text, p_limit integer DEFAULT 10) RETURNS TABLE(id uuid, type text, content text, metadata jsonb, created_at timestamp with time zone)
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -1764,7 +1806,7 @@ CREATE FUNCTION public.get_memories_by_industry(p_industry text, p_type text DEF
 -- Name: get_memory_statistics(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_memory_statistics() RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_memory_statistics() RETURNS jsonb
     LANGUAGE plpgsql
     AS $$
     DECLARE
@@ -1797,7 +1839,7 @@ CREATE FUNCTION public.get_memory_statistics() RETURNS jsonb
 -- Name: get_monthly_llm_cost(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_monthly_llm_cost() RETURNS numeric
+CREATE OR REPLACE FUNCTION public.get_monthly_llm_cost() RETURNS numeric
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1821,7 +1863,7 @@ COMMENT ON FUNCTION public.get_monthly_llm_cost() IS 'Returns total LLM cost for
 -- Name: get_resource_audit_logs(text, text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_resource_audit_logs(p_resource_type text, p_resource_id text, p_limit integer DEFAULT 100) RETURNS TABLE(id uuid, user_id uuid, action text, created_at timestamp with time zone, old_values jsonb, new_values jsonb)
+CREATE OR REPLACE FUNCTION public.get_resource_audit_logs(p_resource_type text, p_resource_id text, p_limit integer DEFAULT 100) RETURNS TABLE(id uuid, user_id uuid, action text, created_at timestamp with time zone, old_values jsonb, new_values jsonb)
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1846,7 +1888,7 @@ $$;
 -- Name: get_tenant_integration(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_tenant_integration(p_tenant_id uuid, p_provider text) RETURNS TABLE(id uuid, access_token text, refresh_token text, token_expires_at timestamp with time zone, instance_url text, hub_id text, scopes text[])
+CREATE OR REPLACE FUNCTION public.get_tenant_integration(p_tenant_id uuid, p_provider text) RETURNS TABLE(id uuid, access_token text, refresh_token text, token_expires_at timestamp with time zone, instance_url text, hub_id text, scopes text[])
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1871,7 +1913,7 @@ $$;
 -- Name: get_usage_percentage(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_usage_percentage(p_tenant_id uuid, p_metric text) RETURNS integer
+CREATE OR REPLACE FUNCTION public.get_usage_percentage(p_tenant_id uuid, p_metric text) RETURNS integer
     LANGUAGE plpgsql STABLE
     AS $$
 DECLARE
@@ -1909,7 +1951,7 @@ $$;
 -- Name: get_user_audit_logs(uuid, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_audit_logs(p_user_id uuid, p_limit integer DEFAULT 100, p_offset integer DEFAULT 0) RETURNS TABLE(id uuid, action text, resource_type text, resource_id text, created_at timestamp with time zone, metadata jsonb)
+CREATE OR REPLACE FUNCTION public.get_user_audit_logs(p_user_id uuid, p_limit integer DEFAULT 100, p_offset integer DEFAULT 0) RETURNS TABLE(id uuid, action text, resource_type text, resource_id text, created_at timestamp with time zone, metadata jsonb)
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1934,7 +1976,7 @@ $$;
 -- Name: get_user_job_stats(uuid, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_job_stats(p_user_id uuid, p_days integer DEFAULT 7) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.get_user_job_stats(p_user_id uuid, p_days integer DEFAULT 7) RETURNS jsonb
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1997,7 +2039,7 @@ COMMENT ON FUNCTION public.get_user_job_stats(p_user_id uuid, p_days integer) IS
 -- Name: get_user_org_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_user_org_id() RETURNS text
+CREATE OR REPLACE FUNCTION public.get_user_org_id() RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2017,7 +2059,7 @@ COMMENT ON FUNCTION public.get_user_org_id() IS 'Get current user organization I
 -- Name: is_over_quota(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.is_over_quota(p_tenant_id uuid, p_metric text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.is_over_quota(p_tenant_id uuid, p_metric text) RETURNS boolean
     LANGUAGE plpgsql STABLE
     AS $$
 DECLARE
@@ -2054,7 +2096,7 @@ $$;
 -- Name: log_login_attempt(text, boolean, inet, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.log_login_attempt(user_email text, attempt_success boolean, client_ip inet DEFAULT NULL::inet, client_user_agent text DEFAULT NULL::text, reason text DEFAULT NULL::text) RETURNS void
+CREATE OR REPLACE FUNCTION public.log_login_attempt(user_email text, attempt_success boolean, client_ip inet DEFAULT NULL::inet, client_user_agent text DEFAULT NULL::text, reason text DEFAULT NULL::text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2086,7 +2128,7 @@ COMMENT ON FUNCTION public.log_login_attempt(user_email text, attempt_success bo
 -- Name: log_rls_violation(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.log_rls_violation() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.log_rls_violation() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2112,7 +2154,7 @@ $$;
 -- Name: mark_integration_error(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.mark_integration_error(p_integration_id uuid, p_error_message text) RETURNS void
+CREATE OR REPLACE FUNCTION public.mark_integration_error(p_integration_id uuid, p_error_message text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2130,7 +2172,7 @@ $$;
 -- Name: mask_credit_card(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.mask_credit_card(cc text) RETURNS text
+CREATE OR REPLACE FUNCTION public.mask_credit_card(cc text) RETURNS text
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -2162,7 +2204,7 @@ COMMENT ON FUNCTION public.mask_credit_card(cc text) IS 'Masks credit card numbe
 -- Name: mask_email(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.mask_email(email text) RETURNS text
+CREATE OR REPLACE FUNCTION public.mask_email(email text) RETURNS text
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -2187,7 +2229,7 @@ COMMENT ON FUNCTION public.mask_email(email text) IS 'Masks email address keepin
 -- Name: mask_phone(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.mask_phone(phone text) RETURNS text
+CREATE OR REPLACE FUNCTION public.mask_phone(phone text) RETURNS text
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -2219,7 +2261,7 @@ COMMENT ON FUNCTION public.mask_phone(phone text) IS 'Masks phone number showing
 -- Name: mask_ssn(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.mask_ssn(ssn text) RETURNS text
+CREATE OR REPLACE FUNCTION public.mask_ssn(ssn text) RETURNS text
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -2251,7 +2293,7 @@ COMMENT ON FUNCTION public.mask_ssn(ssn text) IS 'Masks SSN showing only last 4 
 -- Name: match_memory(public.vector, double precision, integer, uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.match_memory(query_embedding public.vector, match_threshold double precision DEFAULT 0.7, match_count integer DEFAULT 10, p_session_id uuid DEFAULT NULL::uuid, p_organization_id uuid DEFAULT NULL::uuid) RETURNS TABLE(id uuid, session_id uuid, agent_id uuid, memory_type text, content text, embedding public.vector, metadata jsonb, created_at timestamp with time zone, similarity double precision)
+CREATE OR REPLACE FUNCTION public.match_memory(query_embedding public.vector, match_threshold double precision DEFAULT 0.7, match_count integer DEFAULT 10, p_session_id uuid DEFAULT NULL::uuid, p_organization_id uuid DEFAULT NULL::uuid) RETURNS TABLE(id uuid, session_id uuid, agent_id uuid, memory_type text, content text, embedding public.vector, metadata jsonb, created_at timestamp with time zone, similarity double precision)
     LANGUAGE plpgsql
     AS $_$
   DECLARE
@@ -2293,7 +2335,7 @@ CREATE FUNCTION public.match_memory(query_embedding public.vector, match_thresho
 -- Name: needs_recalibration(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.needs_recalibration(p_agent_id text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.needs_recalibration(p_agent_id text) RETURNS boolean
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -2312,7 +2354,7 @@ $$;
 -- Name: prevent_audit_deletion(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.prevent_audit_deletion() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.prevent_audit_deletion() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2326,7 +2368,7 @@ $$;
 -- Name: prevent_audit_modification(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.prevent_audit_modification() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.prevent_audit_modification() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2340,7 +2382,7 @@ $$;
 -- Name: prune_expired_agent_memories(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.prune_expired_agent_memories(p_limit integer DEFAULT 1000) RETURNS TABLE(deleted_count integer)
+CREATE OR REPLACE FUNCTION public.prune_expired_agent_memories(p_limit integer DEFAULT 1000) RETURNS TABLE(deleted_count integer)
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -2366,7 +2408,7 @@ $$;
 -- Name: redact_field(text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.redact_field(value text, visible_chars integer DEFAULT 4) RETURNS text
+CREATE OR REPLACE FUNCTION public.redact_field(value text, visible_chars integer DEFAULT 4) RETURNS text
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 BEGIN
@@ -2394,7 +2436,7 @@ COMMENT ON FUNCTION public.redact_field(value text, visible_chars integer) IS 'G
 -- Name: refresh_llm_performance_metrics(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.refresh_llm_performance_metrics() RETURNS void
+CREATE OR REPLACE FUNCTION public.refresh_llm_performance_metrics() RETURNS void
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -2407,7 +2449,7 @@ CREATE FUNCTION public.refresh_llm_performance_metrics() RETURNS void
 -- Name: refresh_value_prediction_accuracy_metrics(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.refresh_value_prediction_accuracy_metrics() RETURNS void
+CREATE OR REPLACE FUNCTION public.refresh_value_prediction_accuracy_metrics() RETURNS void
     LANGUAGE plpgsql
     AS $$
     BEGIN
@@ -2420,7 +2462,7 @@ CREATE FUNCTION public.refresh_value_prediction_accuracy_metrics() RETURNS void
 -- Name: reject_request(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.reject_request(p_request_id uuid, p_notes text DEFAULT NULL::text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.reject_request(p_request_id uuid, p_notes text DEFAULT NULL::text) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2468,7 +2510,7 @@ COMMENT ON FUNCTION public.reject_request(p_request_id uuid, p_notes text) IS 'P
 -- Name: search_semantic_memory(public.vector, double precision, integer, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.search_semantic_memory(query_embedding public.vector, match_threshold double precision DEFAULT 0.7, match_count integer DEFAULT 10, filter_clause text DEFAULT ''::text) RETURNS TABLE(id uuid, type text, content text, embedding public.vector, metadata jsonb, created_at timestamp with time zone, similarity double precision)
+CREATE OR REPLACE FUNCTION public.search_semantic_memory(query_embedding public.vector, match_threshold double precision DEFAULT 0.7, match_count integer DEFAULT 10, filter_clause text DEFAULT ''::text) RETURNS TABLE(id uuid, type text, content text, embedding public.vector, metadata jsonb, created_at timestamp with time zone, similarity double precision)
     LANGUAGE plpgsql
     AS $_$
     DECLARE
@@ -2502,7 +2544,7 @@ CREATE FUNCTION public.search_semantic_memory(query_embedding public.vector, mat
 -- Name: search_semantic_memory(public.vector, double precision, integer, text, uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.search_semantic_memory(query_embedding public.vector, match_threshold double precision DEFAULT 0.7, match_count integer DEFAULT 10, filter_clause text DEFAULT ''::text, p_organization_id uuid DEFAULT NULL::uuid) RETURNS TABLE(id uuid, type text, content text, embedding public.vector, metadata jsonb, created_at timestamp with time zone, similarity double precision)
+CREATE OR REPLACE FUNCTION public.search_semantic_memory(query_embedding public.vector, match_threshold double precision DEFAULT 0.7, match_count integer DEFAULT 10, filter_clause text DEFAULT ''::text, p_organization_id uuid DEFAULT NULL::uuid) RETURNS TABLE(id uuid, type text, content text, embedding public.vector, metadata jsonb, created_at timestamp with time zone, similarity double precision)
     LANGUAGE plpgsql
     AS $_$
     DECLARE
@@ -2543,7 +2585,7 @@ CREATE FUNCTION public.search_semantic_memory(query_embedding public.vector, mat
 -- Name: set_memory_ttl(uuid, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.set_memory_ttl(p_id uuid, p_expires_at timestamp with time zone) RETURNS void
+CREATE OR REPLACE FUNCTION public.set_memory_ttl(p_id uuid, p_expires_at timestamp with time zone) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2556,7 +2598,7 @@ $$;
 -- Name: trigger_calibration_on_outcome(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.trigger_calibration_on_outcome() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.trigger_calibration_on_outcome() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2604,7 +2646,7 @@ $$;
 -- Name: update_feature_flag_timestamp(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_feature_flag_timestamp() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_feature_flag_timestamp() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2618,7 +2660,7 @@ $$;
 -- Name: update_golden_example_timestamp(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_golden_example_timestamp() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_golden_example_timestamp() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2632,7 +2674,7 @@ $$;
 -- Name: update_integration_tokens(uuid, text, text, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_integration_tokens(p_integration_id uuid, p_access_token text, p_refresh_token text, p_expires_at timestamp with time zone) RETURNS void
+CREATE OR REPLACE FUNCTION public.update_integration_tokens(p_integration_id uuid, p_access_token text, p_refresh_token text, p_expires_at timestamp with time zone) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2654,7 +2696,7 @@ $$;
 -- Name: academy_progress; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.academy_progress (
+CREATE TABLE IF NOT EXISTS public.academy_progress (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     lesson_id uuid NOT NULL,
@@ -2682,7 +2724,7 @@ COMMENT ON TABLE public.academy_progress IS 'User progress tracking for academy 
 -- Name: update_lesson_progress(uuid, uuid, public.progress_status, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_lesson_progress(p_user_id uuid, p_lesson_id uuid, p_status public.progress_status, p_score integer DEFAULT NULL::integer, p_time_spent integer DEFAULT 0) RETURNS public.academy_progress
+CREATE OR REPLACE FUNCTION public.update_lesson_progress(p_user_id uuid, p_lesson_id uuid, p_status public.progress_status, p_score integer DEFAULT NULL::integer, p_time_spent integer DEFAULT 0) RETURNS public.academy_progress
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -2717,7 +2759,7 @@ $$;
 -- Name: update_modified_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_modified_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_modified_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2731,7 +2773,7 @@ $$;
 -- Name: update_tenant_integrations_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_tenant_integrations_updated_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_tenant_integrations_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2745,7 +2787,7 @@ $$;
 -- Name: update_timestamp(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_timestamp() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_timestamp() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2759,7 +2801,7 @@ $$;
 -- Name: update_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_updated_at() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2773,7 +2815,7 @@ $$;
 -- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2787,7 +2829,7 @@ $$;
 -- Name: update_version_performance_trigger(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.update_version_performance_trigger() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.update_version_performance_trigger() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2806,7 +2848,7 @@ $$;
 -- Name: user_has_org_access(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.user_has_org_access(org_id text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.user_has_org_access(org_id text) RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2826,7 +2868,7 @@ COMMENT ON FUNCTION public.user_has_org_access(org_id text) IS 'Check if current
 -- Name: user_is_admin(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.user_is_admin() RETURNS boolean
+CREATE OR REPLACE FUNCTION public.user_is_admin() RETURNS boolean
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -2846,7 +2888,7 @@ COMMENT ON FUNCTION public.user_is_admin() IS 'Check if current user has admin p
 -- Name: validate_password_strength(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.validate_password_strength(password text) RETURNS TABLE(is_valid boolean, errors text[])
+CREATE OR REPLACE FUNCTION public.validate_password_strength(password text) RETURNS TABLE(is_valid boolean, errors text[])
     LANGUAGE plpgsql SECURITY DEFINER
     AS $_$
 DECLARE
@@ -2899,7 +2941,7 @@ COMMENT ON FUNCTION public.validate_password_strength(password text) IS 'Validat
 -- Name: verify_rls_tenant_isolation(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.verify_rls_tenant_isolation() RETURNS TABLE(table_name text, rls_enabled boolean, policy_count integer, has_not_null_constraint boolean)
+CREATE OR REPLACE FUNCTION public.verify_rls_tenant_isolation() RETURNS TABLE(table_name text, rls_enabled boolean, policy_count integer, has_not_null_constraint boolean)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2933,7 +2975,7 @@ $$;
 -- Name: ab_tests; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.ab_tests (
+CREATE TABLE IF NOT EXISTS public.ab_tests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
     prompt_key text NOT NULL,
@@ -2958,7 +3000,7 @@ COMMENT ON TABLE public.ab_tests IS 'Manages A/B tests for prompt optimization';
 -- Name: academy_certifications; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.academy_certifications (
+CREATE TABLE IF NOT EXISTS public.academy_certifications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     level public.certification_level NOT NULL,
@@ -2981,7 +3023,7 @@ COMMENT ON TABLE public.academy_certifications IS 'User earned certifications';
 -- Name: academy_lessons; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.academy_lessons (
+CREATE TABLE IF NOT EXISTS public.academy_lessons (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     module_id uuid NOT NULL,
     title text NOT NULL,
@@ -3010,7 +3052,7 @@ COMMENT ON TABLE public.academy_lessons IS 'Individual lessons within academy mo
 -- Name: academy_modules; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.academy_modules (
+CREATE TABLE IF NOT EXISTS public.academy_modules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     pillar public.academy_pillar NOT NULL,
     title text NOT NULL,
@@ -3033,7 +3075,7 @@ COMMENT ON TABLE public.academy_modules IS 'Academy curriculum modules organized
 -- Name: agent_accuracy_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_accuracy_metrics (
+CREATE TABLE IF NOT EXISTS public.agent_accuracy_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
     variance_percentage numeric(5,2) NOT NULL,
@@ -3054,7 +3096,7 @@ COMMENT ON TABLE public.agent_accuracy_metrics IS 'Aggregated accuracy metrics p
 -- Name: agent_activities; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_activities (
+CREATE TABLE IF NOT EXISTS public.agent_activities (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     case_id uuid NOT NULL,
     agent_name text NOT NULL,
@@ -3071,7 +3113,7 @@ CREATE TABLE public.agent_activities (
 -- Name: agent_audit_log; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_audit_log (
+CREATE TABLE IF NOT EXISTS public.agent_audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     agent_id uuid,
@@ -3091,7 +3133,7 @@ CREATE TABLE public.agent_audit_log (
 -- Name: agent_calibration_history; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_calibration_history (
+CREATE TABLE IF NOT EXISTS public.agent_calibration_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
     tenant_id text NOT NULL,
@@ -3109,7 +3151,7 @@ CREATE TABLE public.agent_calibration_history (
 -- Name: agent_calibration_models; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_calibration_models (
+CREATE TABLE IF NOT EXISTS public.agent_calibration_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
     agent_type text NOT NULL,
@@ -3129,7 +3171,7 @@ CREATE TABLE public.agent_calibration_models (
 -- Name: agent_memory; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_memory (
+CREATE TABLE IF NOT EXISTS public.agent_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     tenant_id text,
@@ -3154,7 +3196,7 @@ CREATE TABLE public.agent_memory (
 -- Name: agent_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_metrics (
+CREATE TABLE IF NOT EXISTS public.agent_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     agent_id uuid,
@@ -3170,7 +3212,7 @@ CREATE TABLE public.agent_metrics (
 -- Name: agent_ontologies; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_ontologies (
+CREATE TABLE IF NOT EXISTS public.agent_ontologies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id uuid,
     domain text NOT NULL,
@@ -3184,7 +3226,7 @@ CREATE TABLE public.agent_ontologies (
 -- Name: agent_predictions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_predictions (
+CREATE TABLE IF NOT EXISTS public.agent_predictions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id text NOT NULL,
     user_id uuid,
@@ -3226,7 +3268,7 @@ COMMENT ON TABLE public.agent_predictions IS 'Stores LLM predictions with confid
 -- Name: agent_performance_summary; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW public.agent_performance_summary WITH (security_invoker='true') AS
+CREATE OR REPLACE VIEW public.agent_performance_summary WITH (security_invoker='true') AS
  SELECT agent_predictions.agent_type,
     count(*) AS total_predictions,
     avg(agent_predictions.confidence_score) AS avg_confidence_score,
@@ -3253,7 +3295,7 @@ COMMENT ON VIEW public.agent_performance_summary IS 'Summary of agent performanc
 -- Name: agent_retraining_queue; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_retraining_queue (
+CREATE TABLE IF NOT EXISTS public.agent_retraining_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
     scheduled_at timestamp with time zone NOT NULL,
@@ -3280,7 +3322,7 @@ COMMENT ON TABLE public.agent_retraining_queue IS 'Tracks agents that need retra
 -- Name: agent_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_sessions (
+CREATE TABLE IF NOT EXISTS public.agent_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     session_token text NOT NULL,
@@ -3302,7 +3344,7 @@ CREATE TABLE public.agent_sessions (
 -- Name: agent_tools; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agent_tools (
+CREATE TABLE IF NOT EXISTS public.agent_tools (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id uuid,
     tool_name text NOT NULL,
@@ -3316,7 +3358,7 @@ CREATE TABLE public.agent_tools (
 -- Name: agents; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.agents (
+CREATE TABLE IF NOT EXISTS public.agents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
     type text NOT NULL,
@@ -3335,7 +3377,7 @@ CREATE TABLE public.agents (
 -- Name: approval_requests; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.approval_requests (
+CREATE TABLE IF NOT EXISTS public.approval_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
     agent_name text NOT NULL,
@@ -3368,7 +3410,7 @@ COMMENT ON TABLE public.approval_requests IS 'Phase 2: Stores requests for human
 -- Name: approval_requests_archive; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.approval_requests_archive (
+CREATE TABLE IF NOT EXISTS public.approval_requests_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     agent_id text NOT NULL,
@@ -3403,7 +3445,7 @@ COMMENT ON TABLE public.approval_requests_archive IS 'Archive for approval reque
 -- Name: approvals; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.approvals (
+CREATE TABLE IF NOT EXISTS public.approvals (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     request_id uuid,
     approver_id uuid,
@@ -3429,7 +3471,7 @@ COMMENT ON TABLE public.approvals IS 'Phase 2: Records approval decisions (inclu
 -- Name: approvals_archive; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.approvals_archive (
+CREATE TABLE IF NOT EXISTS public.approvals_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     request_id uuid,
@@ -3457,7 +3499,7 @@ COMMENT ON TABLE public.approvals_archive IS 'Archive for approvals older than r
 -- Name: approver_roles; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.approver_roles (
+CREATE TABLE IF NOT EXISTS public.approver_roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
     role text NOT NULL,
@@ -3483,7 +3525,7 @@ COMMENT ON TABLE public.approver_roles IS 'Phase 2: Defines who can approve what
 -- Name: assumptions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.assumptions (
+CREATE TABLE IF NOT EXISTS public.assumptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
     related_table text NOT NULL,
@@ -3504,7 +3546,7 @@ CREATE TABLE public.assumptions (
 -- Name: audit_log_access; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.audit_log_access (
+CREATE TABLE IF NOT EXISTS public.audit_log_access (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     user_id text NOT NULL,
@@ -3520,7 +3562,7 @@ CREATE TABLE public.audit_log_access (
 -- Name: audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.audit_logs (
+CREATE TABLE IF NOT EXISTS public.audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
     action text NOT NULL,
@@ -3548,7 +3590,7 @@ COMMENT ON TABLE public.audit_logs IS 'Phase 3: Immutable audit trail - append-o
 -- Name: audit_logs_archive; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.audit_logs_archive (
+CREATE TABLE IF NOT EXISTS public.audit_logs_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
     action text NOT NULL,
@@ -3576,7 +3618,7 @@ COMMENT ON TABLE public.audit_logs_archive IS 'Archive for audit logs older than
 -- Name: automated_check_results; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.automated_check_results (
+CREATE TABLE IF NOT EXISTS public.automated_check_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     control_id text NOT NULL,
@@ -3591,7 +3633,7 @@ CREATE TABLE public.automated_check_results (
 -- Name: automated_responses; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.automated_responses (
+CREATE TABLE IF NOT EXISTS public.automated_responses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     incident_id uuid NOT NULL,
     tenant_id text NOT NULL,
@@ -3613,7 +3655,7 @@ CREATE TABLE public.automated_responses (
 -- Name: backup_logs; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.backup_logs (
+CREATE TABLE IF NOT EXISTS public.backup_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     backup_file text NOT NULL,
     s3_path text NOT NULL,
@@ -3640,7 +3682,7 @@ COMMENT ON TABLE public.backup_logs IS 'Tracks database backup operations';
 -- Name: billing_customers; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.billing_customers (
+CREATE TABLE IF NOT EXISTS public.billing_customers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     organization_name text NOT NULL,
@@ -3669,7 +3711,7 @@ COMMENT ON TABLE public.billing_customers IS 'Maps tenants to Stripe customers f
 -- Name: business_cases; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.business_cases (
+CREATE TABLE IF NOT EXISTS public.business_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
     client text NOT NULL,
@@ -3686,7 +3728,7 @@ CREATE TABLE public.business_cases (
 -- Name: canvas_components; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.canvas_components (
+CREATE TABLE IF NOT EXISTS public.canvas_components (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     case_id uuid NOT NULL,
     type text NOT NULL,
@@ -3707,7 +3749,7 @@ CREATE TABLE public.canvas_components (
 -- Name: cases; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.cases (
+CREATE TABLE IF NOT EXISTS public.cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     title text NOT NULL,
@@ -3736,7 +3778,7 @@ COMMENT ON TABLE public.cases IS 'Cases with RLS enabled - users can only access
 -- Name: company_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.company_profiles (
+CREATE TABLE IF NOT EXISTS public.company_profiles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
     company_name text NOT NULL,
@@ -3757,7 +3799,7 @@ CREATE TABLE public.company_profiles (
 -- Name: compliance_evidence; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.compliance_evidence (
+CREATE TABLE IF NOT EXISTS public.compliance_evidence (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     control_id text NOT NULL,
     tenant_id text NOT NULL,
@@ -3778,7 +3820,7 @@ CREATE TABLE public.compliance_evidence (
 -- Name: compliance_reports; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.compliance_reports (
+CREATE TABLE IF NOT EXISTS public.compliance_reports (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     report_period_start timestamp with time zone NOT NULL,
@@ -3797,7 +3839,7 @@ CREATE TABLE public.compliance_reports (
 -- Name: component_history; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.component_history (
+CREATE TABLE IF NOT EXISTS public.component_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     component_id uuid NOT NULL,
     action_type text NOT NULL,
@@ -3812,7 +3854,7 @@ CREATE TABLE public.component_history (
 -- Name: component_relationships; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.component_relationships (
+CREATE TABLE IF NOT EXISTS public.component_relationships (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     source_component_id uuid NOT NULL,
     target_component_id uuid NOT NULL,
@@ -3826,7 +3868,7 @@ CREATE TABLE public.component_relationships (
 -- Name: confidence_violations; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.confidence_violations (
+CREATE TABLE IF NOT EXISTS public.confidence_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
     prediction_id uuid,
@@ -3848,7 +3890,7 @@ COMMENT ON TABLE public.confidence_violations IS 'Tracks instances where agent c
 -- Name: contextual_triggers; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.contextual_triggers (
+CREATE TABLE IF NOT EXISTS public.contextual_triggers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     element_selector text NOT NULL,
     trigger_type text NOT NULL,
@@ -3874,7 +3916,7 @@ COMMENT ON TABLE public.contextual_triggers IS 'Rules for in-app contextual help
 -- Name: cost_alerts; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.cost_alerts (
+CREATE TABLE IF NOT EXISTS public.cost_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     level text NOT NULL,
     period text NOT NULL,
@@ -3901,7 +3943,7 @@ COMMENT ON TABLE public.cost_alerts IS 'Stores cost threshold violation alerts';
 -- Name: device_trust_history; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.device_trust_history (
+CREATE TABLE IF NOT EXISTS public.device_trust_history (
     user_id text NOT NULL,
     tenant_id text NOT NULL,
     device_id text NOT NULL,
@@ -3917,7 +3959,7 @@ CREATE TABLE public.device_trust_history (
 -- Name: evaluation_runs; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.evaluation_runs (
+CREATE TABLE IF NOT EXISTS public.evaluation_runs (
     id text NOT NULL,
     name text NOT NULL,
     agent_type text,
@@ -3953,7 +3995,7 @@ COMMENT ON COLUMN public.evaluation_runs.summary IS 'Aggregate statistics: total
 -- Name: feature_flag_evaluations; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.feature_flag_evaluations (
+CREATE TABLE IF NOT EXISTS public.feature_flag_evaluations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     flag_key text NOT NULL,
     user_id uuid,
@@ -3974,7 +4016,7 @@ COMMENT ON TABLE public.feature_flag_evaluations IS 'Tracks feature flag evaluat
 -- Name: feature_flags; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.feature_flags (
+CREATE TABLE IF NOT EXISTS public.feature_flags (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     key text NOT NULL,
     name text NOT NULL,
@@ -4022,7 +4064,7 @@ COMMENT ON COLUMN public.feature_flags.variants IS 'A/B test variants with weigh
 -- Name: financial_models; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.financial_models (
+CREATE TABLE IF NOT EXISTS public.financial_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
     roi_percentage double precision,
@@ -4044,7 +4086,7 @@ CREATE TABLE public.financial_models (
 -- Name: golden_examples; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.golden_examples (
+CREATE TABLE IF NOT EXISTS public.golden_examples (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
     description text NOT NULL,
@@ -4077,7 +4119,7 @@ COMMENT ON COLUMN public.golden_examples.evaluation_criteria IS 'Array of {metri
 -- Name: integration_usage_log; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.integration_usage_log (
+CREATE TABLE IF NOT EXISTS public.integration_usage_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     integration_id uuid,
     user_id uuid,
@@ -4093,7 +4135,7 @@ CREATE TABLE public.integration_usage_log (
 -- Name: invoices; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.invoices (
+CREATE TABLE IF NOT EXISTS public.invoices (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     billing_customer_id uuid,
     tenant_id uuid NOT NULL,
@@ -4134,7 +4176,7 @@ COMMENT ON TABLE public.invoices IS 'Stored Stripe invoices per tenant for histo
 -- Name: kpi_hypotheses; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.kpi_hypotheses (
+CREATE TABLE IF NOT EXISTS public.kpi_hypotheses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
     kpi_name text NOT NULL,
@@ -4154,7 +4196,7 @@ CREATE TABLE public.kpi_hypotheses (
 -- Name: llm_calls; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.llm_calls (
+CREATE TABLE IF NOT EXISTS public.llm_calls (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     agent_id text NOT NULL,
@@ -4182,7 +4224,7 @@ COMMENT ON TABLE public.llm_calls IS 'Tracks all LLM API calls for cost and perf
 -- Name: llm_job_results; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.llm_job_results (
+CREATE TABLE IF NOT EXISTS public.llm_job_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     job_id text NOT NULL,
     user_id uuid,
@@ -4227,7 +4269,7 @@ COMMENT ON COLUMN public.llm_job_results.type IS 'Type of LLM job';
 -- Name: llm_performance_metrics; Type: MATERIALIZED VIEW; Schema: public; Owner: -
 --
 
-CREATE MATERIALIZED VIEW public.llm_performance_metrics AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.llm_performance_metrics AS
  SELECT llm_calls.provider,
     llm_calls.model,
     date_trunc('hour'::text, llm_calls.created_at) AS time_bucket,
@@ -4258,8 +4300,9 @@ COMMENT ON MATERIALIZED VIEW public.llm_performance_metrics IS 'Aggregated LLM p
 -- Name: llm_usage; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.llm_usage (
+CREATE TABLE IF NOT EXISTS public.llm_usage (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid,
     user_id uuid NOT NULL,
     session_id uuid,
     provider text NOT NULL,
@@ -4292,7 +4335,7 @@ COMMENT ON TABLE public.llm_usage IS 'Tracks all LLM API calls with costs and pe
 -- Name: login_attempts; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.login_attempts (
+CREATE TABLE IF NOT EXISTS public.login_attempts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     email text NOT NULL,
     attempted_at timestamp with time zone DEFAULT now(),
@@ -4314,7 +4357,7 @@ COMMENT ON TABLE public.login_attempts IS 'Tracks all login attempts for securit
 -- Name: memory_provenance; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.memory_provenance (
+CREATE TABLE IF NOT EXISTS public.memory_provenance (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     memory_id uuid,
     source_table text NOT NULL,
@@ -4328,7 +4371,7 @@ CREATE TABLE public.memory_provenance (
 -- Name: message_bus; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.message_bus (
+CREATE TABLE IF NOT EXISTS public.message_bus (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     from_agent_id uuid,
@@ -4348,7 +4391,7 @@ CREATE TABLE public.message_bus (
 -- Name: messages; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.messages (
+CREATE TABLE IF NOT EXISTS public.messages (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     case_id uuid,
@@ -4373,7 +4416,7 @@ COMMENT ON TABLE public.messages IS 'Messages with RLS enabled - users can only 
 -- Name: policy_rules; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.policy_rules (
+CREATE TABLE IF NOT EXISTS public.policy_rules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     rule_name text NOT NULL,
     rule_type text NOT NULL,
@@ -4389,7 +4432,7 @@ CREATE TABLE public.policy_rules (
 -- Name: prompt_executions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.prompt_executions (
+CREATE TABLE IF NOT EXISTS public.prompt_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     prompt_version_id uuid NOT NULL,
     user_id uuid,
@@ -4417,7 +4460,7 @@ COMMENT ON TABLE public.prompt_executions IS 'Tracks individual prompt execution
 -- Name: rate_limit_violations; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.rate_limit_violations (
+CREATE TABLE IF NOT EXISTS public.rate_limit_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
     ip_address inet,
@@ -4441,7 +4484,7 @@ COMMENT ON TABLE public.rate_limit_violations IS 'Logs rate limit violations for
 -- Name: resource_artifacts; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.resource_artifacts (
+CREATE TABLE IF NOT EXISTS public.resource_artifacts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
     description text,
@@ -4472,7 +4515,7 @@ COMMENT ON TABLE public.resource_artifacts IS 'Downloadable templates and tools'
 -- Name: retention_policies; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.retention_policies (
+CREATE TABLE IF NOT EXISTS public.retention_policies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     table_name text NOT NULL,
     retention_days integer NOT NULL,
@@ -4500,7 +4543,7 @@ COMMENT ON TABLE public.retention_policies IS 'Phase 3: Defines data retention p
 -- Name: roles; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.roles (
+CREATE TABLE IF NOT EXISTS public.roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
     description text,
@@ -4513,7 +4556,7 @@ CREATE TABLE public.roles (
 -- Name: secret_audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.secret_audit_logs (
+CREATE TABLE IF NOT EXISTS public.secret_audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
@@ -4535,7 +4578,7 @@ PARTITION BY RANGE ("timestamp");
 -- Name: secret_audit_failures; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW public.secret_audit_failures WITH (security_invoker='true') AS
+CREATE OR REPLACE VIEW public.secret_audit_failures WITH (security_invoker='true') AS
  SELECT secret_audit_logs.tenant_id,
     secret_audit_logs.user_id,
     secret_audit_logs.secret_key,
@@ -4558,7 +4601,7 @@ COMMENT ON VIEW public.secret_audit_failures IS 'SECURITY INVOKER view - Recent 
 -- Name: secret_audit_logs_2024; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.secret_audit_logs_2024 (
+CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
@@ -4579,7 +4622,7 @@ CREATE TABLE public.secret_audit_logs_2024 (
 -- Name: secret_audit_logs_2025; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.secret_audit_logs_2025 (
+CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
@@ -4600,7 +4643,7 @@ CREATE TABLE public.secret_audit_logs_2025 (
 -- Name: secret_audit_logs_2026; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.secret_audit_logs_2026 (
+CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
@@ -4621,7 +4664,7 @@ CREATE TABLE public.secret_audit_logs_2026 (
 -- Name: secret_audit_logs_default; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.secret_audit_logs_default (
+CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
@@ -4642,7 +4685,7 @@ CREATE TABLE public.secret_audit_logs_default (
 -- Name: secret_audit_logs_legacy; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.secret_audit_logs_legacy (
+CREATE TABLE IF NOT EXISTS public.secret_audit_logs_legacy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
@@ -4743,7 +4786,7 @@ COMMENT ON COLUMN public.secret_audit_logs_legacy."timestamp" IS 'When the opera
 -- Name: secret_audit_summary; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW public.secret_audit_summary WITH (security_invoker='true') AS
+CREATE OR REPLACE VIEW public.secret_audit_summary WITH (security_invoker='true') AS
  SELECT secret_audit_logs.tenant_id,
     secret_audit_logs.action,
     secret_audit_logs.result,
@@ -4766,7 +4809,7 @@ COMMENT ON VIEW public.secret_audit_summary IS 'SECURITY INVOKER view - Daily su
 -- Name: security_audit_log; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.security_audit_log (
+CREATE TABLE IF NOT EXISTS public.security_audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     event_type text NOT NULL,
     user_id uuid,
@@ -4788,7 +4831,7 @@ COMMENT ON TABLE public.security_audit_log IS 'Append-only log of security event
 -- Name: security_events; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.security_events (
+CREATE TABLE IF NOT EXISTS public.security_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     user_id text,
@@ -4807,7 +4850,7 @@ CREATE TABLE public.security_events (
 -- Name: security_incidents; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.security_incidents (
+CREATE TABLE IF NOT EXISTS public.security_incidents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     title text NOT NULL,
@@ -4831,7 +4874,7 @@ CREATE TABLE public.security_incidents (
 -- Name: security_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.security_metrics (
+CREATE TABLE IF NOT EXISTS public.security_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     metric_name text NOT NULL,
@@ -4845,7 +4888,7 @@ CREATE TABLE public.security_metrics (
 -- Name: security_policies; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.security_policies (
+CREATE TABLE IF NOT EXISTS public.security_policies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     name text NOT NULL,
@@ -4867,7 +4910,7 @@ CREATE TABLE public.security_policies (
 -- Name: semantic_memory; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.semantic_memory (
+CREATE TABLE IF NOT EXISTS public.semantic_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     type text NOT NULL,
     content text NOT NULL,
@@ -4883,7 +4926,7 @@ CREATE TABLE public.semantic_memory (
 -- Name: subscription_items; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.subscription_items (
+CREATE TABLE IF NOT EXISTS public.subscription_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     subscription_id uuid,
     stripe_subscription_item_id text NOT NULL,
@@ -4915,7 +4958,7 @@ COMMENT ON TABLE public.subscription_items IS 'Metered line items per subscripti
 -- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.subscriptions (
+CREATE TABLE IF NOT EXISTS public.subscriptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     billing_customer_id uuid,
     tenant_id uuid NOT NULL,
@@ -4952,7 +4995,7 @@ COMMENT ON TABLE public.subscriptions IS 'Active subscriptions per tenant with b
 -- Name: system_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.system_metrics (
+CREATE TABLE IF NOT EXISTS public.system_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     metric_type text NOT NULL,
@@ -4967,7 +5010,7 @@ CREATE TABLE public.system_metrics (
 -- Name: task_queue; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.task_queue (
+CREATE TABLE IF NOT EXISTS public.task_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workflow_execution_id uuid,
     agent_id uuid,
@@ -4991,7 +5034,7 @@ CREATE TABLE public.task_queue (
 -- Name: tenant_integrations; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.tenant_integrations (
+CREATE TABLE IF NOT EXISTS public.tenant_integrations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     provider text NOT NULL,
@@ -5018,7 +5061,7 @@ CREATE TABLE public.tenant_integrations (
 -- Name: tenants; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.tenants (
+CREATE TABLE IF NOT EXISTS public.tenants (
     id text NOT NULL,
     name text NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
@@ -5040,7 +5083,7 @@ COMMENT ON TABLE public.tenants IS 'Multi-tenant organization table';
 -- Name: usage_aggregates; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.usage_aggregates (
+CREATE TABLE IF NOT EXISTS public.usage_aggregates (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     subscription_item_id uuid,
@@ -5070,7 +5113,7 @@ COMMENT ON TABLE public.usage_aggregates IS 'Aggregated usage ready for Stripe s
 -- Name: usage_alerts; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.usage_alerts (
+CREATE TABLE IF NOT EXISTS public.usage_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     metric text NOT NULL,
@@ -5101,7 +5144,7 @@ COMMENT ON TABLE public.usage_alerts IS 'Usage alert history (80%/100%/120% thre
 -- Name: usage_events; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.usage_events (
+CREATE TABLE IF NOT EXISTS public.usage_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     metric text NOT NULL,
@@ -5128,7 +5171,7 @@ COMMENT ON TABLE public.usage_events IS 'Raw usage events emitted from services 
 -- Name: usage_quotas; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.usage_quotas (
+CREATE TABLE IF NOT EXISTS public.usage_quotas (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
     subscription_id uuid,
@@ -5156,7 +5199,7 @@ COMMENT ON TABLE public.usage_quotas IS 'Plan quotas and current usage per tenan
 -- Name: user_behavior_analysis; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.user_behavior_analysis (
+CREATE TABLE IF NOT EXISTS public.user_behavior_analysis (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id text NOT NULL,
     tenant_id text NOT NULL,
@@ -5172,7 +5215,7 @@ CREATE TABLE public.user_behavior_analysis (
 -- Name: user_pillar_progress; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW public.user_pillar_progress WITH (security_invoker='true') AS
+CREATE OR REPLACE VIEW public.user_pillar_progress WITH (security_invoker='true') AS
  SELECT ap.user_id,
     am.pillar,
     count(al.id) AS total_lessons,
@@ -5196,7 +5239,7 @@ COMMENT ON VIEW public.user_pillar_progress IS 'SECURITY INVOKER view - User pro
 -- Name: user_roles; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
     user_id text NOT NULL,
     role_id uuid NOT NULL,
     role text,
@@ -5209,7 +5252,7 @@ CREATE TABLE public.user_roles (
 -- Name: user_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.user_sessions (
+CREATE TABLE IF NOT EXISTS public.user_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
     user_id text NOT NULL,
@@ -5230,7 +5273,7 @@ CREATE TABLE public.user_sessions (
 -- Name: user_tenants; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.user_tenants (
+CREATE TABLE IF NOT EXISTS public.user_tenants (
     tenant_id text NOT NULL,
     user_id text NOT NULL,
     role text DEFAULT 'member'::text,
@@ -5251,7 +5294,7 @@ COMMENT ON TABLE public.user_tenants IS 'Maps users to tenants with roles - requ
 -- Name: value_cases; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.value_cases (
+CREATE TABLE IF NOT EXISTS public.value_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     organization_id uuid,
     tenant_id text,
@@ -5272,7 +5315,7 @@ CREATE TABLE public.value_cases (
 -- Name: value_ledger; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.value_ledger (
+CREATE TABLE IF NOT EXISTS public.value_ledger (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     value_case_id uuid NOT NULL,
@@ -5296,7 +5339,7 @@ COMMENT ON TABLE public.value_ledger IS 'Tracks realized value for gamification 
 -- Name: value_maps; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.value_maps (
+CREATE TABLE IF NOT EXISTS public.value_maps (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
     feature text NOT NULL,
@@ -5314,7 +5357,7 @@ CREATE TABLE public.value_maps (
 -- Name: value_prediction_accuracy; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.value_prediction_accuracy (
+CREATE TABLE IF NOT EXISTS public.value_prediction_accuracy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     prediction_id uuid,
     prediction_type text NOT NULL,
@@ -5340,7 +5383,7 @@ COMMENT ON TABLE public.value_prediction_accuracy IS 'Tracks accuracy of value p
 -- Name: value_prediction_accuracy_metrics; Type: MATERIALIZED VIEW; Schema: public; Owner: -
 --
 
-CREATE MATERIALIZED VIEW public.value_prediction_accuracy_metrics AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS public.value_prediction_accuracy_metrics AS
  SELECT value_prediction_accuracy.prediction_type,
     date_trunc('day'::text, value_prediction_accuracy.created_at) AS time_bucket,
     count(*) AS total_predictions,
@@ -5367,7 +5410,7 @@ COMMENT ON MATERIALIZED VIEW public.value_prediction_accuracy_metrics IS 'Aggreg
 -- Name: webhook_events; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.webhook_events (
+CREATE TABLE IF NOT EXISTS public.webhook_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     stripe_event_id text NOT NULL,
     event_type text NOT NULL,
@@ -5391,7 +5434,7 @@ COMMENT ON TABLE public.webhook_events IS 'Stripe webhook event log for idempote
 -- Name: workflow_executions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.workflow_executions (
+CREATE TABLE IF NOT EXISTS public.workflow_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workflow_id uuid,
     session_id uuid,
@@ -5418,7 +5461,7 @@ CREATE TABLE public.workflow_executions (
 -- Name: workflows; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.workflows (
+CREATE TABLE IF NOT EXISTS public.workflows (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
     case_id uuid,
@@ -5448,44 +5491,68 @@ COMMENT ON TABLE public.workflows IS 'Workflows with RLS enabled - users can onl
 -- Name: secret_audit_logs_2024; Type: TABLE ATTACH; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_2024 FOR VALUES FROM ('2024-01-01 00:00:00+00') TO ('2025-01-01 00:00:00+00');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid = 'public.secret_audit_logs_2024'::regclass AND inhparent = 'public.secret_audit_logs'::regclass) THEN
+        ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_2024 FOR VALUES FROM ('2024-01-01 00:00:00+00') TO ('2025-01-01 00:00:00+00');
+    END IF;
+END
+$$;
 
 
 --
 -- Name: secret_audit_logs_2025; Type: TABLE ATTACH; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_2025 FOR VALUES FROM ('2025-01-01 00:00:00+00') TO ('2026-01-01 00:00:00+00');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid = 'public.secret_audit_logs_2025'::regclass AND inhparent = 'public.secret_audit_logs'::regclass) THEN
+        ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_2025 FOR VALUES FROM ('2025-01-01 00:00:00+00') TO ('2026-01-01 00:00:00+00');
+    END IF;
+END
+$$;
 
 
 --
 -- Name: secret_audit_logs_2026; Type: TABLE ATTACH; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_2026 FOR VALUES FROM ('2026-01-01 00:00:00+00') TO ('2027-01-01 00:00:00+00');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid = 'public.secret_audit_logs_2026'::regclass AND inhparent = 'public.secret_audit_logs'::regclass) THEN
+        ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_2026 FOR VALUES FROM ('2026-01-01 00:00:00+00') TO ('2027-01-01 00:00:00+00');
+    END IF;
+END
+$$;
 
 
 --
 -- Name: secret_audit_logs_default; Type: TABLE ATTACH; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_default DEFAULT;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_inherits WHERE inhrelid = 'public.secret_audit_logs_default'::regclass AND inhparent = 'public.secret_audit_logs'::regclass) THEN
+        ALTER TABLE ONLY public.secret_audit_logs ATTACH PARTITION public.secret_audit_logs_default DEFAULT;
+    END IF;
+END
+$$;
 
 
 --
 -- Name: ab_tests ab_tests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.ab_tests
-    ADD CONSTRAINT ab_tests_pkey PRIMARY KEY (id);
+-- ALTER TABLE ONLY public.ab_tests
+--     ADD CONSTRAINT ab_tests_pkey PRIMARY KEY (id);
 
 
 --
 -- Name: academy_certifications academy_certifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.academy_certifications
-    ADD CONSTRAINT academy_certifications_pkey PRIMARY KEY (id);
+-- ALTER TABLE ONLY public.academy_certifications
+--     ADD CONSTRAINT academy_certifications_pkey PRIMARY KEY (id);
 
 
 --
@@ -13047,7 +13114,7 @@ DROP VIEW IF EXISTS agent_performance_summary;
 
 -- Recreate with explicit SECURITY INVOKER (PostgreSQL 15+)
 -- This ensures the view respects the caller's RLS policies, not the definer's
-CREATE VIEW agent_performance_summary
+CREATE OR REPLACE VIEW agent_performance_summary
 WITH (security_invoker = true) AS
 SELECT
   agent_type,
@@ -13097,7 +13164,7 @@ REVOKE ALL ON agent_performance_summary FROM anon;
 -- Drop and recreate as SECURITY INVOKER (relies on RLS)
 DROP VIEW IF EXISTS public.recent_confidence_violations;
 
-CREATE VIEW public.recent_confidence_violations
+CREATE OR REPLACE VIEW public.recent_confidence_violations
 WITH (security_invoker = true)
 AS
 SELECT
@@ -13643,13 +13710,13 @@ ALTER TABLE llm_usage ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS llm_gating_policies_tenant_isolation ON llm_gating_policies;
 CREATE POLICY llm_gating_policies_tenant_isolation ON llm_gating_policies
   FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true));
+  USING (tenant_id::text = current_setting('app.current_tenant_id', true));
 
 -- Policies for llm_usage
 DROP POLICY IF EXISTS llm_usage_tenant_isolation ON llm_usage;
 CREATE POLICY llm_usage_tenant_isolation ON llm_usage
   FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true));
+  USING (tenant_id::text = current_setting('app.current_tenant_id', true));
 
 -- ============================================================================
 -- Triggers
@@ -13791,7 +13858,7 @@ CREATE POLICY "Strict tenant isolation - usage logs" ON llm_usage
   USING (
     CASE
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
-      ELSE tenant_id = (auth.jwt() ->> 'org_id')
+      ELSE tenant_id::text = (auth.jwt() ->> 'org_id')
     END
   );
 
@@ -13801,7 +13868,7 @@ CREATE POLICY "Strict tenant isolation - budgets" ON llm_gating_policies
   USING (
     CASE
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
-      ELSE tenant_id = (auth.jwt() ->> 'org_id')
+      ELSE tenant_id::text = (auth.jwt() ->> 'org_id')
     END
   );
 
@@ -14258,7 +14325,7 @@ ALTER TABLE organization_configurations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS org_configs_tenant_isolation ON organization_configurations;
 CREATE POLICY org_configs_tenant_isolation ON organization_configurations
   FOR ALL
-  USING (organization_id = current_setting('app.current_tenant_id', true));
+  USING (organization_id::text = current_setting('app.current_tenant_id', true));
 
 -- Policy: Vendor admins can access all configurations
 DROP POLICY IF EXISTS org_configs_vendor_admin ON organization_configurations;
@@ -16463,7 +16530,7 @@ DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS temp_files CASCADE;
 
 -- Recreate legal_holds with TEXT tenant_id
-CREATE TABLE legal_holds (
+CREATE TABLE IF NOT EXISTS legal_holds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   tenant_id TEXT REFERENCES tenants(id),
@@ -16483,7 +16550,7 @@ CREATE INDEX idx_legal_holds_status ON legal_holds(status);
 CREATE INDEX idx_legal_holds_created_at ON legal_holds(created_at);
 
 -- Recreate user_deletions with TEXT tenant_id
-CREATE TABLE user_deletions (
+CREATE TABLE IF NOT EXISTS user_deletions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   user_email TEXT NOT NULL,
@@ -16513,7 +16580,7 @@ CREATE INDEX idx_user_deletions_completed_at ON user_deletions(completed_at);
 CREATE INDEX idx_user_deletions_deletion_type ON user_deletions(deletion_type);
 
 -- Recreate cross_region_transfers with TEXT tenant_id
-CREATE TABLE cross_region_transfers (
+CREATE TABLE IF NOT EXISTS cross_region_transfers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   tenant_id TEXT NOT NULL REFERENCES tenants(id),
@@ -16544,7 +16611,7 @@ CREATE INDEX idx_cross_region_transfers_transferred_at ON cross_region_transfers
 CREATE INDEX idx_cross_region_transfers_legal_basis ON cross_region_transfers(legal_basis);
 
 -- Recreate user_consents with TEXT tenant_id
-CREATE TABLE user_consents (
+CREATE TABLE IF NOT EXISTS user_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   tenant_id TEXT REFERENCES tenants(id),
@@ -16561,7 +16628,7 @@ CREATE INDEX idx_user_consents_tenant_id ON user_consents(tenant_id);
 CREATE INDEX idx_user_consents_consent_type ON user_consents(consent_type);
 
 -- Recreate security_incidents with TEXT tenant_id
-CREATE TABLE security_incidents (
+CREATE TABLE IF NOT EXISTS security_incidents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT REFERENCES tenants(id),
   incident_type TEXT NOT NULL,
@@ -16580,7 +16647,7 @@ CREATE INDEX idx_security_incidents_severity ON security_incidents(severity);
 CREATE INDEX idx_security_incidents_detected_at ON security_incidents(detected_at);
 
 -- Recreate data_region_changes with TEXT tenant_id
-CREATE TABLE data_region_changes (
+CREATE TABLE IF NOT EXISTS data_region_changes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL REFERENCES tenants(id),
   old_region TEXT NOT NULL,
@@ -16595,7 +16662,7 @@ CREATE INDEX idx_data_region_changes_tenant_id ON data_region_changes(tenant_id)
 CREATE INDEX idx_data_region_changes_changed_at ON data_region_changes(changed_at);
 
 -- Recreate sessions with TEXT tenant_id
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   tenant_id TEXT REFERENCES tenants(id),
@@ -16608,7 +16675,7 @@ CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 
 -- Recreate temp_files with TEXT tenant_id
-CREATE TABLE temp_files (
+CREATE TABLE IF NOT EXISTS temp_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   tenant_id TEXT REFERENCES tenants(id),
@@ -20398,7 +20465,7 @@ CREATE POLICY customer_tokens_tenant_isolation ON customer_access_tokens
   USING (
     value_case_id IN (
       SELECT id FROM value_cases
-      WHERE tenant_id = current_setting('app.current_tenant_id', true)
+      WHERE tenant_id::text = current_setting('app.current_tenant_id', true)
     )
   );
 
@@ -20432,7 +20499,7 @@ END $$;
 ALTER PUBLICATION supabase_realtime ADD TABLE value_cases;
 
 -- Enable realtime on value_case_metrics table (for metric updates)
-ALTER PUBLICATION supabase_realtime ADD TABLE value_case_metrics;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE value_case_metrics;
 
 -- Create canvas_elements table for collaborative canvas
 CREATE TABLE IF NOT EXISTS canvas_elements (
@@ -21421,7 +21488,7 @@ UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
 UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
 UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
 UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
-UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
+-- UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
 UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
 UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
 UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
@@ -22407,7 +22474,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS usage_aggregates_idempotency_key_unique
 -- Drop and recreate with SECURITY INVOKER
 DROP VIEW IF EXISTS public.user_pillar_progress;
 
-CREATE VIEW public.user_pillar_progress
+CREATE OR REPLACE VIEW public.user_pillar_progress
 WITH (security_invoker = true)
 AS
 SELECT
@@ -22439,7 +22506,7 @@ GRANT SELECT ON public.user_pillar_progress TO authenticated;
 -- Drop and recreate with SECURITY INVOKER
 DROP VIEW IF EXISTS public.secret_audit_summary;
 
-CREATE VIEW public.secret_audit_summary
+CREATE OR REPLACE VIEW public.secret_audit_summary
 WITH (security_invoker = true)
 AS
 SELECT
@@ -22467,7 +22534,7 @@ GRANT SELECT ON public.secret_audit_summary TO authenticated;
 -- Drop and recreate with SECURITY INVOKER
 DROP VIEW IF EXISTS public.secret_audit_failures;
 
-CREATE VIEW public.secret_audit_failures
+CREATE OR REPLACE VIEW public.secret_audit_failures
 WITH (security_invoker = true)
 AS
 SELECT

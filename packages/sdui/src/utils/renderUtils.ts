@@ -2,7 +2,7 @@
  * Utility functions for SDUI rendering
  */
 
-import { logger } from '../../lib/logger';
+import { logger } from '@shared/lib/logger';
 import { SDUIComponentSection, SDUIPageDefinition } from '../schema';
 import { ComponentMetadata, RenderPerformanceMetrics } from '../types';
 

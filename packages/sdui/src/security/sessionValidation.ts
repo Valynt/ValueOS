@@ -4,7 +4,7 @@
  * Validates session state, expiration, and security context.
  */
 
-import { logger } from '../../lib/logger';
+import { logger } from '@shared/lib/logger';
 import { incrementSecurityMetric } from './metrics';
 
 /**

@@ -32,7 +32,7 @@ import {
   getLatencySnapshot,
   latencyMetricsMiddleware,
 } from "../middleware/latencyMetricsMiddleware";
-import { getMetricsRegistry, incrementWsAuthFailure, metricsMiddleware } from "../middleware/metricsMiddleware";
+import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
@@ -109,7 +109,6 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
 
   if (!token) {
     logger.warn("WebSocket authentication failed: missing token", { clientIp });
-    incrementWsAuthFailure('missing_token');
     ws.close(WS_POLICY_VIOLATION_CODE, "Authentication required");
     return;
   }
@@ -117,7 +116,6 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
   const verified = await verifyAccessToken(token);
   if (!verified) {
     logger.warn("WebSocket authentication failed: invalid token", { clientIp });
-    incrementWsAuthFailure('invalid_token');
     ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
     return;
   }
@@ -127,7 +125,6 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
 
   if (!userId) {
     logger.warn("WebSocket authentication failed: missing user id", { clientIp });
-    incrementWsAuthFailure('missing_user_id');
     ws.close(WS_POLICY_VIOLATION_CODE, "Invalid token");
     return;
   }
@@ -143,7 +140,6 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
           userId,
           requestedTenantId,
         });
-        incrementWsAuthFailure('tenant_access_denied');
         ws.close(WS_POLICY_VIOLATION_CODE, "Tenant access denied");
         return;
       }
@@ -153,7 +149,6 @@ async function authenticateWebSocket(ws: WebSocket, req: IncomingMessage): Promi
 
   if (!tenantId) {
     logger.warn("WebSocket authentication failed: missing tenant context", { clientIp, userId });
-    incrementWsAuthFailure('missing_tenant_context');
     ws.close(WS_POLICY_VIOLATION_CODE, "Tenant context required");
     return;
   }

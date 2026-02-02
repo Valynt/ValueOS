@@ -1,91 +1,91 @@
 {
-  "timestamp": "2026-02-02T06:03:41.619Z",
-  "totalErrors": 9782,
-  "filesWithErrors": 1397,
+  "timestamp": "2026-02-02T07:17:00.451Z",
+  "totalErrors": 8175,
+  "filesWithErrors": 1286,
   "errorsByCode": {
-    "TS2353": 346,
-    "TS6133": 1749,
+    "TS2353": 321,
+    "TS6133": 976,
     "TS4114": 54,
-    "TS2345": 534,
-    "TS2375": 322,
-    "TS2532": 641,
-    "TS2307": 603,
-    "TS7006": 444,
-    "TS2322": 569,
+    "TS2345": 566,
+    "TS2375": 201,
+    "TS2532": 576,
+    "TS2307": 505,
+    "TS7006": 352,
+    "TS2322": 564,
     "TS7019": 5,
-    "TS2339": 1392,
-    "TS7034": 15,
+    "TS2339": 1210,
+    "TS7034": 9,
     "TS7005": 39,
-    "TS2305": 259,
-    "TS18048": 368,
-    "TS7031": 7,
-    "TS18047": 279,
-    "TS2554": 369,
-    "TS7030": 128,
-    "TS2379": 220,
+    "TS2305": 217,
+    "TS18048": 328,
+    "TS7031": 4,
+    "TS18047": 278,
+    "TS2554": 380,
+    "TS7030": 127,
+    "TS2379": 113,
     "TS2454": 4,
-    "TS2412": 54,
-    "TS18046": 101,
-    "TS2769": 54,
-    "TS2352": 10,
+    "TS2412": 36,
+    "TS18046": 92,
+    "TS2769": 53,
+    "TS2352": 8,
     "TS2488": 3,
-    "TS1205": 12,
+    "TS1205": 10,
     "TS7016": 3,
     "TS2552": 2,
     "TS2740": 6,
     "TS7053": 13,
     "TS2323": 4,
     "TS2484": 7,
-    "TS2304": 120,
+    "TS2304": 115,
     "TS2365": 2,
     "TS2430": 1,
-    "TS2300": 12,
-    "TS2551": 174,
+    "TS2300": 10,
+    "TS2551": 172,
     "TS2614": 16,
     "TS2686": 6,
-    "TS2724": 49,
-    "TS6196": 12,
+    "TS2724": 45,
+    "TS6196": 8,
     "TS2348": 2,
     "TS2749": 13,
-    "TS6192": 19,
+    "TS6192": 12,
     "TS2503": 8,
     "TS2416": 7,
     "TS2415": 7,
     "TS2451": 2,
     "TS6198": 1,
-    "TS2459": 14,
-    "TS2561": 54,
-    "TS6138": 16,
+    "TS2459": 13,
+    "TS2561": 53,
+    "TS6138": 9,
     "TS2364": 2,
     "TS2783": 6,
     "TS2654": 1,
-    "TS2538": 30,
+    "TS2538": 25,
     "TS2344": 10,
-    "TS2693": 2,
+    "TS2693": 3,
     "TS2571": 4,
     "TS2741": 78,
     "TS2464": 4,
     "TS2341": 1,
-    "TS2349": 1,
-    "TS2308": 9,
+    "TS2349": 2,
+    "TS2308": 8,
     "TS2556": 1,
     "TS2578": 1,
     "TS2564": 7,
-    "TS2367": 11,
-    "TS18004": 8,
+    "TS2367": 10,
+    "TS18004": 7,
     "TS2440": 2,
     "TS7022": 1,
     "TS2448": 1,
     "TS1016": 2,
     "TS2418": 2,
     "TS2446": 6,
-    "TS2420": 2,
+    "TS2420": 1,
     "TS2372": 1,
     "TS2419": 5,
     "TS2698": 2,
     "TS2531": 14,
     "TS2559": 3,
-    "TS2739": 10,
+    "TS2739": 33,
     "TS2445": 10,
     "TS2673": 1,
     "TS7008": 1,
@@ -94,11 +94,10 @@
     "TS2702": 2,
     "TS2613": 4,
     "TS2742": 40,
-    "TS2362": 5,
-    "TS2592": 2,
-    "TS1005": 4,
+    "TS2362": 4,
+    "TS2592": 1,
+    "TS1005": 1,
     "TS2694": 16,
-    "TS1360": 23,
     "TS2366": 2,
     "TS2708": 68,
     "TS2558": 4,
@@ -110,50 +109,37 @@
     "TS2663": 1,
     "TS2395": 2,
     "TS2677": 1,
-    "TS2834": 73,
-    "TS2835": 87,
+    "TS2835": 122,
+    "TS2834": 38,
     "TS1185": 9,
-    "TS2407": 1,
-    "TS6059": 12
+    "TS2407": 1
   },
   "errorsByPackage": {
-    "apps/mcp-dashboard": 56,
-    "apps/ValyntApp": 4725,
+    "apps/mcp-dashboard": 54,
+    "apps/ValyntApp": 4505,
     "packages/infra": 6,
-    "packages/services": 28,
-    "packages/backend": 4016,
-    "packages/mcp": 468,
-    "packages/sdui": 313,
-    "packages/shared": 6,
-    "packages/agents": 164
+    "packages/services": 20,
+    "packages/backend": 2869,
+    "packages/mcp": 418,
+    "packages/sdui": 171,
+    "packages/shared": 5,
+    "packages/agents": 127
   },
   "topFiles": [
     {
-      "file": "packages/backend/src/services/UnifiedAgentOrchestrator.ts",
-      "count": 123
-    },
-    {
       "file": "packages/backend/src/services/ActionRouter.ts",
-      "count": 112
+      "count": 95
     },
     {
-      "file": "packages/sdui/src/LazyComponentRegistry.tsx",
-      "count": 78
+      "file": "packages/backend/src/services/UnifiedAgentOrchestrator.ts",
+      "count": 76
     },
     {
       "file": "packages/backend/src/services/CanvasSchemaService.ts",
-      "count": 73
-    },
-    {
-      "file": "packages/backend/src/services/BatchOperations.ts",
-      "count": 54
+      "count": 65
     },
     {
       "file": "apps/ValyntApp/src/sdui/__tests__/integration/agent-to-render.test.ts",
-      "count": 51
-    },
-    {
-      "file": "packages/backend/src/services/AgentChatService.ts",
       "count": 51
     },
     {
@@ -161,85 +147,85 @@
       "count": 50
     },
     {
-      "file": "packages/backend/src/services/workflows/WorkflowDAGDefinitions.ts",
-      "count": 50
-    },
-    {
-      "file": "packages/mcp/ground-truth/services/PredictiveModelingService.ts",
-      "count": 49
-    },
-    {
       "file": "apps/ValyntApp/src/services/__tests__/ComponentMutationService.test.ts",
       "count": 48
     },
     {
-      "file": "apps/ValyntApp/src/structural/structural-truth.ts",
-      "count": 48
-    },
-    {
       "file": "packages/backend/src/services/__tests__/ComponentMutationService.test.ts",
-      "count": 48
-    },
-    {
-      "file": "apps/ValyntApp/src/services/ActionRouter.ts",
-      "count": 47
-    },
-    {
-      "file": "apps/ValyntApp/src/services/ComponentMutationService.ts",
-      "count": 47
-    },
-    {
-      "file": "packages/backend/src/services/ComponentMutationService.ts",
-      "count": 47
-    },
-    {
-      "file": "packages/backend/src/services/LayoutEngine.ts",
-      "count": 47
-    },
-    {
-      "file": "packages/backend/src/middleware/__tests__/globalErrorHandler.test.ts",
       "count": 46
     },
     {
-      "file": "apps/ValyntApp/src/services/ValueLifecycleOrchestrator.ts",
+      "file": "apps/ValyntApp/src/services/ComponentMutationService.ts",
       "count": 45
     },
     {
+      "file": "apps/ValyntApp/src/services/ValueLifecycleOrchestrator.ts",
+      "count": 44
+    },
+    {
+      "file": "packages/backend/src/services/ComponentMutationService.ts",
+      "count": 44
+    },
+    {
+      "file": "apps/ValyntApp/src/structural/structural-truth.ts",
+      "count": 41
+    },
+    {
+      "file": "packages/sdui/src/LazyComponentRegistry.tsx",
+      "count": 39
+    },
+    {
+      "file": "apps/ValyntApp/src/sdui/LazyComponentRegistry.tsx",
+      "count": 38
+    },
+    {
       "file": "packages/backend/src/services/billing/__tests__/security/rls-policies.test.ts",
-      "count": 42
+      "count": 38
+    },
+    {
+      "file": "packages/backend/src/services/workflows/WorkflowDAGDefinitions.ts",
+      "count": 38
+    },
+    {
+      "file": "apps/ValyntApp/src/services/ActionRouter.ts",
+      "count": 37
+    },
+    {
+      "file": "apps/ValyntApp/src/services/PromptVersionControl.ts",
+      "count": 37
+    },
+    {
+      "file": "packages/backend/src/services/AgentChatService.ts",
+      "count": 37
+    },
+    {
+      "file": "packages/backend/src/services/PromptVersionControl.ts",
+      "count": 37
+    },
+    {
+      "file": "packages/backend/src/services/__tests__/ActionRouter.test.ts",
+      "count": 36
     }
   ],
   "topMissingModules": [
     {
       "module": "../components/SDUI",
-      "count": 86
+      "count": 56
     },
     {
       "module": "@valueos/agents/base",
-      "count": 38
+      "count": 19
     },
     {
       "module": "../../lib/logger",
-      "count": 23
-    },
-    {
-      "module": "../../types/sof",
-      "count": 15
-    },
-    {
-      "module": "../components/SDUI/CanvasLayout",
-      "count": 14
+      "count": 17
     },
     {
       "module": "../../components/Settings/SettingsSection",
       "count": 13
     },
     {
-      "module": "../lib/logger",
-      "count": 10
-    },
-    {
-      "module": "../../repositories/WorkflowStateRepository",
+      "module": "../../types/sof",
       "count": 10
     },
     {
@@ -249,6 +235,10 @@
     {
       "module": "../lib/piiFilter",
       "count": 9
+    },
+    {
+      "module": "../components/SDUI/CanvasLayout",
+      "count": 8
     },
     {
       "module": "../components/Agents/AgentBadge",
@@ -263,17 +253,25 @@
       "count": 7
     },
     {
+      "module": "../lib/logger",
+      "count": 6
+    },
+    {
       "module": "decimal.js",
       "count": 6
     },
     {
       "module": "../../lib/settingsRegistry",
       "count": 6
+    },
+    {
+      "module": "../../lib/realtime/supabaseRealtime",
+      "count": 5
     }
   ],
   "cascadeIndicators": {
-    "likelyGeneratedTypeIssues": 2,
-    "pathAliasIssues": 17,
-    "strictModeIssues": 1189
+    "likelyGeneratedTypeIssues": 1,
+    "pathAliasIssues": 13,
+    "strictModeIssues": 920
   }
 }

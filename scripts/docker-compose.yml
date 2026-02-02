@@ -3,7 +3,6 @@ services:
   # PostgreSQL database for Supabase
   postgres:
     image: postgres:15-alpine
-    container_name: valueos-postgres
     environment:
       POSTGRES_DB: valuecanvas_dev
       POSTGRES_USER: postgres
@@ -23,7 +22,6 @@ services:
   # Redis cache layer
   redis:
     image: redis:7-alpine
-    container_name: valueos-redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -40,7 +38,6 @@ services:
   # Build validation service - runs before other services
   build-validator:
     image: node:20.19.0-alpine
-    container_name: valueos-build-validator
     working_dir: /app
     volumes:
       - .:/app
@@ -53,7 +50,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: valueos-backend
     ports:
       - "${API_PORT:-3001}:${API_PORT:-3001}"
     deploy:
@@ -93,7 +89,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: valueos-frontend
     ports:
       - "${VITE_PORT:-5173}:80"
     environment:
@@ -111,7 +106,6 @@ services:
   # Prometheus (Metrics)
   prometheus:
     image: prom/prometheus:latest
-    container_name: valueos-prometheus
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
@@ -130,7 +124,6 @@ services:
   # Grafana (Visualization)
   grafana:
     image: grafana/grafana:latest
-    container_name: valueos-grafana
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     environment:

@@ -31,7 +31,7 @@
       "@infra/*": ["./packages/infra/*"],
       "@memory/*": ["./packages/memory/*"],
       "@agents/*": ["./packages/agents/*"],
-      "@valueos/agents/*": ["./packages/agents/*"],
+      "@valueos/agents/*": ["./packages/agents/*/src"],
       "@integrations/*": ["./packages/integrations/*"],
       "@mcp/*": ["./packages/mcp/*"],
       "@mcp-common/*": ["./packages/mcp/common/*"],

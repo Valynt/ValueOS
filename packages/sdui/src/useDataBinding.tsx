@@ -12,7 +12,7 @@ import {
   ResolvedBinding,
 } from "./DataBindingSchema";
 import { DataBindingResolver } from "./DataBindingResolver";
-import { logger } from "../lib/logger";
+import { logger } from "@shared/lib/logger";
 
 /**
  * Hook options

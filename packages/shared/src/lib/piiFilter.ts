@@ -10,40 +10,6 @@
 import { isDevelopment } from "../config/environment";
 
 /**
- * Sprint 1: Redaction metrics
- * Tracks the number of redactions performed for observability
- */
-let redactionCount = 0;
-let redactionsByType: Record<string, number> = {};
-
-/**
- * Get current redaction metrics
- * @returns Object containing total redaction count and breakdown by type
- */
-export function getRedactionMetrics(): { total: number; byType: Record<string, number> } {
-  return {
-    total: redactionCount,
-    byType: { ...redactionsByType },
-  };
-}
-
-/**
- * Reset redaction metrics (useful for testing)
- */
-export function resetRedactionMetrics(): void {
-  redactionCount = 0;
-  redactionsByType = {};
-}
-
-/**
- * Increment redaction counter
- */
-function trackRedaction(type: string): void {
-  redactionCount++;
-  redactionsByType[type] = (redactionsByType[type] || 0) + 1;
-}
-
-/**
  * Sensitive field patterns to redact
  */
 const SENSITIVE_PATTERNS = [
@@ -150,10 +116,7 @@ function isSensitiveValue(value: unknown): boolean {
 /**
  * Redact a sensitive value
  */
-function redactValue(value: unknown, key?: string): string {
-  // Sprint 1: Track redaction for metrics
-  trackRedaction(key || "unknown");
-
+function redactValue(value: unknown, _key?: string): string {
   if (value === null || value === undefined) {
     return "[NULL]";
   }

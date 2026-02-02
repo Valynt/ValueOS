@@ -7,19 +7,10 @@
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { SDUIPageDefinition } from "./schema";
-import { SchemaPatcher } from "./SchemaPatcher";
+import { SchemaPatcher, SchemaDelta } from "./SchemaPatcher";
 import { createLogger } from "./lib/logger";
 
 const logger = createLogger({ component: "SchemaStore" });
-
-export interface SchemaDelta {
-  operations: Array<{
-    type: "replace" | "add_section" | "remove_section" | "update_section" | "update_metadata";
-    path?: string; // JSON path for updates
-    value?: any;
-    sectionId?: string;
-  }>;
-}
 
 interface SchemaState {
   // Current schema
@@ -151,8 +142,8 @@ export const useSchemaStore = create<SchemaState>()(
               }
             };
 
-            ws.onerror = (error) => {
-              logger.error("Schema streaming WebSocket error", error as Error, { schemaId });
+            ws.onerror = (event) => {
+              logger.error("Schema streaming WebSocket error", new Error("WebSocket error"), { schemaId });
               get().stopStreaming();
             };
 

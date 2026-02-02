@@ -4,7 +4,7 @@
  * Tracks security-related events for monitoring and alerting.
  */
 
-import { logger } from '../../lib/logger';
+import { logger } from '@shared/lib/logger';
 
 /**
  * Security event types

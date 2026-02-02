@@ -305,6 +305,9 @@ async function main() {
     run("pnpm install --frozen-lockfile --prefer-offline");
   }
 
+  // Verify build configuration resolution (aliases, etc.)
+  run("pnpm run verify:resolution");
+
   process.env.DOCKER_BUILDKIT = "1";
   process.env.COMPOSE_DOCKER_CLI_BUILD = "1";
 

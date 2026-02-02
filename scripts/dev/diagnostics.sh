@@ -41,6 +41,29 @@ echo "Generated: $(date -Iseconds)" >> "$OUTPUT_FILE"
 echo "=================================" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
+# Determine Compose Command
+COMPOSE_CMD=""
+if docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+elif docker-compose version &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo -e "${RED}Error: docker compose not found${NC}"
+    exit 1
+fi
+
+# Determine Compose File
+COMPOSE_FILE=""
+if [[ -f "$PROJECT_ROOT/.devcontainer/docker-compose.devcontainer.yml" ]]; then
+    COMPOSE_FILE="$PROJECT_ROOT/.devcontainer/docker-compose.devcontainer.yml"
+elif [[ -f "$PROJECT_ROOT/docker-compose.yml" ]]; then
+    COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
+fi
+
+if [[ -n "$COMPOSE_FILE" ]]; then
+    COMPOSE_CMD="$COMPOSE_CMD -f $COMPOSE_FILE"
+fi
+
 section() {
     local title="$1"
     echo ""
@@ -80,10 +103,8 @@ fi
 ###############################################################################
 section "Container Status"
 
-cd "$PROJECT_ROOT/.devcontainer" 2>/dev/null || cd "$PROJECT_ROOT"
-
-if docker compose -f docker-compose.devcontainer.yml ps --format 'table {{.Name}}\t{{.Status}}\t{{.Health}}' 2>/dev/null; then
-    docker compose -f docker-compose.devcontainer.yml ps --format 'table {{.Name}}\t{{.Status}}\t{{.Health}}' >> "$OUTPUT_FILE" 2>&1
+if $COMPOSE_CMD ps --format 'table {{.Name}}\t{{.Status}}\t{{.Health}}' 2>/dev/null; then
+    $COMPOSE_CMD ps --format 'table {{.Name}}\t{{.Status}}\t{{.Health}}' >> "$OUTPUT_FILE" 2>&1
 else
     echo "Could not get container status" | tee -a "$OUTPUT_FILE"
 fi
@@ -106,9 +127,9 @@ check_health() {
     fi
 }
 
-check_health "PostgreSQL" "docker exec valueos-db pg_isready -U postgres"
-check_health "Redis" "docker exec valueos-redis redis-cli ping"
-check_health "Kong" "docker exec valueos-kong kong health"
+check_health "PostgreSQL" "$COMPOSE_CMD exec -T db pg_isready -U postgres"
+check_health "Redis" "$COMPOSE_CMD exec -T redis redis-cli ping"
+check_health "Kong" "$COMPOSE_CMD exec -T kong kong health"
 check_health "Auth (GoTrue)" "curl -fsS http://localhost:54321/auth/v1/health 2>/dev/null || curl -fsS http://kong:8000/auth/v1/health 2>/dev/null"
 check_health "REST (PostgREST)" "curl -fsS http://localhost:54321/rest/v1/ -I 2>/dev/null || curl -fsS http://kong:8000/rest/v1/ -I 2>/dev/null"
 
@@ -149,13 +170,13 @@ print_env "REDIS_URL"
 ###############################################################################
 section "Recent Logs (last 20 lines per service)"
 
-for container in valueos-db valueos-redis valueos-kong valueos-auth valueos-rest valueos-storage valueos-realtime; do
+for service in db redis kong auth rest storage realtime; do
     echo "" >> "$OUTPUT_FILE"
-    echo "--- $container ---" >> "$OUTPUT_FILE"
-    if docker logs "$container" --tail=20 2>&1 >> "$OUTPUT_FILE"; then
-        echo "  $container: ✓ Collected"
+    echo "--- $service ---" >> "$OUTPUT_FILE"
+    if $COMPOSE_CMD logs --tail=20 "$service" 2>&1 >> "$OUTPUT_FILE"; then
+        echo "  $service: ✓ Collected"
     else
-        echo "  $container: ✗ Not running or not found"
+        echo "  $service: ✗ Not running or not found"
     fi
 done
 
@@ -165,11 +186,11 @@ done
 section "Database Status"
 
 echo "Databases:" | tee -a "$OUTPUT_FILE"
-docker exec valueos-db psql -U postgres -c "\\l" 2>&1 | tee -a "$OUTPUT_FILE" || echo "Could not list databases"
+$COMPOSE_CMD exec -T db psql -U postgres -c "\\l" 2>&1 | tee -a "$OUTPUT_FILE" || echo "Could not list databases"
 
 echo "" | tee -a "$OUTPUT_FILE"
 echo "Migration tables:" | tee -a "$OUTPUT_FILE"
-docker exec valueos-db psql -U postgres -d postgres -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version DESC LIMIT 10;" 2>&1 | tee -a "$OUTPUT_FILE" || echo "No migration table found"
+$COMPOSE_CMD exec -T db psql -U postgres -d postgres -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version DESC LIMIT 10;" 2>&1 | tee -a "$OUTPUT_FILE" || echo "No migration table found"
 
 ###############################################################################
 # Config Validation
@@ -177,9 +198,9 @@ docker exec valueos-db psql -U postgres -d postgres -c "SELECT * FROM supabase_m
 section "Configuration Validation"
 
 echo -n "Kong config (kong.yml): "
-if docker exec valueos-kong cat /var/lib/kong/kong.yml > /dev/null 2>&1; then
+if $COMPOSE_CMD exec -T kong cat /var/lib/kong/kong.yml > /dev/null 2>&1; then
     # Try to validate YAML syntax
-    if docker exec valueos-kong kong config parse /var/lib/kong/kong.yml &> /dev/null; then
+    if $COMPOSE_CMD exec -T kong kong config parse /var/lib/kong/kong.yml &> /dev/null; then
         echo -e "${GREEN}Valid${NC}"
         echo "Kong config: Valid" >> "$OUTPUT_FILE"
     else
@@ -189,6 +210,7 @@ if docker exec valueos-kong cat /var/lib/kong/kong.yml > /dev/null 2>&1; then
 else
     echo -e "${RED}Not found${NC}"
     echo "Kong config: Not found" >> "$OUTPUT_FILE"
+    echo "Check if kong service is running and /var/lib/kong/kong.yml exists" >> "$OUTPUT_FILE"
 fi
 
 echo -n ".env.local: "

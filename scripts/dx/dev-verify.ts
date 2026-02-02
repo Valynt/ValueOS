@@ -28,18 +28,11 @@ const projectRoot = path.resolve(__dirname, "../..");
 
 // Configuration
 const CONFIG = {
-  // Container names we expect to be running
-  requiredContainers: [
-    "valueos-db",
-    "valueos-kong",
-    "valueos-auth",
-    "valueos-rest",
-    "valueos-storage",
-    "valueos-meta",
-  ],
-  // Database connection (use container name for devcontainer networking)
+  // Container services (not hardcoded names) we expect to be running
+  requiredServices: ["db", "kong", "auth", "rest", "storage", "meta"],
+  // Database connection
   db: {
-    host: process.env.DB_HOST || "db",
+    host: process.env.DB_HOST || "localhost",
     port: parseInt(process.env.DB_PORT || "5432", 10),
     user: process.env.DB_USER || "postgres",
     password: process.env.DB_PASSWORD || "postgres",
@@ -47,7 +40,7 @@ const CONFIG = {
   },
   // Kong API Gateway
   kong: {
-    host: process.env.KONG_HOST || "valueos-kong",
+    host: process.env.KONG_HOST || "localhost",
     port: parseInt(process.env.KONG_PORT || "8000", 10),
   },
   // Frontend dev server
@@ -173,46 +166,71 @@ function checkHttpEndpoint(
 // Tier 0: Infrastructure Checks
 async function checkDockerContainers(): Promise<void> {
   const start = Date.now();
-  const { success, output } = runCommand("docker ps --format '{{.Names}}:{{.Status}}'");
+
+  // Try to use docker compose ps first as it's more accurate for service names
+  let { success, output } = runCommand(
+    "docker compose ps --format '{{.Service}}:{{.Status}}' 2>/dev/null || docker-compose ps --format '{{.Service}}:{{.Status}}' 2>/dev/null"
+  );
+
+  // Fallback to docker ps if compose fails
+  if (!success || !output.trim()) {
+    const rawPs = runCommand("docker ps --format '{{.Names}}:{{.Status}}'");
+    if (rawPs.success) {
+      output = rawPs.output;
+      success = true;
+    }
+  }
 
   if (!success) {
     log({
       name: "Docker",
       tier: 0,
       passed: false,
-      message: "Docker daemon not accessible",
+      message: "Docker daemon not accessible or no containers found",
       duration: Date.now() - start,
     });
     return;
   }
 
-  const runningContainers = output.split("\n").filter(Boolean);
-  const healthyContainers: string[] = [];
-  const unhealthyContainers: string[] = [];
+  const runningItems = output.split("\n").filter(Boolean);
+  const healthyServices: string[] = [];
+  const unhealthyServices: string[] = [];
 
-  for (const container of CONFIG.requiredContainers) {
-    const containerLine = runningContainers.find((line) => line.startsWith(container + ":"));
-    if (containerLine && containerLine.includes("Up")) {
-      healthyContainers.push(container);
+  for (const service of CONFIG.requiredServices) {
+    // Check if any line matches the service name exactly or as part of a container name
+    const found = runningItems.some((line) => {
+      const [name, status] = line.split(":");
+      return (
+        (name === service ||
+          name.includes(`_${service}_`) ||
+          name.includes(`-${service}-`) ||
+          name.endsWith(`-${service}`) ||
+          name.endsWith(`_${service}`)) &&
+        (status.includes("Up") || status.includes("running"))
+      );
+    });
+
+    if (found) {
+      healthyServices.push(service);
     } else {
-      unhealthyContainers.push(container);
+      unhealthyServices.push(service);
     }
   }
 
-  if (unhealthyContainers.length === 0) {
+  if (unhealthyServices.length === 0) {
     log({
-      name: "Docker Containers",
+      name: "Docker Services",
       tier: 0,
       passed: true,
-      message: `All ${healthyContainers.length} required containers running`,
+      message: `All ${healthyServices.length} required services active`,
       duration: Date.now() - start,
     });
   } else {
     log({
-      name: "Docker Containers",
+      name: "Docker Services",
       tier: 0,
       passed: false,
-      message: `Missing: ${unhealthyContainers.join(", ")}`,
+      message: `Missing or stopped: ${unhealthyServices.join(", ")}`,
       duration: Date.now() - start,
     });
   }
@@ -220,7 +238,7 @@ async function checkDockerContainers(): Promise<void> {
 
 async function checkDatabaseConnectivity(): Promise<void> {
   const start = Date.now();
-  const hosts = Array.from(new Set([CONFIG.db.host, "db", "valueos-db"]));
+  const hosts = Array.from(new Set([CONFIG.db.host, "db", "localhost", "127.0.0.1"]));
 
   for (const host of hosts) {
     const tcpOk = await checkTcpPort(host, CONFIG.db.port, CONFIG.dbTimeout);
@@ -280,7 +298,9 @@ async function checkKongGateway(): Promise<void> {
     return;
   }
 
-  const kongHealth = runCommand("docker exec valueos-kong kong health");
+  const kongHealth = runCommand(
+    "docker compose exec -T kong kong health 2>/dev/null || docker-compose exec -T kong kong health 2>/dev/null"
+  );
   if (kongHealth.success) {
     log({
       name: "Kong API Gateway",

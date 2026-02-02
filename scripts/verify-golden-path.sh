@@ -49,7 +49,9 @@ PROTECTED_RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" \
 echo "✓ Protected endpoints work"
 
 # Test 3: Database connectivity
-DB_TEST=$(docker exec valueos-postgres psql -U postgres -d postgres -tAc \
+DB_TEST=$(docker compose -f .devcontainer/docker-compose.devcontainer.yml exec -T db psql -U postgres -d postgres -tAc \
+  "SELECT COUNT(*) FROM auth.users WHERE email='demouser@valynt.com'" 2>/dev/null || \
+  docker exec valueos-db psql -U postgres -d postgres -tAc \
   "SELECT COUNT(*) FROM auth.users WHERE email='demouser@valynt.com'")
 
 [ "$DB_TEST" = "1" ] || { echo "FAIL: Demo user not in database"; exit 1; }

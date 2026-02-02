@@ -112,6 +112,7 @@ const baseConfig = {
     "jsx-a11y/aria-role": "error",
     "jsx-a11y/role-has-required-aria-props": "error",
     "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-unnecessary-type-assertion": "warn",
     "no-unused-vars": [
       "warn",
       {
@@ -201,7 +202,7 @@ const baseConfig = {
 
     // ESM Import Rules - Permanent safeguards against import resolution issues
     // CRITICAL: These prevent .js extension mismatches and unresolved imports
-    "import/no-unresolved": "error",  // Fail on imports that don't resolve
+    "import/no-unresolved": "error", // Fail on imports that don't resolve
     "import/order": [
       "warn",
       {

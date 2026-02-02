@@ -2,7 +2,6 @@ services:
   # PostgreSQL database for local development
   postgres:
     image: postgres:15-alpine
-    container_name: valueos-postgres
     deploy:
       resources:
         limits:
@@ -28,7 +27,6 @@ services:
   # Redis cache layer for local development
   redis:
     image: redis:7-alpine
-    container_name: valueos-redis
     deploy:
       resources:
         limits:

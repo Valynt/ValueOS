@@ -6,7 +6,7 @@
  */
 
 import { TenantContext } from '../TenantContext';
-import { createLogger } from '../../lib/logger';
+import { createLogger } from '@shared/lib/logger';
 
 /**
  * WebSocket connection state

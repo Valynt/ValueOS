@@ -1,4 +1,4 @@
-import { logger } from "../lib/logger";
+import { logger } from "@shared/lib/logger";
 import React, { ReactElement } from "react";
 import { ErrorBoundary } from "../components/Common/ErrorBoundary";
 import {

@@ -5,7 +5,7 @@
  * Supports caching, transforms, live refresh, and tenant-aware permissions.
  */
 
-import { logger } from '../lib/logger';
+import { logger } from '@shared/lib/logger';
 import {
   DataBinding,
   DataSourceContext,

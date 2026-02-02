@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("login flow", async ({ page }) => {
   page.on("console", (msg) => console.log("PAGE LOG:", msg.text()));
   // Go to login page
-  await page.goto("/login");
+  await page.goto("http://localhost:5173/login");
 
   // Fill credentials
   await page.fill("#email", "demouser2@valynt.com");

@@ -8,7 +8,7 @@
  */
 
 import DOMPurify from 'dompurify';
-import { logger } from '../../lib/logger';
+import { logger } from '@shared/lib/logger';
 
 /**
  * DOMPurify configuration for different security contexts

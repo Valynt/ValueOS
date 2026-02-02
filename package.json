@@ -91,6 +91,7 @@
     "typecheck:islands": "pnpm exec tsc -p packages/shared/tsconfig.json --noEmit && pnpm exec tsc -p packages/infra/tsconfig.json --noEmit && pnpm exec tsc -p packages/integrations/tsconfig.json --noEmit && pnpm exec tsc -p packages/memory/tsconfig.json --noEmit && pnpm exec tsc -p packages/components/design-system/tsconfig.json --noEmit",
     "typecheck:promote": "tsx scripts/promote-green-islands.ts",
     "typecheck:ratchet:precommit": "tsx scripts/pre-commit-ratchet.ts",
+    "typecheck:errors": "pnpm run typecheck:app 2>&1 | grep -E \"(error TS|packages/.*.ts)\"",    "typecheck:analyze-baseline": "tsx scripts/pre-commit-ratchet.ts --analyze-baseline",    "commit:staged": "pnpm run typecheck:ratchet:precommit && git commit",
     "test:rls": "supabase test db supabase/tests/database/rls_policies.test.sql supabase/tests/database/multi_tenant_rls.test.sql",
     "test:perf": "vitest run tests/performance/**/*.test.ts --config vitest.config.ts",
     "test:testcafe": "testcafe chrome:headless test/testcafe/**/*.test.js",
