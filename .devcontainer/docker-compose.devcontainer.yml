@@ -9,8 +9,6 @@
 #   - Migrations run after DB is healthy, before app is ready
 ###############################################################################
 
-version: "3.8"
-
 volumes:
   postgres-data:
   redis-data:
