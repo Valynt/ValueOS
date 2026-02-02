@@ -25,12 +25,12 @@ services:
   ###########################################################################
   app:
     build:
-      context: ..
+      context: c:\Users\WinWo\DEV\ValueOS
       dockerfile: .devcontainer/Dockerfile.optimized
       args:
         NODE_VERSION: "20"
     volumes:
-      - ..:/workspaces/ValueOS:cached
+      - c:\Users\WinWo\DEV\ValueOS:/workspaces/ValueOS:cached
       - pnpm-store:/root/.local/share/pnpm
     working_dir: /workspaces/ValueOS
     env_file:
@@ -115,7 +115,7 @@ services:
   ###########################################################################
   kong:
     build:
-      context: ./kong
+      context: c:\Users\WinWo\DEV\ValueOS\.devcontainer\kong
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
