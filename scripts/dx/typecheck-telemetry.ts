@@ -119,13 +119,13 @@ function runTypecheck(): ErrorInfo[] {
       let file = "";
 
       if (d.file) {
-        file = path.relative(projectRoot, d.file.fileName);
+        file = path.relative(projectRoot, d.file.fileName).replace(/\\/g, "/");
         if (d.start !== undefined) {
           const pos = d.file.getLineAndCharacterOfPosition(d.start);
           line = pos.line + 1;
         }
       } else {
-        file = `config:${relativeConfigPath}`;
+        file = `config:${relativeConfigPath.replace(/\\/g, "/")}`;
       }
 
       // De-duplicate errors (since files might be included in multiple tsconfigs)

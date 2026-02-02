@@ -65,6 +65,7 @@ services:
             - x-client-info
             - Prefer
             - Range
+            - accept-profile
           credentials: true
           max_age: 3600
 

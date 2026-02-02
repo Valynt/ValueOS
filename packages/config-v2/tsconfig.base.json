@@ -25,6 +25,8 @@
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": true,
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo"
   }
 }

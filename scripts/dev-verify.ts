@@ -4,6 +4,8 @@ import * as net from "net";
 import * as path from "path";
 
 const projectRoot = process.cwd();
+const args = process.argv.slice(2);
+const shouldFix = args.includes("--fix");
 
 /**
  * ValueOS Dev Verify (The Ironclad Boot)
@@ -12,7 +14,9 @@ const projectRoot = process.cwd();
  * Tiers:
  * - Tier 0: Node/PNPM/Docker/Port readiness
  * - Tier 1: .env parity
- * - Tier 2: Hand-off to DX Doctor (soft)
+ * - Tier 2: Governance Integrity (Strict Zones)
+ * - Tier 3: Schema Schema (Drift Check)
+ * - Tier 4: Hand-off to DX Doctor (soft)
  */
 
 function checkVersion(command: string): boolean {
@@ -31,8 +35,13 @@ function checkEnv(): boolean {
   const examplePath = path.join(projectRoot, ".env.example");
 
   if (!fs.existsSync(envPath)) {
-    console.error("❌ .env file missing. Run 'pnpm run dx:env' or copy .env.example.");
-    return false;
+    if (shouldFix && fs.existsSync(examplePath)) {
+      console.log("🛠️  Auto-fixing: Copying .env.example to .env...");
+      fs.copyFileSync(examplePath, envPath);
+    } else {
+      console.error("❌ .env file missing. Run 'pnpm run dx:env' or copy .env.example.");
+      return false;
+    }
   }
 
   if (!fs.existsSync(examplePath)) {
@@ -80,12 +89,10 @@ function checkPort(port: number, name: string): Promise<boolean> {
     });
 
     socket.on("error", () => {
-      console.error(\`❌ \${name} NOT reachable on port \${port}\`);
       resolve(false);
     });
 
     socket.on("timeout", () => {
-      console.error(\`❌ \${name} connection timed out on port \${port}\`);
       socket.destroy();
       resolve(false);
     });
@@ -94,14 +101,61 @@ function checkPort(port: number, name: string): Promise<boolean> {
   });
 }
 
+function checkGovernanceIntegrity(): boolean {
+  const configPath = path.join(projectRoot, "config/strict-zones.json");
+  if (!fs.existsSync(configPath)) {
+    console.warn("⚠️ config/strict-zones.json missing, skipping governance check.");
+    return true;
+  }
+
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    const zones: string[] = config.strict_zones || [];
+    let allValid = true;
+
+    for (const zone of zones) {
+      const zonePath = path.join(projectRoot, zone);
+      if (!fs.existsSync(zonePath)) {
+        console.error(\`❌ Orphaned Island: Strict zone '\${zone}' does not exist.\`);
+        allValid = false;
+        continue;
+      }
+
+      const hasTsConfig = fs.existsSync(path.join(zonePath, "tsconfig.json"));
+      if (!hasTsConfig) {
+        console.error(\`❌ Invalid Island: Strict zone '\${zone}' lacks a tsconfig.json.\`);
+        allValid = false;
+      }
+    }
+
+    if (allValid) {
+      console.log("✅ Governance integrity (Strict Zones) validated.");
+    }
+    return allValid;
+  } catch (error) {
+    console.error("❌ Failed to validate governance integrity:", error);
+    return false;
+  }
+}
+
+function checkSchemaDrift(): boolean {
+  console.log("🔍 Checking for database schema drift...");
+  try {
+    execSync("bash infra/scripts/check_drift.sh", { stdio: "pipe" });
+    console.log("✅ Database schema is aligned with migrations.");
+    return true;
+  } catch (error) {
+    console.error("❌ Database schema drift detected!");
+    return false;
+  }
+}
+
 /**
  * Bridge logic to DX Doctor
- * Allows us to reuse the mature check suite without duplicating large amounts of code.
  */
 function runSoftDoctor(): void {
   console.log("🔍 Running DX Doctor (soft mode)...");
   try {
-    // We run it as a separate process to avoid dependency pollution in this script
     spawnSync("pnpm", ["dx:doctor", "--soft"], { stdio: "inherit" });
   } catch (e) {
     console.warn("⚠️ DX Doctor check failed (non-blocking).");
@@ -113,25 +167,41 @@ async function main() {
 
   const versions = checkVersion("node") && checkVersion("pnpm");
   const env = checkEnv();
+  const governance = checkGovernanceIntegrity();
   
-  // Infrastructure check
-  const infrastructure = await Promise.all([
-    checkPort(5432, "Postgres"),
-    checkPort(4566, "LocalStack")
-  ]);
+  // Infrastructure check with auto-remediation attempt
+  let postgres = await checkPort(5432, "Postgres");
+  let localstack = await checkPort(4566, "LocalStack");
 
-  const allPassed = versions && env && infrastructure.every(p => p);
+  if ((!postgres || !localstack) && shouldFix) {
+    console.log("🛠️  Auto-fixing: Attempting to start infrastructure via Docker...");
+    try {
+      execSync("docker compose up -d postgres localstack", { stdio: "inherit" });
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      postgres = await checkPort(5432, "Postgres");
+      localstack = await checkPort(4566, "LocalStack");
+    } catch (e) {
+      console.error("❌ Failed to auto-start Docker containers.");
+    }
+  }
+
+  if (!postgres) console.error("❌ Postgres NOT reachable on port 5432");
+  if (!localstack) console.error("❌ LocalStack NOT reachable on port 4566");
+
+  // Schema drift check (only if postgres is up)
+  const schema = postgres ? checkSchemaDrift() : false;
+
+  const allPassed = versions && env && governance && postgres && localstack && schema;
 
   if (!allPassed) {
     console.error("\n🛑 Environment verification failed.");
-    console.error("Please fix the issues above and try again.");
+    console.error("Please fix the issues above or run 'pnpm dev:verify --fix'.");
     process.exit(1);
   }
 
   console.log("\n🚀 All core systems ready.");
   
-  // Hand off to soft doctor for deeper non-blocking checks if in a full dev environment
-  if (process.env.CI !== "true") {
+  if (process.env.CI !== "true" && !args.includes("--quick")) {
     runSoftDoctor();
   }
   
