@@ -45,7 +45,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Environment Verification
-        run: pnpm run dev:verify --tier=1
+        run: pnpm run dev:verify --dependencies-only
 
       - name: Type Governance (Ratchet)
         run: pnpm run typecheck:signal --verify

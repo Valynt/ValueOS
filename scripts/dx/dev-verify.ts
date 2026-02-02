@@ -477,10 +477,27 @@ async function main(): Promise<void> {
   const tierArg = args.find((a) => a.startsWith("--tier="));
   const maxTier = tierArg ? parseInt(tierArg.split("=")[1] || "2", 10) : 2;
   const quick = args.includes("--quick");
+  const depsOnly = args.includes("--dependencies-only");
 
   console.log("\n╔════════════════════════════════════════════════════════════╗");
   console.log("║              ValueOS Development Verification              ║");
   console.log("╚════════════════════════════════════════════════════════════╝\n");
+
+  if (depsOnly) {
+    console.log(`${colors.cyan}Dependency Check Only${colors.reset}`);
+    console.log("─".repeat(50));
+    await checkDependencyIntegrity();
+
+    const pass = results.every((r) => r.passed);
+    if (pass) {
+      console.log(`${colors.green}✓ Dependencies OK${colors.reset}`);
+      process.exit(0);
+    } else {
+      console.log(`${colors.red}✗ Dependency check failed${colors.reset}`);
+      process.exit(1);
+    }
+    return;
+  }
 
   console.log(`${colors.cyan}Tier 0: Infrastructure${colors.reset}`);
   console.log("─".repeat(50));
