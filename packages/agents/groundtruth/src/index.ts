@@ -4,7 +4,10 @@
  */
 
 import express from "express";
-import { createServer, startServer, getConfig, logger, metrics } from "@valueos/agent-base";
+import { createServer, startServer } from "@valueos/agent-base";
+import { getConfig } from "@valueos/agent-base";
+import { logger } from "@valueos/agent-base";
+import { metrics } from "@valueos/agent-base";
 import { z } from "zod";
 
 // Agent-specific types

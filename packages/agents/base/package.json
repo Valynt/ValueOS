@@ -5,12 +5,12 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/index.ts",
-    "./logger": "./src/logger.ts",
-    "./metrics": "./src/metrics.ts",
-    "./health": "./src/health.ts",
-    "./server": "./src/server.ts",
-    "./config": "./src/config.ts"
+    ".": "./dist/index.js",
+    "./logger": "./dist/logger.js",
+    "./metrics": "./dist/metrics.js",
+    "./health": "./dist/health.js",
+    "./server": "./dist/server.js",
+    "./config": "./dist/config.js"
   },
   "scripts": {
     "build": "tsc",

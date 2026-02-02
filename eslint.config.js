@@ -87,6 +87,7 @@ const baseConfig = {
     parserOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
+      project: true,
     },
   },
   rules: {
@@ -208,7 +209,10 @@ const baseConfig = {
       {
         groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
         "newlines-between": "always",
-        alphabeticalOrder: true,
+        alphabetize: {
+          order: "asc",
+          caseInsensitive: true,
+        },
       },
     ],
 
@@ -347,6 +351,28 @@ const envOverrides = {
   },
 };
 
+// Config files override - disable type-aware rules and project
+const configOverrides = {
+  files: [
+    "**/vite.config.{ts,js}",
+    "**/tailwind.config.{js,cjs}",
+    "**/postcss.config.{js,cjs}",
+    "**/eslint.config.{js,mjs}",
+  ],
+  languageOptions: {
+    parserOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      // No project for config files
+    },
+  },
+  rules: {
+    "import/no-unresolved": "off", // Config files may have different resolution
+    "@typescript-eslint/no-var-requires": "off",
+    "@typescript-eslint/no-require-imports": "off",
+  },
+};
+
 // TestCafe overrides
 const testcafeOverrides = {
   files: ["**/testcafe/**/*.js", "**/testcafe/**/*.ts"],
@@ -363,6 +389,7 @@ export default [
   ignoresConfig,
   pluginConfig,
   baseConfig,
+  configOverrides,
   testOverrides,
   k6Overrides,
   frontendOverrides,

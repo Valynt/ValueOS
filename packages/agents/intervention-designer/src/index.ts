@@ -4,7 +4,10 @@
  */
 
 import express from "express";
-import { createServer, startServer, getConfig, logger, metrics } from "@valueos/agent-base";
+import { createServer, startServer } from "@valueos/agent-base";
+import { getConfig } from "@valueos/agent-base";
+import { logger } from "@valueos/agent-base";
+import { metrics } from "@valueos/agent-base";
 import { z } from "zod";
 
 // Agent-specific types
@@ -43,7 +46,7 @@ type QueryResponse = z.infer<typeof ResponseSchema>;
  * Mock LLM service for system mapping analysis
  * In production, this would integrate with actual LLM APIs
  */
-class SystemMapperAnalyzer {
+class InterventionDesignerAnalyzer {
   async analyzeSystemMapping(
     query: string,
     context?: QueryRequest["context"]
@@ -65,6 +68,85 @@ class SystemMapperAnalyzer {
       analysis,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  async analyzeInterventionDesign(
+    query: string,
+    context?: QueryRequest["context"]
+  ): Promise<QueryResponse> {
+    logger.info("Analyzing intervention design", { query, userId: context?.userId });
+
+    // Simulate processing time
+    await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 2000));
+
+    // Mock analysis based on query keywords
+    const system_maps = this.generateMockInterventionDesigns(query);
+
+    const analysis =
+      `Based on the query "${query}", designed ${system_maps.length} intervention strategies. ` +
+      "These interventions provide targeted solutions for system optimization and improvement.";
+
+    return {
+      system_maps,
+      analysis,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  private generateMockInterventionDesigns(query: string): QueryResponse["system_maps"] {
+    const keywords = query.toLowerCase();
+    const interventions: QueryResponse["system_maps"] = [];
+
+    if (keywords.includes("performance") || keywords.includes("optimization")) {
+      interventions.push({
+        title: "Performance Optimization Intervention",
+        description:
+          "Targeted intervention to improve system performance through bottleneck identification and resource optimization.",
+        confidence: 0.9,
+        category: "Performance",
+        map_type: "Optimization Strategy",
+        priority: "High",
+      });
+    }
+
+    if (keywords.includes("security") || keywords.includes("vulnerability")) {
+      interventions.push({
+        title: "Security Enhancement Intervention",
+        description:
+          "Comprehensive security intervention including threat mitigation, access control improvements, and compliance measures.",
+        confidence: 0.88,
+        category: "Security",
+        map_type: "Security Framework",
+        priority: "High",
+      });
+    }
+
+    if (keywords.includes("scalability") || keywords.includes("growth")) {
+      interventions.push({
+        title: "Scalability Intervention Design",
+        description:
+          "Strategic intervention for system scaling including load balancing, distributed architecture, and capacity planning.",
+        confidence: 0.85,
+        category: "Scalability",
+        map_type: "Scaling Strategy",
+        priority: "Medium",
+      });
+    }
+
+    // Always include at least one intervention
+    if (interventions.length === 0) {
+      interventions.push({
+        title: "General System Intervention",
+        description:
+          "Comprehensive intervention strategy covering multiple system aspects including performance, reliability, and maintainability.",
+        confidence: 0.8,
+        category: "General",
+        map_type: "System Improvement",
+        priority: "Medium",
+      });
+    }
+
+    return interventions;
   }
 
   private generateMockSystemMaps(query: string): QueryResponse["system_maps"] {
@@ -137,7 +219,7 @@ class SystemMapperAnalyzer {
 }
 
 // Initialize analyzer
-const analyzer = new SystemMapperAnalyzer();
+const analyzer = new InterventionDesignerAnalyzer();
 
 // Create custom middleware for agent-specific routes
 const agentRoutes = express.Router();

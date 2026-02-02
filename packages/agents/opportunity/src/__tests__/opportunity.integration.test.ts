@@ -155,7 +155,7 @@ describe("Opportunity Agent API Integration Tests", () => {
 
     it("should handle internal server errors", async () => {
       // Mock the analyzer to throw an error
-      const { OpportunityAnalyzer } = await import("../index");
+      const { OpportunityAnalyzer } = await import("../index.js");
       const originalAnalyze = OpportunityAnalyzer.prototype.analyzeOpportunities;
       OpportunityAnalyzer.prototype.analyzeOpportunities = vi
         .fn()
