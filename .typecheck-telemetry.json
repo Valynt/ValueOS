@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-02-02T09:42:23.134Z",
-  "totalErrors": 8166,
+  "timestamp": "2026-02-02T09:46:03.815Z",
+  "totalErrors": 8163,
   "filesWithErrors": 1284,
   "errorsByCode": {
     "TS2353": 339,
@@ -13,7 +13,7 @@
     "TS7006": 351,
     "TS2322": 557,
     "TS7019": 5,
-    "TS2339": 1186,
+    "TS2339": 1183,
     "TS7034": 9,
     "TS7005": 39,
     "TS2305": 217,
@@ -118,7 +118,7 @@
     "apps/ValyntApp": 4510,
     "packages/infra": 6,
     "packages/services": 20,
-    "packages/backend": 2858,
+    "packages/backend": 2855,
     "packages/mcp": 418,
     "packages/sdui": 168,
     "packages/shared": 5,
@@ -127,7 +127,7 @@
   "topFiles": [
     {
       "file": "packages/backend/src/services/ActionRouter.ts",
-      "count": 79
+      "count": 76
     },
     {
       "file": "packages/backend/src/services/UnifiedAgentOrchestrator.ts",

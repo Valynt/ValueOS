@@ -56,11 +56,85 @@ function checkContainers(): { postgres: boolean; localstack: boolean } {
 }
 
 /**
- * Start Docker containers
+ * Check if Supabase CLI is available
+ */
+function checkSupabaseCLI(): boolean {
+  try {
+    execSync("supabase --version", { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Start Supabase services using CLI
+ */
+async function startSupabaseServices(): Promise<boolean> {
+  return new Promise((resolve) => {
+    info("Starting Supabase services...");
+
+    const child = spawn("supabase", ["start"], {
+      stdio: ["inherit", "inherit", "inherit"],
+      cwd: process.cwd(),
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        success("Supabase services started successfully");
+        resolve(true);
+      } else {
+        warn(`Supabase start failed with exit code: ${code}`);
+        resolve(false);
+      }
+    });
+
+    child.on("error", (err) => {
+      warn(`Error starting Supabase: ${err.message}`);
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * Start a specific service
+ */
+async function startSpecificService(service: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    info(`Starting ${service} service...`);
+
+    const child = spawn(
+      "docker-compose",
+      ["-f", "infra/docker/docker-compose.yml", "up", "-d", service],
+      {
+        stdio: ["inherit", "inherit", "inherit"],
+        cwd: process.cwd(),
+      }
+    );
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        success(`${service} service started successfully`);
+        resolve(true);
+      } else {
+        error(`Failed to start ${service} service (exit code: ${code})`);
+        resolve(false);
+      }
+    });
+
+    child.on("error", (err) => {
+      error(`Error starting ${service}: ${err.message}`);
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * Start Docker containers (full stack)
  */
 async function startContainers(): Promise<boolean> {
   return new Promise((resolve) => {
-    info("Starting Docker containers...");
+    info("Starting full container stack...");
 
     const child = spawn("docker-compose", ["-f", "infra/docker/docker-compose.yml", "up", "-d"], {
       stdio: ["inherit", "inherit", "inherit"],
@@ -69,16 +143,16 @@ async function startContainers(): Promise<boolean> {
 
     child.on("close", (code) => {
       if (code === 0) {
-        success("Docker containers started successfully");
+        success("Full container stack started successfully");
         resolve(true);
       } else {
-        error(`Failed to start Docker containers (exit code: ${code})`);
+        error(`Failed to start full container stack (exit code: ${code})`);
         resolve(false);
       }
     });
 
     child.on("error", (err) => {
-      error(`Error starting containers: ${err.message}`);
+      error(`Error starting full container stack: ${err.message}`);
       resolve(false);
     });
   });
@@ -219,49 +293,89 @@ async function main() {
   const containers = checkContainers();
 
   if (!containers.postgres && !containers.localstack) {
-    warn("No containers are running - starting all services...");
+    warn("No containers are running - attempting to start development services...");
+
+    // Try Supabase CLI first (preferred for development)
+    const hasSupabase = checkSupabaseCLI();
+    if (hasSupabase) {
+      info("Supabase CLI detected - starting Supabase services...");
+      const supabaseStarted = await startSupabaseServices();
+      if (supabaseStarted) {
+        success("Supabase services started successfully");
+      } else {
+        warn("Supabase CLI failed - falling back to Docker Compose");
+      }
+    }
+
+    // If Supabase didn't work or isn't available, try Docker Compose
+    if (!hasSupabase) {
+      info("Starting containers with Docker Compose...");
+      const started = await startContainers();
+      if (!started) {
+        error("Failed to start containers with Docker Compose.");
+        error("Try running one of these commands manually:");
+        error("  • pnpm run dx:up (for full development environment)");
+        error("  • supabase start (if Supabase CLI is installed)");
+        error("  • docker-compose -f infra/docker/docker-compose.dev.yml up -d db localstack");
+        process.exit(1);
+      }
+    }
   } else if (!containers.postgres) {
     warn("Postgres container not running");
+    // Try Supabase first, then Docker
+    const hasSupabase = checkSupabaseCLI();
+    let started = false;
+
+    if (hasSupabase) {
+      started = await startSupabaseServices();
+    }
+
+    if (!started) {
+      started = await startSpecificService("postgres");
+    }
+
+    if (!started) {
+      error("Failed to start Postgres service");
+      process.exit(1);
+    }
   } else if (!containers.localstack) {
     warn("LocalStack container not running");
+    const started = await startSpecificService("localstack");
+    if (!started) {
+      error("Failed to start LocalStack service");
+      process.exit(1);
+    }
   } else {
     info("Containers appear to be running - they may just need time to start up");
   }
 
-  // Step 4: Start containers if needed
-  if (!containers.postgres || !containers.localstack) {
-    info("Step 3: Starting containers...");
-    const started = await startContainers();
-    if (!started) {
-      error("Failed to start containers. Manual intervention required.");
-      process.exit(1);
-    }
-  } else {
-    info("Step 3: Containers already running - skipping start");
-  }
-
-  // Step 5: Wait for services
+  // Step 4: Wait for services
   info("Step 4: Waiting for services to be ready...");
   const servicesReady = await waitForServices();
   if (!servicesReady) {
     warn("Services are taking longer than expected to start");
-    warn("You may need to wait a bit more or check the container logs:");
-    warn("  docker-compose logs -f");
+    warn("You may need to wait a bit more or check the service logs:");
+    warn("  • supabase status (if using Supabase CLI)");
+    warn("  • docker-compose -f infra/docker/docker-compose.yml logs -f");
   }
 
-  // Step 6: Final verification
+  // Step 5: Final verification
   info("Step 5: Running final verification...");
   const finalCheck = await runVerification();
 
   if (finalCheck) {
     success("\n🎉 Disaster recovery successful!");
     success("Your environment is now ready for development.");
+    success("💡 Tip: Run 'pnpm run dev:recover' anytime services go down");
   } else {
     error("\n💥 Automatic recovery failed.");
     error("Manual intervention may be required. Try:");
-    error("  1. docker-compose logs to check for errors");
-    error("  2. docker-compose down && docker-compose up -d to restart");
-    error("  3. Check that ports 5432 and 4566 are not in use by other services");
+    error("  1. supabase status (check Supabase services)");
+    error("  2. docker-compose -f infra/docker/docker-compose.yml logs (check container logs)");
+    error(
+      "  3. docker-compose -f infra/docker/docker-compose.yml down && pnpm run dx:up (restart services)"
+    );
+    error("  4. Check that ports 5432 and 4566 are not in use by other services");
     process.exit(1);
   }
 }
