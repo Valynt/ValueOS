@@ -29,8 +29,13 @@ vi.mock("@shared/lib/env", () => ({
   }),
   getLLMCostTrackerConfig: vi.fn(() => ({
     supabaseUrl: 'http://localhost',
-    supabaseServiceRoleKey: 'key',
+    supabaseKey: 'key',
     tableName: 'llm_costs'
+  })),
+  getSupabaseConfig: vi.fn(() => ({
+    url: 'http://localhost',
+    anonKey: 'anon-key',
+    serviceRoleKey: 'service-key'
   }))
 }));
 vi.mock("../LLMCache");

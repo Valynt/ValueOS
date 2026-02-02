@@ -7,7 +7,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "../lib/logger.js"
-import { getEnvVar, getLLMCostTrackerConfig } from "@shared/lib/env";
+import { getEnvVar, getLLMCostTrackerConfig, getSupabaseConfig } from "@shared/lib/env";
 
 const TOKENS_PER_MILLION = 1_000_000;
 const SECONDS_PER_MINUTE = 60;
@@ -176,9 +176,11 @@ export class LLMCostTracker {
   private static warnedMissingConfig = false;
 
   constructor() {
-    const { supabaseUrl, supabaseServiceRoleKey } = getLLMCostTrackerConfig();
+    const { supabaseUrl, supabaseKey } = getLLMCostTrackerConfig();
+    const { serviceRoleKey } = getSupabaseConfig();
+    const key = serviceRoleKey || supabaseKey;
 
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    if (!supabaseUrl || !key) {
       if (!LLMCostTracker.warnedMissingConfig) {
         logger.warn("LLMCostTracker disabled: missing Supabase configuration");
         LLMCostTracker.warnedMissingConfig = true;
@@ -186,7 +188,7 @@ export class LLMCostTracker {
       return;
     }
 
-    this.supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    this.supabase = createClient(supabaseUrl, key);
     this.enabled = true;
   }
 
@@ -249,19 +251,31 @@ export class LLMCostTracker {
       timestamp: new Date().toISOString(),
     };
 
-    // Store in database
-    const { error } = await this.supabase.from("llm_usage").insert(record);
-    if (error) {
-      logger.error("Failed to track LLM usage", error);
-    }
-    // Fire and forget cost threshold check with error handling
-    this.checkCostThresholds().catch((err) => {
-      logger.error("Failed to check cost thresholds", {
-        err: err instanceof Error ? err.message : String(err),
-        userId: params.userId,
-        model: params.model,
+    // Store in database (fire and forget)
+    this.supabase
+      .from("llm_usage")
+      .insert(record)
+      .then(({ error }) => {
+        if (error) {
+          logger.error("Failed to track LLM usage", error);
+        }
+
+        // Fire and forget cost threshold check with error handling
+        this.checkCostThresholds().catch((err) => {
+          logger.error("Failed to check cost thresholds", {
+            err: err instanceof Error ? err.message : String(err),
+            userId: params.userId,
+            model: params.model,
+          });
+        });
+      })
+      .catch((err) => {
+        logger.error("Failed to track LLM usage (unexpected)", {
+          err: err instanceof Error ? err.message : String(err),
+          userId: params.userId,
+          model: params.model,
+        });
       });
-    });
   }
 
   /**
