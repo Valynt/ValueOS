@@ -17,7 +17,8 @@
     }
   },
 
-  "postCreateCommand": "bash scripts/dev/setup.sh > setup.log 2>&1",
+  // Deterministic boot invariant: always run the same post-create entrypoint.
+  "postCreateCommand": "bash -euo pipefail scripts/dev/post-create.sh > setup.log 2>&1",
 
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
