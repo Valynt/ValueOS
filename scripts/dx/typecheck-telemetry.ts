@@ -81,7 +81,7 @@ function runTypecheck(): ErrorInfo[] {
 
   for (const configPath of configFiles) {
     const relativeConfigPath = path.relative(projectRoot, configPath);
-    
+
     // Skip if it's strictly a solution-style tsconfig with references but no files (optional optim)
     // But for now, we process all to be safe.
 
@@ -127,19 +127,21 @@ function runTypecheck(): ErrorInfo[] {
       } else {
         file = `config:${relativeConfigPath}`;
       }
-      
+
       // De-duplicate errors (since files might be included in multiple tsconfigs)
       // We use a simple composite key
       const key = `${file}:${line}:${d.code}`;
-      const existing = errors.find((e) => `${e.file}:${e.line}:${e.code.replace('TS','')}` === key);
-      
+      const existing = errors.find(
+        (e) => `${e.file}:${e.line}:${e.code.replace("TS", "")}` === key
+      );
+
       if (!existing) {
-          errors.push({
-            file,
-            line,
-            code: `TS${d.code}`,
-            message: ts.flattenDiagnosticMessageText(d.messageText, "\n"),
-          });
+        errors.push({
+          file,
+          line,
+          code: `TS${d.code}`,
+          message: ts.flattenDiagnosticMessageText(d.messageText, "\n"),
+        });
       }
     }
   }
@@ -199,98 +201,77 @@ async function updatePackageBaselines(report: TelemetryReport): Promise<void> {
 
   // 2. Update each package's baseline (Sidecar)
   console.log("💾 Updating local sidecar baselines (.ts-debt.json)...");
+  let updated = 0;
+
   for (const [pkgName, count] of Object.entries(report.errorsByPackage)) {
     if (pkgName === "root" || pkgName === "global" || pkgName.startsWith(".")) continue;
 
     const pkgDir = path.join(projectRoot, pkgName);
-    const pkgPath = path.join(pkgDir, "package.json");
     const sidecarPath = path.join(pkgDir, ".ts-debt.json");
-    
-    // We only care if we found errors for this package in the report
-    const currentCount = report.errorsByPackage[pkgName] || 0;
 
-    try {
-        const debtData = JSON.parse(fs.readFileSync(sidecarPath, "utf8"));
-        const baseline = debtData.baseline;
-        
-        if (typeof baseline === 'number') {
-            if (currentCount > baseline) {
-               console.error(`   ❌ Regression in ${pkgName}: ${currentCount} errors (baseline: ${baseline})`);
-               regressionCount++;
-            } else if (currentCount < baseline) {
-               console.log(`   🎉 Debt reduced in ${pkgName}: ${currentCount} errors (was ${baseline})`);
-               console.log(`      → Run pnpm run typecheck:signal --update-baseline to lock in this win!`);
-               winCount++;
-            }
-        }
-    } catch (e) {
-         console.warn(`   ⚠️  Invalid baseline file for ${pkgName}`);
+    // Create sidecar content
+    const debtData = { baseline: count };
+
+    if (fs.existsSync(pkgDir)) {
+      fs.writeFileSync(sidecarPath, JSON.stringify(debtData, null, 2));
+      updated++;
     }
   }
 
-  if (regressionCount > 0) {
-     console.error(`\n   FAILED: ${regressionCount} packages have increased error counts.`);
-     failed = true;
-  } else {
-     console.log("   ✅ No regressions detected.");
-  }
-  
-  if (winCount > 0) {
-      console.log(`\n   ✨ ${winCount} packages have improved quality! Great job.`);
-  }
-  
-  return failed;
+  console.log(`✅ Updated baselines for ${updated} packages.`);
 }
 
-// Helpers...
-function extractMissingModule(message: string): string | null {
+async function enforceRatchet(report: TelemetryReport): Promise<boolean> {
+  let failed = false;
+  let regressionCount = 0;
+  let winCount = 0;
 
-    try {
-      const sidecarData = JSON.parse(fs.readFileSync(sidecarPath, "utf8"));
-        if (typeof baseline === 'number') {
-            if (currentCount > baseline) {
-               console.error(`   ❌ Regression in ${pkgName}: ${currentCount} errors (baseline: ${baseline})`);
-               regressionCount++;
-            } else if (currentCount < baseline) {
-               console.log(`   🎉 Debt reduced in ${pkgName}: ${currentCount} errors (was ${baseline})`);
-               console.log(`      → Run pnpm run typecheck:signal --update-baseline to lock in this win!`);
-               winCount++;
-            }
-        }
-    } catch (e) {
-         console.warn(`   ⚠️  Invalid baseline file for ${pkgName}`);
-    }
-  }
-
-  // Also check if any package in report has NO baseline and is NOT strict zone
   for (const [pkgName, count] of Object.entries(report.errorsByPackage)) {
     if (pkgName === "root" || pkgName === "global" || pkgName.startsWith(".")) continue;
 
     const sidecarPath = path.join(projectRoot, pkgName, ".ts-debt.json");
-    if (!fs.existsSync(sidecarPath) && !strictZones.includes(pkgName)) {
-      // It's a new package with errors or a package that lost its baseline?
-      // Just logging for info
-      // console.warn(`   ⚠️  No baseline for ${pkgName} (${count} errors)`);
+
+    if (fs.existsSync(sidecarPath)) {
+      try {
+        const debtData = JSON.parse(fs.readFileSync(sidecarPath, "utf8"));
+        const baseline = debtData.baseline;
+
+        if (typeof baseline === "number") {
+          if (count > baseline) {
+            console.error(
+              `   ❌ Regression in ${pkgName}: ${count} errors (baseline: ${baseline})`
+            );
+            regressionCount++;
+            failed = true;
+          } else if (count < baseline) {
+            console.log(`   🎉 Debt reduced in ${pkgName}: ${count} errors (was ${baseline})`);
+            console.log(
+              `      → Run pnpm run typecheck:signal --update-baseline to lock in this win!`
+            );
+            winCount++;
+          }
+        }
+      } catch (e) {
+        console.warn(`   ⚠️  Invalid baseline file for ${pkgName}`);
+      }
     }
   }
 
   if (regressionCount > 0) {
     console.error(`\n   FAILED: ${regressionCount} packages have increased error counts.`);
-    failed = true;
   } else {
     console.log("   ✅ No regressions detected.");
   }
 
   if (winCount > 0) {
-    console.log(
-      `   ✨ ${winCount} packages have improved! Update baselines to prevent backsliding.`
-    );
+    console.log(`\n   ✨ ${winCount} packages have improved quality! Great job.`);
   }
 
   return failed;
 }
 
 // Helpers...
+
 function extractMissingModule(message: string): string | null {
   const match = message.match(/Cannot find module '([^']+)'/);
   return match ? (match[1] ?? null) : null;

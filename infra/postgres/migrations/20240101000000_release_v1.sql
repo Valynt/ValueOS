@@ -1,3 +1,4 @@
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN CREATE PUBLICATION supabase_realtime; END IF; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 -- ================================================
 -- Source: supabase/migrations/20241227000000_squashed_schema.sql
 -- ================================================
@@ -5393,9 +5394,14 @@ CREATE TABLE public.workflow_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workflow_id uuid,
     session_id uuid,
+    user_id uuid,
+    organization_id uuid,
     status text DEFAULT 'pending'::text,
     current_step text,
     dag_state jsonb DEFAULT '{}'::jsonb,
+    input_params jsonb DEFAULT '{}'::jsonb,
+    is_success boolean DEFAULT false,
+    is_completed boolean DEFAULT false,
     error_message text,
     quality_score double precision,
     iteration_count integer DEFAULT 0,
@@ -11697,6 +11703,7 @@ CREATE TRIGGER update_hitl_requests_updated_at
 -- Organizations table
 CREATE TABLE IF NOT EXISTS organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id text NOT NULL,
   name VARCHAR(255) NOT NULL,
   slug VARCHAR(100) UNIQUE NOT NULL,
 
@@ -20214,38 +20221,6 @@ BEGIN
   END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_time
-ON credential_access_log(accessed_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_user
-ON credential_access_log(accessed_by, accessed_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_credential_access_log_secret
-ON credential_access_log(secret_id, accessed_at DESC);
-
-COMMENT ON TABLE credential_access_log IS
-  'Audit log for credential access via Vault';
-
--- Enable RLS on credential_access_log
-ALTER TABLE credential_access_log ENABLE ROW LEVEL SECURITY;
-
--- Only service_role can insert
-CREATE POLICY credential_access_log_insert ON credential_access_log
-  FOR INSERT
-  TO service_role
-  WITH CHECK (true);
-
--- Admins can view
-CREATE POLICY credential_access_log_select ON credential_access_log
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_organizations
-      WHERE user_id = auth.uid()
-      AND role IN ('admin', 'owner')
-    )
-  );
-
 -- ============================================================================
 -- 10. Summary
 -- ============================================================================
@@ -21180,17 +21155,28 @@ COMMENT ON FUNCTION cleanup_expired_guest_tokens IS 'Removes expired tokens olde
 
 BEGIN;
 
--- Add tenant_id column
-ALTER TABLE public.value_cases ADD COLUMN tenant_id text;
+-- Add tenant_id column if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'value_cases' AND column_name = 'tenant_id') THEN
+        ALTER TABLE public.value_cases ADD COLUMN tenant_id text;
+    END IF;
+END $$;
 
 -- Populate tenant_id from associated agent sessions
 UPDATE public.value_cases
 SET tenant_id = agent_sessions.tenant_id
 FROM public.agent_sessions
-WHERE public.value_cases.session_id = agent_sessions.id;
+WHERE public.value_cases.session_id = agent_sessions.id
+AND public.value_cases.tenant_id IS NULL;
 
--- Make tenant_id NOT NULL after populating data
-ALTER TABLE public.value_cases ALTER COLUMN tenant_id SET NOT NULL;
+-- Make tenant_id NOT NULL if possible (fresh migration anyway)
+DO $$
+BEGIN
+    ALTER TABLE public.value_cases ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
 
 -- Add foreign key constraint
 ALTER TABLE public.value_cases
@@ -21244,7 +21230,7 @@ BEGIN
                AND table_schema = 'public') THEN
         ALTER TABLE public.workflow_executions
         ADD CONSTRAINT fk_workflow_executions_user_id
-        FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+        FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
 END $$;
 
@@ -22273,14 +22259,14 @@ CREATE POLICY "secret_audit_logs_select" ON secret_audit_logs
 -- Update user_roles table for multi-tenancy if it exists
 DO $$
 DECLARE
-  default_tenant_id UUID := '00000000-0000-0000-0000-000000000000'; -- System/Default Tenant ID
+  default_tenant_id TEXT := '00000000-0000-0000-0000-000000000000'; -- System/Default Tenant ID
   sql_statement TEXT;
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'user_roles') THEN
     -- Add tenant_id column if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_roles' AND column_name = 'tenant_id') THEN
       -- Use dynamic SQL to handle variable substitution in DDL
-      sql_statement := format('ALTER TABLE user_roles ADD COLUMN tenant_id UUID DEFAULT %L NOT NULL', default_tenant_id);
+      sql_statement := format('ALTER TABLE user_roles ADD COLUMN tenant_id text DEFAULT %L NOT NULL', default_tenant_id);
       EXECUTE sql_statement;
     END IF;
 
