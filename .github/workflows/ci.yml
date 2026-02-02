@@ -64,11 +64,5 @@ jobs:
       - name: Type Governance (Ratchet)
         run: pnpm run typecheck:signal --verify
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Hermetic Build (Docker)
-        run: pnpm run build:docker
-
-      - name: Test
-        run: pnpm test
+      - name: Run CI verification suite
+        run: pnpm run ci:verify
