@@ -40,6 +40,14 @@ vi.mock("@shared/lib/env", () => ({
 }));
 vi.mock("../LLMCache");
 vi.mock("../LLMCostTracker");
+vi.mock("../CostGovernanceService.js", () => ({
+  costGovernance: {
+    checkRequest: vi.fn().mockResolvedValue(undefined),
+    recordUsage: vi.fn().mockResolvedValue(undefined),
+    estimatePromptTokens: vi.fn().mockReturnValue(10),
+    getSummary: vi.fn().mockResolvedValue({}),
+  }
+}));
 
 describe("LLMFallback Service - Streaming", () => {
   beforeEach(() => {

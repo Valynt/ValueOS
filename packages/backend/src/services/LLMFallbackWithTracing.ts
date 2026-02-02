@@ -162,8 +162,8 @@ export class LLMFallbackServiceWithTracing extends LLMFallbackService {
   /**
    * Get circuit breaker statistics with tracing
    */
-  getStats() {
-    const stats = super.getStats();
+  async getStats() {
+    const stats = await super.getStats();
 
     // Update circuit breaker metric
     const togetherAIState = stats.togetherAI.state;
