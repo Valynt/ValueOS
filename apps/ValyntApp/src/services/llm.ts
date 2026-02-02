@@ -10,6 +10,7 @@ export interface LLMChatRequest {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  dealId?: string;
 }
 
 export interface LLMChatResponse {
@@ -81,6 +82,7 @@ class LLMService {
         model: request.model || DEFAULT_MODEL,
         maxTokens: request.maxTokens || 1000,
         temperature: request.temperature || 0.7,
+        dealId: request.dealId,
       }),
     });
 
@@ -171,6 +173,7 @@ class LLMService {
           model: request.model || DEFAULT_MODEL,
           maxTokens: request.maxTokens || 1000,
           temperature: request.temperature || 0.7,
+          dealId: request.dealId,
           stream: true,
         }),
       });

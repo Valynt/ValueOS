@@ -457,5 +457,6 @@ export const api = {
     model?: string;
     maxTokens?: number;
     temperature?: number;
+    dealId?: string;
   }) => apiClient.post("/api/llm/chat", data),
 };
