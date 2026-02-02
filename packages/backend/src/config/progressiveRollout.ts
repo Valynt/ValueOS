@@ -32,13 +32,45 @@ export interface RolloutMetrics {
   lastUpdated: Date;
 }
 
+interface UsageEvent {
+  feature_name: string;
+  user_id: string;
+  enabled: boolean;
+  timestamp: string;
+}
+
 export class ProgressiveRollout {
   private featureName: string;
   private config: RolloutConfig | null = null;
   private metrics: RolloutMetrics | null = null;
 
+  // Buffer for usage tracking to reduce DB writes
+  private static usageBuffer: UsageEvent[] = [];
+  private static flushInterval: NodeJS.Timeout | null = null;
+  private static readonly BUFFER_SIZE_LIMIT = 100;
+  private static readonly FLUSH_INTERVAL_MS = 5000;
+
   constructor(featureName: string) {
     this.featureName = featureName;
+  }
+
+  /**
+   * Flush usage buffer to database
+   */
+  private static async flushBuffer(): Promise<void> {
+    if (this.usageBuffer.length === 0) return;
+
+    const batch = [...this.usageBuffer];
+    this.usageBuffer = []; // Clear immediately to allow new events
+
+    try {
+      const { error } = await supabase.from('feature_usage').insert(batch);
+      if (error) {
+        logger.error('Failed to flush usage buffer', { error, count: batch.length });
+      }
+    } catch (error) {
+      logger.error('Error flushing usage buffer', { error });
+    }
   }
 
   /**
@@ -162,16 +194,30 @@ export class ProgressiveRollout {
    * Track feature usage
    */
   private async trackUsage(userId: string, enabled: boolean): Promise<void> {
-    try {
-      await supabase.from('feature_usage').insert({
-        feature_name: this.featureName,
-        user_id: userId,
-        enabled,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      // Don't fail if tracking fails
-      logger.warn('Failed to track feature usage', { feature: this.featureName, error });
+    ProgressiveRollout.usageBuffer.push({
+      feature_name: this.featureName,
+      user_id: userId,
+      enabled,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Initialize interval if needed
+    if (!ProgressiveRollout.flushInterval) {
+      ProgressiveRollout.flushInterval = setInterval(() => {
+        ProgressiveRollout.flushBuffer().catch(err => {
+          logger.error('Failed to flush buffer in interval', { error: err });
+        });
+      }, ProgressiveRollout.FLUSH_INTERVAL_MS);
+
+      // Allow process to exit even if interval is running
+      if (ProgressiveRollout.flushInterval.unref) {
+        ProgressiveRollout.flushInterval.unref();
+      }
+    }
+
+    // Flush immediately if buffer is full
+    if (ProgressiveRollout.usageBuffer.length >= ProgressiveRollout.BUFFER_SIZE_LIMIT) {
+      await ProgressiveRollout.flushBuffer();
     }
   }
 
