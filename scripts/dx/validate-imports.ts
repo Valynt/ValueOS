@@ -4,7 +4,6 @@
  * Scans all backend TypeScript files and validates imports resolve correctly
  */
 
-import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -52,7 +51,10 @@ function extractImports(filePath: string): string[] {
   let match;
 
   while ((match = importRegex.exec(content)) !== null) {
-    imports.push(match[1]);
+    const importPath = match[1];
+    if (importPath) {
+      imports.push(importPath);
+    }
   }
 
   return imports;

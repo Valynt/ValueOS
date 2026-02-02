@@ -59,7 +59,10 @@ export class CheckpointManager {
       return null;
     }
 
-    const lastCheckpoint = this.checkpoints[this.checkpoints.length - 1];
+    const lastCheckpoint = this.checkpoints.at(-1);
+    if (!lastCheckpoint) {
+      return null;
+    }
     this.checkpoints = [];
     this.persist();
     return lastCheckpoint;
@@ -77,9 +80,7 @@ export class CheckpointManager {
    * Get last checkpoint
    */
   getLast(): Checkpoint | null {
-    return this.checkpoints.length > 0
-      ? this.checkpoints[this.checkpoints.length - 1]
-      : null;
+    return this.checkpoints.at(-1) ?? null;
   }
 
   private load(): void {

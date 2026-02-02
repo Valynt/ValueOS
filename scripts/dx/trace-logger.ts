@@ -62,30 +62,39 @@ export class TraceLogger {
   }
 
   info(message: string, metadata?: Record<string, unknown>): void {
-    this.write({
+    const entry: TraceEntry = {
       timestamp: new Date().toISOString(),
       level: "INFO",
       message,
-      metadata,
-    });
+    };
+    if (metadata) {
+      entry.metadata = metadata;
+    }
+    this.write(entry);
   }
 
   warn(message: string, metadata?: Record<string, unknown>): void {
-    this.write({
+    const entry: TraceEntry = {
       timestamp: new Date().toISOString(),
       level: "WARN",
       message,
-      metadata,
-    });
+    };
+    if (metadata) {
+      entry.metadata = metadata;
+    }
+    this.write(entry);
   }
 
   error(message: string, metadata?: Record<string, unknown>): void {
-    this.write({
+    const entry: TraceEntry = {
       timestamp: new Date().toISOString(),
       level: "ERROR",
       message,
-      metadata,
-    });
+    };
+    if (metadata) {
+      entry.metadata = metadata;
+    }
+    this.write(entry);
   }
 
   close(): void {

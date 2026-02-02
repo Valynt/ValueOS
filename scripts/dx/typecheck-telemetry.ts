@@ -100,7 +100,7 @@ function parseErrors(output: string): ErrorInfo[] {
 
 function extractPackage(filePath: string): string {
   const packageMatch = filePath.match(/^(packages\/[^/]+|apps\/[^/]+)/);
-  return packageMatch ? packageMatch[1] : "root";
+  return packageMatch?.[1] ?? "root";
 }
 
 async function loadStrictZones(): Promise<string[]> {
@@ -128,18 +128,7 @@ async function enforceRatchet(report: TelemetryReport): Promise<boolean> {
   // 1. Strict Zone Enforcement
   if (strictZones.length > 0) {
     console.log(`Checking ${strictZones.length} Green Islands (Strict Zones)...`);
-    // Get all files with errors
-    const errorFiles = new Set(
-      Object.keys(report.topFiles.reduce((acc, curr) => ({ ...acc, [curr.file]: 1 }), {}))
-    );
-    // Wait, report.topFiles is top 20. We need all errors.
-    // I need access to raw errors list or iterate report properly.
-    // generateReport aggregates. I should pass 'errors' to this function or re-use report data.
-    // Actually, report has 'errorsByPackage', but that's not granular enough for sub-folder zones.
-    // I can roughly check packages if strict zones are package-level.
-    // But strict-zones says "path relative to workspace root".
-    // I'll assume for now I can't easily check file-level without the raw errors array.
-    // I'll modify generateReport or main to pass raw errors.
+    console.log("ℹ️  Strict zone file-level enforcement is not yet implemented; skipping.");
   }
 
   // Checking baseline

@@ -74,7 +74,13 @@ function fixImportsInFile(filePath: string, dryRun: boolean): number {
     for (const pattern of importPatterns) {
       const match = line.match(pattern);
       if (match) {
-        const [, prefix, importPath, suffix] = match;
+        const prefix = match[1];
+        const importPath = match[2];
+        const suffix = match[3];
+
+        if (!prefix || !importPath || !suffix) {
+          return line;
+        }
         
         // Skip if not relative or already has extension
         if (!isRelativeImport(importPath) || hasExtension(importPath)) {
@@ -136,8 +142,8 @@ async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
   const pathArg = args.find(arg => arg.startsWith('--path='));
-  const targetPath = pathArg 
-    ? path.resolve(process.cwd(), pathArg.split('=')[1])
+  const targetPath = pathArg
+    ? path.resolve(process.cwd(), pathArg.slice('--path='.length))
     : path.resolve(process.cwd(), 'packages/backend/src');
   
   console.log('🔧 ESM Import Fixer\n');

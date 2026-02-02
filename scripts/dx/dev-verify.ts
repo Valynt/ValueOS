@@ -16,7 +16,7 @@
  *   pnpm run dev:verify --quick   # Fast checks only
  */
 
-import { execSync, spawn } from "child_process";
+import { execSync } from "child_process";
 import * as http from "http";
 import * as net from "net";
 import * as path from "path";
@@ -69,7 +69,6 @@ interface CheckResult {
 }
 
 const results: CheckResult[] = [];
-let hasFailure = false;
 
 // Logging utilities
 const colors = {
@@ -87,10 +86,6 @@ function log(check: CheckResult): void {
   const tier = `${colors.dim}[T${check.tier}]${colors.reset}`;
   const duration = check.duration ? ` ${colors.dim}(${check.duration}ms)${colors.reset}` : "";
   console.log(`${icon}${colors.reset} ${tier} ${check.name}: ${check.message}${duration}`);
-
-  if (!check.passed) {
-    hasFailure = true;
-  }
   results.push(check);
 }
 
@@ -152,10 +147,13 @@ function checkHttpEndpoint(
         timeout,
       },
       (res) => {
-        resolve({
-          success: res.statusCode !== undefined && res.statusCode < 500,
-          statusCode: res.statusCode,
-        });
+        const statusCode = res.statusCode;
+        if (statusCode === undefined) {
+          resolve({ success: false });
+          return;
+        }
+
+        resolve({ success: statusCode < 500, statusCode });
       }
     );
 
