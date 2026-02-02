@@ -9,8 +9,6 @@
 #   - Migrations run after DB is healthy, before app is ready
 ###############################################################################
 
-version: "3.8"
-
 volumes:
   postgres-data:
   redis-data:
@@ -34,7 +32,9 @@ services:
         NODE_VERSION: "20"
     volumes:
       - ..:/workspaces/ValueOS:cached
-      - pnpm-store:/root/.local/share/pnpm
+      # Fix: Mount to vscode user home to allow access to persisted store
+      - pnpm-store:/home/vscode/.local/share/pnpm
+      # Fix: Prevent bind mount from hiding image-installed node_modules
       - node_modules:/workspaces/ValueOS/node_modules
     working_dir: /workspaces/ValueOS
     env_file:
@@ -200,8 +200,6 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: 3600
     networks:
       - valueos-network
-    # PostgREST v12+ is a distroless image with no shell/curl/wget
-    # Use healthcheck-proxy sidecar for HTTP health checks
     healthcheck:
       test: ["NONE"]
       interval: 10s
@@ -213,7 +211,7 @@ services:
         condition: service_healthy
 
   ###########################################################################
-  # PostgREST Health Check Proxy (provides curl for healthcheck)
+  # PostgREST Health Check Proxy
   ###########################################################################
   rest-healthcheck:
     image: curlimages/curl:8.5.0
@@ -254,7 +252,6 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: postgres
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-      # DB_ENC_KEY must be exactly 16 bytes for AES-128
       DB_ENC_KEY: abcdefghijklmnop
       API_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
       FLY_ALLOC_ID: abc123
@@ -282,7 +279,6 @@ services:
       SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.YI5mC4lgC5wJMvBRu-GZxXgRmXxMGk9wB7nHI55HXD8}
       POSTGREST_URL: http://rest:3000
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
-      # CRITICAL: sslmode=disable required - container postgres has no TLS
       DATABASE_URL: postgresql://supabase_storage_admin:postgres@db:5432/postgres?sslmode=disable
       FILE_SIZE_LIMIT: 52428800
       STORAGE_BACKEND: file
@@ -307,7 +303,7 @@ services:
         condition: service_healthy
 
   ###########################################################################
-  # Postgres Meta (for Studio)
+  # Postgres Meta
   ###########################################################################
   meta:
     image: supabase/postgres-meta:v0.80.0
@@ -326,7 +322,7 @@ services:
         condition: service_healthy
 
   ###########################################################################
-  # Supabase Studio (Optional - enable with profile)
+  # Supabase Studio
   ###########################################################################
   studio:
     image: supabase/studio:latest
@@ -347,8 +343,6 @@ services:
     ports:
       - "${STUDIO_PORT:-54323}:3000"
     healthcheck:
-      # Disable image-baked healthcheck - Studio is optional (profile-gated)
-      # and the built-in check probes /api/platform/profile which may not be available
       disable: true
     depends_on:
       kong:

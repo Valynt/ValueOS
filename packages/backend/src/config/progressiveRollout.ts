@@ -264,34 +264,38 @@ export class ProgressiveRollout {
       const timestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // Last 24 hours
 
       const [
-        { data: usageData, error: usageError },
-        { data: errorData, error: errorError }
+        { count: totalUsers, error: totalUsersError },
+        { count: enabledUsers, error: enabledUsersError },
+        { count: errors, error: errorsError },
       ] = await Promise.all([
         supabase
           .from('feature_usage')
-          .select('enabled')
+          .select('*', { count: 'exact', head: true })
           .eq('feature_name', this.featureName)
           .gte('timestamp', timestamp),
         supabase
-          .from('feature_errors')
-          .select('id')
+          .from('feature_usage')
+          .select('*', { count: 'exact', head: true })
           .eq('feature_name', this.featureName)
-          .gte('timestamp', timestamp)
+          .eq('enabled', true)
+          .gte('timestamp', timestamp),
+        supabase
+          .from('feature_errors')
+          .select('*', { count: 'exact', head: true })
+          .eq('feature_name', this.featureName)
+          .gte('timestamp', timestamp),
       ]);
 
-      if (usageError) throw usageError;
-      if (errorError) throw errorError;
+      if (totalUsersError) throw totalUsersError;
+      if (enabledUsersError) throw enabledUsersError;
+      if (errorsError) throw errorsError;
 
-      const totalUsers = usageData.length;
-      const enabledUsers = usageData.filter(u => u.enabled).length;
-
-      const errors = errorData.length;
-      const errorRate = enabledUsers > 0 ? (errors / enabledUsers) * 100 : 0;
+      const errorRate = enabledUsers && enabledUsers > 0 ? (errors! / enabledUsers) * 100 : 0;
 
       this.metrics = {
-        totalUsers,
-        enabledUsers,
-        errors,
+        totalUsers: totalUsers || 0,
+        enabledUsers: enabledUsers || 0,
+        errors: errors || 0,
         errorRate,
         lastUpdated: new Date(),
       };
