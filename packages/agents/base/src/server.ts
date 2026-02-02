@@ -18,7 +18,7 @@ export interface ServerOptions {
 }
 
 /**
- * Create and configure Express server for agent
+ * Create Express server for agent (returns the app, doesn't start it)
  */
 export function createServer(options: ServerOptions): express.Application {
   const app = express();

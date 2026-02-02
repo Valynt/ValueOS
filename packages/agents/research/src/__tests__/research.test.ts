@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ResearchAnalyzer } from "../index";
+import { ResearchAnalyzer } from "../index.js";
 
-// Mock the logger and metrics from @valueos/agents/base
-vi.mock("@valueos/agents/base", () => ({
+// Mock the logger and metrics from @valueos/agent-base
+vi.mock("@valueos/agent-base", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
@@ -45,7 +45,7 @@ describe("ResearchAnalyzer", () => {
       const query = "market analysis";
       const result = await analyzer.analyzeResearch(query);
 
-      const marketResearch = result.researches.find((r) => r.category === "Market");
+      const marketResearch = result.researches.find((r: any) => r.category === "Market");
       expect(marketResearch).toBeDefined();
       expect(marketResearch?.title).toContain("Market Research");
       expect(marketResearch?.confidence).toBe(0.88);
@@ -55,7 +55,7 @@ describe("ResearchAnalyzer", () => {
       const query = "customer survey data";
       const result = await analyzer.analyzeResearch(query);
 
-      const dataResearch = result.researches.find((r) => r.category === "Data");
+      const dataResearch = result.researches.find((r: any) => r.category === "Data");
       expect(dataResearch).toBeDefined();
       expect(dataResearch?.title).toContain("Survey Design");
       expect(dataResearch?.confidence).toBe(0.85);
@@ -65,7 +65,7 @@ describe("ResearchAnalyzer", () => {
       const query = "future trends forecast";
       const result = await analyzer.analyzeResearch(query);
 
-      const trendResearch = result.researches.find((r) => r.category === "Trend");
+      const trendResearch = result.researches.find((r: any) => r.category === "Trend");
       expect(trendResearch).toBeDefined();
       expect(trendResearch?.title).toContain("Trend Analysis");
       expect(trendResearch?.confidence).toBe(0.82);
@@ -75,7 +75,7 @@ describe("ResearchAnalyzer", () => {
       const query = "qualitative interview";
       const result = await analyzer.analyzeResearch(query);
 
-      const qualResearch = result.researches.find((r) => r.category === "Qualitative");
+      const qualResearch = result.researches.find((r: any) => r.category === "Qualitative");
       expect(qualResearch).toBeDefined();
       expect(qualResearch?.title).toContain("Qualitative Research");
       expect(qualResearch?.confidence).toBe(0.78);

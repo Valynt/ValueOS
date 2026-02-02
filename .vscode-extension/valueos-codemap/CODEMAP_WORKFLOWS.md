@@ -78,7 +78,7 @@ devcontainer.json → .devcontainer/scripts/* → docker-compose files → envir
 **Key Files**:
 
 - `.devcontainer/devcontainer.json`
-- `.devcontainer/scripts/post-create.sh`
+- `scripts/dev/setup.sh`
 - `infra/compose/compose.dev.yml`
 - `config/ports.json`
 

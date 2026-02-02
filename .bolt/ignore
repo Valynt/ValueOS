@@ -48,6 +48,10 @@ apps/ValyntApp/src/mcp-*/
 **/coverage/
 **/.cache/
 **/*.log
+.turbo/
+.changeset/
+.windsurf/
+.jules/
 **/.env
 **/.env.*
 !**/.env.example

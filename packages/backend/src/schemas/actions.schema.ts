@@ -31,7 +31,7 @@ export const InvokeAgentActionSchema = BaseCanonicalActionSchema.extend({
 
 export const RunWorkflowStepActionSchema = BaseCanonicalActionSchema.extend({
   type: z.literal("runWorkflowStep"),
-  workflowId: z.string().uuid("workflowId must be a valid UUID"),
+  workflowId: z.string().min(1, "workflowId is required"),
   stepId: z.string().min(1, "stepId is required"),
   input: z.unknown().optional(),
   reason: z.string().optional(),
@@ -39,20 +39,20 @@ export const RunWorkflowStepActionSchema = BaseCanonicalActionSchema.extend({
 
 export const UpdateValueTreeActionSchema = BaseCanonicalActionSchema.extend({
   type: z.literal("updateValueTree"),
-  treeId: z.string().uuid("treeId must be a valid UUID"),
+  treeId: z.string().min(1, "treeId is required"),
   updates: z.unknown(),
 });
 
 export const UpdateAssumptionActionSchema = BaseCanonicalActionSchema.extend({
   type: z.literal("updateAssumption"),
-  assumptionId: z.string().uuid("assumptionId must be a valid UUID"),
+  assumptionId: z.string().min(1, "assumptionId is required"),
   updates: z.unknown(),
 });
 
 export const ExportArtifactActionSchema = BaseCanonicalActionSchema.extend({
   type: z.literal("exportArtifact"),
   artifactType: z.string().min(1, "artifactType is required"),
-  format: z.enum(["pdf", "png", "excel", "csv"], "format must be one of: pdf, png, excel, csv"),
+  format: z.string().min(1, "format is required"),
 });
 
 export const OpenAuditTrailActionSchema = BaseCanonicalActionSchema.extend({

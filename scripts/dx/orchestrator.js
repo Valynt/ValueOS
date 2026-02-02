@@ -36,6 +36,7 @@ import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
 import { CheckpointManager } from "./checkpoint-manager.ts";
 import { TraceLogger } from "./trace-logger.ts";
 import { formatError } from "./error-codes.ts";
+import logger from "./logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +78,22 @@ const RETRY_ATTEMPTS = 3;
 const RETRY_BASE_DELAY = 2000;
 const dockerHostGateway = resolveDockerHostGateway();
 const localHosts = dockerHostGateway ? [dockerHostGateway] : [];
+
+/**
+ * Retry a function with exponential backoff
+ */
+async function retry(fn, attempts = RETRY_ATTEMPTS, baseDelay = RETRY_BASE_DELAY) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === attempts - 1) throw error;
+      const delay = baseDelay * Math.pow(2, i);
+      log.warn(`Attempt ${i + 1} failed, retrying in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
 
 function reloadEnv() {
   config({ path: envPath, override: true });
@@ -140,7 +157,9 @@ function runPreflightChecks(supabaseMode) {
     if (dockerCheck.issue === "permission") {
       if (isDevContainer()) {
         log.error("Fix: Ensure /var/run/docker.sock is mounted and accessible by the vscode user.");
-        log.error("      If using Dev Containers, rebuild after enabling docker-outside-of-docker.");
+        log.error(
+          "      If using Dev Containers, rebuild after enabling docker-outside-of-docker."
+        );
       } else {
         log.error("Fix: Add your user to the docker group (or run Docker Desktop).");
       }
@@ -164,7 +183,9 @@ function runPreflightChecks(supabaseMode) {
   log.success("DATABASE_URL configured");
 
   if (supabaseMode?.mode) {
-    const detail = supabaseMode.host ? ` (${supabaseMode.reason}: ${supabaseMode.host})` : ` (${supabaseMode.reason})`;
+    const detail = supabaseMode.host
+      ? ` (${supabaseMode.reason}: ${supabaseMode.host})`
+      : ` (${supabaseMode.reason})`;
     log.info(`Supabase mode: ${supabaseMode.mode}${detail}`);
   }
 
@@ -264,9 +285,7 @@ function ensureSslModeDisable(url) {
     }
     return parsed.toString();
   } catch {
-    return url.includes("sslmode=")
-      ? url
-      : `${url}${url.includes("?") ? "&" : "?"}sslmode=disable`;
+    return url.includes("sslmode=") ? url : `${url}${url.includes("?") ? "&" : "?"}sslmode=disable`;
   }
 }
 
@@ -289,7 +308,7 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT, validateRespon
         method: "GET",
         signal: AbortSignal.timeout(5000),
       });
-      
+
       // Deep validation if provided
       if (validateResponse) {
         try {
@@ -300,7 +319,9 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT, validateRespon
             return true;
           }
         } catch (validationError) {
-          traceLogger.warn(`Health validation failed for ${url}`, { error: validationError.message });
+          traceLogger.warn(`Health validation failed for ${url}`, {
+            error: validationError.message,
+          });
         }
       } else {
         // Default validation: 2xx-4xx status codes
@@ -309,7 +330,7 @@ async function waitForHealth(url, timeout = HEALTH_CHECK_TIMEOUT, validateRespon
           return true;
         }
       }
-      
+
       if (Date.now() - startTime > 5000) {
         traceLogger.warn(`Health check ${url} returned status ${response.status}`);
       }
@@ -440,7 +461,9 @@ async function startSupabase(supabaseMode) {
 
   let useDlx = false;
   if (!commandExists("supabase")) {
-    log.warn("Supabase CLI not found locally. Will attempt to run via 'pnpm dlx supabase' fallback.");
+    log.warn(
+      "Supabase CLI not found locally. Will attempt to run via 'pnpm dlx supabase' fallback."
+    );
     try {
       // Check if pnpm dlx can fetch the supabase CLI
       runCommand("pnpm dlx supabase --version", { silent: true });
@@ -453,14 +476,25 @@ async function startSupabase(supabaseMode) {
   }
 
   try {
-    const supabaseStartCmd = useDlx ? "pnpm dlx supabase start --workdir infra/supabase" : "supabase start --workdir infra/supabase";
+    const supabaseStartCmd = useDlx
+      ? "pnpm dlx supabase start --workdir infra/supabase"
+      : "supabase start --workdir infra/supabase";
     traceLogger.info("Running Supabase start command", { command: supabaseStartCmd });
-    runCommand(supabaseStartCmd);
+    await runWithRetries("Supabase start", () => runCommand(supabaseStartCmd));
     log.success("Supabase started");
     traceLogger.stepSuccess("start_supabase", stepStart);
   } catch (error) {
     traceLogger.stepError("start_supabase", error);
-    log.warn(formatError("ERR_010", { command: useDlx ? "pnpm dlx supabase" : "supabase", error: error.message }));
+    logger.error("Failed to start Supabase", {
+      error: error.message,
+      command: useDlx ? "pnpm dlx supabase" : "supabase",
+    });
+    log.warn(
+      formatError("ERR_010", {
+        command: useDlx ? "pnpm dlx supabase" : "supabase",
+        error: error.message,
+      })
+    );
     console.error(error.message);
     // Don't exit - continue with dx postgres for testing
   }
@@ -539,7 +573,7 @@ function stopSupabase() {
 async function startDockerDeps(mode) {
   const stepStart = traceLogger.stepStart("start_docker_deps", { mode });
   const checkpoint = checkpointManager.save("docker_deps", { mode });
-  
+
   log.info("Starting Docker dependencies...");
 
   const composeFile =
@@ -658,7 +692,7 @@ function resetDockerDeps(level = "soft") {
 
 /**
  * Run database migrations
- * 
+ *
  * Step 5a/5b: Migrations against Supabase DB or dx postgres fallback
  */
 async function runMigrations(supabaseMode, mode) {
@@ -670,7 +704,9 @@ async function runMigrations(supabaseMode, mode) {
   try {
     if (supabaseMode?.mode === "cloud") {
       log.error("Refusing to run migrations against remote Supabase.");
-      log.error("Fix: Run 'pnpm run dx:env --mode local --force' or set DX_ALLOW_REMOTE_SUPABASE=1");
+      log.error(
+        "Fix: Run 'pnpm run dx:env --mode local --force' or set DX_ALLOW_REMOTE_SUPABASE=1"
+      );
       return { ok: false, fatal: true, error: "remote-supabase" };
     }
 
@@ -691,7 +727,9 @@ async function runMigrations(supabaseMode, mode) {
     const supabaseDbUrl = supabaseMode?.mode === "local" ? getSupabaseDbUrl() : null;
 
     if (supabaseDbUrl && ensureLocalSslModeDisable(supabaseDbUrl) !== normalizedDbUrl) {
-      log.warn("Supabase status DB URL differs from DATABASE_URL; using DATABASE_URL for consistency.");
+      log.warn(
+        "Supabase status DB URL differs from DATABASE_URL; using DATABASE_URL for consistency."
+      );
     }
 
     const command = `PGSSLMODE=disable supabase db push --yes --workdir infra/supabase --db-url "${normalizedDbUrl}"`;
@@ -775,9 +813,12 @@ async function verifySchema() {
 
   // Check migration status
   try {
-    const migrationList = runCommand("supabase migration list --workdir infra/supabase 2>/dev/null || echo ''", {
-      silent: true,
-    });
+    const migrationList = runCommand(
+      "supabase migration list --workdir infra/supabase 2>/dev/null || echo ''",
+      {
+        silent: true,
+      }
+    );
 
     if (migrationList.includes("not applied") || migrationList.includes("pending")) {
       log.warn("Pending migrations detected");

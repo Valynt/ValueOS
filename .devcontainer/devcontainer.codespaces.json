@@ -36,13 +36,11 @@
   // Lifecycle scripts for automation
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
-  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
+  "postCreateCommand": "bash scripts/dev/setup.sh > setup.log 2>&1",
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   // Port forwarding with labels
-  "forwardPorts": [
-    3000, 8000, 5432, 16686, 9090, 3001, 6379, 54321, 54322, 54323, 54324
-  ],
+  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001, 6379, 54321, 54322, 54323, 54324],
   "portsAttributes": {
     "3000": {
       "label": "Frontend (Vite)",

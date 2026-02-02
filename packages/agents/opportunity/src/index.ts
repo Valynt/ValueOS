@@ -4,7 +4,7 @@
  */
 
 import express from "express";
-import { createServer, getConfig, logger, metrics } from "@valueos/agents/base";
+import { createServer, startServer, getConfig, logger, metrics } from "@valueos/agent-base";
 import { z } from "zod";
 
 // Agent-specific types
@@ -216,7 +216,7 @@ export const app = createServer({
 metrics.customMetrics.set("opportunity_analyzer_health", metrics.healthStatus);
 
 // Start the server
-createServer(app, config.PORT).catch((error) => {
+startServer(app, config.PORT).catch((error: any) => {
   logger.error("Failed to start opportunity agent", error);
   process.exit(1);
 });

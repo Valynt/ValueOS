@@ -4,10 +4,10 @@
  */
 
 import express from "express";
-import { createServer } from "../../base/src/server.js";
-import { getConfig } from "../../base/src/config.js";
-import { logger } from "../../base/src/logger.js";
-import { metrics } from "../../base/src/metrics.js";
+import { createServer, startServer } from "@valueos/agent-base";
+import { getConfig } from "@valueos/agent-base";
+import { logger } from "@valueos/agent-base";
+import { metrics } from "@valueos/agent-base";
 import { z } from "zod";
 
 // Agent-specific types
@@ -226,7 +226,7 @@ const app = createServer({
 metrics.customMetrics.set("narrative_analyzer_health", metrics.healthStatus);
 
 // Start the server
-createServer(app, config.PORT).catch((error) => {
+startServer(app, config.PORT).catch((error: any) => {
   logger.error("Failed to start narrative agent", error);
   process.exit(1);
 });

@@ -82,6 +82,7 @@ export class ContextManager {
     // Iterate backwards
     for (let i = otherMessages.length - 1; i >= 0; i--) {
       const msg = otherMessages[i];
+      if (!msg || !msg.content) continue;
       const tokens = this.estimateTokens(msg.content);
 
       if (currentTokens + tokens <= this.config.maxTokens) {

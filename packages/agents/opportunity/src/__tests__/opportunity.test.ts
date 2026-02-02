@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { OpportunityAnalyzer } from "../index";
+import { OpportunityAnalyzer } from "../index.js";
 
 // Mock the logger
-vi.mock("@valueos/agents/base", () => ({
+vi.mock("@valueos/agent-base", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
@@ -49,7 +49,7 @@ describe("OpportunityAnalyzer", () => {
       const query = "market expansion";
       const result = await analyzer.analyzeOpportunities(query);
 
-      const marketOpp = result.opportunities.find((opp) => opp.title.includes("Market Expansion"));
+      const marketOpp = result.opportunities.find((opp: any) => opp.title.includes("Market Expansion"));
       expect(marketOpp).toBeDefined();
       expect(marketOpp?.confidence).toBe(0.85);
       expect(marketOpp?.category).toBe("Growth");
@@ -60,7 +60,7 @@ describe("OpportunityAnalyzer", () => {
       const query = "product innovation";
       const result = await analyzer.analyzeOpportunities(query);
 
-      const productOpp = result.opportunities.find((opp) =>
+      const productOpp = result.opportunities.find((opp: any) =>
         opp.title.includes("Product Innovation")
       );
       expect(productOpp).toBeDefined();
@@ -72,7 +72,7 @@ describe("OpportunityAnalyzer", () => {
       const query = "strategic partnership";
       const result = await analyzer.analyzeOpportunities(query);
 
-      const partnershipOpp = result.opportunities.find((opp) =>
+      const partnershipOpp = result.opportunities.find((opp: any) =>
         opp.title.includes("Strategic Partnership")
       );
       expect(partnershipOpp).toBeDefined();

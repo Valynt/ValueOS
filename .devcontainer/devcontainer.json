@@ -2,7 +2,7 @@
   "name": "ValueOS Dev Container",
   "dockerComposeFile": "docker-compose.devcontainer.yml",
   "service": "app",
-  "workspaceFolder": "/workspaces/ValueOS",
+  "workspaceFolder": "${containerWorkspaceFolder}",
   "shutdownAction": "stopCompose",
 
   // Load environment from .env.dev
@@ -17,7 +17,7 @@
     }
   },
 
-  "postCreateCommand": "bash scripts/dev/post-create.sh",
+  "postCreateCommand": "bash scripts/dev/setup.sh > setup.log 2>&1",
 
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",

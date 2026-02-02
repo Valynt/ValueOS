@@ -1,1 +1,6 @@
-pnpm run typecheck:ratchet:precommit
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+pnpm run lint
+pnpm run typecheck
+pnpm test

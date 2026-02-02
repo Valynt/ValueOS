@@ -180,6 +180,12 @@ RUN mkdir -p \
 # Set working directory
 WORKDIR /workspaces/ValueOS
 
+# Copy package files for dependency installation
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \
     NODE_ENV=development \

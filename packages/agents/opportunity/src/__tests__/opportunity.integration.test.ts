@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
-import { app } from "../index";
+import { app } from "../index.js";
 
 // Mock external dependencies
-vi.mock("@valueos/agents/base", () => ({
+vi.mock("@valueos/agent-base", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
@@ -76,7 +76,7 @@ describe("Opportunity Agent API Integration Tests", () => {
       expect(opportunity).toHaveProperty("category");
 
       // Check metrics recording
-      const { metrics } = await import("@valueos/agents/base");
+      const { metrics } = await import("@valueos/agent-base");
       expect(metrics.httpRequestsTotal.inc).toHaveBeenCalledWith({
         method: "POST",
         route: "/query",
@@ -107,7 +107,7 @@ describe("Opportunity Agent API Integration Tests", () => {
 
       // In a real scenario, we'd verify that database queries include organizationId
       // For this mock, we ensure context is passed through
-      const { logger } = await import("@valueos/agents/base");
+      const { logger } = await import("@valueos/agent-base");
       expect(logger.info).toHaveBeenCalledWith(
         "Processing opportunity query",
         expect.objectContaining({
@@ -130,7 +130,7 @@ describe("Opportunity Agent API Integration Tests", () => {
       expect(Array.isArray(response.body.details)).toBe(true);
 
       // Check error metrics
-      const { metrics } = await import("@valueos/agents/base");
+      const { metrics } = await import("@valueos/agent-base");
       expect(metrics.httpRequestsTotal.inc).toHaveBeenCalledWith({
         method: "POST",
         route: "/query",

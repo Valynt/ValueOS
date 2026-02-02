@@ -5,6 +5,7 @@
   "type": "module",
   "private": true,
   "exports": {
+    ".": "./src/index.ts",
     "./logger": "./src/logger.ts",
     "./metrics": "./src/metrics.ts",
     "./health": "./src/health.ts",

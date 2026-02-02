@@ -227,9 +227,6 @@ importers:
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
-      winston:
-        specifier: ^3.19.0
-        version: 3.19.0
       winston-cloudwatch:
         specifier: ^6.3.0
         version: 6.3.0(@aws-sdk/client-cloudwatch-logs@3.975.0)(winston@3.19.0)
@@ -456,6 +453,9 @@ importers:
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
+      turbo:
+        specifier: ^2.8.1
+        version: 2.8.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -468,6 +468,9 @@ importers:
       vitest:
         specifier: ^4.0.17
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.30)(@vitest/browser-playwright@4.0.18)(@vitest/ui@4.0.18)(happy-dom@20.3.7)(jiti@1.21.7)(jsdom@24.1.3)(msw@2.12.7(@types/node@20.19.30)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+      winston:
+        specifier: ^3.19.0
+        version: 3.19.0
 
   apps/VOSAcademy:
     dependencies:
@@ -840,6 +843,9 @@ importers:
 
   packages/agents:
     dependencies:
+      '@valueos/agent-base':
+        specifier: file:./base
+        version: file:packages/agents/base(@valueos/infra@file:packages/infra)(@valueos/memory@file:packages/memory(@valueos/infra@file:packages/infra))
       '@valueos/infra':
         specifier: file:../infra
         version: link:../infra
@@ -948,7 +954,11 @@ importers:
         specifier: ^4.0.17
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.30)(@vitest/browser-playwright@4.0.18)(@vitest/ui@4.0.18)(happy-dom@20.3.7)(jiti@1.21.7)(jsdom@27.4.0(@noble/hashes@2.0.1))(msw@2.12.7(@types/node@20.19.30)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/components: {}
+  packages/components:
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
 
   packages/config-v2: {}
 
@@ -4420,6 +4430,20 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+
+  '@valueos/agent-base@file:packages/agents/base':
+    resolution: {directory: packages/agents/base, type: directory}
+    peerDependencies:
+      '@valueos/infra': ^1.0.0
+      '@valueos/memory': ^1.0.0
+
+  '@valueos/infra@file:packages/infra':
+    resolution: {directory: packages/infra, type: directory}
+
+  '@valueos/memory@file:packages/memory':
+    resolution: {directory: packages/memory, type: directory}
+    peerDependencies:
+      '@valueos/infra': file:../infra
 
   '@vitejs/plugin-react-swc@3.11.0':
     resolution: {integrity: sha512-YTJCGFdNMHCMfjODYtxRNVAYmTWQ1Lb8PulP/2/f/oEEtglw8oKxKIZmmRkyXrVrHfsKOaVkAc3NT9/dMutO5w==}
@@ -7962,6 +7986,10 @@ packages:
     resolution: {integrity: sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==}
     engines: {node: '>=0.4.0'}
 
+  prom-client@14.2.0:
+    resolution: {integrity: sha512-sF308EhTenb/pDRPakm+WgiN+VdM/T1RaHj1x+MvAuT8UiQP8JmOEbxVqtkbfR4LrvOg5n7ic01kRBDGXjYikA==}
+    engines: {node: '>=10'}
+
   prom-client@15.1.3:
     resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
     engines: {node: ^16 || ^18 || >=20}
@@ -9003,6 +9031,40 @@ packages:
   tsyringe@4.10.0:
     resolution: {integrity: sha512-axr3IdNuVIxnaK5XGEUFTu3YmAQ6lllgrvqfEoR16g/HGnYY/6We4oWENtAnzK6/LpJ2ur9PAb80RBt7/U4ugw==}
     engines: {node: '>= 6.0.0'}
+
+  turbo-darwin-64@2.8.1:
+    resolution: {integrity: sha512-FQ6Uqxty/H1Nvn1dpBe8KUlMRclTuiyNSc1PCeDL/ad7M9ykpWutB51YpMpf9ibTA32M6wLdIRf+D96W6hDAtQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  turbo-darwin-arm64@2.8.1:
+    resolution: {integrity: sha512-4bCcEpGP2/aSXmeN2gl5SuAmS1q5ykjubnFvSoXjQoCKtDOV+vc4CTl/DduZzUUutCVUWXjl8OyfIQ+DGCaV4A==}
+    cpu: [arm64]
+    os: [darwin]
+
+  turbo-linux-64@2.8.1:
+    resolution: {integrity: sha512-m99JRlWlEgXPR7mkThAbKh6jbTmWSOXM/c6rt8yd4Uxh0+wjq7+DYcQbead6aoOqmCP9akswZ8EXIv1ogKBblg==}
+    cpu: [x64]
+    os: [linux]
+
+  turbo-linux-arm64@2.8.1:
+    resolution: {integrity: sha512-AsPlza3AsavJdl2o7FE67qyv0aLfmT1XwFQGzvwpoAO6Bj7S4a03tpUchZKNuGjNAkKVProQRFnB7PgUAScFXA==}
+    cpu: [arm64]
+    os: [linux]
+
+  turbo-windows-64@2.8.1:
+    resolution: {integrity: sha512-GdqNO6bYShRsr79B+2G/2ssjLEp9uBTvLBJSWRtRCiac/SEmv8T6RYv9hu+h5oGbFALtnKNp6BQBw78RJURsPw==}
+    cpu: [x64]
+    os: [win32]
+
+  turbo-windows-arm64@2.8.1:
+    resolution: {integrity: sha512-n40E6IpkzrShRo3yMdRpgnn1/sAbGC6tZXwyNu8fe9RsufeD7KBiaoRSvw8xLyqV3pd2yoTL2rdCXq24MnTCWA==}
+    cpu: [arm64]
+    os: [win32]
+
+  turbo@2.8.1:
+    resolution: {integrity: sha512-pbSMlRflA0RAuk/0jnAt8pzOYh1+sKaT8nVtcs75OFGVWD0evleQRmKtHJJV42QOhaC3Hx9mUUSOom/irasbjA==}
+    hasBin: true
 
   tv4@1.3.0:
     resolution: {integrity: sha512-afizzfpJgvPr+eDkREK4MxJ/+r8nEEHcmitwgnPUqpaP+FpwQyadnxNoSACbgc/b1LsZYtODGoPiFxQrgJgjvw==}
@@ -13602,6 +13664,30 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
+  '@valueos/agent-base@file:packages/agents/base(@valueos/infra@file:packages/infra)(@valueos/memory@file:packages/memory(@valueos/infra@file:packages/infra))':
+    dependencies:
+      '@valueos/infra': file:packages/infra
+      '@valueos/memory': file:packages/memory(@valueos/infra@file:packages/infra)
+      express: 4.22.1
+      prom-client: 14.2.0
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - supports-color
+
+  '@valueos/infra@file:packages/infra':
+    dependencies:
+      '@supabase/supabase-js': 2.91.1
+      ioredis: 5.9.2
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@valueos/memory@file:packages/memory(@valueos/infra@file:packages/infra)':
+    dependencies:
+      '@valueos/infra': file:packages/infra
+      zod: 3.25.76
+
   '@vitejs/plugin-react-swc@3.11.0(vite@7.3.1(@types/node@22.19.7)(jiti@1.21.7)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.27
@@ -13829,7 +13915,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@20.19.30)(@vitest/browser-playwright@4.0.18)(@vitest/ui@4.0.18)(happy-dom@20.3.7)(jiti@1.21.7)(jsdom@27.4.0(@noble/hashes@2.0.1))(msw@2.12.7(@types/node@20.19.30)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(@vitest/browser-playwright@4.0.18)(@vitest/ui@4.0.18)(happy-dom@20.3.7)(jiti@1.21.7)(jsdom@23.2.0)(msw@2.12.7(@types/node@22.19.7)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/utils@2.0.5':
     dependencies:
@@ -17861,6 +17947,10 @@ snapshots:
 
   progress@2.0.3: {}
 
+  prom-client@14.2.0:
+    dependencies:
+      tdigest: 0.1.2
+
   prom-client@15.1.3:
     dependencies:
       '@opentelemetry/api': 1.9.0
@@ -19256,6 +19346,33 @@ snapshots:
   tsyringe@4.10.0:
     dependencies:
       tslib: 1.14.1
+
+  turbo-darwin-64@2.8.1:
+    optional: true
+
+  turbo-darwin-arm64@2.8.1:
+    optional: true
+
+  turbo-linux-64@2.8.1:
+    optional: true
+
+  turbo-linux-arm64@2.8.1:
+    optional: true
+
+  turbo-windows-64@2.8.1:
+    optional: true
+
+  turbo-windows-arm64@2.8.1:
+    optional: true
+
+  turbo@2.8.1:
+    optionalDependencies:
+      turbo-darwin-64: 2.8.1
+      turbo-darwin-arm64: 2.8.1
+      turbo-linux-64: 2.8.1
+      turbo-linux-arm64: 2.8.1
+      turbo-windows-64: 2.8.1
+      turbo-windows-arm64: 2.8.1
 
   tv4@1.3.0: {}
 

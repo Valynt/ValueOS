@@ -93,7 +93,7 @@ Both development environments include:
 └── monitoring/                # Monitoring configurations
 
 scripts/dev/
-├── post-create.sh             # Idempotent dependency installation
+├── setup.sh                  # Idempotent dependency installation
 └── migrate.sh                 # Database migration script
 
 docs/legacy/                   # Archived deprecated configurations
@@ -105,9 +105,9 @@ docs/legacy/                   # Archived deprecated configurations
 
 The devcontainer uses a simplified lifecycle:
 
-| Script                       | When                     | Purpose                              | Failure Behavior         |
-| ---------------------------- | ------------------------ | ------------------------------------ | ------------------------ |
-| `scripts/dev/post-create.sh` | After container creation | Install dependencies, run migrations | Fails on critical errors |
+| Script                 | When                     | Purpose                              | Failure Behavior         |
+| ---------------------- | ------------------------ | ------------------------------------ | ------------------------ |
+| `scripts/dev/setup.sh` | After container creation | Install dependencies, run migrations | Fails on critical errors |
 
 ### Script Design Principles
 

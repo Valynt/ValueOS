@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FinancialModelingAnalyzer } from "../index";
+import { FinancialModelingAnalyzer } from "../index.js";
 
 // Mock the logger
-vi.mock("@valueos/agents/base", () => ({
+vi.mock("@valueos/agent-base", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
@@ -49,7 +49,7 @@ describe("FinancialModelingAnalyzer", () => {
       const query = "ROI return on investment";
       const result = await analyzer.analyzeFinancialModels(query);
 
-      const roiModel = result.financial_models.find((model) =>
+      const roiModel = result.financial_models.find((model: any) =>
         model.title.includes("ROI Projection")
       );
       expect(roiModel).toBeDefined();
@@ -63,7 +63,7 @@ describe("FinancialModelingAnalyzer", () => {
       const query = "business valuation";
       const result = await analyzer.analyzeFinancialModels(query);
 
-      const valuationModel = result.financial_models.find((model) =>
+      const valuationModel = result.financial_models.find((model: any) =>
         model.title.includes("Business Valuation")
       );
       expect(valuationModel).toBeDefined();
@@ -76,7 +76,7 @@ describe("FinancialModelingAnalyzer", () => {
       const query = "budget forecast";
       const result = await analyzer.analyzeFinancialModels(query);
 
-      const forecastModel = result.financial_models.find((model) =>
+      const forecastModel = result.financial_models.find((model: any) =>
         model.title.includes("Financial Forecast")
       );
       expect(forecastModel).toBeDefined();

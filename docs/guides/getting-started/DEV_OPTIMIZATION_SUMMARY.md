@@ -1,7 +1,7 @@
 # Development Environment Optimization Summary
 
-**Date:** 2025-12-06  
-**Status:** ✅ Complete  
+**Date:** 2025-12-06
+**Status:** ✅ Complete
 **Impact:** 70-83% faster development workflows
 
 ---
@@ -79,7 +79,7 @@
 
 - `on-create.sh` - Runs once when container is created
 - `update-content.sh` - Runs when content changes
-- `post-create.sh` - Runs after creation and updates
+- `setup.sh` - Runs after creation and updates
 - `post-start.sh` - Runs every time container starts
 
 **Benefits:**
@@ -183,7 +183,7 @@
 
 1. `.devcontainer/scripts/on-create.sh` - Container creation
 2. `.devcontainer/scripts/update-content.sh` - Content updates
-3. `.devcontainer/scripts/post-create.sh` - Post-creation setup
+3. `scripts/dev/setup.sh` - Post-creation setup
 4. `.devcontainer/scripts/post-start.sh` - Startup checks
 5. `.devcontainer/scripts/healthcheck.sh` - Health verification
 6. `scripts/dev-automation/quick-setup.sh` - Quick setup
@@ -401,6 +401,6 @@ jobs:
 
 ---
 
-**Prepared by:** Ona  
-**Date:** 2025-12-06  
+**Prepared by:** Ona
+**Date:** 2025-12-06
 **Version:** 1.0.0

@@ -17,7 +17,7 @@ export interface Logger {
   debug(message: string, context?: LogContext): void;
   info(message: string, context?: LogContext): void;
   warn(message: string, context?: LogContext): void;
-  error(message: string, error?: Error, context?: LogContext): void;
+  error(message: string, error?: Error | unknown, context?: LogContext): void;
   trackError(
     error: Error,
     context?: LogContext,
@@ -54,8 +54,9 @@ class ConsoleLogger implements Logger {
     console.warn(this.formatMessage("WARN", message, context));
   }
 
-  error(message: string, error?: Error, context?: LogContext): void {
-    console.error(this.formatMessage("ERROR", message, context, error));
+  error(message: string, error?: Error | unknown, context?: LogContext): void {
+    const errorObj = error instanceof Error ? error : error ? new Error(String(error)) : undefined;
+    console.error(this.formatMessage("ERROR", message, context, errorObj));
   }
 
   trackError(

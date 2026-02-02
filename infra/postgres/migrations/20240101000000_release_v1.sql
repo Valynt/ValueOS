@@ -13999,12 +13999,28 @@ ALTER TABLE llm_gating_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE llm_usage ENABLE ROW LEVEL SECURITY;
 
 -- Policies for llm_gating_policies
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'llm_gating_policies' LOOP
+        EXECUTE 'DROP POLICY "' || pol.policyname || '" ON llm_gating_policies';
+    END LOOP;
+END $$;
 DROP POLICY IF EXISTS llm_gating_policies_tenant_isolation ON llm_gating_policies;
 CREATE POLICY llm_gating_policies_tenant_isolation ON llm_gating_policies
   FOR ALL
   USING (tenant_id::text = current_setting('app.current_tenant_id', true));
 
 -- Policies for llm_usage
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'llm_usage' LOOP
+        EXECUTE 'DROP POLICY "' || pol.policyname || '" ON llm_usage';
+    END LOOP;
+END $$;
 DROP POLICY IF EXISTS llm_usage_tenant_isolation ON llm_usage;
 CREATE POLICY llm_usage_tenant_isolation ON llm_usage
   FOR ALL
@@ -14841,6 +14857,12 @@ ALTER TABLE feature_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE feature_errors ENABLE ROW LEVEL SECURITY;
 
 -- Policies for feature_rollouts
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'feature_rollouts' AND policyname = 'Admins can manage feature rollouts') THEN
+        DROP POLICY "Admins can manage feature rollouts" ON feature_rollouts;
+    END IF;
+END $$;
 CREATE POLICY "Admins can manage feature rollouts"
 ON feature_rollouts
 FOR ALL
@@ -14854,6 +14876,12 @@ USING (
   )
 );
 
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'feature_rollouts' AND policyname = 'All users can view active rollouts') THEN
+        DROP POLICY "All users can view active rollouts" ON feature_rollouts;
+    END IF;
+END $$;
 CREATE POLICY "All users can view active rollouts"
 ON feature_rollouts
 FOR SELECT
@@ -14861,6 +14889,14 @@ TO authenticated
 USING (active = true);
 
 -- Policies for feature_usage
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'feature_usage' LOOP
+        EXECUTE 'DROP POLICY "' || pol.policyname || '" ON feature_usage';
+    END LOOP;
+END $$;
 CREATE POLICY "Users can insert their own usage"
 ON feature_usage
 FOR INSERT
@@ -14881,6 +14917,14 @@ USING (
 );
 
 -- Policies for feature_errors
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'feature_errors' LOOP
+        EXECUTE 'DROP POLICY "' || pol.policyname || '" ON feature_errors';
+    END LOOP;
+END $$;
 CREATE POLICY "Users can insert their own errors"
 ON feature_errors
 FOR INSERT
@@ -15490,6 +15534,14 @@ ALTER TABLE usage_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE usage_quotas ENABLE ROW LEVEL SECURITY;
 
 -- Policies for usage_events
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'usage_events' LOOP
+        EXECUTE 'DROP POLICY "' || pol.policyname || '" ON usage_events';
+    END LOOP;
+END $$;
 CREATE POLICY usage_events_tenant_read ON usage_events
   FOR SELECT
   USING (
@@ -15506,6 +15558,14 @@ CREATE POLICY usage_events_service_role ON usage_events
   USING (true);
 
 -- Policies for usage_quotas
+DO $$
+DECLARE
+    pol record;
+BEGIN
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'usage_quotas' LOOP
+        EXECUTE 'DROP POLICY "' || pol.policyname || '" ON usage_quotas';
+    END LOOP;
+END $$;
 CREATE POLICY usage_quotas_tenant_read ON usage_quotas
   FOR SELECT
   USING (

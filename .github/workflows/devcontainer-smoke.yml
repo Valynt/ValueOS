@@ -59,7 +59,7 @@ jobs:
             ".devcontainer/.env.dev"
             ".devcontainer/Dockerfile.optimized"
             "config/kong.yml"
-            "scripts/dev/post-create.sh"
+            "scripts/dev/setup.sh"
             "scripts/dev/migrate.sh"
             "scripts/dev/start-dev-env.sh"
             "scripts/dev/diagnostics.sh"

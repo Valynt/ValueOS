@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: valueos-postgres
+    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -30,6 +31,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: valueos-redis
+    restart: unless-stopped
     deploy:
       resources:
         limits:
@@ -175,7 +177,7 @@ services:
 
   backend:
     build:
-      context: ../..                # repo root
+      context: ../.. # repo root
       dockerfile: infra/docker/Dockerfile.backend
       args:
         NODE_VERSION: "20.19.0"
@@ -231,7 +233,7 @@ services:
 
   frontend:
     build:
-      context: ../..                # repo root
+      context: ../.. # repo root
       dockerfile: infra/docker/Dockerfile.frontend
       args:
         NODE_VERSION: "20.19.0"

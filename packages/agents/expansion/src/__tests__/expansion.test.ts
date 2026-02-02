@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ExpansionAnalyzer } from "../index";
+import { ExpansionAnalyzer } from "../index.js";
 
-// Mock the logger and metrics from @valueos/agents/base
-vi.mock("@valueos/agents/base", () => ({
+// Mock the logger and metrics from @valueos/agent-base
+vi.mock("@valueos/agent-base", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
@@ -45,7 +45,7 @@ describe("ExpansionAnalyzer", () => {
       const query = "geographic market";
       const result = await analyzer.analyzeExpansions(query);
 
-      const geoExpansion = result.expansions.find((e) => e.category === "Market Expansion");
+      const geoExpansion = result.expansions.find((e: any) => e.category === "Market Expansion");
       expect(geoExpansion).toBeDefined();
       expect(geoExpansion?.title).toContain("Geographic Market");
       expect(geoExpansion?.confidence).toBe(0.85);
@@ -55,7 +55,7 @@ describe("ExpansionAnalyzer", () => {
       const query = "product diversification";
       const result = await analyzer.analyzeExpansions(query);
 
-      const productExpansion = result.expansions.find((e) => e.category === "Product Expansion");
+      const productExpansion = result.expansions.find((e: any) => e.category === "Product Expansion");
       expect(productExpansion).toBeDefined();
       expect(productExpansion?.title).toContain("Product Line Diversification");
       expect(productExpansion?.confidence).toBe(0.78);
@@ -65,7 +65,7 @@ describe("ExpansionAnalyzer", () => {
       const query = "new customer segment";
       const result = await analyzer.analyzeExpansions(query);
 
-      const custExpansion = result.expansions.find((e) => e.category === "Customer Expansion");
+      const custExpansion = result.expansions.find((e: any) => e.category === "Customer Expansion");
       expect(custExpansion).toBeDefined();
       expect(custExpansion?.title).toContain("Customer Segment");
       expect(custExpansion?.confidence).toBe(0.82);
@@ -75,7 +75,7 @@ describe("ExpansionAnalyzer", () => {
       const query = "distribution channel";
       const result = await analyzer.analyzeExpansions(query);
 
-      const channelExpansion = result.expansions.find((e) => e.category === "Channel Expansion");
+      const channelExpansion = result.expansions.find((e: any) => e.category === "Channel Expansion");
       expect(channelExpansion).toBeDefined();
       expect(channelExpansion?.title).toContain("Distribution Channel");
       expect(channelExpansion?.confidence).toBe(0.75);

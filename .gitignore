@@ -180,3 +180,6 @@ supabase/.temp
 
 # SonarScanner
 .scannerwork/
+
+# Turborepo cache
+.turbo/
