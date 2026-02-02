@@ -5,8 +5,8 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 describe('Analytics Component', () => {
   beforeEach(() => {
     // Clear DOM before each test
-    document.head.innerHTML = '';
-    document.body.innerHTML = '';
+    document.head.replaceChildren();
+    document.body.replaceChildren();
 
     // Mock VITE_GTM_CONTAINER_ID
     vi.stubEnv('VITE_GTM_CONTAINER_ID', 'GTM-TEST1234');

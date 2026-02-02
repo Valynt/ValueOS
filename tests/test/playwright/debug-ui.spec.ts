@@ -43,9 +43,9 @@ test.describe('UI Debug Tests', () => {
     }
     
     // Get the root element content
-    const rootContent = await page.locator('#root').innerHTML();
+    const rootContent = await page.locator('#root').textContent();
     console.log('\n=== ROOT CONTENT ===');
-    console.log(rootContent.substring(0, 1000));
+    console.log(rootContent?.substring(0, 1000) ?? '');
     
     // Check page is visible - use a longer timeout
     await expect(page.locator('body')).toBeVisible({ timeout: 10000 });

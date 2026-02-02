@@ -83,7 +83,7 @@ test.describe("UI Smoke Test", () => {
     await expect(root).toBeVisible({ timeout: 10000 });
 
     // Check that React rendered something (not just empty div)
-    const rootContent = await root.innerHTML();
+    const rootContent = (await root.textContent()) ?? "";
     expect(rootContent.length).toBeGreaterThan(100);
 
     // Check for bootstrap status element (proves React rendered)

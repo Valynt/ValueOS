@@ -645,7 +645,7 @@ describe('AuditTrailDashboard - Security Tests', () => {
 
     // Check that script is not rendered as HTML
     const metadataSection = screen.getByText('Metadata').parentElement!;
-    expect(metadataSection.innerHTML).not.toContain('<script>');
+    expect(metadataSection.querySelector('script')).toBeNull();
     expect(metadataSection.textContent).toContain('malicious');
   });
 

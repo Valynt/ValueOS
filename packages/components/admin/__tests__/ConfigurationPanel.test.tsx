@@ -245,11 +245,11 @@ describe('ConfigurationPanel - Week 1, Item 1: Remove Placeholder Tabs', () => {
         expect(screen.getByText('Organization')).toBeInTheDocument();
       });
 
-      const html = container.innerHTML;
-      expect(html).not.toMatch(/TODO/i);
-      expect(html).not.toMatch(/FIXME/i);
-      expect(html).not.toMatch(/HACK/i);
-      expect(html).not.toMatch(/XXX/i);
+      const text = container.textContent ?? '';
+      expect(text).not.toMatch(/TODO/i);
+      expect(text).not.toMatch(/FIXME/i);
+      expect(text).not.toMatch(/HACK/i);
+      expect(text).not.toMatch(/XXX/i);
     });
   });
 

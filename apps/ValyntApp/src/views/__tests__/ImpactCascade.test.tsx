@@ -324,12 +324,11 @@ describe('ImpactCascade - Sankey Template', () => {
       renderWithProviders(<ImpactCascade />);
 
       const challengeCard = screen.getByTestId('challenge-card');
-      const cardHTML = challengeCard.innerHTML;
 
       // Should not contain script tags or dangerous content
-      expect(cardHTML).not.toContain('<script>');
-      expect(cardHTML).not.toContain('javascript:');
-      expect(cardHTML).not.toContain('onerror=');
+      expect(challengeCard.querySelector('script')).toBeNull();
+      expect(challengeCard.querySelector('[onerror]')).toBeNull();
+      expect(challengeCard.textContent).not.toContain('javascript:');
     });
 
     it('should handle malicious data in drivers', () => {

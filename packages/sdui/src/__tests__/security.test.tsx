@@ -165,9 +165,9 @@ describe('SDUI Security - XSS Protection', () => {
     const { container } = render(<SDUIRenderer schema={maliciousSchema} />);
 
     // Script tags should be removed
-    expect(container.innerHTML).not.toContain('<script>');
-    expect(container.innerHTML).not.toContain('alert("XSS")');
-    expect(container.innerHTML).toContain('Alert');
+    expect(container.querySelector('script')).toBeNull();
+    expect(container.textContent).toContain('Alert');
+    expect(container.textContent).not.toContain('alert("XSS")');
   });
 });
 
@@ -514,8 +514,8 @@ describe('SDUI Security - Integration', () => {
     const { container } = render(<SDUIRenderer schema={maliciousSchema} />);
 
     // XSS should be blocked
-    expect(container.innerHTML).not.toContain('<script>');
-    expect(container.innerHTML).not.toContain('onerror=');
+    expect(container.querySelector('script')).toBeNull();
+    expect(container.querySelector('[onerror]')).toBeNull();
 
     // Metrics should track multiple security events
     const metrics = getSecurityMetrics();

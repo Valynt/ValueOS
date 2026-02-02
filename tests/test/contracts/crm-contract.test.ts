@@ -4,7 +4,7 @@ const shouldRun = process.env.RUN_CONTRACT_TESTS === 'true';
 
 const loadModule = async (name: string) => {
   try {
-    return await eval(`import("${name}")`);
+    return await import(name);
   } catch {
     return null;
   }
