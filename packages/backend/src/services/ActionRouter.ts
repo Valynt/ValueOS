@@ -37,6 +37,14 @@ import {
   downloadBlob,
   generateFilename,
 } from "../utils/export";
+import {
+  validateCanonicalAction,
+  validateActionContext,
+  ActionValidationError,
+  CanonicalActionSchema,
+  ActionContextSchema,
+} from "../schemas/actions.schema.js";
+import { randomUUID } from "crypto";
 
 /**
  * Action Router
@@ -85,30 +93,29 @@ export class ActionRouter {
    */
   async routeAction(action: CanonicalAction, context: ActionContext): Promise<ActionResult> {
     const startTime = Date.now();
+    const traceId = randomUUID(); // Generate unique trace ID for this request
+
+    // Inject trace ID into context
+    const enhancedContext: ActionContext = {
+      ...context,
+      traceId,
+      timestamp: context.timestamp || new Date().toISOString(),
+    };
 
     logger.info("Routing action", {
       actionType: action.type,
       workspaceId: context.workspaceId,
       userId: context.userId,
+      traceId,
     });
 
     try {
-      // Validate action structure
-      const validation = this.validateAction(action);
-      if (!validation.valid) {
-        logger.warn("Action validation failed", {
-          actionType: action.type,
-          errors: validation.errors,
-        });
-
-        return {
-          success: false,
-          error: `Validation failed: ${validation.errors.join(", ")}`,
-        };
-      }
+      // Schema-first validation using Zod
+      const validatedAction = validateCanonicalAction(action);
+      const validatedContext = validateActionContext(enhancedContext);
 
       // CRITICAL: Check Governance Rules (GR/LR) first - Policy-as-Code enforcement
-      const governanceCheck = await this.checkGovernanceRules(action, context);
+      const governanceCheck = await this.checkGovernanceRules(validatedAction, validatedContext);
       if (!governanceCheck.allowed) {
         logger.error("Governance rules violated - BLOCKING ACTION", {
           actionType: action.type,
@@ -126,11 +133,12 @@ export class ActionRouter {
       }
 
       // Check Manifesto rules (business value principles)
-      const manifestoCheck = await this.checkManifestoRules(action, context);
+      const manifestoCheck = await this.checkManifestoRules(validatedAction, validatedContext);
       if (!manifestoCheck.allowed) {
         logger.warn("Manifesto rules violated", {
-          actionType: action.type,
+          actionType: validatedAction.type,
           violations: manifestoCheck.violations,
+          traceId,
         });
 
         return {
@@ -139,46 +147,65 @@ export class ActionRouter {
           metadata: {
             violations: manifestoCheck.violations,
             warnings: manifestoCheck.warnings,
+            traceId,
           },
         };
       }
 
       // Get handler for action type
-      const handler = this.handlers.get(action.type);
+      const handler = this.handlers.get(validatedAction.type);
       if (!handler) {
         logger.error("No handler registered for action type", {
-          actionType: action.type,
+          actionType: validatedAction.type,
+          traceId,
         });
 
         return {
           success: false,
-          error: `No handler registered for action type: ${action.type}`,
+          error: `No handler registered for action type: ${validatedAction.type}`,
         };
       }
 
       // Execute handler
-      const result = await handler(action, context);
+      const result = await handler(validatedAction, validatedContext);
 
       // Log action to audit trail
-      await this.logAction(action, context, result, Date.now() - startTime);
+      await this.logAction(validatedAction, validatedContext, result, Date.now() - startTime);
 
       logger.info("Action routed successfully", {
-        actionType: action.type,
+        actionType: validatedAction.type,
         success: result.success,
         duration: Date.now() - startTime,
+        traceId,
       });
 
       return result;
     } catch (error) {
+      // Handle validation errors specifically
+      if (error instanceof ActionValidationError) {
+        logger.error("Action validation failed", {
+          actionType: error.actionType,
+          issues: error.issues,
+          traceId,
+        });
+
+        return {
+          success: false,
+          error: `Validation failed: ${error.message}`,
+          metadata: { traceId },
+        };
+      }
+
       logger.error("Action routing failed", {
-        actionType: action.type,
+        actionType: validatedAction?.type || "unknown",
         error: error instanceof Error ? error.message : String(error),
+        traceId,
       });
 
       // Log error to audit trail
       await this.logAction(
-        action,
-        context,
+        validatedAction || action,
+        validatedContext || context,
         {
           success: false,
           error: error instanceof Error ? error.message : String(error),
@@ -195,70 +222,18 @@ export class ActionRouter {
 
   /**
    * Validate action before routing
+   * @deprecated Use validateCanonicalAction from schemas/actions.schema.ts for schema-first validation
    */
   validateAction(action: CanonicalAction): ValidationResult {
-    const errors: string[] = [];
-
-    // Validate action type
-    if (!action.type) {
-      errors.push("Action type is required");
+    try {
+      validateCanonicalAction(action);
+      return { valid: true, errors: [] };
+    } catch (error) {
+      if (error instanceof ActionValidationError) {
+        return { valid: false, errors: [error.message] };
+      }
+      return { valid: false, errors: [String(error)] };
     }
-
-    // Validate action-specific fields
-    switch (action.type) {
-      case "invokeAgent":
-        if (!action.agentId) errors.push("agentId is required");
-        if (!action.input) errors.push("input is required");
-        // execution can come from action or context
-        break;
-
-      case "runWorkflowStep":
-        if (!action.workflowId) errors.push("workflowId is required");
-        if (!action.stepId) errors.push("stepId is required");
-        break;
-
-      case "updateValueTree":
-        if (!action.treeId) errors.push("treeId is required");
-        if (!action.updates) errors.push("updates is required");
-        break;
-
-      case "updateAssumption":
-        if (!action.assumptionId) errors.push("assumptionId is required");
-        if (!action.updates) errors.push("updates is required");
-        break;
-
-      case "exportArtifact":
-        if (!action.artifactType) errors.push("artifactType is required");
-        if (!action.format) errors.push("format is required");
-        break;
-
-      case "openAuditTrail":
-        if (!action.entityId) errors.push("entityId is required");
-        if (!action.entityType) errors.push("entityType is required");
-        break;
-
-      case "showExplanation":
-        if (!action.componentId) errors.push("componentId is required");
-        if (!action.topic) errors.push("topic is required");
-        break;
-
-      case "navigateToStage":
-        if (!action.stage) errors.push("stage is required");
-        break;
-
-      case "saveWorkspace":
-        if (!action.workspaceId) errors.push("workspaceId is required");
-        break;
-
-      case "mutateComponent":
-        if (!action.action) errors.push("action is required");
-        break;
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
   }
 
   /**
@@ -1041,16 +1016,19 @@ Please provide a clear, concise explanation suitable for a user.`,
         workspace_id: context.workspaceId,
         user_id: context.userId,
         session_id: context.sessionId,
+        organization_id: context.organizationId,
         action_data: action,
         result_data: result,
         success: result.success,
         error_message: result.error,
         duration_ms: duration,
         timestamp: new Date().toISOString(),
+        trace_id: context.traceId,
       });
     } catch (error) {
       logger.error("Failed to log action to audit trail", {
         actionType: action.type,
+        traceId: context.traceId,
         error: error instanceof Error ? error.message : String(error),
       });
     }

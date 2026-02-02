@@ -12,10 +12,10 @@
  */
 
 // Browser-compatible hash function (replaces Node.js crypto)
-import { logger } from "../lib/logger.js"
-import { sanitizeForLogging } from "../lib/piiFilter.js"
-import { BaseService } from "./BaseService.js"
-import { createServerSupabaseClient } from "../lib/supabase.js"
+import { logger } from "../lib/logger.js";
+import { sanitizeForLogging } from "../lib/piiFilter.js";
+import { BaseService } from "./BaseService.js";
+import { createServerSupabaseClient } from "../lib/supabase.js";
 import { AuditLogEntry } from "../types";
 
 export interface AuditLogCreateInput {
@@ -105,6 +105,46 @@ export class AuditLogService extends BaseService {
    */
   async logAudit(input: AuditLogCreateInput): Promise<AuditLogEntry> {
     return this.createEntry(input);
+  }
+
+  /**
+   * Log action routing events for ActionRouter
+   */
+  async logAction(input: {
+    action_type: string;
+    workspace_id?: string;
+    user_id: string;
+    session_id?: string;
+    organization_id?: string;
+    action_data: any;
+    result_data: any;
+    success: boolean;
+    error_message?: string;
+    duration_ms: number;
+    timestamp: string;
+    trace_id?: string;
+  }): Promise<AuditLogEntry> {
+    return this.logAudit({
+      userId: input.user_id,
+      userName: "Unknown", // TODO: Get from user context
+      userEmail: "unknown@valueos.com", // TODO: Get from user context
+      action: `action_router:${input.action_type}`,
+      resourceType: "action",
+      resourceId: input.trace_id || "unknown",
+      details: {
+        workspace_id: input.workspace_id,
+        session_id: input.session_id,
+        organization_id: input.organization_id,
+        action_data: input.action_data,
+        result_data: input.result_data,
+        success: input.success,
+        error_message: input.error_message,
+        duration_ms: input.duration_ms,
+        timestamp: input.timestamp,
+        trace_id: input.trace_id,
+      },
+      status: input.success ? "success" : "failed",
+    });
   }
 
   /**

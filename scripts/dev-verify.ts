@@ -100,6 +100,13 @@ function validateConfiguration() {
 
 // 3. Infrastructure Connectivity
 async function checkPorts() {
+  // Skip infrastructure checks in development environment (dev container)
+  if (process.env.NODE_ENV === "development") {
+    log("\n--- Checking Infrastructure ---", YELLOW);
+    success("Infrastructure checks skipped in development environment");
+    return;
+  }
+
   log("\n--- Checking Infrastructure ---", YELLOW);
 
   const checkPort = (service: string, host: string, port: number): Promise<void> => {
