@@ -145,8 +145,7 @@ export async function checkHttpEndpoint(
         const client = url.startsWith("https:") ? https : http;
         const req = client.get(url, { timeout }, (res) => {
           const responseTime = Date.now() - startTime;
-          const isHealthy =
-            res.statusCode && res.statusCode >= 200 && res.statusCode < 300;
+          const isHealthy = res.statusCode && res.statusCode >= 200 && res.statusCode < 300;
 
           res.on("data", () => {}); // Consume response
           res.on("end", () => {
@@ -160,7 +159,7 @@ export async function checkHttpEndpoint(
           });
         });
 
-        req.on("error", (err) => {
+        req.on("error", (err: NodeJS.ErrnoException) => {
           resolve({
             healthy: false,
             message: err.code || err.message || "Connection error",
@@ -187,10 +186,7 @@ export async function checkHttpEndpoint(
 /**
  * Check if a Docker service is running with circuit breaker
  */
-export function checkDockerService(
-  serviceName: string,
-  projectRoot: string
-): HealthCheckResult {
+export function checkDockerService(serviceName: string, projectRoot: string): HealthCheckResult {
   const circuitBreaker = getCircuitBreaker(`docker:${serviceName}`);
 
   try {
@@ -244,14 +240,11 @@ export function checkDockerService(
 /**
  * Check if a port is in use
  */
-export async function isPortInUse(
-  port: number,
-  host: string = "127.0.0.1"
-): Promise<boolean> {
+export async function isPortInUse(port: number, host: string = "127.0.0.1"): Promise<boolean> {
   return new Promise((resolve) => {
     const tester = net
       .createServer()
-      .once("error", (error) => {
+      .once("error", (error: NodeJS.ErrnoException) => {
         resolve(error.code === "EADDRINUSE");
       })
       .once("listening", () => {

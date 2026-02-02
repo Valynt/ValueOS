@@ -96,3 +96,78 @@ export {
   skeletonVariants,
 } from "./skeleton";
 export type { SkeletonProps } from "./skeleton";
+
+// Tabs
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
+
+// Checkbox
+export { Checkbox } from "./checkbox";
+
+// Tooltip
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./tooltip";
+
+// Textarea (standalone)
+export { Textarea } from "./textarea";
+export type { TextareaProps } from "./textarea";
+
+// Sheet
+export {
+  Sheet,
+  SheetPortal,
+  SheetOverlay,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from "./sheet";
+
+// Dropdown Menu
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+} from "./dropdown-menu";
+
+// Table
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+} from "./table";
+
+// Switch
+export { Switch } from "./switch";
+
+// Slider
+export { Slider } from "./slider";
+
+// Help Tooltip
+export { HelpTooltip } from "./help-tooltip";
+
+// Validated Input
+export { ValidatedInput } from "./validated-input";
+export type { ValidatedInputProps } from "./validated-input";
+
+// Toast
+export { useToast, toast } from "./use-toast";
+export type { ToastOptions } from "./use-toast";

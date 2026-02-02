@@ -306,43 +306,58 @@ async function checkKongGateway(): Promise<void> {
 // Tier 1: Application Checks
 async function checkMigrations(): Promise<void> {
   const start = Date.now();
-
-  // Check if any migrations are pending
   const { success, output } = runCommand(
     `PGPASSWORD=${CONFIG.db.password} psql -h ${CONFIG.db.host} -p ${CONFIG.db.port} ` +
-      `-U ${CONFIG.db.user} -d ${CONFIG.db.database} ` +
-      `-c "SELECT COUNT(*) FROM supabase_migrations.schema_migrations;" -t -A 2>/dev/null || echo "0"`
+      `-U ${CONFIG.db.user} -d ${CONFIG.db.database} -t -A -c "` +
+      "SELECT 'supabase', COUNT(*) FROM supabase_migrations.schema_migrations " +
+      "UNION ALL SELECT 'public', COUNT(*) FROM public.schema_migrations;\""
   );
 
-  if (success) {
-    const count = parseInt(output.trim(), 10);
-    if (count > 0) {
-      log({
-        name: "Database Migrations",
-        tier: 1,
-        passed: true,
-        message: `${count} migrations applied`,
-        duration: Date.now() - start,
-      });
-    } else {
-      log({
-        name: "Database Migrations",
-        tier: 1,
-        passed: false,
-        message: "No migrations found - run db:push",
-        duration: Date.now() - start,
-      });
-    }
-  } else {
-    // Table might not exist yet
+  if (!success) {
     log({
       name: "Database Migrations",
       tier: 1,
       passed: false,
-      message: "Migration tracking table not found",
+      message: "Could not read migration tables",
       duration: Date.now() - start,
     });
+    return;
   }
+
+  const counts = output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .reduce<Record<string, number>>((acc, line) => {
+      const [name, value] = line.split("|").map((part) => part.trim());
+      if (name && value) {
+        acc[name] = parseInt(value, 10);
+      }
+      return acc;
+    }, {});
+
+  const supabaseCount = counts.supabase ?? 0;
+  const publicCount = counts.public ?? 0;
+  const appliedCount = Math.max(supabaseCount, publicCount);
+
+  if (appliedCount > 0) {
+    log({
+      name: "Database Migrations",
+      tier: 1,
+      passed: true,
+      message: `${appliedCount} migrations recorded (supabase=${supabaseCount}, public=${publicCount})`,
+      duration: Date.now() - start,
+    });
+    return;
+  }
+
+  log({
+    name: "Database Migrations",
+    tier: 1,
+    passed: false,
+    message: "No migrations found - run db:push",
+    duration: Date.now() - start,
+  });
 }
 
 async function checkFrontendReadiness(): Promise<void> {

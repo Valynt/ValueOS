@@ -13,18 +13,20 @@ export const REQUIRED_ENV_VARS = [
   "DATABASE_URL",
 ] as const;
 
-export function validateRequiredEnv() {
+export function validateRequiredEnv(): void {
   // Skip validation in browser (validation is server-side)
   if (_isBrowser) return;
 
-  // Server-side validation
-  import("../../../backend/src/config/validateEnv")
-    .then(({ validateEnvOrThrow }) => {
-      validateEnvOrThrow();
-    })
-    .catch(() => {
-      // Validation module failed to load, skip
-    });
+  // Server-side validation (self-contained, no cross-package imports)
+  const missing: string[] = [];
+  for (const key of REQUIRED_ENV_VARS) {
+    if (typeof process !== "undefined" && process.env && !process.env[key]) {
+      missing.push(key);
+    }
+  }
+  if (missing.length > 0) {
+    console.warn(`[env] Missing environment variables: ${missing.join(", ")}`);
+  }
 }
 
 export function validateEnv() {
