@@ -13,6 +13,10 @@ import { NextFunction } from 'express';
 import { RateLimitKeyService } from '../services/RateLimitKeyService';
 import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
 import { logger } from '@shared/lib/logger';
+import { SupabaseClient, createClient } from '@supabase/supabase-js';
+
+// Singleton Supabase client for rate limit logging
+let supabaseClient: SupabaseClient | null = null;
 
 // Extended Request interface for rate limiting
 interface RateLimitRequest extends Request {
@@ -108,7 +112,7 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     const message = 'Missing SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_URL for LLM rate limit logging';
     if (process.env.NODE_ENV === 'production') {
-      logger.error(message, {
+      logger.error(message, undefined, {
         hasSupabaseUrl: Boolean(supabaseUrl),
         hasServiceRoleKey: Boolean(supabaseServiceRoleKey),
       });
@@ -121,22 +125,33 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
     logger.warn(message);
   } else {
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+      // Initialize Supabase client if needed
+      if (!supabaseClient) {
+        try {
+          supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+        } catch (initError) {
+          logger.error(
+            'Failed to initialize Supabase client for rate limiting:',
+            initError instanceof Error ? initError : new Error(String(initError))
+          );
+          // Don't throw here, just log the error and skip insertion
+        }
+      }
 
-      await supabase.from('rate_limit_violations').insert({
-        user_id: req.user?.id || null,
-        ip_address: req.ip,
-        endpoint: req.path,
-        tier,
-        limit: limit.max,
-        window_ms: limit.windowMs,
-        violated_at: new Date().toISOString()
-      });
+      if (supabaseClient) {
+        await supabaseClient.from('rate_limit_violations').insert({
+          user_id: req.user?.id || null,
+          ip_address: req.ip,
+          endpoint: req.path,
+          tier,
+          limit: limit.max,
+          window_ms: limit.windowMs,
+          violated_at: new Date().toISOString()
+        });
+      }
     } catch (error) {
-      logger.error('Failed to log rate limit violation:', error);
       logger.error(
-        'Failed to log rate limit violation to database',
+        'Failed to log rate limit violation:',
         error instanceof Error ? error : new Error(String(error))
       );
     }
