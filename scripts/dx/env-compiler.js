@@ -68,7 +68,8 @@ function getUrlConfig(mode, ports) {
       // Backend internal URLs (Docker network)
       API_UPSTREAM: `http://backend:${backendPort}`,
       FRONTEND_UPSTREAM: "http://frontend:80",
-      DATABASE_URL: `postgresql://postgres:postgres@postgres:5432/postgres`,
+      // CRITICAL: sslmode=disable required - container postgres has no TLS
+      DATABASE_URL: appendSslModeDisable(`postgresql://postgres:postgres@postgres:5432/postgres`),
       REDIS_URL: "redis://redis:6379",
     };
   }

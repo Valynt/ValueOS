@@ -162,7 +162,8 @@ services:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres
+      # CRITICAL: sslmode=disable required - container postgres has no TLS
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres?sslmode=disable
       GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:5173}
       GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:5173,http://localhost:3001}
       GOTRUE_DISABLE_SIGNUP: "false"
@@ -192,7 +193,8 @@ services:
     container_name: valueos-rest
     restart: unless-stopped
     environment:
-      PGRST_DB_URI: postgresql://authenticator:postgres@db:5432/postgres
+      # CRITICAL: sslmode=disable required - container postgres has no TLS
+      PGRST_DB_URI: postgresql://authenticator:postgres@db:5432/postgres?sslmode=disable
       PGRST_DB_SCHEMAS: public,storage,graphql_public
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
@@ -286,7 +288,8 @@ services:
       SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.YI5mC4lgC5wJMvBRu-GZxXgRmXxMGk9wB7nHI55HXD8}
       POSTGREST_URL: http://rest:3000
       PGRST_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
-      DATABASE_URL: postgresql://supabase_storage_admin:postgres@db:5432/postgres
+      # CRITICAL: sslmode=disable required - container postgres has no TLS
+      DATABASE_URL: postgresql://supabase_storage_admin:postgres@db:5432/postgres?sslmode=disable
       FILE_SIZE_LIMIT: 52428800
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage

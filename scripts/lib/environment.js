@@ -57,7 +57,7 @@ function readEnvTemplate() {
 NODE_ENV=development
 
 # Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
+DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres?sslmode=disable
 VITE_SUPABASE_URL=http://localhost:54321
 VITE_SUPABASE_ANON_KEY=
 
@@ -134,7 +134,7 @@ export async function generateEnvironment(options = {}) {
     NODE_ENV: environment,
     
     // Database
-    DATABASE_URL: `postgresql://postgres:${secrets.DATABASE_PASSWORD}@localhost:54322/postgres`,
+    DATABASE_URL: `postgresql://postgres:${secrets.DATABASE_PASSWORD}@localhost:54322/postgres?sslmode=disable`,
     VITE_SUPABASE_URL: 'http://localhost:54321',
     
     // Secrets

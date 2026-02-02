@@ -103,6 +103,76 @@ function extractPackage(filePath: string): string {
   return packageMatch ? packageMatch[1] : "root";
 }
 
+async function loadStrictZones(): Promise<string[]> {
+  try {
+    const configPath = path.join(projectRoot, "packages/config-v2/strict-zones.config.js");
+    if (!fs.existsSync(configPath)) return [];
+
+    // Dynamic import for ESM config
+    const config = await import(configPath);
+    return config.default?.zones || [];
+  } catch (e) {
+    console.warn("⚠️ Failed to load strict zones config:", e);
+    return [];
+  }
+}
+
+async function enforceRatchet(report: TelemetryReport): Promise<boolean> {
+  let failed = false;
+  const baselinePath = path.join(projectRoot, ".github/ts-error-baseline.json");
+  const strictZones = await loadStrictZones();
+
+  console.log("\n🛡️  Type Safety Governance Check");
+  console.log("────────────────────────────────");
+
+  // 1. Strict Zone Enforcement
+  if (strictZones.length > 0) {
+    console.log(`Checking ${strictZones.length} Green Islands (Strict Zones)...`);
+    // Get all files with errors
+    const errorFiles = new Set(
+      Object.keys(report.topFiles.reduce((acc, curr) => ({ ...acc, [curr.file]: 1 }), {}))
+    );
+    // Wait, report.topFiles is top 20. We need all errors.
+    // I need access to raw errors list or iterate report properly.
+    // generateReport aggregates. I should pass 'errors' to this function or re-use report data.
+    // Actually, report has 'errorsByPackage', but that's not granular enough for sub-folder zones.
+    // I can roughly check packages if strict zones are package-level.
+    // But strict-zones says "path relative to workspace root".
+    // I'll assume for now I can't easily check file-level without the raw errors array.
+    // I'll modify generateReport or main to pass raw errors.
+  }
+
+  // Checking baseline
+  if (fs.existsSync(baselinePath)) {
+    try {
+      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8")) as TelemetryReport;
+      console.log("📉 Comparing against baseline...");
+
+      let regressionCount = 0;
+      for (const [pkg, count] of Object.entries(report.errorsByPackage)) {
+        const baselineCount = baseline.errorsByPackage[pkg] || 0;
+        if (count > baselineCount) {
+          console.error(`   ❌ Regression in ${pkg}: ${count} errors (baseline: ${baselineCount})`);
+          regressionCount++;
+        }
+      }
+
+      if (regressionCount > 0) {
+        console.error(`\n   FAILED: ${regressionCount} packages have increased error counts.`);
+        failed = true;
+      } else {
+        console.log("   ✅ No regressions detected.");
+      }
+    } catch (e) {
+      console.error("   ⚠️ Failed to parse baseline:", e);
+    }
+  } else {
+    console.log("   ℹ️  No baseline file found. Skipping regression check.");
+  }
+
+  return failed;
+}
+
 function extractMissingModule(message: string): string | null {
   const match = message.match(/Cannot find module '([^']+)'/);
   return match ? (match[1] ?? null) : null;
@@ -255,15 +325,28 @@ function printReport(report: TelemetryReport, summary = false): void {
   console.log("");
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const jsonOutput = args.includes("--json");
   const summaryOnly = args.includes("--summary");
+  const verify = args.includes("--verify");
+  const updateBaseline = args.includes("--update-baseline");
 
   console.log("🔍 Running TypeScript type check...");
   const output = runTypecheck();
   const errors = parseErrors(output);
   const report = generateReport(errors);
+
+  if (updateBaseline) {
+    const artifactPath = path.join(projectRoot, ".github/ts-error-baseline.json");
+    // Ensure .github exists
+    const githubDir = path.dirname(artifactPath);
+    if (!fs.existsSync(githubDir)) fs.mkdirSync(githubDir, { recursive: true });
+
+    fs.writeFileSync(artifactPath, JSON.stringify(report, null, 2));
+    console.log(`\n✅ Baseline updated at: ${artifactPath}`);
+    process.exit(0);
+  }
 
   if (jsonOutput) {
     // Write to file for CI artifact storage
@@ -273,6 +356,29 @@ function main(): void {
     console.log(`\n📄 Report saved to: ${artifactPath}`);
   } else {
     printReport(report, summaryOnly);
+  }
+
+  if (verify) {
+    const strictZones = await loadStrictZones();
+    // Check strict zones using raw errors
+    let strictFailed = false;
+    for (const zone of strictZones) {
+      const zoneErrors = errors.filter((e) => e.file.startsWith(zone));
+      if (zoneErrors.length > 0) {
+        console.error(`\n❌ STRICT ZONE VIOLATION: ${zone} has ${zoneErrors.length} errors.`);
+        zoneErrors
+          .slice(0, 5)
+          .forEach((e) => console.error(`   ${e.file}(${e.line}): ${e.message}`));
+        if (zoneErrors.length > 5) console.error(`   ...and ${zoneErrors.length - 5} more.`);
+        strictFailed = true;
+      }
+    }
+
+    const ratchetFailed = await enforceRatchet(report);
+    if (strictFailed || ratchetFailed) {
+      console.error("\n💥 Verification Failed. See above for details.");
+      process.exit(1);
+    }
   }
 
   // Exit with status based on error count trends (for CI)

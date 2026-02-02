@@ -18,12 +18,42 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Configuration
-DB_HOST="${DB_HOST:-db}"
-DB_PORT="${DB_PORT:-5432}"
+# Configuration - detect DB host dynamically
+# Try Docker DNS first, fall back to container IP lookup
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-postgres}"
 DB_NAME="${DB_NAME:-postgres}"
+DB_PORT="${DB_PORT:-5432}"
+
+# Resolve DB host - try multiple methods
+resolve_db_host() {
+    # Method 1: Environment variable already set
+    if [[ -n "${DB_HOST:-}" ]]; then
+        echo "$DB_HOST"
+        return
+    fi
+    # Method 2: Docker DNS (if container is on same network)
+    if getent hosts valueos-db >/dev/null 2>&1; then
+        echo "valueos-db"
+        return
+    fi
+    if getent hosts db >/dev/null 2>&1; then
+        echo "db"
+        return
+    fi
+    # Method 3: Get container IP via docker inspect
+    if command -v docker >/dev/null 2>&1; then
+        local ip=$(docker inspect valueos-db --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+        if [[ -n "$ip" ]]; then
+            echo "$ip"
+            return
+        fi
+    fi
+    # Fallback
+    echo "db"
+}
+
+DB_HOST=$(resolve_db_host)
 SUPABASE_WORKDIR="${SUPABASE_WORKDIR:-infra/supabase}"
 MIGRATIONS_DIR="${PROJECT_ROOT}/${SUPABASE_WORKDIR}/migrations"
 
@@ -167,8 +197,10 @@ apply_migrations_supabase() {
 # Main: Try Supabase CLI first, fall back to psql if it fails with TLS error
 ###############################################################################
 
-if [[ "$PSQL_ONLY" == "true" ]]; then
-    echo "   Mode: psql-only (Supabase CLI skipped)"
+# In devcontainer or when PSQL_ONLY is set, skip Supabase CLI entirely
+# Supabase CLI can hang or try interactive operations
+if [[ "$PSQL_ONLY" == "true" ]] || [[ -n "${REMOTE_CONTAINERS:-}" ]] || [[ -f "/.dockerenv" ]]; then
+    echo "   Mode: psql-only (container environment detected)"
     apply_migrations_psql
     exit $?
 fi

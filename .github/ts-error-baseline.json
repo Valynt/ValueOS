@@ -1,0 +1,247 @@
+{
+  "timestamp": "2026-02-02T03:56:14.397Z",
+  "totalErrors": 5319,
+  "filesWithErrors": 828,
+  "errorsByCode": {
+    "TS2322": 273,
+    "TS18048": 251,
+    "TS2307": 1045,
+    "TS6133": 1008,
+    "TS2538": 19,
+    "TS7006": 407,
+    "TS2532": 172,
+    "TS18046": 52,
+    "TS2375": 219,
+    "TS2344": 7,
+    "TS2341": 1,
+    "TS2353": 63,
+    "TS1117": 4,
+    "TS2379": 114,
+    "TS2741": 24,
+    "TS2352": 6,
+    "TS2339": 304,
+    "TS2345": 260,
+    "TS6192": 17,
+    "TS2412": 31,
+    "TS7031": 7,
+    "TS2554": 263,
+    "TS7030": 110,
+    "TS2305": 80,
+    "TS2454": 2,
+    "TS18047": 187,
+    "TS2769": 29,
+    "TS1205": 4,
+    "TS7016": 1,
+    "TS18004": 4,
+    "TS2740": 3,
+    "TS7053": 4,
+    "TS2323": 4,
+    "TS2484": 7,
+    "TS2304": 53,
+    "TS7034": 12,
+    "TS7005": 36,
+    "TS2430": 1,
+    "TS2300": 6,
+    "TS2614": 2,
+    "TS2686": 6,
+    "TS2724": 13,
+    "TS6196": 9,
+    "TS2749": 13,
+    "TS4114": 44,
+    "TS2503": 3,
+    "TS2416": 4,
+    "TS2415": 5,
+    "TS2451": 2,
+    "TS6198": 1,
+    "TS2459": 7,
+    "TS2561": 13,
+    "TS6138": 9,
+    "TS2783": 3,
+    "TS2654": 1,
+    "TS2693": 1,
+    "TS2551": 16,
+    "TS2571": 2,
+    "TS2464": 2,
+    "TS2308": 5,
+    "TS2556": 1,
+    "TS2564": 1,
+    "TS2367": 2,
+    "TS2440": 1,
+    "TS7022": 1,
+    "TS2448": 1,
+    "TS1016": 1,
+    "TS2418": 1,
+    "TS2446": 3,
+    "TS2420": 1,
+    "TS2372": 1,
+    "TS2419": 5,
+    "TS2698": 1,
+    "TS2531": 9,
+    "TS2559": 2,
+    "TS7008": 1,
+    "TS2820": 1,
+    "TS2365": 1,
+    "TS2702": 1,
+    "TS2613": 1,
+    "TS1360": 23,
+    "TS2362": 2,
+    "TS2366": 2,
+    "TS2694": 1,
+    "TS2558": 4
+  },
+  "errorsByPackage": {
+    "apps/VOSAcademy": 496,
+    "apps/ValyntApp": 4240,
+    "apps/mcp-dashboard": 60,
+    "packages/backend": 523
+  },
+  "topFiles": [
+    {
+      "file": "apps/ValyntApp/src/services/UnifiedAgentOrchestrator.ts",
+      "count": 50
+    },
+    {
+      "file": "apps/ValyntApp/src/structural/structural-truth.ts",
+      "count": 49
+    },
+    {
+      "file": "apps/ValyntApp/src/services/ActionRouter.ts",
+      "count": 47
+    },
+    {
+      "file": "apps/ValyntApp/src/services/ComponentMutationService.ts",
+      "count": 47
+    },
+    {
+      "file": "apps/ValyntApp/src/pages/valueos/CaseWorkspace.tsx",
+      "count": 45
+    },
+    {
+      "file": "apps/ValyntApp/src/services/ValueLifecycleOrchestrator.ts",
+      "count": 45
+    },
+    {
+      "file": "apps/ValyntApp/src/services/CredentialStuffingDetectionService.ts",
+      "count": 40
+    },
+    {
+      "file": "apps/ValyntApp/src/config/telemetry.ts",
+      "count": 39
+    },
+    {
+      "file": "packages/backend/src/config/telemetry.ts",
+      "count": 39
+    },
+    {
+      "file": "apps/ValyntApp/src/app/routes/index.tsx",
+      "count": 38
+    },
+    {
+      "file": "apps/ValyntApp/src/sdui/LazyComponentRegistry.tsx",
+      "count": 38
+    },
+    {
+      "file": "apps/ValyntApp/src/services/PromptVersionControl.ts",
+      "count": 38
+    },
+    {
+      "file": "apps/VOSAcademy/src/pages/AITutor.tsx",
+      "count": 37
+    },
+    {
+      "file": "apps/ValyntApp/src/lib/agent-fabric/agents/ExpansionAgent.ts",
+      "count": 34
+    },
+    {
+      "file": "apps/ValyntApp/src/services/agents/performance/AgentMemoryManager.ts",
+      "count": 34
+    },
+    {
+      "file": "apps/ValyntApp/src/services/agents/resilience/AgentRetryManager.ts",
+      "count": 34
+    },
+    {
+      "file": "apps/VOSAcademy/src/pages/Profile.tsx",
+      "count": 32
+    },
+    {
+      "file": "apps/ValyntApp/src/lib/agent-fabric/agents/CompanyIntelligenceAgent.ts",
+      "count": 32
+    },
+    {
+      "file": "apps/ValyntApp/src/services/MLAnomalyDetectionService.ts",
+      "count": 32
+    },
+    {
+      "file": "packages/backend/src/config/secrets/AWSSecretProvider.ts",
+      "count": 32
+    }
+  ],
+  "topMissingModules": [
+    {
+      "module": "@/components/ui/button",
+      "count": 81
+    },
+    {
+      "module": "@/components/ui/card",
+      "count": 72
+    },
+    {
+      "module": "@/lib/utils",
+      "count": 70
+    },
+    {
+      "module": "@/components/ui/badge",
+      "count": 64
+    },
+    {
+      "module": "@/components/ui/input",
+      "count": 35
+    },
+    {
+      "module": "../components/SDUI",
+      "count": 29
+    },
+    {
+      "module": "@/components/ui/label",
+      "count": 25
+    },
+    {
+      "module": "@/components/ui/progress",
+      "count": 21
+    },
+    {
+      "module": "@/components/ui/select",
+      "count": 14
+    },
+    {
+      "module": "@/lib/trpc",
+      "count": 13
+    },
+    {
+      "module": "../../components/Settings/SettingsSection",
+      "count": 13
+    },
+    {
+      "module": "@/hooks/useAuth",
+      "count": 12
+    },
+    {
+      "module": "@/components/SectionCard",
+      "count": 11
+    },
+    {
+      "module": "@/components/SidebarLayout",
+      "count": 10
+    },
+    {
+      "module": "@/components/ui/dialog",
+      "count": 10
+    }
+  ],
+  "cascadeIndicators": {
+    "likelyGeneratedTypeIssues": 2,
+    "pathAliasIssues": 692,
+    "strictModeIssues": 771
+  }
+}

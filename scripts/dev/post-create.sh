@@ -47,8 +47,29 @@ fi
 ###############################################################################
 echo "⏳ Waiting for database to be ready..."
 
-# Use the exact same connection string that migrations will use
-DB_URL="postgresql://postgres:postgres@db:5432/postgres?sslmode=disable"
+# Resolve DB host dynamically - try Docker DNS, fall back to container IP
+resolve_db_host() {
+    if getent hosts valueos-db >/dev/null 2>&1; then
+        echo "valueos-db"
+        return
+    fi
+    if getent hosts db >/dev/null 2>&1; then
+        echo "db"
+        return
+    fi
+    if command -v docker >/dev/null 2>&1; then
+        local ip=$(docker inspect valueos-db --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+        if [[ -n "$ip" ]]; then
+            echo "$ip"
+            return
+        fi
+    fi
+    echo "db"
+}
+
+DB_HOST=$(resolve_db_host)
+DB_URL="postgresql://postgres:postgres@${DB_HOST}:5432/postgres?sslmode=disable"
+echo "   Using DB: ${DB_HOST}:5432"
 MAX_ATTEMPTS=30
 ATTEMPT=0
 

@@ -138,7 +138,8 @@ services:
     build: ..
     environment:
       SUPABASE_URL: http://kong:8000
-      DATABASE_URL: postgres://postgres:postgres@db:5432/postgres
+      # CRITICAL: sslmode=disable required - container postgres has no TLS
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
       REDIS_URL: redis://redis:6379
 
   db:
@@ -147,9 +148,13 @@ services:
       POSTGRES_PASSWORD: postgres
 
   kong:
-    image: kong:2.8.1
-    volumes:
-      - ../config/kong.yml:/var/lib/kong/kong.yml
+    # NOTE: Kong declarative config is baked into the image (no host bind-mounts)
+    build:
+      context: ./kong
+      dockerfile: Dockerfile
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
 ```
 
 ### Kong Configuration

@@ -304,6 +304,43 @@ async function checkKongGateway(): Promise<void> {
 }
 
 // Tier 1: Application Checks
+async function checkDependencyIntegrity(): Promise<void> {
+  const start = Date.now();
+  const { success: nodeModulesExists } = runCommand("test -d node_modules");
+  const { success: pnpmDirExists } = runCommand("test -d node_modules/.pnpm");
+  const { success: lockExists } = runCommand("test -f pnpm-lock.yaml");
+
+  if (!nodeModulesExists || !pnpmDirExists) {
+    log({
+      name: "Dependency Integrity",
+      tier: 1,
+      passed: false,
+      message: "node_modules missing or incomplete - run pnpm install",
+      duration: Date.now() - start,
+    });
+    return;
+  }
+
+  if (!lockExists) {
+    log({
+      name: "Dependency Integrity",
+      tier: 1,
+      passed: false,
+      message: "pnpm-lock.yaml missing",
+      duration: Date.now() - start,
+    });
+    return;
+  }
+
+  log({
+    name: "Dependency Integrity",
+    tier: 1,
+    passed: true,
+    message: "Dependencies present and lockfile exists",
+    duration: Date.now() - start,
+  });
+}
+
 async function checkMigrations(): Promise<void> {
   const start = Date.now();
   const { success, output } = runCommand(
@@ -412,8 +449,7 @@ async function checkFrontendReadiness(): Promise<void> {
     name: "Frontend Readiness",
     tier: 1,
     passed: false,
-    message:
-      "Frontend is not serving HTTP. Start it with: pnpm dev",
+    message: "Frontend is not serving HTTP. Start it with: pnpm dev",
     duration: Date.now() - start,
   });
 }
@@ -455,6 +491,7 @@ async function main(): Promise<void> {
   if (maxTier >= 1) {
     console.log(`\n${colors.cyan}Tier 1: Application${colors.reset}`);
     console.log("─".repeat(50));
+    await checkDependencyIntegrity();
     await checkMigrations();
     await checkFrontendReadiness();
   }
