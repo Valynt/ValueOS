@@ -1,0 +1,6 @@
+
+> valuecanvas@0.1.0 typecheck:signal /workspaces/ValueOS
+> tsx scripts/dx/typecheck-telemetry.ts "--json"
+
+🔍 Running TypeScript type check...
+🔍 Discovering tsconfig.json files in apps/ and packages/...

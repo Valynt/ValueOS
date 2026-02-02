@@ -21623,8 +21623,8 @@ BEGIN
         );
 
         -- Create index on metadata fields for common queries
-        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_agent_type ON public.agent_sessions USING gin ((metadata->>'agent_type'));
-        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_workflow_type ON public.agent_sessions USING gin ((metadata->>'workflow_type'));
+        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_agent_type ON public.agent_sessions USING btree ((metadata->>'agent_type'));
+        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_workflow_type ON public.agent_sessions USING btree ((metadata->>'workflow_type'));
     END IF;
 END $$;
 
@@ -21678,8 +21678,8 @@ BEGIN
         );
 
         -- Create index on metadata for common memory queries
-        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_memory_type ON public.agent_memory USING gin ((metadata->>'memory_type'));
-        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_source ON public.agent_memory USING gin ((metadata->>'source'));
+        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_memory_type ON public.agent_memory USING btree ((metadata->>'memory_type'));
+        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_source ON public.agent_memory USING btree ((metadata->>'source'));
     END IF;
 END $$;
 
@@ -21755,8 +21755,8 @@ BEGIN
         );
 
         -- Create index on business case fields
-        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_problem ON public.value_cases USING gin ((business_case->>'problem_statement'));
-        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_solution ON public.value_cases USING gin ((business_case->>'proposed_solution'));
+        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_problem ON public.value_cases USING btree ((business_case->>'problem_statement'));
+        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_solution ON public.value_cases USING btree ((business_case->>'proposed_solution'));
     END IF;
 END $$;
 
