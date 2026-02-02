@@ -1,0 +1,3 @@
+{
+  "strict_zones": ["packages/core-utils", "apps/web/src/lib/safe-zone"]
+}

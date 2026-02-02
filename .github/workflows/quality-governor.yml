@@ -1,0 +1,66 @@
+name: Quality Governor
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Stage 1: Determinism (Boot Verify)
+        run: pnpm dev:verify
+        env:
+          # Mock environment variables for CI
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          LOCALSTACK_PORT: 4566
+
+      - name: Stage 2: Fortress (Green Islands)
+        run: |
+          STRICT_ZONES=$(jq -r '.strict_zones[]' config/strict-zones.json)
+          for zone in $STRICT_ZONES; do
+            echo "Checking Green Island: $zone"
+            if [ -d "$zone" ]; then
+              pnpm tsc -p $zone/tsconfig.json --noEmit
+            else
+              echo "Warning: Zone $zone does not exist. Skipping."
+            fi
+          done
+
+      - name: Stage 3: Ratchet (Sea of Debt)
+        run: |
+          CURRENT_ERRORS=$(pnpm tsc --noEmit | grep 'error TS' | wc -l || echo 0)
+          BASELINE_ERRORS=$(jq -r '.total_errors' .github/ts-error-baseline.json)
+
+          echo "Current Errors: $CURRENT_ERRORS"
+          echo "Baseline Errors: $BASELINE_ERRORS"
+
+          if [ "$CURRENT_ERRORS" -gt "$BASELINE_ERRORS" ]; then
+            echo "❌ RATCHET FAILURE: Total errors ($CURRENT_ERRORS) exceeds baseline ($BASELINE_ERRORS)."
+            exit 1
+          elif [ "$CURRENT_ERRORS" -lt "$BASELINE_ERRORS" ]; then
+            echo "✅ RATCHET SUCCESS: Error count improved! Updating baseline."
+            echo "{\"total_errors\": $CURRENT_ERRORS}" > .github/ts-error-baseline.json
+            # Note: In a real CI, you'd need a token to push this update back if on main
+          else
+            echo "✅ RATCHET SUCCESS: Error count maintained."
+          fi

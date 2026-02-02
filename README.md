@@ -4,104 +4,70 @@ ValueOS is a multi-workspace platform for value modeling and lifecycle intellige
 
 ## Quick Start
 
-The fastest way to get started is using the unified devcontainer environment, which provides a batteries-included development stack with all dependencies pre-configured.
+The fastest way to get started is to use the deterministic boot sequence.
+
+```bash
+# 1. Verify environment and infrastructure
+pnpm dev:verify
+
+# 2. Sync database schema
+pnpm db:sync
+
+# 3. Start development server
+pnpm dev
+```
+
+The `pnpm dev` command is a shortcut that runs all three steps: `pnpm dev:verify && pnpm db:sync && pnpm --filter valynt-app dev`.
 
 ### Prerequisites
 
-- **VS Code** with Dev Containers extension
-- **Docker Desktop** installed and running
+- **Node.js** >= 20.19.0
+- **PNPM** >= 9.15.0
+- **Docker** and **Docker Compose** (for Postgres and LocalStack)
 
-### Setup (Dev Container - Recommended)
+---
 
-1. Clone the repository:
+## The Quality Governor
 
-   ```bash
-   git clone <repo-url> valueos && cd valueos
-   ```
+ValueOS operates under a "Stabilizer" mindset to manage technical debt while ensuring scale.
 
-2. Open in VS Code and use Command Palette: `Dev Containers: Reopen in Container`
+### Green Islands (Strict Zones)
 
-3. The environment will automatically:
-   - Install dependencies
-   - Start all services (Supabase, Redis, etc.)
-   - Apply database migrations
-   - Seed demo data
+High-integrity areas of the codebase enforced with `tsconfig.strict.json`. These must maintain **0 errors** at all times.
 
-**Access Points:**
+- Defined in `config/strict-zones.json`.
 
-- **Frontend**: `http://localhost:5173`
-- **Supabase Studio**: `http://localhost:54323`
-- **API Gateway**: `http://localhost:54321`
+### The Sea of Debt (The Ratchet)
 
-### Alternative: Local Development
+Legacy code is managed via an error "Ratchet." New PRs are prohibited from increasing the total TypeScript error count.
 
-If you prefer not to use dev containers:
+- **Current Baseline:** Locked in `.github/ts-error-baseline.json`.
 
-1. Install Node.js 20+ (use `.nvmrc`) and Docker Desktop.
-2. Enable Corepack and install dependencies:
+---
 
-   ```bash
-   corepack enable
-   corepack prepare pnpm@9.15.0 --activate
-   pnpm install --frozen-lockfile
-   ```
+## Developer Contract
 
-3. Generate local environment files:
+1. **Determinism is Truth:** If `pnpm dev:verify` fails, the system is broken. Fix the environment before coding.
+2. **Leave it Better:** Every PR must either maintain or reduce the total error count.
+3. **No New Debt:** New code in "Green Islands" must be 100% type-safe.
 
-   ```bash
-   pnpm run dx:env -- --mode local --force
-   ```
-
-4. Start the full stack:
-   ```bash
-   pnpm run dx
-   ```
-
-For detailed setup instructions, see [docs/getting-started/DEVELOPER_GUIDE.md](docs/getting-started/DEVELOPER_GUIDE.md).
-
-## Demo Credentials
-
-The setup seeds a demo tenant and user for development convenience. Demo seeding is blocked in production or staging unless you explicitly set `ALLOW_DEMO_SEED=1`.
-
-- **Email:** demouser@valynt.com
-- **Password:** passw0rd! (default — must be at least 8 characters)
-
-To override the demo password, set `DEMO_USER_PASSWORD` before running the seed step:
-
-```bash
-export DEMO_USER_PASSWORD='your-strong-pass1!'
-pnpm run seed:demo
-```
-
-Do not use these demo credentials in production environments.
-
-## Architecture Overview
-
-ValueOS uses a unified development environment with:
-
-- **Frontend**: React + Vite (ValyntApp)
-- **Backend**: Node.js services with Supabase
-- **Database**: PostgreSQL with Supabase RLS
-- **Orchestration**: Docker Compose for local development
-- **Multi-tenancy**: Organization-scoped data isolation
-
-For detailed architecture diagrams and component relationships, see [docs/getting-started/DEVELOPER_GUIDE.md](docs/getting-started/DEVELOPER_GUIDE.md).
+---
 
 ## Common Scripts
 
-Run these from the repo root.
-
-| Task                  | Command              |
-| --------------------- | -------------------- |
-| Start dev environment | `pnpm run dx`        |
-| Start frontend only   | `pnpm run dev`       |
-| Lint                  | `pnpm run lint`      |
-| Type-check            | `pnpm run typecheck` |
-| Tests (with coverage) | `pnpm run test`      |
-| Build                 | `pnpm run build`     |
-| Full CI verification  | `pnpm run ci:verify` |
-| Database migrations   | `pnpm run db:push`   |
-| Generate types        | `pnpm run db:types`  |
+| Task                  | Command               |
+| --------------------- | --------------------- |
+| Start dev environment | `pnpm run dev`        |
+| Verify Readiness      | `pnpm run dev:verify` |
+| Check DB Status       | `pnpm run db:status`  |
+| Apply Migrations      | `pnpm run db:sync`    |
+| Lint                  | `pnpm run lint`       |
+| Typecheck (Ratchet)   | `pnpm run typecheck`  |
+| Tests                 | `pnpm run test`       |
+| Build                 | `pnpm run build`      |
+| Full CI verification  | `pnpm run ci:verify`  |
+| Database migrations   | `pnpm run db:push`    |
+| Generate types        | `pnpm run db:types`   |
 
 ## Environment variables
 

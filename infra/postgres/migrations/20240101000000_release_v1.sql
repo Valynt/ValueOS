@@ -3130,6 +3130,7 @@ CREATE TABLE public.agent_calibration_models (
 CREATE TABLE public.agent_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
+    tenant_id text,
     agent_id uuid,
     memory_type text NOT NULL,
     content text NOT NULL,
@@ -3184,6 +3185,8 @@ CREATE TABLE public.agent_ontologies (
 CREATE TABLE public.agent_predictions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id text NOT NULL,
+    user_id uuid,
+    tenant_id text,
     agent_id text NOT NULL,
     agent_type text NOT NULL,
     input_hash text NOT NULL,
@@ -3203,7 +3206,6 @@ CREATE TABLE public.agent_predictions (
     variance_absolute numeric(15,2),
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    tenant_id text NOT NULL,
     calibrated_confidence numeric(5,4),
     calibration_model_id uuid,
     CONSTRAINT agent_predictions_confidence_level_check CHECK ((confidence_level = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text]))),
@@ -5191,6 +5193,7 @@ COMMENT ON VIEW public.user_pillar_progress IS 'SECURITY INVOKER view - User pro
 CREATE TABLE public.user_roles (
     user_id text NOT NULL,
     role_id uuid NOT NULL,
+    role text,
     tenant_id text,
     created_at timestamp with time zone DEFAULT now()
 );
@@ -5244,6 +5247,8 @@ COMMENT ON TABLE public.user_tenants IS 'Maps users to tenants with roles - requ
 
 CREATE TABLE public.value_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid,
+    tenant_id text,
     session_id uuid,
     name text NOT NULL,
     description text,
@@ -13626,13 +13631,13 @@ ALTER TABLE llm_usage ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS llm_gating_policies_tenant_isolation ON llm_gating_policies;
 CREATE POLICY llm_gating_policies_tenant_isolation ON llm_gating_policies
   FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::UUID);
+  USING (tenant_id = current_setting('app.current_tenant_id', true));
 
 -- Policies for llm_usage
 DROP POLICY IF EXISTS llm_usage_tenant_isolation ON llm_usage;
 CREATE POLICY llm_usage_tenant_isolation ON llm_usage
   FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::UUID);
+  USING (tenant_id = current_setting('app.current_tenant_id', true));
 
 -- ============================================================================
 -- Triggers
@@ -13774,7 +13779,7 @@ CREATE POLICY "Strict tenant isolation - usage logs" ON llm_usage
   USING (
     CASE
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
-      ELSE tenant_id = (auth.jwt() ->> 'org_id')::UUID
+      ELSE tenant_id = (auth.jwt() ->> 'org_id')
     END
   );
 
@@ -13784,7 +13789,7 @@ CREATE POLICY "Strict tenant isolation - budgets" ON llm_gating_policies
   USING (
     CASE
       WHEN auth.jwt() ->> 'role' = 'service_role' THEN true
-      ELSE tenant_id = (auth.jwt() ->> 'org_id')::UUID
+      ELSE tenant_id = (auth.jwt() ->> 'org_id')
     END
   );
 
@@ -14241,7 +14246,7 @@ ALTER TABLE organization_configurations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS org_configs_tenant_isolation ON organization_configurations;
 CREATE POLICY org_configs_tenant_isolation ON organization_configurations
   FOR ALL
-  USING (organization_id = current_setting('app.current_tenant_id', true)::UUID);
+  USING (organization_id = current_setting('app.current_tenant_id', true));
 
 -- Policy: Vendor admins can access all configurations
 DROP POLICY IF EXISTS org_configs_vendor_admin ON organization_configurations;
@@ -18326,6 +18331,7 @@ CREATE TABLE IF NOT EXISTS credential_access_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   table_name TEXT NOT NULL,
   record_id UUID NOT NULL,
+  secret_id UUID,
   accessed_by UUID REFERENCES auth.users(id),
   access_type TEXT NOT NULL CHECK (access_type IN ('read', 'write', 'decrypt')),
   accessed_at TIMESTAMPTZ DEFAULT NOW(),
@@ -19777,14 +19783,8 @@ END $$;
 -- ============================================================================
 
 -- Instead of storing encrypted data directly, we store references to Vault secrets
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
-    ALTER TABLE integration_connections
-    ADD COLUMN IF NOT EXISTS credentials_secret_id UUID;
-    -- Note: FK reference to vault.secrets(id) only works if vault is installed
-  END IF;
-END $$;
+ALTER TABLE integration_connections
+ADD COLUMN IF NOT EXISTS credentials_secret_id UUID;
 
 COMMENT ON COLUMN integration_connections.credentials_secret_id IS
   'Reference to encrypted credentials in Supabase Vault';
@@ -19793,16 +19793,11 @@ COMMENT ON COLUMN integration_connections.credentials_secret_id IS
 -- 3. Add secret reference columns to tenant_integrations (if vault available)
 -- ============================================================================
 
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
-    ALTER TABLE tenant_integrations
-    ADD COLUMN IF NOT EXISTS access_token_secret_id UUID;
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS access_token_secret_id UUID;
 
-    ALTER TABLE tenant_integrations
-    ADD COLUMN IF NOT EXISTS refresh_token_secret_id UUID;
-  END IF;
-END $$;
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS refresh_token_secret_id UUID;
 
 COMMENT ON COLUMN tenant_integrations.access_token_secret_id IS
   'Reference to encrypted access token in Supabase Vault';
@@ -19827,12 +19822,16 @@ AS $$
 DECLARE
   v_secret_id UUID;
 BEGIN
-  -- Create secret in Vault
-  SELECT vault.create_secret(
-    p_credentials,
-    p_name,
-    p_description
-  ) INTO v_secret_id;
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - cannot store secret';
+    RETURN NULL;
+  END IF;
+
+  -- Create secret in Vault using dynamic SQL to avoid parsing error if vault is missing
+  EXECUTE 'SELECT vault.create_secret($1, $2, $3)'
+  INTO v_secret_id
+  USING p_credentials, p_name, p_description;
 
   RETURN v_secret_id;
 END;
@@ -19857,10 +19856,16 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  -- Retrieve decrypted secret from Vault
-  SELECT decrypted_secret INTO v_decrypted
-  FROM vault.decrypted_secrets
-  WHERE id = p_secret_id;
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - cannot retrieve secret';
+    RETURN NULL;
+  END IF;
+
+  -- Retrieve decrypted secret from Vault using dynamic SQL
+  EXECUTE 'SELECT decrypted_secret FROM vault.decrypted_secrets WHERE id = $1'
+  INTO v_decrypted
+  USING p_secret_id;
 
   RETURN v_decrypted;
 END;
@@ -19881,13 +19886,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Update secret in Vault
-  PERFORM vault.update_secret(
-    p_secret_id,
-    p_new_credentials,
-    p_name,
-    p_description
-  );
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - cannot update secret';
+    RETURN;
+  END IF;
+
+  -- Update secret in Vault using dynamic SQL
+  EXECUTE 'SELECT vault.update_secret($1, $2, $3, $4)'
+  USING p_secret_id, p_new_credentials, p_name, p_description;
 END;
 $$;
 
@@ -19913,6 +19920,13 @@ DECLARE
   v_record RECORD;
   v_secret_id UUID;
 BEGIN
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - migration skipped';
+    -- Return an empty row or just return
+    RETURN;
+  END IF;
+
   -- Migrate integration_connections
   FOR v_record IN
     SELECT id, credentials
@@ -20173,13 +20187,28 @@ CREATE TABLE IF NOT EXISTS credential_access_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   table_name TEXT NOT NULL,
   record_id UUID NOT NULL,
-  secret_id UUID REFERENCES vault.secrets(id),
+  secret_id UUID,
   accessed_by UUID REFERENCES auth.users(id),
   access_type TEXT NOT NULL CHECK (access_type IN ('read', 'write', 'update')),
   accessed_at TIMESTAMPTZ DEFAULT NOW(),
   ip_address INET,
   user_agent TEXT
 );
+
+-- Add FK constraint conditionally if vault is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'credential_access_log_secret_id_fkey'
+    ) THEN
+      ALTER TABLE credential_access_log
+      ADD CONSTRAINT credential_access_log_secret_id_fkey
+      FOREIGN KEY (secret_id) REFERENCES vault.secrets(id);
+    END IF;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_credential_access_log_time
 ON credential_access_log(accessed_at DESC);
@@ -20262,7 +20291,7 @@ CREATE TABLE IF NOT EXISTS customer_access_tokens (
   last_accessed_at TIMESTAMPTZ,
   access_count INTEGER DEFAULT 0,
   revoked_at TIMESTAMPTZ,
-  revoked_by UUID REFERENCES users(id),
+  revoked_by UUID REFERENCES auth.users(id),
   revoke_reason TEXT
 );
 
@@ -20387,7 +20416,7 @@ CREATE POLICY customer_tokens_tenant_isolation ON customer_access_tokens
   USING (
     value_case_id IN (
       SELECT id FROM value_cases
-      WHERE tenant_id = current_setting('app.current_tenant_id', true)::UUID
+      WHERE tenant_id = current_setting('app.current_tenant_id', true)
     )
   );
 
@@ -20657,6 +20686,75 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON canvas_comments TO authenticated;
 COMMENT ON TABLE canvas_elements IS 'Stores collaborative canvas elements for value cases';
 COMMENT ON TABLE canvas_presence IS 'Tracks active users on the collaborative canvas';
 COMMENT ON TABLE canvas_comments IS 'Stores comments and discussions on canvas elements';
+
+-- ============================================================================
+-- 12. Create missing tables for RLS policies
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS realization_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  metric_name TEXT NOT NULL,
+  metric_type TEXT,
+  predicted_value NUMERIC,
+  predicted_date TIMESTAMPTZ,
+  actual_value NUMERIC,
+  actual_date TIMESTAMPTZ,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS value_drivers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT,
+  formula TEXT,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS financial_models (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  model_data JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS opportunities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  amount NUMERIC,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS benchmarks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  industry TEXT,
+  metric TEXT,
+  baseline_value NUMERIC,
+  source TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.workflow_stage_runs (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    execution_id uuid NOT NULL REFERENCES public.workflow_executions(id) ON DELETE CASCADE,
+    stage_name text NOT NULL,
+    status text NOT NULL,
+    input_data jsonb DEFAULT '{}'::jsonb,
+    output_data jsonb DEFAULT '{}'::jsonb,
+    error_message text,
+    started_at timestamp with time zone DEFAULT now(),
+    ended_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
+);
 
 -- ================================================
 -- Source: supabase/migrations/20260106000001_customer_rls_policies.sql

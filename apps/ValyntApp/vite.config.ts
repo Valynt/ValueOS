@@ -34,7 +34,8 @@ export default defineConfig({
       "@hooks": path.resolve(__dirname, "./src/hooks"),
       "@types": path.resolve(__dirname, "./src/types"),
       "@assets": path.resolve(__dirname, "./src/assets"),
-      "@valueos/shared": path.resolve(__dirname, "../packages/shared/src"),
+      "@valueos/shared": path.resolve(__dirname, "../../packages/shared/src"),
+      "@shared": path.resolve(__dirname, "../../packages/shared/src"),
     },
   },
   server: {

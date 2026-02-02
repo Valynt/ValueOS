@@ -25,8 +25,6 @@
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
-    // DISABLED 2026-02-02: Causing ~500+ cascade errors (TS2375/TS2379)
-    // Re-enable when total debt < 1000 errors
-    "exactOptionalPropertyTypes": false
+    "exactOptionalPropertyTypes": true
   }
 }

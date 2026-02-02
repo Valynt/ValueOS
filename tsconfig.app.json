@@ -25,6 +25,8 @@
       "@layouts/*": ["./src/layouts/*"],
       "@app/*": ["./src/app/*"],
       "@shared/*": ["./packages/shared/src/*"],
+      "@valueos/shared": ["./packages/shared/src"],
+      "@valueos/shared/*": ["./packages/shared/src/*"],
       "@backend/*": ["./packages/backend/src/*"],
       "@infra/*": ["./packages/infra/*"],
       "@memory/*": ["./packages/memory/*"],
