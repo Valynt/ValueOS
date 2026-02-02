@@ -137,19 +137,47 @@ export class ValueCommitmentTrackingService {
     reason?: string
   ): Promise<ValueCommitment> {
     try {
-      // TODO: Update in database
-      // const existing = await this.getCommitmentBasic(commitmentId, tenantId);
-      // const updated = await this.db.update('value_commitments')
-      //   .set({ status, progress_percentage: progressPercentage, updated_at: new Date() })
-      //   .where(eq('id', commitmentId))
-      //   .returning();
+      // Fetch existing commitment for audit trail
+      const { data: existing, error: fetchError } = await supabase
+        .from("value_commitments")
+        .select("*")
+        .eq("id", commitmentId)
+        .eq("tenant_id", tenantId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update in database
+      const { data: updated, error: updateError } = await supabase
+        .from("value_commitments")
+        .update({
+          status,
+          progress_percentage: progressPercentage ?? existing.progress_percentage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", commitmentId)
+        .eq("tenant_id", tenantId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
 
       // Create audit entry
-      // await this.createAuditEntry(tenantId, commitmentId, userId, 'status_changed',
-      //   { status: existing.status, progress_percentage: existing.progress_percentage },
-      //   { status, progress_percentage: progressPercentage },
-      //   reason || 'Status update'
-      // );
+      await this.createAuditEntry(
+        tenantId,
+        commitmentId,
+        userId,
+        "status_changed",
+        {
+          status: existing.status,
+          progress_percentage: existing.progress_percentage,
+        },
+        {
+          status,
+          progress_percentage: progressPercentage ?? existing.progress_percentage,
+        },
+        reason || "Status update"
+      );
 
       logger.info("Commitment status updated", {
         commitmentId,
@@ -158,8 +186,7 @@ export class ValueCommitmentTrackingService {
         progressPercentage,
       });
 
-      // Return mock updated commitment
-      return {} as ValueCommitment;
+      return updated as ValueCommitment;
     } catch (error) {
       logger.error("Failed to update commitment status", { error, commitmentId, tenantId });
       throw error;
@@ -687,8 +714,11 @@ export class ValueCommitmentTrackingService {
 
       const validatedAudit = CommitmentAuditSchema.parse(auditData);
 
-      // TODO: Insert audit entry
-      // await this.db.insert('commitment_audits').values(validatedAudit);
+      const { error } = await supabase
+        .from("commitment_audits")
+        .insert(validatedAudit);
+
+      if (error) throw error;
 
       logger.debug("Audit entry created", { commitmentId, tenantId, action });
     } catch (error) {
