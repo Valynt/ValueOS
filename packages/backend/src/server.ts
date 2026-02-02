@@ -104,6 +104,7 @@ import {
 import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js";
 import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
+import { csrfProtectionMiddleware } from "./middleware/securityMiddleware.js";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
@@ -307,6 +308,13 @@ app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
+app.use((req, res, next) => {
+  const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+  if (stateChangingMethods.has(req.method)) {
+    return csrfProtectionMiddleware(req, res, next);
+  }
+  next();
+});
 
 // Conditionally add telemetry middleware
 if (tracingMiddleware) {

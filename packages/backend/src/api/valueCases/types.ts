@@ -5,6 +5,19 @@
  */
 
 import { z } from 'zod';
+import { sanitizeUserInput } from '../../utils/security.js';
+
+const sanitizeText = (maxLength: number) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' ? sanitizeUserInput(value, maxLength) : value),
+    z.string().max(maxLength).trim()
+  );
+
+const sanitizeRequiredText = (maxLength: number, minLength = 1) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' ? sanitizeUserInput(value, maxLength) : value),
+    z.string().min(minLength).max(maxLength).trim()
+  );
 
 // ============================================================================
 // Enums
@@ -25,9 +38,12 @@ export type CasePhase = z.infer<typeof CasePhase>;
  */
 export const StakeholderSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().min(1).max(100).trim(),
-  title: z.string().max(100).trim().optional(),
-  email: z.string().email().max(255).toLowerCase().optional(),
+  name: sanitizeRequiredText(100),
+  title: sanitizeText(100).optional(),
+  email: z.preprocess(
+    (value) => (typeof value === 'string' ? sanitizeUserInput(value, 255) : value),
+    z.string().email().max(255).toLowerCase()
+  ).optional(),
   role: z.enum(['champion', 'decision_maker', 'influencer', 'end_user']).optional(),
 });
 
@@ -38,13 +54,21 @@ export type Stakeholder = z.infer<typeof StakeholderSchema>;
  */
 export const ValueMetricSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().min(1).max(100).trim(),
-  category: z.string().max(50).trim(),
+  name: sanitizeRequiredText(100),
+  category: sanitizeRequiredText(50),
   currentValue: z.number().finite(),
   projectedValue: z.number().finite(),
-  unit: z.string().max(20).trim(),
+  unit: sanitizeRequiredText(20),
   confidence: z.number().min(0).max(100).optional(),
-  assumptions: z.array(z.string().max(500)).max(10).optional(),
+  assumptions: z
+    .array(
+      z.preprocess(
+        (value) => (typeof value === 'string' ? sanitizeUserInput(value, 500) : value),
+        z.string().max(500).trim()
+      )
+    )
+    .max(10)
+    .optional(),
 });
 
 export type ValueMetric = z.infer<typeof ValueMetricSchema>;
@@ -68,19 +92,10 @@ export type ValueDriverRef = z.infer<typeof ValueDriverRefSchema>;
  * Create value case request
  */
 export const CreateValueCaseSchema = z.object({
-  name: z.string()
-    .min(1, 'Name is required')
-    .max(200, 'Name must be 200 characters or less')
-    .trim(),
-  companyName: z.string()
-    .min(1, 'Company name is required')
-    .max(200, 'Company name must be 200 characters or less')
-    .trim(),
+  name: sanitizeRequiredText(200),
+  companyName: sanitizeRequiredText(200),
   companyId: z.string().uuid().optional(),
-  description: z.string()
-    .max(2000, 'Description must be 2000 characters or less')
-    .trim()
-    .optional(),
+  description: sanitizeText(2000).optional(),
   templateId: z.string().uuid().optional(),
   stakeholders: z.array(StakeholderSchema).max(20).optional(),
   valueDrivers: z.array(ValueDriverRefSchema).max(50).optional(),
@@ -93,15 +108,8 @@ export type CreateValueCaseRequest = z.infer<typeof CreateValueCaseSchema>;
  * Update value case request
  */
 export const UpdateValueCaseSchema = z.object({
-  name: z.string()
-    .min(1)
-    .max(200)
-    .trim()
-    .optional(),
-  description: z.string()
-    .max(2000)
-    .trim()
-    .optional(),
+  name: sanitizeRequiredText(200).optional(),
+  description: sanitizeText(2000).optional(),
   status: CaseStatus.optional(),
   phase: CasePhase.optional(),
   stakeholders: z.array(StakeholderSchema).max(20).optional(),
