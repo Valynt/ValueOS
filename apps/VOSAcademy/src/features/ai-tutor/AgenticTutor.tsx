@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import Streamdown from "streamdown";
+import { sanitizeHtml } from "../../lib/sanitize";
 
 interface Message {
   role: "user" | "assistant";
@@ -184,7 +185,7 @@ What would you like to work on today?`
               }`}
             >
               {message.role === "assistant" ? (
-                <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: Streamdown(message.content) }} />
+                <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: sanitizeHtml(Streamdown(message.content)) }} />
               ) : (
                 <p className="whitespace-pre-wrap">{message.content}</p>
               )}

@@ -66,35 +66,46 @@ export class ValueCommitmentTrackingService {
       // Validate the data
       const validatedData = ValueCommitmentSchema.parse(commitmentData);
 
-      // TODO: Insert into database
-      // const commitment = await this.db.insert('value_commitments').values(validatedData).returning();
+      if (!supabase) {
+        throw new Error("Supabase client not initialized");
+      }
+
+      const { data: commitment, error } = await supabase
+        .from("value_commitments")
+        .insert(validatedData)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
 
       // Create audit entry
       await this.createAuditEntry(
         tenantId,
-        validatedData.id,
+        commitment.id,
         userId,
         "created",
         {},
-        validatedData,
+        commitment,
         "Initial commitment creation"
       );
 
       // Add creator as owner stakeholder
-      await this.addStakeholder(validatedData.id, tenantId, userId, {
+      await this.addStakeholder(commitment.id, tenantId, userId, {
         role: "owner",
         responsibility: "Commitment owner and primary responsible party",
         accountability_percentage: 100,
       });
 
       logger.info("Value commitment created", {
-        commitmentId: validatedData.id,
+        commitmentId: commitment.id,
         tenantId,
         userId,
-        title: validatedData.title,
+        title: commitment.title,
       });
 
-      return validatedData as ValueCommitment;
+      return commitment as ValueCommitment;
     } catch (error) {
       logger.error("Failed to create value commitment", { error, tenantId, userId });
       throw error;

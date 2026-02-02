@@ -54,7 +54,7 @@ var __filename = fileURLToPath(import.meta.url);
 var __dirname = dirname(__filename);
 export default defineConfig(function (_a) {
     var mode = _a.mode;
-    var env = loadEnv(mode, process.cwd(), 'VITE_');
+    var env = loadEnv(mode, process.cwd(), "VITE_");
     // Make env vars available to server-side code
     process.env = __assign(__assign({}, process.env), env);
     return {
@@ -99,12 +99,12 @@ export default defineConfig(function (_a) {
                             switch (_a.label) {
                                 case 0:
                                     _a.trys.push([0, 3, , 4]);
-                                    url = new URL(req.url || '', "http://".concat(req.headers.host));
-                                    code = url.searchParams.get('code');
-                                    state = url.searchParams.get('state');
+                                    url = new URL(req.url || "", "http://".concat(req.headers.host));
+                                    code = url.searchParams.get("code");
+                                    state = url.searchParams.get("state");
                                     if (!code || !state) {
                                         res.statusCode = 400;
-                                        res.end('Missing code or state parameter');
+                                        res.end("Missing code or state parameter");
                                         return [2 /*return*/];
                                     }
                                     return [4 /*yield*/, import("./src/data/_core/oauth")];
@@ -115,14 +115,14 @@ export default defineConfig(function (_a) {
                                     result = _a.sent();
                                     // Redirect to appropriate page
                                     res.statusCode = 302;
-                                    res.setHeader('Location', result.redirectUrl);
+                                    res.setHeader("Location", result.redirectUrl);
                                     res.end();
                                     return [3 /*break*/, 4];
                                 case 3:
                                     error_2 = _a.sent();
                                     console.error("OAuth callback error:", error_2);
                                     res.statusCode = 302;
-                                    res.setHeader('Location', '/?error=oauth_error');
+                                    res.setHeader("Location", "/?error=oauth_error");
                                     res.end();
                                     return [3 /*break*/, 4];
                                 case 4: return [2 /*return*/];
@@ -177,6 +177,8 @@ export default defineConfig(function (_a) {
             alias: {
                 "@": resolve(__dirname, "src"),
                 "@shared/const": resolve(__dirname, "packages/shared/src/const.ts"),
+                "@valueos/shared": resolve(__dirname, "../../packages/shared/src"),
+                "@shared": resolve(__dirname, "../../packages/shared/src"),
             },
         },
     };
