@@ -4,7 +4,7 @@
  * Modal for generating and managing guest access links.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   X,
   Link2,
@@ -18,6 +18,8 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
+import { getGuestAccessService, GuestPermissions } from '@/GuestAccessService';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -28,7 +30,7 @@ interface ShareModalProps {
 }
 
 type PermissionLevel = 'view' | 'comment' | 'edit';
-type ExpirationOption = '24h' | '7d' | '30d' | 'never';
+type ExpirationOption = '24h' | '7d' | '30d';
 
 export function ShareModal({
   isOpen,
@@ -44,28 +46,53 @@ export function ShareModal({
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const guestAccessService = useMemo(() => getGuestAccessService(), []);
 
   const handleGenerateLink = useCallback(async () => {
     if (!email || !name) return;
 
     setIsGenerating(true);
+    setErrorMessage(null);
 
-    // Simulate API call to generate guest access token
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) {
+        throw new Error('Unable to confirm your session. Please sign in again.');
+      }
 
-    // Generate mock token (in production, this would call GuestAccessService)
-    const token = btoa(JSON.stringify({
-      caseId,
-      email,
-      name,
-      permissions: permissionLevel,
-      exp: getExpirationDate(expiration),
-    })).replace(/=/g, '');
+      const organizationId = session.user.raw_user_meta_data?.tenant_id
+        || session.user.raw_user_meta_data?.organization_id;
+      if (!organizationId) {
+        throw new Error('Unable to determine your organization. Please contact support.');
+      }
 
-    const link = `${window.location.origin}/guest/access?token=${token}`;
-    setGeneratedLink(link);
-    setIsGenerating(false);
-  }, [email, name, permissionLevel, expiration, caseId]);
+      const permissions = getPermissionPreset(permissionLevel);
+      const expiresInDays = getExpirationDays(expiration);
+
+      const guestUser = await guestAccessService.createGuestUser({
+        email,
+        name,
+        company: companyName,
+        role: 'CFO',
+        organizationId,
+      });
+
+      const { magicLink } = await guestAccessService.createGuestToken({
+        guestUserId: guestUser.id,
+        valueCaseId: caseId,
+        permissions,
+        expiresInDays,
+      });
+
+      setGeneratedLink(magicLink);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to generate link.';
+      setErrorMessage(message);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [email, name, permissionLevel, expiration, caseId, companyName, guestAccessService]);
 
   const handleCopyLink = useCallback(() => {
     if (!generatedLink) return;
@@ -96,6 +123,7 @@ export function ShareModal({
     setName('');
     setPermissionLevel('view');
     setExpiration('7d');
+    setErrorMessage(null);
   }, []);
 
   if (!isOpen) return null;
@@ -197,7 +225,7 @@ export function ShareModal({
                   Link Expiration
                 </label>
                 <div className="flex gap-2">
-                  {(['24h', '7d', '30d', 'never'] as ExpirationOption[]).map((option) => (
+                  {(['24h', '7d', '30d'] as ExpirationOption[]).map((option) => (
                     <button
                       key={option}
                       onClick={() => setExpiration(option)}
@@ -211,11 +239,16 @@ export function ShareModal({
                       {option === '24h' && '24 Hours'}
                       {option === '7d' && '7 Days'}
                       {option === '30d' && '30 Days'}
-                      {option === 'never' && 'Never'}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {errorMessage && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {errorMessage}
+                </div>
+              )}
 
               {/* Generate Button */}
               <button
@@ -333,20 +366,6 @@ function PermissionButton({ icon: Icon, label, description, selected, onClick }:
 }
 
 // Helpers
-function getExpirationDate(option: ExpirationOption): string {
-  const now = new Date();
-  switch (option) {
-    case '24h':
-      return new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-    case '7d':
-      return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    case '30d':
-      return new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    case 'never':
-      return new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
-  }
-}
-
 function getExpirationLabel(option: ExpirationOption): string {
   switch (option) {
     case '24h':
@@ -355,8 +374,41 @@ function getExpirationLabel(option: ExpirationOption): string {
       return 'in 7 days';
     case '30d':
       return 'in 30 days';
-    case 'never':
-      return 'never';
+  }
+}
+
+function getExpirationDays(option: ExpirationOption): number {
+  switch (option) {
+    case '24h':
+      return 1;
+    case '7d':
+      return 7;
+    case '30d':
+      return 30;
+  }
+}
+
+function getPermissionPreset(level: PermissionLevel): GuestPermissions {
+  switch (level) {
+    case 'edit':
+      return {
+        can_view: true,
+        can_comment: true,
+        can_edit: true,
+      };
+    case 'comment':
+      return {
+        can_view: true,
+        can_comment: true,
+        can_edit: false,
+      };
+    case 'view':
+    default:
+      return {
+        can_view: true,
+        can_comment: false,
+        can_edit: false,
+      };
   }
 }
 

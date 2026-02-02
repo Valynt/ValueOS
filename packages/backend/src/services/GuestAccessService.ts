@@ -103,6 +103,7 @@ export interface TokenValidationResult {
   permissions?: GuestPermissions;
   guestName?: string;
   guestEmail?: string;
+  expiresAt?: string;
   errorMessage?: string;
 }
 
@@ -324,6 +325,7 @@ class GuestAccessService {
         permissions: result.permissions,
         guestName: result.guest_name,
         guestEmail: result.guest_email,
+        expiresAt: result.expires_at,
       };
     } catch (error) {
       logger.error("Failed to validate guest token", error as Error);

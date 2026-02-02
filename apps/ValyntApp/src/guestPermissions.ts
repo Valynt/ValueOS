@@ -4,7 +4,7 @@
  * Manages permission checks and access control for guest users
  */
 
-import { GuestPermissions } from '../../services/GuestAccessService';
+import { GuestPermissions } from '@/GuestAccessService';
 import { logger } from '../logger';
 
 // Permission action types
