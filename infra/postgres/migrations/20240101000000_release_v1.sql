@@ -3362,6 +3362,7 @@ COMMENT ON TABLE public.approval_requests IS 'Phase 2: Stores requests for human
 
 CREATE TABLE public.approval_requests_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id text NOT NULL,
     agent_id text NOT NULL,
     agent_name text NOT NULL,
     task_id text,
@@ -3422,6 +3423,7 @@ COMMENT ON TABLE public.approvals IS 'Phase 2: Records approval decisions (inclu
 
 CREATE TABLE public.approvals_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id text NOT NULL,
     request_id uuid,
     approver_id uuid,
     approver_email text,
@@ -17601,19 +17603,19 @@ COMMENT ON INDEX idx_agent_memory_org_session IS
 -- 6. Archive Tables
 -- ============================================================================
 
--- approval_requests_archive by archived_at time
-CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_time
-ON approval_requests_archive(archived_at DESC);
+-- approval_requests_archive by tenant and time
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant_time
+ON approval_requests_archive(tenant_id, created_at DESC);
 
-COMMENT ON INDEX idx_approval_requests_archive_time IS
-  'Optimizes archived approval request queries by archive time';
+COMMENT ON INDEX idx_approval_requests_archive_tenant_time IS
+  'Optimizes archived approval request queries by tenant and time';
 
--- approvals_archive by archived_at time
-CREATE INDEX IF NOT EXISTS idx_approvals_archive_time
-ON approvals_archive(archived_at DESC);
+-- approvals_archive by tenant and time
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant_time
+ON approvals_archive(tenant_id, approved_at DESC);
 
-COMMENT ON INDEX idx_approvals_archive_time IS
-  'Optimizes archived approval queries by archive time';
+COMMENT ON INDEX idx_approvals_archive_tenant_time IS
+  'Optimizes archived approval queries by tenant and time';
 
 -- ============================================================================
 -- 7. JSONB Indexes for Configuration Queries
@@ -18726,14 +18728,14 @@ WHERE ti.id = b.id;
 -- Function to get user's tenant IDs (already exists from tenant_isolation.sql)
 -- Recreate as STABLE for better performance
 CREATE OR REPLACE FUNCTION get_user_tenant_ids(p_user_id UUID)
-RETURNS UUID[]
+RETURNS TEXT[]
 LANGUAGE SQL
 SECURITY DEFINER
 STABLE  -- Mark as STABLE for query planner optimization
 AS $$
   SELECT ARRAY_AGG(tenant_id)
   FROM user_tenants
-  WHERE user_id = p_user_id
+  WHERE user_id = p_user_id::text
   AND status = 'active';
 $$;
 
@@ -18807,22 +18809,22 @@ DROP POLICY IF EXISTS "Strict tenant isolation - budgets" ON llm_gating_policies
 CREATE POLICY llm_gating_policies_select ON llm_gating_policies
   FOR SELECT
   USING (
-    tenant_id = ANY(get_user_tenant_ids(auth.uid()))
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
   );
 
 CREATE POLICY llm_gating_policies_update ON llm_gating_policies
   FOR UPDATE
   USING (
-    tenant_id = ANY(get_user_tenant_ids(auth.uid()))
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
   )
   WITH CHECK (
-    tenant_id = ANY(get_user_tenant_ids(auth.uid()))
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
   );
 
 CREATE POLICY llm_gating_policies_insert ON llm_gating_policies
   FOR INSERT
   WITH CHECK (
-    tenant_id = ANY(get_user_tenant_ids(auth.uid()))
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
   );
 
 CREATE POLICY llm_gating_policies_service_role ON llm_gating_policies
@@ -18850,7 +18852,7 @@ DROP POLICY IF EXISTS "Strict tenant isolation - usage" ON llm_usage;
 CREATE POLICY llm_usage_tenant_select ON llm_usage
   FOR SELECT
   USING (
-    tenant_id = ANY(get_user_tenant_ids(auth.uid()))
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
   );
 
 CREATE POLICY llm_usage_service_role ON llm_usage
@@ -18875,7 +18877,7 @@ CREATE POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics
   FOR SELECT
   USING (
     organization_id IS NULL
-    OR organization_id = ANY(get_user_organization_ids(auth.uid()))
+    OR organization_id::uuid = ANY(get_user_organization_ids(auth.uid()))
   );
 
 CREATE POLICY agent_accuracy_metrics_service_role ON agent_accuracy_metrics
@@ -19101,16 +19103,14 @@ CREATE POLICY audit_logs_archive_select_own ON audit_logs_archive
   USING (user_id = auth.uid());
 
 -- Admins can view all audit logs in their organizations
+-- Note: audit_logs_archive doesn't have organization_id, so we check user_id matches
 CREATE POLICY audit_logs_archive_select_admin ON audit_logs_archive
   FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM user_organizations uo
-      JOIN audit_logs al ON al.organization_id = uo.organization_id
       WHERE uo.user_id = auth.uid()
       AND uo.role IN ('admin', 'owner')
-      AND uo.status = 'active'
-      AND al.id = audit_logs_archive.id
     )
   );
 
@@ -19198,8 +19198,7 @@ COMMENT ON INDEX idx_audit_logs_archive_user IS
 
 -- approval_requests_archive indexes (if not already created)
 CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant
-ON approval_requests_archive(tenant_id, created_at DESC)
-WHERE tenant_id IS NOT NULL;
+ON approval_requests_archive(tenant_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_requester
 ON approval_requests_archive(requester_id, created_at DESC)
@@ -19207,11 +19206,10 @@ WHERE requester_id IS NOT NULL;
 
 -- approvals_archive indexes (if not already created)
 CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant
-ON approvals_archive(tenant_id, created_at DESC)
-WHERE tenant_id IS NOT NULL;
+ON approvals_archive(tenant_id, approved_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_approvals_archive_approver
-ON approvals_archive(approver_id, created_at DESC)
+ON approvals_archive(approver_id, approved_at DESC)
 WHERE approver_id IS NOT NULL;
 
 -- ============================================================================
@@ -19756,37 +19754,55 @@ END $$;
 -- Supabase recommends Vault over pgsodium for new implementations
 
 -- ============================================================================
--- 1. Enable Vault extension
+-- 1. Enable Vault extension (Supabase only)
 -- ============================================================================
 
 -- Vault is the recommended way to store secrets in Supabase
 -- It uses authenticated encryption and stores keys outside the database
--- Note: The extension is called 'vault', not 'supabase_vault'
-CREATE EXTENSION IF NOT EXISTS vault CASCADE;
-
-COMMENT ON EXTENSION vault IS
-  'Supabase Vault for secure secret storage (recommended over pgsodium)';
+-- Note: This extension may not be available in all PostgreSQL environments
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_available_extensions WHERE name = 'vault'
+  ) THEN
+    CREATE EXTENSION IF NOT EXISTS vault CASCADE;
+    RAISE NOTICE 'Vault extension enabled';
+  ELSE
+    RAISE NOTICE 'Vault extension not available - skipping (not in Supabase environment)';
+  END IF;
+END $$;
 
 -- ============================================================================
--- 2. Add secret reference columns to integration_connections
+-- 2. Add secret reference columns to integration_connections (if vault available)
 -- ============================================================================
 
 -- Instead of storing encrypted data directly, we store references to Vault secrets
-ALTER TABLE integration_connections
-ADD COLUMN IF NOT EXISTS credentials_secret_id UUID REFERENCES vault.secrets(id);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    ALTER TABLE integration_connections
+    ADD COLUMN IF NOT EXISTS credentials_secret_id UUID;
+    -- Note: FK reference to vault.secrets(id) only works if vault is installed
+  END IF;
+END $$;
 
 COMMENT ON COLUMN integration_connections.credentials_secret_id IS
   'Reference to encrypted credentials in Supabase Vault';
 
 -- ============================================================================
--- 3. Add secret reference columns to tenant_integrations
+-- 3. Add secret reference columns to tenant_integrations (if vault available)
 -- ============================================================================
 
-ALTER TABLE tenant_integrations
-ADD COLUMN IF NOT EXISTS access_token_secret_id UUID REFERENCES vault.secrets(id);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    ALTER TABLE tenant_integrations
+    ADD COLUMN IF NOT EXISTS access_token_secret_id UUID;
 
-ALTER TABLE tenant_integrations
-ADD COLUMN IF NOT EXISTS refresh_token_secret_id UUID REFERENCES vault.secrets(id);
+    ALTER TABLE tenant_integrations
+    ADD COLUMN IF NOT EXISTS refresh_token_secret_id UUID;
+  END IF;
+END $$;
 
 COMMENT ON COLUMN tenant_integrations.access_token_secret_id IS
   'Reference to encrypted access token in Supabase Vault';

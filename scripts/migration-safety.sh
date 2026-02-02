@@ -12,7 +12,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
-MIGRATION_DIR="infra/supabase/migrations"
+MIGRATION_DIR="infra/postgres/migrations"
 TEST_DB_URL="${TEST_DATABASE_URL:-postgresql://postgres:password@localhost:5432/valueos_test}"
 ROLLBACK_TEST_ENABLED=${ROLLBACK_TEST_ENABLED:-true}
 

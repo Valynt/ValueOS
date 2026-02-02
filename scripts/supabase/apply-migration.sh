@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MIGRATION_FILE=${1:-infra/supabase/migrations/20260128120000_add_idx_opportunities_value_case_tenant.sql}
+MIGRATION_FILE=${1:-infra/postgres/migrations/20260128120000_add_idx_opportunities_value_case_tenant.sql}
 
 echo "🔁 Applying migration: $MIGRATION_FILE"
 
