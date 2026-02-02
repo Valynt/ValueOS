@@ -22,4 +22,5 @@ export interface User {
   role: UserRole;
 }
 
-export type UserRole = "admin" | "member" | "viewer";
+// UserRole is exported from lib/permissions/roles.ts
+// export type UserRole = "admin" | "member" | "viewer";
