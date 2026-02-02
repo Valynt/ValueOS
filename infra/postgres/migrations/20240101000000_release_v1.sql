@@ -1361,6 +1361,8 @@ SET default_table_access_method = heap;
 -- Name: prompt_versions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.prompt_versions CASCADE;
+DROP TABLE IF EXISTS public.prompt_versions CASCADE;
 CREATE TABLE IF NOT EXISTS public.prompt_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     prompt_key text NOT NULL,
@@ -2696,6 +2698,8 @@ $$;
 -- Name: academy_progress; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.academy_progress CASCADE;
+DROP TABLE IF EXISTS public.academy_progress CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_progress (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -2975,6 +2979,8 @@ $$;
 -- Name: ab_tests; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.ab_tests CASCADE;
+DROP TABLE IF EXISTS public.ab_tests CASCADE;
 CREATE TABLE IF NOT EXISTS public.ab_tests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -3000,6 +3006,8 @@ COMMENT ON TABLE public.ab_tests IS 'Manages A/B tests for prompt optimization';
 -- Name: academy_certifications; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.academy_certifications CASCADE;
+DROP TABLE IF EXISTS public.academy_certifications CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_certifications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3023,6 +3031,8 @@ COMMENT ON TABLE public.academy_certifications IS 'User earned certifications';
 -- Name: academy_lessons; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.academy_lessons CASCADE;
+DROP TABLE IF EXISTS public.academy_lessons CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_lessons (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     module_id uuid NOT NULL,
@@ -3052,6 +3062,8 @@ COMMENT ON TABLE public.academy_lessons IS 'Individual lessons within academy mo
 -- Name: academy_modules; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.academy_modules CASCADE;
+DROP TABLE IF EXISTS public.academy_modules CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_modules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     pillar public.academy_pillar NOT NULL,
@@ -3075,6 +3087,8 @@ COMMENT ON TABLE public.academy_modules IS 'Academy curriculum modules organized
 -- Name: agent_accuracy_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_accuracy_metrics CASCADE;
+DROP TABLE IF EXISTS public.agent_accuracy_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_accuracy_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
@@ -3096,6 +3110,8 @@ COMMENT ON TABLE public.agent_accuracy_metrics IS 'Aggregated accuracy metrics p
 -- Name: agent_activities; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_activities CASCADE;
+DROP TABLE IF EXISTS public.agent_activities CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_activities (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     case_id uuid NOT NULL,
@@ -3113,6 +3129,8 @@ CREATE TABLE IF NOT EXISTS public.agent_activities (
 -- Name: agent_audit_log; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_audit_log CASCADE;
+DROP TABLE IF EXISTS public.agent_audit_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
@@ -3133,6 +3151,8 @@ CREATE TABLE IF NOT EXISTS public.agent_audit_log (
 -- Name: agent_calibration_history; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_calibration_history CASCADE;
+DROP TABLE IF EXISTS public.agent_calibration_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_calibration_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
@@ -3151,6 +3171,8 @@ CREATE TABLE IF NOT EXISTS public.agent_calibration_history (
 -- Name: agent_calibration_models; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_calibration_models CASCADE;
+DROP TABLE IF EXISTS public.agent_calibration_models CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_calibration_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
@@ -3171,6 +3193,8 @@ CREATE TABLE IF NOT EXISTS public.agent_calibration_models (
 -- Name: agent_memory; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_memory CASCADE;
+DROP TABLE IF EXISTS public.agent_memory CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
@@ -3196,6 +3220,8 @@ CREATE TABLE IF NOT EXISTS public.agent_memory (
 -- Name: agent_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_metrics CASCADE;
+DROP TABLE IF EXISTS public.agent_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
@@ -3212,6 +3238,8 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
 -- Name: agent_ontologies; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_ontologies CASCADE;
+DROP TABLE IF EXISTS public.agent_ontologies CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_ontologies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id uuid,
@@ -3226,6 +3254,8 @@ CREATE TABLE IF NOT EXISTS public.agent_ontologies (
 -- Name: agent_predictions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_predictions CASCADE;
+DROP TABLE IF EXISTS public.agent_predictions CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_predictions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id text NOT NULL,
@@ -3295,6 +3325,8 @@ COMMENT ON VIEW public.agent_performance_summary IS 'Summary of agent performanc
 -- Name: agent_retraining_queue; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_retraining_queue CASCADE;
+DROP TABLE IF EXISTS public.agent_retraining_queue CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_retraining_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
@@ -3322,6 +3354,8 @@ COMMENT ON TABLE public.agent_retraining_queue IS 'Tracks agents that need retra
 -- Name: agent_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_sessions CASCADE;
+DROP TABLE IF EXISTS public.agent_sessions CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3344,6 +3378,8 @@ CREATE TABLE IF NOT EXISTS public.agent_sessions (
 -- Name: agent_tools; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agent_tools CASCADE;
+DROP TABLE IF EXISTS public.agent_tools CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_tools (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id uuid,
@@ -3358,6 +3394,8 @@ CREATE TABLE IF NOT EXISTS public.agent_tools (
 -- Name: agents; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.agents CASCADE;
+DROP TABLE IF EXISTS public.agents CASCADE;
 CREATE TABLE IF NOT EXISTS public.agents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -3377,6 +3415,8 @@ CREATE TABLE IF NOT EXISTS public.agents (
 -- Name: approval_requests; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.approval_requests CASCADE;
+DROP TABLE IF EXISTS public.approval_requests CASCADE;
 CREATE TABLE IF NOT EXISTS public.approval_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
@@ -3410,6 +3450,8 @@ COMMENT ON TABLE public.approval_requests IS 'Phase 2: Stores requests for human
 -- Name: approval_requests_archive; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.approval_requests_archive CASCADE;
+DROP TABLE IF EXISTS public.approval_requests_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.approval_requests_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3445,6 +3487,8 @@ COMMENT ON TABLE public.approval_requests_archive IS 'Archive for approval reque
 -- Name: approvals; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.approvals CASCADE;
+DROP TABLE IF EXISTS public.approvals CASCADE;
 CREATE TABLE IF NOT EXISTS public.approvals (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     request_id uuid,
@@ -3471,6 +3515,8 @@ COMMENT ON TABLE public.approvals IS 'Phase 2: Records approval decisions (inclu
 -- Name: approvals_archive; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.approvals_archive CASCADE;
+DROP TABLE IF EXISTS public.approvals_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.approvals_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3499,6 +3545,8 @@ COMMENT ON TABLE public.approvals_archive IS 'Archive for approvals older than r
 -- Name: approver_roles; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.approver_roles CASCADE;
+DROP TABLE IF EXISTS public.approver_roles CASCADE;
 CREATE TABLE IF NOT EXISTS public.approver_roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
@@ -3525,6 +3573,8 @@ COMMENT ON TABLE public.approver_roles IS 'Phase 2: Defines who can approve what
 -- Name: assumptions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.assumptions CASCADE;
+DROP TABLE IF EXISTS public.assumptions CASCADE;
 CREATE TABLE IF NOT EXISTS public.assumptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -3546,6 +3596,8 @@ CREATE TABLE IF NOT EXISTS public.assumptions (
 -- Name: audit_log_access; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.audit_log_access CASCADE;
+DROP TABLE IF EXISTS public.audit_log_access CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_log_access (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3562,6 +3614,8 @@ CREATE TABLE IF NOT EXISTS public.audit_log_access (
 -- Name: audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
+DROP TABLE IF EXISTS public.audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
@@ -3590,6 +3644,8 @@ COMMENT ON TABLE public.audit_logs IS 'Phase 3: Immutable audit trail - append-o
 -- Name: audit_logs_archive; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.audit_logs_archive CASCADE;
+DROP TABLE IF EXISTS public.audit_logs_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_logs_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
@@ -3618,6 +3674,8 @@ COMMENT ON TABLE public.audit_logs_archive IS 'Archive for audit logs older than
 -- Name: automated_check_results; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.automated_check_results CASCADE;
+DROP TABLE IF EXISTS public.automated_check_results CASCADE;
 CREATE TABLE IF NOT EXISTS public.automated_check_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3633,6 +3691,8 @@ CREATE TABLE IF NOT EXISTS public.automated_check_results (
 -- Name: automated_responses; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.automated_responses CASCADE;
+DROP TABLE IF EXISTS public.automated_responses CASCADE;
 CREATE TABLE IF NOT EXISTS public.automated_responses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     incident_id uuid NOT NULL,
@@ -3655,6 +3715,8 @@ CREATE TABLE IF NOT EXISTS public.automated_responses (
 -- Name: backup_logs; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.backup_logs CASCADE;
+DROP TABLE IF EXISTS public.backup_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.backup_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     backup_file text NOT NULL,
@@ -3682,6 +3744,8 @@ COMMENT ON TABLE public.backup_logs IS 'Tracks database backup operations';
 -- Name: billing_customers; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.billing_customers CASCADE;
+DROP TABLE IF EXISTS public.billing_customers CASCADE;
 CREATE TABLE IF NOT EXISTS public.billing_customers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -3711,6 +3775,8 @@ COMMENT ON TABLE public.billing_customers IS 'Maps tenants to Stripe customers f
 -- Name: business_cases; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.business_cases CASCADE;
+DROP TABLE IF EXISTS public.business_cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.business_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -3728,6 +3794,8 @@ CREATE TABLE IF NOT EXISTS public.business_cases (
 -- Name: canvas_components; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.canvas_components CASCADE;
+DROP TABLE IF EXISTS public.canvas_components CASCADE;
 CREATE TABLE IF NOT EXISTS public.canvas_components (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     case_id uuid NOT NULL,
@@ -3749,6 +3817,8 @@ CREATE TABLE IF NOT EXISTS public.canvas_components (
 -- Name: cases; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.cases CASCADE;
+DROP TABLE IF EXISTS public.cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3778,6 +3848,8 @@ COMMENT ON TABLE public.cases IS 'Cases with RLS enabled - users can only access
 -- Name: company_profiles; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.company_profiles CASCADE;
+DROP TABLE IF EXISTS public.company_profiles CASCADE;
 CREATE TABLE IF NOT EXISTS public.company_profiles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -3799,6 +3871,8 @@ CREATE TABLE IF NOT EXISTS public.company_profiles (
 -- Name: compliance_evidence; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.compliance_evidence CASCADE;
+DROP TABLE IF EXISTS public.compliance_evidence CASCADE;
 CREATE TABLE IF NOT EXISTS public.compliance_evidence (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     control_id text NOT NULL,
@@ -3820,6 +3894,8 @@ CREATE TABLE IF NOT EXISTS public.compliance_evidence (
 -- Name: compliance_reports; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.compliance_reports CASCADE;
+DROP TABLE IF EXISTS public.compliance_reports CASCADE;
 CREATE TABLE IF NOT EXISTS public.compliance_reports (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3839,6 +3915,8 @@ CREATE TABLE IF NOT EXISTS public.compliance_reports (
 -- Name: component_history; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.component_history CASCADE;
+DROP TABLE IF EXISTS public.component_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.component_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     component_id uuid NOT NULL,
@@ -3854,6 +3932,8 @@ CREATE TABLE IF NOT EXISTS public.component_history (
 -- Name: component_relationships; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.component_relationships CASCADE;
+DROP TABLE IF EXISTS public.component_relationships CASCADE;
 CREATE TABLE IF NOT EXISTS public.component_relationships (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     source_component_id uuid NOT NULL,
@@ -3868,6 +3948,8 @@ CREATE TABLE IF NOT EXISTS public.component_relationships (
 -- Name: confidence_violations; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.confidence_violations CASCADE;
+DROP TABLE IF EXISTS public.confidence_violations CASCADE;
 CREATE TABLE IF NOT EXISTS public.confidence_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
@@ -3890,6 +3972,8 @@ COMMENT ON TABLE public.confidence_violations IS 'Tracks instances where agent c
 -- Name: contextual_triggers; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.contextual_triggers CASCADE;
+DROP TABLE IF EXISTS public.contextual_triggers CASCADE;
 CREATE TABLE IF NOT EXISTS public.contextual_triggers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     element_selector text NOT NULL,
@@ -3916,6 +4000,8 @@ COMMENT ON TABLE public.contextual_triggers IS 'Rules for in-app contextual help
 -- Name: cost_alerts; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.cost_alerts CASCADE;
+DROP TABLE IF EXISTS public.cost_alerts CASCADE;
 CREATE TABLE IF NOT EXISTS public.cost_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     level text NOT NULL,
@@ -3943,6 +4029,8 @@ COMMENT ON TABLE public.cost_alerts IS 'Stores cost threshold violation alerts';
 -- Name: device_trust_history; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.device_trust_history CASCADE;
+DROP TABLE IF EXISTS public.device_trust_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.device_trust_history (
     user_id text NOT NULL,
     tenant_id text NOT NULL,
@@ -3959,6 +4047,8 @@ CREATE TABLE IF NOT EXISTS public.device_trust_history (
 -- Name: evaluation_runs; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.evaluation_runs CASCADE;
+DROP TABLE IF EXISTS public.evaluation_runs CASCADE;
 CREATE TABLE IF NOT EXISTS public.evaluation_runs (
     id text NOT NULL,
     name text NOT NULL,
@@ -3995,6 +4085,8 @@ COMMENT ON COLUMN public.evaluation_runs.summary IS 'Aggregate statistics: total
 -- Name: feature_flag_evaluations; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.feature_flag_evaluations CASCADE;
+DROP TABLE IF EXISTS public.feature_flag_evaluations CASCADE;
 CREATE TABLE IF NOT EXISTS public.feature_flag_evaluations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     flag_key text NOT NULL,
@@ -4016,6 +4108,8 @@ COMMENT ON TABLE public.feature_flag_evaluations IS 'Tracks feature flag evaluat
 -- Name: feature_flags; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.feature_flags CASCADE;
+DROP TABLE IF EXISTS public.feature_flags CASCADE;
 CREATE TABLE IF NOT EXISTS public.feature_flags (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     key text NOT NULL,
@@ -4064,6 +4158,8 @@ COMMENT ON COLUMN public.feature_flags.variants IS 'A/B test variants with weigh
 -- Name: financial_models; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.financial_models CASCADE;
+DROP TABLE IF EXISTS public.financial_models CASCADE;
 CREATE TABLE IF NOT EXISTS public.financial_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -4086,6 +4182,8 @@ CREATE TABLE IF NOT EXISTS public.financial_models (
 -- Name: golden_examples; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.golden_examples CASCADE;
+DROP TABLE IF EXISTS public.golden_examples CASCADE;
 CREATE TABLE IF NOT EXISTS public.golden_examples (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -4119,6 +4217,8 @@ COMMENT ON COLUMN public.golden_examples.evaluation_criteria IS 'Array of {metri
 -- Name: integration_usage_log; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.integration_usage_log CASCADE;
+DROP TABLE IF EXISTS public.integration_usage_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.integration_usage_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     integration_id uuid,
@@ -4135,6 +4235,8 @@ CREATE TABLE IF NOT EXISTS public.integration_usage_log (
 -- Name: invoices; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.invoices CASCADE;
+DROP TABLE IF EXISTS public.invoices CASCADE;
 CREATE TABLE IF NOT EXISTS public.invoices (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     billing_customer_id uuid,
@@ -4176,6 +4278,8 @@ COMMENT ON TABLE public.invoices IS 'Stored Stripe invoices per tenant for histo
 -- Name: kpi_hypotheses; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.kpi_hypotheses CASCADE;
+DROP TABLE IF EXISTS public.kpi_hypotheses CASCADE;
 CREATE TABLE IF NOT EXISTS public.kpi_hypotheses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -4196,6 +4300,8 @@ CREATE TABLE IF NOT EXISTS public.kpi_hypotheses (
 -- Name: llm_calls; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.llm_calls CASCADE;
+DROP TABLE IF EXISTS public.llm_calls CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_calls (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
@@ -4224,6 +4330,8 @@ COMMENT ON TABLE public.llm_calls IS 'Tracks all LLM API calls for cost and perf
 -- Name: llm_job_results; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.llm_job_results CASCADE;
+DROP TABLE IF EXISTS public.llm_job_results CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_job_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     job_id text NOT NULL,
@@ -4300,6 +4408,8 @@ COMMENT ON MATERIALIZED VIEW public.llm_performance_metrics IS 'Aggregated LLM p
 -- Name: llm_usage; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.llm_usage CASCADE;
+DROP TABLE IF EXISTS public.llm_usage CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_usage (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid,
@@ -4335,6 +4445,8 @@ COMMENT ON TABLE public.llm_usage IS 'Tracks all LLM API calls with costs and pe
 -- Name: login_attempts; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.login_attempts CASCADE;
+DROP TABLE IF EXISTS public.login_attempts CASCADE;
 CREATE TABLE IF NOT EXISTS public.login_attempts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     email text NOT NULL,
@@ -4357,6 +4469,8 @@ COMMENT ON TABLE public.login_attempts IS 'Tracks all login attempts for securit
 -- Name: memory_provenance; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.memory_provenance CASCADE;
+DROP TABLE IF EXISTS public.memory_provenance CASCADE;
 CREATE TABLE IF NOT EXISTS public.memory_provenance (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     memory_id uuid,
@@ -4371,6 +4485,8 @@ CREATE TABLE IF NOT EXISTS public.memory_provenance (
 -- Name: message_bus; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.message_bus CASCADE;
+DROP TABLE IF EXISTS public.message_bus CASCADE;
 CREATE TABLE IF NOT EXISTS public.message_bus (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
@@ -4391,6 +4507,8 @@ CREATE TABLE IF NOT EXISTS public.message_bus (
 -- Name: messages; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.messages CASCADE;
+DROP TABLE IF EXISTS public.messages CASCADE;
 CREATE TABLE IF NOT EXISTS public.messages (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -4416,6 +4534,8 @@ COMMENT ON TABLE public.messages IS 'Messages with RLS enabled - users can only 
 -- Name: policy_rules; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.policy_rules CASCADE;
+DROP TABLE IF EXISTS public.policy_rules CASCADE;
 CREATE TABLE IF NOT EXISTS public.policy_rules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     rule_name text NOT NULL,
@@ -4432,6 +4552,8 @@ CREATE TABLE IF NOT EXISTS public.policy_rules (
 -- Name: prompt_executions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.prompt_executions CASCADE;
+DROP TABLE IF EXISTS public.prompt_executions CASCADE;
 CREATE TABLE IF NOT EXISTS public.prompt_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     prompt_version_id uuid NOT NULL,
@@ -4460,6 +4582,8 @@ COMMENT ON TABLE public.prompt_executions IS 'Tracks individual prompt execution
 -- Name: rate_limit_violations; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.rate_limit_violations CASCADE;
+DROP TABLE IF EXISTS public.rate_limit_violations CASCADE;
 CREATE TABLE IF NOT EXISTS public.rate_limit_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
@@ -4484,6 +4608,8 @@ COMMENT ON TABLE public.rate_limit_violations IS 'Logs rate limit violations for
 -- Name: resource_artifacts; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.resource_artifacts CASCADE;
+DROP TABLE IF EXISTS public.resource_artifacts CASCADE;
 CREATE TABLE IF NOT EXISTS public.resource_artifacts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -4515,6 +4641,8 @@ COMMENT ON TABLE public.resource_artifacts IS 'Downloadable templates and tools'
 -- Name: retention_policies; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.retention_policies CASCADE;
+DROP TABLE IF EXISTS public.retention_policies CASCADE;
 CREATE TABLE IF NOT EXISTS public.retention_policies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     table_name text NOT NULL,
@@ -4543,6 +4671,8 @@ COMMENT ON TABLE public.retention_policies IS 'Phase 3: Defines data retention p
 -- Name: roles; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.roles CASCADE;
+DROP TABLE IF EXISTS public.roles CASCADE;
 CREATE TABLE IF NOT EXISTS public.roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -4556,6 +4686,8 @@ CREATE TABLE IF NOT EXISTS public.roles (
 -- Name: secret_audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.secret_audit_logs CASCADE;
+DROP TABLE IF EXISTS public.secret_audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4601,6 +4733,8 @@ COMMENT ON VIEW public.secret_audit_failures IS 'SECURITY INVOKER view - Recent 
 -- Name: secret_audit_logs_2024; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
+DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4622,6 +4756,8 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
 -- Name: secret_audit_logs_2025; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
+DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4643,6 +4779,8 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
 -- Name: secret_audit_logs_2026; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
+DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4664,6 +4802,8 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
 -- Name: secret_audit_logs_default; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.secret_audit_logs_default CASCADE;
+DROP TABLE IF EXISTS public.secret_audit_logs_default CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4685,6 +4825,8 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
 -- Name: secret_audit_logs_legacy; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.secret_audit_logs_legacy CASCADE;
+DROP TABLE IF EXISTS public.secret_audit_logs_legacy CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_legacy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4809,6 +4951,8 @@ COMMENT ON VIEW public.secret_audit_summary IS 'SECURITY INVOKER view - Daily su
 -- Name: security_audit_log; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.security_audit_log CASCADE;
+DROP TABLE IF EXISTS public.security_audit_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     event_type text NOT NULL,
@@ -4831,6 +4975,8 @@ COMMENT ON TABLE public.security_audit_log IS 'Append-only log of security event
 -- Name: security_events; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.security_events CASCADE;
+DROP TABLE IF EXISTS public.security_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -4850,6 +4996,8 @@ CREATE TABLE IF NOT EXISTS public.security_events (
 -- Name: security_incidents; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.security_incidents CASCADE;
+DROP TABLE IF EXISTS public.security_incidents CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_incidents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -4874,6 +5022,8 @@ CREATE TABLE IF NOT EXISTS public.security_incidents (
 -- Name: security_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.security_metrics CASCADE;
+DROP TABLE IF EXISTS public.security_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -4888,6 +5038,8 @@ CREATE TABLE IF NOT EXISTS public.security_metrics (
 -- Name: security_policies; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.security_policies CASCADE;
+DROP TABLE IF EXISTS public.security_policies CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_policies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -4910,6 +5062,8 @@ CREATE TABLE IF NOT EXISTS public.security_policies (
 -- Name: semantic_memory; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.semantic_memory CASCADE;
+DROP TABLE IF EXISTS public.semantic_memory CASCADE;
 CREATE TABLE IF NOT EXISTS public.semantic_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     type text NOT NULL,
@@ -4926,6 +5080,8 @@ CREATE TABLE IF NOT EXISTS public.semantic_memory (
 -- Name: subscription_items; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.subscription_items CASCADE;
+DROP TABLE IF EXISTS public.subscription_items CASCADE;
 CREATE TABLE IF NOT EXISTS public.subscription_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     subscription_id uuid,
@@ -4958,6 +5114,8 @@ COMMENT ON TABLE public.subscription_items IS 'Metered line items per subscripti
 -- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.subscriptions CASCADE;
+DROP TABLE IF EXISTS public.subscriptions CASCADE;
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     billing_customer_id uuid,
@@ -4995,6 +5153,8 @@ COMMENT ON TABLE public.subscriptions IS 'Active subscriptions per tenant with b
 -- Name: system_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.system_metrics CASCADE;
+DROP TABLE IF EXISTS public.system_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.system_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -5010,6 +5170,8 @@ CREATE TABLE IF NOT EXISTS public.system_metrics (
 -- Name: task_queue; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.task_queue CASCADE;
+DROP TABLE IF EXISTS public.task_queue CASCADE;
 CREATE TABLE IF NOT EXISTS public.task_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workflow_execution_id uuid,
@@ -5034,6 +5196,8 @@ CREATE TABLE IF NOT EXISTS public.task_queue (
 -- Name: tenant_integrations; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.tenant_integrations CASCADE;
+DROP TABLE IF EXISTS public.tenant_integrations CASCADE;
 CREATE TABLE IF NOT EXISTS public.tenant_integrations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -5061,6 +5225,8 @@ CREATE TABLE IF NOT EXISTS public.tenant_integrations (
 -- Name: tenants; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.tenants CASCADE;
+DROP TABLE IF EXISTS public.tenants CASCADE;
 CREATE TABLE IF NOT EXISTS public.tenants (
     id text NOT NULL,
     name text NOT NULL,
@@ -5083,6 +5249,8 @@ COMMENT ON TABLE public.tenants IS 'Multi-tenant organization table';
 -- Name: usage_aggregates; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.usage_aggregates CASCADE;
+DROP TABLE IF EXISTS public.usage_aggregates CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_aggregates (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -5113,6 +5281,8 @@ COMMENT ON TABLE public.usage_aggregates IS 'Aggregated usage ready for Stripe s
 -- Name: usage_alerts; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.usage_alerts CASCADE;
+DROP TABLE IF EXISTS public.usage_alerts CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -5144,6 +5314,8 @@ COMMENT ON TABLE public.usage_alerts IS 'Usage alert history (80%/100%/120% thre
 -- Name: usage_events; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.usage_events CASCADE;
+DROP TABLE IF EXISTS public.usage_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -5171,6 +5343,8 @@ COMMENT ON TABLE public.usage_events IS 'Raw usage events emitted from services 
 -- Name: usage_quotas; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.usage_quotas CASCADE;
+DROP TABLE IF EXISTS public.usage_quotas CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_quotas (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -5199,6 +5373,8 @@ COMMENT ON TABLE public.usage_quotas IS 'Plan quotas and current usage per tenan
 -- Name: user_behavior_analysis; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.user_behavior_analysis CASCADE;
+DROP TABLE IF EXISTS public.user_behavior_analysis CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_behavior_analysis (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id text NOT NULL,
@@ -5239,6 +5415,8 @@ COMMENT ON VIEW public.user_pillar_progress IS 'SECURITY INVOKER view - User pro
 -- Name: user_roles; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.user_roles CASCADE;
+DROP TABLE IF EXISTS public.user_roles CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_roles (
     user_id text NOT NULL,
     role_id uuid NOT NULL,
@@ -5252,6 +5430,8 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 -- Name: user_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.user_sessions CASCADE;
+DROP TABLE IF EXISTS public.user_sessions CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -5273,6 +5453,8 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
 -- Name: user_tenants; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.user_tenants CASCADE;
+DROP TABLE IF EXISTS public.user_tenants CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_tenants (
     tenant_id text NOT NULL,
     user_id text NOT NULL,
@@ -5294,6 +5476,8 @@ COMMENT ON TABLE public.user_tenants IS 'Maps users to tenants with roles - requ
 -- Name: value_cases; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.value_cases CASCADE;
+DROP TABLE IF EXISTS public.value_cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     organization_id uuid,
@@ -5315,6 +5499,8 @@ CREATE TABLE IF NOT EXISTS public.value_cases (
 -- Name: value_ledger; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.value_ledger CASCADE;
+DROP TABLE IF EXISTS public.value_ledger CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_ledger (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -5339,6 +5525,8 @@ COMMENT ON TABLE public.value_ledger IS 'Tracks realized value for gamification 
 -- Name: value_maps; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.value_maps CASCADE;
+DROP TABLE IF EXISTS public.value_maps CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_maps (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -5357,6 +5545,8 @@ CREATE TABLE IF NOT EXISTS public.value_maps (
 -- Name: value_prediction_accuracy; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.value_prediction_accuracy CASCADE;
+DROP TABLE IF EXISTS public.value_prediction_accuracy CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_prediction_accuracy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     prediction_id uuid,
@@ -5410,6 +5600,8 @@ COMMENT ON MATERIALIZED VIEW public.value_prediction_accuracy_metrics IS 'Aggreg
 -- Name: webhook_events; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.webhook_events CASCADE;
+DROP TABLE IF EXISTS public.webhook_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.webhook_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     stripe_event_id text NOT NULL,
@@ -5434,6 +5626,8 @@ COMMENT ON TABLE public.webhook_events IS 'Stripe webhook event log for idempote
 -- Name: workflow_executions; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.workflow_executions CASCADE;
+DROP TABLE IF EXISTS public.workflow_executions CASCADE;
 CREATE TABLE IF NOT EXISTS public.workflow_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workflow_id uuid,
@@ -5461,6 +5655,8 @@ CREATE TABLE IF NOT EXISTS public.workflow_executions (
 -- Name: workflows; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.workflows CASCADE;
+DROP TABLE IF EXISTS public.workflows CASCADE;
 CREATE TABLE IF NOT EXISTS public.workflows (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -5577,16 +5773,26 @@ END $$;
 -- Name: academy_lessons academy_lessons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.academy_lessons
-    ADD CONSTRAINT academy_lessons_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_lessons_pkey') THEN
+    ALTER TABLE ONLY public.academy_lessons
+        ADD CONSTRAINT academy_lessons_pkey PRIMARY KEY (id);
+  END IF;
+END $$;
 
 
 --
 -- Name: academy_modules academy_modules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.academy_modules
-    ADD CONSTRAINT academy_modules_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_modules_pkey') THEN
+    ALTER TABLE ONLY public.academy_modules
+        ADD CONSTRAINT academy_modules_pkey PRIMARY KEY (id);
+  END IF;
+END $$;
 
 
 --
@@ -5601,16 +5807,26 @@ ALTER TABLE ONLY public.academy_modules
 -- Name: academy_progress academy_progress_user_id_lesson_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.academy_progress
-    ADD CONSTRAINT academy_progress_user_id_lesson_id_key UNIQUE (user_id, lesson_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_progress_user_id_lesson_id_key') THEN
+    ALTER TABLE ONLY public.academy_progress
+        ADD CONSTRAINT academy_progress_user_id_lesson_id_key UNIQUE (user_id, lesson_id);
+  END IF;
+END $$;
 
 
 --
 -- Name: agent_accuracy_metrics agent_accuracy_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.agent_accuracy_metrics
-    ADD CONSTRAINT agent_accuracy_metrics_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_accuracy_metrics_pkey') THEN
+    ALTER TABLE ONLY public.agent_accuracy_metrics
+        ADD CONSTRAINT agent_accuracy_metrics_pkey PRIMARY KEY (id);
+  END IF;
+END $$;
 
 
 --
@@ -8101,203 +8317,225 @@ ALTER INDEX public.secret_audit_logs_pkey1 ATTACH PARTITION public.secret_audit_
 -- Name: agents audit_agents; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER audit_agents AFTER INSERT OR DELETE OR UPDATE ON public.agents FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
+CREATE TRIGGER audit_agents
+  AFTER UPDATE ON agents
+  FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
 
 
 --
 -- Name: cases audit_cases; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER audit_cases AFTER INSERT OR DELETE OR UPDATE ON public.cases FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
+CREATE TRIGGER audit_cases
+  AFTER UPDATE ON cases
+  FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
 
 
 --
 -- Name: workflows audit_workflows; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER audit_workflows AFTER INSERT OR DELETE OR UPDATE ON public.workflows FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
+CREATE TRIGGER audit_workflows
+  AFTER UPDATE ON workflows
+  FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
 
 
 --
 -- Name: agent_predictions enforce_tenant_access_agent_predictions; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER enforce_tenant_access_agent_predictions BEFORE INSERT OR UPDATE ON public.agent_predictions FOR EACH ROW EXECUTE FUNCTION public.audit_tenant_access();
 
-
---
 -- Name: agent_sessions enforce_tenant_access_agent_sessions; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER enforce_tenant_access_agent_sessions BEFORE INSERT OR UPDATE ON public.agent_sessions FOR EACH ROW EXECUTE FUNCTION public.audit_tenant_access();
 
-
---
 -- Name: workflow_executions enforce_tenant_access_workflow_executions; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER enforce_tenant_access_workflow_executions BEFORE INSERT OR UPDATE ON public.workflow_executions FOR EACH ROW EXECUTE FUNCTION public.audit_tenant_access();
 
-
---
 -- Name: audit_logs_archive prevent_audit_archive_delete; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER prevent_audit_archive_delete BEFORE DELETE ON public.audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_deletion();
+CREATE TRIGGER prevent_audit_archive_delete
+BEFORE UPDATE ON audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_deletion();
 
 
 --
 -- Name: audit_logs_archive prevent_audit_archive_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER prevent_audit_archive_update BEFORE UPDATE ON public.audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_modification();
+CREATE TRIGGER prevent_audit_archive_update
+BEFORE UPDATE ON audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_modification();
 
 
 --
 -- Name: audit_logs prevent_audit_delete; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER prevent_audit_delete BEFORE DELETE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_deletion();
+CREATE TRIGGER prevent_audit_delete
+BEFORE UPDATE ON audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_deletion();
 
 
 --
 -- Name: audit_logs prevent_audit_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER prevent_audit_update BEFORE UPDATE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_modification();
+CREATE TRIGGER prevent_audit_update
+BEFORE UPDATE ON audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_modification();
 
 
 --
 -- Name: agent_predictions trigger_calibration_check; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_calibration_check AFTER UPDATE ON public.agent_predictions FOR EACH ROW EXECUTE FUNCTION public.trigger_calibration_on_outcome();
+CREATE TRIGGER trigger_calibration_check
+  AFTER INSERT ON agent_predictions
+  FOR EACH ROW EXECUTE FUNCTION public.trigger_calibration_on_outcome();
 
 
 --
 -- Name: tenant_integrations trigger_tenant_integrations_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_tenant_integrations_updated_at BEFORE UPDATE ON public.tenant_integrations FOR EACH ROW EXECUTE FUNCTION public.update_tenant_integrations_updated_at();
+CREATE TRIGGER trigger_tenant_integrations_updated_at
+BEFORE UPDATE ON tenant_integrations FOR EACH ROW EXECUTE FUNCTION public.update_tenant_integrations_updated_at();
 
 
 --
 -- Name: feature_flags trigger_update_feature_flag_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_update_feature_flag_timestamp BEFORE UPDATE ON public.feature_flags FOR EACH ROW EXECUTE FUNCTION public.update_feature_flag_timestamp();
+CREATE TRIGGER trigger_update_feature_flag_timestamp
+BEFORE UPDATE ON feature_flags FOR EACH ROW EXECUTE FUNCTION public.update_feature_flag_timestamp();
 
 
 --
 -- Name: golden_examples trigger_update_golden_example_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_update_golden_example_timestamp BEFORE UPDATE ON public.golden_examples FOR EACH ROW EXECUTE FUNCTION public.update_golden_example_timestamp();
+CREATE TRIGGER trigger_update_golden_example_timestamp
+BEFORE UPDATE ON golden_examples FOR EACH ROW EXECUTE FUNCTION public.update_golden_example_timestamp();
 
 
 --
 -- Name: prompt_executions trigger_update_version_performance; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_update_version_performance AFTER INSERT OR UPDATE ON public.prompt_executions FOR EACH ROW WHEN ((new.success IS NOT NULL)) EXECUTE FUNCTION public.update_version_performance_trigger();
+CREATE TRIGGER trigger_update_version_performance
+  AFTER UPDATE ON prompt_executions
+  FOR EACH ROW WHEN ((new.success IS NOT NULL)) EXECUTE FUNCTION public.update_version_performance_trigger();
 
 
 --
 -- Name: academy_lessons update_academy_lessons_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_academy_lessons_updated_at BEFORE UPDATE ON public.academy_lessons FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_academy_lessons_updated_at
+BEFORE UPDATE ON academy_lessons FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: academy_modules update_academy_modules_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_academy_modules_updated_at BEFORE UPDATE ON public.academy_modules FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_academy_modules_updated_at
+BEFORE UPDATE ON academy_modules FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: academy_progress update_academy_progress_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_academy_progress_updated_at BEFORE UPDATE ON public.academy_progress FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_academy_progress_updated_at
+BEFORE UPDATE ON academy_progress FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: agent_predictions update_agent_predictions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_agent_predictions_updated_at BEFORE UPDATE ON public.agent_predictions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_agent_predictions_updated_at
+BEFORE UPDATE ON agent_predictions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: agent_sessions update_agent_sessions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_agent_sessions_updated_at BEFORE UPDATE ON public.agent_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_agent_sessions_updated_at
+BEFORE UPDATE ON agent_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: business_cases update_business_cases_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_business_cases_updated_at BEFORE UPDATE ON public.business_cases FOR EACH ROW EXECUTE FUNCTION public.update_modified_at();
+CREATE TRIGGER update_business_cases_updated_at
+BEFORE UPDATE ON business_cases FOR EACH ROW EXECUTE FUNCTION public.update_modified_at();
 
 
 --
 -- Name: canvas_components update_canvas_components_modified_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_canvas_components_modified_at BEFORE UPDATE ON public.canvas_components FOR EACH ROW EXECUTE FUNCTION public.update_modified_at();
+CREATE TRIGGER update_canvas_components_modified_at
+BEFORE UPDATE ON canvas_components FOR EACH ROW EXECUTE FUNCTION public.update_modified_at();
 
 
 --
 -- Name: cases update_cases_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_cases_timestamp BEFORE UPDATE ON public.cases FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_cases_timestamp
+BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 
 --
 -- Name: cases update_cases_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_cases_updated_at BEFORE UPDATE ON public.cases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER update_cases_updated_at
+BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 
 --
 -- Name: resource_artifacts update_resource_artifacts_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_resource_artifacts_updated_at BEFORE UPDATE ON public.resource_artifacts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_resource_artifacts_updated_at
+BEFORE UPDATE ON resource_artifacts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: tenants update_tenants_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_tenants_updated_at BEFORE UPDATE ON public.tenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_tenants_updated_at
+BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: user_tenants update_user_tenants_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_user_tenants_updated_at BEFORE UPDATE ON public.user_tenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_user_tenants_updated_at
+BEFORE UPDATE ON user_tenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
 -- Name: workflows update_workflows_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_workflows_timestamp BEFORE UPDATE ON public.workflows FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_workflows_timestamp
+BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
 
 --
 -- Name: workflows update_workflows_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON public.workflows FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+CREATE TRIGGER update_workflows_updated_at
+BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 
 --
@@ -11706,6 +11944,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES 
 -- Description: Create HITL tables for Approval Workflow Engine
 
 -- Create HITL Requests table
+DROP TABLE IF EXISTS public.hitl_requests CASCADE;
+DROP TABLE IF EXISTS public.hitl_requests CASCADE;
 CREATE TABLE IF NOT EXISTS public.hitl_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     gate_id TEXT NOT NULL,
@@ -11841,7 +12081,6 @@ CREATE TRIGGER organizations_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_organizations_updated_at();
 
-DROP TRIGGER IF EXISTS user_organizations_updated_at ON user_organizations;
 CREATE TRIGGER user_organizations_updated_at
   BEFORE UPDATE ON user_organizations
   FOR EACH ROW
@@ -12790,19 +13029,16 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Apply audit trigger to critical tables
-DROP TRIGGER IF EXISTS enforce_tenant_access_agent_predictions ON agent_predictions;
 CREATE TRIGGER enforce_tenant_access_agent_predictions
   BEFORE INSERT OR UPDATE ON agent_predictions
   FOR EACH ROW
   EXECUTE FUNCTION audit_tenant_access();
 
-DROP TRIGGER IF EXISTS enforce_tenant_access_agent_sessions ON agent_sessions;
 CREATE TRIGGER enforce_tenant_access_agent_sessions
   BEFORE INSERT OR UPDATE ON agent_sessions
   FOR EACH ROW
   EXECUTE FUNCTION audit_tenant_access();
 
-DROP TRIGGER IF EXISTS enforce_tenant_access_workflow_executions ON workflow_executions;
 CREATE TRIGGER enforce_tenant_access_workflow_executions
   BEFORE INSERT OR UPDATE ON workflow_executions
   FOR EACH ROW
@@ -13087,27 +13323,33 @@ $$;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'cases' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_cases_timestamp') THEN
-    CREATE TRIGGER update_cases_timestamp BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_cases_timestamp
+BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workflows' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflows_timestamp') THEN
-    CREATE TRIGGER update_workflows_timestamp BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_workflows_timestamp
+BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workflow_states' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflow_states_timestamp') THEN
-    CREATE TRIGGER update_workflow_states_timestamp BEFORE UPDATE ON workflow_states FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_workflow_states_timestamp
+BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'shared_artifacts' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_shared_artifacts_timestamp') THEN
-    CREATE TRIGGER update_shared_artifacts_timestamp BEFORE UPDATE ON shared_artifacts FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_shared_artifacts_timestamp
+BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_runs' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agent_runs_timestamp') THEN
-    CREATE TRIGGER update_agent_runs_timestamp BEFORE UPDATE ON agent_runs FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_agent_runs_timestamp
+BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_memory' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agent_memory_timestamp') THEN
-    CREATE TRIGGER update_agent_memory_timestamp BEFORE UPDATE ON agent_memory FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
+CREATE TRIGGER update_agent_memory_timestamp
+BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 END;
 $$;
@@ -13741,7 +13983,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS update_llm_gating_policies_updated_at ON llm_gating_policies;
 CREATE TRIGGER update_llm_gating_policies_updated_at
   BEFORE UPDATE ON llm_gating_policies
   FOR EACH ROW
@@ -15864,28 +16105,24 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply tenant_id immutability to cases
-DROP TRIGGER IF EXISTS prevent_cases_tenant_modification ON cases;
 CREATE TRIGGER prevent_cases_tenant_modification
   BEFORE UPDATE ON cases
   FOR EACH ROW
   EXECUTE FUNCTION prevent_tenant_id_modification();
 
 -- Apply tenant_id immutability to messages
-DROP TRIGGER IF EXISTS prevent_messages_tenant_modification ON messages;
 CREATE TRIGGER prevent_messages_tenant_modification
   BEFORE UPDATE ON messages
   FOR EACH ROW
   EXECUTE FUNCTION prevent_tenant_id_modification();
 
 -- Apply tenant_id immutability to agent_sessions
-DROP TRIGGER IF EXISTS prevent_agent_sessions_tenant_modification ON agent_sessions;
 CREATE TRIGGER prevent_agent_sessions_tenant_modification
   BEFORE UPDATE ON agent_sessions
   FOR EACH ROW
   EXECUTE FUNCTION prevent_tenant_id_modification();
 
 -- Apply tenant_id immutability to agent_predictions
-DROP TRIGGER IF EXISTS prevent_agent_predictions_tenant_modification ON agent_predictions;
 CREATE TRIGGER prevent_agent_predictions_tenant_modification
   BEFORE UPDATE ON agent_predictions
   FOR EACH ROW
@@ -16133,7 +16370,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to log region changes on tenants
-DROP TRIGGER IF EXISTS log_tenant_region_change ON tenants;
 CREATE TRIGGER log_tenant_region_change
   AFTER UPDATE ON tenants
   FOR EACH ROW
@@ -17444,7 +17680,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Create Trigger
 -- ============================================================================
 
-DROP TRIGGER IF EXISTS audit_organization_configuration_updates ON organization_configurations;
 
 CREATE TRIGGER audit_organization_configuration_updates
   AFTER UPDATE ON organization_configurations
@@ -17915,7 +18150,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'teams') THEN
-    DROP TRIGGER IF EXISTS audit_team_settings_updates ON teams;
     CREATE TRIGGER audit_team_settings_updates
       AFTER UPDATE ON teams
       FOR EACH ROW
@@ -18335,7 +18569,6 @@ END;
 $$;
 
 -- Create trigger
-DROP TRIGGER IF EXISTS encrypt_credentials_before_insert ON integration_connections;
 CREATE TRIGGER encrypt_credentials_before_insert
   BEFORE INSERT OR UPDATE ON integration_connections
   FOR EACH ROW
@@ -18385,7 +18618,6 @@ END;
 $$;
 
 -- Create trigger
-DROP TRIGGER IF EXISTS encrypt_tokens_before_insert ON tenant_integrations;
 CREATE TRIGGER encrypt_tokens_before_insert
   BEFORE INSERT OR UPDATE ON tenant_integrations
   FOR EACH ROW
@@ -20202,7 +20434,6 @@ END;
 $$;
 
 -- Create trigger
-DROP TRIGGER IF EXISTS store_credentials_in_vault_trigger ON integration_connections;
 CREATE TRIGGER store_credentials_in_vault_trigger
   BEFORE INSERT OR UPDATE ON integration_connections
   FOR EACH ROW
@@ -20251,7 +20482,6 @@ END;
 $$;
 
 -- Create trigger
-DROP TRIGGER IF EXISTS store_tokens_in_vault_trigger ON tenant_integrations;
 CREATE TRIGGER store_tokens_in_vault_trigger
   BEFORE INSERT OR UPDATE ON tenant_integrations
   FOR EACH ROW
@@ -20810,6 +21040,8 @@ CREATE TABLE IF NOT EXISTS benchmarks (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+DROP TABLE IF EXISTS public.workflow_stage_runs CASCADE;
+DROP TABLE IF EXISTS public.workflow_stage_runs CASCADE;
 CREATE TABLE IF NOT EXISTS public.workflow_stage_runs (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     execution_id uuid NOT NULL REFERENCES public.workflow_executions(id) ON DELETE CASCADE,
@@ -21499,8 +21731,8 @@ UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL
 UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
 UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
 -- UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
-UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
-UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
+-- -- UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
+-- UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
 UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
 UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
 
@@ -22386,6 +22618,8 @@ CREATE POLICY security_audit_log_service_role_insert
 -- Create teams table
 -- Depends on tenants table (tenant_id is TEXT)
 
+DROP TABLE IF EXISTS public.teams CASCADE;
+DROP TABLE IF EXISTS public.teams CASCADE;
 CREATE TABLE IF NOT EXISTS public.teams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
@@ -22404,7 +22638,6 @@ CREATE INDEX IF NOT EXISTS idx_teams_tenant_id ON public.teams(tenant_id);
 
 -- Trigger for updated_at
 -- Assuming standard update_updated_at_column function exists as seen in other tables
-DROP TRIGGER IF EXISTS update_teams_updated_at ON public.teams;
 CREATE TRIGGER update_teams_updated_at
   BEFORE UPDATE ON public.teams
   FOR EACH ROW
