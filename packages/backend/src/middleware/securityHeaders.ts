@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextFunction, Request, Response } from "express";
 import { securityEvents } from "../security/securityLogger.js";
 
