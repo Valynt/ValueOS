@@ -1,6 +1,6 @@
 /**
  * Workflow Type Definitions
- * 
+ *
  * Centralized type definitions for workflow orchestration, lifecycle stages,
  * DAG execution, compensation, and retry logic.
  */
@@ -9,18 +9,11 @@
 // Lifecycle Stages
 // ============================================================================
 
-export type LifecycleStage = 
-  | "opportunity" 
-  | "target" 
-  | "expansion" 
-  | "integrity" 
-  | "realization";
+export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";
 
-export type WorkflowStage = 
-  | 'opportunity' 
-  | 'target' 
-  | 'realization' 
-  | 'expansion';
+export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion";
+
+export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
 // ============================================================================
 // Retry Configuration
@@ -53,6 +46,9 @@ export interface WorkflowStage {
 export interface WorkflowTransition {
   from: string;
   to: string;
+  // Aliases for backward compatibility with DAG definitions
+  from_stage?: string;
+  to_stage?: string;
   condition?: string;
   priority?: number;
 }
@@ -61,9 +57,13 @@ export interface WorkflowDAG {
   id: string;
   name: string;
   description: string;
+  version?: string;
   stages: WorkflowStage[];
   transitions: WorkflowTransition[];
   entry_stage: string;
+  // Aliases for backward compatibility
+  initial_stage?: string;
+  final_stages?: string[];
   exit_stages: string[];
   metadata?: Record<string, any>;
 }
@@ -75,6 +75,7 @@ export interface WorkflowDAG {
 export interface WorkflowExecution {
   id: string;
   workflow_id: string;
+  workflow_definition_id?: string;
   status: WorkflowExecutionStatus;
   current_stage_id?: string;
   context: Record<string, any>;
@@ -83,20 +84,20 @@ export interface WorkflowExecution {
   updated_at: string;
 }
 
-export type WorkflowExecutionStatus = 
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'rolled_back'
-  | 'compensating';
+export type WorkflowExecutionStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "rolled_back"
+  | "compensating";
 
 export interface ExecutedStep {
   stage_id: string;
   stage_type: LifecycleStage;
   compensator?: string;
-  status: 'completed' | 'failed';
+  status: "completed" | "failed";
   started_at: string;
   completed_at?: string;
 }
@@ -112,13 +113,10 @@ export interface CompensationContext {
   state_changes: Record<string, any>;
 }
 
-export type CompensationPolicy = 
-  | 'halt_on_error' 
-  | 'continue_on_error' 
-  | 'skip_compensation';
+export type CompensationPolicy = "halt_on_error" | "continue_on_error" | "skip_compensation";
 
 export interface RollbackState {
-  status: 'idle' | 'in_progress' | 'completed' | 'failed';
+  status: "idle" | "in_progress" | "completed" | "failed";
   completed_steps: string[];
   failed_stage?: string;
 }
@@ -147,15 +145,15 @@ export interface WorkflowEvent {
 }
 
 export type WorkflowEventType =
-  | 'execution_started'
-  | 'stage_started'
-  | 'stage_completed'
-  | 'stage_failed'
-  | 'execution_completed'
-  | 'execution_failed'
-  | 'compensation_started'
-  | 'compensation_completed'
-  | 'compensation_failed';
+  | "execution_started"
+  | "stage_started"
+  | "stage_completed"
+  | "stage_failed"
+  | "execution_completed"
+  | "execution_failed"
+  | "compensation_started"
+  | "compensation_completed"
+  | "compensation_failed";
 
 // ============================================================================
 // Workflow Progress

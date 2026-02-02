@@ -17,6 +17,7 @@
     "setup": "node scripts/dx/setup.js",
     "setup:local": "node scripts/dx/setup.js",
     "setup:ci": "node scripts/dx/setup-ci.js",
+    "verify:resolution": "npx tsx ops/scripts/verify-resolution.ts",
     "dx": "node scripts/dev-cli.js",
     "dx:up": "bash scripts/dev/start-dev-env.sh",
     "dx:up:seed": "bash scripts/dev/start-dev-env.sh --seed",

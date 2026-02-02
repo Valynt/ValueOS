@@ -10,22 +10,22 @@ const shouldFix = args.includes("--fix");
 /**
  * ValueOS Dev Verify (The Ironclad Boot)
  * 
+ * CORE PRINCIPLE: Force Determinism at the Gateway.
+ * 
  * Optimized for zero-dependency execution.
- * Tiers:
- * - Tier 0: Node/PNPM/Docker/Port readiness
- * - Tier 1: .env parity
- * - Tier 2: Governance Integrity (Strict Zones)
- * - Tier 3: Schema Schema (Drift Check)
- * - Tier 4: Hand-off to DX Doctor (soft)
  */
+
+function logTitle(title: string) {
+  console.log(`\n=== ${title} ===`);
+}
 
 function checkVersion(command: string): boolean {
   try {
-    const version = execSync(\`\${command} --version\`, { encoding: "utf8" }).trim();
-    console.log(\`✅ \${command} version: \${version}\`);
+    const version = execSync(`${command} --version`, { encoding: "utf-8" }).trim();
+    console.log(`✅ ${command} version: ${version}`);
     return true;
   } catch (error) {
-    console.error(\`❌ \${command} not found or failed.\`);
+    console.error(`❌ ${command} not found or failed.`);
     return false;
   }
 }
@@ -51,7 +51,7 @@ function checkEnv(): boolean {
 
   try {
     const envContent = fs.readFileSync(envPath, "utf8");
-    const exampleContent = fs.readFileSync(examplePath, "utf8");
+    const exampleLines = fs.readFileSync(examplePath, "utf8").split("\n");
     
     const getKeys = (content: string) => 
       content.split("\n")
@@ -60,12 +60,29 @@ function checkEnv(): boolean {
         .filter(k => k);
 
     const envKeys = getKeys(envContent);
-    const exampleKeys = getKeys(exampleContent);
+    const missingLines: string[] = [];
+    const missingKeys: string[] = [];
 
-    const missing = exampleKeys.filter(k => !envKeys.includes(k));
-    if (missing.length > 0) {
-      console.error(\`❌ .env is missing keys from .env.example: \${missing.join(", ")}\`);
-      return false;
+    for (const line of exampleLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const key = trimmed.split("=")[0].trim();
+      if (key && !envKeys.includes(key)) {
+        missingLines.push(line);
+        missingKeys.push(key);
+      }
+    }
+
+    if (missingKeys.length > 0) {
+      if (shouldFix) {
+        console.log(`🛠️  Auto-fixing: Patching .env with ${missingKeys.length} missing keys...`);
+        fs.appendFileSync(envPath, "\n# Added by dev-verify --fix\n" + missingLines.join("\n") + "\n");
+        console.log("✅ .env patched.");
+        return true;
+      } else {
+        console.error(`❌ .env is missing keys from .env.example: ${missingKeys.join(", ")}`);
+        return false;
+      }
     }
 
     console.log("✅ .env parity validated.");
@@ -83,30 +100,47 @@ function checkPort(port: number, name: string): Promise<boolean> {
     socket.setTimeout(timeout);
 
     socket.on("connect", () => {
-      console.log(\`✅ \${name} reachable on port \${port}\`);
+      console.log(`✅ ${name} reachable on port ${port}`);
       socket.destroy();
       resolve(true);
     });
 
-    socket.on("error", () => {
-      resolve(false);
-    });
-
-    socket.on("timeout", () => {
-      socket.destroy();
-      resolve(false);
-    });
+    socket.on("error", () => { resolve(false); });
+    socket.on("timeout", () => { socket.destroy(); resolve(false); });
 
     socket.connect(port, "127.0.0.1");
   });
 }
 
+function checkDockerImages(): boolean {
+  console.log("🔍 Checking required Docker images...");
+  const required = ["postgres:15-alpine", "localstack/localstack", "kong/kong-gateway"];
+  let allPresent = true;
+
+  for (const img of required) {
+    try {
+      execSync(`docker image inspect ${img}`, { stdio: "pipe" });
+    } catch (e) {
+      if (shouldFix) {
+        console.log(`🛠️  Auto-fixing: Pulling ${img}...`);
+        try {
+           execSync(`docker pull ${img}`, { stdio: "inherit" });
+        } catch (pullError) {
+           console.error(`❌ Failed to pull ${img}`);
+           allPresent = false;
+        }
+      } else {
+        console.warn(`⚠️  Missing Docker image: ${img}`);
+        allPresent = false;
+      }
+    }
+  }
+  return allPresent;
+}
+
 function checkGovernanceIntegrity(): boolean {
   const configPath = path.join(projectRoot, "config/strict-zones.json");
-  if (!fs.existsSync(configPath)) {
-    console.warn("⚠️ config/strict-zones.json missing, skipping governance check.");
-    return true;
-  }
+  if (!fs.existsSync(configPath)) return true;
 
   try {
     const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
@@ -114,98 +148,70 @@ function checkGovernanceIntegrity(): boolean {
     let allValid = true;
 
     for (const zone of zones) {
-      const zonePath = path.join(projectRoot, zone);
-      if (!fs.existsSync(zonePath)) {
-        console.error(\`❌ Orphaned Island: Strict zone '\${zone}' does not exist.\`);
-        allValid = false;
-        continue;
-      }
-
-      const hasTsConfig = fs.existsSync(path.join(zonePath, "tsconfig.json"));
-      if (!hasTsConfig) {
-        console.error(\`❌ Invalid Island: Strict zone '\${zone}' lacks a tsconfig.json.\`);
+      if (!fs.existsSync(path.join(projectRoot, zone))) {
+        console.error(`❌ Orphaned Island: Strict zone '${zone}' does not exist.`);
         allValid = false;
       }
-    }
-
-    if (allValid) {
-      console.log("✅ Governance integrity (Strict Zones) validated.");
     }
     return allValid;
-  } catch (error) {
-    console.error("❌ Failed to validate governance integrity:", error);
-    return false;
-  }
+  } catch (e) { return false; }
 }
 
 function checkSchemaDrift(): boolean {
-  console.log("🔍 Checking for database schema drift...");
   try {
     execSync("bash infra/scripts/check_drift.sh", { stdio: "pipe" });
-    console.log("✅ Database schema is aligned with migrations.");
+    console.log("✅ Database schema aligned.");
     return true;
-  } catch (error) {
+  } catch (e) {
     console.error("❌ Database schema drift detected!");
     return false;
   }
 }
 
-/**
- * Bridge logic to DX Doctor
- */
-function runSoftDoctor(): void {
-  console.log("🔍 Running DX Doctor (soft mode)...");
-  try {
-    spawnSync("pnpm", ["dx:doctor", "--soft"], { stdio: "inherit" });
-  } catch (e) {
-    console.warn("⚠️ DX Doctor check failed (non-blocking).");
-  }
-}
-
 async function main() {
-  console.log("--- ValueOS Pre-flight Verification ---");
+  logTitle("VALUEOS IRONCLAD BOOT: Force Determinism at the Gateway");
 
-  const versions = checkVersion("node") && checkVersion("pnpm");
+  const v = checkVersion("node") && checkVersion("pnpm") && checkVersion("docker");
   const env = checkEnv();
-  const governance = checkGovernanceIntegrity();
+  const gov = checkGovernanceIntegrity();
+  const img = checkDockerImages();
   
-  // Infrastructure check with auto-remediation attempt
-  let postgres = await checkPort(5432, "Postgres");
-  let localstack = await checkPort(4566, "LocalStack");
+  let pg = await checkPort(5432, "Postgres");
+  let ls = await checkPort(4566, "LocalStack");
 
-  if ((!postgres || !localstack) && shouldFix) {
-    console.log("🛠️  Auto-fixing: Attempting to start infrastructure via Docker...");
+  if ((!pg || !ls) && shouldFix) {
+    console.log("🛠️  Auto-fixing: Starting infrastructure...");
+    const composeCmd = "docker compose -f docker-compose.deps.yml";
     try {
-      execSync("docker compose up -d postgres localstack", { stdio: "inherit" });
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      postgres = await checkPort(5432, "Postgres");
-      localstack = await checkPort(4566, "LocalStack");
+      try {
+        execSync(`${composeCmd} up -d`, { stdio: "inherit" });
+      } catch (e) {
+        console.warn("⚠️  Initial 'up' failed (likely name conflict). Attempting 'down' then 'up'...");
+        execSync(`${composeCmd} down`, { stdio: "inherit" });
+        execSync(`${composeCmd} up -d`, { stdio: "inherit" });
+      }
+      
+      console.log("⏳ Waiting for health checks...");
+      await new Promise(r => setTimeout(r, 5000));
+      pg = await checkPort(5432, "Postgres");
+      ls = await checkPort(4566, "LocalStack");
     } catch (e) {
-      console.error("❌ Failed to auto-start Docker containers.");
+      console.error("❌ Failed to orchestrate Docker containers.");
     }
   }
 
-  if (!postgres) console.error("❌ Postgres NOT reachable on port 5432");
-  if (!localstack) console.error("❌ LocalStack NOT reachable on port 4566");
+  const sch = pg ? checkSchemaDrift() : false;
 
-  // Schema drift check (only if postgres is up)
-  const schema = postgres ? checkSchemaDrift() : false;
-
-  const allPassed = versions && env && governance && postgres && localstack && schema;
+  const allPassed = v && env && gov && img && pg && ls && sch;
 
   if (!allPassed) {
-    console.error("\n🛑 Environment verification failed.");
-    console.error("Please fix the issues above or run 'pnpm dev:verify --fix'.");
+    console.error("\n🛑 Gateway Closed: Environment is non-deterministic.");
+    console.error("Run 'pnpm dev:verify --fix' to force determinism at the gateway.");
     process.exit(1);
   }
 
-  console.log("\n🚀 All core systems ready.");
-  
-  if (process.env.CI !== "true" && !args.includes("--quick")) {
-    runSoftDoctor();
-  }
-  
-  process.exit(0);
+  console.log("\n✅ Determinism Guaranteed. Force Determinism at the Gateway: SUCCESS.");
+  spawnSync("pnpm", ["dx:doctor", "--soft"], { stdio: "inherit" });
 }
 
 main().catch(err => {

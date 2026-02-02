@@ -1,3 +1,4 @@
+\set ON_ERROR_STOP on
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN CREATE PUBLICATION supabase_realtime; END IF; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 -- ================================================
 -- Source: supabase/migrations/20241227000000_squashed_schema.sql
@@ -18363,12 +18364,14 @@ COMMENT ON TABLE credential_access_log IS
 ALTER TABLE credential_access_log ENABLE ROW LEVEL SECURITY;
 
 -- Only service_role can insert
+DROP POLICY IF EXISTS credential_access_log_insert ON credential_access_log;
 CREATE POLICY credential_access_log_insert ON credential_access_log
   FOR INSERT
   TO service_role
   WITH CHECK (true);
 
 -- Admins can view
+DROP POLICY IF EXISTS credential_access_log_select ON credential_access_log;
 CREATE POLICY credential_access_log_select ON credential_access_log
   FOR SELECT
   USING (
@@ -20416,6 +20419,14 @@ COMMENT ON FUNCTION revoke_customer_token IS 'Revoke customer access token';
 -- ================================================
 -- Enable Realtime for Collaborative Business Case
 -- This migration enables real-time updates for collaborative editing
+
+-- Create publication if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        CREATE PUBLICATION supabase_realtime;
+    END IF;
+END $$;
 
 -- Enable realtime on value_cases table
 ALTER PUBLICATION supabase_realtime ADD TABLE value_cases;
