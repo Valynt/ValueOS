@@ -125,6 +125,7 @@ Please include the following information in your report:
 
 - **Route hardening checks**: `apps/ValyntApp/src/api/__tests__/route-hardening.test.ts` fails CI if API routers lack security headers or RBAC middleware without explicit exemption.
 - **Header/cookie runbook**: `docs/operations/HEADER_COOKIE_RUNBOOK.md` documents per-environment verification steps for gateway headers and session cookie flags.
+- **Release security gate**: release branches must generate and publish an SBOM artifact and pass a high-severity dependency vulnerability gate before promotion.
 
 #### For Users
 
