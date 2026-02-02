@@ -8,8 +8,7 @@
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { getRedisClient } from '@shared/lib/redisClient';
-import { Request, Response } from 'express';
-import { NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { RateLimitKeyService } from '../services/RateLimitKeyService';
 import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
 import { logger } from '@shared/lib/logger';
@@ -26,6 +25,9 @@ interface RateLimitRequest extends Request {
 
 // We'll use `getRedisClient()` which connects lazily and uses the
 // testcontainers-provided REDIS_URL during tests.
+
+// Cache for rate limiters to prevent re-instantiation on every request
+const limiterPromises = new Map<string, Promise<RequestHandler>>();
 
 /**
  * Rate limit configuration for different user tiers
@@ -230,7 +232,14 @@ async function createTierRateLimiter(tier: keyof typeof RATE_LIMITS) {
  */
 export const llmRateLimiter = async (req: RateLimitRequest, res: Response, next: NextFunction) => {
   const tier = getUserTier(req);
-  const limiter = await createTierRateLimiter(tier);
+
+  let limiterPromise = limiterPromises.get(tier);
+  if (!limiterPromise) {
+    limiterPromise = createTierRateLimiter(tier);
+    limiterPromises.set(tier, limiterPromise);
+  }
+
+  const limiter = await limiterPromise;
 
   // Add tier info to request for logging
   req.rateLimitTier = tier;
@@ -238,11 +247,12 @@ export const llmRateLimiter = async (req: RateLimitRequest, res: Response, next:
   return limiter(req, res, next);
 };
 
+let strictLimiterPromise: Promise<RequestHandler> | null = null;
+
 /**
- * Stricter rate limiter for expensive operations
- * (e.g., long-form content generation, complex analysis)
+ * Create strict rate limiter with circuit breaker
  */
-export const strictLlmRateLimiter = async (req: RateLimitRequest, res: Response, next: NextFunction) => {
+async function createStrictRateLimiter() {
   try {
     const client = await redisCircuitBreaker.execute({
       operation: () => getRedisClient(),
@@ -254,10 +264,10 @@ export const strictLlmRateLimiter = async (req: RateLimitRequest, res: Response,
       }
     });
 
-    const limiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 5, // Only 5 expensive operations per hour
-    message: 'Expensive operation limit exceeded. Please try again later.',
+    return rateLimit({
+      windowMs: 60 * 60 * 1000, // 1 hour
+      max: 5, // Only 5 expensive operations per hour
+      message: 'Expensive operation limit exceeded. Please try again later.',
 
       ...(client ? {
         store: new RedisStore({
@@ -270,8 +280,6 @@ export const strictLlmRateLimiter = async (req: RateLimitRequest, res: Response,
       handler: rateLimitHandler,
       skip: skipRateLimit
     });
-
-    return limiter(req, res, next);
   } catch (error) {
     logger.error('Failed to create strict rate limiter', error as Error);
 
@@ -283,8 +291,21 @@ export const strictLlmRateLimiter = async (req: RateLimitRequest, res: Response,
       keyGenerator,
       handler: rateLimitHandler,
       skip: skipRateLimit
-    })(req, res, next);
+    });
   }
+}
+
+/**
+ * Stricter rate limiter for expensive operations
+ * (e.g., long-form content generation, complex analysis)
+ */
+export const strictLlmRateLimiter = async (req: RateLimitRequest, res: Response, next: NextFunction) => {
+  if (!strictLimiterPromise) {
+    strictLimiterPromise = createStrictRateLimiter();
+  }
+
+  const limiter = await strictLimiterPromise;
+  return limiter(req, res, next);
 };
 
 /**
