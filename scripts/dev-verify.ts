@@ -2,16 +2,13 @@ import * as fs from "fs";
 import * as path from "path";
 import * as net from "net";
 import { execSync } from "child_process";
+import { get_db_host, get_db_port } from "../packages/shared/src/lib/database";
 
 /**
  * CONFIGURATION
  */
 const REQUIRED_NODE_VERSION = ">=18.0.0";
 const REQUIRED_PNPM_VERSION = ">=8.0.0";
-const REQUIRED_PORTS = [
-  { service: "Postgres", port: parseInt(process.env.PGPORT || "5432") },
-  { service: "LocalStack", port: 4566 },
-];
 
 const RED = "\x1b[31m";
 const GREEN = "\x1b[32m";
@@ -86,6 +83,21 @@ function checkEnvFiles() {
   success(".env matches .env.example schema");
 }
 
+// 2.5. Configuration Validation
+function validateConfiguration() {
+  log("\n--- Validating Configuration ---", YELLOW);
+
+  const requiredVars = ["DATABASE_URL"];
+  const missing = requiredVars.filter((v) => !process.env[v]);
+
+  if (missing.length > 0) {
+    error(`Missing required environment variables: ${missing.join(", ")}`);
+    process.exit(1);
+  }
+
+  success("Required environment variables are configured");
+}
+
 // 3. Infrastructure Connectivity
 async function checkPorts() {
   log("\n--- Checking Infrastructure ---", YELLOW);
@@ -93,7 +105,7 @@ async function checkPorts() {
   const checkPort = (service: string, host: string, port: number): Promise<void> => {
     return new Promise((resolve, reject) => {
       const socket = new net.Socket();
-      socket.setTimeout(1000);
+      socket.setTimeout(2000); // Increased timeout for network checks
 
       socket.on("connect", () => {
         socket.destroy();
@@ -115,14 +127,20 @@ async function checkPorts() {
     });
   };
 
-  // Use database helpers for dynamic host/port detection
-  const { get_db_host, get_db_port } = await import("../packages/shared/src/lib/database");
-  const dbHost = get_db_host();
-  const dbPort = get_db_port();
+  // First-Match Resolution Strategy
+  // Priority 1: Direct environment variable injection
+  // Priority 2: Helper logic for Docker vs Host detection
+  // Priority 3: Override mapping for seamless development
+  const dbHost = process.env.DB_HOST || get_db_host();
+  const dbPort = parseInt(process.env.DB_PORT || get_db_port().toString(), 10);
 
   const portsToCheck = [
     { service: "Postgres", host: dbHost, port: dbPort },
-    { service: "LocalStack", host: "127.0.0.1", port: 4566 },
+    {
+      service: "LocalStack",
+      host: process.env.LOCALSTACK_HOST || "127.0.0.1",
+      port: parseInt(process.env.LOCALSTACK_PORT || "4566", 10),
+    },
   ];
 
   const results = await Promise.allSettled(
@@ -132,8 +150,11 @@ async function checkPorts() {
   const failures = results.filter((r) => r.status === "rejected");
   if (failures.length > 0) {
     failures.forEach((f: any) => error(f.reason));
-    log("\nVerify that Docker containers are running:", YELLOW);
-    log("  > docker-compose up -d");
+    log("\nTroubleshooting steps:", YELLOW);
+    log("  1. Verify Docker containers: docker-compose ps");
+    log("  2. Check environment variables: DB_HOST, DB_PORT, LOCALSTACK_HOST, LOCALSTACK_PORT");
+    log("  3. Start services: docker-compose up -d");
+    log("  4. For host development, ensure port mapping: localhost:54322 → db:5432");
     process.exit(1);
   }
 }
@@ -142,6 +163,7 @@ async function main() {
   console.log("🛡️  ValueOS Environment Verification  🛡️\n");
   checkVersions();
   checkEnvFiles();
+  validateConfiguration();
   await checkPorts();
   console.log("\n✨ Environment Verified. System is deterministic. ✨\n");
 }

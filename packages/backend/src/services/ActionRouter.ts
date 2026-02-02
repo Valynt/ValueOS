@@ -427,7 +427,7 @@ export class ActionRouter {
   /**
    * Validate value tree structure
    */
-  private validateValueTreeStructure(updates: any): boolean {
+  private validateValueTreeStructure(updates: unknown): boolean {
     // Check if updates maintain standard structure
     if (!updates) return true;
 
@@ -446,7 +446,7 @@ export class ActionRouter {
   /**
    * Validate assumption evidence
    */
-  private validateAssumptionEvidence(updates: any): boolean {
+  private validateAssumptionEvidence(updates: unknown): boolean {
     // Check if assumption has evidence source
     if (!updates) return true;
 
@@ -655,7 +655,7 @@ export class ActionRouter {
         } else if (format === "excel" || format === "csv") {
           // For data exports, fetch data from workspace state
           const state = await workspaceStateService.getState(context.workspaceId);
-          let dataToExport: any[] = [];
+          let dataToExport: unknown[] = [];
 
           // Strategy:
           // 1. Check if state.data[artifactType] exists and is an array -> use it
@@ -885,7 +885,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // requestOverride handler
-    this.registerHandler("requestOverride", async (action: any, context) => {
+    this.registerHandler("requestOverride", async (action: unknown, context) => {
       try {
         const { actionId, violations, justification } = action;
 
@@ -909,7 +909,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // approveOverride handler
-    this.registerHandler("approveOverride", async (action: any, context) => {
+    this.registerHandler("approveOverride", async (action: unknown, context) => {
       try {
         const { requestId, reason } = action;
 
@@ -928,7 +928,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // rejectOverride handler
-    this.registerHandler("rejectOverride", async (action: any, context) => {
+    this.registerHandler("rejectOverride", async (action: unknown, context) => {
       try {
         const { requestId, reason } = action;
 
@@ -957,7 +957,7 @@ Please provide a clear, concise explanation suitable for a user.`,
   private findComponentById(
     schema: SDUIPageDefinition,
     componentId: string
-  ): { component: any; path: string } | null {
+  ): { component: unknown; path: string } | null {
     // 1. Search top-level sections
     for (let i = 0; i < schema.sections.length; i++) {
       const section = schema.sections[i];
@@ -987,10 +987,10 @@ Please provide a clear, concise explanation suitable for a user.`,
   }
 
   private findComponentInProps(
-    props: any,
+    props: unknown,
     componentId: string,
     currentPath: string
-  ): { component: any; path: string } | null {
+  ): { component: unknown; path: string } | null {
     if (!props || typeof props !== "object") return null;
 
     if (Array.isArray(props)) {

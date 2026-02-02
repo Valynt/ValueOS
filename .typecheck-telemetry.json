@@ -1,19 +1,19 @@
 {
-  "timestamp": "2026-02-02T09:11:44.506Z",
-  "totalErrors": 8182,
+  "timestamp": "2026-02-02T09:39:09.695Z",
+  "totalErrors": 8149,
   "filesWithErrors": 1284,
   "errorsByCode": {
     "TS2353": 339,
     "TS6133": 976,
     "TS4114": 54,
-    "TS2345": 570,
+    "TS2345": 590,
     "TS2375": 201,
     "TS2532": 576,
     "TS2307": 505,
-    "TS7006": 352,
-    "TS2322": 564,
+    "TS7006": 351,
+    "TS2322": 557,
     "TS7019": 5,
-    "TS2339": 1210,
+    "TS2339": 1174,
     "TS7034": 9,
     "TS7005": 39,
     "TS2305": 217,
@@ -84,7 +84,7 @@
     "TS2698": 2,
     "TS2531": 14,
     "TS2559": 3,
-    "TS2739": 33,
+    "TS2739": 34,
     "TS2445": 10,
     "TS2673": 1,
     "TS7008": 1,
@@ -103,8 +103,8 @@
     "TS2722": 1,
     "TS2303": 2,
     "TS7017": 1,
-    "TS2678": 16,
     "TS2589": 1,
+    "TS2678": 6,
     "TS2663": 1,
     "TS2395": 2,
     "TS2677": 1,
@@ -118,7 +118,7 @@
     "apps/ValyntApp": 4510,
     "packages/infra": 6,
     "packages/services": 20,
-    "packages/backend": 2874,
+    "packages/backend": 2841,
     "packages/mcp": 418,
     "packages/sdui": 168,
     "packages/shared": 5,
@@ -126,16 +126,16 @@
   },
   "topFiles": [
     {
-      "file": "packages/backend/src/services/ActionRouter.ts",
-      "count": 95
-    },
-    {
       "file": "packages/backend/src/services/UnifiedAgentOrchestrator.ts",
       "count": 76
     },
     {
       "file": "packages/backend/src/services/CanvasSchemaService.ts",
       "count": 65
+    },
+    {
+      "file": "packages/backend/src/services/ActionRouter.ts",
+      "count": 62
     },
     {
       "file": "apps/ValyntApp/src/sdui/__tests__/integration/agent-to-render.test.ts",

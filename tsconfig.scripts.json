@@ -4,6 +4,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["scripts/dx/**/*.ts"],
+  "include": ["scripts/**/*.ts"],
   "exclude": ["scripts/test/**", "scripts/synthetic-monitors/**", "scripts/app/**"]
 }
