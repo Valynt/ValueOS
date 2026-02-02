@@ -12,16 +12,10 @@
  */
 
 import { supabase } from "../lib/supabase";
+import { logger } from "@shared/lib/logger";
 // TODO: Create llm config or import from shared
 const semanticMemoryConfig = { cosine_threshold: 0.7, max_results: 10 };
 const getSemanticThreshold = (type?: string) => 0.7;
-// TODO: Create logger or import from shared
-const logger = {
-  info: console.info,
-  error: console.error,
-  warn: console.warn,
-  debug: console.debug,
-};
 
 // ============================================================================
 // Types
