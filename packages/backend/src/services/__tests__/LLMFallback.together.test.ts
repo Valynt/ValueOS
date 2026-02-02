@@ -22,6 +22,14 @@ vi.mock("@shared/lib/env", () => ({
 }));
 vi.mock("../LLMCache");
 vi.mock("../../LLMCostTracker");
+vi.mock("../CostGovernanceService.js", () => ({
+  costGovernance: {
+    checkRequest: vi.fn().mockResolvedValue(undefined),
+    recordUsage: vi.fn().mockResolvedValue(undefined),
+    estimatePromptTokens: vi.fn().mockReturnValue(10),
+    getSummary: vi.fn().mockResolvedValue({}),
+  }
+}));
 
 describe("LLMFallback Service - Together AI Only", () => {
   beforeEach(() => {
@@ -29,9 +37,9 @@ describe("LLMFallback Service - Together AI Only", () => {
   });
 
   describe("Provider Configuration", () => {
-    it("should only have Together AI circuit breaker", () => {
+    it("should only have Together AI circuit breaker", async () => {
       const service = new LLMFallbackService();
-      const stats = service.getStats();
+      const stats = await service.getStats();
 
       // Should have togetherAI stats
       expect(stats).toHaveProperty("togetherAI");
@@ -124,15 +132,15 @@ describe("LLMFallback Service - Together AI Only", () => {
       }).rejects.toThrow("LLM provider unavailable");
 
       // Should NOT fallback to OpenAI
-      const stats = service.getStats();
+      const stats = await service.getStats();
       expect(stats).not.toHaveProperty("openAI");
     });
   });
 
   describe("Stats Tracking", () => {
-    it("should only track Together AI and cache stats", () => {
+    it("should only track Together AI and cache stats", async () => {
       const service = new LLMFallbackService();
-      const stats = service.getStats();
+      const stats = await service.getStats();
 
       // Should have these properties
       expect(stats).toHaveProperty("togetherAI");
@@ -145,7 +153,7 @@ describe("LLMFallback Service - Together AI Only", () => {
 
     it("should increment Together AI call count", async () => {
       const service = new LLMFallbackService();
-      const initialStats = service.getStats();
+      const initialStats = await service.getStats();
       const initialCalls = initialStats.togetherAI.calls;
 
       // Stats should be tracking Together AI calls
