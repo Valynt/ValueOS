@@ -106,19 +106,114 @@ export class ValueCommitmentTrackingService {
    */
   async getCommitment(commitmentId: string, tenantId: string): Promise<CommitmentDashboard | null> {
     try {
-      // TODO: Fetch from database with joins
-      // const commitment = await this.db.query.value_commitments.findFirst({
-      //   where: (commitments, { eq }) => eq(commitments.id, commitmentId) && eq(commitments.tenant_id, tenantId),
-      //   with: {
-      //     stakeholders: true,
-      //     milestones: true,
-      //     metrics: true,
-      //     risks: true,
-      //   },
-      // });
+      if (!supabase) {
+        throw new Error("Supabase client not initialized");
+      }
 
-      // For now, return mock data structure
-      return this.buildMockDashboard(commitmentId);
+      // Fetch commitment and related entities in parallel (optimized to 2 round trips)
+      const [commitmentResponse, auditsResponse] = await Promise.all([
+        supabase
+          .from("value_commitments")
+          .select(`
+            *,
+            commitment_stakeholders(*),
+            commitment_milestones(*),
+            commitment_metrics(*),
+            commitment_risks(*)
+          `)
+          .eq("id", commitmentId)
+          .eq("tenant_id", tenantId)
+          .single(),
+        supabase
+          .from("commitment_audits")
+          .select("*")
+          .eq("commitment_id", commitmentId)
+          .eq("tenant_id", tenantId)
+          .order("timestamp", { ascending: false })
+          .limit(10),
+      ]);
+
+      if (commitmentResponse.error) {
+        // If it's a "no rows found" error, return null
+        if (commitmentResponse.error.code === "PGRST116") {
+          return null;
+        }
+        throw commitmentResponse.error;
+      }
+
+      if (!commitmentResponse.data) {
+        return null;
+      }
+
+      // Map the nested response to Dashboard structure
+      const data = commitmentResponse.data as any;
+      const commitment = { ...data };
+      // Remove nested arrays from commitment object to match ValueCommitment type strictly if needed
+      delete commitment.commitment_stakeholders;
+      delete commitment.commitment_milestones;
+      delete commitment.commitment_metrics;
+      delete commitment.commitment_risks;
+
+      const stakeholders = (data.commitment_stakeholders || []) as CommitmentStakeholder[];
+      const milestones = (data.commitment_milestones || []) as CommitmentMilestone[];
+      const metrics = (data.commitment_metrics || []) as CommitmentMetric[];
+      const risks = (data.commitment_risks || []) as CommitmentRisk[];
+      const recent_audits = (auditsResponse.data || []) as CommitmentAudit[];
+
+      // Calculate progress
+      const now = new Date();
+      const targetDate = commitment.target_completion_date
+        ? new Date(commitment.target_completion_date)
+        : null;
+      const daysRemaining = targetDate
+        ? Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      const milestoneCompletion =
+        milestones.length > 0
+          ? (milestones.filter((m) => m.status === "completed").length / milestones.length) * 100
+          : 0;
+
+      const metricAchievement =
+        metrics.length > 0
+          ? metrics.reduce((acc, m) => {
+              if (m.target_value && m.target_value > 0) {
+                // Cap at 100% for individual metrics contribution
+                return acc + Math.min((m.current_value / m.target_value) * 100, 100);
+              }
+              return acc;
+            }, 0) / metrics.length
+          : 0;
+
+      // Simple risk level logic
+      const highRisks = risks.filter((r) => r.risk_score >= 8).length;
+      const mediumRisks = risks.filter((r) => r.risk_score >= 4 && r.risk_score < 8).length;
+      let riskLevel = "low";
+      if (highRisks > 0) riskLevel = "high";
+      else if (mediumRisks > 0) riskLevel = "medium";
+
+      const progress: CommitmentProgress = {
+        commitment_id: commitmentId,
+        overall_progress: commitment.progress_percentage || 0,
+        milestone_completion: Math.round(milestoneCompletion),
+        metric_achievement: Math.round(metricAchievement),
+        risk_level: riskLevel,
+        days_remaining: daysRemaining,
+        is_on_track:
+          commitment.status !== "at_risk" &&
+          commitment.status !== "cancelled" &&
+          commitment.progress_percentage >= milestoneCompletion - 10, // heuristic
+      };
+
+      return {
+        commitment,
+        stakeholders,
+        milestones,
+        metrics,
+        risks,
+        progress,
+        recent_audits,
+      };
     } catch (error) {
       logger.error("Failed to get commitment", { error, commitmentId, tenantId });
       throw error;
