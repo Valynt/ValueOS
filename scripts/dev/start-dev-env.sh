@@ -133,15 +133,26 @@ if [[ -f "/.dockerenv" ]] || [[ -n "${CODESPACES:-}" ]] || [[ -n "${REMOTE_CONTA
     INSIDE_DEVCONTAINER=true
 fi
 
-# Check Docker availability
-if command -v docker &> /dev/null && docker info &> /dev/null 2>&1; then
+# Check Docker availability and Mode
+if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
+    log INFO "Running in Devcontainer Mode"
+    log INFO "Skipping Docker orchestration (services managed by devcontainer)"
+    DOCKER_AVAILABLE=false
+
+    # Safety check for node_modules (masked by bind mount)
+    if [[ ! -d "node_modules" ]] || [[ -z "$(ls -A node_modules)" ]]; then
+         log WARN "node_modules missing or empty. Running pnpm install..."
+         if command -v pnpm &> /dev/null; then
+             pnpm install
+             log SUCCESS "Dependencies installed"
+         else
+             log ERROR "pnpm not found. Cannot install dependencies."
+             exit 1
+         fi
+    fi
+elif command -v docker &> /dev/null && docker info &> /dev/null 2>&1; then
     log SUCCESS "Docker available"
     DOCKER_AVAILABLE=true
-elif [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
-    # Inside devcontainer without Docker CLI - services are managed by the host
-    log INFO "Inside devcontainer - Docker services managed by host"
-    log INFO "Skipping Docker operations, verifying service connectivity..."
-    DOCKER_AVAILABLE=false
 else
     # Not in devcontainer and no Docker - this is an error
     log WARN "Not running inside devcontainer - running host preflight"
