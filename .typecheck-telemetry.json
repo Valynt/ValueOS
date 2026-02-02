@@ -1,0 +1,279 @@
+{
+  "timestamp": "2026-02-02T06:03:41.619Z",
+  "totalErrors": 9782,
+  "filesWithErrors": 1397,
+  "errorsByCode": {
+    "TS2353": 346,
+    "TS6133": 1749,
+    "TS4114": 54,
+    "TS2345": 534,
+    "TS2375": 322,
+    "TS2532": 641,
+    "TS2307": 603,
+    "TS7006": 444,
+    "TS2322": 569,
+    "TS7019": 5,
+    "TS2339": 1392,
+    "TS7034": 15,
+    "TS7005": 39,
+    "TS2305": 259,
+    "TS18048": 368,
+    "TS7031": 7,
+    "TS18047": 279,
+    "TS2554": 369,
+    "TS7030": 128,
+    "TS2379": 220,
+    "TS2454": 4,
+    "TS2412": 54,
+    "TS18046": 101,
+    "TS2769": 54,
+    "TS2352": 10,
+    "TS2488": 3,
+    "TS1205": 12,
+    "TS7016": 3,
+    "TS2552": 2,
+    "TS2740": 6,
+    "TS7053": 13,
+    "TS2323": 4,
+    "TS2484": 7,
+    "TS2304": 120,
+    "TS2365": 2,
+    "TS2430": 1,
+    "TS2300": 12,
+    "TS2551": 174,
+    "TS2614": 16,
+    "TS2686": 6,
+    "TS2724": 49,
+    "TS6196": 12,
+    "TS2348": 2,
+    "TS2749": 13,
+    "TS6192": 19,
+    "TS2503": 8,
+    "TS2416": 7,
+    "TS2415": 7,
+    "TS2451": 2,
+    "TS6198": 1,
+    "TS2459": 14,
+    "TS2561": 54,
+    "TS6138": 16,
+    "TS2364": 2,
+    "TS2783": 6,
+    "TS2654": 1,
+    "TS2538": 30,
+    "TS2344": 10,
+    "TS2693": 2,
+    "TS2571": 4,
+    "TS2741": 78,
+    "TS2464": 4,
+    "TS2341": 1,
+    "TS2349": 1,
+    "TS2308": 9,
+    "TS2556": 1,
+    "TS2578": 1,
+    "TS2564": 7,
+    "TS2367": 11,
+    "TS18004": 8,
+    "TS2440": 2,
+    "TS7022": 1,
+    "TS2448": 1,
+    "TS1016": 2,
+    "TS2418": 2,
+    "TS2446": 6,
+    "TS2420": 2,
+    "TS2372": 1,
+    "TS2419": 5,
+    "TS2698": 2,
+    "TS2531": 14,
+    "TS2559": 3,
+    "TS2739": 10,
+    "TS2445": 10,
+    "TS2673": 1,
+    "TS7008": 1,
+    "TS1117": 14,
+    "TS2820": 1,
+    "TS2702": 2,
+    "TS2613": 4,
+    "TS2742": 40,
+    "TS2362": 5,
+    "TS2592": 2,
+    "TS1005": 4,
+    "TS2694": 16,
+    "TS1360": 23,
+    "TS2366": 2,
+    "TS2708": 68,
+    "TS2558": 4,
+    "TS2722": 1,
+    "TS2303": 2,
+    "TS7017": 1,
+    "TS2678": 16,
+    "TS2589": 1,
+    "TS2663": 1,
+    "TS2395": 2,
+    "TS2677": 1,
+    "TS2834": 73,
+    "TS2835": 87,
+    "TS1185": 9,
+    "TS2407": 1,
+    "TS6059": 12
+  },
+  "errorsByPackage": {
+    "apps/mcp-dashboard": 56,
+    "apps/ValyntApp": 4725,
+    "packages/infra": 6,
+    "packages/services": 28,
+    "packages/backend": 4016,
+    "packages/mcp": 468,
+    "packages/sdui": 313,
+    "packages/shared": 6,
+    "packages/agents": 164
+  },
+  "topFiles": [
+    {
+      "file": "packages/backend/src/services/UnifiedAgentOrchestrator.ts",
+      "count": 123
+    },
+    {
+      "file": "packages/backend/src/services/ActionRouter.ts",
+      "count": 112
+    },
+    {
+      "file": "packages/sdui/src/LazyComponentRegistry.tsx",
+      "count": 78
+    },
+    {
+      "file": "packages/backend/src/services/CanvasSchemaService.ts",
+      "count": 73
+    },
+    {
+      "file": "packages/backend/src/services/BatchOperations.ts",
+      "count": 54
+    },
+    {
+      "file": "apps/ValyntApp/src/sdui/__tests__/integration/agent-to-render.test.ts",
+      "count": 51
+    },
+    {
+      "file": "packages/backend/src/services/AgentChatService.ts",
+      "count": 51
+    },
+    {
+      "file": "apps/ValyntApp/src/services/UnifiedAgentOrchestrator.ts",
+      "count": 50
+    },
+    {
+      "file": "packages/backend/src/services/workflows/WorkflowDAGDefinitions.ts",
+      "count": 50
+    },
+    {
+      "file": "packages/mcp/ground-truth/services/PredictiveModelingService.ts",
+      "count": 49
+    },
+    {
+      "file": "apps/ValyntApp/src/services/__tests__/ComponentMutationService.test.ts",
+      "count": 48
+    },
+    {
+      "file": "apps/ValyntApp/src/structural/structural-truth.ts",
+      "count": 48
+    },
+    {
+      "file": "packages/backend/src/services/__tests__/ComponentMutationService.test.ts",
+      "count": 48
+    },
+    {
+      "file": "apps/ValyntApp/src/services/ActionRouter.ts",
+      "count": 47
+    },
+    {
+      "file": "apps/ValyntApp/src/services/ComponentMutationService.ts",
+      "count": 47
+    },
+    {
+      "file": "packages/backend/src/services/ComponentMutationService.ts",
+      "count": 47
+    },
+    {
+      "file": "packages/backend/src/services/LayoutEngine.ts",
+      "count": 47
+    },
+    {
+      "file": "packages/backend/src/middleware/__tests__/globalErrorHandler.test.ts",
+      "count": 46
+    },
+    {
+      "file": "apps/ValyntApp/src/services/ValueLifecycleOrchestrator.ts",
+      "count": 45
+    },
+    {
+      "file": "packages/backend/src/services/billing/__tests__/security/rls-policies.test.ts",
+      "count": 42
+    }
+  ],
+  "topMissingModules": [
+    {
+      "module": "../components/SDUI",
+      "count": 86
+    },
+    {
+      "module": "@valueos/agents/base",
+      "count": 38
+    },
+    {
+      "module": "../../lib/logger",
+      "count": 23
+    },
+    {
+      "module": "../../types/sof",
+      "count": 15
+    },
+    {
+      "module": "../components/SDUI/CanvasLayout",
+      "count": 14
+    },
+    {
+      "module": "../../components/Settings/SettingsSection",
+      "count": 13
+    },
+    {
+      "module": "../lib/logger",
+      "count": 10
+    },
+    {
+      "module": "../../repositories/WorkflowStateRepository",
+      "count": 10
+    },
+    {
+      "module": "../types/sdui-integration",
+      "count": 9
+    },
+    {
+      "module": "../lib/piiFilter",
+      "count": 9
+    },
+    {
+      "module": "../components/Agents/AgentBadge",
+      "count": 8
+    },
+    {
+      "module": "../lib/agent-fabric/TaskContext",
+      "count": 7
+    },
+    {
+      "module": "../../types/billing",
+      "count": 7
+    },
+    {
+      "module": "decimal.js",
+      "count": 6
+    },
+    {
+      "module": "../../lib/settingsRegistry",
+      "count": 6
+    }
+  ],
+  "cascadeIndicators": {
+    "likelyGeneratedTypeIssues": 2,
+    "pathAliasIssues": 17,
+    "strictModeIssues": 1189
+  }
+}

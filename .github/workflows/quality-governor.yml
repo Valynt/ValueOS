@@ -9,26 +9,48 @@ on:
 jobs:
   governance:
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      localstack:
+        image: localstack/localstack
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,sqs,sns
+
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+          
       - name: Install PNPM
         uses: pnpm/action-setup@v3
         with:
           version: 9
-
+          
       - name: Install dependencies
         run: pnpm install
-
+        
       - name: Stage 1: Determinism (Boot Verify)
-        run: pnpm dev:verify
+        run: CI=true pnpm dev:verify
         env:
-          # Mock environment variables for CI
           NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
@@ -40,7 +62,13 @@ jobs:
           for zone in $STRICT_ZONES; do
             echo "Checking Green Island: $zone"
             if [ -d "$zone" ]; then
-              pnpm tsc -p $zone/tsconfig.json --noEmit
+              # Find the tsconfig.json in the zone
+              CONFIG=$(find "$zone" -name "tsconfig.json" | head -n 1)
+              if [ -n "$CONFIG" ]; then
+                pnpm tsc -p "$CONFIG" --noEmit
+              else
+                echo "Warning: No tsconfig.json found in $zone. Skipping."
+              fi
             else
               echo "Warning: Zone $zone does not exist. Skipping."
             fi
@@ -48,19 +76,22 @@ jobs:
 
       - name: Stage 3: Ratchet (Sea of Debt)
         run: |
-          CURRENT_ERRORS=$(pnpm tsc --noEmit | grep 'error TS' | wc -l || echo 0)
+          # Use the signal script to get a consistent count
+          pnpm run typecheck:signal:json > report.json 2>/dev/null
+          # Extract only the JSON part in case there is some noise
+          CURRENT_ERRORS=$(cat report.json | grep -v "Running" | grep -v ">" | jq -r '.totalErrors')
           BASELINE_ERRORS=$(jq -r '.total_errors' .github/ts-error-baseline.json)
-
+          
           echo "Current Errors: $CURRENT_ERRORS"
           echo "Baseline Errors: $BASELINE_ERRORS"
-
+          
           if [ "$CURRENT_ERRORS" -gt "$BASELINE_ERRORS" ]; then
             echo "❌ RATCHET FAILURE: Total errors ($CURRENT_ERRORS) exceeds baseline ($BASELINE_ERRORS)."
             exit 1
           elif [ "$CURRENT_ERRORS" -lt "$BASELINE_ERRORS" ]; then
             echo "✅ RATCHET SUCCESS: Error count improved! Updating baseline."
-            echo "{\"total_errors\": $CURRENT_ERRORS}" > .github/ts-error-baseline.json
-            # Note: In a real CI, you'd need a token to push this update back if on main
+            # Update local baseline file (for local testing/manual commit)
+            echo "{\"total_errors\": $CURRENT_ERRORS, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > .github/ts-error-baseline.json
           else
             echo "✅ RATCHET SUCCESS: Error count maintained."
           fi

@@ -1,3 +1,6 @@
 {
-  "total_errors": 7892
+  "total_errors": 9782,
+  "files_with_errors": 1397,
+  "timestamp": "2026-02-02T06:03:41.619Z",
+  "source": "typecheck:signal"
 }

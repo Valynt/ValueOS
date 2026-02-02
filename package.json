@@ -88,6 +88,7 @@
     "typecheck:signal:json": "tsx scripts/dx/typecheck-telemetry.ts --json",
     "typecheck:signal:summary": "tsx scripts/dx/typecheck-telemetry.ts --summary",
     "typecheck:islands": "pnpm exec tsc -p packages/shared/tsconfig.json --noEmit && pnpm exec tsc -p packages/infra/tsconfig.json --noEmit && pnpm exec tsc -p packages/integrations/tsconfig.json --noEmit && pnpm exec tsc -p packages/memory/tsconfig.json --noEmit && pnpm exec tsc -p packages/components/design-system/tsconfig.json --noEmit",
+    "typecheck:promote": "tsx scripts/promote-green-islands.ts",
     "test:rls": "supabase test db supabase/tests/database/rls_policies.test.sql supabase/tests/database/multi_tenant_rls.test.sql",
     "test:perf": "vitest run tests/performance/**/*.test.ts --config vitest.config.ts",
     "test:testcafe": "testcafe chrome:headless test/testcafe/**/*.test.js",

@@ -3285,10 +3285,14 @@ CREATE TABLE public.agent_sessions (
     context jsonb DEFAULT '{}'::jsonb,
     status text DEFAULT 'active'::text,
     started_at timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
     ended_at timestamp with time zone,
+    is_active boolean DEFAULT true,
+    is_completed boolean DEFAULT false,
     metadata jsonb DEFAULT '{}'::jsonb,
     tenant_id text NOT NULL,
-    CONSTRAINT agent_sessions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))
+    CONSTRAINT agent_sessions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))
 );
 
 

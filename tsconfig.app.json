@@ -73,14 +73,11 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "alwaysStrict": true,
-    // Disabled to reduce TS2375/TS2379 cascade errors - re-enable when debt < 1000
-    "exactOptionalPropertyTypes": false,
+    "exactOptionalPropertyTypes": true,
     "noImplicitThis": true
   },
-  // apps excluded - each app type-checks independently with its own tsconfig
-  "include": ["src", "scripts", "packages/*/src"],
+  "include": ["src", "scripts", "packages/*/src", "apps/*/src"],
   "exclude": [
-    "apps/**",
     "**/legacy-merge/**",
     "./src/**/*.test.ts",
     "./src/**/*.test.tsx",
