@@ -13,6 +13,9 @@
 import { logger } from '../lib/logger.js'
 import { supabase } from '../lib/supabase.js'
 
+const CONFIG_TTL = 60 * 1000; // 1 minute
+const ERROR_TTL = 10 * 1000; // 10 seconds
+
 export interface RolloutConfig {
   featureName: string;
   percentage: number;
@@ -36,6 +39,7 @@ export class ProgressiveRollout {
   private featureName: string;
   private config: RolloutConfig | null = null;
   private metrics: RolloutMetrics | null = null;
+  private nextLoadAttempt: number = 0;
 
   constructor(featureName: string) {
     this.featureName = featureName;
@@ -55,7 +59,10 @@ export class ProgressiveRollout {
 
       if (error) {
         logger.warn('Failed to load rollout config', { feature: this.featureName, error });
-        return null;
+        // Set short TTL for errors to prevent hammering the DB
+        this.nextLoadAttempt = Date.now() + ERROR_TTL;
+        // Return existing config if available (stale-while-error strategy), or null
+        return this.config;
       }
 
       this.config = {
@@ -69,10 +76,14 @@ export class ProgressiveRollout {
         errorThreshold: data.error_threshold ?? 5.0,
       };
 
+      // Set standard TTL for successful loads
+      this.nextLoadAttempt = Date.now() + CONFIG_TTL;
+
       return this.config;
     } catch (error) {
       logger.error('Error loading rollout config', { feature: this.featureName, error });
-      return null;
+      this.nextLoadAttempt = Date.now() + ERROR_TTL;
+      return this.config;
     }
   }
 
@@ -80,8 +91,8 @@ export class ProgressiveRollout {
    * Check if feature is enabled for a specific user
    */
   async isEnabledForUser(userId: string, userGroups?: string[]): Promise<boolean> {
-    // Load config if not already loaded
-    if (!this.config) {
+    // Load config if TTL expired (handles both initial load and refresh)
+    if (Date.now() >= this.nextLoadAttempt) {
       await this.loadConfig();
     }
 
