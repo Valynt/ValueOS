@@ -48,76 +48,13 @@ if [ -f "${PROJECT_ROOT}/.env.local" ]; then
 fi
 
 ###############################################################################
-# Step 3: Wait for Database (using same connection params as migrations)
+# Step 3: Configure Database Connection
 ###############################################################################
-echo "⏳ Waiting for database to be ready..."
+# Trust the orchestrator: app depends on db (service_healthy), so DB is ready.
 
-# Use DATABASE_URL if set (from devcontainer), otherwise resolve dynamically
-if [ -n "$DATABASE_URL" ]; then
-    DB_URL="$DATABASE_URL"
-    echo "   Using DATABASE_URL from environment: $DB_URL"
-else
-    # Resolve DB host dynamically - try Docker DNS, fall back to container IP
-    resolve_db_host() {
-        if getent hosts valueos-db >/dev/null 2>&1; then
-            echo "valueos-db"
-            return
-        fi
-        if getent hosts db >/dev/null 2>&1; then
-            echo "db"
-            return
-        fi
-        if command -v docker >/dev/null 2>&1; then
-            local ip=$(docker inspect valueos-db --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
-            if [[ -n "$ip" ]]; then
-                echo "$ip"
-                return
-            fi
-        fi
-        echo "db"
-    }
-
-    DB_HOST=$(resolve_db_host)
-    DB_URL="postgresql://postgres:postgres@${DB_HOST}:5432/postgres?sslmode=disable"
-    echo "   Using DB: ${DB_HOST}:5432"
-fi
-
-# Wait for db container to be healthy
-echo "   Waiting for db container to be healthy..."
-MAX_CONTAINER_ATTEMPTS=30
-CONTAINER_ATTEMPT=0
-while [ $CONTAINER_ATTEMPT -lt $MAX_CONTAINER_ATTEMPTS ]; do
-    if docker ps --filter "name=db" --filter "health=healthy" | grep -q db; then
-        echo "   ✅ DB container is healthy."
-        break
-    fi
-    CONTAINER_ATTEMPT=$((CONTAINER_ATTEMPT + 1))
-    echo "   Attempt $CONTAINER_ATTEMPT/$MAX_CONTAINER_ATTEMPTS - waiting for db container..."
-    sleep 2
-done
-
-if [ $CONTAINER_ATTEMPT -eq $MAX_CONTAINER_ATTEMPTS ]; then
-    echo "❌ Error: DB container not healthy after $MAX_CONTAINER_ATTEMPTS attempts."
-    exit 1
-fi
-MAX_ATTEMPTS=30
-ATTEMPT=0
-
-while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if psql "$DB_URL" -c "SELECT 1" >/dev/null 2>&1; then
-        echo "✅ Database is ready (verified with sslmode=disable)."
-        break
-    fi
-    ATTEMPT=$((ATTEMPT + 1))
-    echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting for db:5432..."
-    sleep 2
-done
-
-if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo "❌ Error: Database not ready after $MAX_ATTEMPTS attempts."
-    echo "   Cannot proceed with migrations."
-    exit 1
-fi
+# Set DB_HOST for migration scripts
+export DB_HOST="${DB_HOST:-db}"
+echo "   Using DB_HOST: $DB_HOST"
 
 ###############################################################################
 # Step 4: Apply Migrations (required - fail if migrations fail)
