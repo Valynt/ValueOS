@@ -145,7 +145,9 @@ export async function checkHttpEndpoint(
         const client = url.startsWith("https:") ? https : http;
         const req = client.get(url, { timeout }, (res) => {
           const responseTime = Date.now() - startTime;
-          const isHealthy = res.statusCode && res.statusCode >= 200 && res.statusCode < 300;
+          const isHealthy = Boolean(
+            res.statusCode && res.statusCode >= 200 && res.statusCode < 300
+          );
 
           res.on("data", () => {}); // Consume response
           res.on("end", () => {

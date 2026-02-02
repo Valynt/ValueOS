@@ -33,7 +33,6 @@ export {
   // Role types and constants
   type UserRole,
   type AgentRole,
-  USER_ROLES,
   AGENT_ROLES,
   USER_ROLE_PERMISSIONS,
   AGENT_ROLE_PERMISSIONS,
@@ -50,10 +49,7 @@ export {
 } from "./permissions/index";
 
 // Backward compatibility aliases
-import {
-  USER_ROLE_PERMISSIONS,
-  getPermissionsForUserRole,
-} from "./permissions/index";
+import { USER_ROLE_PERMISSIONS, getPermissionsForUserRole } from "./permissions/index";
 
 /**
  * @deprecated Use USER_ROLE_PERMISSIONS instead
