@@ -5,11 +5,13 @@
 
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 export function ModernLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
@@ -158,17 +160,32 @@ export function ModernLoginPage() {
               >
                 Password
               </label>
-              <input 
-                id="password" 
-                placeholder="••••••••" 
-                type="password" 
-                autoComplete="current-password" 
-                className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading || oauthLoading}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  placeholder="••••••••"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 pr-10 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading || oauthLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:text-zinc-200"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  disabled={loading || oauthLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="size-4" />
+                  ) : (
+                    <Eye className="size-4" />
+                  )}
+                </button>
+              </div>
             </div>
             
             {/* Login Button */}
