@@ -3,10 +3,13 @@
  */
 
 import {
+  AuthError,
   EnterpriseAdapter,
   type FetchOptions,
   type IntegrationConfig,
+  IntegrationError,
   type NormalizedEntity,
+  RateLimitError,
   RateLimiter,
 } from "../base/index.js";
 
@@ -33,8 +36,66 @@ export class HubSpotAdapter extends EnterpriseAdapter {
 
   async validate(): Promise<boolean> {
     this.ensureConnected();
-    // TODO: Validate HubSpot credentials
-    return true;
+    try {
+      await this.request("/crm/v3/objects/contacts?limit=1");
+      return true;
+    } catch (error) {
+      if (error instanceof AuthError) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  private async request(
+    path: string,
+    options: RequestInit = {}
+  ): Promise<Response> {
+    const baseUrl = this.config.baseUrl || "https://api.hubapi.com";
+    const url = `${baseUrl}${path}`;
+
+    if (!this.credentials?.accessToken) {
+      throw new IntegrationError(
+        "No access token available",
+        "NO_TOKEN",
+        this.provider
+      );
+    }
+
+    const headers = {
+      Authorization: `Bearer ${this.credentials.accessToken}`,
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (response.ok) {
+      return response;
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new AuthError(
+        this.provider,
+        `Authentication failed: ${response.statusText}`
+      );
+    }
+
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("Retry-After");
+      const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1000;
+      throw new RateLimitError(this.provider, waitMs);
+    }
+
+    throw new IntegrationError(
+      `Request failed with status ${response.status}: ${response.statusText}`,
+      `HTTP_${response.status}`,
+      this.provider,
+      response.status >= 500
+    );
   }
 
   async fetchEntities(
