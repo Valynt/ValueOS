@@ -64,9 +64,9 @@ class ServerConfigLoader {
   private loadFromEnvironment(): Partial<ServerConfig> {
     return {
       database: {
-        url: process.env.DATABASE_URL,
-        poolSize: parseNumber(process.env.DATABASE_POOL_SIZE),
-        timeout: parseNumber(process.env.DATABASE_TIMEOUT),
+        url: process.env.DATABASE_URL ?? "",
+        poolSize: parseNumber(process.env.DATABASE_POOL_SIZE) ?? 10,
+        timeout: parseNumber(process.env.DATABASE_TIMEOUT) ?? 30000,
       },
       supabase: {
         url: process.env.SUPABASE_URL,

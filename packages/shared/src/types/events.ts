@@ -192,7 +192,7 @@ export const EVENT_TOPICS = {
 /**
  * Agent request event type
  */
-export type AgentRequestEvent = EnvelopedEvent<{
+export interface AgentRequestEvent {
   type: "agent.request";
   payload: {
     agentId: string;
@@ -205,7 +205,8 @@ export type AgentRequestEvent = EnvelopedEvent<{
     priority: string;
     timeout: number;
   };
-}>;
+  meta: EventMeta;
+}
 
 /**
  * Helper to create base events

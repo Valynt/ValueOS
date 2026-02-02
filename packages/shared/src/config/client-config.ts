@@ -70,23 +70,20 @@ class ClientConfigLoader {
   private loadFromEnvironment(): Partial<ClientConfig> {
     return {
       app: {
-        name: getClientEnvVar("VITE_APP_NAME"),
-        version: getClientEnvVar("VITE_APP_VERSION"),
-        environment: (getClientEnvVar("VITE_APP_ENV") as ClientConfig["app"]["environment"]) ||
-          "development",
+        name: getClientEnvVar("VITE_APP_NAME") ?? "ValueOS",
+        version: getClientEnvVar("VITE_APP_VERSION") ?? "1.0.0",
+        environment:
+          (getClientEnvVar("VITE_APP_ENV") as ClientConfig["app"]["environment"]) || "development",
         debug: getClientEnvVar("VITE_DEBUG") === "true",
       },
       supabase: {
-        url: getClientEnvVar("VITE_SUPABASE_URL"),
-        anonKey: getClientEnvVar("VITE_SUPABASE_ANON_KEY"),
+        url: getClientEnvVar("VITE_SUPABASE_URL") ?? "",
+        anonKey: getClientEnvVar("VITE_SUPABASE_ANON_KEY") ?? "",
       },
       api: {
-        baseUrl:
-          getClientEnvVar("VITE_API_URL") ||
-          getClientEnvVar("VITE_API_BASE_URL") ||
-          "/api",
-        timeout: parseNumber(getClientEnvVar("VITE_API_TIMEOUT")),
-        retryAttempts: parseNumber(getClientEnvVar("VITE_API_RETRY_ATTEMPTS")),
+        baseUrl: getClientEnvVar("VITE_API_URL") || getClientEnvVar("VITE_API_BASE_URL") || "/api",
+        timeout: parseNumber(getClientEnvVar("VITE_API_TIMEOUT")) ?? 30000,
+        retryAttempts: parseNumber(getClientEnvVar("VITE_API_RETRY_ATTEMPTS")) ?? 3,
       },
     };
   }
@@ -119,8 +116,7 @@ export const clientConfig = ClientConfigLoader.getInstance();
 
 export const getClientConfig = (): ClientConfig => clientConfig.load();
 
-export const isClientProduction = (): boolean =>
-  getClientConfig().app.environment === "production";
+export const isClientProduction = (): boolean => getClientConfig().app.environment === "production";
 
 export const getClientSupabaseConfig = () => getClientConfig().supabase;
 

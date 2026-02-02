@@ -294,7 +294,7 @@ export function setupMonitoring() {
     // Add Sentry integration if available
     try {
       // Dynamically import Sentry to avoid dependency errors in minimal builds
-      // @ts-expect-error - `require` is available in the Node.js production runtime, but may not be typed in all build targets
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const Sentry = typeof window === "undefined" ? require("@sentry/node") : null;
 
       if (Sentry) {

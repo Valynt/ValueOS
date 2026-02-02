@@ -3,6 +3,8 @@
  * Tracks latency and failure rates for health checks
  */
 
+import type { HealthCheckResult } from "./checkUtils";
+
 interface HealthCheckMetric {
   service: string;
   timestamp: number;
@@ -30,12 +32,7 @@ class HealthMetricsCollector {
   private readonly maxMetrics = 1000; // Keep last 1000 metrics
   private readonly maxHistory = 100; // Keep last 100 health snapshots
 
-  recordMetric(
-    service: string,
-    latency: number,
-    success: boolean,
-    error?: string
-  ): void {
+  recordMetric(service: string, latency: number, success: boolean, error?: string): void {
     const metric: HealthCheckMetric = {
       service,
       timestamp: Date.now(),
@@ -73,9 +70,7 @@ class HealthMetricsCollector {
   getHealthHistory(timeWindowMs: number = 86400000): HealthStatusSnapshot[] {
     // Default 24 hours
     const cutoff = Date.now() - timeWindowMs;
-    return this.healthHistory.filter(
-      (snapshot) => snapshot.timestamp >= cutoff
-    );
+    return this.healthHistory.filter((snapshot) => snapshot.timestamp >= cutoff);
   }
 
   getHealthTrends(timeWindowMs: number = 3600000): {
@@ -131,10 +126,7 @@ class HealthMetricsCollector {
     return { overall, services };
   }
 
-  getMetrics(
-    service?: string,
-    timeWindowMs: number = 3600000
-  ): HealthCheckMetric[] {
+  getMetrics(service?: string, timeWindowMs: number = 3600000): HealthCheckMetric[] {
     // Default 1 hour
     const cutoff = Date.now() - timeWindowMs;
     return this.metrics
@@ -160,11 +152,8 @@ class HealthMetricsCollector {
     const successful = relevantMetrics.filter((m) => m.success);
     const failed = relevantMetrics.filter((m) => !m.success);
 
-    const latencies = relevantMetrics
-      .map((m) => m.latency)
-      .sort((a, b) => a - b);
-    const avgLatency =
-      latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
+    const latencies = relevantMetrics.map((m) => m.latency).sort((a, b) => a - b);
+    const avgLatency = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
 
     const p95Index = Math.floor(latencies.length * 0.95);
     const p99Index = Math.floor(latencies.length * 0.99);
@@ -220,12 +209,12 @@ export function withMetrics<
 
       if (result instanceof Promise) {
         return result
-          .then((res) => {
+          .then((res: HealthCheckResult) => {
             const latency = Date.now() - startTime;
             healthMetrics.recordMetric(service, latency, res.healthy);
             return res;
           })
-          .catch((error) => {
+          .catch((error: Error) => {
             const latency = Date.now() - startTime;
             healthMetrics.recordMetric(service, latency, false, error.message);
             throw error;
