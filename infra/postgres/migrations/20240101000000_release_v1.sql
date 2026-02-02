@@ -1,3 +1,4 @@
+/* language=postgresql */
 \set ON_ERROR_STOP on
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN CREATE PUBLICATION supabase_realtime; END IF; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 -- ================================================

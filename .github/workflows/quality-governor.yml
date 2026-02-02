@@ -1,5 +1,7 @@
 name: ValueOS Quality Governor
 
+name: ValueOS Quality Governor
+
 on:
   push:
     branches: [main]

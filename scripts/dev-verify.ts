@@ -9,7 +9,7 @@ import { execSync } from "child_process";
 const REQUIRED_NODE_VERSION = ">=18.0.0";
 const REQUIRED_PNPM_VERSION = ">=8.0.0";
 const REQUIRED_PORTS = [
-  { service: "Postgres", port: 5432 },
+  { service: "Postgres", port: parseInt(process.env.PGPORT || "5432") },
   { service: "LocalStack", port: 4566 },
 ];
 
@@ -90,32 +90,44 @@ function checkEnvFiles() {
 async function checkPorts() {
   log("\n--- Checking Infrastructure ---", YELLOW);
 
-  const checkPort = (service: string, port: number): Promise<void> => {
+  const checkPort = (service: string, host: string, port: number): Promise<void> => {
     return new Promise((resolve, reject) => {
       const socket = new net.Socket();
       socket.setTimeout(1000);
 
       socket.on("connect", () => {
         socket.destroy();
-        success(`${service} is reachable on port ${port}`);
+        success(`${service} is reachable on ${host}:${port}`);
         resolve();
       });
 
       socket.on("timeout", () => {
         socket.destroy();
-        reject(`${service} unreachable on port ${port} (Timeout)`);
+        reject(`${service} unreachable on ${host}:${port} (Timeout)`);
       });
 
       socket.on("error", (err) => {
         socket.destroy();
-        reject(`${service} unreachable on port ${port} (${err.message})`);
+        reject(`${service} unreachable on ${host}:${port} (${err.message})`);
       });
 
-      socket.connect(port, "127.0.0.1");
+      socket.connect(port, host);
     });
   };
 
-  const results = await Promise.allSettled(REQUIRED_PORTS.map((p) => checkPort(p.service, p.port)));
+  // Use database helpers for dynamic host/port detection
+  const { get_db_host, get_db_port } = await import("../packages/shared/src/lib/database");
+  const dbHost = get_db_host();
+  const dbPort = get_db_port();
+
+  const portsToCheck = [
+    { service: "Postgres", host: dbHost, port: dbPort },
+    { service: "LocalStack", host: "127.0.0.1", port: 4566 },
+  ];
+
+  const results = await Promise.allSettled(
+    portsToCheck.map((p) => checkPort(p.service, p.host, p.port))
+  );
 
   const failures = results.filter((r) => r.status === "rejected");
   if (failures.length > 0) {
