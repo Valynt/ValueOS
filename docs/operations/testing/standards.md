@@ -44,6 +44,7 @@ Note: Performance and timing assertions in tests should be environment-tolerant.
 
 - Upload test results and Playwright reports to CI artifacts. Keep 30-day retention.
 - Generate coverage and store LCOV for further analysis.
+- Vitest coverage must emit `coverage/coverage-summary.json` (via the `json-summary` reporter) so `scripts/check-coverage.cjs` can enforce thresholds in CI.
 
 7. Security & Compliance
 
