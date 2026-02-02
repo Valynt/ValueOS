@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-02-02T07:17:00.451Z",
-  "totalErrors": 8175,
-  "filesWithErrors": 1286,
+  "timestamp": "2026-02-02T09:11:44.506Z",
+  "totalErrors": 8182,
+  "filesWithErrors": 1284,
   "errorsByCode": {
-    "TS2353": 321,
+    "TS2353": 339,
     "TS6133": 976,
     "TS4114": 54,
-    "TS2345": 566,
+    "TS2345": 570,
     "TS2375": 201,
     "TS2532": 576,
     "TS2307": 505,
@@ -20,7 +20,7 @@
     "TS18048": 328,
     "TS7031": 4,
     "TS18047": 278,
-    "TS2554": 380,
+    "TS2554": 366,
     "TS7030": 127,
     "TS2379": 113,
     "TS2454": 4,
@@ -68,7 +68,6 @@
     "TS2341": 1,
     "TS2349": 2,
     "TS2308": 8,
-    "TS2556": 1,
     "TS2578": 1,
     "TS2564": 7,
     "TS2367": 10,
@@ -116,12 +115,12 @@
   },
   "errorsByPackage": {
     "apps/mcp-dashboard": 54,
-    "apps/ValyntApp": 4505,
+    "apps/ValyntApp": 4510,
     "packages/infra": 6,
     "packages/services": 20,
-    "packages/backend": 2869,
+    "packages/backend": 2874,
     "packages/mcp": 418,
-    "packages/sdui": 171,
+    "packages/sdui": 168,
     "packages/shared": 5,
     "packages/agents": 127
   },
@@ -171,12 +170,12 @@
       "count": 41
     },
     {
-      "file": "packages/sdui/src/LazyComponentRegistry.tsx",
+      "file": "apps/ValyntApp/src/sdui/LazyComponentRegistry.tsx",
       "count": 39
     },
     {
-      "file": "apps/ValyntApp/src/sdui/LazyComponentRegistry.tsx",
-      "count": 38
+      "file": "packages/sdui/src/LazyComponentRegistry.tsx",
+      "count": 39
     },
     {
       "file": "packages/backend/src/services/billing/__tests__/security/rls-policies.test.ts",
@@ -213,12 +212,12 @@
       "count": 56
     },
     {
-      "module": "@valueos/agents/base",
-      "count": 19
+      "module": "@shared/lib/logger",
+      "count": 21
     },
     {
-      "module": "../../lib/logger",
-      "count": 17
+      "module": "@valueos/agents/base",
+      "count": 19
     },
     {
       "module": "../../components/Settings/SettingsSection",
@@ -253,10 +252,6 @@
       "count": 7
     },
     {
-      "module": "../lib/logger",
-      "count": 6
-    },
-    {
       "module": "decimal.js",
       "count": 6
     },
@@ -266,6 +261,10 @@
     },
     {
       "module": "../../lib/realtime/supabaseRealtime",
+      "count": 5
+    },
+    {
+      "module": "../types/structural-truth",
       "count": 5
     }
   ],

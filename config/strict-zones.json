@@ -1,3 +1,7 @@
 {
-  "strict_zones": []
+  "strict_zones": [
+    "packages/core-utils",
+    "apps/web/src/lib/safe-zone"
+  ],
+  "comment": "These directories MUST remain at 0 TypeScript errors. They use tsconfig.strict.json."
 }

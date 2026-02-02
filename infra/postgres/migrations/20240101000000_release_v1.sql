@@ -23,11 +23,10 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 -- Allow local superuser to create helper in auth schema
-GRANT USAGE ON SCHEMA auth TO postgres;
-GRANT CREATE ON SCHEMA auth TO postgres;
-
 -- Ensure auth schema and jwt helper exist for local environments
 CREATE SCHEMA IF NOT EXISTS auth;
+GRANT USAGE ON SCHEMA auth TO postgres;
+GRANT CREATE ON SCHEMA auth TO postgres;
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -8317,6 +8316,7 @@ ALTER INDEX public.secret_audit_logs_pkey1 ATTACH PARTITION public.secret_audit_
 -- Name: agents audit_agents; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS audit_agents ON agents;
 CREATE TRIGGER audit_agents
   AFTER UPDATE ON agents
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
@@ -8326,6 +8326,7 @@ CREATE TRIGGER audit_agents
 -- Name: cases audit_cases; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS audit_cases ON cases;
 CREATE TRIGGER audit_cases
   AFTER UPDATE ON cases
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
@@ -8335,6 +8336,7 @@ CREATE TRIGGER audit_cases
 -- Name: workflows audit_workflows; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS audit_workflows ON workflows;
 CREATE TRIGGER audit_workflows
   AFTER UPDATE ON workflows
   FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
@@ -8356,6 +8358,7 @@ CREATE TRIGGER audit_workflows
 -- Name: audit_logs_archive prevent_audit_archive_delete; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS prevent_audit_archive_delete ON audit_logs_archive;
 CREATE TRIGGER prevent_audit_archive_delete
 BEFORE UPDATE ON audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_deletion();
 
@@ -8364,6 +8367,7 @@ BEFORE UPDATE ON audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent
 -- Name: audit_logs_archive prevent_audit_archive_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS prevent_audit_archive_update ON audit_logs_archive;
 CREATE TRIGGER prevent_audit_archive_update
 BEFORE UPDATE ON audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_modification();
 
@@ -8372,6 +8376,7 @@ BEFORE UPDATE ON audit_logs_archive FOR EACH ROW EXECUTE FUNCTION public.prevent
 -- Name: audit_logs prevent_audit_delete; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS prevent_audit_delete ON audit_logs;
 CREATE TRIGGER prevent_audit_delete
 BEFORE UPDATE ON audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_deletion();
 
@@ -8380,6 +8385,7 @@ BEFORE UPDATE ON audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_d
 -- Name: audit_logs prevent_audit_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS prevent_audit_update ON audit_logs;
 CREATE TRIGGER prevent_audit_update
 BEFORE UPDATE ON audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_modification();
 
@@ -8388,6 +8394,7 @@ BEFORE UPDATE ON audit_logs FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_m
 -- Name: agent_predictions trigger_calibration_check; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS trigger_calibration_check ON agent_predictions;
 CREATE TRIGGER trigger_calibration_check
   AFTER INSERT ON agent_predictions
   FOR EACH ROW EXECUTE FUNCTION public.trigger_calibration_on_outcome();
@@ -8397,6 +8404,7 @@ CREATE TRIGGER trigger_calibration_check
 -- Name: tenant_integrations trigger_tenant_integrations_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS trigger_tenant_integrations_updated_at ON tenant_integrations;
 CREATE TRIGGER trigger_tenant_integrations_updated_at
 BEFORE UPDATE ON tenant_integrations FOR EACH ROW EXECUTE FUNCTION public.update_tenant_integrations_updated_at();
 
@@ -8405,6 +8413,7 @@ BEFORE UPDATE ON tenant_integrations FOR EACH ROW EXECUTE FUNCTION public.update
 -- Name: feature_flags trigger_update_feature_flag_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS trigger_update_feature_flag_timestamp ON feature_flags;
 CREATE TRIGGER trigger_update_feature_flag_timestamp
 BEFORE UPDATE ON feature_flags FOR EACH ROW EXECUTE FUNCTION public.update_feature_flag_timestamp();
 
@@ -8413,6 +8422,7 @@ BEFORE UPDATE ON feature_flags FOR EACH ROW EXECUTE FUNCTION public.update_featu
 -- Name: golden_examples trigger_update_golden_example_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS trigger_update_golden_example_timestamp ON golden_examples;
 CREATE TRIGGER trigger_update_golden_example_timestamp
 BEFORE UPDATE ON golden_examples FOR EACH ROW EXECUTE FUNCTION public.update_golden_example_timestamp();
 
@@ -8421,6 +8431,7 @@ BEFORE UPDATE ON golden_examples FOR EACH ROW EXECUTE FUNCTION public.update_gol
 -- Name: prompt_executions trigger_update_version_performance; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS trigger_update_version_performance ON prompt_executions;
 CREATE TRIGGER trigger_update_version_performance
   AFTER UPDATE ON prompt_executions
   FOR EACH ROW WHEN ((new.success IS NOT NULL)) EXECUTE FUNCTION public.update_version_performance_trigger();
@@ -8430,6 +8441,7 @@ CREATE TRIGGER trigger_update_version_performance
 -- Name: academy_lessons update_academy_lessons_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_academy_lessons_updated_at ON academy_lessons;
 CREATE TRIGGER update_academy_lessons_updated_at
 BEFORE UPDATE ON academy_lessons FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8438,6 +8450,7 @@ BEFORE UPDATE ON academy_lessons FOR EACH ROW EXECUTE FUNCTION public.update_upd
 -- Name: academy_modules update_academy_modules_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_academy_modules_updated_at ON academy_modules;
 CREATE TRIGGER update_academy_modules_updated_at
 BEFORE UPDATE ON academy_modules FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8446,6 +8459,7 @@ BEFORE UPDATE ON academy_modules FOR EACH ROW EXECUTE FUNCTION public.update_upd
 -- Name: academy_progress update_academy_progress_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_academy_progress_updated_at ON academy_progress;
 CREATE TRIGGER update_academy_progress_updated_at
 BEFORE UPDATE ON academy_progress FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8454,6 +8468,7 @@ BEFORE UPDATE ON academy_progress FOR EACH ROW EXECUTE FUNCTION public.update_up
 -- Name: agent_predictions update_agent_predictions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_agent_predictions_updated_at ON agent_predictions;
 CREATE TRIGGER update_agent_predictions_updated_at
 BEFORE UPDATE ON agent_predictions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8462,6 +8477,7 @@ BEFORE UPDATE ON agent_predictions FOR EACH ROW EXECUTE FUNCTION public.update_u
 -- Name: agent_sessions update_agent_sessions_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_agent_sessions_updated_at ON agent_sessions;
 CREATE TRIGGER update_agent_sessions_updated_at
 BEFORE UPDATE ON agent_sessions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8470,6 +8486,7 @@ BEFORE UPDATE ON agent_sessions FOR EACH ROW EXECUTE FUNCTION public.update_upda
 -- Name: business_cases update_business_cases_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_business_cases_updated_at ON business_cases;
 CREATE TRIGGER update_business_cases_updated_at
 BEFORE UPDATE ON business_cases FOR EACH ROW EXECUTE FUNCTION public.update_modified_at();
 
@@ -8478,6 +8495,7 @@ BEFORE UPDATE ON business_cases FOR EACH ROW EXECUTE FUNCTION public.update_modi
 -- Name: canvas_components update_canvas_components_modified_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_canvas_components_modified_at ON canvas_components;
 CREATE TRIGGER update_canvas_components_modified_at
 BEFORE UPDATE ON canvas_components FOR EACH ROW EXECUTE FUNCTION public.update_modified_at();
 
@@ -8486,6 +8504,7 @@ BEFORE UPDATE ON canvas_components FOR EACH ROW EXECUTE FUNCTION public.update_m
 -- Name: cases update_cases_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_cases_timestamp ON cases;
 CREATE TRIGGER update_cases_timestamp
 BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
@@ -8494,6 +8513,7 @@ BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 -- Name: cases update_cases_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_cases_updated_at ON cases;
 CREATE TRIGGER update_cases_updated_at
 BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
@@ -8502,6 +8522,7 @@ BEFORE UPDATE ON cases FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 -- Name: resource_artifacts update_resource_artifacts_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_resource_artifacts_updated_at ON resource_artifacts;
 CREATE TRIGGER update_resource_artifacts_updated_at
 BEFORE UPDATE ON resource_artifacts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8510,6 +8531,7 @@ BEFORE UPDATE ON resource_artifacts FOR EACH ROW EXECUTE FUNCTION public.update_
 -- Name: tenants update_tenants_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_tenants_updated_at ON tenants;
 CREATE TRIGGER update_tenants_updated_at
 BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8518,6 +8540,7 @@ BEFORE UPDATE ON tenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_
 -- Name: user_tenants update_user_tenants_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_user_tenants_updated_at ON user_tenants;
 CREATE TRIGGER update_user_tenants_updated_at
 BEFORE UPDATE ON user_tenants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -8526,6 +8549,7 @@ BEFORE UPDATE ON user_tenants FOR EACH ROW EXECUTE FUNCTION public.update_update
 -- Name: workflows update_workflows_timestamp; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_workflows_timestamp ON workflows;
 CREATE TRIGGER update_workflows_timestamp
 BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
 
@@ -8534,6 +8558,7 @@ BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION public.update_timestamp
 -- Name: workflows update_workflows_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
+DROP TRIGGER IF EXISTS update_workflows_updated_at ON workflows;
 CREATE TRIGGER update_workflows_updated_at
 BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
@@ -12007,6 +12032,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_hitl_requests_updated_at ON public;
 CREATE TRIGGER update_hitl_requests_updated_at
     BEFORE UPDATE ON public.hitl_requests
     FOR EACH ROW
@@ -12076,11 +12102,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS organizations_updated_at ON organizations;
+DROP TRIGGER IF EXISTS organizations_updated_at ON organizations;
 CREATE TRIGGER organizations_updated_at
   BEFORE UPDATE ON organizations
   FOR EACH ROW
   EXECUTE FUNCTION update_organizations_updated_at();
 
+DROP TRIGGER IF EXISTS user_organizations_updated_at ON user_organizations;
 CREATE TRIGGER user_organizations_updated_at
   BEFORE UPDATE ON user_organizations
   FOR EACH ROW
@@ -12283,6 +12311,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS integration_connections_updated_at ON integration_connections;
 CREATE TRIGGER integration_connections_updated_at
   BEFORE UPDATE ON integration_connections
   FOR EACH ROW
@@ -12369,9 +12398,9 @@ COMMENT ON TABLE integration_connections IS 'Stores configuration for enterprise
 COMMENT ON TABLE sync_history IS 'Audit trail of all sync operations across integrations';
 COMMENT ON TABLE rate_limit_buckets IS 'Token bucket state for API rate limiting';
 
-COMMENT ON COLUMN integration_connections.credentials IS 'Encrypted OAuth tokens and API keys (use Supabase Vault for encryption)';
-COMMENT ON COLUMN integration_connections.config IS 'Adapter-specific configuration including sync schedule and conflict resolution';
-COMMENT ON COLUMN integration_connections.field_mappings IS 'Custom field mappings between ValueOS and external system';
+-- COMMENT ON COLUMN integration_connections.credentials IS 'Encrypted OAuth tokens and API keys (use Supabase Vault for encryption)';
+-- COMMENT ON COLUMN integration_connections.config IS 'Adapter-specific configuration including sync schedule and conflict resolution';
+-- COMMENT ON COLUMN integration_connections.field_mappings IS 'Custom field mappings between ValueOS and external system';
 
 -- ================================================
 -- Source: supabase/migrations/20241229150000_security_audit_events.sql
@@ -12526,6 +12555,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_mfa_secrets_updated_at ON mfa_secrets;
 CREATE TRIGGER trigger_update_mfa_secrets_updated_at
   BEFORE UPDATE ON mfa_secrets
   FOR EACH ROW
@@ -13029,16 +13059,19 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Apply audit trigger to critical tables
+DROP TRIGGER IF EXISTS enforce_tenant_access_agent_predictions ON agent_predictions;
 CREATE TRIGGER enforce_tenant_access_agent_predictions
   BEFORE INSERT OR UPDATE ON agent_predictions
   FOR EACH ROW
   EXECUTE FUNCTION audit_tenant_access();
 
+DROP TRIGGER IF EXISTS enforce_tenant_access_agent_sessions ON agent_sessions;
 CREATE TRIGGER enforce_tenant_access_agent_sessions
   BEFORE INSERT OR UPDATE ON agent_sessions
   FOR EACH ROW
   EXECUTE FUNCTION audit_tenant_access();
 
+DROP TRIGGER IF EXISTS enforce_tenant_access_workflow_executions ON workflow_executions;
 CREATE TRIGGER enforce_tenant_access_workflow_executions
   BEFORE INSERT OR UPDATE ON workflow_executions
   FOR EACH ROW
@@ -13323,31 +13356,37 @@ $$;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'cases' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_cases_timestamp') THEN
+DROP TRIGGER IF EXISTS update_cases_timestamp ON public;
 CREATE TRIGGER update_cases_timestamp
 BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workflows' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflows_timestamp') THEN
+DROP TRIGGER IF EXISTS update_workflows_timestamp ON public;
 CREATE TRIGGER update_workflows_timestamp
 BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'workflow_states' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_workflow_states_timestamp') THEN
+DROP TRIGGER IF EXISTS update_workflow_states_timestamp ON public;
 CREATE TRIGGER update_workflow_states_timestamp
 BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'shared_artifacts' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_shared_artifacts_timestamp') THEN
+DROP TRIGGER IF EXISTS update_shared_artifacts_timestamp ON public;
 CREATE TRIGGER update_shared_artifacts_timestamp
 BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_runs' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agent_runs_timestamp') THEN
+DROP TRIGGER IF EXISTS update_agent_runs_timestamp ON public;
 CREATE TRIGGER update_agent_runs_timestamp
 BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'agent_memory' AND column_name = 'updated_at') AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agent_memory_timestamp') THEN
+DROP TRIGGER IF EXISTS update_agent_memory_timestamp ON public;
 CREATE TRIGGER update_agent_memory_timestamp
 BEFORE FOR EACH ROW EXECUTE FUNCTION public.update_timestamp();
   END IF;
@@ -13983,6 +14022,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_llm_gating_policies_updated_at ON llm_gating_policies;
 CREATE TRIGGER update_llm_gating_policies_updated_at
   BEFORE UPDATE ON llm_gating_policies
   FOR EACH ROW
@@ -14595,6 +14635,8 @@ CREATE POLICY org_configs_vendor_admin ON organization_configurations
 -- ============================================================================
 
 -- Update updated_at timestamp
+DROP TRIGGER IF EXISTS update_org_configs_updated_at ON organization_configurations;
+DROP TRIGGER IF EXISTS update_org_configs_updated_at ON organization_configurations;
 CREATE TRIGGER update_org_configs_updated_at
   BEFORE UPDATE ON organization_configurations
   FOR EACH ROW
@@ -14786,6 +14828,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to auto-update updated_at
+DROP TRIGGER IF EXISTS update_feature_rollouts_updated_at ON feature_rollouts;
 CREATE TRIGGER update_feature_rollouts_updated_at
 BEFORE UPDATE ON feature_rollouts
 FOR EACH ROW
@@ -15078,6 +15121,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS check_legal_hold_before_delete ON auth;
 CREATE TRIGGER check_legal_hold_before_delete
   BEFORE DELETE ON auth.users
   FOR EACH ROW
@@ -15211,6 +15255,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS log_user_deletion_trigger ON auth;
 CREATE TRIGGER log_user_deletion_trigger
   BEFORE DELETE ON auth.users
   FOR EACH ROW
@@ -15229,6 +15274,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS check_user_deletion_retention ON user_deletions;
 CREATE TRIGGER check_user_deletion_retention
   BEFORE DELETE ON user_deletions
   FOR EACH ROW
@@ -15321,6 +15367,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS check_cross_region_transfer_retention ON cross_region_transfers;
 CREATE TRIGGER check_cross_region_transfer_retention
   BEFORE DELETE ON cross_region_transfers
   FOR EACH ROW
@@ -15635,6 +15682,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger (runs after legal hold check)
+DROP TRIGGER IF EXISTS anonymize_audit_logs_after_user_delete ON auth;
 CREATE TRIGGER anonymize_audit_logs_after_user_delete
   AFTER DELETE ON auth.users
   FOR EACH ROW
@@ -15662,6 +15710,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS check_audit_log_retention ON security_audit_events;
 CREATE TRIGGER check_audit_log_retention
   BEFORE DELETE ON security_audit_events
   FOR EACH ROW
@@ -15686,6 +15735,7 @@ $$ LANGUAGE plpgsql;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'invoices') THEN
+DROP TRIGGER IF EXISTS check_financial_record_retention ON invoices;
     CREATE TRIGGER check_financial_record_retention
       BEFORE DELETE ON invoices
       FOR EACH ROW
@@ -15697,6 +15747,7 @@ END $$;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'subscriptions') THEN
+DROP TRIGGER IF EXISTS check_subscription_retention ON subscriptions;
     CREATE TRIGGER check_subscription_retention
       BEFORE DELETE ON subscriptions
       FOR EACH ROW
@@ -15741,6 +15792,7 @@ CREATE INDEX IF NOT EXISTS idx_user_consents_user_id ON user_consents(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_consents_tenant_id ON user_consents(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_user_consents_consent_type ON user_consents(consent_type);
 
+DROP TRIGGER IF EXISTS check_consent_retention ON user_consents;
 CREATE TRIGGER check_consent_retention
   BEFORE DELETE ON user_consents
   FOR EACH ROW
@@ -15781,6 +15833,7 @@ CREATE INDEX IF NOT EXISTS idx_security_incidents_tenant_id ON security_incident
 CREATE INDEX IF NOT EXISTS idx_security_incidents_severity ON security_incidents(severity);
 CREATE INDEX IF NOT EXISTS idx_security_incidents_detected_at ON security_incidents(detected_at);
 
+DROP TRIGGER IF EXISTS check_security_incident_retention ON security_incidents;
 CREATE TRIGGER check_security_incident_retention
   BEFORE DELETE ON security_incidents
   FOR EACH ROW
@@ -16105,24 +16158,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply tenant_id immutability to cases
+DROP TRIGGER IF EXISTS prevent_cases_tenant_modification ON cases;
 CREATE TRIGGER prevent_cases_tenant_modification
   BEFORE UPDATE ON cases
   FOR EACH ROW
   EXECUTE FUNCTION prevent_tenant_id_modification();
 
 -- Apply tenant_id immutability to messages
+DROP TRIGGER IF EXISTS prevent_messages_tenant_modification ON messages;
 CREATE TRIGGER prevent_messages_tenant_modification
   BEFORE UPDATE ON messages
   FOR EACH ROW
   EXECUTE FUNCTION prevent_tenant_id_modification();
 
 -- Apply tenant_id immutability to agent_sessions
+DROP TRIGGER IF EXISTS prevent_agent_sessions_tenant_modification ON agent_sessions;
 CREATE TRIGGER prevent_agent_sessions_tenant_modification
   BEFORE UPDATE ON agent_sessions
   FOR EACH ROW
   EXECUTE FUNCTION prevent_tenant_id_modification();
 
 -- Apply tenant_id immutability to agent_predictions
+DROP TRIGGER IF EXISTS prevent_agent_predictions_tenant_modification ON agent_predictions;
 CREATE TRIGGER prevent_agent_predictions_tenant_modification
   BEFORE UPDATE ON agent_predictions
   FOR EACH ROW
@@ -16370,6 +16427,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to log region changes on tenants
+DROP TRIGGER IF EXISTS log_tenant_region_change ON tenants;
 CREATE TRIGGER log_tenant_region_change
   AFTER UPDATE ON tenants
   FOR EACH ROW
@@ -16790,10 +16848,10 @@ CREATE TABLE IF NOT EXISTS legal_holds (
   metadata JSONB DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_legal_holds_user_id ON legal_holds(user_id);
-CREATE INDEX idx_legal_holds_tenant_id ON legal_holds(tenant_id);
-CREATE INDEX idx_legal_holds_status ON legal_holds(status);
-CREATE INDEX idx_legal_holds_created_at ON legal_holds(created_at);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_user_id ON legal_holds(user_id);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_tenant_id ON legal_holds(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_status ON legal_holds(status);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_created_at ON legal_holds(created_at);
 
 -- Recreate user_deletions with TEXT tenant_id
 CREATE TABLE IF NOT EXISTS user_deletions (
@@ -16818,12 +16876,12 @@ CREATE TABLE IF NOT EXISTS user_deletions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_user_deletions_user_id ON user_deletions(user_id);
-CREATE INDEX idx_user_deletions_user_email ON user_deletions(user_email);
-CREATE INDEX idx_user_deletions_tenant_id ON user_deletions(tenant_id);
-CREATE INDEX idx_user_deletions_requested_at ON user_deletions(requested_at);
-CREATE INDEX idx_user_deletions_completed_at ON user_deletions(completed_at);
-CREATE INDEX idx_user_deletions_deletion_type ON user_deletions(deletion_type);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_user_id ON user_deletions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_user_email ON user_deletions(user_email);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_tenant_id ON user_deletions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_requested_at ON user_deletions(requested_at);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_completed_at ON user_deletions(completed_at);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_deletion_type ON user_deletions(deletion_type);
 
 -- Recreate cross_region_transfers with TEXT tenant_id
 CREATE TABLE IF NOT EXISTS cross_region_transfers (
@@ -16849,12 +16907,12 @@ CREATE TABLE IF NOT EXISTS cross_region_transfers (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_cross_region_transfers_user_id ON cross_region_transfers(user_id);
-CREATE INDEX idx_cross_region_transfers_tenant_id ON cross_region_transfers(tenant_id);
-CREATE INDEX idx_cross_region_transfers_from_region ON cross_region_transfers(from_region);
-CREATE INDEX idx_cross_region_transfers_to_region ON cross_region_transfers(to_region);
-CREATE INDEX idx_cross_region_transfers_transferred_at ON cross_region_transfers(transferred_at);
-CREATE INDEX idx_cross_region_transfers_legal_basis ON cross_region_transfers(legal_basis);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_user_id ON cross_region_transfers(user_id);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_tenant_id ON cross_region_transfers(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_from_region ON cross_region_transfers(from_region);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_to_region ON cross_region_transfers(to_region);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_transferred_at ON cross_region_transfers(transferred_at);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_legal_basis ON cross_region_transfers(legal_basis);
 
 -- Recreate user_consents with TEXT tenant_id
 CREATE TABLE IF NOT EXISTS user_consents (
@@ -16869,9 +16927,9 @@ CREATE TABLE IF NOT EXISTS user_consents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_user_consents_user_id ON user_consents(user_id);
-CREATE INDEX idx_user_consents_tenant_id ON user_consents(tenant_id);
-CREATE INDEX idx_user_consents_consent_type ON user_consents(consent_type);
+CREATE INDEX IF NOT EXISTS idx_user_consents_user_id ON user_consents(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_consents_tenant_id ON user_consents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_consents_consent_type ON user_consents(consent_type);
 
 -- Recreate security_incidents with TEXT tenant_id
 CREATE TABLE IF NOT EXISTS security_incidents (
@@ -16888,9 +16946,9 @@ CREATE TABLE IF NOT EXISTS security_incidents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_security_incidents_tenant_id ON security_incidents(tenant_id);
-CREATE INDEX idx_security_incidents_severity ON security_incidents(severity);
-CREATE INDEX idx_security_incidents_detected_at ON security_incidents(detected_at);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_tenant_id ON security_incidents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_severity ON security_incidents(severity);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_detected_at ON security_incidents(detected_at);
 
 -- Recreate data_region_changes with TEXT tenant_id
 CREATE TABLE IF NOT EXISTS data_region_changes (
@@ -16904,8 +16962,8 @@ CREATE TABLE IF NOT EXISTS data_region_changes (
   metadata JSONB DEFAULT '{}'::jsonb
 );
 
-CREATE INDEX idx_data_region_changes_tenant_id ON data_region_changes(tenant_id);
-CREATE INDEX idx_data_region_changes_changed_at ON data_region_changes(changed_at);
+CREATE INDEX IF NOT EXISTS idx_data_region_changes_tenant_id ON data_region_changes(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_data_region_changes_changed_at ON data_region_changes(changed_at);
 
 -- Recreate sessions with TEXT tenant_id
 CREATE TABLE IF NOT EXISTS sessions (
@@ -16917,8 +16975,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 
 -- Recreate temp_files with TEXT tenant_id
 CREATE TABLE IF NOT EXISTS temp_files (
@@ -16931,8 +16989,8 @@ CREATE TABLE IF NOT EXISTS temp_files (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_temp_files_user_id ON temp_files(user_id);
-CREATE INDEX idx_temp_files_created_at ON temp_files(created_at);
+CREATE INDEX IF NOT EXISTS idx_temp_files_user_id ON temp_files(user_id);
+CREATE INDEX IF NOT EXISTS idx_temp_files_created_at ON temp_files(created_at);
 
 -- Enable RLS on all tables
 ALTER TABLE legal_holds ENABLE ROW LEVEL SECURITY;
@@ -17681,6 +17739,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================================
 
 
+DROP TRIGGER IF EXISTS audit_organization_configuration_updates ON organization_configurations;
 CREATE TRIGGER audit_organization_configuration_updates
   AFTER UPDATE ON organization_configurations
   FOR EACH ROW
@@ -18150,6 +18209,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'teams') THEN
+DROP TRIGGER IF EXISTS audit_team_settings_updates ON teams;
     CREATE TRIGGER audit_team_settings_updates
       AFTER UPDATE ON teams
       FOR EACH ROW
@@ -18569,6 +18629,7 @@ END;
 $$;
 
 -- Create trigger
+DROP TRIGGER IF EXISTS encrypt_credentials_before_insert ON integration_connections;
 CREATE TRIGGER encrypt_credentials_before_insert
   BEFORE INSERT OR UPDATE ON integration_connections
   FOR EACH ROW
@@ -18618,6 +18679,7 @@ END;
 $$;
 
 -- Create trigger
+DROP TRIGGER IF EXISTS encrypt_tokens_before_insert ON tenant_integrations;
 CREATE TRIGGER encrypt_tokens_before_insert
   BEFORE INSERT OR UPDATE ON tenant_integrations
   FOR EACH ROW
@@ -20434,6 +20496,7 @@ END;
 $$;
 
 -- Create trigger
+DROP TRIGGER IF EXISTS store_credentials_in_vault_trigger ON integration_connections;
 CREATE TRIGGER store_credentials_in_vault_trigger
   BEFORE INSERT OR UPDATE ON integration_connections
   FOR EACH ROW
@@ -20482,6 +20545,7 @@ END;
 $$;
 
 -- Create trigger
+DROP TRIGGER IF EXISTS store_tokens_in_vault_trigger ON tenant_integrations;
 CREATE TRIGGER store_tokens_in_vault_trigger
   BEFORE INSERT OR UPDATE ON tenant_integrations
   FOR EACH ROW
@@ -20585,10 +20649,10 @@ CREATE TABLE IF NOT EXISTS customer_access_tokens (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_customer_tokens_token ON customer_access_tokens(token);
-CREATE INDEX idx_customer_tokens_value_case ON customer_access_tokens(value_case_id);
-CREATE INDEX idx_customer_tokens_expires ON customer_access_tokens(expires_at);
-CREATE INDEX idx_customer_tokens_active ON customer_access_tokens(expires_at, revoked_at)
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_token ON customer_access_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_value_case ON customer_access_tokens(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_expires ON customer_access_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_active ON customer_access_tokens(expires_at, revoked_at)
   WHERE revoked_at IS NULL;
 
 -- Function to generate secure random token
@@ -20816,9 +20880,9 @@ CREATE POLICY "Users can delete canvas elements for their value cases"
 ALTER PUBLICATION supabase_realtime ADD TABLE canvas_elements;
 
 -- Create indexes for performance
-CREATE INDEX idx_canvas_elements_value_case_id ON canvas_elements(value_case_id);
-CREATE INDEX idx_canvas_elements_z_index ON canvas_elements(z_index);
-CREATE INDEX idx_canvas_elements_updated_at ON canvas_elements(updated_at);
+CREATE INDEX IF NOT EXISTS idx_canvas_elements_value_case_id ON canvas_elements(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_elements_z_index ON canvas_elements(z_index);
+CREATE INDEX IF NOT EXISTS idx_canvas_elements_updated_at ON canvas_elements(updated_at);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_canvas_element_timestamp()
@@ -20831,6 +20895,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger for updated_at
+DROP TRIGGER IF EXISTS update_canvas_elements_timestamp ON canvas_elements;
 CREATE TRIGGER update_canvas_elements_timestamp
   BEFORE UPDATE ON canvas_elements
   FOR EACH ROW
@@ -20884,9 +20949,9 @@ CREATE POLICY "Users can delete their own presence"
 ALTER PUBLICATION supabase_realtime ADD TABLE canvas_presence;
 
 -- Create indexes for presence
-CREATE INDEX idx_canvas_presence_value_case_id ON canvas_presence(value_case_id);
-CREATE INDEX idx_canvas_presence_user_id ON canvas_presence(user_id);
-CREATE INDEX idx_canvas_presence_last_seen ON canvas_presence(last_seen);
+CREATE INDEX IF NOT EXISTS idx_canvas_presence_value_case_id ON canvas_presence(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_presence_user_id ON canvas_presence(user_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_presence_last_seen ON canvas_presence(last_seen);
 
 -- Create function to clean up stale presence
 CREATE OR REPLACE FUNCTION cleanup_stale_presence()
@@ -20953,11 +21018,11 @@ CREATE POLICY "Users can delete their own comments"
 ALTER PUBLICATION supabase_realtime ADD TABLE canvas_comments;
 
 -- Create indexes for comments
-CREATE INDEX idx_canvas_comments_value_case_id ON canvas_comments(value_case_id);
-CREATE INDEX idx_canvas_comments_element_id ON canvas_comments(element_id);
-CREATE INDEX idx_canvas_comments_parent_id ON canvas_comments(parent_comment_id);
-CREATE INDEX idx_canvas_comments_user_id ON canvas_comments(user_id);
-CREATE INDEX idx_canvas_comments_created_at ON canvas_comments(created_at);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_value_case_id ON canvas_comments(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_element_id ON canvas_comments(element_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_parent_id ON canvas_comments(parent_comment_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_user_id ON canvas_comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_created_at ON canvas_comments(created_at);
 
 -- Create function to update comment timestamp
 CREATE OR REPLACE FUNCTION update_canvas_comment_timestamp()
@@ -20969,6 +21034,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger for comment updated_at
+DROP TRIGGER IF EXISTS update_canvas_comments_timestamp ON canvas_comments;
 CREATE TRIGGER update_canvas_comments_timestamp
   BEFORE UPDATE ON canvas_comments
   FOR EACH ROW
@@ -21318,19 +21384,19 @@ CREATE POLICY "System can insert guest activity"
   WITH CHECK (true);
 
 -- Create indexes for performance
-CREATE INDEX idx_guest_users_email ON guest_users(email);
-CREATE INDEX idx_guest_users_organization_id ON guest_users(organization_id);
-CREATE INDEX idx_guest_users_created_by ON guest_users(created_by);
+CREATE INDEX IF NOT EXISTS idx_guest_users_email ON guest_users(email);
+CREATE INDEX IF NOT EXISTS idx_guest_users_organization_id ON guest_users(organization_id);
+CREATE INDEX IF NOT EXISTS idx_guest_users_created_by ON guest_users(created_by);
 
-CREATE INDEX idx_guest_access_tokens_token ON guest_access_tokens(token);
-CREATE INDEX idx_guest_access_tokens_guest_user_id ON guest_access_tokens(guest_user_id);
-CREATE INDEX idx_guest_access_tokens_value_case_id ON guest_access_tokens(value_case_id);
-CREATE INDEX idx_guest_access_tokens_expires_at ON guest_access_tokens(expires_at);
-CREATE INDEX idx_guest_access_tokens_revoked ON guest_access_tokens(revoked);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_token ON guest_access_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_guest_user_id ON guest_access_tokens(guest_user_id);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_value_case_id ON guest_access_tokens(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_expires_at ON guest_access_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_revoked ON guest_access_tokens(revoked);
 
-CREATE INDEX idx_guest_activity_log_guest_user_id ON guest_activity_log(guest_user_id);
-CREATE INDEX idx_guest_activity_log_value_case_id ON guest_activity_log(value_case_id);
-CREATE INDEX idx_guest_activity_log_created_at ON guest_activity_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_guest_activity_log_guest_user_id ON guest_activity_log(guest_user_id);
+CREATE INDEX IF NOT EXISTS idx_guest_activity_log_value_case_id ON guest_activity_log(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_guest_activity_log_created_at ON guest_activity_log(created_at);
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_guest_timestamp()
@@ -21342,11 +21408,13 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create triggers for updated_at
+DROP TRIGGER IF EXISTS update_guest_users_timestamp ON guest_users;
 CREATE TRIGGER update_guest_users_timestamp
   BEFORE UPDATE ON guest_users
   FOR EACH ROW
   EXECUTE FUNCTION update_guest_timestamp();
 
+DROP TRIGGER IF EXISTS update_guest_access_tokens_timestamp ON guest_access_tokens;
 CREATE TRIGGER update_guest_access_tokens_timestamp
   BEFORE UPDATE ON guest_access_tokens
   FOR EACH ROW
@@ -22638,6 +22706,7 @@ CREATE INDEX IF NOT EXISTS idx_teams_tenant_id ON public.teams(tenant_id);
 
 -- Trigger for updated_at
 -- Assuming standard update_updated_at_column function exists as seen in other tables
+DROP TRIGGER IF EXISTS update_teams_updated_at ON public;
 CREATE TRIGGER update_teams_updated_at
   BEFORE UPDATE ON public.teams
   FOR EACH ROW
@@ -22908,3 +22977,5 @@ BEGIN
   RAISE NOTICE '  3. Test workflow_stage_runs access with tenant isolation';
   RAISE NOTICE '';
 END $$;
+
+

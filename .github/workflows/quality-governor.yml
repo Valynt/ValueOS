@@ -1,22 +1,21 @@
-name: Quality Governor
+name: ValueOS Quality Governor
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
 
 jobs:
-  governance:
+  governor:
+    name: 🛡️ Governor Gate
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: valueos
         ports:
           - 5432:5432
         options: >-
@@ -24,74 +23,46 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      
       localstack:
         image: localstack/localstack
         ports:
           - 4566:4566
-        env:
-          SERVICES: s3,sqs,sns
 
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - name: Install PNPM
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-          
-      - name: Install dependencies
-        run: pnpm install
-        
-      - name: Stage 1: Determinism (Boot Verify)
-        run: CI=true pnpm dev:verify
-        env:
-          NODE_ENV: test
-          DB_HOST: localhost
-          DB_PORT: 5432
-          LOCALSTACK_PORT: 4566
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-      - name: Stage 2: Fortress (Green Islands)
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create Mock Env
+        run: cp .env.example .env
+
+      # STAGE 1: Determinism
+      - name: 🛡️ Protocol A - Boot Verification
+        run: pnpm dev:verify
+
+      # STAGE 2: Green Islands (The Fortress)
+      - name: 🛡️ Protocol B - Strict Zone Enforcement
         run: |
-          STRICT_ZONES=$(jq -r '.strict_zones[]' config/strict-zones.json)
-          for zone in $STRICT_ZONES; do
-            echo "Checking Green Island: $zone"
-            if [ -d "$zone" ]; then
-              # Find the tsconfig.json in the zone
-              CONFIG=$(find "$zone" -name "tsconfig.json" | head -n 1)
-              if [ -n "$CONFIG" ]; then
-                pnpm tsc -p "$CONFIG" --noEmit
-              else
-                echo "Warning: No tsconfig.json found in $zone. Skipping."
-              fi
-            else
-              echo "Warning: Zone $zone does not exist. Skipping."
-            fi
+          echo "Scanning Green Islands..."
+          ZONES=$(jq -r '.strict_zones[]' config/strict-zones.json)
+
+          for ZONE in $ZONES; do
+            echo "Checking strict zone: $ZONE"
+            pnpm tsc --project tsconfig.strict.json --noEmit
           done
 
-      - name: Stage 3: Ratchet (Sea of Debt)
-        run: |
-          # Use the signal script to get a consistent count
-          pnpm run typecheck:signal:json > report.json 2>/dev/null
-          # Extract only the JSON part in case there is some noise
-          CURRENT_ERRORS=$(cat report.json | grep -v "Running" | grep -v ">" | jq -r '.totalErrors')
-          BASELINE_ERRORS=$(jq -r '.total_errors' .github/ts-error-baseline.json)
-          
-          echo "Current Errors: $CURRENT_ERRORS"
-          echo "Baseline Errors: $BASELINE_ERRORS"
-          
-          if [ "$CURRENT_ERRORS" -gt "$BASELINE_ERRORS" ]; then
-            echo "❌ RATCHET FAILURE: Total errors ($CURRENT_ERRORS) exceeds baseline ($BASELINE_ERRORS)."
-            exit 1
-          elif [ "$CURRENT_ERRORS" -lt "$BASELINE_ERRORS" ]; then
-            echo "✅ RATCHET SUCCESS: Error count improved! Updating baseline."
-            # Update local baseline file (for local testing/manual commit)
-            echo "{\"total_errors\": $CURRENT_ERRORS, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > .github/ts-error-baseline.json
-          else
-            echo "✅ RATCHET SUCCESS: Error count maintained."
-          fi
+      # STAGE 3: The Ratchet
+      - name: 🛡️ Protocol C - Technical Debt Ratchet
+        run: npx ts-node scripts/ts-ratchet.ts check
