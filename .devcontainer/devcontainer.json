@@ -1,12 +1,12 @@
 {
   "name": "ValueOS Dev Container",
-  "dockerComposeFile": "c:\\Users\\WinWo\\DEV\\ValueOS\\.devcontainer\\docker-compose.devcontainer.yml",
+  "dockerComposeFile": "docker-compose.devcontainer.yml",
   "service": "app",
   "workspaceFolder": "${containerWorkspaceFolder}",
   "shutdownAction": "stopCompose",
 
   // Load environment from .env.dev
-  "runArgs": ["--env-file", "c:\\Users\\WinWo\\DEV\\ValueOS\\.devcontainer\\.env.dev"],
+  "runArgs": ["--env-file", ".env.dev"],
 
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
