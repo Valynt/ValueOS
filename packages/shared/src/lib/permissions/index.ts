@@ -31,8 +31,7 @@ export {
   type UserRole,
   type AgentRole,
   
-  // Role constants
-  USER_ROLES,
+  // Role constants (USER_ROLES is exported from constants/index.ts to avoid duplication)
   AGENT_ROLES,
   USER_ROLE_PERMISSIONS,
   AGENT_ROLE_PERMISSIONS,
