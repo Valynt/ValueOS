@@ -82,31 +82,52 @@ else
     echo "   Using DB: ${DB_HOST}:5432"
 fi
 
-# Wait for db container to be healthy
-echo "   Waiting for db container to be healthy..."
-MAX_CONTAINER_ATTEMPTS=30
-CONTAINER_ATTEMPT=0
-while [ $CONTAINER_ATTEMPT -lt $MAX_CONTAINER_ATTEMPTS ]; do
-    if docker ps --filter "name=db" --filter "health=healthy" | grep -q db; then
-        echo "   ✅ DB container is healthy."
-        break
-    fi
-    CONTAINER_ATTEMPT=$((CONTAINER_ATTEMPT + 1))
-    echo "   Attempt $CONTAINER_ATTEMPT/$MAX_CONTAINER_ATTEMPTS - waiting for db container..."
-    sleep 2
-done
+# Wait for db container to be healthy (if Docker is available)
+if command -v docker >/dev/null 2>&1; then
+    echo "   Waiting for db container to be healthy..."
+    MAX_CONTAINER_ATTEMPTS=30
+    CONTAINER_ATTEMPT=0
+    while [ $CONTAINER_ATTEMPT -lt $MAX_CONTAINER_ATTEMPTS ]; do
+        if docker ps --filter "name=db" --filter "health=healthy" | grep -q db; then
+            echo "   ✅ DB container is healthy."
+            break
+        fi
+        CONTAINER_ATTEMPT=$((CONTAINER_ATTEMPT + 1))
+        echo "   Attempt $CONTAINER_ATTEMPT/$MAX_CONTAINER_ATTEMPTS - waiting for db container..."
+        sleep 2
+    done
 
-if [ $CONTAINER_ATTEMPT -eq $MAX_CONTAINER_ATTEMPTS ]; then
-    echo "❌ Error: DB container not healthy after $MAX_CONTAINER_ATTEMPTS attempts."
-    exit 1
+    if [ $CONTAINER_ATTEMPT -eq $MAX_CONTAINER_ATTEMPTS ]; then
+        echo "❌ Error: DB container not healthy after $MAX_CONTAINER_ATTEMPTS attempts."
+        exit 1
+    fi
+else
+    echo "⚠️  Docker CLI not available; skipping container health check."
 fi
 MAX_ATTEMPTS=30
 ATTEMPT=0
 
+# If psql or Docker isn't available, fall back to the same readiness checks used
+# in start-dev-env.sh (pg_isready, nc, or a curl to PostgREST).
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if psql "$DB_URL" -c "SELECT 1" >/dev/null 2>&1; then
+    if command -v psql >/dev/null 2>&1 && psql "$DB_URL" -c "SELECT 1" >/dev/null 2>&1; then
         echo "✅ Database is ready (verified with sslmode=disable)."
         break
+    fi
+    if command -v pg_isready >/dev/null 2>&1 && pg_isready -h "${DB_HOST:-db}" -U postgres -d postgres >/dev/null 2>&1; then
+        echo "✅ Database is ready (verified with pg_isready)."
+        break
+    fi
+    if command -v nc >/dev/null 2>&1 && nc -z "${DB_HOST:-db}" 5432 >/dev/null 2>&1; then
+        echo "✅ Database is reachable on port 5432."
+        break
+    fi
+    if command -v curl >/dev/null 2>&1 && curl -s --max-time 2 "http://rest:3000/" >/dev/null 2>&1; then
+        echo "✅ PostgREST is responding; database is ready."
+        break
+    fi
+    if ! command -v psql >/dev/null 2>&1; then
+        echo "⚠️  psql not available; using fallback readiness checks."
     fi
     ATTEMPT=$((ATTEMPT + 1))
     echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting for db:5432..."
