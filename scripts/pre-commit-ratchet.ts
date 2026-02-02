@@ -118,14 +118,14 @@ function loadPackageBaselines(): Record<string, number> {
   const baselines: Record<string, number> = {};
   const packages = [
     "apps/ValyntApp",
-    "apps/mcp-dashboard", 
+    "apps/mcp-dashboard",
     "packages/backend",
     "packages/sdui",
     "packages/mcp",
     "packages/agents",
     "packages/infra",
     "packages/services",
-    "packages/shared"
+    "packages/shared",
   ];
 
   for (const pkg of packages) {
@@ -155,36 +155,42 @@ function getPackageForFile(filePath: string): string | null {
   return null;
 }
 
-function checkErrors(stagedFiles: string[], tscOutput: string, packageBaselines: Record<string, number>) {
+function checkErrors(
+  stagedFiles: string[],
+  tscOutput: string,
+  packageBaselines: Record<string, number>
+) {
   const lines = tscOutput.split("\n");
   const currentErrors: Record<string, number> = {};
+  const packageErrorCounts: Record<string, number> = {};
 
   lines.forEach((line) => {
     const match = line.match(/^([^(]+)\(\d+,\d+\): error TS\d+:/);
     if (match) {
-      const filePath = match[1].trim();
-      const normalizedPath = filePath.replace(/\\/g, "/");
-      currentErrors[normalizedPath] = (currentErrors[normalizedPath] || 0) + 1;
+      const filePath = match[1].trim().replace(/\\/g, "/");
+      const pkg = getPackageForFile(filePath);
+      if (pkg) {
+        packageErrorCounts[pkg] = (packageErrorCounts[pkg] || 0) + 1;
+      }
+      currentErrors[filePath] = (currentErrors[filePath] || 0) + 1;
     }
   });
 
+  // Only check packages that have staged files
+  const affectedPackages = new Set(
+    stagedFiles.map((f) => getPackageForFile(f.replace(/\\/g, "/"))).filter(Boolean)
+  );
   let hasRegressions = false;
-  stagedFiles.forEach((file) => {
-    const normalizedFile = file.replace(/\\/g, "/");
-    const count = currentErrors[normalizedFile] || 0;
-    const pkg = getPackageForFile(normalizedFile);
-    
-    // For now, allow changes as long as the package has a baseline
-    // TODO: Implement per-file baseline checking when available
-    if (count > 0 && pkg && packageBaselines[pkg] === undefined) {
-      console.error(`❌ ${file}: File has errors in package without baseline. Found ${count} errors.`);
+  for (const pkg of affectedPackages) {
+    const current = packageErrorCounts[pkg] || 0;
+    const baseline = packageBaselines[pkg] || 0;
+    if (current > baseline) {
+      console.error(`❌ ${pkg}: Error count increased from ${baseline} to ${current}`);
       hasRegressions = true;
+    } else {
+      console.log(`✅ ${pkg}: ${current} errors (baseline: ${baseline})`);
     }
-    // Log the error count for visibility
-    if (count > 0) {
-      console.log(`📝 ${file}: ${count} errors (package baseline: ${pkg ? packageBaselines[pkg] || 0 : 0})`);
-    }
-  });
+  }
 
   if (hasRegressions) {
     console.error(
@@ -192,7 +198,7 @@ function checkErrors(stagedFiles: string[], tscOutput: string, packageBaselines:
     );
     process.exit(1);
   } else {
-    console.log("\n✅ All staged files passed the Quality Governor ratchet.");
+    console.log("\n✅ All affected packages passed the Quality Governor ratchet.");
   }
 }
 

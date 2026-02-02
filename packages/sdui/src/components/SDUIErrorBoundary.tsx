@@ -13,7 +13,7 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { logger } from "../../lib/logger";
+import { logger } from "@shared/lib/logger";
 import { getTracer } from "../../lib/observability";
 import { SpanStatusCode } from "@opentelemetry/api";
 
@@ -144,13 +144,7 @@ export class SDUIErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     const { hasError, error, retryCount } = this.state;
-    const {
-      children,
-      fallback,
-      allowRetry = true,
-      componentId,
-      componentType,
-    } = this.props;
+    const { children, fallback, allowRetry = true, componentId, componentType } = this.props;
 
     if (hasError) {
       // Use custom fallback if provided

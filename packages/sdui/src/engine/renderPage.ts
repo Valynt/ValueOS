@@ -4,7 +4,7 @@
  * Handles rendering of SDUI pages including layout directives from CoordinatorAgent.
  */
 
-import { logger } from "../../lib/logger";
+import { logger } from "@shared/lib/logger";
 import * as React from "react";
 import type { SDUILayoutDirective, SDUIPageDefinition, SDUISection } from "../schema";
 

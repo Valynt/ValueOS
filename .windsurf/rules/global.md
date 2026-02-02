@@ -136,3 +136,30 @@ Must include: requestId, userId, timestamp in metadata.
 ## Enforcement
 
 All global rules are enforced via Policy-as-Code pattern for consistent development and production behavior. Critical rules cannot be overridden in any environment. High-severity rules may be overridden in development environments only.
+
+## Development Workflow Triggers
+
+Trigger: When starting a multi-package change with CI dependencies.
+Action: Run pnpm run typecheck:signal:json and verify baselines match current error counts.
+Owner: Human developer.
+Success signal: No baseline mismatches detected in telemetry output.
+
+Trigger: Upon encountering tool constraints during implementation.
+Action: Manually create blocked files using terminal commands and verify with git add and pnpm run test.
+Owner: Human developer.
+Success signal: Files created and tests pass without tool errors.
+
+Trigger: Before committing changes that affect CI tooling.
+Action: Stage files and run pnpm run typecheck:ratchet:precommit locally to validate.
+Owner: System (pre-commit hook).
+Success signal: Ratchet passes without script modifications needed.
+
+Trigger: During test implementation phase.
+Action: Create test files in parallel with feature files, using shared test utilities.
+Owner: Agent (automated test generation).
+Success signal: Test coverage reaches 100% for new security controls.
+
+Trigger: At project planning start.
+Action: Audit tool availability and document constraints in rules with workarounds.
+Owner: Human developer.
+Success signal: Constraints documented and referenced in subsequent PRs.

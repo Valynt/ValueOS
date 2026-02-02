@@ -5551,24 +5551,34 @@ $$;
 -- Name: academy_certifications academy_certifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
--- ALTER TABLE ONLY public.academy_certifications
---     ADD CONSTRAINT academy_certifications_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_certifications_pkey' AND conrelid = 'public.academy_certifications'::regclass) THEN
+        ALTER TABLE ONLY public.academy_certifications
+            ADD CONSTRAINT academy_certifications_pkey PRIMARY KEY (id);
+    END IF;
+END $$;
 
 
 --
 -- Name: academy_certifications academy_certifications_user_id_level_track_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
--- ALTER TABLE ONLY public.academy_certifications
---     ADD CONSTRAINT academy_certifications_user_id_level_track_key UNIQUE (user_id, level, track);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_certifications_user_id_level_track_key' AND conrelid = 'public.academy_certifications'::regclass) THEN
+        ALTER TABLE ONLY public.academy_certifications
+            ADD CONSTRAINT academy_certifications_user_id_level_track_key UNIQUE (user_id, level, track);
+    END IF;
+END $$;
 
 
 --
 -- Name: academy_lessons academy_lessons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
--- ALTER TABLE ONLY public.academy_lessons
---     ADD CONSTRAINT academy_lessons_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.academy_lessons
+    ADD CONSTRAINT academy_lessons_pkey PRIMARY KEY (id);
 
 
 --
@@ -5583,8 +5593,8 @@ ALTER TABLE ONLY public.academy_modules
 -- Name: academy_progress academy_progress_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.academy_progress
-    ADD CONSTRAINT academy_progress_pkey PRIMARY KEY (id);
+-- ALTER TABLE ONLY public.academy_progress
+--     ADD CONSTRAINT academy_progress_pkey PRIMARY KEY (id);
 
 
 --

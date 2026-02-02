@@ -1,5 +1,5 @@
-import { logger } from '../../lib/logger';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { logger } from "@shared/lib/logger";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Options for configuring data hydration behavior
@@ -116,8 +116,8 @@ const defaultFetcher = async (endpoint: string): Promise<any> => {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
-  const contentType = response.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
     return response.json();
   }
 
@@ -246,7 +246,7 @@ export function useDataHydration(
         const error = err as Error;
 
         // Don't retry if aborted or disabled
-        if (error.name === 'AbortError' || !enableRetry) {
+        if (error.name === "AbortError" || !enableRetry) {
           throw error;
         }
 
@@ -296,9 +296,9 @@ export function useDataHydration(
       results.forEach((result, index) => {
         const endpoint = endpoints[index];
 
-        if (result.status === 'fulfilled') {
+        if (result.status === "fulfilled") {
           // Merge data - if result is object, spread it; otherwise use endpoint as key
-          if (typeof result.value === 'object' && result.value !== null) {
+          if (typeof result.value === "object" && result.value !== null) {
             Object.assign(mergedData, result.value);
           } else {
             mergedData[endpoint] = result.value;
@@ -318,7 +318,7 @@ export function useDataHydration(
 
       // If some requests failed, log warnings but continue
       if (errors.length > 0) {
-        logger.warn('Some hydration endpoints failed:', errors);
+        logger.warn("Some hydration endpoints failed:", errors);
         errors.forEach(({ endpoint, error }) => {
           onError?.(error, endpoint);
         });
