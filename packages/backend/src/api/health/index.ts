@@ -690,6 +690,25 @@ router.get("/health/dashboard", (req: Request, res: Response) => {
 });
 
 /**
+ * Health dashboard JS
+ */
+router.get("/health/health-dashboard.js", (req: Request, res: Response) => {
+  const jsPath = path.join(
+    process.cwd(),
+    "public",
+    "health-dashboard.js"
+  );
+
+  res.sendFile(jsPath, (err) => {
+    if (err) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Dashboard JS not available" });
+      }
+    }
+  });
+});
+
+/**
  * Acknowledge alert endpoint
  */
 router.post(

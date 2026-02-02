@@ -82,4 +82,22 @@ describe('Health Dashboard Endpoint', () => {
     expect(res.text).toBe(dummyContent);
     expect(res.headers['content-type']).toMatch(/text\/html/);
   });
+
+  it('GET /health/health-dashboard.js returns the dashboard js', async () => {
+    // Create a dummy JS file
+    const jsPath = path.join(publicDir, 'health-dashboard.js');
+    fs.writeFileSync(jsPath, 'console.log("test");');
+
+    try {
+      const res = await request(app).get('/health/health-dashboard.js');
+      expect(res.status).toBe(200);
+      expect(res.text).toBe('console.log("test");');
+      // Express sendFile sets correct mime type based on extension
+      expect(res.headers['content-type']).toMatch(/javascript/);
+    } finally {
+      if (fs.existsSync(jsPath)) {
+        fs.unlinkSync(jsPath);
+      }
+    }
+  });
 });
