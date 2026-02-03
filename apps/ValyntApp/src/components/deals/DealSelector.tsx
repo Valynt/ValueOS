@@ -5,20 +5,20 @@
  * Used when no deal is currently selected in the DealsView.
  */
 
-import React, { useState, useEffect } from 'react';
 import {
   Building2,
-  Plus,
-  Search,
   Clock,
-  TrendingUp,
-  Loader2,
   FileText,
+  Loader2,
+  Plus,
+  TrendingUp,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { SearchInput } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { valueCaseService, type ValueCase } from '@/services/ValueCaseService';
@@ -26,11 +26,12 @@ import type { LifecycleStage } from '@/types/vos';
 
 export interface DealSelectorProps {
   /** Callback when a deal is selected */
+  // eslint-disable-next-line no-unused-vars
   onSelectDeal: (dealId: string) => void;
   /** Callback when user wants to create a new deal */
   onCreateDeal: () => void;
   /** Currently selected deal ID (for highlighting) */
-  selectedDealId?: string;
+  selectedDealId?: string | undefined;
 }
 
 const STAGE_COLORS: Record<LifecycleStage, string> = {
@@ -100,7 +101,6 @@ export function DealSelector({
   const recentCases = filteredCases
     .filter((vc) => vc.status === 'in-progress')
     .slice(0, 5);
-  const completedCases = filteredCases.filter((vc) => vc.status === 'completed');
 
   return (
     <div className="space-y-6">
@@ -119,15 +119,12 @@ export function DealSelector({
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search cases by name or company..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
+      <SearchInput
+        placeholder="Search cases by name or company..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onClear={() => setSearchQuery('')}
+      />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

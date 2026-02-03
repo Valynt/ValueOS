@@ -22,7 +22,7 @@ import { ShareCustomerButton } from "@/components/deals/ShareCustomerButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { useToast } from "@/components/Common/Toast";
+import { useToast } from "@/components/common/Toast";
 import { logger } from "@/lib/logger";
 import { ArrowLeft, Download, FileText, Loader2 } from "lucide-react";
 import type { LifecycleStage } from "@/types/vos";
