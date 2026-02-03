@@ -14,17 +14,20 @@ const DEFAULT_CONFIG = {
 };
 
 // Add a hook to enforce rel="noopener noreferrer" on target="_blank" links
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
-    node.setAttribute('rel', 'noopener noreferrer');
-  }
-});
+if (typeof window !== 'undefined') {
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+      node.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+}
 
 export function sanitizeHtml(dirty: string): string {
   if (!dirty) return '';
   // Ensure we are in a browser environment or have a DOM implementation
   if (typeof window === 'undefined') {
-    return dirty;
+    console.warn('sanitizeHtml: Window not defined. Returning empty string to fail securely.');
+    return '';
   }
   return DOMPurify.sanitize(dirty, DEFAULT_CONFIG) as unknown as string;
 }
