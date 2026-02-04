@@ -145,7 +145,8 @@ export function securityHeadersMiddleware(req: Request, res: Response, next: Nex
   res.setHeader("X-Content-Type-Options", "nosniff");
 
   // X-XSS-Protection - Legacy XSS protection
-  res.setHeader("X-XSS-Protection", "1; mode=block");
+  // Disabled (0) as it can introduce XS-Leak vulnerabilities in modern browsers
+  res.setHeader("X-XSS-Protection", "0");
 
   // Referrer-Policy - Control referrer information
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");

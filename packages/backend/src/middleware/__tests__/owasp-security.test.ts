@@ -8,16 +8,16 @@ import { Request, Response } from "express";
 import {
   csrfProtectionMiddleware,
   sessionSecurityMiddleware,
-} from "../middleware/securityMiddleware";
+} from "../securityMiddleware";
 import {
   fileUploadSecurityMiddleware,
   validateFileUpload,
   contentTypeValidationMiddleware,
-} from "../middleware/fileUploadSecurity";
-import { securityHeadersMiddleware } from "../middleware/securityHeaders";
+} from "../fileUploadSecurity";
+import { securityHeadersMiddleware } from "../securityHeaders";
 
 // Mock security logger
-vi.mock("../security/securityLogger", () => ({
+vi.mock("../../security/securityLogger", () => ({
   securityEvents: {
     cspViolation: vi.fn(),
   },
@@ -113,7 +113,7 @@ describe("OWASP Security Hardening Tests", () => {
       );
       expect(mockRes.setHeader).toHaveBeenCalledWith("X-Frame-Options", "DENY");
       expect(mockRes.setHeader).toHaveBeenCalledWith("X-Content-Type-Options", "nosniff");
-      expect(mockRes.setHeader).toHaveBeenCalledWith("X-XSS-Protection", "1; mode=block");
+      expect(mockRes.setHeader).toHaveBeenCalledWith("X-XSS-Protection", "0");
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         "Cross-Origin-Embedder-Policy",
         "require-corp"
