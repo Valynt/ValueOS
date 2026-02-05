@@ -194,7 +194,7 @@ router.post(
  */
 router.get('/stats', rateLimiters.loose, async (req: Request, res: Response) => {
   try {
-    const stats = llmFallback.getStats();
+    const stats = await llmFallback.getStats();
     
     res.json({
       success: true,

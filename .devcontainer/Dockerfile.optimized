@@ -19,6 +19,8 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Set environment variables for non-interactive installs
 ENV DEBIAN_FRONTEND=noninteractive
+ARG INSTALL_PLAYWRIGHT_DEPS=0
+ENV INSTALL_PLAYWRIGHT_DEPS=${INSTALL_PLAYWRIGHT_DEPS}
 
 # Install system dependencies in a single layer with BuildKit cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -54,6 +56,36 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     # Python (for node-gyp)
     python3 \
     python3-pip \
+    && if [ "$INSTALL_PLAYWRIGHT_DEPS" = "1" ]; then \
+        apt-get install -y --no-install-recommends \
+        libasound2 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libatspi2.0-0 \
+        libcairo2 \
+        libcups2 \
+        libdbus-1-3 \
+        libdrm2 \
+        libgdk-pixbuf2.0-0 \
+        libgtk-3-0 \
+        libgbm1 \
+        libnss3 \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libx11-xcb1 \
+        libxcb1 \
+        libxcomposite1 \
+        libxcursor1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxi6 \
+        libxkbcommon0 \
+        libxrandr2 \
+        libxshmfence1; \
+    else \
+        echo "Skipping Playwright OS dependencies"; \
+    fi \
     # Verify critical tools installed
     && command -v git && command -v curl && command -v make
 
@@ -99,28 +131,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get install -y terraform \
     && terraform version || true
 
-# Stage 5: Security tools (moved to post-create optional installer)
-FROM devtools AS security
-
-# NOTE: Heavy or optional security tooling is intentionally moved out of
-# the main image build to keep the base image small and reproducible.
-# Use the post-create opt-in installer at:
-#   .devcontainer/scripts/install-optional-tools.sh
+# Stage 5: Database tools
+FROM devtools AS dbtools
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-RUN echo "Optional security tooling moved to .devcontainer/scripts/install-optional-tools.sh" || true
+ARG INSTALL_DBTOOLS=1
+ARG SUPABASE_VERSION=2.72.8
 
-# Stage 6: Database tools
-FROM security AS dbtools
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-ARG INSTALL_DBTOOLS=0
-ARG SUPABASE_VERSION=2.43.0
-ARG PRISMA_VERSION=5.25.0
-
-# Install Database tools (Supabase, Prisma, pgcli)
+# Install Database tools (Supabase, pgcli)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     if [ "$INSTALL_DBTOOLS" = "1" ]; then \
@@ -146,18 +165,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         rm -f /tmp/supabase.tar.gz /tmp/supabase; \
         supabase --version; \
         \
-        # Install Prisma CLI (pinned)
-        corepack enable; \
-        pnpm add -g prisma@${PRISMA_VERSION}; \
-        prisma --version; \
-        \
         # Install pgcli (optional but useful)
         pip3 install --no-cache-dir pgcli; \
     else \
         echo "Skipping dbtools installation"; \
     fi
 
-# Stage 7: Final image with user setup
+# Stage 6: Final image with user setup
 FROM dbtools AS final
 
 # Create workspace directory as root and set permissions

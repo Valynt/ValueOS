@@ -40,9 +40,9 @@
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   // Port forwarding with labels
-  "forwardPorts": [3000, 8000, 5432, 16686, 9090, 3001, 6379, 54321, 54322, 54323, 54324],
+  "forwardPorts": [5173, 8000, 5432, 16686, 9090, 3001, 6379, 54321, 54322, 54323, 54324],
   "portsAttributes": {
-    "3000": {
+    "5173": {
       "label": "Frontend (Vite)",
       "onAutoForward": "notify"
     },
@@ -127,6 +127,9 @@
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
         "ms-azuretools.vscode-containers",
+        "msjsdiag.debugger-for-chrome",
+        "jock.svg",
+        "kisstkondoros.vscode-gutter-preview",
         "GitHub.copilot",
         "GitHub.copilot-chat",
         "ms-playwright.playwright",

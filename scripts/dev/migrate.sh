@@ -12,6 +12,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Smart Defaults for Devcontainer
+# If DB_HOST is not set and we are in a devcontainer, default to "db" service.
+if [[ -z "${DB_HOST:-}" ]]; then
+    if [[ -f "/.dockerenv" ]] || [[ -n "${CODESPACES:-}" ]] || [[ -n "${REMOTE_CONTAINERS:-}" ]] || [[ -n "${DEVCONTAINER:-}" ]]; then
+        export DB_HOST="db"
+    fi
+fi
+
 # Backwards-compatible arg filtering: this script historically accepted --debug/--psql-only.
 FORWARD_ARGS=()
 while [[ $# -gt 0 ]]; do

@@ -41,6 +41,10 @@ This replaces the previous split architecture. Legacy configurations are archive
    - ✅ Kong API gateway
    - ✅ Redis caching
 
+4. **Frontend URL (Vite):**
+   - App: http://localhost:5173
+   - HMR: ws://localhost:5173
+
 ## 🔒 Security Features
 
 ### Security Hardening Applied
@@ -89,6 +93,7 @@ Both development environments include:
 ├── devcontainer.json          # VS Code configuration
 ├── docker-compose.devcontainer.yml # Unified development stack
 ├── README.md                  # This file
+├── scripts/                   # Devcontainer lifecycle scripts
 ├── SELF_HEALING.md            # Troubleshooting guide
 └── monitoring/                # Monitoring configurations
 
@@ -105,9 +110,14 @@ docs/legacy/                   # Archived deprecated configurations
 
 The devcontainer uses a simplified lifecycle:
 
-| Script                 | When                     | Purpose                              | Failure Behavior         |
-| ---------------------- | ------------------------ | ------------------------------------ | ------------------------ |
-| `scripts/dev/setup.sh` | After container creation | Install dependencies, run migrations | Fails on critical errors |
+| Script                               | When                        | Purpose                                                     | Failure Behavior         |
+| ------------------------------------ | --------------------------- | ----------------------------------------------------------- | ------------------------ |
+| `.devcontainer/scripts/on-create.sh` | On container creation       | Verify repo layout and preflight basics                     | Fails on critical errors |
+| `.devcontainer/scripts/update-content.sh` | On repository updates   | Re-sync dependencies via `scripts/dev/setup.sh`             | Fails on critical errors |
+| `scripts/dev/setup.sh`               | After container creation    | Install dependencies, run migrations                        | Fails on critical errors |
+| `.devcontainer/scripts/post-start.sh` | On container start         | Share readiness note and onboarding guidance                | Fails on critical errors |
+
+**Intended workflow:** on-create performs a quick repository preflight, post-create runs the full setup (`scripts/dev/setup.sh`), update-content re-runs setup whenever the repository changes, and post-start confirms readiness whenever the container starts.
 
 ### Script Design Principles
 
@@ -119,6 +129,20 @@ All scripts follow these principles for reliability:
 4. **Clear error messages** - Includes recovery hints
 
 ## 🛠️ Customization
+
+### Playwright browser dependencies (optional)
+
+The optimized dev container can optionally install Playwright OS packages. This keeps the base image lean unless browser testing is needed.
+
+Set the build arg (or env var) to `1` when building the container:
+
+```bash
+docker build -f .devcontainer/Dockerfile.optimized \
+  --build-arg INSTALL_PLAYWRIGHT_DEPS=1 \
+  -t valueos-dev .
+```
+
+When `INSTALL_PLAYWRIGHT_DEPS=1`, the image includes the system libraries Playwright needs, but browsers are still downloaded on first `npx playwright install`. If the flag is `0` (default), Playwright browser installs may fail with missing system dependency errors.
 
 ### Adding VS Code Extensions
 
@@ -133,6 +157,16 @@ Edit `.devcontainer/devcontainer.json`:
   }
 }
 ```
+
+### UI Seed Fixtures (Optional)
+
+To generate local JSON fixtures for common UI states (empty/error/long-text), set `UI_SEED=1` before running the devcontainer setup script:
+
+```bash
+UI_SEED=1 bash scripts/dev/setup.sh
+```
+
+This writes fixtures to `apps/ValyntApp/public/ui-fixtures/` (served by the Vite dev server), so your UI can load them at `/ui-fixtures/empty.json`, `/ui-fixtures/error.json`, or `/ui-fixtures/long-text.json`.
 
 ### Modifying Security Settings
 

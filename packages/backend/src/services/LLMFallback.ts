@@ -47,7 +47,7 @@ export interface CircuitBreakerStats {
 type LLMFallbackStats = {
   togetherAI: CircuitBreakerStats & { calls: number; failures: number };
   cache: { hits: number; misses: number };
-  costGovernance: ReturnType<typeof costGovernance.getSummary>;
+  costGovernance: Awaited<ReturnType<typeof costGovernance.getSummary>>;
 };
 
 export class LLMFallbackService {
@@ -148,7 +148,7 @@ export class LLMFallbackService {
         cached: false,
       };
 
-      costGovernance.recordUsage({
+      await costGovernance.recordUsage({
         tenantId: request.tenantId,
         dealId: request.dealId ?? request.sessionId,
         tokens: result.totalTokens,
@@ -241,7 +241,7 @@ export class LLMFallbackService {
       estimatedPromptTokens,
       estimatedCompletionTokens
     );
-    costGovernance.checkRequest({
+    await costGovernance.checkRequest({
       tenantId: request.tenantId,
       dealId,
       estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
@@ -291,7 +291,7 @@ export class LLMFallbackService {
       estimatedPromptTokens,
       estimatedCompletionTokens
     );
-    costGovernance.checkRequest({
+    await costGovernance.checkRequest({
       tenantId: request.tenantId,
       dealId,
       estimatedTokens: estimatedPromptTokens + estimatedCompletionTokens,
@@ -394,7 +394,7 @@ export class LLMFallbackService {
         completionTokens
       );
 
-      costGovernance.recordUsage({
+      await costGovernance.recordUsage({
         tenantId: request.tenantId,
         dealId: request.dealId ?? request.sessionId,
         tokens: promptTokens + completionTokens,
@@ -439,14 +439,14 @@ export class LLMFallbackService {
   /**
    * Get circuit breaker statistics
    */
-  getStats(): LLMFallbackStats {
+  async getStats(): Promise<LLMFallbackStats> {
     return {
       togetherAI: {
         ...this.togetherAIBreaker.stats,
         ...this.stats.togetherAI,
       },
       cache: this.stats.cache,
-      costGovernance: costGovernance.getSummary(),
+      costGovernance: await costGovernance.getSummary(),
     };
   }
 
