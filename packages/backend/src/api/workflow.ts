@@ -82,9 +82,10 @@ router.get(
          FROM workflow_execution_logs
          WHERE execution_id = $1
            AND stage_id = $2
+           AND tenant_id = $3
          ORDER BY started_at DESC
          LIMIT 1`,
-        [executionId, stepId]
+        [executionId, stepId, tenantId]
       );
 
       const data = rows?.[0];

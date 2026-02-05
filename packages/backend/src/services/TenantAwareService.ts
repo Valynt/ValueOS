@@ -6,7 +6,7 @@
  */
 
 import { BaseService } from "./BaseService.js"
-import { AuthorizationError, ValidationError } from "./errors.js"
+import { AuthorizationError, NotFoundError, ValidationError } from "./errors.js"
 import { createLogger } from "../lib/logger.js"
 
 const logger = createLogger({ component: "TenantAwareService" });
@@ -36,7 +36,7 @@ export class TenantAwareService extends BaseService {
 
     if (!data || data.length === 0) {
       logger.warn("User has no active tenants", { userId });
-      throw new AuthorizationError(`No active tenant membership for user ${userId}`);
+      throw new AuthorizationError("No active tenant membership for user");
     }
 
     return data.map((row: { tenant_id: string }) => row.tenant_id);
@@ -60,7 +60,7 @@ export class TenantAwareService extends BaseService {
       // Log to audit trail
       await this.auditCrossTenantAttempt(userId, resourceTenantId);
 
-      throw new AuthorizationError("Access denied: Resource belongs to different tenant");
+      throw new NotFoundError("Resource");
     }
   }
 

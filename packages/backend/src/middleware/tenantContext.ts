@@ -34,6 +34,46 @@ export const tenantContextStorage = new AsyncLocalStorage<TCTPayload>();
 
 type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-lookup" | "request" | "none";
 
+const resolveRoles = (user: any): string[] => {
+  const directRole = user?.role;
+  if (Array.isArray(directRole)) {
+    return directRole.filter((role) => typeof role === "string");
+  }
+  if (typeof directRole === "string" && directRole.length > 0) {
+    return [directRole];
+  }
+  const metadataRoles = user?.app_metadata?.roles;
+  if (Array.isArray(metadataRoles)) {
+    return metadataRoles.filter((role: unknown) => typeof role === "string");
+  }
+  return [];
+};
+
+const buildRequestContext = (
+  tenantId: string,
+  req: Request,
+  userId?: string | null
+): TCTPayload => {
+  const user = (req as any).user;
+  const session = (req as any).session;
+  const roles = resolveRoles(user);
+  const exp =
+    (session?.expires_at as number | undefined) ??
+    (session?.expires_in
+      ? Math.floor(Date.now() / 1000) + Number(session.expires_in)
+      : undefined) ??
+    Math.floor(Date.now() / 1000) + 3600;
+
+  return {
+    iss: "jwt",
+    sub: userId || "service",
+    tid: tenantId,
+    roles,
+    tier: user?.app_metadata?.tier ?? "unknown",
+    exp,
+  };
+};
+
 /**
  * Middleware to extract and verify Tenant Context Token (TCT)
  */
@@ -155,9 +195,9 @@ export const tenantContextMiddleware = (enforce = true) => {
           tenantId: resolvedTenantId,
           source: tenantSource,
         });
-        return res.status(403).json({
-          error: "Forbidden",
-          message: "User does not belong to tenant.",
+        return res.status(404).json({
+          error: "Not Found",
+          message: "Resource not found.",
         });
       }
     } else if (enforce) {
@@ -173,15 +213,11 @@ export const tenantContextMiddleware = (enforce = true) => {
       next();
     };
 
-    if (tctPayload) {
-      tenantContextStorage.run(tctPayload, () => {
-        (req as any).tenantContext = tctPayload;
-        attachContext();
-      });
-      return;
-    }
-
-    attachContext();
+    const contextPayload = tctPayload ?? buildRequestContext(resolvedTenantId, req, membershipUserId);
+    tenantContextStorage.run(contextPayload, () => {
+      (req as any).tenantContext = contextPayload;
+      attachContext();
+    });
   };
 };
 

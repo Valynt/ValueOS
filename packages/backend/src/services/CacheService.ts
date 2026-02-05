@@ -12,11 +12,14 @@
 
 import { logger } from "../lib/logger.js"
 import { createClient, RedisClientType } from "redis";
+import { getCurrentTenantContext } from "../middleware/tenantContext.js"
 
 export interface CacheOptions {
   ttl?: number; // Time to live in milliseconds
   namespace?: string; // Cache namespace for organization
   storage?: "memory" | "local" | "session" | "redis"; // Storage backend
+  tenantId?: string; // Explicit tenant scope override
+  scope?: "tenant" | "global"; // Skip tenant scoping when global
 }
 
 export interface CacheEntry<T> {
@@ -100,7 +103,7 @@ export class CacheService {
    * Get value from cache
    */
   async get<T>(key: string, options: CacheOptions = {}): Promise<T | null> {
-    const fullKey = this.getFullKey(key, options.namespace);
+    const fullKey = this.getFullKey(key, options.namespace, options);
     const storage = options.storage || "memory";
 
     let entry: CacheEntry<T> | null = null;
@@ -162,7 +165,7 @@ export class CacheService {
     value: T,
     options: CacheOptions = {}
   ): Promise<void> {
-    const fullKey = this.getFullKey(key, options.namespace);
+    const fullKey = this.getFullKey(key, options.namespace, options);
     const ttl = options.ttl || this.DEFAULT_TTL;
     const storage = options.storage || "memory";
 
@@ -206,7 +209,7 @@ export class CacheService {
    * Delete value from cache
    */
   async delete(key: string, options: CacheOptions = {}): Promise<void> {
-    const fullKey = this.getFullKey(key, options.namespace);
+    const fullKey = this.getFullKey(key, options.namespace, options);
     const storage = options.storage || "memory";
 
     switch (storage) {
@@ -347,7 +350,7 @@ export class CacheService {
 
     if (storage === "redis") {
       const namespace = options.namespace || this.defaultNamespace;
-      const fullKeys = keys.map((key) => this.getFullKey(key, namespace));
+    const fullKeys = keys.map((key) => this.getFullKey(key, namespace, options));
       await this.deleteManyFromRedis(fullKeys);
     } else {
       await Promise.all(keys.map((key) => this.delete(key, options)));
@@ -403,11 +406,11 @@ export class CacheService {
     dependsOn: string[],
     options: CacheOptions = {}
   ): void {
-    const fullKey = this.getFullKey(key, options.namespace);
+    const fullKey = this.getFullKey(key, options.namespace, options);
     const dependency: CacheDependency = {
       key: fullKey,
       dependsOn: dependsOn.map((dep) =>
-        this.getFullKey(dep, options.namespace)
+        this.getFullKey(dep, options.namespace, options)
       ),
       version: Date.now(),
     };
@@ -421,7 +424,7 @@ export class CacheService {
     key: string,
     options: CacheInvalidationOptions = {}
   ): Promise<void> {
-    const fullKey = this.getFullKey(key, options.namespace);
+    const fullKey = this.getFullKey(key, options.namespace, options);
     const storage = options.storage || "memory";
 
     logger.info("Invalidating cache with dependencies", {
@@ -744,14 +747,9 @@ export class CacheService {
   /**
    * Get all keys in cache
    */
-  async keys(
-    options: {
-      namespace?: string;
-      storage?: "memory" | "local" | "session";
-    } = {}
-  ): Promise<string[]> {
+  async keys(options: CacheOptions = {}): Promise<string[]> {
     const storage = options.storage || "memory";
-    const namespace = options.namespace || this.defaultNamespace;
+    const namespace = this.resolveNamespace(options.namespace, options);
     const prefix = `${namespace}:`;
 
     switch (storage) {
@@ -792,9 +790,32 @@ export class CacheService {
   // Private Helper Methods
   // ==========================================================================
 
-  private getFullKey(key: string, namespace?: string): string {
-    const ns = namespace || this.defaultNamespace;
+  private getFullKey(key: string, namespace?: string, options: CacheOptions = {}): string {
+    const ns = this.resolveNamespace(namespace, options);
     return `${ns}:${key}`;
+  }
+
+  private resolveNamespace(namespace?: string, options: CacheOptions = {}): string {
+    const baseNamespace = namespace || this.defaultNamespace;
+    if (options.scope === "global") {
+      return baseNamespace;
+    }
+
+    const contextTenantId = getCurrentTenantContext()?.tid;
+    const tenantId = options.tenantId || contextTenantId;
+    if (!tenantId) {
+      return baseNamespace;
+    }
+
+    const tenantPrefix = `tenant:${tenantId}`;
+    if (baseNamespace.startsWith("tenant:")) {
+      if (!baseNamespace.startsWith(`${tenantPrefix}:`) && baseNamespace !== tenantPrefix) {
+        throw new Error(`Tenant cache namespace mismatch: ${baseNamespace}`);
+      }
+      return baseNamespace;
+    }
+
+    return `${tenantPrefix}:${baseNamespace}`;
   }
 
   private getFromStorage<T>(

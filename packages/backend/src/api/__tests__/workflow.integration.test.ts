@@ -151,6 +151,19 @@ describe('Workflow API Integration', () => {
       expect(response.body).toHaveProperty('message');
     });
 
+    it('should return 404 for cross-tenant execution access', async () => {
+      if (!resolveDatabaseUrl()) {
+        return;
+      }
+
+      const response = await request(app)
+        .get(`/api/workflow/${testExecutionId}/step/${testStepId}/explain`)
+        .set('x-test-tenant-id', 'test-tenant-002')
+        .expect(404);
+
+      expect(response.body).toHaveProperty('error', 'not_found');
+    });
+
     it('should sanitize evidence data', async () => {
       if (!resolveDatabaseUrl()) {
         return;
@@ -352,6 +365,10 @@ describe('Workflow API Integration', () => {
     });
 
     it('should require authentication', async () => {
+      if (!resolveDatabaseUrl()) {
+        return;
+      }
+
       // This test assumes authentication middleware is in place
       // The actual behavior depends on the middleware configuration
       const response = await request(app)
