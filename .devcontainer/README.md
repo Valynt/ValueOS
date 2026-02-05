@@ -41,6 +41,10 @@ This replaces the previous split architecture. Legacy configurations are archive
    - ✅ Kong API gateway
    - ✅ Redis caching
 
+4. **Frontend URL (Vite):**
+   - App: http://localhost:5173
+   - HMR: ws://localhost:5173
+
 ## 🔒 Security Features
 
 ### Security Hardening Applied
