@@ -407,7 +407,15 @@ const KPICard = ({ componentId, title, value }) => {
 npm install zustand  # For canvas state management
 ```
 
-### 2. Create Your First Layout Component
+### 2. Generate the UI Manifest
+
+```bash
+pnpm ui:manifest
+```
+
+This writes `ui-manifest.json` at the repo root with component names and their paths under `apps/ValyntApp/src`.
+
+### 3. Create Your First Layout Component
 
 ```tsx
 // src/components/SDUI/CanvasLayout/VerticalSplit.tsx
