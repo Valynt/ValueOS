@@ -140,6 +140,16 @@ Edit `.devcontainer/devcontainer.json`:
 }
 ```
 
+### UI Seed Fixtures (Optional)
+
+To generate local JSON fixtures for common UI states (empty/error/long-text), set `UI_SEED=1` before running the devcontainer setup script:
+
+```bash
+UI_SEED=1 bash scripts/dev/setup.sh
+```
+
+This writes fixtures to `apps/ValyntApp/public/ui-fixtures/` (served by the Vite dev server), so your UI can load them at `/ui-fixtures/empty.json`, `/ui-fixtures/error.json`, or `/ui-fixtures/long-text.json`.
+
 ### Modifying Security Settings
 
 **Dev Container:**
