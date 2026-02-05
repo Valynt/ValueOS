@@ -42,13 +42,19 @@ if [ -f "${PROJECT_ROOT}/.env.local" ]; then
     # Convert host-based DATABASE_URL to container network URL for migrations
     if [ -n "$DATABASE_URL" ]; then
         ORIGINAL_URL="$DATABASE_URL"
-        DATABASE_URL=$(echo "$DATABASE_URL" | sed 's/localhost:54322/db:5432/')
+        DATABASE_URL=$(echo "$DATABASE_URL" | sed 's/localhost:54322/postgres:5432/')
         echo "🔄 Context-aware DATABASE_URL: $DATABASE_URL"
     fi
 fi
 
 ###############################################################################
-# Step 3: Wait for Database (using same connection params as migrations)
+# Step 3: Start runtime services (single entrypoint)
+###############################################################################
+echo "🐳 Starting runtime services via ./scripts/dc up -d..."
+"${PROJECT_ROOT}/scripts/dc" up -d
+
+###############################################################################
+# Step 4: Wait for Database (using same connection params as migrations)
 ###############################################################################
 echo "⏳ Waiting for database to be ready..."
 
@@ -59,22 +65,22 @@ if [ -n "$DATABASE_URL" ]; then
 else
     # Resolve DB host dynamically - try Docker DNS, fall back to container IP
     resolve_db_host() {
-        if getent hosts valueos-db >/dev/null 2>&1; then
-            echo "valueos-db"
+        if getent hosts postgres >/dev/null 2>&1; then
+            echo "postgres"
             return
         fi
-        if getent hosts db >/dev/null 2>&1; then
-            echo "db"
+        if getent hosts valueos-postgres >/dev/null 2>&1; then
+            echo "valueos-postgres"
             return
         fi
         if command -v docker >/dev/null 2>&1; then
-            local ip=$(docker inspect valueos-db --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+            local ip=$(docker inspect valueos-postgres-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
             if [[ -n "$ip" ]]; then
                 echo "$ip"
                 return
             fi
         fi
-        echo "db"
+        echo "postgres"
     }
 
     DB_HOST=$(resolve_db_host)
@@ -151,7 +157,7 @@ if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
 fi
 
 ###############################################################################
-# Step 4: Apply Migrations (required - fail if migrations fail)
+# Step 5: Apply Migrations (required - fail if migrations fail)
 ###############################################################################
 echo "🔄 Applying database migrations..."
 
@@ -172,7 +178,7 @@ fi
 echo "✅ Migrations applied successfully."
 
 ###############################################################################
-# Step 5: Optional Seed
+# Step 6: Optional Seed
 ###############################################################################
 if [ "${DEV_SEED:-0}" = "1" ]; then
     echo "🌱 Seeding database..."
