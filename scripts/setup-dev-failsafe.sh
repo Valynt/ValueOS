@@ -11,6 +11,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DC_CMD="$PROJECT_ROOT/scripts/dc"
+
 log_step() {
   echo -e "${GREEN}[STEP]${NC} $1"
 }
@@ -107,7 +111,11 @@ log_verify "✓ Database URL configured"
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
 
-docker compose --env-file .env.ports -f docker-compose.deps.yml up -d || fail "Docker compose failed"
+if [ ! -f "$PROJECT_ROOT/scripts/.env.ports" ]; then
+  cp "$PROJECT_ROOT/scripts/.env.ports.example" "$PROJECT_ROOT/scripts/.env.ports"
+fi
+
+"$DC_CMD" up -d postgres redis || fail "Docker compose failed"
 
 # Wait for health
 sleep 3

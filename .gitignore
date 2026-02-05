@@ -183,3 +183,4 @@ supabase/.temp
 
 # Turborepo cache
 .turbo/
+!scripts/.env.ports.example
