@@ -20,7 +20,15 @@ echo ""
 echo "✅ Dependencies installed in Dockerfile. Skipping pnpm install."
 
 ###############################################################################
-# Step 2: Ensure .env.local exists
+# Step 2: Ensure local env port file exists
+###############################################################################
+if [ ! -f "${PROJECT_ROOT}/scripts/.env.ports" ] && [ -f "${PROJECT_ROOT}/scripts/.env.ports.example" ]; then
+    echo "📄 Creating scripts/.env.ports from scripts/.env.ports.example..."
+    cp "${PROJECT_ROOT}/scripts/.env.ports.example" "${PROJECT_ROOT}/scripts/.env.ports"
+fi
+
+###############################################################################
+# Step 3: Ensure .env.local exists
 ###############################################################################
 if [ ! -f "${PROJECT_ROOT}/.env.local" ]; then
     if [ -f "${PROJECT_ROOT}/.devcontainer/.env.dev" ]; then
@@ -48,7 +56,7 @@ if [ -f "${PROJECT_ROOT}/.env.local" ]; then
 fi
 
 ###############################################################################
-# Step 3: Configure Database Connection
+# Step 4: Configure Database Connection
 ###############################################################################
 # Trust the orchestrator: app depends on db (service_healthy), so DB is ready.
 
@@ -57,7 +65,7 @@ export DB_HOST="${DB_HOST:-db}"
 echo "   Using DB_HOST: $DB_HOST"
 
 ###############################################################################
-# Step 4: Apply Migrations (via Supabase CLI)
+# Step 5: Apply Migrations (via Supabase CLI)
 ###############################################################################
 echo "🔄 Applying database migrations (Supabase)..."
 
@@ -74,7 +82,7 @@ fi
 echo "✅ Migrations applied successfully."
 
 ###############################################################################
-# Step 5: Optional Seed
+# Step 6: Optional Seed
 ###############################################################################
 if [ "${DEV_SEED:-0}" = "1" ]; then
     echo "🌱 Seeding database..."
@@ -83,7 +91,7 @@ if [ "${DEV_SEED:-0}" = "1" ]; then
 fi
 
 ###############################################################################
-# Step 6: Optional UI Seed (local fixtures for UI states)
+# Step 7: Optional UI Seed (local fixtures for UI states)
 ###############################################################################
 if [ "${UI_SEED:-0}" = "1" ]; then
     echo "🎨 Seeding UI fixtures..."
