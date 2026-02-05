@@ -125,6 +125,8 @@ coverage/
 # Config files that should be environment-specific
 .env.*
 !.env.example
+!.env.ports
+!.env.local.example
 
 # Development files
 .dx-lock
