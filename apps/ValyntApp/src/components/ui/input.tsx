@@ -5,9 +5,10 @@
  * Follows ValueOS design system.
  */
 
-import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Search, X } from "lucide-react";
+import * as React from "react";
+
 import { cn } from "@/lib/utils";
 
 const inputVariants = cva(
@@ -111,7 +112,13 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         />
         <input
           type="search"
-          className={cn(inputVariants({ inputSize: "md" }), "pl-9", showClear && "pr-9", className)}
+          className={cn(
+            inputVariants({ inputSize: "md" }),
+            "pl-9",
+            showClear && "pr-9",
+            "[&::-webkit-search-cancel-button]:hidden",
+            className
+          )}
           ref={ref}
           value={value}
           {...props}
