@@ -89,6 +89,7 @@ Both development environments include:
 ├── devcontainer.json          # VS Code configuration
 ├── docker-compose.devcontainer.yml # Unified development stack
 ├── README.md                  # This file
+├── scripts/                   # Devcontainer lifecycle scripts
 ├── SELF_HEALING.md            # Troubleshooting guide
 └── monitoring/                # Monitoring configurations
 
@@ -105,9 +106,14 @@ docs/legacy/                   # Archived deprecated configurations
 
 The devcontainer uses a simplified lifecycle:
 
-| Script                 | When                     | Purpose                              | Failure Behavior         |
-| ---------------------- | ------------------------ | ------------------------------------ | ------------------------ |
-| `scripts/dev/setup.sh` | After container creation | Install dependencies, run migrations | Fails on critical errors |
+| Script                               | When                        | Purpose                                                     | Failure Behavior         |
+| ------------------------------------ | --------------------------- | ----------------------------------------------------------- | ------------------------ |
+| `.devcontainer/scripts/on-create.sh` | On container creation       | Verify repo layout and preflight basics                     | Fails on critical errors |
+| `.devcontainer/scripts/update-content.sh` | On repository updates   | Re-sync dependencies via `scripts/dev/setup.sh`             | Fails on critical errors |
+| `scripts/dev/setup.sh`               | After container creation    | Install dependencies, run migrations                        | Fails on critical errors |
+| `.devcontainer/scripts/post-start.sh` | On container start         | Share readiness note and onboarding guidance                | Fails on critical errors |
+
+**Intended workflow:** on-create performs a quick repository preflight, post-create runs the full setup (`scripts/dev/setup.sh`), update-content re-runs setup whenever the repository changes, and post-start confirms readiness whenever the container starts.
 
 ### Script Design Principles
 
