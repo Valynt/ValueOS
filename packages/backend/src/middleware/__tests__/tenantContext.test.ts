@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { tenantContextMiddleware } from '../tenantContext.js'
+import { getCurrentTenantContext, tenantContextMiddleware } from '../tenantContext.js'
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '@shared/lib/tenantVerification';
 
 const tenantVerificationMocks = vi.hoisted(() => ({
@@ -19,6 +19,15 @@ function mockRes() {
   };
 }
 
+function buildReq(overrides: Record<string, unknown>) {
+  return {
+    headers: {},
+    header: vi.fn(() => undefined),
+    params: {},
+    ...overrides,
+  } as any;
+}
+
 describe('tenantContextMiddleware', () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -26,17 +35,14 @@ describe('tenantContextMiddleware', () => {
   });
 
   it('allows requests with no user and no tenant candidate', async () => {
-    const req = {
-      header: vi.fn(() => undefined),
-      params: {},
-    } as any;
+    const req = buildReq({});
     const res = mockRes();
     const next = vi.fn();
 
     tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
     tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
 
-    await tenantContextMiddleware()(req, res as any, next);
+    await tenantContextMiddleware(false)(req, res as any, next);
 
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
@@ -49,12 +55,11 @@ describe('tenantContextMiddleware', () => {
     (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
     (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
 
-    const req = {
+    const req = buildReq({
       header: vi.fn((name: string) => (name === 'x-tenant-id' ? 'tenant-123' : undefined)),
-      params: {},
       serviceIdentityVerified: true,
       user: { id: 'user-123' },
-    } as any;
+    });
     const res = mockRes();
     const next = vi.fn();
 
@@ -70,11 +75,10 @@ describe('tenantContextMiddleware', () => {
   });
 
   it('blocks tenant header when service identity is not verified', async () => {
-    const req = {
+    const req = buildReq({
       header: vi.fn((name: string) => (name === 'x-tenant-id' ? 'tenant-spoof' : undefined)),
-      params: {},
       user: { id: 'user-999' },
-    } as any;
+    });
     const res = mockRes();
     const next = vi.fn();
 
@@ -97,21 +101,19 @@ describe('tenantContextMiddleware', () => {
     (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
     (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(false);
 
-    const req = {
-      header: vi.fn(() => undefined),
-      params: {},
+    const req = buildReq({
       user: { id: 'user-222', tenant_id: 'tenant-222' },
-    } as any;
+    });
     const res = mockRes();
     const next = vi.fn();
 
     await tenantContextMiddleware()(req, res as any, next);
 
     expect(verifyTenantMembership).toHaveBeenCalledWith('user-222', 'tenant-222');
-    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({
-      error: 'Forbidden',
-      message: 'User does not belong to tenant.',
+      error: 'Not Found',
+      message: 'Resource not found.',
     });
     expect(next).not.toHaveBeenCalled();
   });
@@ -119,12 +121,11 @@ describe('tenantContextMiddleware', () => {
   it('falls back to user tenant lookup when no candidate provided', async () => {
     (getUserTenantId as unknown as { mockResolvedValue: (value: string) => void }).mockResolvedValue('tenant-lookup');
     (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
+    (verifyTenantMembership as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(true);
 
-    const req = {
-      header: vi.fn(() => undefined),
-      params: {},
+    const req = buildReq({
       user: { id: 'user-789' },
-    } as any;
+    });
     const res = mockRes();
     const next = vi.fn();
 
@@ -139,11 +140,9 @@ describe('tenantContextMiddleware', () => {
   it('rejects requests for unknown tenants', async () => {
     (verifyTenantExists as unknown as { mockResolvedValue: (value: boolean) => void }).mockResolvedValue(false);
 
-    const req = {
-      header: vi.fn(() => undefined),
-      params: {},
+    const req = buildReq({
       user: { id: 'user-222', tenant_id: 'tenant-unknown' },
-    } as any;
+    });
     const res = mockRes();
     const next = vi.fn();
 
@@ -164,14 +163,13 @@ describe('tenantContextMiddleware', () => {
 
     const { tenantContextMiddleware } = await import('../tenantContext');
 
-    const req = {
-      headers: {},
+    const req = buildReq({
       user: {
         id: 'user-123',
         tenant_id: 'tenant-999',
         user_metadata: { tenant_id: 'tenant-999' },
       },
-    } as any;
+    });
     const res = mockRes();
     const next = vi.fn();
 
@@ -180,11 +178,33 @@ describe('tenantContextMiddleware', () => {
 
     await tenantContextMiddleware()(req, res as any, next);
 
-    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({
-      error: 'Forbidden',
-      message: 'User does not belong to tenant.',
+      error: 'Not Found',
+      message: 'Resource not found.',
     });
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('binds tenant context from user claims', async () => {
+    const req = buildReq({
+      user: { id: 'user-555', tenant_id: 'tenant-555', role: 'admin' },
+      session: { expires_at: 1712345678 },
+    });
+    const res = mockRes();
+    const next = vi.fn(() => {
+      const context = getCurrentTenantContext();
+      expect(context?.tid).toBe('tenant-555');
+      expect(context?.sub).toBe('user-555');
+      expect(context?.roles).toEqual(['admin']);
+    });
+
+    tenantVerificationMocks.verifyTenantExists.mockResolvedValue(true);
+    tenantVerificationMocks.verifyTenantMembership.mockResolvedValue(true);
+
+    await tenantContextMiddleware()(req, res as any, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
   });
 });

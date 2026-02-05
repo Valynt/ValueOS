@@ -6,6 +6,7 @@
 
 import { createServerSupabaseClient } from '../lib/supabase.js';
 import { logger } from '../lib/logger.js';
+import { getCurrentTenantContext } from '../middleware/tenantContext.js'
 
 export interface WorkflowState {
   id: string;
@@ -46,7 +47,15 @@ export class WorkflowStateRepository {
     this.supabase = createServerSupabaseClient();
   }
 
+  private resolveTenantId(): string | undefined {
+    return getCurrentTenantContext()?.tid;
+  }
+
   async create(state: Omit<WorkflowState, 'id' | 'created_at' | 'updated_at'>): Promise<WorkflowState> {
+    const tenantId = this.resolveTenantId();
+    if (tenantId && state.organization_id !== tenantId) {
+      throw new Error("Tenant context mismatch for workflow state creation");
+    }
     const now = new Date().toISOString();
     const newState: WorkflowState = {
       ...state,
@@ -70,11 +79,12 @@ export class WorkflowStateRepository {
   }
 
   async findById(id: string): Promise<WorkflowState | null> {
-    const { data, error } = await this.supabase
-      .from('workflow_states')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const tenantId = this.resolveTenantId();
+    let query = this.supabase.from('workflow_states').select('*').eq('id', id);
+    if (tenantId) {
+      query = query.eq('organization_id', tenantId);
+    }
+    const { data, error } = await query.single();
 
     if (error) {
       if (error.code === 'PGRST116') return null; // Not found
@@ -86,11 +96,12 @@ export class WorkflowStateRepository {
   }
 
   async findByExecutionId(executionId: string): Promise<WorkflowState | null> {
-    const { data, error } = await this.supabase
-      .from('workflow_states')
-      .select('*')
-      .eq('execution_id', executionId)
-      .single();
+    const tenantId = this.resolveTenantId();
+    let query = this.supabase.from('workflow_states').select('*').eq('execution_id', executionId);
+    if (tenantId) {
+      query = query.eq('organization_id', tenantId);
+    }
+    const { data, error } = await query.single();
 
     if (error) {
       if (error.code === 'PGRST116') return null;
@@ -105,7 +116,12 @@ export class WorkflowStateRepository {
     let query = this.supabase.from('workflow_states').select('*');
 
     if (filter.workspace_id) query = query.eq('workspace_id', filter.workspace_id);
-    if (filter.organization_id) query = query.eq('organization_id', filter.organization_id);
+    const tenantId = this.resolveTenantId();
+    if (filter.organization_id) {
+      query = query.eq('organization_id', filter.organization_id);
+    } else if (tenantId) {
+      query = query.eq('organization_id', tenantId);
+    }
     if (filter.workflow_id) query = query.eq('workflow_id', filter.workflow_id);
     if (filter.execution_id) query = query.eq('execution_id', filter.execution_id);
     if (filter.status) query = query.eq('status', filter.status);
@@ -122,15 +138,18 @@ export class WorkflowStateRepository {
   }
 
   async update(id: string, updates: Partial<Omit<WorkflowState, 'id' | 'created_at'>>): Promise<WorkflowState> {
-    const { data, error } = await this.supabase
+    const tenantId = this.resolveTenantId();
+    let updateQuery = this.supabase
       .from('workflow_states')
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
-      .select()
-      .single();
+      .eq('id', id);
+    if (tenantId) {
+      updateQuery = updateQuery.eq('organization_id', tenantId);
+    }
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       logger.error('Failed to update workflow state', { error, id });
@@ -152,10 +171,12 @@ export class WorkflowStateRepository {
   }
 
   async delete(id: string): Promise<boolean> {
-    const { error } = await this.supabase
-      .from('workflow_states')
-      .delete()
-      .eq('id', id);
+    const tenantId = this.resolveTenantId();
+    let deleteQuery = this.supabase.from('workflow_states').delete().eq('id', id);
+    if (tenantId) {
+      deleteQuery = deleteQuery.eq('organization_id', tenantId);
+    }
+    const { error } = await deleteQuery;
 
     if (error) {
       logger.error('Failed to delete workflow state', { error, id });
