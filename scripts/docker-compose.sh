@@ -6,6 +6,18 @@
 
 set -euo pipefail
 
+# Refuse to run scripts stack if devcontainer containers are present
+if docker ps -q --filter "name=devcontainer_" | grep -q .; then
+    echo "Refusing: devcontainer stack is running. Use VS Code Dev Containers stack only."
+    exit 1
+fi
+
+# Refuse to run scripts stack from inside a Dev Container
+if [[ -f "/.dockerenv" ]] && [[ -n "${REMOTE_CONTAINERS+x}" ]]; then
+    echo "Refusing: running inside Dev Container. Use devcontainer compose stack."
+    exit 1
+fi
+
 # Configuration
 CONFIG_DIR="config/docker"
 ENVIRONMENTS_DIR="config/environments"
