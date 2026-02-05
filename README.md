@@ -8,6 +8,19 @@ This repository operates under a **Strict Quality Governance** model. We priorit
 
 We do not guess if the app works. We verify it.
 
+## 🤖 Agent Quick Start
+
+```bash
+# Open the devcontainer (VS Code)
+# Command Palette -> "Dev Containers: Reopen in Container"
+
+# Start the UI
+pnpm dev
+```
+
+- UI location: `apps/ValyntApp`
+- UI verification: `pnpm ui:smoke`, `pnpm ui:snap` (and any additional `pnpm ui:*` checks once added)
+
 ```bash
 # 1. Install dependencies
 pnpm install
@@ -18,6 +31,7 @@ cp .env.example .env
 # 3. Boot (Verifies Environment -> Syncs DB -> Starts App)
 pnpm dev
 
+```
 
 If pnpm dev fails, do not bypass it. Fix your local environment.
 
