@@ -52,8 +52,8 @@ services:
       - API_PORT=3001
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
-      - SUPABASE_URL=${SUPABASE_URL:?SUPABASE_URL is required}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
     volumes:
       - backend_logs:/app/logs

@@ -55,8 +55,8 @@ services:
       NODE_ENV: production
       VITE_API_BASE_URL: /api
       VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?VITE_SUPABASE_URL is required}
-      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?VITE_SUPABASE_ANON_KEY is required}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     volumes:
       - ../:/app
       - frontend-dist:/dist
@@ -84,8 +84,8 @@ services:
       CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-app.example.com}
       SUPABASE_SERVICE_KEY_FILE: /run/secrets/supabase_service_key
       OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?VITE_SUPABASE_URL is required}
-      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?VITE_SUPABASE_ANON_KEY is required}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
       KAFKA_BROKERS: kafka:9092
     secrets:
       - supabase_service_key
