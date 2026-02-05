@@ -120,6 +120,14 @@ All scripts follow these principles for reliability:
 
 ## 🛠️ Customization
 
+### Playwright browsers
+
+The optimized devcontainer image installs Playwright OS dependencies at build time and then installs the Chromium browser binaries as the `vscode` user:
+
+```bash
+pnpm exec playwright install chromium
+```
+
 ### Adding VS Code Extensions
 
 Edit `.devcontainer/devcontainer.json`:
