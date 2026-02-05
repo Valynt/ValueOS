@@ -17,7 +17,12 @@ echo ""
 ###############################################################################
 # Step 1: Install Dependencies (Idempotent) - MOVED TO DOCKERFILE
 ###############################################################################
-echo "✅ Dependencies installed in Dockerfile. Skipping pnpm install."
+if [ ! -d "${PROJECT_ROOT}/node_modules" ]; then
+    echo "📦 node_modules missing. Installing dependencies with pnpm..."
+    pnpm install --frozen-lockfile
+else
+    echo "✅ Dependencies installed in Dockerfile. Skipping pnpm install."
+fi
 
 ###############################################################################
 # Step 2: Ensure .env.local exists
