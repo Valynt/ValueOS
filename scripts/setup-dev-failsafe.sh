@@ -107,17 +107,17 @@ log_verify "✓ Database URL configured"
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
 
-docker compose --env-file .env.ports -f docker-compose.deps.yml up -d || fail "Docker compose failed"
+./scripts/dc up -d postgres redis || fail "Docker compose failed"
 
 # Wait for health
 sleep 3
 
 # Verify Postgres
-docker exec valueos-postgres pg_isready -U postgres >/dev/null 2>&1 || fail "Postgres not ready"
+./scripts/dc exec -T postgres pg_isready -U postgres >/dev/null 2>&1 || fail "Postgres not ready"
 log_verify "✓ Postgres ready"
 
 # Verify Redis
-docker exec valueos-redis redis-cli ping >/dev/null 2>&1 || fail "Redis not ready"
+./scripts/dc exec -T redis redis-cli ping >/dev/null 2>&1 || fail "Redis not ready"
 log_verify "✓ Redis ready"
 
 # ============================================================================
@@ -165,7 +165,7 @@ log_step "9. Creating demo user..."
 pnpm run seed:demo || fail "Demo user seeding failed"
 
 # Verify user exists via direct DB query
-USER_EXISTS=$(docker exec valueos-postgres psql -U postgres -d postgres -tAc \
+USER_EXISTS=$(./scripts/dc exec -T postgres psql -U postgres -d postgres -tAc \
   "SELECT COUNT(*) FROM auth.users WHERE email='demouser@valynt.com'" 2>/dev/null || echo "0")
 
 if [ "$USER_EXISTS" = "0" ]; then
