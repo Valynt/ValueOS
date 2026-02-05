@@ -14,7 +14,8 @@
     }
   },
 
-  "postCreateCommand": "bash scripts/dev/setup.sh",
+  // Deterministic boot invariant: always run a single fail-fast entrypoint and persist setup logs.
+  "postCreateCommand": "bash -euo pipefail scripts/dev/post-create.sh > setup.log 2>&1",
 
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
