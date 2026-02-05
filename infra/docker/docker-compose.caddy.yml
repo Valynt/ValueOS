@@ -126,7 +126,7 @@ services:
     env_file:
       - .env.local
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_dev_password}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     healthcheck:
       test:
         [
