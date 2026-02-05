@@ -118,6 +118,14 @@ function ensurePortsEnv() {
 
   // Use writePortsEnvFile for backwards compatibility, but env-compiler is authoritative
   writePortsEnvFile(portsPath);
+
+  // Bootstrap scripts/.env.ports from a committed safe default for deterministic compose runs
+  const scriptsPortsPath = path.join(projectRoot, "scripts/.env.ports");
+  const scriptsPortsExamplePath = path.join(projectRoot, "scripts/.env.ports.example");
+  if (!fs.existsSync(scriptsPortsPath) && fs.existsSync(scriptsPortsExamplePath)) {
+    fs.copyFileSync(scriptsPortsExamplePath, scriptsPortsPath);
+    console.log("✅ Created scripts/.env.ports from scripts/.env.ports.example");
+  }
 }
 
 /**
@@ -221,7 +229,7 @@ function displaySuccess() {
   console.log("\n💡 Useful commands:");
   console.log("   pnpm run health     - Check system health");
   console.log("   pnpm run dx         - Start all services");
-  console.log("   docker-compose -f docker-compose.deps.yml ps  - Check Docker services");
+  console.log("   ./scripts/dc ps                - Check Docker services");
   console.log("\n🚀 Happy coding!\n");
 }
 
