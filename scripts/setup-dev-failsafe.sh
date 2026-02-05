@@ -70,7 +70,7 @@ pkill -9 -f "tsx watch" 2>/dev/null || true
 pkill -9 -f "vite --config" 2>/dev/null || true
 
 # Remove generated env files
-rm -f .env.local .env.ports deploy/envs/.env.ports
+rm -f .env.local .env.ports scripts/.env.ports deploy/envs/.env.ports
 
 # Remove state files
 rm -f .dx-lock .dx-state.json
@@ -107,7 +107,12 @@ log_verify "✓ Database URL configured"
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
 
-docker compose --env-file .env.ports -f docker-compose.deps.yml up -d || fail "Docker compose failed"
+if [ ! -f scripts/.env.ports ] && [ -f scripts/.env.ports.example ]; then
+  cp scripts/.env.ports.example scripts/.env.ports
+  log_verify "✓ Bootstrapped scripts/.env.ports from scripts/.env.ports.example"
+fi
+
+./scripts/dc up -d postgres redis || fail "Docker compose failed"
 
 # Wait for health
 sleep 3

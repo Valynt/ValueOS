@@ -115,9 +115,16 @@ function ensurePortsEnv() {
   // Delegate to canonical env-compiler for .env.ports
   const projectRoot = path.resolve(__dirname, "../..");
   const portsPath = path.join(projectRoot, ".env.ports");
+  const scriptsPortsPath = path.join(projectRoot, "scripts", ".env.ports");
+  const scriptsPortsExamplePath = path.join(projectRoot, "scripts", ".env.ports.example");
 
   // Use writePortsEnvFile for backwards compatibility, but env-compiler is authoritative
   writePortsEnvFile(portsPath);
+
+  if (!fs.existsSync(scriptsPortsPath) && fs.existsSync(scriptsPortsExamplePath)) {
+    fs.copyFileSync(scriptsPortsExamplePath, scriptsPortsPath);
+    console.log("✅ Bootstrapped scripts/.env.ports from scripts/.env.ports.example");
+  }
 }
 
 /**
@@ -221,7 +228,7 @@ function displaySuccess() {
   console.log("\n💡 Useful commands:");
   console.log("   pnpm run health     - Check system health");
   console.log("   pnpm run dx         - Start all services");
-  console.log("   docker-compose -f docker-compose.deps.yml ps  - Check Docker services");
+  console.log("   ./scripts/dc ps  - Check Docker services");
   console.log("\n🚀 Happy coding!\n");
 }
 
