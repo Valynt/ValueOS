@@ -61,6 +61,9 @@ COPY packages/backend ./packages/backend
 COPY packages/shared ./packages/shared
 COPY packages/sdui ./packages/sdui
 
+# Sensitive configuration is provided at runtime (env vars, Docker secrets, or
+# external secret managers). Do not copy .env files into this image.
+
 # Non-root user
 RUN groupadd -r nodejs -g 1001 \
   && useradd -r nodejs -u 1001 -g nodejs \
