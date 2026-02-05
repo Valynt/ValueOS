@@ -68,11 +68,6 @@ services:
       - SUPABASE_URL=${SUPABASE_URL:-http://${DOCKER_HOSTNAME:-host.docker.internal}:${SUPABASE_API_PORT:-54321}}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
-    env_file:
-      - path: ../.env.ports
-        required: true
-      - path: ../.env.local
-        required: false
     depends_on:
       postgres:
         condition: service_healthy
@@ -97,8 +92,6 @@ services:
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-http://${DOCKER_HOSTNAME:-host.docker.internal}:${SUPABASE_API_PORT:-54321}}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-}
       - VITE_API_BASE_URL=http://backend:${API_PORT:-3001}
-    env_file:
-      - ../.env.ports
     depends_on:
       - backend
     networks:

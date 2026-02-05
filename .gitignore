@@ -127,6 +127,8 @@ coverage/
 !.env.example
 !.env.ports
 !.env.local.example
+scripts/.env.ports
+!scripts/.env.ports.example
 
 # Development files
 .dx-lock
