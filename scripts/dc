@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+ENV_FILE="${ROOT}/scripts/.env.ports"
+
+if [[ ! -f "${ENV_FILE}" ]]; then
+  if [[ -f "${ENV_FILE}.example" ]]; then
+    ENV_FILE="${ENV_FILE}.example"
+  else
+    ENV_FILE=""
+  fi
+fi
+
+args=(--project-name valueos -f "${COMPOSE_FILE}")
+if [[ -n "${ENV_FILE}" ]]; then
+  args+=(--env-file "${ENV_FILE}")
+fi
+
+exec docker compose "${args[@]}" "$@"
