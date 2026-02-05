@@ -200,8 +200,8 @@ services:
       DATABASE_URL: postgresql://postgres:dev_password@postgres:5432/valuecanvas_dev?sslmode=disable
       DB_URL: postgresql://postgres:dev_password@postgres:5432/valuecanvas_dev?sslmode=disable
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-      TOGETHER_API_KEY: ${TOGETHER_API_KEY}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
       KAFKA_BROKERS: kafka:9092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
     env_file:
@@ -239,7 +239,7 @@ services:
         NODE_VERSION: "20.19.0"
         PNPM_VERSION: "9.15.0"
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
-        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?VITE_SUPABASE_ANON_KEY is required}
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_APP_URL: ${VITE_APP_URL:-http://localhost:${VITE_PORT:-5173}}
     container_name: valueos-frontend
@@ -255,7 +255,7 @@ services:
       - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
     environment:
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
-      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?VITE_SUPABASE_ANON_KEY is required}
       VITE_API_BASE_URL: http://backend:${API_PORT:-3001}
       HOST: 0.0.0.0
       VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}

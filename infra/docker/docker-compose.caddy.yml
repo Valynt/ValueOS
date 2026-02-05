@@ -133,7 +133,7 @@ services:
           "CMD",
           "sh",
           "-c",
-          "redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping",
+          "redis-cli --no-auth-warning -a ${REDIS_PASSWORD:?REDIS_PASSWORD is required} ping",
         ]
       interval: 10s
       timeout: 5s
@@ -141,7 +141,7 @@ services:
     command: >
       sh -c 'redis-server
       --appendonly yes
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       --maxmemory 128mb
       --maxmemory-policy allkeys-lru'
     deploy:
