@@ -9,6 +9,12 @@ ENV_FILE="${PROJECT_ROOT}/scripts/.env.ports"
 
 [[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
+DOCKER_BIN="$(command -v docker 2>/dev/null || true)"
+[[ -n "${DOCKER_BIN}" && -x "${DOCKER_BIN}" ]] || {
+  echo "Docker CLI not found in PATH. Install Docker and ensure 'docker' is executable." >&2
+  exit 127
+}
+
 if [[ ! -f "${ENV_FILE}" ]]; then
   if [[ -f "${ENV_FILE}.example" ]]; then
     ENV_FILE="${ENV_FILE}.example"
@@ -27,6 +33,4 @@ if [[ -n "${ENV_FILE}" && -f "${ENV_FILE}" ]]; then
   args+=(--env-file "${ENV_FILE}")
 fi
 
-exec docker compose "${args[@]}" "$@"
-
- 
+exec "${DOCKER_BIN}" compose "${args[@]}" "$@"
