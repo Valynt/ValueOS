@@ -24,7 +24,7 @@ function getActor(req: Request): { id?: string; label: string } {
 
   return {
     id: user.id || undefined,
-    label,
+    label: sanitizeForLogging(label) as string,
   };
 }
 
@@ -69,15 +69,18 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
             userId: actor.id,
             actor: actor.label,
             action: req.method.toLowerCase(),
-            resource: req.baseUrl || req.originalUrl,
-            requestPath: req.originalUrl,
+            // Avoid persisting raw URLs that may include sensitive query strings.
+            resource: sanitizeForLogging(req.baseUrl || req.path || req.originalUrl) as string,
+            requestPath: sanitizeForLogging(req.path || req.originalUrl) as string,
             ipAddress: req.ip || req.socket.remoteAddress || undefined,
             userAgent: req.get("user-agent") || undefined,
             statusCode: res.statusCode,
             severity: res.statusCode >= 500 ? "high" : "medium",
             eventData: {
               duration_ms: Date.now() - startedAt,
-              org: (req.headers["x-organization-id"] as string) || (req as any).organizationId,
+              org: sanitizeForLogging(
+                (req.headers["x-organization-id"] as string) || (req as any).organizationId
+              ),
               routeParams: sanitizeForLogging(req.params),
               query: sanitizeForLogging(req.query),
             },

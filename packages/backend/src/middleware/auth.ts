@@ -18,6 +18,11 @@ import { getEnvVar } from '@shared/lib/env';
 const logger = createLogger({ component: 'AuthMiddleware' });
 
 const SUPABASE_TOKEN_PREFIX = 'Bearer ';
+const ALLOW_LOCAL_JWT_FALLBACK_FLAG = 'ALLOW_LOCAL_JWT_FALLBACK';
+
+function allowLocalJwtFallback(): boolean {
+  return getEnvVar(ALLOW_LOCAL_JWT_FALLBACK_FLAG) === 'true';
+}
 
 function parseBearerToken(header?: string): string | null {
   if (!header) return null;
@@ -106,6 +111,13 @@ async function verifyTokenWithSupabase(token: string) {
 }
 
 function verifyTokenLocally(token: string) {
+  if (!allowLocalJwtFallback()) {
+    logger.warn(
+      `Local JWT verification fallback disabled; set ${ALLOW_LOCAL_JWT_FALLBACK_FLAG}=true for break-glass usage`
+    );
+    return null;
+  }
+
   const secret = getEnvVar('SUPABASE_JWT_SECRET') || getEnvVar('JWT_SECRET');
   if (!secret) {
     logger.warn('JWT secret missing; local token verification disabled');
