@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install runtime + live-reload tooling in the image so compose does not rely on a host venv.
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+
+COPY . /app
