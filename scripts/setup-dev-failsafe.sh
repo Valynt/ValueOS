@@ -118,11 +118,11 @@ fi
 sleep 3
 
 # Verify Postgres
-docker exec valueos-postgres pg_isready -U postgres >/dev/null 2>&1 || fail "Postgres not ready"
+./scripts/dc exec -T postgres pg_isready -U postgres >/dev/null 2>&1 || fail "Postgres not ready"
 log_verify "✓ Postgres ready"
 
 # Verify Redis
-docker exec valueos-redis redis-cli ping >/dev/null 2>&1 || fail "Redis not ready"
+./scripts/dc exec -T redis redis-cli ping >/dev/null 2>&1 || fail "Redis not ready"
 log_verify "✓ Redis ready"
 
 # ============================================================================
