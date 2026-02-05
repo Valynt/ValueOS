@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+ENV_FILE="${ROOT}/scripts/.env.ports"
+
+if [[ -f "${ENV_FILE}" ]]; then
+  exec docker compose --project-name valueos -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" "$@"
+fi
+
+exec docker compose --project-name valueos -f "${COMPOSE_FILE}" "$@"
