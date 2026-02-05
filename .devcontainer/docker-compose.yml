@@ -1,0 +1,20 @@
+name: valueos-devcontainer
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.optimized
+      args:
+        NODE_VERSION: "20"
+    volumes:
+      - ..:/workspaces/ValueOS:cached
+      - pnpm-store:/home/vscode/.local/share/pnpm
+      - node_modules:/workspaces/ValueOS/node_modules
+    working_dir: /workspaces/ValueOS
+    command: sleep infinity
+    network_mode: bridge
+
+volumes:
+  pnpm-store:
+  node_modules:

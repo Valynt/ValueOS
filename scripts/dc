@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
-ENV_FILE="${ROOT}/scripts/.env.ports"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+COMPOSE_FILE="${PROJECT_ROOT}/scripts/docker-compose.yml"
+ENV_FILE="${PROJECT_ROOT}/scripts/.env.ports"
+
+[[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
 if [[ ! -f "${ENV_FILE}" ]]; then
   if [[ -f "${ENV_FILE}.example" ]]; then
@@ -13,9 +17,16 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   fi
 fi
 
-args=(--project-name valueos -f "${COMPOSE_FILE}")
-if [[ -n "${ENV_FILE}" ]]; then
+args=(
+  --project-name valueos
+  --project-directory "${PROJECT_ROOT}"
+  -f "${COMPOSE_FILE}"
+)
+
+if [[ -n "${ENV_FILE}" && -f "${ENV_FILE}" ]]; then
   args+=(--env-file "${ENV_FILE}")
 fi
 
 exec docker compose "${args[@]}" "$@"
+
+ 
