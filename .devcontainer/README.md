@@ -118,6 +118,13 @@ All scripts follow these principles for reliability:
 3. **Timeout protection** - Network operations have timeouts
 4. **Clear error messages** - Includes recovery hints
 
+## 💾 Persistent Cache Volumes
+
+The dev container uses named volumes to keep dependency and build caches between rebuilds:
+
+- `valueos-node-modules` → `/workspaces/ValueOS/node_modules`
+- `valueos-cache` → `/workspaces/ValueOS/.cache` (Vite/Storybook and other tooling caches)
+
 ## 🛠️ Customization
 
 ### Adding VS Code Extensions

@@ -16,6 +16,8 @@ volumes:
   redis-data:
   storage-data:
   pnpm-store:
+  valueos-node-modules:
+  valueos-cache:
 
 networks:
   valueos-network:
@@ -34,6 +36,8 @@ services:
     volumes:
       - ..:/workspaces/ValueOS:cached
       - pnpm-store:/root/.local/share/pnpm
+      - valueos-node-modules:/workspaces/ValueOS/node_modules
+      - valueos-cache:/workspaces/ValueOS/.cache
     working_dir: /workspaces/ValueOS
     env_file:
       - .env.dev
