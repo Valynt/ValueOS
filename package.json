@@ -195,6 +195,7 @@
     "staging:clean": "docker-compose -f infra/docker/docker-compose.staging.yml down -v --remove-orphans",
     "test:smoke": "playwright test tests/smoke --project=chromium",
     "ui:smoke": "playwright test tests/smoke/ui-renders.spec.ts --project=chromium --reporter=list",
+    "ui:manifest": "tsx scripts/ui/generate-manifest.ts",
     "test:staging": "BASE_URL=$STAGING_URL playwright test tests/smoke",
     "deploy:validate": "bash scripts/validate-deployment.sh",
     "deploy:pre-check": "bash scripts/pre-deployment-checklist.sh",
