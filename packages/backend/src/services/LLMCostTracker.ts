@@ -226,6 +226,7 @@ export class LLMCostTracker {
     model: string;
     promptTokens: number;
     completionTokens: number;
+    caller: string;
     endpoint: string;
     success: boolean;
     errorMessage?: string;
@@ -235,12 +236,14 @@ export class LLMCostTracker {
 
     const normalizedTenantId = params.tenantId ?? params.tenant_id;
     if (!normalizedTenantId) {
-      logger.warn("LLM usage missing tenant id; usage may be unbillable", {
+      logger.error("LLM usage missing tenant id; skipping usage insert", {
+        caller: params.caller,
         userId: params.userId,
         model: params.model,
         provider: params.provider,
         endpoint: params.endpoint,
       });
+      return;
     }
 
     const cost = this.calculateCost(

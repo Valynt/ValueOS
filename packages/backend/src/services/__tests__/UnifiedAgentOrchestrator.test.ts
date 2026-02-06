@@ -28,6 +28,16 @@ const testEnvelope = {
 };
 
 // Mock dependencies
+
+const mockExecuteWithRetry = vi.fn();
+
+vi.mock('../agents/resilience/AgentRetryManager', () => ({
+  AgentRetryManager: {
+    getInstance: () => ({
+      executeWithRetry: mockExecuteWithRetry,
+    }),
+  },
+}));
 vi.mock('../AgentAPI', () => ({
   getAgentAPI: () => ({
     callAgent: vi.fn().mockResolvedValue({
@@ -115,6 +125,7 @@ describe('UnifiedAgentOrchestrator', () => {
   beforeEach(() => {
     resetUnifiedOrchestrator();
     orchestrator = new UnifiedAgentOrchestrator();
+    mockExecuteWithRetry.mockResolvedValue({ success: true, response: { data: { ok: true } } });
   });
 
   afterEach(() => {
@@ -403,6 +414,70 @@ describe('UnifiedAgentOrchestrator', () => {
       const record = orchestrator.registerAgent(registration);
       expect(record.id).toBe('test-agent');
       expect(record.status).toBe('healthy');
+    });
+  });
+
+  describe('Stage retry delegation', () => {
+    it('maps stage retry_config to AgentRetryManager options and does not use inline delay helpers', async () => {
+      const executeStageWithRetry = (orchestrator as any).executeStageWithRetry.bind(orchestrator);
+      const stage = {
+        id: 'stage-1',
+        agent_type: 'opportunity',
+        timeout_seconds: 30,
+        retry_config: {
+          max_attempts: 4,
+          initial_delay_ms: 250,
+          max_delay_ms: 3000,
+          multiplier: 3,
+          jitter: false,
+        },
+      };
+      const route = { selected_agent: { id: 'agent-1' } };
+
+      const result = await executeStageWithRetry('exec-1', stage, { userId: 'u-1' }, route, 'trace-1');
+
+      expect(result.status).toBe('completed');
+      expect(mockExecuteWithRetry).toHaveBeenCalledTimes(1);
+      const [, , options] = mockExecuteWithRetry.mock.calls[0];
+      expect(options).toMatchObject({
+        maxRetries: 3,
+        strategy: 'exponential_backoff',
+        baseDelay: 250,
+        maxDelay: 3000,
+        backoffMultiplier: 3,
+        jitterFactor: 0,
+      });
+      expect((orchestrator as any).calculateRetryDelay).toBeUndefined();
+      expect((orchestrator as any).delay).toBeUndefined();
+    });
+
+    it('records health/failure once per final retry outcome', async () => {
+      const executeStageWithRetry = (orchestrator as any).executeStageWithRetry.bind(orchestrator);
+      const stage = {
+        id: 'stage-1',
+        agent_type: 'opportunity',
+        timeout_seconds: 30,
+        retry_config: {
+          max_attempts: 2,
+          initial_delay_ms: 10,
+          max_delay_ms: 50,
+          multiplier: 2,
+          jitter: true,
+        },
+      };
+      const route = { selected_agent: { id: 'agent-1' } };
+
+      mockExecuteWithRetry.mockResolvedValueOnce({ success: true, response: { data: { ok: true } } });
+      await executeStageWithRetry('exec-1', stage, { userId: 'u-1' }, route, 'trace-1');
+
+      expect((orchestrator as any).registry.markHealthy).toHaveBeenCalledTimes(1);
+      expect((orchestrator as any).registry.recordFailure).toHaveBeenCalledTimes(0);
+
+      mockExecuteWithRetry.mockResolvedValueOnce({ success: false, error: { message: 'boom' } });
+      await executeStageWithRetry('exec-1', stage, { userId: 'u-1' }, route, 'trace-1');
+
+      expect((orchestrator as any).registry.recordFailure).toHaveBeenCalledTimes(1);
+      expect((orchestrator as any).registry.markHealthy).toHaveBeenCalledTimes(1);
     });
   });
 });

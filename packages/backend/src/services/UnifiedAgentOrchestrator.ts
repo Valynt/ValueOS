@@ -20,10 +20,11 @@ import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker.js"
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
 import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
-import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
+import { logAgentResponse } from "./AgentAuditLogger.js"
 import { AgentType } from "./agent-types.js"
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
+import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,
@@ -34,7 +35,6 @@ import {
   AgentMessageBroker,
 } from "./AgentMessageBroker";
 import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue.js"
-import { AgentType } from "./agent-types.js"
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
@@ -53,6 +53,18 @@ import {
 } from "./EnhancedParallelExecutor.js"
 import { supabase } from "../lib/supabase.js"
 import { featureFlags } from "../config/featureFlags.js"
+import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
+import {
+  AgentRequest,
+  AgentResponse as RetryAgentResponse,
+  IAgent,
+  ValidationResult,
+  AgentCapability,
+  AgentMetadata,
+  AgentConfiguration,
+  AgentPerformanceMetrics,
+  AgentHealthStatus as RetryAgentHealthStatus,
+} from "./agents/core/IAgent.js";
 
 // ============================================================================
 // Types
@@ -63,6 +75,16 @@ export interface AgentResponse {
   payload: any;
   streaming?: boolean;
   sduiPage?: SDUIPageDefinition;
+  metadata?: IntegrityVetoMetadata;
+}
+
+export interface IntegrityVetoMetadata {
+  integrityVeto: true;
+  deviationPercent: number;
+  benchmark: number;
+  metricId: string;
+  claimedValue: number;
+  warning?: string;
 }
 
 export interface StreamingUpdate {
@@ -242,8 +264,179 @@ export class UnifiedAgentOrchestrator {
   private llmGateway: LLMGateway;
   private messageBroker: AgentMessageBroker;
   private agentMessageQueue: AgentMessageQueue;
+  private retryManager = AgentRetryManager.getInstance();
   private agentInvocationTimes: Map<string, number[]> = new Map();
   private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
+  private groundTruthService = GroundTruthIntegrationService.getInstance();
+  private groundTruthInitialized = false;
+
+  private async ensureGroundTruthInitialized(): Promise<void> {
+    if (this.groundTruthInitialized) {
+      return;
+    }
+    await this.groundTruthService.initialize();
+    this.groundTruthInitialized = true;
+  }
+
+  private normalizeNumericValue(value: unknown): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string") {
+      const sanitized = value.replace(/[%,$]/g, "");
+      const parsed = Number(sanitized);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    return null;
+  }
+
+  private extractNumericClaims(payload: unknown): Array<{
+    metricId: string;
+    claimedValue: number;
+  }> {
+    const claims: Array<{ metricId: string; claimedValue: number }> = [];
+    const addFromItem = (item: Record<string, unknown>) => {
+      const metricId =
+        (item.metricId as string) ||
+        (item.metric_id as string) ||
+        (item.kpi_id as string) ||
+        (item.metric as string) ||
+        (item.id as string);
+      if (!metricId) {
+        return;
+      }
+      const claimedValue = this.normalizeNumericValue(
+        item.claimedValue ??
+          item.claimed_value ??
+          item.value ??
+          item.amount ??
+          item.delta ??
+          item.metric_value
+      );
+      if (claimedValue === null) {
+        return;
+      }
+      claims.push({ metricId, claimedValue });
+    };
+    const addFromList = (list: unknown) => {
+      if (!Array.isArray(list)) {
+        return;
+      }
+      for (const entry of list) {
+        if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+          addFromItem(entry as Record<string, unknown>);
+        }
+      }
+    };
+    const addFromContainer = (container: unknown) => {
+      if (!container || typeof container !== "object") {
+        return;
+      }
+      const record = container as Record<string, unknown>;
+      addFromList(record.economic_deltas ?? record.economicDeltas);
+      addFromList(record.metrics);
+      addFromList(record.claims);
+    };
+
+    if (Array.isArray(payload)) {
+      addFromList(payload);
+    } else {
+      addFromContainer(payload);
+      const payloadRecord = payload as Record<string, unknown> | null;
+      if (payloadRecord?.payload) {
+        addFromContainer(payloadRecord.payload);
+      }
+      if (payloadRecord?.data) {
+        addFromContainer(payloadRecord.data);
+      }
+      if (payloadRecord?.output) {
+        addFromContainer(payloadRecord.output);
+      }
+    }
+
+    return claims;
+  }
+
+  private async evaluateIntegrityVeto(
+    payload: unknown,
+    options: {
+      traceId: string;
+      agentType: AgentType;
+      query?: string;
+      stageId?: string;
+      context?: AgentContext;
+    }
+  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
+    const claims = this.extractNumericClaims(payload);
+    if (claims.length === 0) {
+      return { vetoed: false };
+    }
+
+    await this.ensureGroundTruthInitialized();
+
+    let vetoMetadata: IntegrityVetoMetadata | undefined;
+    for (const claim of claims) {
+      try {
+        const benchmark = await this.groundTruthService.getBenchmark(
+          claim.metricId
+        );
+        if (!benchmark.value) {
+          continue;
+        }
+        const deviationPercent =
+          (Math.abs(claim.claimedValue - benchmark.value) /
+            Math.abs(benchmark.value)) *
+          100;
+        const validation = await this.groundTruthService.validateClaim(
+          claim.metricId,
+          claim.claimedValue
+        );
+
+        if (
+          deviationPercent > 15 &&
+          (!vetoMetadata || deviationPercent > vetoMetadata.deviationPercent)
+        ) {
+          vetoMetadata = {
+            integrityVeto: true,
+            deviationPercent,
+            benchmark: benchmark.value,
+            metricId: claim.metricId,
+            claimedValue: claim.claimedValue,
+            warning: validation.warning,
+          };
+        }
+      } catch (error) {
+        logger.warn("Failed to validate claim against ground truth", {
+          traceId: options.traceId,
+          agentType: options.agentType,
+          stageId: options.stageId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (vetoMetadata) {
+      await logAgentResponse(
+        options.agentType,
+        options.query ?? "agent-output-veto",
+        false,
+        payload,
+        {
+          traceId: options.traceId,
+          stageId: options.stageId,
+          integrityVeto: vetoMetadata,
+        },
+        "integrity_veto",
+        options.context
+      );
+
+      return { vetoed: true, metadata: vetoMetadata };
+    }
+
+    return { vetoed: false };
+  }
 
   private normalizeExecutionRequest(
     intent: string,
@@ -477,6 +670,29 @@ export class UnifiedAgentOrchestrator {
       executionTime: result.executionTime,
     });
 
+    const integrityCheck = await this.evaluateIntegrityVeto(result.data, {
+      traceId: result.traceId,
+      agentType: "coordinator",
+      query: "async-query-result",
+    });
+    if (integrityCheck.vetoed) {
+      const response: AgentResponse = {
+        type: "message",
+        payload: {
+          message:
+            "Output failed integrity validation against ground truth benchmarks.",
+          error: true,
+        },
+        metadata: integrityCheck.metadata,
+      };
+
+      return {
+        response,
+        nextState: currentState,
+        traceId: result.traceId,
+      };
+    }
+
     // Create immutable copy of state
     const nextState: WorkflowState = {
       ...currentState,
@@ -564,6 +780,35 @@ export class UnifiedAgentOrchestrator {
 
       if (!result.success) {
         throw new Error(result.error || "Async agent execution failed");
+      }
+
+      const asyncAgentType = this.selectAgent(query, currentState);
+      const integrityCheck = await this.evaluateIntegrityVeto(result.data, {
+        traceId,
+        agentType: asyncAgentType,
+        query,
+        context: {
+          userId: envelope.actor.id || userId,
+          sessionId,
+          organizationId: envelope.organizationId,
+        },
+      });
+      if (integrityCheck.vetoed) {
+        const response: AgentResponse = {
+          type: "message",
+          payload: {
+            message:
+              "Output failed integrity validation against ground truth benchmarks.",
+            error: true,
+          },
+          metadata: integrityCheck.metadata,
+        };
+
+        return {
+          response,
+          nextState: currentState,
+          traceId,
+        };
       }
 
       // Convert async result to sync result format
@@ -659,6 +904,35 @@ export class UnifiedAgentOrchestrator {
           }),
         { timeoutMs: this.config.defaultTimeoutMs }
       );
+
+      if (agentResponse.success) {
+        const integrityCheck = await this.evaluateIntegrityVeto(
+          agentResponse.data,
+          {
+            traceId,
+            agentType,
+            query,
+            context: agentContext,
+          }
+        );
+        if (integrityCheck.vetoed) {
+          const response: AgentResponse = {
+            type: "message",
+            payload: {
+              message:
+                "Output failed integrity validation against ground truth benchmarks.",
+              error: true,
+            },
+            metadata: integrityCheck.metadata,
+          };
+
+          return {
+            response,
+            nextState: currentState,
+            traceId,
+          };
+        }
+      }
 
       // Update state based on response
       if (agentResponse.success && agentResponse.data) {
@@ -1143,6 +1417,7 @@ Provide a JSON response with:
     const failedStages = new Map<string, string>();
     const stageStartTimes = new Map<string, Date>();
     const executor = getEnhancedParallelExecutor();
+    let integrityVetoed = false;
 
     for (const stage of dag.stages) {
       dependencies.set(stage.id, new Set());
@@ -1243,6 +1518,74 @@ Provide a JSON response with:
 
         if (result.success && result.result?.stageResult.status === "completed") {
           const stageOutput = result.result.stageResult.output || {};
+          const integrityCheck = await this.evaluateIntegrityVeto(stageOutput, {
+            traceId,
+            agentType: stage.agent_type as AgentType,
+            query: stage.description ?? stage.id,
+            stageId: stage.id,
+          });
+
+          if (integrityCheck.vetoed) {
+            const vetoMessage =
+              "Output failed integrity validation against ground truth benchmarks.";
+            failedStages.set(stage.id, vetoMessage);
+            integrityVetoed = true;
+
+            const lifecycleRecord: StageLifecycleRecord = {
+              stageId: stage.id,
+              lifecycleStage: stage.agent_type,
+              status: "failed",
+              startedAt: stageStart.toISOString(),
+              completedAt: stageCompleted.toISOString(),
+              summary: stage.description,
+            };
+
+            recordSnapshot = {
+              ...recordSnapshot,
+              lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+              outputs: [
+                ...recordSnapshot.outputs,
+                {
+                  stageId: stage.id,
+                  payload: {
+                    error: vetoMessage,
+                    metadata: integrityCheck.metadata,
+                  },
+                  completedAt: stageCompleted.toISOString(),
+                },
+              ],
+              io: {
+                ...recordSnapshot.io,
+                outputs: {
+                  ...recordSnapshot.io.outputs,
+                  [stage.id]: {
+                    error: vetoMessage,
+                    metadata: integrityCheck.metadata,
+                  },
+                },
+              },
+            };
+
+            await this.recordWorkflowEvent(
+              executionId,
+              "stage_failed",
+              stage.id,
+              {
+                reason: "integrity_veto",
+                metadata: integrityCheck.metadata,
+              }
+            );
+
+            await this.persistExecutionRecord(executionId, recordSnapshot);
+            await this.updateExecutionStatus(
+              executionId,
+              "failed",
+              stage.id,
+              recordSnapshot
+            );
+            continue;
+          }
+
           executionContext = {
             ...executionContext,
             ...stageOutput,
@@ -1334,6 +1677,10 @@ Provide a JSON response with:
           recordSnapshot
         );
       }
+
+      if (integrityVetoed) {
+        break;
+      }
     }
 
     if (completedStages.size + failedStages.size < totalStages) {
@@ -1387,18 +1734,41 @@ Provide a JSON response with:
     traceId: string
   ): Promise<{ status: "completed" | "failed"; output?: any; error?: string }> {
     const circuitBreakerKey = `${executionId}-${stage.id}`;
-    const retryConfig = stage.retry_config || {
-      max_attempts: this.config.maxRetryAttempts,
-      initial_delay_ms: 1000,
-      max_delay_ms: 10000,
-      multiplier: 2,
-      jitter: true,
+    const retryConfig = {
+      max_attempts: stage.retry_config?.max_attempts ?? this.config.maxRetryAttempts,
+      initial_delay_ms: stage.retry_config?.initial_delay_ms ?? 1000,
+      max_delay_ms: stage.retry_config?.max_delay_ms ?? 10000,
+      multiplier: stage.retry_config?.multiplier ?? 2,
+      jitter: stage.retry_config?.jitter ?? true,
     };
 
-    let lastError: Error | null = null;
+    const retryOptions: Partial<RetryOptions> = {
+      maxRetries: Math.max(retryConfig.max_attempts - 1, 0),
+      strategy: "exponential_backoff",
+      baseDelay: retryConfig.initial_delay_ms,
+      maxDelay: retryConfig.max_delay_ms,
+      backoffMultiplier: retryConfig.multiplier,
+      jitterFactor: retryConfig.jitter ? 0.1 : 0,
+      fallbackAgents: [],
+      fallbackStrategy: "none",
+      attemptTimeout: stage.timeout_seconds * 1000,
+      overallTimeout: stage.timeout_seconds * 1000 * retryConfig.max_attempts,
+      context: {
+        requestId: traceId,
+        sessionId: context.sessionId,
+        userId: context.userId,
+        organizationId: context.organizationId,
+        priority: "medium",
+        source: "unified-agent-orchestrator",
+        metadata: {
+          executionId,
+          stageId: stage.id,
+        },
+      },
+    };
 
-    for (let attempt = 1; attempt <= retryConfig.max_attempts; attempt++) {
-      try {
+    const stageExecutionAgent: IAgent = {
+      execute: async (): Promise<RetryAgentResponse<Record<string, any>>> => {
         const agentType = stage.agent_type as AgentType;
         if (!this.checkAgentRateLimit(agentType)) {
           throw new Error(`Agent ${agentType} rate limit exceeded`);
@@ -1413,34 +1783,77 @@ Provide a JSON response with:
           }
         );
 
-        // Record success
-        if (route.selected_agent) {
-          this.registry.recordRelease(route.selected_agent.id);
-          this.registry.markHealthy(route.selected_agent.id);
-        }
+        return {
+          success: true,
+          data: result,
+          confidence: "high",
+          metadata: {
+            executionId,
+            agentType,
+            startTime: new Date(),
+            endTime: new Date(),
+            duration: 0,
+            tokenUsage: { input: 0, output: 0, total: 0, cost: 0 },
+            cacheHit: false,
+            retryCount: 0,
+            circuitBreakerTripped: false,
+          },
+        };
+      },
+      getCapabilities: (): AgentCapability[] => [],
+      validateInput: (): ValidationResult => ({ valid: true, errors: [], warnings: [] }),
+      getMetadata: (): AgentMetadata => ({}) as AgentMetadata,
+      healthCheck: async (): Promise<RetryAgentHealthStatus> => ({
+        status: "healthy",
+        lastCheck: new Date(),
+        responseTime: 0,
+        errorRate: 0,
+        uptime: 100,
+        activeConnections: 0,
+      }),
+      getConfiguration: (): AgentConfiguration => ({}) as AgentConfiguration,
+      updateConfiguration: async (): Promise<void> => {},
+      getPerformanceMetrics: (): AgentPerformanceMetrics => ({}) as AgentPerformanceMetrics,
+      reset: async (): Promise<void> => {},
+      getAgentType: (): AgentType => stage.agent_type as AgentType,
+      supportsCapability: (): boolean => false,
+      getInputSchema: (): Record<string, unknown> => ({}),
+      getOutputSchema: (): Record<string, unknown> => ({}),
+    };
 
-        return { status: "completed", output: result };
-      } catch (error) {
-        lastError = error as Error;
+    const retryRequest: AgentRequest = {
+      agentType: stage.agent_type as AgentType,
+      query: stage.description || `Execute ${stage.id}`,
+      sessionId: context.sessionId,
+      userId: context.userId,
+      organizationId: context.organizationId,
+      context,
+      timeout: stage.timeout_seconds * 1000,
+    };
 
-        if (route.selected_agent) {
-          this.registry.recordFailure(route.selected_agent.id);
-        }
+    const retryResult = await this.retryManager.executeWithRetry(
+      stageExecutionAgent,
+      retryRequest,
+      retryOptions
+    );
 
-        if (attempt < retryConfig.max_attempts) {
-          const delay = this.calculateRetryDelay(
-            attempt,
-            retryConfig.initial_delay_ms,
-            retryConfig.max_delay_ms,
-            retryConfig.multiplier,
-            retryConfig.jitter
-          );
-          await this.delay(delay);
-        }
+    if (retryResult.success && retryResult.response?.data) {
+      if (route.selected_agent) {
+        this.registry.recordRelease(route.selected_agent.id);
+        this.registry.markHealthy(route.selected_agent.id);
       }
+
+      return { status: "completed", output: retryResult.response.data };
     }
 
-    return { status: "failed", error: lastError?.message || "Unknown error" };
+    if (route.selected_agent) {
+      this.registry.recordFailure(route.selected_agent.id);
+    }
+
+    return {
+      status: "failed",
+      error: retryResult.error?.message || "Unknown error",
+    };
   }
 
   /**
@@ -1970,29 +2383,6 @@ Provide a JSON response with:
     if (error) {
       throw new Error(`Failed to record workflow event: ${error.message}`);
     }
-  }
-
-  private calculateRetryDelay(
-    attempt: number,
-    initialDelay: number,
-    maxDelay: number,
-    multiplier: number,
-    jitter: boolean
-  ): number {
-    let delay = initialDelay * Math.pow(multiplier, attempt - 1);
-    delay = Math.min(delay, maxDelay);
-
-    if (jitter) {
-      const jitterAmount = delay * 0.1;
-      const randomJitter = (Math.random() - 0.5) * 2 * jitterAmount;
-      delay += randomJitter;
-    }
-
-    return Math.floor(delay);
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

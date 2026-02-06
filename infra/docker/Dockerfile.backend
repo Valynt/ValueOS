@@ -6,6 +6,7 @@ ARG PNPM_VERSION=9.15.0
 FROM node:${NODE_VERSION}-bookworm-slim AS base
 
 ENV PNPM_HOME=/pnpm
+ENV PNPM_STORE_PATH=/pnpm/store
 ENV PATH=${PNPM_HOME}:${PATH}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,32 +28,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy only the files needed to resolve the workspace + lockfile for deterministic installs
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY .npmrc* ./
-
-# Copy package manifests for workspace packages needed by backend
-COPY packages/backend/package.json packages/backend/
-COPY packages/shared/package.json packages/shared/
-COPY packages/sdui/package.json packages/sdui/
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json .npmrc* ./
 
 # Deterministic install with cached pnpm store
+RUN pnpm config set store-dir ${PNPM_STORE_PATH}
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-  pnpm install --frozen-lockfile --prefer-offline --filter @valueos/backend...
+  pnpm fetch --frozen-lockfile
 
 # Builder stage for build verification
 FROM deps AS builder
+ARG APP=@valueos/backend
 WORKDIR /app
-COPY packages/backend ./packages/backend
-COPY packages/shared ./packages/shared
-COPY packages/sdui ./packages/sdui
-RUN pnpm --filter @valueos/backend build
+COPY . .
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile --offline --filter ${APP}...
+RUN turbo run build --filter=${APP}...
 
 FROM base AS runtime
 WORKDIR /app
 
 # Bring in node_modules + workspace structure that pnpm expects
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY .npmrc* ./
 

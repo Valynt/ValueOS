@@ -44,10 +44,11 @@ FROM deps AS backend-builder
 WORKDIR /app
 
 # Build the backend application
-RUN pnpm run build:backend
+ARG APP=@valueos/backend
+RUN turbo run build --filter=${APP}...
 
 # Remove devDependencies for backend
-RUN pnpm prune --prod
+RUN pnpm prune --prod --filter=${APP}...
 
 # ============================================================================
 # Stage 3: Frontend Builder
@@ -57,7 +58,8 @@ FROM deps AS frontend-builder
 WORKDIR /app
 
 # Build the frontend application
-RUN pnpm --filter valynt-app build
+ARG APP=valynt-app
+RUN turbo run build --filter=${APP}...
 
 # ============================================================================
 # Stage 4: Security Scanning

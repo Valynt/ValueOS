@@ -223,92 +223,146 @@ jobs:
           MATRIX=$(printf '%s\n' "$PACKAGES" | jq -R . | jq -s '{include: map({package: .})}')
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
           echo "has_changes=true" >> $GITHUB_OUTPUT
+          
+# ============================================================================
+# Phase 3: Build & Sign Images (Matrix)
+# ============================================================================
+build-and-sign:
+  name: Build & Sign (${{ matrix.package }})
+  runs-on: ubuntu-latest
+  needs: [validate, plan-matrix, drift-detection]
+  if: needs.plan-matrix.outputs.has_changes == 'true'
+  strategy:
+    fail-fast: false
+    matrix: ${{ fromJSON(needs.plan-matrix.outputs.matrix) }}
 
-  # ============================================================================
-  # Phase 3: Build & Sign Images (Matrix)
-  # ============================================================================
-  build-and-sign:
-    name: Build & Sign (${{ matrix.package }})
-    runs-on: ubuntu-latest
-    needs: [validate, plan-matrix, drift-detection]
-    if: needs.plan-matrix.outputs.has_changes == 'true'
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.plan-matrix.outputs.matrix) }}
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: "npm"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+    - name: Install dependencies
+      run: npm ci
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Turbo build
+      run: npx turbo run build --filter=${{ matrix.package }}
 
-      - name: Turbo build
-        run: npx turbo run build --filter=${{ matrix.package }}
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.package }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.package }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+    - name: Build container image (pragmatic-reproducibility)
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./${{ env.PRAG_REPRO_DIR }}/templates/Dockerfile.optimized
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-      - name: Build container image (pragmatic-reproducibility)
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./${{ env.PRAG_REPRO_DIR }}/templates/Dockerfile.optimized
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    - name: Resolve image references
+      id: image
+      run: |
+        IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.package }}"
+        PROMOTED_TAG="${IMAGE}:${{ needs.validate.outputs.environment }}"
+        echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+        echo "digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+        echo "promoted_tag=${PROMOTED_TAG}" >> $GITHUB_OUTPUT
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+    - name: Install Cosign
+      uses: sigstore/cosign-installer@v3
 
-      - name: Sign image with Cosign (keyless)
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.package }}"
-          DIGEST="${{ steps.build.outputs.digest }}"
-          cosign sign --yes "${IMAGE}@${DIGEST}"
+    - name: Run cosign setup
+      run: bash ops/scripts/cosign-setup.sh
 
-  promote-image:
-    name: Promote Image
-    runs-on: ubuntu-latest
-    needs: [validate, build-and-sign]
-    if: needs.validate.outputs.should_deploy == 'true'
-    outputs:
-      promoted_ref: ${{ steps.promote.outputs.promoted_ref }}
-      promoted_digest: ${{ steps.promote.outputs.promoted_digest }}
+    - name: Sign image with Cosign (keyless)
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      run: |
+        IMAGE="${{ steps.image.outputs.image }}"
+        DIGEST="${{ steps.image.outputs.digest }}"
+        cosign sign --yes "${IMAGE}@${DIGEST}"
 
-    steps:
-      - name: Set promoted image outputs
-        id: promote
-        run: |
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-apps/ValyntApp:main"
-          echo "promoted_ref=${IMAGE_REF}" >> $GITHUB_OUTPUT
-          echo "promoted_digest=" >> $GITHUB_OUTPUT
+    - name: Promote image tag for deployment
+      if: needs.validate.outputs.should_deploy == 'true'
+      run: |
+        IMAGE="${{ steps.image.outputs.image }}"
+        DIGEST="${{ steps.image.outputs.digest }}"
+        PROMOTED_TAG="${{ steps.image.outputs.promoted_tag }}"
+        docker buildx imagetools create -t "${PROMOTED_TAG}" "${IMAGE}@${DIGEST}"
+
+    - name: Sign promoted image tag with Cosign (keyless)
+      if: needs.validate.outputs.should_deploy == 'true'
+      env:
+        COSIGN_EXPERIMENTAL: "true"
+      run: |
+        PROMOTED_TAG="${{ steps.image.outputs.promoted_tag }}"
+        DIGEST="${{ steps.image.outputs.digest }}"
+        cosign sign --yes "${PROMOTED_TAG}@${DIGEST}"
+
+# ============================================================================
+# Phase 3.5: Devcontainer Build (Single Image)
+# ============================================================================
+devcontainer-build:
+  name: Build Devcontainer Image
+  runs-on: ubuntu-latest
+  needs: validate
+  if: needs.validate.outputs.should_deploy == 'true'
+  outputs:
+    image_ref: ${{ steps.outputs.outputs.image_ref }}
+    image_digest: ${{ steps.outputs.outputs.image_digest }}
+    image_tag: ${{ steps.outputs.outputs.image_tag }}
+
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push devcontainer image
+      id: devcontainer
+      uses: devcontainers/ci@v0.3
+      with:
+        configFile: .devcontainer/devcontainer.json
+        imageName: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-devcontainer
+        imageTag: ${{ github.sha }}
+        push: true
+
+    - name: Capture image reference and digest
+      id: outputs
+      run: |
+        IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-devcontainer:${{ github.sha }}"
+        IMAGE_DIGEST="$(docker buildx imagetools inspect \"$IMAGE_REF\" --format '{{.Manifest.Digest}}')"
+        echo "image_ref=${IMAGE_REF}" >> $GITHUB_OUTPUT
+        echo "image_digest=${IMAGE_DIGEST}" >> $GITHUB_OUTPUT
+        echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
 
   # ============================================================================
   # Phase 4: Environment Parity (Staging mirrors Production)
@@ -396,19 +450,57 @@ jobs:
           echo "canary_percentage=${CANARY}" >> $GITHUB_OUTPUT
 
   # ============================================================================
+  # Phase 5.5: Promote Image (Staging/Prod)
+  # ============================================================================
+  promote-image:
+    name: Promote Devcontainer Image
+    runs-on: ubuntu-latest
+    needs: [validate, devcontainer-build, deployment-gates]
+    if: needs.validate.outputs.should_deploy == 'true'
+    outputs:
+      promoted_ref: ${{ steps.outputs.outputs.promoted_ref }}
+      promoted_digest: ${{ steps.outputs.outputs.promoted_digest }}
+
+    steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote image tag for environment
+        id: promote
+        run: |
+          ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
+          BASE_REF="${{ needs.devcontainer-build.outputs.image_ref }}"
+          BASE_DIGEST="${{ needs.devcontainer-build.outputs.image_digest }}"
+          BASE_TAG="${{ needs.devcontainer-build.outputs.image_tag }}"
+
+          if [[ "$ENVIRONMENT" == "staging" || "$ENVIRONMENT" == "production" ]]; then
+            PROMOTED_TAG="${BASE_TAG}-${ENVIRONMENT}"
+            PROMOTED_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-devcontainer:${PROMOTED_TAG}"
+            docker buildx imagetools create --tag "${PROMOTED_REF}" "${BASE_REF}@${BASE_DIGEST}"
+          else
+            PROMOTED_REF="${BASE_REF}"
+          fi
+
+          echo "promoted_ref=${PROMOTED_REF}" >> $GITHUB_OUTPUT
+          echo "promoted_digest=${BASE_DIGEST}" >> $GITHUB_OUTPUT
+
+      - name: Capture promotion outputs
+        id: outputs
+        run: |
+          echo "promoted_ref=${{ steps.promote.outputs.promoted_ref }}" >> $GITHUB_OUTPUT
+          echo "promoted_digest=${{ steps.promote.outputs.promoted_digest }}" >> $GITHUB_OUTPUT
+
+  # ============================================================================
   # Phase 6: Deploy to Environment (Dev -> Staging -> Prod)
   # ============================================================================
   deploy:
     name: Deploy to ${{ needs.deployment-gates.outputs.environment }}
     runs-on: ubuntu-latest
-    needs:
-      - validate
-      - plan-matrix
-      - build-and-sign
-      - ensure-parity
-      - deployment-gates
-      - drift-detection
-      - promote-image
+    needs: [validate, plan-matrix, build-and-sign, ensure-parity, deployment-gates, promote-image]
     if: needs.validate.outputs.should_deploy == 'true'
 
     environment:
@@ -448,6 +540,9 @@ jobs:
         run: |
           ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
           CANARY="${{ needs.deployment-gates.outputs.canary_percentage }}"
+          IMAGE_REF="${{ needs.promote-image.outputs.promoted_ref }}"
+          IMAGE_DIGEST="${{ needs.promote-image.outputs.promoted_digest }}"
+          IMAGE_WITH_DIGEST="${IMAGE_REF}@${IMAGE_DIGEST}"
 
           # Set environment-specific values
           case $ENVIRONMENT in
@@ -477,7 +572,7 @@ jobs:
             kubectl patch deployment valueos-frontend -n $NAMESPACE -p '{"spec":{"replicas":'$(($REPLICAS * $CANARY / 100))'}}'
           else
             echo "🚀 Full deployment to $ENVIRONMENT"
-            kubectl set image deployment/valueos-frontend valueos-frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-apps/ValyntApp:main -n $NAMESPACE
+            kubectl set image deployment/valueos-frontend valueos-frontend="${IMAGE_WITH_DIGEST}" -n $NAMESPACE
           fi
 
       - name: Wait for deployment rollout
