@@ -180,6 +180,30 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(TokenAuthenticationError);
     });
 
+
+
+    it('prefers backend details payload for auth code and metadata', async () => {
+      mockFetchWithCSRF.mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: vi.fn().mockResolvedValue({
+          error: 'Too many requests',
+          details: {
+            code: 'RATE_LIMITED',
+            retryAfter: 60,
+          },
+        }),
+      });
+
+      await expect(
+        service.login({ email: 'user@example.com', password: 'Secret123!' })
+      ).rejects.toMatchObject({
+        authCode: 'RATE_LIMITED',
+        statusCode: 429,
+        details: expect.objectContaining({ retryAfter: 60, code: 'RATE_LIMITED' }),
+      });
+    });
+
     it('maps MFA enrollment-required responses to AuthenticationError metadata', async () => {
       mockFetchWithCSRF.mockResolvedValue({
         ok: false,

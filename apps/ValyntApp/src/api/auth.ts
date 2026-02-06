@@ -25,6 +25,41 @@ const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
 let serverSupabase: ReturnType<typeof createServerSupabaseClient> | null = null;
 
+
+type AuthFailureCode =
+  | "INVALID_CREDENTIALS"
+  | "RATE_LIMITED"
+  | "SESSION_IDLE_TIMEOUT"
+  | "SESSION_ABSOLUTE_TIMEOUT"
+  | "TOKEN_EXPIRED"
+  | "INVALID_TOKEN"
+  | "INVALID_TOKEN_CLAIMS"
+  | "MFA_ENROLLMENT_REQUIRED"
+  | "MFA_CODE_REQUIRED"
+  | "MFA_INVALID_CODE";
+
+interface AuthErrorResponse {
+  error: string;
+  code: AuthFailureCode;
+  details: Record<string, unknown>;
+}
+
+function sendAuthFailure(
+  res: Response,
+  status: number,
+  code: AuthFailureCode,
+  error: string,
+  details: Record<string, unknown> = {}
+) {
+  const response: AuthErrorResponse = {
+    error,
+    code,
+    details: { ...details, code },
+  };
+
+  return res.status(status).json(response);
+}
+
 function getServerSupabase() {
   if (!serverSupabase) {
     serverSupabase = createServerSupabaseClient();
@@ -51,6 +86,8 @@ router.post(
       if (!email || !password) {
         return res.status(400).json({
           error: "Email and password are required",
+          code: "INVALID_CREDENTIALS",
+          details: { code: "INVALID_CREDENTIALS" },
         });
       }
 
@@ -100,10 +137,22 @@ router.post(
       });
 
       if (error instanceof AuthenticationError) {
-        return res.status(401).json({ error: error.message });
+        return sendAuthFailure(
+          res,
+          error.statusCode === 403 ? 403 : error.statusCode === 429 ? 429 : 401,
+          (error.authCode as AuthFailureCode | undefined) ?? (error.statusCode === 429 ? "RATE_LIMITED" : "INVALID_CREDENTIALS"),
+          error.message,
+          (error.details as Record<string, unknown> | undefined) ?? {}
+        );
       }
       if (error instanceof ValidationError) {
-        return res.status(400).json({ error: error.message });
+        return sendAuthFailure(
+          res,
+          401,
+          "INVALID_CREDENTIALS",
+          error.message,
+          (error.details as Record<string, unknown> | undefined) ?? {}
+        );
       }
 
       res.status(500).json({ error: "Internal server error" });
@@ -179,7 +228,14 @@ router.post(
       });
 
       if (error instanceof ValidationError) {
-        return res.status(400).json({ error: error.message });
+        return res.status(400).json({
+          error: error.message,
+          code: "INVALID_CREDENTIALS",
+          details: {
+            code: "INVALID_CREDENTIALS",
+            ...(typeof error.details === "object" && error.details ? (error.details as Record<string, unknown>) : {}),
+          },
+        });
       }
       if (error instanceof AuthenticationError) {
         return res.status(409).json({ error: error.message });
@@ -202,6 +258,8 @@ router.post(
       if (!email) {
         return res.status(400).json({
           error: "Email is required",
+          code: "INVALID_CREDENTIALS",
+          details: { code: "INVALID_CREDENTIALS" },
         });
       }
 
@@ -244,6 +302,16 @@ router.post(
       logger.error("Password reset request failed", error instanceof Error ? error : undefined, {
         errorMsg: String(error),
       });
+      if (error instanceof AuthenticationError) {
+        return sendAuthFailure(
+          res,
+          error.statusCode === 429 ? 429 : 401,
+          (error.authCode as AuthFailureCode | undefined) ?? (error.statusCode === 429 ? "RATE_LIMITED" : "INVALID_TOKEN"),
+          error.message,
+          (error.details as Record<string, unknown> | undefined) ?? {}
+        );
+      }
+
       // Don't expose internal errors for security
       res.status(500).json({ error: "Internal server error" });
     }
@@ -260,7 +328,11 @@ router.post(
       const { email } = req.body;
 
       if (!email) {
-        return res.status(400).json({ error: "Email is required" });
+        return res.status(400).json({
+          error: "Email is required",
+          code: "INVALID_CREDENTIALS",
+          details: { code: "INVALID_CREDENTIALS" },
+        });
       }
 
       const { error } = await getServerSupabase().auth.resend({
@@ -272,7 +344,12 @@ router.post(
       });
 
       if (error) {
-        throw new AuthenticationError(sanitizeErrorMessage(error));
+        throw new AuthenticationError(
+          sanitizeErrorMessage(error),
+          { email, reason: "verify_resend_failed" },
+          401,
+          "INVALID_TOKEN"
+        );
       }
 
       try {
@@ -306,6 +383,17 @@ router.post(
       logger.error("Verification resend failed", error instanceof Error ? error : undefined, {
         errorMsg: String(error),
       });
+
+      if (error instanceof AuthenticationError) {
+        return sendAuthFailure(
+          res,
+          error.statusCode === 429 ? 429 : 401,
+          (error.authCode as AuthFailureCode | undefined) ?? (error.statusCode === 429 ? "RATE_LIMITED" : "INVALID_TOKEN"),
+          error.message,
+          (error.details as Record<string, unknown> | undefined) ?? {}
+        );
+      }
+
       res.status(500).json({ error: "Internal server error" });
     }
   }
@@ -318,6 +406,8 @@ router.post("/password/update", requireAuth, async (req: Request, res: Response)
     if (!newPassword) {
       return res.status(400).json({
         error: "New password is required",
+        code: "INVALID_CREDENTIALS",
+        details: { code: "INVALID_CREDENTIALS" },
       });
     }
 
@@ -352,10 +442,22 @@ router.post("/password/update", requireAuth, async (req: Request, res: Response)
     });
 
     if (error instanceof ValidationError) {
-      return res.status(400).json({ error: error.message });
+      return sendAuthFailure(
+        res,
+        401,
+        "INVALID_CREDENTIALS",
+        error.message,
+        (error.details as Record<string, unknown> | undefined) ?? {}
+      );
     }
     if (error instanceof AuthenticationError) {
-      return res.status(401).json({ error: error.message });
+      return sendAuthFailure(
+        res,
+        error.statusCode === 440 ? 440 : error.statusCode === 429 ? 429 : 401,
+        (error.authCode as AuthFailureCode | undefined) ?? (error.statusCode === 429 ? "RATE_LIMITED" : "INVALID_TOKEN"),
+        error.message,
+        (error.details as Record<string, unknown> | undefined) ?? {}
+      );
     }
 
     res.status(500).json({ error: "Internal server error" });
@@ -391,7 +493,16 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
     logger.error("Logout failed", error instanceof Error ? error : undefined, {
       errorMsg: String(error),
     });
-    // Logout should always succeed on client side
+    if (error instanceof AuthenticationError) {
+      return sendAuthFailure(
+        res,
+        error.statusCode === 440 ? 440 : error.statusCode === 429 ? 429 : 401,
+        (error.authCode as AuthFailureCode | undefined) ?? (error.statusCode === 429 ? "RATE_LIMITED" : "INVALID_TOKEN"),
+        error.message,
+        (error.details as Record<string, unknown> | undefined) ?? {}
+      );
+    }
+
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -401,7 +512,7 @@ router.get("/session", async (_req: Request, res: Response) => {
     const session = await authService.getSession();
 
     if (!session) {
-      return res.status(401).json({ error: "No active session" });
+      return sendAuthFailure(res, 401, "INVALID_TOKEN", "No active session", {});
     }
 
     res.json({
@@ -452,7 +563,13 @@ router.post("/refresh", async (_req: Request, res: Response) => {
     });
 
     if (error instanceof AuthenticationError) {
-      return res.status(401).json({ error: error.message });
+      return sendAuthFailure(
+        res,
+        error.statusCode === 440 ? 440 : error.statusCode === 429 ? 429 : 401,
+        (error.authCode as AuthFailureCode | undefined) ?? (error.statusCode === 429 ? "RATE_LIMITED" : "INVALID_TOKEN"),
+        error.message,
+        (error.details as Record<string, unknown> | undefined) ?? {}
+      );
     }
 
     res.status(500).json({ error: "Internal server error" });

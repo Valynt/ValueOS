@@ -45,6 +45,8 @@ export interface AuthSession {
 }
 
 export type AuthFailureCode =
+  | "INVALID_CREDENTIALS"
+  | "RATE_LIMITED"
   | "SESSION_IDLE_TIMEOUT"
   | "SESSION_ABSOLUTE_TIMEOUT"
   | "TOKEN_EXPIRED"
@@ -57,6 +59,7 @@ export type AuthFailureCode =
 interface AuthEndpointErrorPayload {
   error?: string;
   code?: AuthFailureCode | string;
+  details?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -78,18 +81,27 @@ export class AuthService extends BaseService {
   }
 
   private mapAuthFailure(payload: AuthEndpointErrorPayload, responseStatus: number): AuthenticationError {
-    const code = typeof payload.code === "string" ? payload.code : undefined;
+    const code =
+      typeof payload.code === "string"
+        ? payload.code
+        : typeof payload.details?.code === "string"
+          ? payload.details.code
+          : undefined;
     const message = typeof payload.error === "string" ? payload.error : "Request failed";
+    const details =
+      payload.details && typeof payload.details === "object"
+        ? { ...payload.details, code: code ?? payload.details.code }
+        : { ...payload, code };
 
     if (code === "SESSION_IDLE_TIMEOUT" || code === "SESSION_ABSOLUTE_TIMEOUT") {
-      return new SessionTimeoutAuthenticationError(message, code, payload);
+      return new SessionTimeoutAuthenticationError(message, code, details);
     }
 
     if (code === "TOKEN_EXPIRED" || code === "INVALID_TOKEN" || code === "INVALID_TOKEN_CLAIMS") {
-      return new TokenAuthenticationError(message, code, payload);
+      return new TokenAuthenticationError(message, code, details);
     }
 
-    return new AuthenticationError(message, payload, responseStatus, code);
+    return new AuthenticationError(message, details, responseStatus, code);
   }
 
   private async callAuthEndpoint<T>(path: string, options: RequestInit): Promise<T> {
