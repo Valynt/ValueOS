@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../logger.js';
+import { LLMCostTracker } from '../../services/LLMCostTracker.js';
 
 export interface LLMGatewayConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
@@ -46,47 +47,95 @@ export interface LLMResponse {
 
 export class LLMGateway {
   private config: LLMGatewayConfig;
+  private costTracker: LLMCostTracker;
 
-  constructor(config: LLMGatewayConfig) {
+  constructor(config: LLMGatewayConfig, costTracker = new LLMCostTracker()) {
     this.config = config;
+    this.costTracker = costTracker;
+  }
+
+
+  protected async executeCompletion(
+    request: LLMRequest,
+    startTime: number
+  ): Promise<LLMResponse> {
+    return {
+      id: `llm_${Date.now()}`,
+      model: request.model || this.config.model,
+      content: 'LLM Gateway placeholder response',
+      finish_reason: 'stop',
+      usage: {
+        prompt_tokens: 100,
+        completion_tokens: 50,
+        total_tokens: 150,
+      },
+      metadata: {
+        ...(request.metadata || {}),
+        duration_ms: Date.now() - startTime,
+      },
+    };
   }
 
   async complete(request: LLMRequest): Promise<LLMResponse> {
     const startTime = Date.now();
-    
+    const model = request.model || this.config.model;
+    const metadata = request.metadata || {};
+    const userId = metadata.userId ?? metadata.user_id ?? 'system';
+    const tenantId = metadata.tenantId ?? metadata.tenant_id;
+    const sessionId = metadata.sessionId ?? metadata.session_id;
+
     try {
       logger.info('LLM request initiated', {
         provider: this.config.provider,
-        model: request.model || this.config.model,
+        model,
         message_count: request.messages.length,
+        tenant_id: tenantId,
       });
 
-      // Placeholder implementation
-      // In production, this would call the actual LLM provider
-      const response: LLMResponse = {
-        id: `llm_${Date.now()}`,
-        model: request.model || this.config.model,
-        content: 'LLM Gateway placeholder response',
-        finish_reason: 'stop',
-        usage: {
-          prompt_tokens: 100,
-          completion_tokens: 50,
-          total_tokens: 150,
-        },
-        metadata: {
-          ...request.metadata,
-          duration_ms: Date.now() - startTime,
-        },
-      };
+      const response = await this.executeCompletion(request, startTime);
+
+      const latencyMs = Date.now() - startTime;
+      void this.costTracker.trackUsage({
+        userId,
+        tenantId,
+        sessionId,
+        provider: this.config.provider,
+        model,
+        promptTokens: response.usage?.prompt_tokens || 0,
+        completionTokens: response.usage?.completion_tokens || 0,
+        endpoint: 'llm-gateway.complete',
+        success: true,
+        latencyMs,
+      });
 
       logger.info('LLM request completed', {
         duration_ms: response.metadata?.duration_ms,
         tokens: response.usage?.total_tokens,
+        tenant_id: tenantId,
       });
 
       return response;
     } catch (error) {
-      logger.error('LLM request failed', { error });
+      const latencyMs = Date.now() - startTime;
+      void this.costTracker.trackUsage({
+        userId,
+        tenantId,
+        sessionId,
+        provider: this.config.provider,
+        model,
+        promptTokens: 0,
+        completionTokens: 0,
+        endpoint: 'llm-gateway.complete',
+        success: false,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        latencyMs,
+      });
+
+      logger.error('LLM request failed', {
+        error,
+        tenant_id: tenantId,
+        duration_ms: latencyMs,
+      });
       throw error;
     }
   }
