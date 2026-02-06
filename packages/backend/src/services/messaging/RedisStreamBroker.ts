@@ -10,6 +10,12 @@ export interface RedisStreamBrokerOptions {
   redisUrl?: string;
   maxDeliveries?: number;
   idempotencyTtlMs?: number;
+  readCount?: number;
+  batchSize?: number;
+  batchConcurrency?: number;
+  claimIdleMs?: number;
+  claimCount?: number;
+  blockMs?: number;
 }
 
 export interface StreamEvent<TName extends EventName> {
@@ -27,10 +33,28 @@ export class RedisStreamBroker {
   private readonly dlqStream: string;
   private readonly maxDeliveries: number;
   private readonly idempotencyTtlMs: number;
+  private readonly readCount: number;
+  private readonly batchSize: number;
+  private readonly batchConcurrency: number;
+  private readonly claimIdleMs: number;
+  private readonly claimCount: number;
+  private readonly blockMs: number;
   private readonly log: Logger;
   private readonly publishCounter = createCounter('broker.events.published', 'Total events published');
   private readonly consumeCounter = createCounter('broker.events.consumed', 'Total events consumed');
   private readonly failureCounter = createCounter('broker.events.failed', 'Total events that failed processing');
+  private readonly batchSizeHistogram = createHistogram(
+    'broker.batch.size',
+    'Number of events processed per broker batch'
+  );
+  private readonly batchLatencyHistogram = createHistogram(
+    'broker.batch.latency_ms',
+    'Batch processing latency in milliseconds'
+  );
+  private readonly pendingClaimHistogram = createHistogram(
+    'broker.pending.claimed',
+    'Number of pending messages claimed per cycle'
+  );
   private readonly processingDuration = createHistogram(
     'broker.event.processing_ms',
     'Processing duration for brokered events'
@@ -43,6 +67,12 @@ export class RedisStreamBroker {
     this.dlqStream = `${this.streamName}:dlq`;
     this.maxDeliveries = options.maxDeliveries ?? 5;
     this.idempotencyTtlMs = options.idempotencyTtlMs ?? 1000 * 60 * 60; // 1 hour
+    this.readCount = options.readCount ?? 50;
+    this.batchSize = options.batchSize ?? 50;
+    this.batchConcurrency = options.batchConcurrency ?? 5;
+    this.claimIdleMs = options.claimIdleMs ?? 60000;
+    this.claimCount = options.claimCount ?? 50;
+    this.blockMs = options.blockMs ?? 2000;
     this.redis = new Redis(options.redisUrl || process.env.REDIS_URL || 'redis://localhost:6379');
     this.log = logger.withContext({ component: 'redis-stream-broker' });
   }
@@ -88,16 +118,21 @@ export class RedisStreamBroker {
   ): Promise<void> {
     await this.initialize();
 
-     
     while (true) {
+      const claimedEntries = await this.claimPendingEntries();
+      if (claimedEntries.length > 0) {
+        await this.processEntriesInBatches(claimedEntries, handler);
+        continue;
+      }
+
       const response = await this.redis.xreadgroup(
         'GROUP',
         this.groupName,
         this.consumerName,
         'BLOCK',
-        2000,
+        this.blockMs,
         'COUNT',
-        10,
+        this.readCount,
         'STREAMS',
         this.streamName,
         '>'
@@ -108,18 +143,109 @@ export class RedisStreamBroker {
       }
 
       for (const [, entries] of response) {
-        for (const [id, fields] of entries) {
-          await this.processEntry(id, fields, handler);
+        if (entries.length === 0) {
+          continue;
         }
+        await this.processEntriesInBatches(entries, handler);
       }
     }
+  }
+
+  private async processEntriesInBatches(
+    entries: Array<[string, string[]]>,
+    handler: <TName extends EventName>(event: StreamEvent<TName>) => Promise<void>
+  ): Promise<void> {
+    for (let i = 0; i < entries.length; i += this.batchSize) {
+      const batch = entries.slice(i, i + this.batchSize);
+      await this.processBatch(batch, handler);
+    }
+  }
+
+  private async processBatch(
+    entries: Array<[string, string[]]>,
+    handler: <TName extends EventName>(event: StreamEvent<TName>) => Promise<void>
+  ): Promise<void> {
+    const batchStart = Date.now();
+    this.batchSizeHistogram.record(entries.length);
+
+    const outcomes = await this.runWithConcurrency(
+      entries,
+      Math.max(1, this.batchConcurrency),
+      async ([id, fields]) => this.processEntry(id, fields, handler)
+    );
+
+    const ackIds: string[] = [];
+    const pipeline = this.redis.pipeline();
+    let pipelineHasCommands = false;
+
+    for (const outcome of outcomes) {
+      if (outcome.status === 'ack') {
+        ackIds.push(outcome.id);
+        continue;
+      }
+
+      if (outcome.status === 'retry') {
+        pipeline.xack(this.streamName, this.groupName, outcome.id);
+        pipeline.xadd(
+          this.streamName,
+          '*',
+          'eventName',
+          outcome.eventName,
+          'payload',
+          JSON.stringify(outcome.payload),
+          'idempotencyKey',
+          outcome.payload?.idempotencyKey ||
+            outcome.payload?.id ||
+            `${outcome.eventName}-${Date.now()}`,
+          'attempt',
+          String(outcome.nextAttempt)
+        );
+        pipelineHasCommands = true;
+        continue;
+      }
+
+      if (outcome.status === 'dlq') {
+        pipeline.xack(this.streamName, this.groupName, outcome.id);
+        pipeline.xadd(
+          this.dlqStream,
+          '*',
+          'eventName',
+          outcome.eventName,
+          'payload',
+          JSON.stringify(outcome.payload),
+          'failedAt',
+          new Date().toISOString(),
+          'error',
+          outcome.error?.message ?? 'unknown'
+        );
+        pipelineHasCommands = true;
+      }
+    }
+
+    if (ackIds.length > 0) {
+      pipeline.xack(this.streamName, this.groupName, ...ackIds);
+      pipelineHasCommands = true;
+    }
+
+    if (pipelineHasCommands) {
+      await pipeline.exec();
+    }
+
+    this.batchLatencyHistogram.record(Date.now() - batchStart);
   }
 
   private async processEntry(
     id: string,
     fields: string[],
     handler: <TName extends EventName>(event: StreamEvent<TName>) => Promise<void>
-  ): Promise<void> {
+  ): Promise<{
+    id: string;
+    eventName: EventName;
+    status: 'ack' | 'retry' | 'dlq';
+    payload?: any;
+    nextAttempt?: number;
+    error?: Error;
+  }> {
     const fieldMap: Record<string, string> = {};
     for (let i = 0; i < fields.length; i += 2) {
       fieldMap[fields[i]] = fields[i + 1];
@@ -137,17 +263,16 @@ export class RedisStreamBroker {
       const idempotencyKeyExists = await this.registerIdempotencyKey(idempotencyKey);
 
       if (!idempotencyKeyExists) {
-        await this.redis.xack(this.streamName, this.groupName, id);
         this.log.info('Skipped duplicate event', { eventName, idempotencyKey });
-        return;
+        return { id, eventName, status: 'ack' };
       }
 
       await handler({ id, name: eventName, payload: validatedPayload, attempt });
-      await this.redis.xack(this.streamName, this.groupName, id);
       this.consumeCounter.add(1, { 'event.name': eventName });
       this.processingDuration.record(Date.now() - start, { 'event.name': eventName });
+      return { id, eventName, status: 'ack' };
     } catch (error) {
-      await this.handleFailure({ id, eventName, attempt, error: error as Error, payload });
+      return this.handleFailure({ id, eventName, attempt, error: error as Error, payload });
     }
   }
 
@@ -157,37 +282,39 @@ export class RedisStreamBroker {
     attempt: number;
     error: Error;
     payload: any;
-  }): Promise<void> {
+  }): Promise<{
+    id: string;
+    eventName: EventName;
+    status: 'retry' | 'dlq';
+    payload: any;
+    nextAttempt: number;
+    error: Error;
+  }> {
     const { id, eventName, attempt, error, payload } = params;
     const nextAttempt = attempt + 1;
     this.failureCounter.add(1, { 'event.name': eventName });
 
     if (nextAttempt >= this.maxDeliveries) {
-      await this.redis.multi()
-        .xack(this.streamName, this.groupName, id)
-        .xadd(this.dlqStream, '*', 'eventName', eventName, 'payload', JSON.stringify(payload), 'failedAt', new Date().toISOString(), 'error', error.message)
-        .exec();
       this.log.error('Moved message to DLQ', error, { eventName, id, attempt });
-      return;
+      return {
+        id,
+        eventName,
+        status: 'dlq',
+        payload,
+        nextAttempt,
+        error
+      };
     }
 
-    await this.redis.multi()
-      .xack(this.streamName, this.groupName, id)
-      .xadd(
-        this.streamName,
-        '*',
-        'eventName',
-        eventName,
-        'payload',
-        JSON.stringify(payload),
-        'idempotencyKey',
-        payload.idempotencyKey || payload.id || `${eventName}-${Date.now()}`,
-        'attempt',
-        String(nextAttempt)
-      )
-      .exec();
-
     this.log.warn('Retrying broker message', { eventName, id, nextAttempt });
+    return {
+      id,
+      eventName,
+      status: 'retry',
+      payload,
+      nextAttempt,
+      error
+    };
   }
 
   private async registerIdempotencyKey(key: string): Promise<boolean> {
@@ -201,6 +328,49 @@ export class RedisStreamBroker {
     );
 
     return Boolean(inserted);
+  }
+
+  private async claimPendingEntries(): Promise<Array<[string, string[]]>> {
+    const response = await this.redis.call(
+      'XAUTOCLAIM',
+      this.streamName,
+      this.groupName,
+      this.consumerName,
+      this.claimIdleMs,
+      '0-0',
+      'COUNT',
+      this.claimCount
+    );
+
+    if (!Array.isArray(response)) {
+      return [];
+    }
+
+    const entries = Array.isArray(response[1]) ? (response[1] as Array<[string, string[]]>) : [];
+    this.pendingClaimHistogram.record(entries.length);
+    return entries;
+  }
+
+  private async runWithConcurrency<T, TResult>(
+    items: T[],
+    limit: number,
+    worker: (item: T) => Promise<TResult>
+  ): Promise<TResult[]> {
+    const results: TResult[] = new Array(items.length);
+    let index = 0;
+    const workerCount = Math.min(limit, items.length);
+
+    await Promise.all(
+      Array.from({ length: workerCount }, async () => {
+        while (index < items.length) {
+          const currentIndex = index;
+          index += 1;
+          results[currentIndex] = await worker(items[currentIndex]);
+        }
+      })
+    );
+
+    return results;
   }
 }
 
