@@ -17,20 +17,27 @@ RUN apt-get update && apt-get upgrade -y && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user and prepare workspace
+RUN groupadd -r valueos \
+    && useradd -r -g valueos -m -s /bin/bash valueos \
+    && mkdir -p /app /pnpm/store \
+    && chown -R valueos:valueos /app /pnpm /home/valueos
+
 # Install pnpm via corepack
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
 # Copy lockfile and workspace config for caching
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc* ./
+COPY --chown=valueos:valueos pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc* ./
 
 # Install dependencies into store
+USER valueos
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm fetch
 
 # Copy all source code
-COPY . .
+COPY --chown=valueos:valueos . .
 
 # Install dependencies
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
@@ -65,12 +72,14 @@ RUN pnpm --filter valynt-app build
 FROM deps AS security-scan
 
 # Install trivy and syft for vulnerability scanning and SBOM generation
+USER root
 RUN TRIVY_VERSION=v0.50.4 && \
     SYFT_VERSION=v0.105.0 && \
     curl -sfL "https://raw.githubusercontent.com/aquasecurity/trivy/${TRIVY_VERSION}/contrib/install.sh" | sh -s -- -b /usr/local/bin && \
     curl -sfL "https://raw.githubusercontent.com/anchore/syft/${SYFT_VERSION}/install.sh" | sh -s -- -b /usr/local/bin
 
 # Generate SBOMs for both backend and frontend
+USER valueos
 RUN syft dir /app/dist -o spdx-json > sbom-full.spdx.json 2>/dev/null || \
     (syft dir /app -o spdx-json > sbom-full.spdx.json)
 
@@ -90,21 +99,21 @@ RUN apt-get update && apt-get upgrade -y && \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN groupadd -r nodejs -g 1001 && \
-    useradd -r nodejs -u 1001 -g nodejs
+RUN groupadd -r valueos -g 1001 && \
+    useradd -r valueos -u 1001 -g valueos -m -s /bin/bash valueos
 
 WORKDIR /app
 
 # Copy built backend application
-COPY --from=backend-builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=backend-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=backend-builder --chown=nodejs:nodejs /app/package*.json ./
+COPY --from=backend-builder --chown=valueos:valueos /app/dist ./dist
+COPY --from=backend-builder --chown=valueos:valueos /app/node_modules ./node_modules
+COPY --from=backend-builder --chown=valueos:valueos /app/package*.json ./
 
 # Copy SBOM
-COPY --from=security-scan --chown=nodejs:nodejs /app/sbom-full.spdx.json ./sbom-backend.spdx.json
+COPY --from=security-scan --chown=valueos:valueos /app/sbom-full.spdx.json ./sbom-backend.spdx.json
 
 # Switch to non-root user
-USER nodejs
+USER valueos
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
@@ -129,20 +138,22 @@ RUN apt-get update && apt-get upgrade -y && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create nginx directories
-RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
+# Create non-root user and nginx directories
+RUN groupadd -r valueos -g 1001 \
+    && useradd -r -u 1001 -g valueos -m -s /bin/bash valueos \
+    && chown -R valueos:valueos /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /usr/share/nginx/html
 
 # Copy built frontend assets
-COPY --from=frontend-builder --chown=nginx:nginx /app/apps/ValyntApp/dist /usr/share/nginx/html
+COPY --from=frontend-builder --chown=valueos:valueos /app/apps/ValyntApp/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY infra/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY --chown=valueos:valueos infra/docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 
 # Copy SBOM
-COPY --from=security-scan --chown=nginx:nginx /app/sbom-full.spdx.json /usr/share/nginx/html/sbom-frontend.spdx.json
+COPY --from=security-scan --chown=valueos:valueos /app/sbom-full.spdx.json /usr/share/nginx/html/sbom-frontend.spdx.json
 
 # Switch to non-root user
-USER nginx
+USER valueos
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

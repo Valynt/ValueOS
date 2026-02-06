@@ -90,6 +90,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     # Verify critical tools installed
     && command -v git && command -v curl && command -v make
 
+# Create non-root user for builds and runtime
+RUN groupadd -r valueos \
+    && useradd -r -g valueos -m -s /bin/bash valueos \
+    && mkdir -p /workspaces/ValueOS /pnpm/store /home/valueos/.cache /home/valueos/.npm /home/valueos/.local/bin \
+    && chown -R valueos:valueos /workspaces/ValueOS /pnpm /home/valueos
+
 # Stage 2: Node.js installation
 FROM base AS nodejs
 
@@ -182,10 +188,12 @@ WORKDIR /workspaces/ValueOS
 ENV PNPM_STORE_PATH=/pnpm/store
 
 # Copy package metadata for dependency installation
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./
+COPY --chown=valueos:valueos package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY --chown=valueos:valueos .npmrc ./
 
 # Install dependencies with a reusable cache layer
+USER valueos
+
 RUN corepack enable \
     && pnpm config set store-dir ${PNPM_STORE_PATH} \
     && pnpm fetch --frozen-lockfile \
@@ -203,15 +211,17 @@ WORKDIR /workspaces/ValueOS
 ENV PNPM_STORE_PATH=/pnpm/store
 
 # Copy package metadata for dependency installation
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./
+COPY --chown=valueos:valueos package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY --chown=valueos:valueos .npmrc ./
+
+USER valueos
 
 RUN corepack enable \
     && pnpm config set store-dir ${PNPM_STORE_PATH} \
     && pnpm install --frozen-lockfile
 
 # Copy full source and build target app
-COPY . .
+COPY --chown=valueos:valueos . .
 
 RUN turbo run build --filter=${APP}... \
     && pnpm prune --prod --filter=${APP}... \
@@ -231,18 +241,22 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
-COPY --from=build /workspaces/ValueOS/node_modules ./node_modules
-COPY --from=build /artifacts/app ./apps/${APP}
+RUN groupadd -r valueos \
+    && useradd -r -g valueos -m -s /bin/bash valueos \
+    && mkdir -p /app \
+    && chown -R valueos:valueos /app
+
+COPY --from=build --chown=valueos:valueos /workspaces/ValueOS/node_modules ./node_modules
+COPY --from=build --chown=valueos:valueos /artifacts/app ./apps/${APP}
+
+USER valueos
 
 # Stage 9: Final image with user setup
 FROM dbtools AS final
 
-# Create valueos user and workspace directory as root and set permissions
-RUN groupadd -r valueos \
-    && useradd -r -g valueos -m -s /bin/bash valueos \
-    && mkdir -p /workspaces/ValueOS \
-    && mkdir -p /home/valueos/.cache /home/valueos/.npm /home/valueos/.local/bin \
-    && chown -R valueos:valueos /workspaces/ValueOS /home/valueos/.cache /home/valueos/.npm /home/valueos/.local
+# Ensure workspace and user directories are owned by valueos
+RUN mkdir -p /workspaces/ValueOS /home/valueos/.cache /home/valueos/.npm /home/valueos/.local/bin \
+    && chown -R valueos:valueos /workspaces/ValueOS /home/valueos
 
 # Switch to valueos user for remaining setup
 USER valueos
@@ -255,11 +269,11 @@ RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
 WORKDIR /workspaces/ValueOS
 
 # Copy the full repository after dependency installation
-COPY . .
+COPY --chown=valueos:valueos . .
 
 # Reuse dependency artifacts from deps stage
-COPY --from=deps --chown=vscode:vscode /pnpm/store /pnpm/store
-COPY --from=deps --chown=vscode:vscode /workspaces/ValueOS/node_modules ./node_modules
+COPY --from=deps --chown=valueos:valueos /pnpm/store /pnpm/store
+COPY --from=deps --chown=valueos:valueos /workspaces/ValueOS/node_modules ./node_modules
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \
