@@ -16,9 +16,10 @@ else
   echo "env:dev exited with non-zero status — check environment files" >&2
 fi
 
-echo "3) Starting development stack (docker compose)..."
-echo "This will start local services (Postgres, Redis, Supabase, backend, frontend)."
-pnpm run dx
+echo "3) Starting development stack via ./scripts/dc..."
+echo "This will start local services from scripts/docker-compose.yml."
+"${ROOT_DIR}/scripts/dc" up -d
+"${ROOT_DIR}/scripts/dc" ps
 
 echo
 echo "DEV stack started. Wait a moment for services to become healthy."
