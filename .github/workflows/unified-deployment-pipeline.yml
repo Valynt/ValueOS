@@ -249,16 +249,43 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Resolve image references
+        id: image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.package }}"
+          PROMOTED_TAG="${IMAGE}:${{ needs.validate.outputs.environment }}"
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+          echo "promoted_tag=${PROMOTED_TAG}" >> $GITHUB_OUTPUT
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
+
+      - name: Run cosign setup
+        run: bash ops/scripts/cosign-setup.sh
 
       - name: Sign image with Cosign (keyless)
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.package }}"
-          DIGEST="${{ steps.build.outputs.digest }}"
+          IMAGE="${{ steps.image.outputs.image }}"
+          DIGEST="${{ steps.image.outputs.digest }}"
           cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Promote image tag for deployment
+        run: |
+          IMAGE="${{ steps.image.outputs.image }}"
+          DIGEST="${{ steps.image.outputs.digest }}"
+          PROMOTED_TAG="${{ steps.image.outputs.promoted_tag }}"
+          docker buildx imagetools create -t "${PROMOTED_TAG}" "${IMAGE}@${DIGEST}"
+
+      - name: Sign promoted image tag with Cosign (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          PROMOTED_TAG="${{ steps.image.outputs.promoted_tag }}"
+          DIGEST="${{ steps.image.outputs.digest }}"
+          cosign sign --yes "${PROMOTED_TAG}@${DIGEST}"
 
   # ============================================================================
   # Phase 3.5: Devcontainer Build (Single Image)
