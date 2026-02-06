@@ -97,7 +97,7 @@
 
 ## 10. Testing
 
-- [x] Unit tests verify organization_id filtering (evidence: src/lib/rules/**tests**/RulesEnforcer.test.ts)
-- [x] Integration tests verify cross-tenant isolation (evidence: packages/backend/src/api/__tests__/workflow.integration.test.ts, supabase/tests/database/multi_tenant_rls.test.sql in secure CI RLS stage)
+- [x] Unit tests verify organization_id filtering (evidence: src/lib/rules/**tests**/RulesEnforcer.test.ts, packages/backend/src/services/__tests__/TenantAwareService.tenant-isolation.test.ts)
+- [x] Integration tests verify cross-tenant isolation (evidence: packages/backend/src/api/__tests__/workflow.integration.test.ts, supabase/tests/database/multi_tenant_rls.test.sql in secure CI RLS stage, packages/backend/src/services/__tests__/CacheService.tenant.test.ts)
 - [ ] Penetration tests attempt cross-tenant access
   - Location: tests/compliance/

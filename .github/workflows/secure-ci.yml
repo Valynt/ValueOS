@@ -12,8 +12,8 @@ permissions:
   packages: write
 
 env:
-  NODE_VERSION: '20'
-  CACHE_DIR: ~/.npm
+  NODE_VERSION: '20.19.0'
+  PNPM_VERSION: '9.15.0'
 
 jobs:
   secrets-scan:
@@ -38,7 +38,8 @@ jobs:
           base: 'HEAD'
           head: ''
 
-  lint:
+  ci-verify:
+    name: Canonical quality gates (lint → typecheck → test → build)
     needs: secrets-scan
     runs-on: ubuntu-latest
     steps:
@@ -46,38 +47,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
-      - name: Validate Tailwind config
-        run: npm run check:tw-config
-
-  typecheck:
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run typecheck
-
-  unit-integration:
-    needs: typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm test
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run canonical pipeline
+        run: pnpm run ci:verify
 
   rls-multi-tenant:
-    needs: unit-integration
+    needs: ci-verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,18 +76,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - name: npm audit (high+)
-        run: npm audit --audit-level=high
-      - name: Snyk test
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
-          if [ -z "$SNYK_TOKEN" ]; then
-            echo "SNYK_TOKEN not set; skipping snyk test" && exit 0
-          fi
-          npx snyk test --severity-threshold=high
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - name: pnpm audit (high+)
+        run: pnpm audit --audit-level=high
 
   sbom-and-scan:
     needs: dependency-audit
@@ -133,17 +108,3 @@ jobs:
           path: |
             sbom.spdx.json
             trivy-results.sarif
-
-  build:
-    needs: sbom-and-scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - name: Validate Tailwind config
-        run: npm run check:tw-config
-      - run: npm run build

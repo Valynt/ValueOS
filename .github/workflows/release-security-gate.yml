@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: ".nvmrc"
+          node-version-file: '.nvmrc'
 
       - name: Enable Corepack
         run: |
@@ -46,12 +46,16 @@ jobs:
             exit 1
           fi
 
-      - name: Block high severity vulnerabilities (release policy)
-        run: pnpm run security:scan
+      - name: Run dependency vulnerability audit (high+)
+        run: |
+          pnpm audit --audit-level=high --json > dependency-audit.json || true
+          node -e "const fs=require('fs');const data=JSON.parse(fs.readFileSync('dependency-audit.json','utf8'));const meta=data.metadata?.vulnerabilities || {};const high=(meta.high||0)+(meta.critical||0);if(high>0){console.error('High/Critical vulnerabilities detected:',meta);process.exit(1);}console.log('✅ No high/critical vulnerabilities:',meta);"
 
-      - name: Upload SBOM artifact
+      - name: Upload release security artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-release-${{ github.sha }}
-          path: sbom.json
+          name: release-security-${{ github.sha }}
+          path: |
+            sbom.json
+            dependency-audit.json
           if-no-files-found: error
