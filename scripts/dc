@@ -1,13 +1,10 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-COMPOSE_FILE="${REPO_ROOT}/scripts/docker-compose.yml"
-PORTS_ENV_FILE="${REPO_ROOT}/scripts/.env.ports"
-PORTS_ENV_EXAMPLE="${REPO_ROOT}/scripts/.env.ports.example"
-LEGACY_ENV_FILE="${REPO_ROOT}/.env.ports"
+COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+ENV_FILE="${ROOT}/scripts/.env.ports"
+ENV_EXAMPLE_FILE="${ROOT}/scripts/.env.ports.example"
+LEGACY_ENV_FILE="${ROOT}/.env.ports"
 
 [[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
@@ -19,17 +16,18 @@ DOCKER_BIN="$(command -v docker 2>/dev/null || true)"
 
 compose_args=(
   --project-name valueos
-  --project-directory "${REPO_ROOT}"
+  --project-directory "${ROOT}"
   -f "${COMPOSE_FILE}"
 )
 
-if [[ -f "${PORTS_ENV_FILE}" ]]; then
+if [[ -f "${ENV_FILE}" ]]; then
   # Preferred deterministic port bindings for this repo.
-  compose_args+=(--env-file "${PORTS_ENV_FILE}")
+  compose_args+=(--env-file "${ENV_FILE}")
 elif [[ -f "${LEGACY_ENV_FILE}" ]]; then
   compose_args+=(--env-file "${LEGACY_ENV_FILE}")
-elif [[ -f "${PORTS_ENV_EXAMPLE}" ]]; then
-  compose_args+=(--env-file "${PORTS_ENV_EXAMPLE}")
+elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
+  compose_args+=(--env-file "${ENV_EXAMPLE_FILE}")
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
+
