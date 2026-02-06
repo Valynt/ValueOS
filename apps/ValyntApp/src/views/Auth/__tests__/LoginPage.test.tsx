@@ -8,7 +8,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { LoginPage } from "../LoginPage";
 import { AuthContext } from "../../../contexts/AuthContext";
-import { RateLimitError, ValidationError } from "../../../services/errors";
+import { AuthenticationError, RateLimitError, ValidationError } from "../../../services/errors";
 
 // Mock useNavigate
 const mockNavigate = vi.fn();
@@ -21,6 +21,17 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+
+
+vi.mock("../../Settings/MFASetup", () => ({
+  MFASetup: ({ onComplete, onCancel, userId, userRole }: any) => (
+    <div>
+      <div>MFA Setup Mock for {userId}:{userRole}</div>
+      <button onClick={onComplete}>Complete MFA Setup</button>
+      <button onClick={onCancel}>Cancel MFA Setup</button>
+    </div>
+  ),
+}));
 describe("LoginPage Component", () => {
   const mockLogin = vi.fn();
   const mockSignInWithProvider = vi.fn();
@@ -208,6 +219,59 @@ describe("LoginPage Component", () => {
 
       await waitFor(() => {
         expect(screen.getByLabelText(/mfa code/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("MFA Enrollment Flow", () => {
+    it("should render MFA setup flow when enrollment is required", async () => {
+      renderLoginPage();
+      mockLogin.mockRejectedValueOnce(
+        new AuthenticationError(
+          "MFA setup required",
+          { code: "MFA_ENROLLMENT_REQUIRED", userId: "user-123", role: "manager" },
+          403,
+          "MFA_ENROLLMENT_REQUIRED"
+        )
+      );
+
+      fireEvent.change(screen.getByLabelText(/work email/i), { target: { value: "test@example.com" } });
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "SecurePass123!" } });
+      fireEvent.click(screen.getByRole("button", { name: /continue to dashboard/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/mfa setup mock for user-123:manager/i)).toBeInTheDocument();
+      });
+    });
+
+    it("should resume login after MFA setup completion", async () => {
+      renderLoginPage();
+      mockLogin
+        .mockRejectedValueOnce(
+          new AuthenticationError(
+            "MFA setup required",
+            { code: "MFA_ENROLLMENT_REQUIRED", userId: "user-123", role: "manager" },
+            403,
+            "MFA_ENROLLMENT_REQUIRED"
+          )
+        )
+        .mockResolvedValueOnce({});
+
+      fireEvent.change(screen.getByLabelText(/work email/i), { target: { value: "test@example.com" } });
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "SecurePass123!" } });
+      fireEvent.click(screen.getByRole("button", { name: /continue to dashboard/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /complete mfa setup/i })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /complete mfa setup/i }));
+
+      await waitFor(() => {
+        expect(mockLogin).toHaveBeenNthCalledWith(2, {
+          email: "test@example.com",
+          password: "SecurePass123!",
+        });
       });
     });
   });
