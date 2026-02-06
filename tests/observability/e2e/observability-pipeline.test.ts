@@ -354,6 +354,15 @@ describe("Observability Pipeline - E2E Tests", () => {
   });
 
   describe("Performance Metrics", () => {
+    it("should expose at least one agent-fabric Prometheus metric", async () => {
+      const metricNames = await prometheusClient.getMetricNames();
+      const hasAgentFabricMetric = metricNames.some((name) =>
+        name.startsWith("agent_fabric_")
+      );
+
+      expect(hasAgentFabricMetric).toBe(true);
+    }, 15000);
+
     it("should track request duration in all systems", async () => {
       const perfTestId = `perf-${Date.now()}`;
       const startTime = Date.now();
