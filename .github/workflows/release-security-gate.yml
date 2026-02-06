@@ -39,12 +39,14 @@ jobs:
       - name: Generate SBOM
         run: pnpm run security:sbom
 
-      - name: Verify SBOM artifact
+      - name: Validate SBOM file and schema fields
         run: |
           if [ ! -s sbom.json ]; then
             echo "::error::SBOM artifact missing or empty."
             exit 1
           fi
+
+          pnpm run security:sbom:validate
 
       - name: Block high severity vulnerabilities (release policy)
         run: pnpm run security:scan

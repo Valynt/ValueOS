@@ -24,15 +24,17 @@ Run dependency and SBOM scans locally:
 ```bash
 pnpm run security:scan
 pnpm run security:sbom
+pnpm run security:sbom:validate
 ```
 
 ### Release Branch Gate
 
 Release branches (`release/**`) run a dedicated CI job that:
 
-- Generates an SBOM and fails if the artifact is missing.
+- Generates a deterministic CycloneDX JSON SBOM (`sbom.json`).
+- Validates `sbom.json` structure (CycloneDX format/spec fields, metadata, components) and fails the gate if invalid.
 - Blocks releases if high-severity dependency vulnerabilities are detected.
-- Publishes the SBOM as a CI artifact for release verification.
+- Publishes the validated SBOM as a CI artifact for release verification.
 
 ### Secret Scanning (Local)
 
