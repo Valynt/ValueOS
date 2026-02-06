@@ -5,12 +5,12 @@
  * Together AI is the only supported LLM provider.
  */
 
-import CircuitBreaker from "opossum";
 import { logger } from "../utils/logger";
 import { getEnvVar } from "../lib/env";
 import { llmCache } from "./LLMCache";
 import { llmCostTracker } from "./LLMCostTracker";
 import { costGovernance } from "./CostGovernanceService";
+import { ExternalCircuitBreaker } from "./ExternalCircuitBreaker";
 
 export interface LLMRequest {
   prompt: string;
@@ -47,49 +47,22 @@ export interface CircuitBreakerStats {
 
 type LLMFallbackStats = {
   togetherAI: CircuitBreakerStats & { calls: number; failures: number };
+  circuitBreakers: Record<string, ReturnType<ExternalCircuitBreaker["getMetrics"]>>;
   cache: { hits: number; misses: number };
   costGovernance: ReturnType<typeof costGovernance.getSummary>;
 };
 
 export class LLMFallbackService {
-  private togetherAIBreaker: CircuitBreaker<[LLMRequest], LLMResponse>;
+  private readonly circuitBreaker: ExternalCircuitBreaker;
+  private readonly togetherChatBreakerKey = "external:together_ai:chat";
+  private readonly togetherStreamBreakerKey = "external:together_ai:stream";
   private stats = {
     togetherAI: { calls: 0, failures: 0 },
     cache: { hits: 0, misses: 0 },
   };
 
   constructor() {
-    // Circuit breaker for Together.ai
-    this.togetherAIBreaker = new CircuitBreaker(this.callTogetherAI.bind(this), {
-      timeout: 30000, // 30 seconds
-      errorThresholdPercentage: 50, // Open circuit if 50% of requests fail
-      resetTimeout: 60000, // Try again after 1 minute
-      rollingCountTimeout: 10000, // 10 second window
-      rollingCountBuckets: 10,
-      name: "together-ai",
-    });
-
-    // Set up event listeners
-    this.setupEventListeners();
-  }
-
-  /**
-   * Set up circuit breaker event listeners
-   */
-  private setupEventListeners(): void {
-    this.togetherAIBreaker.on("open", () => {
-      logger.warn("Together.ai circuit breaker opened", {
-        stats: this.togetherAIBreaker.stats,
-      });
-    });
-
-    this.togetherAIBreaker.on("halfOpen", () => {
-      logger.info("Together.ai circuit breaker half-open (testing)");
-    });
-
-    this.togetherAIBreaker.on("close", () => {
-      logger.info("Together.ai circuit breaker closed (recovered)");
-    });
+    this.circuitBreaker = new ExternalCircuitBreaker("together_ai");
   }
 
   /**
@@ -339,31 +312,25 @@ export class LLMFallbackService {
     });
 
     // Call Together.ai with circuit breaker
-    try {
-      const response = await this.togetherAIBreaker.fire(request);
-      return response;
-    } catch (error) {
-      logger.error("Together.ai request failed", error as Error);
-      throw new Error("LLM provider unavailable. Please try again later.");
-    }
+    return this.circuitBreaker.execute(
+      this.togetherChatBreakerKey,
+      () => this.callTogetherAI(request),
+      {
+        fallback: (error, state) => {
+          logger.error("Together.ai request failed", error, {
+            breakerState: state,
+            breakerKey: this.togetherChatBreakerKey,
+          });
+          throw new Error("LLM provider unavailable. Please try again later.");
+        },
+      }
+    );
   }
 
   /**
    * Stream LLM request
    */
   async *streamRequest(request: LLMRequest): AsyncGenerator<string, void, unknown> {
-    // Check circuit breaker state
-    if (this.togetherAIBreaker.opened) {
-      logger.warn("Circuit breaker open, falling back to non-streaming for LLM request", {
-        model: request.model,
-        userId: request.userId,
-      });
-      // Fallback to non-streaming response
-      const response = await this.processRequest({ ...request, stream: false });
-      yield response.content;
-      return;
-    }
-
     // Skip cache for streaming requests for now
     this.stats.cache.misses++;
     const dealId = request.dealId ?? request.sessionId;
@@ -383,10 +350,30 @@ export class LLMFallbackService {
       model: request.model,
     });
 
-    // TODO: Implement circuit breaker for streaming
-    // Currently bypassing breaker for streaming to support AsyncGenerator return type
     try {
-      for await (const chunk of this.callTogetherAIStream(request)) {
+      const chunks = await this.circuitBreaker.execute(
+        this.togetherStreamBreakerKey,
+        async () => {
+          const streamed: string[] = [];
+          for await (const chunk of this.callTogetherAIStream(request)) {
+            streamed.push(chunk);
+          }
+          return streamed;
+        },
+        {
+          fallback: async () => {
+            logger.warn("Circuit breaker fallback to non-streaming LLM response", {
+              model: request.model,
+              userId: request.userId,
+              breakerKey: this.togetherStreamBreakerKey,
+            });
+            const response = await this.processRequest({ ...request, stream: false });
+            return [response.content];
+          },
+        }
+      );
+
+      for (const chunk of chunks) {
         yield chunk;
       }
     } finally {
@@ -405,25 +392,25 @@ export class LLMFallbackService {
    * Get circuit breaker statistics
    */
   getStats(): LLMFallbackStats {
-    const breakerStats = this.togetherAIBreaker.stats as Record<string, unknown>;
-    const getCount = (key: string): number => {
-      const value = breakerStats[key];
-      return typeof value === "number" ? value : 0;
-    };
+    const chatMetrics = this.circuitBreaker.getMetrics(this.togetherChatBreakerKey);
+    const streamMetrics = this.circuitBreaker.getMetrics(this.togetherStreamBreakerKey);
 
     return {
       togetherAI: {
-        state: this.togetherAIBreaker.opened
-          ? "open"
-          : this.togetherAIBreaker.halfOpen
+        state:
+          chatMetrics.state === "half_open"
             ? "half-open"
-            : "closed",
-        failures: getCount("failures"),
-        successes: getCount("successes"),
-        fallbacks: getCount("fallbacks"),
-        rejects: getCount("rejects"),
-        fires: getCount("fires"),
+            : chatMetrics.state,
+        failures: chatMetrics.failedRequests,
+        successes: chatMetrics.successfulRequests,
+        fallbacks: 0,
+        rejects: 0,
+        fires: chatMetrics.totalRequests,
         calls: this.stats.togetherAI.calls,
+      },
+      circuitBreakers: {
+        [this.togetherChatBreakerKey]: chatMetrics,
+        [this.togetherStreamBreakerKey]: streamMetrics,
       },
       cache: this.stats.cache,
       costGovernance: costGovernance.getSummary(),
@@ -434,7 +421,8 @@ export class LLMFallbackService {
    * Reset circuit breaker (admin function)
    */
   reset(): void {
-    this.togetherAIBreaker.close();
+    this.circuitBreaker.reset(this.togetherChatBreakerKey);
+    this.circuitBreaker.reset(this.togetherStreamBreakerKey);
     logger.info("Circuit breaker reset");
   }
 
@@ -446,12 +434,11 @@ export class LLMFallbackService {
   }> {
     return {
       togetherAI: {
-        healthy: !this.togetherAIBreaker.opened,
-        state: this.togetherAIBreaker.opened
-          ? "open"
-          : this.togetherAIBreaker.halfOpen
+        healthy: this.circuitBreaker.getState(this.togetherChatBreakerKey) !== "open",
+        state:
+          this.circuitBreaker.getState(this.togetherChatBreakerKey) === "half_open"
             ? "half-open"
-            : "closed",
+            : this.circuitBreaker.getState(this.togetherChatBreakerKey),
       },
     };
   }
