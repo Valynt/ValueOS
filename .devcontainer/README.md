@@ -11,7 +11,20 @@ ValueOS uses a **single unified development container** that includes:
 - Redis for caching
 - Full database and authentication stack
 
-This replaces the previous split architecture. Legacy configurations are archived in `docs/legacy/`.
+This replaces the previous split architecture. All deprecated Dockerfiles and scripts have been removed to prevent confusion—use only `.devcontainer/Dockerfile.optimized` and scripts in `scripts/dev/`.
+
+## ⚠️ Security & Local Environment Warnings
+
+- **Never commit `.env.local` or any secrets.** These files are git-ignored and must not be pushed to any repository.
+- **Default passwords for PostgreSQL and Redis are weak and for local development only.** Change them for any non-local/dev use.
+- **If you see permission errors with `node_modules`,** run:
+  ```bash
+  docker-compose -f docker-compose.dev.yml exec app chown -R nodeuser:nodejs /app/node_modules
+  ```
+- **To enable Playwright browser dependencies,** build with:
+  ```bash
+  docker build -f .devcontainer/Dockerfile.optimized --build-arg INSTALL_PLAYWRIGHT_DEPS=1 -t valueos-dev .
+  ```
 
 ## 🚀 Quick Start
 
@@ -84,12 +97,11 @@ Both development environments include:
 - Read-only filesystems
 - Resource limits (CPU/memory)
 
-## 📁 File Structure
+## 📁 File Structure (Current Only)
 
 ```
 .devcontainer/
 ├── Dockerfile.optimized       # Multi-stage optimized dev container (preferred)
-├── Dockerfile                 # Minimal fallback Dockerfile
 ├── devcontainer.json          # VS Code configuration
 ├── docker-compose.devcontainer.yml # Unified development stack
 ├── README.md                  # This file
@@ -130,12 +142,12 @@ docker run --rm -v valueos-secrets:/mnt/secrets -v "$PWD":/src alpine \
 
 The devcontainer uses a simplified lifecycle:
 
-| Script                               | When                        | Purpose                                                     | Failure Behavior         |
-| ------------------------------------ | --------------------------- | ----------------------------------------------------------- | ------------------------ |
-| `.devcontainer/scripts/on-create.sh` | On container creation       | Verify repo layout and preflight basics                     | Fails on critical errors |
-| `.devcontainer/scripts/update-content.sh` | On repository updates   | Re-sync dependencies via `scripts/dev/setup.sh`             | Fails on critical errors |
-| `scripts/dev/setup.sh`               | After container creation    | Install dependencies, run migrations                        | Fails on critical errors |
-| `.devcontainer/scripts/post-start.sh` | On container start         | Share readiness note and onboarding guidance                | Fails on critical errors |
+| Script                                    | When                     | Purpose                                         | Failure Behavior         |
+| ----------------------------------------- | ------------------------ | ----------------------------------------------- | ------------------------ |
+| `.devcontainer/scripts/on-create.sh`      | On container creation    | Verify repo layout and preflight basics         | Fails on critical errors |
+| `.devcontainer/scripts/update-content.sh` | On repository updates    | Re-sync dependencies via `scripts/dev/setup.sh` | Fails on critical errors |
+| `scripts/dev/setup.sh`                    | After container creation | Install dependencies, run migrations            | Fails on critical errors |
+| `.devcontainer/scripts/post-start.sh`     | On container start       | Share readiness note and onboarding guidance    | Fails on critical errors |
 
 **Intended workflow:** on-create performs a quick repository preflight, post-create runs the full setup (`scripts/dev/setup.sh`), update-content re-runs setup whenever the repository changes, and post-start confirms readiness whenever the container starts.
 
@@ -222,7 +234,7 @@ security_opt:
 
 ### Environment Variables
 
-Create or edit `.env.local`:
+Create or edit `.env.local` (never commit this file):
 
 ```bash
 # Supabase (REQUIRED)
@@ -234,8 +246,8 @@ VITE_LLM_API_KEY=your-api-key
 VITE_LLM_PROVIDER=together
 
 # Database (Optional - for local testing)
-POSTGRES_PASSWORD=change-this-password
-REDIS_PASSWORD=change-this-password
+POSTGRES_PASSWORD=change-this-password   # Change for any non-local/dev use
+REDIS_PASSWORD=change-this-password      # Change for any non-local/dev use
 ```
 
 ## 🐛 Troubleshooting
@@ -250,12 +262,7 @@ docker-compose -f docker-compose.dev.yml up
 
 ### Permission errors
 
-Development containers run as non-root users. If you encounter permission errors:
-
-```bash
-# Fix node_modules ownership (if needed)
-docker-compose -f docker-compose.dev.yml exec app chown -R nodeuser:nodejs /app/node_modules
-```
+Development containers run as non-root users. If you encounter permission errors with `node_modules`, see the Security & Local Environment Warnings section above for the fix command.
 
 ### Port already in use
 

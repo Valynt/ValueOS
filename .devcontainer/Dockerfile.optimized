@@ -163,13 +163,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
             aarch64|arm64) sb_arch="linux_arm64" ;; \
             *) echo "Unsupported arch: $arch"; exit 1 ;; \
         esac; \
-        url="https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_${SUPABASE_VERSION}_${sb_arch}.tar.gz"; \
+        url="https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase-cli_${SUPABASE_VERSION}_${sb_arch}.tar.gz"; \
         for i in 1 2 3; do \
             curl -fL "$url" -o /tmp/supabase.tar.gz && break || { echo "Retry $i/3 failed"; sleep 5; }; \
         done; \
         tar -xzf /tmp/supabase.tar.gz -C /tmp; \
-        install -m 0755 /tmp/supabase /usr/local/bin/supabase; \
-        rm -f /tmp/supabase.tar.gz /tmp/supabase; \
+        install -m 0755 /tmp/supabase-cli /usr/local/bin/supabase; \
+        rm -f /tmp/supabase.tar.gz /tmp/supabase-cli; \
         supabase --version; \
         \
         # Install pgcli (optional but useful)
