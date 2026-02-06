@@ -116,6 +116,16 @@ The devcontainer compose file uses named Docker volumes so key development artif
 
 These are Docker-managed named volumes, so they remain available until you explicitly remove them (for example via `docker volume rm ...` or `docker compose down -v`).
 
+### Secrets volume (optional)
+
+The devcontainer mounts a read-only secrets volume at `/mnt/secrets` and exposes it via `SECRETS_MOUNT_PATH`. The backend secret watcher reads from this path (see `packages/backend/src/config/secrets/SecretConfig.ts` and `SecretVolumeWatcher.ts`). To populate the volume for local development, copy the expected secret files into the Docker volume from the host:
+
+```bash
+docker volume create valueos-secrets
+docker run --rm -v valueos-secrets:/mnt/secrets -v "$PWD":/src alpine \
+  sh -c "cp -R /src/path/to/local/secrets/* /mnt/secrets/"
+```
+
 ## 🔧 Lifecycle Scripts
 
 The devcontainer uses a simplified lifecycle:

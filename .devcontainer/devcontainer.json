@@ -17,11 +17,14 @@
   // Deterministic boot invariant: always run a single fail-fast entrypoint and persist setup logs.
   "postCreateCommand": "bash -euo pipefail -c 'bash scripts/dev/setup.sh && bash scripts/check-env.sh' > setup.log 2>&1",
 
+  "mounts": ["type=volume,source=valueos-secrets,target=/mnt/secrets,readonly"],
+
   "remoteEnv": {
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
     "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm",
     "DOCKER_BUILDKIT": "1",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "SECRETS_MOUNT_PATH": "/mnt/secrets",
     // Ensure services use Docker DNS names
     "SUPABASE_URL": "http://kong:8000",
     // CRITICAL: sslmode=disable required - container postgres has no TLS
