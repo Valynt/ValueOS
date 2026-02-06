@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Tag, ArrowLeft, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { sanitizeHtml } from '../../utils/sanitizeHtml';
+import { SafeHtml } from '../security/SafeHtml';
 import { SEO } from './SEO';
 
 interface BlogPostData {
@@ -251,10 +251,10 @@ export default function BlogPost() {
             </header>
 
             <div className="prose prose-lg max-w-none mb-12 blog-content">
-              <div
+              <SafeHtml
                 className="leading-relaxed"
                 style={{ color: '#E0E0E0' }}
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
+                html={post.content}
               />
             </div>
 

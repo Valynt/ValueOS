@@ -38,46 +38,24 @@ jobs:
           base: 'HEAD'
           head: ''
 
-  lint:
+  ci-verify:
+    name: Unified CI Verify Gate
     needs: secrets-scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
-      - name: Validate Tailwind config
-        run: npm run check:tw-config
-
-  typecheck:
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run typecheck
-
-  unit-integration:
-    needs: typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - run: npm ci
-      - run: npm test
+          node-version: "20.19.0"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run ci:verify
 
   rls-multi-tenant:
-    needs: unit-integration
+    needs: ci-verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

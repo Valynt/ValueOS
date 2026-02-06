@@ -90,7 +90,7 @@ ValueCanvas has been audited for security best practices, data privacy complianc
 
 **Strengths**
 
-- CI pipeline includes SBOM generation, container builds, and vulnerability scanning before deployment.
+- CI pipeline includes deterministic CycloneDX SBOM generation with structural validation, container builds, and vulnerability scanning before deployment.
 - Dedicated security scan workflow covers dependency audits, CodeQL, Trivy filesystem/image scans, Semgrep, secret scanning, and IaC checks (Checkov).
 - Secret handling guidance discourages committing secrets and recommends secret managers for production deployments.
 

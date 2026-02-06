@@ -247,10 +247,15 @@ export class CacheService {
     options: {
       namespace?: string;
       storage?: "memory" | "local" | "session" | "redis";
+      tenantId?: string;
+      scope?: "tenant" | "global";
     } = {}
   ): Promise<void> {
     const storage = options.storage || "memory";
-    const namespace = options.namespace || this.defaultNamespace;
+    const namespace = this.resolveNamespace(options.namespace, {
+      tenantId: options.tenantId,
+      scope: options.scope,
+    });
 
     switch (storage) {
       case "memory":
@@ -365,10 +370,15 @@ export class CacheService {
     options: {
       namespace?: string;
       storage?: "memory" | "local" | "session" | "redis";
+      tenantId?: string;
+      scope?: "tenant" | "global";
     } = {}
   ): Promise<void> {
     const storage = options.storage || "memory";
-    const namespace = options.namespace || this.defaultNamespace;
+    const namespace = this.resolveNamespace(options.namespace, {
+      tenantId: options.tenantId,
+      scope: options.scope,
+    });
     const fullPattern = `${namespace}:${pattern}`;
 
     switch (storage) {

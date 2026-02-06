@@ -351,6 +351,70 @@ const envOverrides = {
   },
 };
 
+// Module boundary enforcement across apps/packages
+const moduleBoundaryOverrides = {
+  files: ["apps/**/*.{ts,tsx,js,jsx}", "packages/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: [
+              "../packages/*",
+              "../../packages/*",
+              "../../../packages/*",
+              "../../../../packages/*",
+            ],
+            message:
+              "Do not cross package boundaries via relative paths. Import through package public APIs (@valueos/<pkg>).",
+          },
+          {
+            group: ["@valueos/*/src/*", "@valueos/*/*/src/*"],
+            message:
+              "Deep imports into package internals are forbidden. Use package entrypoints (index.ts / exports map).",
+          },
+        ],
+      },
+    ],
+
+    // If you already use eslint-plugin-import with this rule available
+    "import/no-internal-modules": [
+      "error",
+      {
+        forbid: ["@valueos/**/src/**"],
+        // Temporary carve-outs (keep this list short; shrink over time)
+        allow: [
+          "@valueos/agents/*",
+          "@valueos/mcp/*",
+          "@valueos/shared/*",
+          "@valueos/design-system/*",
+        ],
+      },
+    ],
+  },
+};
+
+// Backend services guard rail: prevent direct auth schema table queries.
+const backendServiceAuthOverrides = {
+  files: ["packages/backend/src/services/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector:
+          "CallExpression[callee.property.name='schema'][arguments.0.value='auth']",
+        message:
+          "Do not query auth schema tables from backend services. Use Supabase auth admin APIs via AuthDirectoryService.",
+      },
+    ],
+  },
+};
+      },
+    ],
+  },
+};
+
 // Config files override - disable type-aware rules and project
 const configOverrides = {
   files: [
@@ -389,12 +453,14 @@ export default [
   ignoresConfig,
   pluginConfig,
   baseConfig,
+  backendServiceAuthOverrides,
   configOverrides,
   testOverrides,
   k6Overrides,
   frontendOverrides,
   srcOverrides,
   envOverrides,
+  moduleBoundaryOverrides,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],
 ];

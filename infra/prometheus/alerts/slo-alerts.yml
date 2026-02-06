@@ -1,112 +1,62 @@
 groups:
   - name: api-slo-availability
     rules:
-      # /health availability SLO ~99.9%
-      - alert: HealthAvailabilityFastBurn
+      # Global API availability SLO: 99.9% success rate (error budget 0.1%)
+      - alert: APIAvailabilityFastBurn
         expr: |
-          sum(rate(valuecanvas_http_requests_total{route="/health",status_code=~"5.."}[5m]))
+          sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[5m]))
           /
-          sum(rate(valuecanvas_http_requests_total{route="/health"}[5m]))
-          > 0.02
+          sum(rate(valuecanvas_http_requests_total[5m]))
+          > 0.01
         for: 10m
         labels:
           severity: critical
+          slo: availability
         annotations:
-          summary: "Fast burn: /health availability SLO breach"
-          description: "5xx error rate on /health > 2% over the last 10 minutes."
+          summary: "Fast burn: API availability SLO breach"
+          description: "5xx error ratio is above 1% for 10m, consuming error budget too quickly."
 
-      - alert: HealthAvailabilitySlowBurn
+      - alert: APIAvailabilitySlowBurn
         expr: |
-          sum(rate(valuecanvas_http_requests_total{route="/health",status_code=~"5.."}[30m]))
+          sum(rate(valuecanvas_http_requests_total{status_code=~"5.."}[30m]))
           /
-          sum(rate(valuecanvas_http_requests_total{route="/health"}[30m]))
-          > 0.005
+          sum(rate(valuecanvas_http_requests_total[30m]))
+          > 0.001
         for: 1h
         labels:
           severity: warning
+          slo: availability
         annotations:
-          summary: "Slow burn: /health availability SLO at risk"
-          description: "5xx error rate on /health > 0.5% over the last 1 hour."
-
-      # /api/llm/chat availability SLO ~99.5%
-      - alert: LLMChatAvailabilityFastBurn
-        expr: |
-          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat",status_code=~"5.."}[5m]))
-          /
-          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat"}[5m]))
-          > 0.02
-        for: 10m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Fast burn: /api/llm/chat availability SLO breach"
-          description: "5xx error rate on /api/llm/chat > 2% over the last 10 minutes."
-
-      - alert: LLMChatAvailabilitySlowBurn
-        expr: |
-          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat",status_code=~"5.."}[30m]))
-          /
-          sum(rate(valuecanvas_http_requests_total{route="/api/llm/chat"}[30m]))
-          > 0.005
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Slow burn: /api/llm/chat availability SLO at risk"
-          description: "5xx error rate on /api/llm/chat > 0.5% over the last 1 hour."
-
-      # /api/billing* availability SLO ~99.5%
-      - alert: BillingAvailabilityFastBurn
-        expr: |
-          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*",status_code=~"5.."}[5m]))
-          /
-          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*"}[5m]))
-          > 0.02
-        for: 10m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Fast burn: /api/billing availability SLO breach"
-          description: "5xx error rate on /api/billing* > 2% over the last 10 minutes."
-
-      - alert: BillingAvailabilitySlowBurn
-        expr: |
-          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*",status_code=~"5.."}[30m]))
-          /
-          sum(rate(valuecanvas_http_requests_total{route=~"/api/billing.*"}[30m]))
-          > 0.005
-        for: 1h
-        labels:
-          severity: warning
-        annotations:
-          summary: "Slow burn: /api/billing availability SLO at risk"
-          description: "5xx error rate on /api/billing* > 0.5% over the last 1 hour."
+          summary: "Slow burn: API availability SLO at risk"
+          description: "5xx error ratio is above 0.1% for 1h (below 99.9% availability objective)."
 
   - name: api-slo-latency
     rules:
-      # p95 latency SLOs (1s) for LLM chat and billing
-      - alert: LLMChatLatencyP95High
+      # API latency SLO: p95 under 200ms
+      - alert: APILatencyP95High
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route="/api/llm/chat"}[5m])) by (le)
-          ) > 1000
+            sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le)
+          ) > 200
         for: 10m
         labels:
           severity: warning
+          slo: latency
         annotations:
-          summary: "High p95 latency on /api/llm/chat"
-          description: "p95 latency on /api/llm/chat > 1s over the last 10 minutes."
+          summary: "High p95 latency"
+          description: "P95 API latency has exceeded 200ms for at least 10m."
 
-      - alert: BillingLatencyP95High
+  - name: api-slo-mttr
+    rules:
+      # MTTR SLO: incidents should resolve in <= 15 minutes
+      - alert: APIMTTRHigh
         expr: |
-          histogram_quantile(
-            0.95,
-            sum(rate(valuecanvas_http_request_duration_ms_bucket{route=~"/api/billing.*"}[5m])) by (le)
-          ) > 1000
-        for: 10m
+          avg_over_time(valuecanvas_incident_mttr_minutes[24h]) > 15
+        for: 15m
         labels:
-          severity: warning
+          severity: critical
+          slo: mttr
         annotations:
-          summary: "High p95 latency on /api/billing*"
-          description: "p95 latency on /api/billing routes > 1s over the last 10 minutes."
+          summary: "MTTR SLO breach"
+          description: "Average incident MTTR over 24h exceeds 15 minutes."

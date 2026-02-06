@@ -3,7 +3,7 @@
 This plan covers architecture governance, security baselines, observability, and dependency quality gates for the next quarter.
 
 ## ADRs and C4 Diagrams
-- **Repository & template**: Store ADRs in `docs/adr/` using sequential numbering (`0005` next) and statuses (Proposed, Accepted, Deprecated, Superseded) per `docs/adr/README.md` and `docs/adr/template.md`.
+- **Repository & template**: Store ADRs in `docs/engineering/adr/` using sequential numbering (`0005` next) and statuses (Proposed, Accepted, Deprecated, Superseded) per `docs/engineering/adr/README.md` and `docs/engineering/adr/template.md`.
 - **Update cadence**: Run a quarterly review to confirm ADRs are current; refresh C4 diagrams whenever schemas/services change.
 - **C4 diagrams to produce**:
   - **Context**: End users, tenant admins, integration partners, observability stack, and external risk/ML services.

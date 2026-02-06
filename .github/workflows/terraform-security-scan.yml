@@ -91,7 +91,7 @@ jobs:
         id: checkov
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: infrastructure/terraform
+          directory: infra/terraform
           framework: terraform
           output_format: sarif
           output_file_path: checkov.sarif
@@ -109,7 +109,7 @@ jobs:
         if: always()
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: infrastructure/terraform
+          directory: infra/terraform
           framework: terraform
           output_format: cli
           soft_fail: true
@@ -126,7 +126,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: "config"
-          scan-ref: "infrastructure/terraform"
+          scan-ref: "infra/terraform"
           format: "sarif"
           output: "trivy.sarif"
           severity: "CRITICAL,HIGH,MEDIUM"
