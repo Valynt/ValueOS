@@ -80,6 +80,50 @@ describe('LLMCostTracker', () => {
       .toBeCloseTo(0.002, 6);
   });
 
+
+  it('writes tenant_id when tenantId is provided', async () => {
+    const tracker = new LLMCostTracker();
+    // @ts-ignore
+    const supabase = createClient();
+
+    await tracker.trackUsage({
+      userId: 'u-tenant',
+      tenantId: 'tenant-123',
+      provider: 'openai',
+      model: 'meta-llama/Llama-3-70b-chat-hf',
+      promptTokens: 10,
+      completionTokens: 5,
+      endpoint: 'llm-gateway',
+      success: true,
+      latencyMs: 9,
+    });
+
+    // @ts-ignore
+    expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-123');
+  });
+
+
+  it('maps tenant_id input to tenant_id column', async () => {
+    const tracker = new LLMCostTracker();
+    // @ts-ignore
+    const supabase = createClient();
+
+    await tracker.trackUsage({
+      userId: 'u-tenant-snake',
+      tenant_id: 'tenant-snake-123',
+      provider: 'openai',
+      model: 'meta-llama/Llama-3-70b-chat-hf',
+      promptTokens: 10,
+      completionTokens: 5,
+      endpoint: 'llm-gateway',
+      success: true,
+      latencyMs: 9,
+    });
+
+    // @ts-ignore
+    expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-snake-123');
+  });
+
   it('logs but does not throw when usage insert fails', async () => {
     const tracker = new LLMCostTracker();
     // @ts-ignore
