@@ -11,6 +11,8 @@ interface ShutdownRuntime {
   log: (level: "info" | "warn" | "error", message: string, meta?: Record<string, unknown>) => void;
 }
 
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 120_000;
+
 const handlers: RegisteredHandler[] = [];
 const wiredSignals = new Set<string>();
 
@@ -18,7 +20,7 @@ let shutdownInFlight: Promise<void> | null = null;
 let shuttingDown = false;
 
 const runtime: ShutdownRuntime = {
-  timeoutMs: 30_000,
+  timeoutMs: DEFAULT_SHUTDOWN_TIMEOUT_MS,
   exit: (code) => process.exit(code),
   log: (level, message, meta) => {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";
@@ -105,7 +107,7 @@ export function __resetGracefulShutdownForTests(): void {
   wiredSignals.clear();
   shutdownInFlight = null;
   shuttingDown = false;
-  runtime.timeoutMs = 30_000;
+  runtime.timeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS;
   runtime.exit = (code) => process.exit(code);
   runtime.log = (level, message, meta) => {
     const payload = meta ? ` ${JSON.stringify(meta)}` : "";

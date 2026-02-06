@@ -314,7 +314,7 @@ app.use(errorHandler);
 
 function configureShutdownLogging(): void {
   configureGracefulShutdown({
-    timeoutMs: 10_000,
+    timeoutMs: settings.SHUTDOWN_TIMEOUT_MS,
     log: (level, message, meta) => {
       if (level === "error") {
         logger.error(message, undefined, meta);
@@ -328,10 +328,12 @@ function configureShutdownLogging(): void {
 }
 
 export function registerServerShutdownHandlers(): void {
+  // 1) Advertise shutdown first so health checks and load balancers stop routing traffic.
   registerShutdownHandler("markAsShuttingDown", async () => {
     markAsShuttingDown();
   });
 
+  // 2) Then stop accepting new network work (HTTP/WebSocket) to cap in-flight growth.
   registerShutdownHandler("closeNetworkServers", async () => {
     await new Promise<void>((resolve) => {
       wss.close(() => resolve());
@@ -348,6 +350,7 @@ export function registerServerShutdownHandlers(): void {
     });
   });
 
+  // 3) Finally, drain existing in-flight queues to preserve work already accepted.
   registerShutdownHandler("drainInflightExecutions", async () => {
     await Promise.all([
       agentOrchestrator.awaitDrain(),
