@@ -54,6 +54,51 @@ bash scripts/sync-tool-versions.sh
 
 In VS Code: `Cmd+Shift+P` → "Rebuild Container"
 
+## Production Containerization Notes
+
+### 4. Production image templates and targets
+
+The repository now includes production-oriented templates for frontend and agents:
+
+- Frontend (React/Vite): `apps/ValyntApp/Dockerfile.prod`
+- Agent template (parameterized): `packages/agents/base/Dockerfile.template`
+- Agent concrete Dockerfiles: `packages/agents/*/Dockerfile`
+
+Build examples:
+
+```bash
+# Frontend static bundle + nginx runtime
+DOCKER_BUILDKIT=1 docker build \
+  -f apps/ValyntApp/Dockerfile.prod \
+  -t valueos-frontend:prod \
+  .
+
+# Individual agent (target shown as example)
+DOCKER_BUILDKIT=1 docker build \
+  -f packages/agents/target/Dockerfile \
+  -t valueos-agent-target:prod \
+  .
+```
+
+These images use deterministic lockfile installs (`pnpm install --frozen-lockfile`) and BuildKit cache mounts for `/pnpm/store`.
+
+### 5. Context minimization and expected size impact
+
+Docker build contexts are reduced through dedicated Dockerfile-scoped ignore files:
+
+- `apps/ValyntApp/Dockerfile.prod.dockerignore`
+- `packages/agents/*/Dockerfile.dockerignore`
+
+Runtime stages intentionally exclude compiler toolchains, package-manager cache artifacts, test files, source files, and source maps.
+
+Expected image size improvements (relative to prior single-context npm-based images):
+
+- Frontend runtime image: **~40-65% smaller** (nginx + static assets only)
+- Agent runtime images: **~25-45% smaller** (production deps and dist output only)
+
+Exact reductions vary by dependency graph and bundle size.
+
+
 ## Migration Phases
 
 ### Phase 1: Foundation (Week 1)
