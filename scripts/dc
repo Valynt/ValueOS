@@ -2,14 +2,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-COMPOSE_FILE="${REPO_ROOT}/scripts/docker-compose.yml"
-LOCAL_ENV_FILE="${REPO_ROOT}/.env.local"
-ROOT_PORTS_ENV_FILE="${REPO_ROOT}/.env.ports"
-ROOT_PORTS_ENV_EXAMPLE="${REPO_ROOT}/.env.ports.example"
-LEGACY_PORTS_ENV_FILE="${REPO_ROOT}/scripts/.env.ports"
-LEGACY_PORTS_ENV_EXAMPLE="${REPO_ROOT}/scripts/.env.ports.example"
+COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+LOCAL_ENV_FILE="${ROOT}/.env.local"
+
+ENV_FILE="${ROOT}/scripts/.env.ports"
+ENV_EXAMPLE_FILE="${ROOT}/scripts/.env.ports.example"
+LEGACY_ENV_FILE="${ROOT}/.env.ports"
 
 [[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
@@ -21,22 +21,24 @@ DOCKER_BIN="$(command -v docker 2>/dev/null || true)"
 
 compose_args=(
   --project-name valueos
-  --project-directory "${REPO_ROOT}"
+  --project-directory "${ROOT}"
   -f "${COMPOSE_FILE}"
 )
 
+# Optional app/runtime env (non-port settings) if present
 if [[ -f "${LOCAL_ENV_FILE}" ]]; then
   compose_args+=(--env-file "${LOCAL_ENV_FILE}")
 fi
 
-if [[ -f "${ROOT_PORTS_ENV_FILE}" ]]; then
-  compose_args+=(--env-file "${ROOT_PORTS_ENV_FILE}")
-elif [[ -f "${LEGACY_PORTS_ENV_FILE}" ]]; then
-  compose_args+=(--env-file "${LEGACY_PORTS_ENV_FILE}")
-elif [[ -f "${ROOT_PORTS_ENV_EXAMPLE}" ]]; then
-  compose_args+=(--env-file "${ROOT_PORTS_ENV_EXAMPLE}")
-elif [[ -f "${LEGACY_PORTS_ENV_EXAMPLE}" ]]; then
-  compose_args+=(--env-file "${LEGACY_PORTS_ENV_EXAMPLE}")
+# Preferred deterministic port bindings for this repo (with legacy + example fallbacks)
+if [[ -f "${ENV_FILE}" ]]; then
+  compose_args+=(--env-file "${ENV_FILE}")
+elif [[ -f "${LEGACY_ENV_FILE}" ]]; then
+  compose_args+=(--env-file "${LEGACY_ENV_FILE}")
+elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
+  compose_args+=(--env-file "${ENV_EXAMPLE_FILE}")
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
+
+

@@ -106,6 +106,16 @@ docs/legacy/                   # Archived deprecated configurations
 └── scripts/                   # Old scripts and Nix files
 ```
 
+## 💾 Persistent Devcontainer Volumes
+
+The devcontainer compose file uses named Docker volumes so key development artifacts survive container rebuilds:
+
+- `pnpm-store` → `/home/vscode/.local/share/pnpm` for faster dependency installs.
+- `node_modules` → `/workspaces/ValueOS/node_modules` so the repository bind mount does not hide installed packages.
+- `vite-cache` → `/workspaces/ValueOS/.cache` (optional) to persist Vite/Storybook cache data between rebuilds.
+
+These are Docker-managed named volumes, so they remain available until you explicitly remove them (for example via `docker volume rm ...` or `docker compose down -v`).
+
 ## 🔧 Lifecycle Scripts
 
 The devcontainer uses a simplified lifecycle:
@@ -167,6 +177,16 @@ UI_SEED=1 bash scripts/dev/setup.sh
 ```
 
 This writes fixtures to `apps/ValyntApp/public/ui-fixtures/` (served by the Vite dev server), so your UI can load them at `/ui-fixtures/empty.json`, `/ui-fixtures/error.json`, or `/ui-fixtures/long-text.json`.
+
+### Running the environment doctor manually
+
+If you need to validate that core services and expected ports are healthy after setup, run:
+
+```bash
+bash scripts/check-env.sh
+```
+
+This executes `pnpm run dx:doctor` and exits non-zero on failures, making it safe to use in CI/devcontainer bootstrap checks.
 
 ### Modifying Security Settings
 

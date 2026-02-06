@@ -116,7 +116,6 @@ temp/
 # Test results
 test-results/
 playwright-report/
-coverage/
 
 # Lock files (keep these)
 # package-lock.json
