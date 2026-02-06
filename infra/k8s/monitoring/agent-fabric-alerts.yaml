@@ -14,8 +14,8 @@ spec:
         - alert: AgentFabricHighErrorRate
           expr: |
             (
-              rate(agent_fabric_execution_errors_total[5m]) /
-              rate(agent_fabric_executions_total[5m])
+              rate(agent_fabric_execution_failure_total[5m]) /
+              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
             ) * 100 > 10
           for: 2m
           labels:
@@ -30,8 +30,8 @@ spec:
         - alert: AgentFabricCriticalErrorRate
           expr: |
             (
-              rate(agent_fabric_execution_errors_total[5m]) /
-              rate(agent_fabric_executions_total[5m])
+              rate(agent_fabric_execution_failure_total[5m]) /
+              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
             ) * 100 > 25
           for: 1m
           labels:
@@ -197,7 +197,7 @@ spec:
         # Cost Alert
         - alert: AgentFabricHighCost
           expr: |
-            rate(agent_fabric_cost_total[1h]) > 100
+            rate(agent_fabric_cost_usd_total[1h]) > 100
           for: 10m
           labels:
             severity: warning
@@ -211,8 +211,8 @@ spec:
         - alert: AgentFabricLowSuccessRate
           expr: |
             (
-              rate(agent_fabric_executions_success_total[5m]) /
-              rate(agent_fabric_executions_total[5m])
+              rate(agent_fabric_execution_success_total[5m]) /
+              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
             ) * 100 < 90
           for: 5m
           labels:
@@ -227,8 +227,8 @@ spec:
         - alert: AgentFabricCriticalSuccessRate
           expr: |
             (
-              rate(agent_fabric_executions_success_total[5m]) /
-              rate(agent_fabric_executions_total[5m])
+              rate(agent_fabric_execution_success_total[5m]) /
+              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
             ) * 100 < 75
           for: 2m
           labels:
@@ -245,7 +245,10 @@ spec:
         - alert: AgentFabricLowROI
           expr: |
             (
-              rate(agent_fabric_roi_total[1h]) < 50
+              (
+                rate(agent_fabric_value_generated_usd_total[1h]) /
+                clamp_min(rate(agent_fabric_cost_usd_total[1h]), 0.000001)
+              ) * 100 < 50
             )
           for: 15m
           labels:
@@ -261,7 +264,7 @@ spec:
         - alert: AgentFabricLowValueGeneration
           expr: |
             (
-              rate(agent_fabric_value_generated_total[1h]) < 1000
+              rate(agent_fabric_value_generated_usd_total[1h]) < 1000
             )
           for: 15m
           labels:
@@ -277,8 +280,8 @@ spec:
         - alert: AgentFabricHighCostPerValue
           expr: |
             (
-              rate(agent_fabric_cost_total[1h]) /
-              rate(agent_fabric_value_generated_total[1h])
+              rate(agent_fabric_cost_usd_total[1h]) /
+              clamp_min(rate(agent_fabric_value_generated_usd_total[1h]), 0.000001)
             ) > 0.5
           for: 15m
           labels:
