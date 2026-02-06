@@ -84,9 +84,6 @@ RUN test -f apps/ValyntApp/dist/index.html || (echo "ERROR: Build failed - dist/
 # Stage 4: Production runtime with nginx
 FROM ${NGINX_IMAGE} AS runtime
 
-# Install healthcheck dependency
-RUN apk add --no-cache curl
-
 # Security: Run as non-root user
 RUN addgroup -g 1001 -S nginx-app && \
     adduser -u 1001 -S nginx-app -G nginx-app
@@ -109,7 +106,7 @@ USER nginx-app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl --fail --silent --show-error http://localhost:8080/health || exit 1
+  CMD wget -qO- http://localhost:8080/health > /dev/null || exit 1
 
 EXPOSE 8080
 
