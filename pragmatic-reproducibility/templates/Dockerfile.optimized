@@ -168,6 +168,19 @@ RUN npm install -g prisma@5 \
 # ─────────────────────────────────────────────────────────────────────────────
 # Final stage
 # ─────────────────────────────────────────────────────────────────────────────
+# Dependencies stage
+FROM security AS deps
+
+WORKDIR /workspaces/valueos
+
+# Copy package manifests and lockfile for dependency installation
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY .npmrc ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Final stage
 FROM security AS final
 
 ARG USERNAME=vscode
@@ -201,6 +214,12 @@ RUN echo "NODE_VERSION=$NODE_VERSION" >> /home/$USERNAME/.versions \
     && echo "BUILD_DATE=$(date -Iseconds)" >> /home/$USERNAME/.versions
 
 WORKDIR /workspaces/valueos
+
+# Copy dependencies from deps stage
+COPY --from=deps /workspaces/valueos/node_modules ./node_modules
+
+# Copy the rest of the source
+COPY . .
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \

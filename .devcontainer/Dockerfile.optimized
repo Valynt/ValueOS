@@ -171,7 +171,27 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         echo "Skipping dbtools installation"; \
     fi
 
-# Stage 6: Final image with user setup
+# Stage 6: Dependencies
+FROM dbtools AS deps
+
+# Create workspace directory as root and set permissions
+RUN mkdir -p /workspaces/ValueOS && \
+    chown -R vscode:vscode /workspaces/ValueOS
+
+# Switch to vscode user for dependency install
+USER vscode
+
+# Set working directory
+WORKDIR /workspaces/ValueOS
+
+# Copy package files for dependency installation
+COPY --chown=vscode:vscode package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY --chown=vscode:vscode .npmrc ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Stage 7: Final image with user setup
 FROM dbtools AS final
 
 # Create workspace directory as root and set permissions
@@ -194,11 +214,11 @@ RUN mkdir -p \
 # Set working directory
 WORKDIR /workspaces/ValueOS
 
-# Copy package files for dependency installation
-COPY package.json pnpm-lock.yaml ./
+# Copy dependencies from deps stage
+COPY --from=deps /workspaces/ValueOS/node_modules ./node_modules
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile --ignore-scripts
+# Copy the rest of the source
+COPY --chown=vscode:vscode . .
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \
