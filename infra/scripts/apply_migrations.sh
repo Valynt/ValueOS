@@ -52,6 +52,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 MIGRATIONS_DIR="infra/postgres/migrations"
+DISALLOWED_MIGRATION_DIRS=(
+  "infra/migrations"
+  "scripts/migrations"
+  "scripts/prisma/migrations"
+)
 DB_HOST="${DB_HOST:-localhost}"
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-dev_password}"
@@ -79,12 +84,31 @@ retry_command() {
   done
 }
 
+validate_migration_sources() {
+  local disallowed_found=0
+
+  for dir in "${DISALLOWED_MIGRATION_DIRS[@]}"; do
+    if [ -d "$dir" ] && find "$dir" -maxdepth 3 -type f -name "*.sql" | grep -q .; then
+      echo "❌ Disallowed runtime migration SQL files found in: $dir"
+      echo "   Move runtime migrations into $MIGRATIONS_DIR"
+      disallowed_found=1
+    fi
+  done
+
+  if [ "$disallowed_found" -ne 0 ]; then
+    echo "❌ Aborting migration run due to non-canonical SQL migration sources."
+    exit 1
+  fi
+}
+
 echo "🔄 Syncing Database..."
 echo "Configuration: DB_RETRY_COUNT=$DB_RETRY_COUNT, DB_RETRY_DELAY=$DB_RETRY_DELAY, MIGRATION_RETRY_COUNT=$MIGRATION_RETRY_COUNT, MIGRATION_RETRY_DELAY=$MIGRATION_RETRY_DELAY, MIGRATION_TRACKING_RETRY_COUNT=$MIGRATION_TRACKING_RETRY_COUNT, MIGRATION_TRACKING_RETRY_DELAY=$MIGRATION_TRACKING_RETRY_DELAY"
 
 if $DRY_RUN; then
   echo "DRY RUN MODE: No changes will be applied"
 fi
+
+validate_migration_sources
 
 # Ensure migrations table exists with retry
 if ! $DRY_RUN; then
