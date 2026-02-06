@@ -235,6 +235,7 @@ services:
     build:
       context: ../.. # repo root
       dockerfile: infra/docker/Dockerfile.frontend
+      target: development
       args:
         NODE_VERSION: "20.19.0"
         PNPM_VERSION: "9.15.0"

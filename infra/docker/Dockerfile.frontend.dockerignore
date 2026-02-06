@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+**/node_modules
+**/.turbo
+**/.cache
+**/coverage
+**/dist
+**/build
+**/*.log
+**/.env*
+**/__tests__
+**/*.test.*
+**/*.spec.*
+docs
+scripts

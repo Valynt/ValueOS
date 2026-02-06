@@ -14,13 +14,12 @@ services:
       ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
       TLS_MODE: ${TLS_MODE:-}
       API_UPSTREAM: ${API_UPSTREAM:-http://backend:${API_PORT:-3001}}
-      STATIC_ROOT: /srv/www
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-http://frontend:8080}
       CADDY_LOG_DIR: /var/log/caddy
       CADDY_STORAGE: /data
       CADDY_LOG_LEVEL: ${CADDY_LOG_LEVEL:-INFO}
     volumes:
       - ../infra/caddy:/etc/caddy:ro
-      - frontend-dist:/srv/www:ro
       - caddy-data:/data
       - caddy-config:/config
       - caddy-logs:/var/log/caddy
@@ -42,29 +41,29 @@ services:
         condition: service_healthy
 
   frontend:
-    image: node:20.19.0-alpine
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      args:
+        NODE_VERSION: "20.19.0"
+        PNPM_VERSION: "9.15.0"
+        VITE_API_BASE_URL: /api
+        VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     container_name: valueos-frontend-prod
-    working_dir: /app
-    command:
-      [
-        "sh",
-        "-c",
-        "npm ci --legacy-peer-deps && npm run build && cp -r dist/. /dist && tail -f /dev/null",
-      ]
     environment:
       NODE_ENV: production
       VITE_API_BASE_URL: /api
       VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
-    volumes:
-      - ../:/app
-      - frontend-dist:/dist
-      - frontend-node-modules:/app/node_modules
     networks:
       - valueos-network
+    expose:
+      - "8080"
     healthcheck:
-      test: ["CMD", "test", "-f", "/dist/index.html"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -195,8 +194,6 @@ volumes:
   caddy-config:
   caddy-logs:
   redis-data:
-  frontend-dist:
-  frontend-node-modules:
 
 secrets:
   supabase_service_key:

@@ -16,7 +16,7 @@ import ./Caddyfile
   }
 
   handle {
-    import spa_static
+    import frontend_proxy
   }
 }
 
