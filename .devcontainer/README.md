@@ -168,6 +168,16 @@ UI_SEED=1 bash scripts/dev/setup.sh
 
 This writes fixtures to `apps/ValyntApp/public/ui-fixtures/` (served by the Vite dev server), so your UI can load them at `/ui-fixtures/empty.json`, `/ui-fixtures/error.json`, or `/ui-fixtures/long-text.json`.
 
+### Running the environment doctor manually
+
+If you need to validate that core services and expected ports are healthy after setup, run:
+
+```bash
+bash scripts/check-env.sh
+```
+
+This executes `pnpm run dx:doctor` and exits non-zero on failures, making it safe to use in CI/devcontainer bootstrap checks.
+
 ### Modifying Security Settings
 
 **Dev Container:**
