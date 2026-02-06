@@ -150,3 +150,38 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agents-egress-allow-orchestrator-control-plane
+  namespace: valynt-agents
+spec:
+  podSelector:
+    matchLabels:
+      component: agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: valynt
+          podSelector:
+            matchLabels:
+              component: orchestrator
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
