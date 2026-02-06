@@ -6,6 +6,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 COMPOSE_FILE="${PROJECT_ROOT}/scripts/docker-compose.yml"
 ENV_FILE="${PROJECT_ROOT}/scripts/.env.ports"
+LEGACY_ENV_FILE="${PROJECT_ROOT}/.env.ports"
 
 [[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
@@ -16,7 +17,9 @@ DOCKER_BIN="$(command -v docker 2>/dev/null || true)"
 }
 
 if [[ ! -f "${ENV_FILE}" ]]; then
-  if [[ -f "${ENV_FILE}.example" ]]; then
+  if [[ -f "${LEGACY_ENV_FILE}" ]]; then
+    ENV_FILE="${LEGACY_ENV_FILE}"
+  elif [[ -f "${ENV_FILE}.example" ]]; then
     ENV_FILE="${ENV_FILE}.example"
   else
     ENV_FILE=""
