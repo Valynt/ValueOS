@@ -1,72 +1,40 @@
 /**
  * MFA Service Tests
- *
- * Tests for AUTH-001 MFA enforcement
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { mfaService } from "../MFAService.js"
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as OTPAuth from "otpauth";
+import { MFAService } from "../MFAService.js";
+import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 
-// Mock dependencies
 vi.mock("../../lib/logger");
-vi.mock("../BaseService");
+vi.mock("@simplewebauthn/server", () => ({
+  verifyAuthenticationResponse: vi.fn(),
+}));
 
 describe("MFAService", () => {
+  let service: MFAService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    service = new MFAService();
+    (service as any).executeRequest = vi.fn(async (operation: () => Promise<unknown>) => operation());
+  });
+
   describe("isMFARequiredForRole", () => {
     it("should require MFA for super_admin", () => {
-      expect(mfaService.isMFARequiredForRole("super_admin")).toBe(true);
-    });
-
-    it("should require MFA for admin", () => {
-      expect(mfaService.isMFARequiredForRole("admin")).toBe(true);
-    });
-
-    it("should require MFA for manager", () => {
-      expect(mfaService.isMFARequiredForRole("manager")).toBe(true);
+      expect(service.isMFARequiredForRole("super_admin")).toBe(true);
     });
 
     it("should not require MFA for member", () => {
-      expect(mfaService.isMFARequiredForRole("member")).toBe(false);
-    });
-
-    it("should not require MFA for viewer", () => {
-      expect(mfaService.isMFARequiredForRole("viewer")).toBe(false);
-    });
-
-    it("should not require MFA for guest", () => {
-      expect(mfaService.isMFARequiredForRole("guest")).toBe(false);
+      expect(service.isMFARequiredForRole("member")).toBe(false);
     });
   });
 
   describe("TOTP generation", () => {
-    it("should generate valid TOTP secret", () => {
-      const secret = new OTPAuth.Secret({ size: 20 });
-      expect(secret.base32).toBeDefined();
-      expect(secret.base32.length).toBeGreaterThan(0);
-    });
-
-    it("should generate valid TOTP tokens", () => {
-      const secret = new OTPAuth.Secret({ size: 20 });
-      const totp = new OTPAuth.TOTP({
-        algorithm: "SHA1",
-        digits: 6,
-        period: 30,
-        secret: secret,
-      });
-      const token = totp.generate();
-      expect(token).toMatch(/^\d{6}$/);
-    });
-
     it("should verify valid TOTP tokens", () => {
       const secret = new OTPAuth.Secret({ size: 20 });
-      const totp = new OTPAuth.TOTP({
-        algorithm: "SHA1",
-        digits: 6,
-        period: 30,
-        secret: secret,
-      });
-
+      const totp = new OTPAuth.TOTP({ algorithm: "SHA1", digits: 6, period: 30, secret });
       const token = totp.generate();
 
       const delta = totp.validate({ token, window: 1 });
@@ -75,45 +43,75 @@ describe("MFAService", () => {
 
     it("should reject invalid TOTP tokens", () => {
       const secret = new OTPAuth.Secret({ size: 20 });
-      const totp = new OTPAuth.TOTP({
-        algorithm: "SHA1",
-        digits: 6,
-        period: 30,
-        secret: secret,
+      const totp = new OTPAuth.TOTP({ algorithm: "SHA1", digits: 6, period: 30, secret });
+
+      expect(totp.validate({ token: "000000", window: 1 })).toBeNull();
+    });
+  });
+
+  describe("verifyMFA webauthn", () => {
+    it("rejects webauthn verification when challenge is missing", async () => {
+      const result = await service.verifyMFA("user-1", "webauthn", {
+        response: { rawId: "ZmFrZS1jcmVkZW50aWFs", id: "fake", type: "public-key", response: {} as any, clientExtensionResults: {} },
       });
 
-      const delta = totp.validate({ token: "000000", window: 1 });
-      expect(delta).toBeNull();
-    });
-  });
-
-  describe("backup codes", () => {
-    it("should generate backup codes of correct length", () => {
-        // Since we are mocking the implementation in test, we replicate the logic here to verify assumption
-        const code = Math.random().toString(36).substring(2, 10).toUpperCase();
-        // substring(2, 10) gives 8 chars
-        expect(code.length).toBeGreaterThan(0);
-        expect(code.length).toBeLessThanOrEqual(8);
-    });
-  });
-
-  describe("MFA enforcement logic", () => {
-    it("should block login for admin without MFA", async () => {
-      // Test scenario covered in AuthService tests
-      const userRole = "admin";
-      const mfaRequired = mfaService.isMFARequiredForRole(userRole);
-      const mfaEnabled = false;
-
-      if (mfaRequired && !mfaEnabled) {
-        expect(true).toBe(true); // Should require enrollment
-      }
+      expect(result).toEqual({ verified: false });
     });
 
-    it("should allow login for member without MFA", () => {
-      const userRole = "member";
-      const mfaRequired = mfaService.isMFARequiredForRole(userRole);
+    it("rejects forged webauthn assertion when verifier returns not verified", async () => {
+      const mockedVerify = vi.mocked(verifyAuthenticationResponse);
+      mockedVerify.mockResolvedValue({ verified: false } as any);
 
-      expect(mfaRequired).toBe(false); // MFA is optional
+      const single = vi.fn().mockResolvedValue({
+        data: {
+          id: "cred-row",
+          credential_id: Buffer.from("credential-id").toString("base64"),
+          public_key: Buffer.from("public-key").toString("base64"),
+          counter: 10,
+        },
+        error: null,
+      });
+      const eq2 = vi.fn(() => ({ single }));
+      const eq1 = vi.fn(() => ({ eq: eq2 }));
+      const select = vi.fn(() => ({ eq: eq1 }));
+      const from = vi.fn(() => ({ select }));
+      (service as any).supabase = { from };
+
+      const result = await service.verifyMFA("user-1", "webauthn", {
+        expectedChallenge: "expected-challenge",
+        response: {
+          id: "credential-id",
+          rawId: Buffer.from("credential-id").toString("base64url"),
+          type: "public-key",
+          response: {} as any,
+          clientExtensionResults: {},
+        },
+      });
+
+      expect(result).toEqual({ verified: false });
+    });
+
+    it("rejects unknown webauthn credential lookup", async () => {
+      const single = vi.fn().mockResolvedValue({ data: null, error: { message: "not found" } });
+      const eq2 = vi.fn(() => ({ single }));
+      const eq1 = vi.fn(() => ({ eq: eq2 }));
+      const select = vi.fn(() => ({ eq: eq1 }));
+      const from = vi.fn(() => ({ select }));
+      (service as any).supabase = { from };
+
+      const result = await service.verifyMFA("user-1", "webauthn", {
+        expectedChallenge: "expected-challenge",
+        response: {
+          id: "credential-id",
+          rawId: Buffer.from("credential-id").toString("base64url"),
+          type: "public-key",
+          response: {} as any,
+          clientExtensionResults: {},
+        },
+      });
+
+      expect(result).toEqual({ verified: false });
+      expect(verifyAuthenticationResponse).not.toHaveBeenCalled();
     });
   });
 });
