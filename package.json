@@ -80,6 +80,8 @@
     "preview": "serve dist -s -l 5173",
     "test": "tsx scripts/test-preflight.ts && turbo run test",
     "test:unit": "tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.config.unit.ts",
+    "test:unit:coverage": "tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.config.unit.ts --coverage",
+    "coverage:strict-zones": "node scripts/ci/coverage-strict-zones.mjs",
     "test:integration": "TEST_MODE=integration tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.integration.config.ts",
     "test:all": "TEST_MODE=all tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.config.unit.ts && TEST_MODE=integration vitest run --config .config/configs/vitest.integration.config.ts",
     "test:watch": "vitest --config .config/configs/vitest.config.unit.ts",
@@ -237,12 +239,12 @@
     "build:prod": "pnpm run build && pnpm run build:inject-config -- --env production",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "check:no-placeholder-route-auth": "bash scripts/ci/check-placeholder-route-auth.sh"
+    "check:no-placeholder-route-auth": "bash scripts/ci/check-placeholder-route-auth.sh",
     "typecheck:verify": "pnpm run typecheck:signal --verify",
     "guard:strict-zones": "tsx scripts/dx/guard-strict-zone-config.ts",
     "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs",
     "debt:inventory": "node scripts/debt/inventory.mjs",
-    "debt:baseline": "node scripts/debt/inventory.mjs --write-baseline"
+    "debt:baseline": "node scripts/debt/inventory.mjs --write-baseline",
     "quality:ci": "node scripts/ci/quality-gate.mjs",
     "ci:quality:legacy": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
   },
