@@ -239,6 +239,12 @@ describe('Route hardening', () => {
     expect(names).toContain('securityHeadersMiddleware');
   });
 
+
+  it.each(ROUTERS)('%s router applies request sanitization middleware', ({ router }) => {
+    const names = collectMiddlewareNames(router);
+    expect(names).toContain('requestSanitizationMiddleware');
+  });
+
   it.each(ROUTERS)('%s router enforces RBAC or is explicitly exempt', ({ name, router }) => {
     const names = collectMiddlewareNames(router);
     const hasRbac = names.some(

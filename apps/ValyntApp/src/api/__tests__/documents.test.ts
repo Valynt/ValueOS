@@ -35,6 +35,25 @@ describe('Document upload lineage enforcement', () => {
     expect(res.status).toBe(400);
   });
 
+
+  it('sanitizes XSS payloads in lineage metadata fields', async () => {
+    const res = await request(app)
+      .post('/api/documents/upload')
+      .set(csrfHeaders)
+      .send({
+        documentId: 'doc-unsafe',
+        content: 'example document',
+        metadata: {
+          source_origin: '<script>alert(1)</script>vendor',
+          data_sensitivity_level: 'confidential'
+        }
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.lineage.source_origin).toContain('&lt;script&gt;');
+    expect(res.body.data.lineage.source_origin).not.toContain('<script>');
+  });
+
   it('accepts uploads with lineage tags and returns evidence log', async () => {
     const res = await request(app)
       .post('/api/documents/upload')

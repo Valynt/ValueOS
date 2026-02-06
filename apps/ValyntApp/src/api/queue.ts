@@ -4,25 +4,17 @@
  * Endpoints for async LLM job management
  */
 
-import { Request, Response, Router } from 'express';
+import { Request, Response } from 'express';
 import { llmQueue } from '../services/MessageQueue';
 import { logger } from '../utils/logger';
-import {
-  csrfProtectionMiddleware,
-  securityHeadersMiddleware,
-  sessionTimeoutMiddleware,
-} from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { sessionTimeoutMiddleware } from '../middleware/securityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
 import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
+import { createSecureRouter } from '../middleware/secureRouter';
 
-const router = Router();
-router.use(requestAuditMiddleware());
-router.use(securityHeadersMiddleware);
-router.use(serviceIdentityMiddleware);
+const router = createSecureRouter('standard');
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,
@@ -37,7 +29,6 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
 router.post(
   '/llm',
   rateLimiters.standard,
-  csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
   requireConsent('queue.llm', consentRegistry),
   async (req: Request, res: Response) => {
@@ -199,7 +190,6 @@ router.get('/llm/:jobId/result', async (req: Request, res: Response) => {
 router.delete(
   '/llm/:jobId',
   rateLimiters.standard,
-  csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
   requireConsent('queue.llm.cancel', consentRegistry),
   async (req: Request, res: Response) => {
@@ -259,7 +249,7 @@ router.get('/metrics', async (req: Request, res: Response) => {
  * 
  * Submit batch of LLM jobs
  */
-router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.post('/llm/batch', rateLimiters.strict, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
   try {
     const { jobs } = req.body;
     

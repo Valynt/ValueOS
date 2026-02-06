@@ -14,12 +14,14 @@ import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddl
 import { requirePermission } from "../../middleware/rbac";
 import { requireAuth } from "../../middleware/auth";
 import { tenantContextMiddleware } from "../../middleware/tenantContext";
+import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware";
 
 const router = express.Router();
 
 // Baseline protections applied to all billing routes
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(requestSanitizationMiddleware({ params: { tenantId: { maxLength: 128 } } }));
 
 // Public webhook endpoints (Stripe verification handles its own validation)
 router.use("/webhooks", webhooksRouter);
