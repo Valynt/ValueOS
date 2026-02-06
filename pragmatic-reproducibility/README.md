@@ -58,35 +58,42 @@ In VS Code: `Cmd+Shift+P` → "Rebuild Container"
 
 ### 4. Production image templates and targets
 
-The repository now includes production-oriented templates for frontend and agents:
+The repository now includes production-oriented Dockerfiles for frontend and agents:
 
-- Frontend (React/Vite): `apps/ValyntApp/Dockerfile.prod`
+- Frontend (React/Vite): `infra/docker/Dockerfile.frontend`
 - Agent template (parameterized): `packages/agents/base/Dockerfile.template`
-- Agent concrete Dockerfiles: `packages/agents/*/Dockerfile`
+- Agent Dockerfiles generated from the template: `packages/agents/*/Dockerfile`
 
 Build examples:
 
 ```bash
 # Frontend static bundle + nginx runtime
 DOCKER_BUILDKIT=1 docker build \
-  -f apps/ValyntApp/Dockerfile.prod \
+  -f infra/docker/Dockerfile.frontend \
   -t valueos-frontend:prod \
   .
 
 # Individual agent (target shown as example)
 DOCKER_BUILDKIT=1 docker build \
-  -f packages/agents/target/Dockerfile \
+  -f packages/agents/base/Dockerfile.template \
+  --build-arg AGENT_NAME=target \
   -t valueos-agent-target:prod \
   .
 ```
 
 These images use deterministic lockfile installs (`pnpm install --frozen-lockfile`) and BuildKit cache mounts for `/pnpm/store`.
 
+Regenerate per-agent Dockerfiles from the template when updates are required:
+
+```bash
+python3 packages/agents/base/generate-dockerfiles.py
+```
+
 ### 5. Context minimization and expected size impact
 
 Docker build contexts are reduced through dedicated Dockerfile-scoped ignore files:
 
-- `apps/ValyntApp/Dockerfile.prod.dockerignore`
+- `infra/docker/Dockerfile.frontend.dockerignore`
 - `packages/agents/*/Dockerfile.dockerignore`
 
 Runtime stages intentionally exclude compiler toolchains, package-manager cache artifacts, test files, source files, and source maps.
