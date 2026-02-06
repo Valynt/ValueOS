@@ -3,5 +3,6 @@
     "packages/core-utils",
     "apps/web/src/lib/safe-zone"
   ],
-  "comment": "These directories MUST remain at 0 TypeScript errors. They use tsconfig.strict.json."
+  "comment": "These directories MUST remain at 0 TypeScript errors. They use tsconfig.strict.json.",
+  "migration_note": "Canonical strict-zone config. Legacy packages/config-v2/strict-zones.config.js was removed; use this file only."
 }
