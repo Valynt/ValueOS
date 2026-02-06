@@ -39,6 +39,15 @@ class AgentOrchestratorAdapter {
   private queryService: AgentQueryService | null = null;
   private streamingCallbacks: Array<(update: StreamingUpdate) => void> = [];
   private currentState: WorkflowState | null = null;
+  private inFlightExecutions = new Set<Promise<unknown>>();
+
+  private trackInFlight<T>(execution: Promise<T>): Promise<T> {
+    this.inFlightExecutions.add(execution);
+    execution.finally(() => {
+      this.inFlightExecutions.delete(execution);
+    });
+    return execution;
+  }
 
   private buildExecutionEnvelope(userId: string, context?: Record<string, any>): ExecutionEnvelope {
     return {
@@ -111,7 +120,9 @@ class AgentOrchestratorAdapter {
 
       // Process query through unified orchestrator
       const envelope = this.buildExecutionEnvelope(userId, options?.context);
-      const result = await this.unifiedOrchestrator.processQuery(envelope, query, this.currentState, userId, sessionId, traceId);
+      const result = await this.trackInFlight(
+        this.unifiedOrchestrator.processQuery(envelope, query, this.currentState, userId, sessionId, traceId)
+      );
 
       // Update internal state
       this.currentState = result.nextState;
@@ -201,7 +212,9 @@ class AgentOrchestratorAdapter {
     userId: string
   ) {
     const envelope = this.buildExecutionEnvelope(userId, context);
-    return this.unifiedOrchestrator.executeWorkflow(envelope, workflowDefinitionId, context, userId);
+    return this.trackInFlight(
+      this.unifiedOrchestrator.executeWorkflow(envelope, workflowDefinitionId, context, userId)
+    );
   }
 
   /**
@@ -217,7 +230,9 @@ class AgentOrchestratorAdapter {
       ? this.streamingCallbacks[0]
       : undefined;
     const envelope = this.buildExecutionEnvelope(context?.userId || 'anonymous', context);
-    return this.unifiedOrchestrator.generateSDUIPage(envelope, agent, query, context, callback);
+    return this.trackInFlight(
+      this.unifiedOrchestrator.generateSDUIPage(envelope, agent, query, context, callback)
+    );
   }
 
   /**
@@ -244,6 +259,19 @@ class AgentOrchestratorAdapter {
    */
   resetCircuitBreaker(agent: Parameters<UnifiedAgentOrchestrator['resetCircuitBreaker']>[0]) {
     return this.unifiedOrchestrator.resetCircuitBreaker(agent);
+  }
+
+  async awaitDrain(pollIntervalMs: number = 25): Promise<void> {
+    while (this.inFlightExecutions.size > 0) {
+      await Promise.allSettled(Array.from(this.inFlightExecutions));
+      if (this.inFlightExecutions.size > 0) {
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      }
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    await this.awaitDrain();
   }
 
   /**

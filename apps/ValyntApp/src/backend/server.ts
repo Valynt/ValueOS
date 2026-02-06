@@ -42,6 +42,15 @@ import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 import { TenantContextResolver } from "../services/TenantContextResolver";
 import { errorHandler } from "../middleware/errorHandler";
+import { llmQueue } from "../services/MessageQueue";
+import { agentOrchestrator } from "../services/AgentOrchestratorAdapter";
+import { getAgentMessageBroker } from "../services/AgentMessageBroker";
+import {
+  configureGracefulShutdown,
+  initiateGracefulShutdown,
+  registerShutdownHandler,
+  wireProcessShutdownSignals,
+} from "../lib/shutdown/gracefulShutdown";
 
 const logger = new Logger({ component: "BillingServer" });
 const INTERNAL_ERROR_STATUS = 500;
@@ -301,6 +310,59 @@ app.use(
 // Error handler
 app.use(errorHandler);
 
+function configureShutdownLogging(): void {
+  configureGracefulShutdown({
+    timeoutMs: 10_000,
+    log: (level, message, meta) => {
+      if (level === "error") {
+        logger.error(message, undefined, meta);
+      } else if (level === "warn") {
+        logger.warn(message, meta);
+      } else {
+        logger.info(message, meta);
+      }
+    },
+  });
+}
+
+export function registerServerShutdownHandlers(): void {
+  registerShutdownHandler("markAsShuttingDown", async () => {
+    markAsShuttingDown();
+  });
+
+  registerShutdownHandler("closeNetworkServers", async () => {
+    await new Promise<void>((resolve) => {
+      wss.close(() => resolve());
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+  });
+
+  registerShutdownHandler("drainInflightExecutions", async () => {
+    await Promise.all([
+      agentOrchestrator.awaitDrain(),
+      getAgentMessageBroker().shutdown(),
+      llmQueue.shutdown(),
+    ]);
+  });
+}
+
+configureShutdownLogging();
+registerServerShutdownHandlers();
+wireProcessShutdownSignals(["SIGTERM", "SIGINT"]);
+
+export function requestShutdownForSecretReload(secretKey: string): void {
+  void initiateGracefulShutdown(`secret-reload:${secretKey}`);
+}
+
 async function startServer(): Promise<void> {
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
@@ -318,21 +380,7 @@ async function startServer(): Promise<void> {
         secretKey: event.secretKey,
       });
 
-      // 1. Notify LB to stop sending traffic
-      markAsShuttingDown();
-
-      // 2. Stop accepting new connections
-      const SHUTDOWN_TIMEOUT = 10000; // 10 seconds
-      server.close(() => {
-        logger.info("Server closed, exiting process");
-        process.exit(0);
-      });
-
-      // 3. Force exit if connections don't drain in time
-      setTimeout(() => {
-        logger.error("Forcing exit after timeout");
-        process.exit(1);
-      }, SHUTDOWN_TIMEOUT);
+      requestShutdownForSecretReload(event.secretKey);
     });
   }
 
