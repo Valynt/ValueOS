@@ -199,6 +199,10 @@ This executes `pnpm run dx:doctor` and exits non-zero on failures, making it saf
 ]
 ```
 
+### Seccomp profile
+
+The devcontainer uses a custom seccomp profile at `.devcontainer/seccomp/valueos-seccomp.json`. It is derived from Docker’s default profile (`vendor/github.com/moby/profiles/seccomp/default.json` in the Moby repository) and tightened for ValueOS by removing CAP_SYS_ADMIN-gated filesystem/namespace/LSM syscalls that the application does not require (for example `mount`, `umount`, `unshare`, `setns`, and related `fs*` and LSM operations). The only CAP_SYS_ADMIN-gated syscalls retained are `clone`/`clone3`, which are needed for normal process/thread creation in the devcontainer. Update the profile only after validating any new syscall needs introduced by tooling or dependencies.
+
 **Docker Compose:**
 
 ```yaml

@@ -4,6 +4,12 @@
   "service": "dev",
   "workspaceFolder": "/workspaces/ValueOS",
   "shutdownAction": "stopCompose",
+  "runArgs": [
+    "--security-opt",
+    "apparmor=valueos-dev",
+    "--security-opt",
+    "seccomp=/workspaces/ValueOS/.devcontainer/seccomp/valueos-seccomp.json"
+  ],
 
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
