@@ -110,6 +110,24 @@ jobs:
       - name: Run CI verification suite
         run: pnpm run ci:verify
 
+      - name: Generate unit coverage report
+        run: pnpm run test:unit:coverage
+
+      - name: Enforce strict-zone coverage thresholds
+        run: pnpm run coverage:strict-zones
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage
+          path: |
+            coverage/coverage-summary.json
+            coverage/lcov.info
+            coverage/baseline-summary.md
+            coverage/strict-zone-summary.json
+            coverage/index.html
+
   playwright-smoke:
     name: Playwright Smoke
     runs-on: ubuntu-latest
