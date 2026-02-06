@@ -99,3 +99,22 @@ Use this as the canonical template for the "Beta Steering Committee" dashboard c
 
 - **Dashboard freshness:** Monday 09:00 refresh ensures the Steering Committee sees current metrics.
 - **RICE fields present:** Custom fields added in Jira/Linear for all beta feedback issues, surfaced in the saved view.
+
+## Item 3.3: Governance Risk & Operating Cadence (Legacy Concentration)
+
+### Governance Risk Entry
+
+- **Risk statement:** Legacy concentration in high-change modules increases delivery risk, slows migration, and can conceal compounding quality degradation until late release stages.
+- **Single owner:** **Engineering Productivity Lead** (accountable role for threshold tracking and cross-team coordination).
+- **Review cadence:** Weekly in the quality/governance pulse; monthly in engineering leadership operating review.
+- **Escalation path when thresholds are breached:** Engineering Productivity Lead opens remediation plan within 1 business day → Head of Engineering review in the same week → CTO escalation if breach persists for 2 consecutive weekly reviews.
+
+### Objective Exit Criteria (trend, not snapshot)
+
+Legacy concentration exits risk status only when all trend gates are met simultaneously:
+
+1. **Error budget burn rate:** below agreed threshold for **4 consecutive weekly periods**.
+2. **Sea-of-Debt footprint:** declines by at least **10% across 4 consecutive weekly periods**.
+3. **Strict-island coverage:** expands by at least **15% across 4 consecutive weekly periods**.
+
+A one-off favorable reading is non-binding; any weekly regression resets the corresponding trend window.
