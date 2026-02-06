@@ -15,6 +15,7 @@ volumes:
   storage-data:
   pnpm-store:
   node_modules:
+  vite-cache:
 
 networks:
   valueos-network:
@@ -36,6 +37,8 @@ services:
       - pnpm-store:/home/vscode/.local/share/pnpm
       # Fix: Prevent bind mount from hiding image-installed node_modules
       - node_modules:/workspaces/ValueOS/node_modules
+      # Optional: persist Vite/Storybook cache between rebuilds
+      - vite-cache:/workspaces/ValueOS/.cache
     working_dir: /workspaces/ValueOS
     env_file:
       - .env.dev
