@@ -171,7 +171,27 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         echo "Skipping dbtools installation"; \
     fi
 
-# Stage 6: Final image with user setup
+# Stage 6: Dependencies (cached)
+FROM dbtools AS deps
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+WORKDIR /workspaces/ValueOS
+
+ENV PNPM_STORE_PATH=/pnpm/store
+
+# Copy package metadata for dependency installation
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/*/package.json apps/*/package.json
+COPY packages/*/package.json packages/*/package.json
+
+# Install dependencies with a reusable cache layer
+RUN corepack enable \
+    && pnpm config set store-dir ${PNPM_STORE_PATH} \
+    && pnpm fetch --frozen-lockfile \
+    && pnpm install --frozen-lockfile --ignore-scripts
+
+# Stage 7: Final image with user setup
 FROM dbtools AS final
 
 # Create workspace directory as root and set permissions
@@ -194,11 +214,12 @@ RUN mkdir -p \
 # Set working directory
 WORKDIR /workspaces/ValueOS
 
-# Copy package files for dependency installation
-COPY package.json pnpm-lock.yaml ./
+# Copy the full repository after dependency installation
+COPY . .
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile --ignore-scripts
+# Reuse dependency artifacts from deps stage
+COPY --from=deps --chown=vscode:vscode /pnpm/store /pnpm/store
+COPY --from=deps --chown=vscode:vscode /workspaces/ValueOS/node_modules ./node_modules
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \
