@@ -110,6 +110,7 @@ describe('LLMCostTracker', () => {
       model: 'meta-llama/Llama-3-70b-chat-hf',
       promptTokens: 10,
       completionTokens: 5,
+      caller: 'LLMCostTracker.test',
       endpoint: 'llm-gateway',
       success: true,
       latencyMs: 9,
@@ -131,6 +132,7 @@ describe('LLMCostTracker', () => {
       model: 'meta-llama/Llama-3-70b-chat-hf',
       promptTokens: 10,
       completionTokens: 5,
+      caller: 'LLMCostTracker.test',
       endpoint: 'llm-gateway',
       success: true,
       latencyMs: 9,
@@ -153,6 +155,7 @@ describe('LLMCostTracker', () => {
       model: 'meta-llama/Llama-3-70b-chat-hf',
       promptTokens: 10,
       completionTokens: 5,
+      caller: 'LLMCostTracker.test',
       endpoint: 'llm-gateway',
       success: true,
       latencyMs: 9,
@@ -163,9 +166,9 @@ describe('LLMCostTracker', () => {
     expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-camel-wins');
   });
 
-  it('logs an error when llm-gateway usage is written without tenant and insert fails', async () => {
+  it('logs an error and skips insert when usage is written without tenant', async () => {
     const tracker = new LLMCostTracker();
-    state.insertError = { message: 'tenant is required for gateway usage' };
+    const supabase = createClient();
 
     await tracker.trackUsage({
       userId: 'u-missing-tenant',
@@ -173,6 +176,7 @@ describe('LLMCostTracker', () => {
       model: 'meta-llama/Llama-3-70b-chat-hf',
       promptTokens: 10,
       completionTokens: 5,
+      caller: 'LLMCostTracker.test',
       endpoint: 'llm-gateway',
       success: false,
       latencyMs: 9,
@@ -180,7 +184,15 @@ describe('LLMCostTracker', () => {
     });
 
     await Promise.resolve();
-    expect(logger.error).toHaveBeenCalledWith('Failed to track LLM usage', state.insertError);
+    expect(logger.error).toHaveBeenCalledWith(
+      'LLM usage missing tenant id; skipping usage insert',
+      expect.objectContaining({
+        caller: 'LLMCostTracker.test',
+        endpoint: 'llm-gateway',
+      })
+    );
+    // @ts-expect-error test mock client exposes state
+    expect(supabase.state.insertCount).toBe(0);
   });
 
   it('queries canonical cost and timestamp fields for period analytics', async () => {
