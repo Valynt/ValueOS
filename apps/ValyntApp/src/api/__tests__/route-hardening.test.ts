@@ -192,6 +192,7 @@ import knowledgeUploadRouter from '../knowledgeUpload';
 import llmRouter from '../llm';
 import queueRouter from '../queue';
 import workflowRouter from '../workflow';
+import customerRouter from '../customer';
 
 function collectMiddlewareNames(router: any): string[] {
   const names: string[] = [];
@@ -229,9 +230,10 @@ const ROUTERS = [
   { name: 'LLM', router: llmRouter },
   { name: 'Queue', router: queueRouter },
   { name: 'Workflow', router: workflowRouter },
+  { name: 'Customer', router: customerRouter },
 ];
 
-const RBAC_EXEMPT_ROUTERS = new Set(['Approvals', 'Auth', 'Docs', 'Health', 'LLM', 'Queue']);
+const RBAC_EXEMPT_ROUTERS = new Set(['Approvals', 'Auth', 'Customer', 'Docs', 'Health', 'LLM', 'Queue']);
 
 describe('Route hardening', () => {
   it.each(ROUTERS)('%s router applies security headers middleware', ({ router }) => {
