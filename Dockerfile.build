@@ -11,11 +11,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
+FROM base AS dbtools
+WORKDIR /app
+
+FROM dbtools AS prune
+WORKDIR /app
+
+# Copy all source code for pruning
+COPY . .
+
+# Prune workspace for the application
+RUN pnpm dlx turbo prune --scope=ValyntApp --docker
+
 FROM base AS deps
 WORKDIR /app
 
-# Copy package files for dependency installation
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc* ./
+# Copy pruned package files for dependency installation
+COPY --from=prune /app/out/json/ ./
+COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prune /app/.npmrc* ./
 
 # Install dependencies with cache mount for faster builds
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
@@ -25,8 +39,10 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
 FROM base AS prod-deps
 WORKDIR /app
 
-# Copy package files for production-only dependency installation
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc* ./
+# Copy pruned package files for production-only dependency installation
+COPY --from=prune /app/out/json/ ./
+COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prune /app/.npmrc* ./
 
 # Install production dependencies with cache mount for faster builds
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
@@ -39,8 +55,8 @@ WORKDIR /app
 # Build scope
 ARG APP=valynt-app
 
-# Copy all source code
-COPY . .
+# Copy pruned source code
+COPY --from=prune /app/out/full/ ./
 
 # Build the application with cache mounts
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
