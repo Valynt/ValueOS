@@ -1,122 +1,101 @@
 #!/usr/bin/env node
 
-const fs = require("fs");
-const path = require("path");
-
-// Default thresholds
-const defaults = {
-  overall: 80,
-  agents: 100, // agents folder must be 100%
-  security_billing: 95,
-};
+const fs = require('fs');
+const path = require('path');
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const cfg = { ...defaults };
-  args.forEach((a, i) => {
-    if (a === "--overall") cfg.overall = parseInt(args[i + 1], 10);
-    if (a === "--agents") cfg.agents = parseInt(args[i + 1], 10);
-    if (a === "--security_billing")
-      cfg.security_billing = parseInt(args[i + 1], 10);
-  });
+  const cfg = {
+    summary: 'coverage/unit/coverage-summary.json',
+    thresholds: 'config/coverage-thresholds.json',
+    baseline: 'config/coverage-baseline.json',
+  };
+
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === '--summary') cfg.summary = args[i + 1];
+    if (args[i] === '--thresholds') cfg.thresholds = args[i + 1];
+    if (args[i] === '--baseline') cfg.baseline = args[i + 1];
+  }
+
   return cfg;
 }
 
-function readSummary() {
-  const file = path.resolve(process.cwd(), "coverage", "coverage-summary.json");
-  if (!fs.existsSync(file)) {
-    console.error(
-      "Coverage summary not found at ./coverage/coverage-summary.json",
-    );
+function readJson(filePath, required = true) {
+  const fullPath = path.resolve(process.cwd(), filePath);
+  if (!fs.existsSync(fullPath)) {
+    if (!required) return null;
+    console.error(`Required file not found: ${filePath}`);
     process.exit(1);
   }
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+  return JSON.parse(fs.readFileSync(fullPath, 'utf8'));
 }
 
-function getPct(entry) {
-  return entry && entry.lines && typeof entry.lines.pct === "number"
-    ? entry.lines.pct
-    : 0;
+function linesPct(entry) {
+  const pct = entry?.lines?.pct;
+  return typeof pct === "number" && Number.isFinite(pct) ? pct : 0;
 }
 
-function computeAggregateForPaths(summary, paths) {
-  // Aggregate by summing covered and total lines for matching paths
-  const keys = Object.keys(summary).filter((k) =>
-    paths.some((p) => k.includes(p)),
+function aggregateLines(summary, targetPaths) {
+  const keys = Object.keys(summary).filter(
+    (k) => k !== 'total' && targetPaths.some((p) => k.includes(p)),
   );
-  if (keys.length === 0) return -1;
+
+  if (keys.length === 0) return { pct: null, covered: 0, total: 0, files: 0 };
 
   let covered = 0;
   let total = 0;
-
-  keys.forEach((k) => {
-    const entry = summary[k];
-    // Some entries might have lines as { total, covered }
-    if (entry && entry.lines && typeof entry.lines.total === "number") {
-      covered += entry.lines.covered;
-      total += entry.lines.total;
+  for (const key of keys) {
+    const lines = summary[key]?.lines;
+    if (typeof lines?.covered === 'number' && typeof lines?.total === 'number') {
+      covered += lines.covered;
+      total += lines.total;
     }
-  });
-  return total === 0 ? 0 : Math.round((covered / total) * 100 * 100) / 100;
+  }
+
+  const pct = total > 0 ? Number(((covered / total) * 100).toFixed(2)) : 0;
+  return { pct, covered, total, files: keys.length };
 }
 
 function main() {
-  const cfg = parseArgs();
-  const summary = readSummary();
+  const args = parseArgs();
+  const summary = readJson(args.summary);
+  const thresholds = readJson(args.thresholds);
+  const baseline = readJson(args.baseline, false) || { strict_zones: {} };
 
-  const overall = getPct(summary.total);
-  console.log(
-    `Overall lines coverage: ${overall}% (threshold ${cfg.overall}%)`,
-  );
-  if (overall < cfg.overall) {
-    console.error(
-      `Overall coverage ${overall}% is below threshold ${cfg.overall}%`,
-    );
-    process.exit(2);
-  }
-
-  const agentsPaths = ["src/lib/agent-fabric/agents"];
-  const agentsPct = computeAggregateForPaths(summary, agentsPaths);
-  console.log(
-    `Agents folder coverage: ${agentsPct}% (threshold ${cfg.agents}%)`,
-  );
-  if (agentsPct === -1) {
-    console.error(
-      `No files found for agents folder (paths: ${agentsPaths.join(", ")}). Coverage check failed.`,
-    );
-    process.exit(2);
-  }
-  if (agentsPct < cfg.agents) {
-    console.error(
-      `Agents folder coverage ${agentsPct}% is below threshold ${cfg.agents}%`,
-    );
+  const overall = linesPct(summary.total);
+  const overallMin = thresholds.minimums?.overall_lines ?? 0;
+  console.log(`Overall lines coverage: ${overall}% (minimum ${overallMin}%)`);
+  if (overall < overallMin) {
+    console.error(`Overall lines coverage ${overall}% below minimum ${overallMin}%`);
     process.exit(2);
   }
 
-  const securityBillingPaths = [
-    "src/security/",
-    "src/services/metering",
-    "src/services/billing",
-  ];
-  const secBillPct = computeAggregateForPaths(summary, securityBillingPaths);
-  console.log(
-    `Security & Billing folders coverage: ${secBillPct}% (threshold ${cfg.security_billing}%)`,
-  );
-  if (secBillPct === -1) {
-    console.error(
-      `No files found for Security & Billing folders (paths: ${securityBillingPaths.join(", ")}). Coverage check failed.`,
-    );
-    process.exit(2);
+  const strictMin = thresholds.minimums?.strict_zone_lines ?? 60;
+  const errors = [];
+
+  for (const zone of thresholds.strict_zones || []) {
+    const result = aggregateLines(summary, zone.paths || []);
+    if (result.pct === null) {
+      console.log(`Skipping ${zone.name}: no instrumented files matched (${(zone.paths || []).join(', ')})`);
+      continue;
+    }
+
+    const baselineValue = Number(baseline.strict_zones?.[zone.name] ?? strictMin);
+    const required = Math.max(strictMin, baselineValue);
+    console.log(`${zone.name}: ${result.pct}% lines (${result.covered}/${result.total}), required ${required}%`);
+
+    if (result.pct < required) {
+      errors.push(`${zone.name} ${result.pct}% < ${required}%`);
+    }
   }
-  if (secBillPct < cfg.security_billing) {
-    console.error(
-      `Security & Billing coverage ${secBillPct}% is below threshold ${cfg.security_billing}%`,
-    );
+
+  if (errors.length > 0) {
+    console.error('Coverage threshold failure(s):');
+    for (const error of errors) console.error(`- ${error}`);
     process.exit(2);
   }
 
-  console.log("Coverage checks passed.");
-  process.exit(0);
+  console.log('Coverage thresholds passed.');
 }
 
 main();

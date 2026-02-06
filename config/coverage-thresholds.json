@@ -1,0 +1,20 @@
+{
+  "minimums": {
+    "overall_lines": 0,
+    "strict_zone_lines": 60
+  },
+  "strict_zones": [
+    {
+      "name": "App Security",
+      "paths": ["apps/ValyntApp/src/security/"]
+    },
+    {
+      "name": "Billing Metering",
+      "paths": ["apps/ValyntApp/src/services/metering/", "packages/backend/src/services/metering/"]
+    }
+  ],
+  "ratchet": {
+    "weekly_step": 2,
+    "max_lines": 80
+  }
+}

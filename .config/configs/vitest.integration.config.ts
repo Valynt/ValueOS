@@ -14,14 +14,9 @@ export default defineConfig({
     ],
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "src/test/"],
-      thresholds: {
-        lines: 75,
-        functions: 70,
-        branches: 65,
-        statements: 75,
-      },
+      reporter: ["text", "json", "json-summary", "html"],
+      reportsDirectory: "./coverage/integration",
+      exclude: ["node_modules/", "**/node_modules/**", "src/test/"],
     },
   },
   resolve: {

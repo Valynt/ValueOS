@@ -1,0 +1,7 @@
+{
+  "strict_zones": {
+    "App Security": 60,
+    "Billing Metering": 60
+  },
+  "updated_at": "2026-02-06"
+}

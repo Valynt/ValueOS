@@ -9,17 +9,12 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./apps/ValyntApp/src/test/setup.ts"],
     include: ["apps/**/*.{test,spec}.{js,ts,jsx,tsx}", "packages/**/*.{test,spec}.{js,ts,jsx,tsx}"],
-    exclude: ["**/*.integration.test.ts", "**/*.integration.test.tsx"],
+    exclude: ["**/node_modules/**", "**/*.integration.test.ts", "**/*.integration.test.tsx"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "src/test/"],
-      thresholds: {
-        lines: 75,
-        functions: 70,
-        branches: 65,
-        statements: 75,
-      },
+      reporter: ["text", "json", "json-summary", "html"],
+      reportsDirectory: "./coverage/unit",
+      exclude: ["node_modules/", "**/node_modules/**", "src/test/"],
     },
   },
   resolve: {

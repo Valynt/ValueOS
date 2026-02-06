@@ -110,6 +110,24 @@ jobs:
       - name: Run CI verification suite
         run: pnpm run ci:verify
 
+      - name: Run unit tests with coverage
+        run: pnpm run test:unit:coverage
+
+      - name: Build baseline coverage summary
+        run: pnpm run coverage:summary
+
+      - name: Enforce strict-zone coverage minimums
+        run: pnpm run coverage:check
+
+      - name: Upload unit coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: |
+            coverage/unit/
+            coverage/baseline-summary.md
+
   playwright-smoke:
     name: Playwright Smoke
     runs-on: ubuntu-latest
