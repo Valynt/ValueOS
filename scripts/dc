@@ -1,26 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
 ENV_FILE="${ROOT}/scripts/.env.ports"
+ENV_EXAMPLE_FILE="${ROOT}/scripts/.env.ports.example"
+LEGACY_ENV_FILE="${ROOT}/.env.ports"
 
-if [[ ! -f "$COMPOSE_FILE" ]]; then
-  echo "Missing compose file: $COMPOSE_FILE" >&2
-  exit 1
+[[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
+
+DOCKER_BIN="$(command -v docker 2>/dev/null || true)"
+[[ -n "${DOCKER_BIN}" && -x "${DOCKER_BIN}" ]] || {
+  echo "Docker CLI not found in PATH. Install Docker and ensure 'docker' is executable." >&2
+  exit 127
+}
+
+compose_args=(
+  --project-name valueos
+  --project-directory "${ROOT}"
+  -f "${COMPOSE_FILE}"
+)
+
+if [[ -f "${ENV_FILE}" ]]; then
+  # Preferred deterministic port bindings for this repo.
+  compose_args+=(--env-file "${ENV_FILE}")
+elif [[ -f "${LEGACY_ENV_FILE}" ]]; then
+  compose_args+=(--env-file "${LEGACY_ENV_FILE}")
+elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
+  compose_args+=(--env-file "${ENV_EXAMPLE_FILE}")
 fi
 
-if [[ ! -f "$ENV_FILE" ]]; then
-  if [[ -f "${ENV_FILE}.example" ]]; then
-    ENV_FILE="${ENV_FILE}.example"
-  else
-    ENV_FILE=""
-  fi
-fi
+exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
 
-args=(--project-name valueos -f "$COMPOSE_FILE")
-if [[ -n "${ENV_FILE}" ]]; then
-  args+=(--env-file "$ENV_FILE")
-fi
-
-exec docker compose "${args[@]}" "$@"
