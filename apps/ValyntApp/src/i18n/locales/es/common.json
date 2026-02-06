@@ -7,5 +7,14 @@
   "errors.generic": "Algo salió mal. Inténtalo de nuevo.",
   "errors.network": "Hubo un problema de red. Comprueba tu conexión e inténtalo de nuevo.",
   "canvas.summary": "Resumen del modelo de negocio",
-  "canvas.refresh": "Actualizar ideas"
+  "canvas.refresh": "Actualizar ideas",
+  "auth.welcomeBack": "Bienvenido de nuevo",
+  "auth.noAccount": "¿No tienes una cuenta?",
+  "auth.signUp": "Regístrate",
+  "auth.language": "Idioma",
+  "auth.email": "Correo electrónico",
+  "auth.password": "Contraseña",
+  "auth.signingIn": "Iniciando sesión...",
+  "auth.signIn": "Iniciar sesión",
+  "auth.continueWith": "O continúa con"
 }
