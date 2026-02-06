@@ -3,12 +3,12 @@
  * Tests UI interactions, form validation, and OAuth button interactions
  */
 
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { LoginPage } from "../LoginPage";
 import { AuthContext } from "../../../contexts/AuthContext";
-import { AuthenticationError, RateLimitError, ValidationError } from "../../../services/errors";
+import { AuthenticationError, RateLimitError } from "../../../services/errors";
 
 // Mock useNavigate
 const mockNavigate = vi.fn();
@@ -64,6 +64,11 @@ describe("LoginPage Component", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe("Form Rendering", () => {
@@ -205,7 +210,7 @@ describe("LoginPage Component", () => {
   describe("MFA Support", () => {
     it("should show MFA input when MFA is required", async () => {
       renderLoginPage();
-      mockLogin.mockRejectedValueOnce(new ValidationError("MFA code required for login"));
+      mockLogin.mockRejectedValueOnce(new AuthenticationError("MFA code required for login", { code: "MFA_CODE_REQUIRED" }, 401, "MFA_CODE_REQUIRED"));
 
       const emailInput = screen.getByLabelText(/work email/i);
       const passwordInput = screen.getByLabelText(/password/i);
@@ -241,6 +246,34 @@ describe("LoginPage Component", () => {
 
       await waitFor(() => {
         expect(screen.getByText(/mfa setup mock for user-123:manager/i)).toBeInTheDocument();
+      });
+    });
+
+    it("should recover MFA enrollment context from user profile when error details are incomplete", async () => {
+      renderLoginPage();
+      mockLogin.mockRejectedValueOnce(
+        new AuthenticationError(
+          "MFA setup required",
+          { code: "MFA_ENROLLMENT_REQUIRED" },
+          403,
+          "MFA_ENROLLMENT_REQUIRED"
+        )
+      );
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ user: { id: "user-456", role: "admin" } }),
+      } as unknown as Response);
+
+      fireEvent.change(screen.getByLabelText(/work email/i), { target: { value: "test@example.com" } });
+      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "SecurePass123!" } });
+      fireEvent.click(screen.getByRole("button", { name: /continue to dashboard/i }));
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith("/api/user/me", expect.objectContaining({ method: "GET" }));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/mfa setup mock for user-456:admin/i)).toBeInTheDocument();
       });
     });
 

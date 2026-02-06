@@ -3,7 +3,7 @@
  * Modern authentication with email/password and OAuth
  */
 
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
@@ -37,6 +37,65 @@ export function LoginPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const from = (location.state as any)?.from?.pathname || "/";
 
+
+  const extractMFAEnrollmentContext = useCallback(
+    async (details: Record<string, unknown> | undefined) => {
+      const detailUserId = typeof details?.userId === "string" ? details.userId : undefined;
+      const detailRole = typeof details?.role === "string" ? details.role : undefined;
+
+      if (detailUserId && detailRole) {
+        return {
+          userId: detailUserId,
+          userEmail: email,
+          userRole: detailRole,
+        };
+      }
+
+      try {
+        const profileResponse = await fetch("/api/user/me", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!profileResponse.ok) {
+          return null;
+        }
+
+        const profilePayload = (await profileResponse.json()) as Record<string, unknown>;
+        const userPayload =
+          profilePayload.user && typeof profilePayload.user === "object"
+            ? (profilePayload.user as Record<string, unknown>)
+            : profilePayload;
+
+        const fallbackUserId =
+          detailUserId ??
+          (typeof userPayload.id === "string" ? userPayload.id : undefined) ??
+          (typeof profilePayload.userId === "string" ? profilePayload.userId : undefined);
+
+        const fallbackRole =
+          detailRole ??
+          (typeof userPayload.role === "string" ? userPayload.role : undefined) ??
+          (typeof profilePayload.role === "string" ? profilePayload.role : undefined);
+
+        if (!fallbackUserId || !fallbackRole) {
+          return null;
+        }
+
+        return {
+          userId: fallbackUserId,
+          userEmail: email,
+          userRole: fallbackRole,
+        };
+      } catch (_fetchError) {
+        return null;
+      }
+    },
+    [email]
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -52,28 +111,23 @@ export function LoginPage() {
       navigate(from, { replace: true });
     } catch (err: unknown) {
       console.error("Login error:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "An error occurred";
-      const authCode =
-        err instanceof AuthenticationError
-          ? err.authCode ?? (typeof err.details?.code === "string" ? err.details.code : undefined)
-          : undefined;
+      const errorMessage = err instanceof Error ? err.message : "An error occurred";
+      const authCode = err instanceof AuthenticationError ? err.authCode : undefined;
 
       if (errorMessage.includes("rate limit")) {
         setError("Too many login attempts. Please try again later.");
-      } else if (authCode === "MFA_ENROLLMENT_REQUIRED" || errorMessage.includes("MFA_ENROLLMENT_REQUIRED")) {
-        const details = err instanceof AuthenticationError ? err.details : undefined;
-        const userId = typeof details?.userId === "string" ? details.userId : "";
-        const userRole = typeof details?.role === "string" ? details.role : "manager";
+      } else if (authCode === "MFA_ENROLLMENT_REQUIRED" && err instanceof AuthenticationError) {
+        const details = err.details as Record<string, unknown> | undefined;
+        const enrollmentContext = await extractMFAEnrollmentContext(details);
 
-        if (userId) {
+        if (enrollmentContext) {
           setShowMFAEnrollment(true);
-          setMFAEnrollmentContext({ userId, userEmail: email, userRole });
+          setMFAEnrollmentContext(enrollmentContext);
           setError("");
         } else {
-          setError("MFA setup is required but enrollment context is missing. Please contact support.");
+          setError("MFA setup is required but enrollment context could not be resolved. Please try again.");
         }
-      } else if (authCode === "MFA_INVALID_CODE" || errorMessage.includes("MFA")) {
+      } else if (authCode === "MFA_INVALID_CODE" || authCode === "MFA_CODE_REQUIRED") {
         setShowMFA(true);
         setError("Please enter your MFA code");
       } else {
@@ -100,12 +154,9 @@ export function LoginPage() {
       });
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      const authCode =
-        err instanceof AuthenticationError
-          ? err.authCode ?? (typeof err.details?.code === "string" ? err.details.code : undefined)
-          : undefined;
+      const authCode = err instanceof AuthenticationError ? err.authCode : undefined;
 
-      if (authCode === "MFA_INVALID_CODE" || (err instanceof Error && err.message.includes("MFA"))) {
+      if (authCode === "MFA_INVALID_CODE" || authCode === "MFA_CODE_REQUIRED") {
         setShowMFA(true);
         setError("MFA enabled. Enter your MFA code to complete login.");
         return;

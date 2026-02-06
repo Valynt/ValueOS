@@ -41,6 +41,36 @@ function resolveActor(user?: any) {
   };
 }
 
+async function buildMFAEnrollmentRequiredPayload(error: AuthenticationError, email?: string) {
+  const details = (error.details ?? {}) as Record<string, unknown>;
+  let userId = typeof details.userId === "string" ? details.userId : undefined;
+  let role = typeof details.role === "string" ? details.role : undefined;
+
+  if ((!userId || !role) && email) {
+    try {
+      const supabaseAdmin = getServerSupabase();
+      const { data: lookup } = await (supabaseAdmin.auth.admin as any).getUserByEmail(email);
+      if (lookup?.user) {
+        userId = userId ?? lookup.user.id;
+        const metadataRole = lookup.user.user_metadata?.role;
+        role = role ?? (typeof metadataRole === "string" ? metadataRole : undefined);
+      }
+    } catch (lookupError) {
+      logger.warn("Unable to resolve MFA enrollment contract from profile lookup", {
+        email: sanitizeForLogging(email),
+        error: sanitizeForLogging(lookupError),
+      });
+    }
+  }
+
+  return {
+    error: error.message,
+    code: "MFA_ENROLLMENT_REQUIRED" as const,
+    userId: userId ?? "unknown",
+    role: role ?? "manager",
+  };
+}
+
 router.post(
   "/login",
   validateRequest(ValidationSchemas.login),
@@ -100,7 +130,15 @@ router.post(
       });
 
       if (error instanceof AuthenticationError) {
-        return res.status(401).json({ error: error.message });
+        if (error.authCode === "MFA_ENROLLMENT_REQUIRED") {
+          const payload = await buildMFAEnrollmentRequiredPayload(error, email);
+          return res.status(403).json(payload);
+        }
+
+        return res.status(401).json({
+          error: error.message,
+          ...(error.authCode ? { code: error.authCode } : {}),
+        });
       }
       if (error instanceof ValidationError) {
         return res.status(400).json({ error: error.message });
