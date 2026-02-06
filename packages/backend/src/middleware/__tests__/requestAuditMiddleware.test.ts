@@ -46,6 +46,7 @@ describe('requestAuditMiddleware', () => {
       },
       socket: { remoteAddress: '10.0.0.1' },
       ip: '10.0.0.1',
+      tenantId: 'tenant-42',
       get: vi.fn(() => 'test-agent'),
     } as any;
 
@@ -83,5 +84,6 @@ describe('requestAuditMiddleware', () => {
     expect(loggedEvent.eventData.routeParams).toEqual({
       token: expect.stringContaining('[REDACTED'),
     });
+    expect(loggedEvent.eventData.tenantId).toBe('tenant-42');
   });
 });
