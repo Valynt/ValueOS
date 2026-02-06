@@ -13,6 +13,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import express, { Express } from 'express';
+import { llmFallback } from '../../services/LLMFallback';
+import { llmQueue } from '../../services/MessageQueue';
 
 // Mock dependencies
 vi.mock('../../lib/logger', () => ({
@@ -693,6 +695,45 @@ describe('Security Integration Tests', () => {
           break;
         }
       }
+    });
+  });
+
+
+  describe('Request Sanitization Regression Tests', () => {
+    beforeEach(async () => {
+      const { default: llmRouter } = await import('../llm');
+      const { default: queueRouter } = await import('../queue');
+      app.use('/api/llm', llmRouter);
+      app.use('/api/queue', queueRouter);
+    });
+
+    it('sanitizes XSS payloads in llm chat body before handler execution', async () => {
+      await request(app)
+        .post('/api/llm/chat')
+        .set('x-csrf-token', validCsrfToken)
+        .set('Cookie', `csrf_token=${validCsrfToken}`)
+        .send({
+          prompt: '<script>alert(1)</script>Hello',
+          model: 'gpt-4',
+        });
+
+      expect(llmFallback.processRequest).toHaveBeenCalled();
+      const call = vi.mocked(llmFallback.processRequest).mock.calls.at(-1)?.[0];
+      expect(call?.prompt).toContain('&lt;script&gt;');
+      expect(call?.prompt).not.toContain('<script>');
+    });
+
+    it('sanitizes path traversal and command injection in queue params', async () => {
+      const injectedJobId = encodeURIComponent('../etc/passwd;rm -rf /');
+      await request(app)
+        .get(`/api/queue/llm/${injectedJobId}`)
+        .expect(200);
+
+      expect(llmQueue.getJobStatus).toHaveBeenCalled();
+      const sanitizedJobId = vi.mocked(llmQueue.getJobStatus).mock.calls.at(-1)?.[0] as string;
+      expect(sanitizedJobId).not.toContain('../');
+      expect(sanitizedJobId).not.toContain(';');
+      expect(sanitizedJobId).not.toContain(' ');
     });
   });
 

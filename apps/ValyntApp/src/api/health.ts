@@ -11,11 +11,13 @@ import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(requestSanitizationMiddleware({ query: { detailed: { maxLength: 8 } } }));
 router.use(rateLimiters.loose);
 
 // Shutdown state

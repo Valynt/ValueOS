@@ -5,11 +5,13 @@ import { rateLimiters } from "../middleware/rateLimiter";
 import { validateRequest } from "../middleware/inputValidation";
 import { logger } from "../lib/logger";
 import { requirePermission } from "../middleware/rbac";
+import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
 import { getUnifiedAgentAPI } from "../services/UnifiedAgentAPI";
 import { AgentType } from "../services/agent-types";
 
 const router = Router();
 router.use(securityHeadersMiddleware);
+router.use(requestSanitizationMiddleware({ params: { agentId: { maxLength: 128 } } }));
 router.use(requirePermission("agents.execute"));
 
 router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) => {
