@@ -293,6 +293,23 @@ jobs:
           DIGEST="${{ steps.build.outputs.digest }}"
           cosign sign --yes "${IMAGE}@${DIGEST}"
 
+  promote-image:
+    name: Promote Image
+    runs-on: ubuntu-latest
+    needs: [validate, build-and-sign]
+    if: needs.validate.outputs.should_deploy == 'true'
+    outputs:
+      promoted_ref: ${{ steps.promote.outputs.promoted_ref }}
+      promoted_digest: ${{ steps.promote.outputs.promoted_digest }}
+
+    steps:
+      - name: Set promoted image outputs
+        id: promote
+        run: |
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-apps/ValyntApp:main"
+          echo "promoted_ref=${IMAGE_REF}" >> $GITHUB_OUTPUT
+          echo "promoted_digest=" >> $GITHUB_OUTPUT
+
   # ============================================================================
   # Phase 4: Environment Parity (Staging mirrors Production)
   # ============================================================================
@@ -384,7 +401,14 @@ jobs:
   deploy:
     name: Deploy to ${{ needs.deployment-gates.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: [validate, plan-matrix, build-and-sign, ensure-parity, deployment-gates, drift-detection]
+    needs:
+      - validate
+      - plan-matrix
+      - build-and-sign
+      - ensure-parity
+      - deployment-gates
+      - drift-detection
+      - promote-image
     if: needs.validate.outputs.should_deploy == 'true'
 
     environment:
@@ -441,6 +465,8 @@ jobs:
               ;;
           esac
 
+          echo "NAMESPACE=${NAMESPACE}" >> $GITHUB_ENV
+
           # Apply Kubernetes manifests
           kubectl apply -f infra/k8s/ -n $NAMESPACE
 
@@ -456,9 +482,6 @@ jobs:
 
       - name: Wait for deployment rollout
         run: |
-          ENVIRONMENT="${{ needs.deployment-gates.outputs.environment }}"
-          NAMESPACE="valueos-${ENVIRONMENT}"
-
           kubectl rollout status deployment/valueos-frontend -n $NAMESPACE --timeout=300s
 
   # ============================================================================
