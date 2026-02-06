@@ -3,6 +3,8 @@
   "dockerComposeFile": ["docker-compose.yml"],
   "service": "dev",
   "workspaceFolder": "/workspaces/ValueOS",
+  "remoteUser": "valueos",
+  "containerUser": "valueos",
   "shutdownAction": "stopCompose",
 
   "features": {
@@ -18,8 +20,8 @@
   "postCreateCommand": "bash -euo pipefail -c 'bash scripts/dev/setup.sh && bash scripts/check-env.sh' > setup.log 2>&1",
 
   "remoteEnv": {
-    "PNPM_HOME": "/home/vscode/.local/share/pnpm",
-    "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm",
+    "PNPM_HOME": "/home/valueos/.local/share/pnpm",
+    "PATH": "${containerEnv:PATH}:/home/valueos/.local/share/pnpm",
     "DOCKER_BUILDKIT": "1",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     // Ensure services use Docker DNS names
