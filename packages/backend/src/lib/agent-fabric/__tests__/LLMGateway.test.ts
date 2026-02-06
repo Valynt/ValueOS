@@ -104,4 +104,23 @@ describe('LLMGateway usage tracking', () => {
       })
     );
   });
+
+  it('throws when tenant metadata is missing', async () => {
+    const gateway = new LLMGateway(
+      { provider: 'openai', model: 'gpt-4o-mini' },
+      { trackUsage } as any
+    );
+
+    await expect(
+      gateway.complete({
+        messages: [{ role: 'user', content: 'hello' }],
+        metadata: {
+          userId: 'user-4',
+          tenantId: '',
+        },
+      })
+    ).rejects.toThrow('LLMGateway.complete requires tenant metadata');
+
+    expect(trackUsage).not.toHaveBeenCalled();
+  });
 });

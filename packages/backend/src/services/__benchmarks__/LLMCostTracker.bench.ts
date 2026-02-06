@@ -76,12 +76,14 @@ describe('LLMCostTracker Benchmark', () => {
 
     for (let i = 0; i < iterations; i++) {
       await llmCostTracker.trackUsage({
+        tenantId: 'tenant-123',
         userId: 'user-123',
         sessionId: 'session-123',
         provider: 'together_ai',
         model: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
         promptTokens: 100,
         completionTokens: 50,
+        caller: 'LLMCostTracker.bench',
         endpoint: '/api/chat',
         success: true,
         latencyMs: 500,
