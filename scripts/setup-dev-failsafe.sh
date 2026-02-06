@@ -108,7 +108,7 @@ log_verify "✓ Environment files generated"
 log_verify "✓ Supabase keys present"
 log_verify "✓ Database URL configured"
 
-# ============================================================================
+ ============================================================================
 # STEP 5: Start Docker Dependencies
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
