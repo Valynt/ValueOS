@@ -1,0 +1,42 @@
+{
+  "legacyZones": [
+    {
+      "name": "ValyntApp Legacy Routes",
+      "path": "apps/ValyntApp/src/routes/_legacy",
+      "characterizationPatterns": [
+        "apps/ValyntApp/src/routes/_legacy/**/*.test.ts",
+        "apps/ValyntApp/src/routes/_legacy/**/*.test.tsx",
+        "apps/ValyntApp/src/__tests__/**/*.test.ts",
+        "apps/ValyntApp/src/__tests__/**/*.test.tsx"
+      ]
+    }
+  ],
+  "debtHeavyModules": [
+    {
+      "name": "ValyntApp Services",
+      "path": "apps/ValyntApp/src/services",
+      "complexityBaseline": 150,
+      "churnBaseline": 600
+    },
+    {
+      "name": "Backend Services",
+      "path": "packages/backend/src/services",
+      "complexityBaseline": 120,
+      "churnBaseline": 450
+    }
+  ],
+  "strictIslands": [
+    {
+      "name": "Memory Package",
+      "path": "packages/memory"
+    },
+    {
+      "name": "Design System",
+      "path": "packages/components/design-system"
+    },
+    {
+      "name": "Shared Package",
+      "path": "packages/shared"
+    }
+  ]
+}

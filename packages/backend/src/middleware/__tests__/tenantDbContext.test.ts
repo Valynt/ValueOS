@@ -92,4 +92,23 @@ describe("tenantDbContextMiddleware", () => {
     expect(mockClient.query).toHaveBeenCalledWith("COMMIT");
     expect(mockClient.release).toHaveBeenCalled();
   });
+
+  it("rolls back transaction when response fails", async () => {
+    (getDatabaseUrl as unknown as { mockReturnValue: (value: string | undefined) => void }).mockReturnValue(
+      "postgres://localhost:5432/db"
+    );
+
+    const req: any = { tenantId: "tenant-123" };
+    const { res, handlers } = buildResponse();
+    const next = vi.fn();
+
+    await tenantDbContextMiddleware()(req, res as any, next);
+
+    res.statusCode = 500;
+    handlers.finish?.();
+
+    expect(mockClient.query).toHaveBeenCalledWith("ROLLBACK");
+    expect(mockClient.release).toHaveBeenCalled();
+  });
+
 });

@@ -18,7 +18,7 @@ echo -e "${BLUE}║        Database Migration Validation Report               �
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-MIGRATION_DIR="supabase/migrations"
+MIGRATION_DIR="infra/postgres/migrations"
 
 # Check if migration directory exists
 if [ ! -d "$MIGRATION_DIR" ]; then

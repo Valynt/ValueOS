@@ -2,7 +2,7 @@
 
 ## Architecture Decision Records (ADRs) and C4 Diagrams
 
-- Establish ADR template and repository under `docs/adr/` with numbering and status conventions.
+- Establish ADR template and repository under `docs/engineering/adr/` with numbering and status conventions.
 - Produce C4 diagrams (Context, Container, Component) covering:
   - Core data model and service boundaries.
   - Multi-tenancy isolation approach (logical vs. schema, RBAC/ABAC overlays).

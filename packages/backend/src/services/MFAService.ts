@@ -11,6 +11,8 @@ import { BaseService } from "./BaseService.js"
 import { AuthenticationError, ValidationError } from "./errors.js"
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
+import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
 
 export interface MFASecret {
   id: string;
@@ -289,14 +291,66 @@ export class MFAService extends BaseService {
   async verifyMFA(
     userId: string,
     method: "totp" | "webauthn",
-    // @ts-ignore
-    credential: any
+    credential: { token?: string; response?: AuthenticationResponseJSON; expectedChallenge?: string }
   ): Promise<MFAVerificationResult> {
     if (method === "totp") {
+      if (!credential?.token) {
+        return { verified: false };
+      }
       return this.verifyMFAToken(userId, credential.token);
     }
-    // Stub WebAuthn
-    return { verified: true };
+
+    if (!credential?.response || !credential?.expectedChallenge) {
+      return { verified: false };
+    }
+
+    return this.executeRequest(
+      async () => {
+        try {
+          const credentialId = Buffer.from(credential.response.rawId, "base64url").toString("base64");
+
+          const { data: authenticator, error } = await this.supabase
+            .from("webauthn_credentials")
+            .select("id, credential_id, public_key, counter")
+            .eq("user_id", userId)
+            .eq("credential_id", credentialId)
+            .single();
+
+          if (error || !authenticator) {
+            return { verified: false };
+          }
+
+          const verification = await verifyAuthenticationResponse({
+            response: credential.response,
+            expectedChallenge: credential.expectedChallenge,
+            expectedOrigin: process.env.WEBAUTHN_ORIGIN || "http://localhost:5173",
+            expectedRPID: process.env.WEBAUTHN_RP_ID || "localhost",
+            authenticator: {
+              credentialID: Buffer.from(authenticator.credential_id, "base64"),
+              credentialPublicKey: Buffer.from(authenticator.public_key, "base64"),
+              counter: authenticator.counter,
+            },
+          });
+
+          if (!verification.verified) {
+            return { verified: false };
+          }
+
+          await this.supabase
+            .from("webauthn_credentials")
+            .update({
+              counter: verification.authenticationInfo.newCounter,
+              last_used_at: new Date().toISOString(),
+            })
+            .eq("id", authenticator.id);
+
+          return { verified: true };
+        } catch (_error) {
+          return { verified: false };
+        }
+      },
+      { skipCache: true }
+    );
   }
 
   /**
