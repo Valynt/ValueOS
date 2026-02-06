@@ -1,0 +1,6 @@
+{
+  "tool": "tsc-ratchet",
+  "command": "pnpm exec tsc --noEmit --pretty false -p tsconfig.json",
+  "errorCount": 2302,
+  "updatedAt": "2026-02-06T01:00:33.625Z"
+}

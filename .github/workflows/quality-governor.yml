@@ -56,15 +56,8 @@ jobs:
 
       # STAGE 2: Green Islands (The Fortress)
       - name: 🛡️ Protocol B - Strict Zone Enforcement
-        run: |
-          echo "Scanning Green Islands..."
-          ZONES=$(jq -r '.strict_zones[]' config/strict-zones.json)
-
-          for ZONE in $ZONES; do
-            echo "Checking strict zone: $ZONE"
-            pnpm tsc --project tsconfig.strict.json --noEmit
-          done
+        run: pnpm run typecheck:strict-zones
 
       # STAGE 3: The Ratchet
       - name: 🛡️ Protocol C - Technical Debt Ratchet
-        run: npx ts-node scripts/ts-ratchet.ts check
+        run: pnpm run typecheck:ratchet

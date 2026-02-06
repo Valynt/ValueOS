@@ -1,8 +1,12 @@
 {
   "strict_zones": [
-    "packages/core-utils",
-    "apps/web/src/lib/safe-zone"
+    "packages/memory",
+    "apps/VOSAcademy"
   ],
-  "comment": "These directories MUST remain at 0 TypeScript errors. They use tsconfig.strict.json.",
-  "migration_note": "Canonical strict-zone config. Legacy packages/config-v2/strict-zones.config.js was removed; use this file only."
+  "strict_zone_projects": [
+    "packages/memory/tsconfig.strict-zone.json",
+    "apps/VOSAcademy/tsconfig.strict-zone.json"
+  ],
+  "comment": "These strict zones must stay at 0 TypeScript errors and are enforced via dedicated tsconfig projects.",
+  "migration_note": "Expand strict_zone_projects incrementally as more packages become type-clean."
 }

@@ -230,7 +230,10 @@
     "build-storybook": "storybook build",
     "typecheck:verify": "pnpm run typecheck:signal --verify",
     "guard:strict-zones": "tsx scripts/dx/guard-strict-zone-config.ts",
-    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs"
+    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs",
+    "typecheck:strict-zones": "pnpm exec tsc -p packages/memory/tsconfig.strict-zone.json --noEmit && pnpm exec tsc -p apps/VOSAcademy/tsconfig.strict-zone.json --noEmit",
+    "typecheck:ratchet": "node scripts/quality/typecheck-ratchet.mjs check",
+    "typecheck:ratchet:update": "node scripts/quality/typecheck-ratchet.mjs update"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
