@@ -1,0 +1,73 @@
+name: RLS Coverage Check
+
+on:
+  pull_request:
+    paths:
+      - "infra/postgres/migrations/**"
+      - "infra/migrations/**"
+      - "supabase/tests/database/rls_lint.test.sql"
+      - "scripts/ci/check-rls-coverage.sh"
+      - ".github/workflows/rls-coverage-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/postgres/migrations/**"
+      - "infra/migrations/**"
+      - "supabase/tests/database/rls_lint.test.sql"
+      - "scripts/ci/check-rls-coverage.sh"
+
+jobs:
+  rls-coverage:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Enforce migration source of truth
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "$BASE_REF" --depth=1
+            DIFF_RANGE="origin/$BASE_REF...HEAD"
+          else
+            DIFF_RANGE="$BEFORE_SHA...HEAD"
+          fi
+
+          changed_legacy=$(git diff --name-only "$DIFF_RANGE" -- 'infra/migrations/*.sql' || true)
+          if [ -n "$changed_legacy" ]; then
+            echo "❌ Changes detected in legacy infra/migrations:"
+            echo "$changed_legacy"
+            echo "Use infra/postgres/migrations as the authoritative source for CI schema and RLS policies."
+            exit 1
+          fi
+
+      - name: Run RLS coverage check
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: bash scripts/ci/check-rls-coverage.sh
