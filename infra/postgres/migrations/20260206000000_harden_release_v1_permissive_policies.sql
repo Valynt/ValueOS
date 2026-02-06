@@ -48,92 +48,100 @@ CREATE POLICY workflows_tenant_membership_guard
 
 -- --------------------------------------------------------------------------
 -- academy_modules / academy_lessons (global reference curriculum):
--- shared read-only for authenticated users; writes reserved to service/admin.
+-- restrict table access to service role only; tenant-scoped views can be added if needed.
 -- --------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Academy modules are viewable by authenticated users" ON public.academy_modules;
-CREATE POLICY academy_modules_authenticated_read
+DROP POLICY IF EXISTS academy_modules_authenticated_read ON public.academy_modules;
+CREATE POLICY academy_modules_service_only
   ON public.academy_modules
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 DROP POLICY IF EXISTS "Academy lessons are viewable by authenticated users" ON public.academy_lessons;
-CREATE POLICY academy_lessons_authenticated_read
+DROP POLICY IF EXISTS academy_lessons_authenticated_read ON public.academy_lessons;
+CREATE POLICY academy_lessons_service_only
   ON public.academy_lessons
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 -- --------------------------------------------------------------------------
 -- agents / policy_rules (global operational reference data):
--- shared read-only for authenticated users; writes restricted to service role.
+-- restrict table access to service role only; tenant-scoped views can be added if needed.
 -- --------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Allow read access to agents" ON public.agents;
-CREATE POLICY agents_authenticated_read
+DROP POLICY IF EXISTS agents_authenticated_read ON public.agents;
+CREATE POLICY agents_service_only
   ON public.agents
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 DROP POLICY IF EXISTS "Allow read access to policy rules" ON public.policy_rules;
-CREATE POLICY policy_rules_authenticated_read
+DROP POLICY IF EXISTS policy_rules_authenticated_read ON public.policy_rules;
+CREATE POLICY policy_rules_service_only
   ON public.policy_rules
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 -- --------------------------------------------------------------------------
 -- feature_flags / prompt_versions / ab_tests / golden_examples (global config
--- and evaluation assets): authenticated users can read; writes are denied to
--- authenticated and must flow through trusted service/admin paths.
+-- and evaluation assets): restrict table access to service role only; tenant-scoped
+-- views can be added if needed.
 -- --------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Feature flags are deletable by authenticated users" ON public.feature_flags;
 DROP POLICY IF EXISTS "Feature flags are insertable by authenticated users" ON public.feature_flags;
 DROP POLICY IF EXISTS "Feature flags are updatable by authenticated users" ON public.feature_flags;
 DROP POLICY IF EXISTS "Feature flags are viewable by authenticated users" ON public.feature_flags;
-CREATE POLICY feature_flags_authenticated_read
+DROP POLICY IF EXISTS feature_flags_authenticated_read ON public.feature_flags;
+CREATE POLICY feature_flags_service_only
   ON public.feature_flags
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 DROP POLICY IF EXISTS "Prompt versions are insertable by authenticated users" ON public.prompt_versions;
 DROP POLICY IF EXISTS "Prompt versions are updatable by authenticated users" ON public.prompt_versions;
 DROP POLICY IF EXISTS "Prompt versions are viewable by authenticated users" ON public.prompt_versions;
-CREATE POLICY prompt_versions_authenticated_read
+DROP POLICY IF EXISTS prompt_versions_authenticated_read ON public.prompt_versions;
+CREATE POLICY prompt_versions_service_only
   ON public.prompt_versions
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 DROP POLICY IF EXISTS "A/B tests are insertable by authenticated users" ON public.ab_tests;
 DROP POLICY IF EXISTS "A/B tests are updatable by authenticated users" ON public.ab_tests;
 DROP POLICY IF EXISTS "A/B tests are viewable by authenticated users" ON public.ab_tests;
-CREATE POLICY ab_tests_authenticated_read
+DROP POLICY IF EXISTS ab_tests_authenticated_read ON public.ab_tests;
+CREATE POLICY ab_tests_service_only
   ON public.ab_tests
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 DROP POLICY IF EXISTS "Golden examples are insertable by authenticated users" ON public.golden_examples;
 DROP POLICY IF EXISTS "Golden examples are updatable by authenticated users" ON public.golden_examples;
 DROP POLICY IF EXISTS "Golden examples are viewable by authenticated users" ON public.golden_examples;
-CREATE POLICY golden_examples_authenticated_read
+DROP POLICY IF EXISTS golden_examples_authenticated_read ON public.golden_examples;
+CREATE POLICY golden_examples_service_only
   ON public.golden_examples
-  FOR SELECT
-  TO authenticated
+  FOR ALL
+  TO service_role
   USING (true);
 
 -- --------------------------------------------------------------------------
--- evaluation_runs (global analytics history): read-only to authenticated;
--- service role owns write path.
+-- evaluation_runs (global analytics history): restrict table access to service role only.
 -- --------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Evaluation runs are insertable by authenticated users" ON public.evaluation_runs;
 DROP POLICY IF EXISTS "Evaluation runs are viewable by authenticated users" ON public.evaluation_runs;
-CREATE POLICY evaluation_runs_authenticated_read
+DROP POLICY IF EXISTS evaluation_runs_authenticated_read ON public.evaluation_runs;
+CREATE POLICY evaluation_runs_service_read
   ON public.evaluation_runs
   FOR SELECT
-  TO authenticated
+  TO service_role
   USING (true);
 
 DROP POLICY IF EXISTS evaluation_runs_service_write ON public.evaluation_runs;
@@ -146,19 +154,24 @@ CREATE POLICY evaluation_runs_service_write
 
 -- --------------------------------------------------------------------------
 -- feature_flag_evaluations / llm_job_results (user-attributed events):
--- authenticated users may insert only rows attributable to auth.uid();
--- existing select policies already scope reads to own rows.
+-- restrict table access to service role only; tenant-scoped views can be added if needed.
 -- --------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Users can view their own evaluations" ON public.feature_flag_evaluations;
 DROP POLICY IF EXISTS "Evaluations are insertable by authenticated users" ON public.feature_flag_evaluations;
-CREATE POLICY feature_flag_evaluations_insert_own
+DROP POLICY IF EXISTS feature_flag_evaluations_insert_own ON public.feature_flag_evaluations;
+CREATE POLICY feature_flag_evaluations_service_only
   ON public.feature_flag_evaluations
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Users can view their own job results" ON public.llm_job_results;
 DROP POLICY IF EXISTS "Job results are insertable by authenticated users" ON public.llm_job_results;
-CREATE POLICY llm_job_results_insert_own
+DROP POLICY IF EXISTS llm_job_results_insert_own ON public.llm_job_results;
+CREATE POLICY llm_job_results_service_only
   ON public.llm_job_results
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
