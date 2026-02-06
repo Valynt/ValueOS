@@ -36,6 +36,9 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
 FROM deps AS builder
 WORKDIR /app
 
+# Build scope
+ARG APP=apps/ValyntApp
+
 # Copy all source code
 COPY . .
 
@@ -43,7 +46,7 @@ COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
     --mount=type=cache,id=node_modules,target=/app/node_modules \
     --mount=type=cache,id=turbo,target=/app/node_modules/.cache/turbo \
-    pnpm run build
+    pnpm turbo run build --filter=${APP}...
 
 # Optional: Run tests in build
 # RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
