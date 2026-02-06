@@ -63,9 +63,39 @@ export class ValidationError extends ServiceError {
 }
 
 export class AuthenticationError extends ServiceError {
-  constructor(message: string = 'Authentication failed') {
-    super(message, ErrorCode.AUTHENTICATION_ERROR, 401);
+  public readonly authCode?: string;
+
+  constructor(
+    message: string = 'Authentication failed',
+    details?: Record<string, unknown>,
+    statusCode = 401,
+    authCode?: string
+  ) {
+    super(message, ErrorCode.AUTHENTICATION_ERROR, statusCode, details);
     this.name = 'AuthenticationError';
+    this.authCode = authCode;
+  }
+}
+
+export class SessionTimeoutAuthenticationError extends AuthenticationError {
+  constructor(
+    message: string,
+    authCode: 'SESSION_IDLE_TIMEOUT' | 'SESSION_ABSOLUTE_TIMEOUT',
+    details?: Record<string, unknown>
+  ) {
+    super(message, details, 440, authCode);
+    this.name = 'SessionTimeoutAuthenticationError';
+  }
+}
+
+export class TokenAuthenticationError extends AuthenticationError {
+  constructor(
+    message: string,
+    authCode: 'TOKEN_EXPIRED' | 'INVALID_TOKEN' | 'INVALID_TOKEN_CLAIMS',
+    details?: Record<string, unknown>
+  ) {
+    super(message, details, 401, authCode);
+    this.name = 'TokenAuthenticationError';
   }
 }
 

@@ -5,7 +5,13 @@
 
 import { logger } from "../../lib/logger";
 import { BaseService } from "./BaseService";
-import { AuthenticationError, RateLimitError, ValidationError } from "./errors";
+import {
+  AuthenticationError,
+  RateLimitError,
+  SessionTimeoutAuthenticationError,
+  TokenAuthenticationError,
+  ValidationError,
+} from "./errors";
 import { Session, User } from "@supabase/supabase-js";
 import { sanitizeErrorMessage, validatePassword } from "../utils/security";
 import { securityLogger } from "./SecurityLogger";
@@ -38,6 +44,22 @@ export interface AuthSession {
   requiresEmailVerification?: boolean;
 }
 
+export type AuthFailureCode =
+  | "SESSION_IDLE_TIMEOUT"
+  | "SESSION_ABSOLUTE_TIMEOUT"
+  | "TOKEN_EXPIRED"
+  | "INVALID_TOKEN"
+  | "INVALID_TOKEN_CLAIMS"
+  | "MFA_ENROLLMENT_REQUIRED"
+  | "MFA_CODE_REQUIRED"
+  | "MFA_INVALID_CODE";
+
+interface AuthEndpointErrorPayload {
+  error?: string;
+  code?: AuthFailureCode | string;
+  [key: string]: unknown;
+}
+
 export class AuthService extends BaseService {
   constructor() {
     super("AuthService");
@@ -53,6 +75,21 @@ export class AuthService extends BaseService {
     const normalizedBase = baseUrl.endsWith("/api") ? baseUrl : `${baseUrl.replace(/\/$/, "")}/api`;
 
     return `${normalizedBase}/auth${path}`;
+  }
+
+  private mapAuthFailure(payload: AuthEndpointErrorPayload, responseStatus: number): AuthenticationError {
+    const code = typeof payload.code === "string" ? payload.code : undefined;
+    const message = typeof payload.error === "string" ? payload.error : "Request failed";
+
+    if (code === "SESSION_IDLE_TIMEOUT" || code === "SESSION_ABSOLUTE_TIMEOUT") {
+      return new SessionTimeoutAuthenticationError(message, code, payload);
+    }
+
+    if (code === "TOKEN_EXPIRED" || code === "INVALID_TOKEN" || code === "INVALID_TOKEN_CLAIMS") {
+      return new TokenAuthenticationError(message, code, payload);
+    }
+
+    return new AuthenticationError(message, payload, responseStatus, code);
   }
 
   private async callAuthEndpoint<T>(path: string, options: RequestInit): Promise<T> {
@@ -71,8 +108,7 @@ export class AuthService extends BaseService {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const errorMessage = typeof payload?.error === "string" ? payload.error : "Request failed";
-      throw new AuthenticationError(errorMessage);
+      throw this.mapAuthFailure(payload as AuthEndpointErrorPayload, response.status);
     }
 
     return payload as T;
@@ -286,13 +322,16 @@ export class AuthService extends BaseService {
             });
 
             throw new AuthenticationError(
-              "MFA_ENROLLMENT_REQUIRED: Your role requires multi-factor authentication. Please complete MFA setup."
+              "Your role requires multi-factor authentication. Please complete MFA setup.",
+              { code: "MFA_ENROLLMENT_REQUIRED", mfaEnrollmentRequired: true, userId: data.user.id, role: userRole },
+              403,
+              "MFA_ENROLLMENT_REQUIRED"
             );
           }
 
           // Verify MFA token
           if (!credentials.otpCode) {
-            throw new ValidationError("MFA code required for your role");
+            throw new ValidationError("MFA code required for your role", { code: "MFA_CODE_REQUIRED" });
           }
 
           const mfaResult = await mfaService.verifyMFAToken(data.user.id, credentials.otpCode);
@@ -304,7 +343,7 @@ export class AuthService extends BaseService {
               severity: "warn",
               metadata: { userId: data.user.id },
             });
-            throw new AuthenticationError("Invalid MFA code");
+            throw new AuthenticationError("Invalid MFA code", { code: "MFA_INVALID_CODE", userId: data.user.id }, 401, "MFA_INVALID_CODE");
           }
 
           if (mfaResult.usedBackupCode) {

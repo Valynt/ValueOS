@@ -6,7 +6,9 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { AlertCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { MFASetup } from "../Settings/MFASetup";
+import { AuthenticationError } from "../../services/errors";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,6 +19,16 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showMFA, setShowMFA] = useState(false);
   const [otpCode, setOtpCode] = useState("");
+  const [showMFAEnrollment, setShowMFAEnrollment] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
+  const [mfaEnrollmentContext, setMFAEnrollmentContext] = useState<{
+    userId: string;
+    userEmail: string;
+    userRole: string;
+  } | null>(null);
 
   const { login, signInWithProvider } = useAuth();
   const navigate = useNavigate();
@@ -29,6 +41,7 @@ export function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    setPendingCredentials({ email, password });
 
     try {
       await login({
@@ -41,12 +54,26 @@ export function LoginPage() {
       console.error("Login error:", err);
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred";
+      const authCode =
+        err instanceof AuthenticationError
+          ? err.authCode ?? (typeof err.details?.code === "string" ? err.details.code : undefined)
+          : undefined;
 
       if (errorMessage.includes("rate limit")) {
         setError("Too many login attempts. Please try again later.");
-      } else if (errorMessage.includes("MFA_ENROLLMENT_REQUIRED")) {
-        setError("Multi-factor authentication is required for your account. Please set it up first.");
-      } else if (errorMessage.includes("MFA")) {
+      } else if (authCode === "MFA_ENROLLMENT_REQUIRED" || errorMessage.includes("MFA_ENROLLMENT_REQUIRED")) {
+        const details = err instanceof AuthenticationError ? err.details : undefined;
+        const userId = typeof details?.userId === "string" ? details.userId : "";
+        const userRole = typeof details?.role === "string" ? details.role : "manager";
+
+        if (userId) {
+          setShowMFAEnrollment(true);
+          setMFAEnrollmentContext({ userId, userEmail: email, userRole });
+          setError("");
+        } else {
+          setError("MFA setup is required but enrollment context is missing. Please contact support.");
+        }
+      } else if (authCode === "MFA_INVALID_CODE" || errorMessage.includes("MFA")) {
         setShowMFA(true);
         setError("Please enter your MFA code");
       } else {
@@ -55,6 +82,43 @@ export function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMFAEnrollmentComplete = async () => {
+    setShowMFAEnrollment(false);
+    setMFAEnrollmentContext(null);
+    setError("");
+
+    if (!pendingCredentials) {
+      return;
+    }
+
+    try {
+      await login({
+        email: pendingCredentials.email,
+        password: pendingCredentials.password,
+      });
+      navigate(from, { replace: true });
+    } catch (err: unknown) {
+      const authCode =
+        err instanceof AuthenticationError
+          ? err.authCode ?? (typeof err.details?.code === "string" ? err.details.code : undefined)
+          : undefined;
+
+      if (authCode === "MFA_INVALID_CODE" || (err instanceof Error && err.message.includes("MFA"))) {
+        setShowMFA(true);
+        setError("MFA enabled. Enter your MFA code to complete login.");
+        return;
+      }
+
+      setError(err instanceof Error ? err.message : "Unable to continue login after MFA setup.");
+    }
+  };
+
+  const handleMFAEnrollmentCancel = () => {
+    setShowMFAEnrollment(false);
+    setMFAEnrollmentContext(null);
+    setError("MFA setup is required before you can log in.");
   };
 
   const handleOAuthSignIn = async (provider: "google" | "apple" | "github") => {
@@ -73,6 +137,22 @@ export function LoginPage() {
       setOauthLoading(null);
     }
   };
+
+  if (showMFAEnrollment && mfaEnrollmentContext) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-vc-surface-1 text-white font-sans p-6">
+        <div className="w-full max-w-[640px] bg-vc-surface-2 rounded-2xl border border-white/10 p-8">
+          <MFASetup
+            userId={mfaEnrollmentContext.userId}
+            userEmail={mfaEnrollmentContext.userEmail}
+            userRole={mfaEnrollmentContext.userRole}
+            onComplete={handleMFAEnrollmentComplete}
+            onCancel={handleMFAEnrollmentCancel}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-vc-surface-1 text-white font-sans selection:bg-vc-accent-teal-500/30">
