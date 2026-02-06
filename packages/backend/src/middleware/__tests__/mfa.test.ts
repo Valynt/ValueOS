@@ -39,6 +39,17 @@ describe('requireMFA Middleware', () => {
     vi.clearAllMocks();
   });
 
+
+  it('should return 401 when request has no authenticated user', async () => {
+    req.user = undefined;
+
+    await requireMFA(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Authentication required' }));
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('should call next() if user does not have MFA enabled', async () => {
     vi.mocked(mfaService.hasMFAEnabled).mockResolvedValue(false);
 
@@ -71,6 +82,16 @@ describe('requireMFA Middleware', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+
+  it('should return 500 when MFA service throws unexpectedly', async () => {
+    vi.mocked(mfaService.hasMFAEnabled).mockRejectedValue(new Error('boom'));
+
+    await requireMFA(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Internal Server Error' }));
+    expect(next).not.toHaveBeenCalled();
+  });
   it('should call next() if MFA enabled and valid code provided', async () => {
     vi.mocked(mfaService.hasMFAEnabled).mockResolvedValue(true);
     req.headers['x-mfa-code'] = '123456';

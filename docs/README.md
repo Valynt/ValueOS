@@ -24,7 +24,7 @@ Welcome to the ValueOS documentation hub. This is your starting point for unders
 - **[Overview](architecture/overview.md)** - High-level system architecture
 - **[Data Flow](architecture/data-flow.md)** - How data moves through the system
 - **[Multi-tenancy](architecture/multi-tenancy.md)** - Tenant isolation patterns
-- **[Architecture Decision Records](architecture/adr/)** - Historical architectural decisions
+- **[Architecture Decision Records](engineering/adr/README.md)** - Historical architectural decisions
 
 ### Engineering
 

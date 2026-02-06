@@ -39,11 +39,29 @@ jobs:
       - name: Generate SBOM
         run: pnpm run security:sbom
 
-      - name: Verify SBOM artifact
+      - name: Validate SBOM file and schema fields
         run: |
           if [ ! -s sbom.json ]; then
             echo "::error::SBOM artifact missing or empty."
             exit 1
+          fi
+
+- name: Validate SBOM file and schema fields
+        run: |
+          if [ ! -s sbom.json ]; then
+            echo "::error::SBOM artifact missing or empty."
+            exit 1
+          fi
+          pnpm run security:sbom:validate
+
+      - name: Block high severity vulnerabilities (release policy)
+        run: pnpm run security:scan
+
+      - name: Ensure jq is available
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y jq
           fi
 
       - name: Run vulnerability scan and capture output
@@ -70,6 +88,16 @@ jobs:
           } > security-gate-summary.md
 
           cat security-gate-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "::error::Release blocked due to high/critical dependency vulnerabilities."
+            exit 1
+          fi
+
+          if [ "$AUDIT_EXIT" -ne 0 ]; then
+            echo "::error::Dependency audit failed with exit code ${AUDIT_EXIT}."
+            exit "$AUDIT_EXIT"
+          fi
 
           if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
             echo "::error::Release blocked due to high/critical dependency vulnerabilities."

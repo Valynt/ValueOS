@@ -1,26 +1,45 @@
-import { DEFAULT_LOCALE, LocaleCode, localeMetadata, SUPPORTED_LOCALES } from './config';
-import enCommon from './locales/en/common.json';
-import esCommon from './locales/es/common.json';
+import { DEFAULT_LOCALE, type LocaleCode, localeMetadata, SUPPORTED_LOCALES } from "./config";
 
 type Messages = Record<string, string>;
 
-type LocaleResources = Record<LocaleCode, Messages>;
+type MessageLoader = () => Promise<Messages>;
 
-const resources: LocaleResources = {
-  en: enCommon,
-  es: esCommon,
+const loaders: Record<LocaleCode, MessageLoader> = {
+  en: () => import("./locales/en/common.json").then((module) => module.default as Messages),
+  es: () => import("./locales/es/common.json").then((module) => module.default as Messages),
 };
+
+const messageCache = new Map<LocaleCode, Messages>();
 
 export function resolveLocale(requested?: string): LocaleCode {
   if (!requested) return DEFAULT_LOCALE;
-  const normalized = requested.split('-')[0] as LocaleCode;
+  const normalized = requested.split("-")[0] as LocaleCode;
   return SUPPORTED_LOCALES.includes(normalized) ? normalized : DEFAULT_LOCALE;
 }
 
-export function getMessage(key: string, locale?: string): string {
-  const resolvedLocale = resolveLocale(locale);
-  const messages = resources[resolvedLocale] || resources[DEFAULT_LOCALE];
-  return messages[key] ?? resources[DEFAULT_LOCALE][key] ?? key;
+export async function loadMessages(requested?: string): Promise<Messages> {
+  const locale = resolveLocale(requested);
+  const cached = messageCache.get(locale);
+  if (cached) {
+    return cached;
+  }
+
+  const loader = loaders[locale] ?? loaders[DEFAULT_LOCALE];
+  const messages = await loader();
+  messageCache.set(locale, messages);
+  return messages;
+}
+
+export async function getMessage(key: string, requested?: string): Promise<string> {
+  const locale = resolveLocale(requested);
+  const messages = await loadMessages(locale);
+
+  if (messages[key]) {
+    return messages[key];
+  }
+
+  const fallbackMessages = await loadMessages(DEFAULT_LOCALE);
+  return fallbackMessages[key] ?? key;
 }
 
 export function getSupportedLocales() {
@@ -31,9 +50,10 @@ export function getSupportedLocales() {
 }
 
 export const i18n = {
-  resources,
   resolveLocale,
+  loadMessages,
   getMessage,
+  getSupportedLocales,
   supported: SUPPORTED_LOCALES,
   defaultLocale: DEFAULT_LOCALE,
 };

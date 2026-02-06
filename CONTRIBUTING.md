@@ -83,7 +83,7 @@ Administrators should enforce these as "Required" status checks in GitHub reposi
 
 ## Documentation
 
-- **ADRs**: Architectural decisions are recorded in `docs/architecture/adr/`.
+- **ADRs**: Architectural decisions are recorded in `docs/engineering/adr/README.md`.
 - **Runbooks**: Operational guides are in `docs/runbooks/`.
 - **API**: OpenAPI specs are located in `packages/backend/openapi.yaml`.
 

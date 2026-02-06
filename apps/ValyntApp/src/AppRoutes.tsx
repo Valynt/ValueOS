@@ -3,18 +3,17 @@
  * Centralized routing configuration with lazy loading and error boundaries
  */
 
-import { lazy, Suspense } from "react";
+import { type ReactElement, lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
-import { TenantProvider } from "./contexts/TenantContext";
-import { DrawerProvider } from "./contexts/DrawerContext";
-import { ProtectedRoute } from "./app/routes/route-guards";
-import { ToastProvider } from "./components/common/Toast";
+
+import { CommandPaletteProvider } from "./components/CommandPalette";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { LoadingSpinner } from "./components/common/LoadingSpinner";
-import { BetaFeedbackWidget } from "./components/feedback/BetaFeedbackWidget";
-import { EnvironmentBanner } from "./components/common/EnvironmentBanner";
-import { CommandPaletteProvider } from "./components/CommandPalette";
+import { ToastProvider } from "./components/common/Toast";
+import { AuthProvider } from "./contexts/AuthContext";
+import { DrawerProvider } from "./contexts/DrawerContext";
+import { TenantProvider } from "./contexts/TenantContext";
+import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
 import { publicRoutePaths, redirectRoutes } from "./routes/routeConfig";
@@ -33,8 +32,17 @@ const SignupPage = lazy(() =>
 const ResetPasswordPage = lazy(() => import("./views/Auth/ResetPasswordPage"));
 const AuthCallback = lazy(() => import("./views/Auth/AuthCallback"));
 
-// Lazy load main app
-const App = lazy(() => import("./App").then((m) => ({ default: m.App })));
+const BetaFeedbackWidget = lazy(() =>
+  import("./components/feedback/BetaFeedbackWidget").then((m) => ({
+    default: m.BetaFeedbackWidget,
+  })),
+);
+const EnvironmentBanner = lazy(() =>
+  import("./components/common/EnvironmentBanner").then((m) => ({
+    default: m.EnvironmentBanner,
+  })),
+);
+
 
 // Lazy load VALUI components
 // const MainLayout = lazy(() => import("./components/Layout/MainLayout"));
@@ -62,7 +70,7 @@ const App = lazy(() => import("./App").then((m) => ({ default: m.App })));
 // const DocsPortal = lazy(() => import("./components/docs/DocsPortal"));
 
 export function AppRoutes() {
-  const publicRouteElements: Record<string, JSX.Element> = {
+  const publicRouteElements: Record<string, ReactElement> = {
     "/login": <LoginPage />,
     "/signup": <SignupPage />,
     "/reset-password": <ResetPasswordPage />,
@@ -82,10 +90,11 @@ export function AppRoutes() {
         <AuthProvider>
           <TenantProvider>
             <DrawerProvider>
-              <ToastProvider>
-                <SDUIStateProvider supabase={supabase}>
-                  <CommandPaletteProvider>
-                    <Suspense fallback={<LoadingSpinner />}>
+              <I18nProvider>
+                <ToastProvider>
+                  <SDUIStateProvider supabase={supabase}>
+                    <CommandPaletteProvider>
+                      <Suspense fallback={<LoadingSpinner />}>
                       <Routes>
                         {/* Public Auth Routes */}
                         {publicRoutePaths.map((path) => (
@@ -250,12 +259,15 @@ export function AppRoutes() {
                         {/* 404 Not Found - Must be last */}
                         {/* <Route path="*" element={<NotFound />} /> */}
                       </Routes>
-                    </Suspense>
-                  </CommandPaletteProvider>
-                </SDUIStateProvider>
-                <BetaFeedbackWidget />
-                <EnvironmentBanner />
-              </ToastProvider>
+                      </Suspense>
+                    </CommandPaletteProvider>
+                  </SDUIStateProvider>
+                  <Suspense fallback={null}>
+                    <BetaFeedbackWidget />
+                    <EnvironmentBanner />
+                  </Suspense>
+                </ToastProvider>
+              </I18nProvider>
             </DrawerProvider>
           </TenantProvider>
         </AuthProvider>

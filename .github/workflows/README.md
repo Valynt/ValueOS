@@ -15,15 +15,25 @@ This directory contains GitHub Actions workflows that automate:
 
 ## Canonical CI Entry Point
 
-For application CI, workflows should call the single entry point `pnpm run ci:verify`, which runs linting, type checks, legacy route checks, tests, and the build in a consistent order. Use this script in workflows instead of bespoke step lists so CI behavior stays aligned across pipelines.
+For application CI, workflows should call the single entry point `pnpm run ci:verify`.
+
+### Governance command contract
+
+The required blocking governance gate is `pnpm run typecheck:signal --verify`. This command must be enforced in CI either directly, or transitively through `pnpm run ci:verify` (which is the preferred contract for application workflows).
+
+`pnpm run ci:verify` is expected to run linting, type checks, governance verification, legacy route checks, tests, workflow governance self-checking, and build steps in a consistent order. Do not downgrade governance enforcement to summary-only telemetry (for example `typecheck:signal:summary`) in protected CI paths.
+
+To prevent accidental regressions, CI includes `pnpm run ci:governance:self-check`, which validates that:
+- `ci:verify` still contains `pnpm run typecheck:signal --verify`, and
+- critical workflows (`ci-cd.yml`, `ci-tests.yml`, `pr-validation.yml`, `ci-bootstrap.yml`, `ci.yml`) include either `pnpm run ci:verify` or the direct governance command.
 
 ## Workflows
 
 ### 1. Terraform Validation (`terraform-validate.yml`)
 
 **Triggers:**
-- Pull requests affecting `infrastructure/terraform/**`
-- Pushes to `main` or `develop` branches
+- Pull requests affecting `infra/terraform/**` and workflow changes in `.github/workflows/terraform-*.yml`
+- Pushes to `main` or `develop` branches when Terraform files in `infra/terraform/**` change
 
 **Actions:**
 - Validates Terraform syntax
@@ -39,7 +49,7 @@ Automatically runs on every PR. No manual intervention needed.
 ### 2. Terraform Plan on PR (`terraform-plan-pr.yml`)
 
 **Triggers:**
-- Pull requests affecting `infrastructure/terraform/**`
+- Pull requests (`opened`, `synchronize`, `reopened`) affecting `infra/terraform/**`
 
 **Actions:**
 - Generates Terraform plans for both staging and production
@@ -171,9 +181,9 @@ git push origin develop
 ### 5. Security Scanning (`terraform-security-scan.yml`)
 
 **Triggers:**
-- Pull requests affecting `infrastructure/terraform/**`
-- Pushes to `main` or `develop`
-- Weekly schedule (Sunday at midnight)
+- Pull requests affecting `infra/terraform/**`
+- Pushes to `main` or `develop` when Terraform files in `infra/terraform/**` change
+- Weekly schedule (`0 0 * * 0`, Sunday at midnight UTC)
 - Manual workflow dispatch
 
 **Actions:**
