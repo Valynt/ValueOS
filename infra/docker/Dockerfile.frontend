@@ -17,27 +17,23 @@ ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN pnpm config set store-dir ${PNPM_STORE_PATH}
 
 # Copy workspace configuration
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
-COPY apps/ValyntApp/package.json apps/ValyntApp/
-COPY packages/shared/package.json packages/shared/
-COPY packages/infra/package.json packages/infra/
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json .npmrc* ./
 
 # Fetch dependencies for reproducible installs
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm fetch --filter ./apps/ValyntApp...
+    pnpm fetch --frozen-lockfile
 
 # Stage 2: Development
 FROM deps AS development
 WORKDIR /app
 
+COPY . .
+
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --offline --filter ./apps/ValyntApp...
-
-COPY apps/ValyntApp ./apps/ValyntApp
-COPY packages/shared ./packages/shared
-COPY packages/infra ./packages/infra
 
 WORKDIR /app/apps/ValyntApp
 ENV NODE_ENV=development
@@ -56,12 +52,7 @@ ARG NODE_ENV=production
 
 WORKDIR /app
 
-# Copy workspace and build configuration
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
-COPY turbo.json ./
-COPY apps/ValyntApp ./apps/ValyntApp
-COPY packages/shared ./packages/shared
-COPY packages/infra ./packages/infra
+COPY . .
 
 # Validate required environment variables
 RUN test -n "$VITE_SUPABASE_URL" || (echo "ERROR: VITE_SUPABASE_URL is required" && exit 1)
