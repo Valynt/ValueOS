@@ -68,6 +68,92 @@ spec:
             description: "P95 latency is {{ $value }}s over the last 5 minutes"
             runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-critical-latency"
 
+        # Security Events Alert
+        - alert: AgentFabricSecurityEvents
+          expr: |
+            rate(agent_fabric_security_events_total[5m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+            component: agent-fabric
+          annotations:
+            summary: "Agent Fabric security events detected"
+            description: "{{ $value }} security events detected in the last 5 minutes"
+            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-security"
+
+        # Critical Security Events Alert
+        - alert: AgentFabricCriticalSecurityEvents
+          expr: |
+            rate(agent_fabric_security_events_total{severity="critical"}[5m]) > 0
+          for: 0m
+          labels:
+            severity: critical
+            component: agent-fabric
+          annotations:
+            summary: "Critical Agent Fabric security events detected"
+            description: "{{ $value }} critical security events detected in the last 5 minutes"
+            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-critical-security"
+
+        # Token Usage Alert
+        - alert: AgentFabricHighTokenUsage
+          expr: |
+            rate(agent_fabric_token_usage_total[5m]) > 1000
+          for: 5m
+          labels:
+            severity: warning
+            component: agent-fabric
+          annotations:
+            summary: "Agent Fabric token usage is high"
+            description: "Token usage is {{ $value }} tokens/second over the last 5 minutes"
+            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-tokens"
+
+        # Cost Alert
+        - alert: AgentFabricHighCost
+          expr: |
+            rate(agent_fabric_cost_usd_total[1h]) > 100
+          for: 10m
+          labels:
+            severity: warning
+            component: agent-fabric
+          annotations:
+            summary: "Agent Fabric cost is high"
+            description: "Cost is ${{ $value }}/hour over the last hour"
+            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-cost"
+
+        # Low Success Rate Alert
+        - alert: AgentFabricLowSuccessRate
+          expr: |
+            (
+              rate(agent_fabric_execution_success_total[5m]) /
+              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
+            ) * 100 < 90
+          for: 5m
+          labels:
+            severity: warning
+            component: agent-fabric
+          annotations:
+            summary: "Agent Fabric success rate is below 90%"
+            description: "Success rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-success-rate"
+
+        # Critical Success Rate Alert
+        - alert: AgentFabricCriticalSuccessRate
+          expr: |
+            (
+              rate(agent_fabric_execution_success_total[5m]) /
+              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
+            ) * 100 < 75
+          for: 2m
+          labels:
+            severity: critical
+            component: agent-fabric
+          annotations:
+            summary: "Agent Fabric success rate is critically low"
+            description: "Success rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-critical-success-rate"
+
+    - name: agent-fabric.infra.rules
+      rules:
         # Memory Usage Alert
         - alert: AgentFabricHighMemoryUsage
           expr: |
@@ -154,90 +240,6 @@ spec:
             summary: "Agent Fabric service is down"
             description: "Agent Fabric service has been down for more than 1 minute"
             runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-service-down"
-
-        # Security Events Alert
-        - alert: AgentFabricSecurityEvents
-          expr: |
-            rate(agent_fabric_security_events_total[5m]) > 0
-          for: 0m
-          labels:
-            severity: warning
-            component: agent-fabric
-          annotations:
-            summary: "Agent Fabric security events detected"
-            description: "{{ $value }} security events detected in the last 5 minutes"
-            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-security"
-
-        # Critical Security Events Alert
-        - alert: AgentFabricCriticalSecurityEvents
-          expr: |
-            rate(agent_fabric_security_events_total{severity="critical"}[5m]) > 0
-          for: 0m
-          labels:
-            severity: critical
-            component: agent-fabric
-          annotations:
-            summary: "Critical Agent Fabric security events detected"
-            description: "{{ $value }} critical security events detected in the last 5 minutes"
-            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-critical-security"
-
-        # Token Usage Alert
-        - alert: AgentFabricHighTokenUsage
-          expr: |
-            rate(agent_fabric_token_usage_total[5m]) > 1000
-          for: 5m
-          labels:
-            severity: warning
-            component: agent-fabric
-          annotations:
-            summary: "Agent Fabric token usage is high"
-            description: "Token usage is {{ $value }} tokens/second over the last 5 minutes"
-            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-tokens"
-
-        # Cost Alert
-        - alert: AgentFabricHighCost
-          expr: |
-            rate(agent_fabric_cost_usd_total[1h]) > 100
-          for: 10m
-          labels:
-            severity: warning
-            component: agent-fabric
-          annotations:
-            summary: "Agent Fabric cost is high"
-            description: "Cost is ${{ $value }}/hour over the last hour"
-            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-cost"
-
-        # Low Success Rate Alert
-        - alert: AgentFabricLowSuccessRate
-          expr: |
-            (
-              rate(agent_fabric_execution_success_total[5m]) /
-              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
-            ) * 100 < 90
-          for: 5m
-          labels:
-            severity: warning
-            component: agent-fabric
-          annotations:
-            summary: "Agent Fabric success rate is below 90%"
-            description: "Success rate is {{ $value | humanizePercentage }} over the last 5 minutes"
-            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-success-rate"
-
-        # Critical Success Rate Alert
-        - alert: AgentFabricCriticalSuccessRate
-          expr: |
-            (
-              rate(agent_fabric_execution_success_total[5m]) /
-              clamp_min(rate(agent_fabric_executions_total[5m]), 1)
-            ) * 100 < 75
-          for: 2m
-          labels:
-            severity: critical
-            component: agent-fabric
-          annotations:
-            summary: "Agent Fabric success rate is critically low"
-            description: "Success rate is {{ $value | humanizePercentage }} over the last 5 minutes"
-            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-critical-success-rate"
 
     - name: agent-fabric-business.rules
       rules:
