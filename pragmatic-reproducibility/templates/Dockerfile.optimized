@@ -19,6 +19,7 @@ ARG DIVE_VERSION="0.12.0"
 ARG HADOLINT_VERSION="2.12.0"
 
 ARG VARIANT=ubuntu-22.04
+ARG APP
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Base stage: OS + system packages
@@ -185,6 +186,51 @@ RUN corepack enable \
     && pnpm config set store-dir ${PNPM_STORE_PATH} \
     && pnpm fetch --frozen-lockfile \
     && pnpm install --frozen-lockfile
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Build stage (production-oriented)
+# ─────────────────────────────────────────────────────────────────────────────
+FROM nodejs AS build
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+ARG APP
+
+WORKDIR /workspaces/valueos
+
+ENV PNPM_STORE_PATH=/pnpm/store
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY .npmrc ./
+
+RUN corepack enable \
+    && pnpm config set store-dir ${PNPM_STORE_PATH} \
+    && pnpm install --frozen-lockfile
+
+COPY . .
+
+RUN turbo run build --filter=${APP}... \
+    && pnpm prune --prod --filter=${APP}... \
+    && mkdir -p /artifacts/app \
+    && if [ -d "apps/${APP}/dist" ]; then cp -r "apps/${APP}/dist" /artifacts/app/dist; fi \
+    && if [ -d "apps/${APP}/.next" ]; then cp -r "apps/${APP}/.next" /artifacts/app/.next; fi \
+    && cp "apps/${APP}/package.json" /artifacts/app/package.json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Runner stage (production-oriented)
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:${NODE_VERSION}-slim AS runner
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+ARG APP
+
+ENV NODE_ENV=production
+
+WORKDIR /app
+
+COPY --from=build /workspaces/valueos/node_modules ./node_modules
+COPY --from=build /artifacts/app ./apps/${APP}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Final stage
