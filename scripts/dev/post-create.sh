@@ -63,56 +63,30 @@ if [ -n "$DATABASE_URL" ]; then
     DB_URL="$DATABASE_URL"
     echo "   Using DATABASE_URL from environment: $DB_URL"
 else
-    # Resolve DB host dynamically - try Docker DNS, fall back to container IP
-    resolve_db_host() {
-        if getent hosts postgres >/dev/null 2>&1; then
-            echo "postgres"
-            return
-        fi
-        if getent hosts valueos-postgres >/dev/null 2>&1; then
-            echo "valueos-postgres"
-            return
-        fi
-        if command -v docker >/dev/null 2>&1; then
-            local ip=$(docker inspect valueos-postgres-1 --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
-            if [[ -n "$ip" ]]; then
-                echo "$ip"
-                return
-            fi
-        fi
-        echo "postgres"
-    }
-
-    DB_HOST=$(resolve_db_host)
+    # Compose service DNS is deterministic when using ./scripts/dc.
+    DB_HOST="postgres"
     DB_URL="postgresql://postgres:postgres@${DB_HOST}:5432/postgres?sslmode=disable"
     echo "   Using DB: ${DB_HOST}:5432"
 fi
 
-# Wait for db container to be healthy (only when Docker CLI + daemon are available).
-# If Docker tooling is missing or unavailable, continue with in-network checks below.
-if command -v docker >/dev/null 2>&1; then
-    if docker info >/dev/null 2>&1; then
-        echo "   Waiting for db container to be healthy..."
-        MAX_CONTAINER_ATTEMPTS=30
-        CONTAINER_ATTEMPT=0
-        while [ $CONTAINER_ATTEMPT -lt $MAX_CONTAINER_ATTEMPTS ]; do
-            if docker ps --filter "name=db" --filter "health=healthy" | grep -q db; then
-                echo "   ✅ DB container is healthy."
-                break
-            fi
-            CONTAINER_ATTEMPT=$((CONTAINER_ATTEMPT + 1))
-            echo "   Attempt $CONTAINER_ATTEMPT/$MAX_CONTAINER_ATTEMPTS - waiting for db container..."
-            sleep 2
-        done
-
-        if [ $CONTAINER_ATTEMPT -eq $MAX_CONTAINER_ATTEMPTS ]; then
-            echo "⚠️  DB container health check timed out; falling back to network readiness checks."
+# Wait for DB via canonical Compose entrypoint (service-based, no hard-coded container names).
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    echo "   Waiting for postgres service readiness via ./scripts/dc exec..."
+    MAX_CONTAINER_ATTEMPTS=30
+    CONTAINER_ATTEMPT=0
+    while [ $CONTAINER_ATTEMPT -lt $MAX_CONTAINER_ATTEMPTS ]; do
+        if "${PROJECT_ROOT}/scripts/dc" exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
+            echo "   ✅ Postgres service is ready."
+            break
         fi
-    else
-        echo "⚠️  Docker daemon is unavailable; skipping container health check."
+        CONTAINER_ATTEMPT=$((CONTAINER_ATTEMPT + 1))
+        echo "   Attempt $CONTAINER_ATTEMPT/$MAX_CONTAINER_ATTEMPTS - waiting for postgres service..."
+        sleep 2
+    done
+
+    if [ $CONTAINER_ATTEMPT -eq $MAX_CONTAINER_ATTEMPTS ]; then
+        echo "⚠️  Postgres service readiness timed out; falling back to network readiness checks."
     fi
-else
-    echo "⚠️  Docker CLI not available; skipping container health check."
 fi
 MAX_ATTEMPTS=30
 ATTEMPT=0

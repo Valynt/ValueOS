@@ -7,6 +7,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_FILE="${REPO_ROOT}/scripts/docker-compose.yml"
 PORTS_ENV_FILE="${REPO_ROOT}/scripts/.env.ports"
 PORTS_ENV_EXAMPLE="${REPO_ROOT}/scripts/.env.ports.example"
+LEGACY_ENV_FILE="${REPO_ROOT}/.env.ports"
 
 [[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
@@ -24,6 +25,8 @@ compose_args=(
 
 if [[ -f "${PORTS_ENV_FILE}" ]]; then
   compose_args+=(--env-file "${PORTS_ENV_FILE}")
+elif [[ -f "${LEGACY_ENV_FILE}" ]]; then
+  compose_args+=(--env-file "${LEGACY_ENV_FILE}")
 elif [[ -f "${PORTS_ENV_EXAMPLE}" ]]; then
   compose_args+=(--env-file "${PORTS_ENV_EXAMPLE}")
 fi

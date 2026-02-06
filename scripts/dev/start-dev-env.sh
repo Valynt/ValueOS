@@ -13,7 +13,7 @@
 #   2 - Docker Compose failed
 #   3 - Database not healthy
 #   4 - Migrations failed
-#   5 - Gateway not healthy
+#   5 - Application not healthy
 ###############################################################################
 
 set -euo pipefail
@@ -30,8 +30,7 @@ BOLD='\033[1m'
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-COMPOSE_FILE="$PROJECT_ROOT/.devcontainer/docker-compose.devcontainer.yml"
-ENV_FILE="$PROJECT_ROOT/.devcontainer/.env.dev"
+DC_CMD="$PROJECT_ROOT/scripts/dc"
 LOG_FILE="$PROJECT_ROOT/.dev-env-startup.log"
 
 # Timeouts (in seconds)
@@ -164,19 +163,11 @@ else
 fi
 
 # Check required files
-if [[ ! -f "$COMPOSE_FILE" ]]; then
-    log ERROR "docker-compose.devcontainer.yml not found at $COMPOSE_FILE"
+if [[ ! -x "$DC_CMD" ]]; then
+    log ERROR "Compose entrypoint not found or not executable: $DC_CMD"
     exit 1
 fi
-log SUCCESS "Compose file found"
-
-# Generate .env.local from .env.dev if needed
-if [[ -f "$ENV_FILE" ]]; then
-    cp "$ENV_FILE" "$PROJECT_ROOT/.env.local" 2>/dev/null || true
-    log SUCCESS "Environment file loaded"
-else
-    log WARN ".env.dev not found, using defaults"
-fi
+log SUCCESS "Compose entrypoint found"
 
 ###############################################################################
 # Step 2: Start Docker Compose Services
@@ -184,18 +175,7 @@ fi
 log STEP "2/6 Starting Docker Services"
 
 if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-    cd "$PROJECT_ROOT/.devcontainer"
-
-    # Build compose command
-    COMPOSE_CMD="docker compose -f docker-compose.devcontainer.yml"
-    if [[ -f ".env.dev" ]]; then
-        COMPOSE_CMD="$COMPOSE_CMD --env-file .env.dev"
-    fi
-
-    # Add studio profile if requested
-    if [[ "$ENABLE_STUDIO" == "true" ]]; then
-        COMPOSE_CMD="$COMPOSE_CMD --profile studio"
-    fi
+    COMPOSE_CMD="$DC_CMD"
 
     # Start services with wait
     log INFO "Starting services (this may take a minute on first run)..."
@@ -226,18 +206,18 @@ wait_for_db() {
     while [[ $elapsed -lt $DB_TIMEOUT ]]; do
         if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
             # Use docker compose exec when Docker is available
-            if $COMPOSE_CMD exec -T db pg_isready -U postgres -d postgres &> /dev/null; then
+            if $COMPOSE_CMD exec -T postgres pg_isready -U postgres -d valuecanvas_dev &> /dev/null; then
                 return 0
             fi
         else
             # Use network connectivity check when inside devcontainer
-            if pg_isready -h db -U postgres -d postgres &> /dev/null 2>&1; then
+            if pg_isready -h postgres -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
                 return 0
-            elif nc -z db 5432 &> /dev/null 2>&1; then
+            elif nc -z postgres 5432 &> /dev/null 2>&1; then
                 # Fallback to netcat if pg_isready not available
                 return 0
-            elif curl -s --max-time 2 "http://rest:3000/" &> /dev/null 2>&1; then
-                # If PostgREST responds, DB is up
+            elif curl -s --max-time 2 "http://backend:8000/health" &> /dev/null 2>&1; then
+                # If backend responds, dependencies are up
                 return 0
             fi
         fi
@@ -255,7 +235,7 @@ if wait_for_db; then
 else
     log ERROR "Database did not become healthy within ${DB_TIMEOUT}s"
     if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-        $COMPOSE_CMD logs db --tail=50 >> "$LOG_FILE" 2>&1
+        $COMPOSE_CMD logs postgres --tail=50 >> "$LOG_FILE" 2>&1
     fi
     exit 3
 fi
@@ -263,11 +243,11 @@ fi
 # Ensure shadow database exists
 log INFO "Ensuring shadow database exists..."
 if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-    $COMPOSE_CMD exec -T db psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+    $COMPOSE_CMD exec -T postgres psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
 else
     # Use psql directly if available, otherwise skip
     if command -v psql &> /dev/null; then
-        PGPASSWORD=postgres psql -h db -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+        PGPASSWORD=postgres psql -h postgres -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
     else
         log INFO "psql not available, shadow DB creation skipped (will be created on first migration)"
     fi
@@ -285,8 +265,8 @@ else
     cd "$PROJECT_ROOT"
 
     log INFO "Applying migrations..."
-    export PGHOST="${DB_HOST:-db}"
-    export DB_HOST="${DB_HOST:-db}"
+    export PGHOST="${DB_HOST:-postgres}"
+    export DB_HOST="${DB_HOST:-postgres}"
     export DB_PASSWORD="${DB_PASSWORD:-postgres}"
     export DB_NAME="${DB_NAME:-postgres}"
 
@@ -318,42 +298,36 @@ fi
 ###############################################################################
 # Step 6: Verify Gateway Health
 ###############################################################################
-log STEP "6/6 Verifying Gateway"
+log STEP "6/6 Verifying Application"
 
-wait_for_gateway() {
+wait_for_app() {
     local elapsed=0
     while [[ $elapsed -lt $GATEWAY_TIMEOUT ]]; do
         if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-            # Check Kong health via docker compose exec
-            if $COMPOSE_CMD exec -T kong kong health &> /dev/null; then
-                # Also verify auth endpoint
-                if curl -fsS http://kong:8000/auth/v1/health &> /dev/null 2>&1 || \
-                   curl -fsS http://localhost:54321/auth/v1/health &> /dev/null 2>&1; then
-                    return 0
-                fi
+            if $COMPOSE_CMD exec -T backend wget -q --spider http://localhost:8000/health &> /dev/null; then
+                return 0
             fi
         else
-            # Inside devcontainer - check via network
-            if curl -fsS --max-time 2 http://kong:8000/auth/v1/health &> /dev/null 2>&1; then
+            # Inside devcontainer - check via network aliases
+            if curl -fsS --max-time 2 http://backend:8000/health &> /dev/null 2>&1; then
                 return 0
-            elif curl -fsS --max-time 2 http://kong:8000/ &> /dev/null 2>&1; then
-                # Kong is responding even if auth isn't ready yet
+            elif curl -fsS --max-time 2 http://localhost:8000/health &> /dev/null 2>&1; then
                 return 0
             fi
         fi
         sleep $HEALTH_CHECK_INTERVAL
         elapsed=$((elapsed + HEALTH_CHECK_INTERVAL))
         if $VERBOSE; then
-            echo -ne "\r  Waiting for gateway... ${elapsed}s/${GATEWAY_TIMEOUT}s"
+            echo -ne "\r  Waiting for application... ${elapsed}s/${GATEWAY_TIMEOUT}s"
         fi
     done
     return 1
 }
 
-if wait_for_gateway; then
-    log SUCCESS "Gateway is healthy"
+if wait_for_app; then
+    log SUCCESS "Application is healthy"
 else
-    log WARN "Gateway health check timed out (services may still be starting)"
+    log WARN "Application health check timed out (services may still be starting)"
 fi
 
 ###############################################################################
@@ -374,7 +348,7 @@ echo -e "${GREEN}║  ${NC}Database:        ${CYAN}localhost:54322${NC} (postgre
 echo -e "${GREEN}║                                                                ║${NC}"
 echo -e "${GREEN}╠════════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}║  ${NC}Start dev server: ${YELLOW}pnpm dev${NC}${GREEN}                                 ║${NC}"
-echo -e "${GREEN}║  ${NC}View logs:        ${YELLOW}docker compose logs -f${NC}${GREEN}                   ║${NC}"
+echo -e "${GREEN}║  ${NC}View logs:        ${YELLOW}./scripts/dc logs -f${NC}${GREEN}                        ║${NC}"
 echo -e "${GREEN}║  ${NC}Diagnostics:      ${YELLOW}bash scripts/dev/diagnostics.sh${NC}${GREEN}         ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
