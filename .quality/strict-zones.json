@@ -1,0 +1,14 @@
+{
+  "zones": [
+    {
+      "name": "design-system",
+      "project": ".quality/strict-zones/tsconfig.design-system.json",
+      "description": "Reusable UI primitives used across apps; must stay debt-free."
+    },
+    {
+      "name": "memory",
+      "project": ".quality/strict-zones/tsconfig.memory.json",
+      "description": "Cross-agent memory package used in orchestration pipelines."
+    }
+  ]
+}

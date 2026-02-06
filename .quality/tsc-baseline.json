@@ -1,0 +1,5 @@
+{
+  "totalErrors": 2302,
+  "command": "pnpm tsc --noEmit --pretty false",
+  "generatedAt": "2026-02-06T01:01:03.100Z"
+}

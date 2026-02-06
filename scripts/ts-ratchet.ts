@@ -1,74 +1,83 @@
-import * as fs from "fs";
-import * as path from "path";
-import { execSync } from "child_process";
-import { fileURLToPath } from "url";
+import fs from "node:fs";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+type Baseline = {
+  totalErrors: number;
+  command: string;
+  generatedAt: string;
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASELINE_FILE = path.join(__dirname, "../.github/ts-error-baseline.json");
+const repoRoot = path.resolve(__dirname, "..");
+const baselinePath = path.join(repoRoot, ".quality", "tsc-baseline.json");
+const tscArgs = ["tsc", "--noEmit", "--pretty", "false"];
+const tscCommand = `pnpm ${tscArgs.join(" ")}`;
 
-interface Baseline {
-  total_errors: number;
-  last_updated: string;
+function countTypeScriptErrors(output: string): number {
+  const matches = output.match(/^.*error TS\d+:.*$/gm);
+  return matches ? matches.length : 0;
 }
 
-function getErrorCount(): number {
-  console.log("Running global TypeCheck...");
+function runTypecheckAndCount(): number {
   try {
-    execSync("pnpm tsc --noEmit", { stdio: "pipe" });
+    execFileSync("pnpm", tscArgs, { cwd: repoRoot, stdio: "pipe", encoding: "utf8" });
     return 0;
-  } catch (e: any) {
-    const output = e.stdout.toString();
-    const lines = output.split("\n");
-    const errors = lines.filter((l: string) => l.includes("error TS")).length;
-    return errors;
+  } catch (error) {
+    const stdout = typeof error === "object" && error && "stdout" in error ? String(error.stdout ?? "") : "";
+    const stderr = typeof error === "object" && error && "stderr" in error ? String(error.stderr ?? "") : "";
+    return countTypeScriptErrors(`${stdout}\n${stderr}`);
   }
 }
 
-function main() {
-  const mode = process.argv[2]; // 'check' or 'update'
-
-  if (!fs.existsSync(BASELINE_FILE)) {
-    console.error(`Baseline file not found at ${BASELINE_FILE}`);
-    process.exit(1);
+function readBaseline(): Baseline {
+  if (!fs.existsSync(baselinePath)) {
+    throw new Error(`Missing baseline file at ${baselinePath}. Run 'pnpm ts:ratchet:update' once.`);
   }
 
-  const currentErrors = getErrorCount();
-  const baseline: Baseline = JSON.parse(fs.readFileSync(BASELINE_FILE, "utf-8"));
+  return JSON.parse(fs.readFileSync(baselinePath, "utf8")) as Baseline;
+}
 
-  console.log(`\n📊 Status Report:`);
-  console.log(`   Baseline Errors: ${baseline.total_errors}`);
-  console.log(`   Current Errors:  ${currentErrors}`);
+function writeBaseline(totalErrors: number): void {
+  const baseline: Baseline = {
+    totalErrors,
+    command: tscCommand,
+    generatedAt: new Date().toISOString(),
+  };
+
+  fs.mkdirSync(path.dirname(baselinePath), { recursive: true });
+  fs.writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+}
+
+function main(): void {
+  const mode = process.argv[2] ?? "check";
+  const currentErrors = runTypecheckAndCount();
 
   if (mode === "update") {
-    if (currentErrors < baseline.total_errors) {
-      console.log(`🎉 Improvements detected! Updating baseline to ${currentErrors}.`);
-      const newBaseline: Baseline = {
-        total_errors: currentErrors,
-        last_updated: new Date().toISOString(),
-      };
-      fs.writeFileSync(BASELINE_FILE, JSON.stringify(newBaseline, null, 2));
-      process.exit(0);
-    } else {
-      console.log(`No improvement. Baseline remains at ${baseline.total_errors}.`);
-      process.exit(0);
-    }
-  } else {
-    // Check mode (CI)
-    if (currentErrors > baseline.total_errors) {
-      console.error(`\n⛔ RAT CHET FAILURE ⛔`);
-      console.error(
-        `Technical debt has increased! You introduced ${currentErrors - baseline.total_errors} new errors.`
-      );
-      process.exit(1);
-    } else if (currentErrors < baseline.total_errors) {
-      console.log(`\n⚠️  Excellent work, but you forgot to lock in the gains.`);
-      console.log(`   Please run 'pnpm ts:ratchet:update' to lower the baseline.`);
-      process.exit(0);
-    } else {
-      console.log(`\n✅ Ratchet check passed. Error count static.`);
-      process.exit(0);
-    }
+    writeBaseline(currentErrors);
+    console.log(`📝 Updated TypeScript baseline to ${currentErrors} errors.`);
+    return;
   }
+
+  if (mode !== "check") {
+    throw new Error(`Unsupported mode '${mode}'. Use 'check' or 'update'.`);
+  }
+
+  const baseline = readBaseline();
+  console.log(`📊 TypeScript debt count (legacy scope): current=${currentErrors}, baseline=${baseline.totalErrors}`);
+
+  if (currentErrors > baseline.totalErrors) {
+    const increase = currentErrors - baseline.totalErrors;
+    throw new Error(`TypeScript ratchet failed: ${increase} new errors introduced.`);
+  }
+
+  if (currentErrors < baseline.totalErrors) {
+    console.log("✅ TypeScript debt reduced. Run 'pnpm ts:ratchet:update' to ratchet baseline down.");
+    return;
+  }
+
+  console.log("✅ TypeScript ratchet passed (no debt growth).");
 }
 
 main();

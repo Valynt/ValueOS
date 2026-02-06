@@ -230,7 +230,9 @@
     "build-storybook": "storybook build",
     "typecheck:verify": "pnpm run typecheck:signal --verify",
     "guard:strict-zones": "tsx scripts/dx/guard-strict-zone-config.ts",
-    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs"
+    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs",
+    "typecheck:strict-zones": "tsx scripts/quality/typecheck-strict-zones.ts",
+    "typecheck:ratchet": "tsx scripts/ts-ratchet.ts check"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
