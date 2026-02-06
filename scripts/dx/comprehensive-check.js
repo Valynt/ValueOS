@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
+import { getPortRegistry } from "./port-registry.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,9 @@ const projectRoot = path.resolve(__dirname, "../..");
 
 const args = process.argv.slice(2);
 const softMode = args.includes("--soft");
+const {
+  backend: { port: backendPort },
+} = getPortRegistry();
 
 const checks = [];
 let allPassed = true;
@@ -165,7 +169,7 @@ check(
   () => {
     try {
       const result = runCommand(
-        "curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/health"
+        `curl -s -o /dev/null -w '%{http_code}' http://localhost:${backendPort}/health`
       );
       return result === "200";
     } catch {
