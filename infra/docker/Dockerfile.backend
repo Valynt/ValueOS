@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy only the files needed to resolve the workspace + lockfile for deterministic installs
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY .npmrc* ./
+COPY turbo.json ./
 
 # Copy package manifests for workspace packages needed by backend
 COPY packages/backend/package.json packages/backend/
@@ -41,11 +42,12 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 # Builder stage for build verification
 FROM deps AS builder
+ARG APP=@valueos/backend
 WORKDIR /app
 COPY packages/backend ./packages/backend
 COPY packages/shared ./packages/shared
 COPY packages/sdui ./packages/sdui
-RUN pnpm --filter @valueos/backend build
+RUN turbo run build --filter=${APP}...
 
 FROM base AS runtime
 WORKDIR /app
