@@ -8,19 +8,14 @@ import { afterEach, beforeEach } from "vitest";
 import fetch, { Headers, Request, Response } from "node-fetch";
 import jwt from "jsonwebtoken";
 
-const supabaseUrl =
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const supabaseServiceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  "";
-const supabaseAnonKey =
-  process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
 
 // Default Supabase local dev secret
 const JWT_SECRET =
-  process.env.SUPABASE_JWT_SECRET ||
-  "super-secret-jwt-token-with-at-least-32-characters-long";
+  process.env.SUPABASE_JWT_SECRET || "super-secret-jwt-token-with-at-least-32-characters-long";
 
 /**
  * Get Supabase client for tests
@@ -40,9 +35,7 @@ export function getTestSupabaseClient(): SupabaseClient {
 /**
  * Clean up billing tables
  */
-export async function cleanupBillingTables(
-  supabase: SupabaseClient
-): Promise<void> {
+export async function cleanupBillingTables(supabase: SupabaseClient): Promise<void> {
   // Order matters due to foreign key constraints
   const tables = [
     "usage_alerts",
@@ -130,9 +123,7 @@ export async function createTestUser(
     }
   } catch (error) {
     console.warn("Could not create auth user, falling back to mock:", error);
-    userId = `user_${Date.now()}_${Math.random()
-      .toString(36)
-      .substring(7)}`;
+    userId = `user_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   }
 
   // Create user_tenants entry if table exists
@@ -151,26 +142,6 @@ export async function createTestUser(
 }
 
 /**
- * Execute SQL as service role (bypassing RLS)
- */
-export async function executeAsServiceRole<T = any>(
-  supabase: SupabaseClient,
-  query: () => Promise<{ data: T | null; error: any }>
-): Promise<T> {
-  const { data, error } = await query();
-
-  if (error) {
-    throw new Error(`Database query failed: ${error.message}`);
-  }
-
-  if (!data) {
-    throw new Error("No data returned from query");
-  }
-
-  return data;
-}
-
-/**
  * Execute SQL as specific user (testing RLS)
  */
 export async function executeAsUser<T = any>(
@@ -180,9 +151,7 @@ export async function executeAsUser<T = any>(
   // If anon key is not available, we can't create a client that respects RLS easily
   // (unless we use the service role key which bypasses it)
   if (!supabaseAnonKey) {
-    console.warn(
-      "Missing VITE_SUPABASE_ANON_KEY, skipping RLS check (running as service role)"
-    );
+    console.warn("Missing VITE_SUPABASE_ANON_KEY, skipping RLS check (running as service role)");
     const client = getTestSupabaseClient();
     return await query(client);
   }
@@ -229,9 +198,7 @@ export async function assertRowCount(
   expectedCount: number,
   filter?: Record<string, any>
 ): Promise<void> {
-  let query = supabase
-    .from(tableName)
-    .select("id", { count: "exact", head: true });
+  let query = supabase.from(tableName).select("id", { count: "exact", head: true });
 
   if (filter) {
     Object.entries(filter).forEach(([key, value]) => {
@@ -345,22 +312,4 @@ export async function seedTestData(
   if (data.invoices) {
     await supabase.from("invoices").insert(data.invoices);
   }
-}
-
-/**
- * Get all records from table (for debugging)
- */
-export async function debugTable(
-  supabase: SupabaseClient,
-  tableName: string
-): Promise<any[]> {
-  const { data, error } = await supabase.from(tableName).select("*");
-
-  if (error) {
-    console.error(`Error fetching ${tableName}:`, error);
-    return [];
-  }
-
-  console.log(`${tableName} (${data?.length || 0} rows):`, data);
-  return data || [];
 }

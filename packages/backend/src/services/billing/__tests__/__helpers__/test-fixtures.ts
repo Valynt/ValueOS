@@ -4,8 +4,8 @@
  */
 
 import { vi } from "vitest";
-import { createMockStripeClient } from "./stripe-mocks.js"
-import { createCompleteBillingSetup } from "./billing-factories.js"
+import { createMockStripeClient } from "./stripe-mocks.js";
+import { createCompleteBillingSetup } from "./billing-factories.js";
 import type { PlanTier } from "../../../../config/billing";
 
 /**
@@ -29,19 +29,6 @@ export function setupMockStripe() {
   }));
 
   return mockClient;
-}
-
-/**
- * Setup complete test environment with billing data
- */
-export function setupTestEnvironment(planTier: PlanTier = "standard") {
-  const mockStripe = setupMockStripe();
-  const billingSetup = createCompleteBillingSetup(planTier);
-
-  return {
-    mockStripe,
-    ...billingSetup,
-  };
 }
 
 /**
@@ -85,20 +72,6 @@ export function createWebhookSignature(
  */
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Generate test tenant ID
- */
-export function generateTestTenantId(): string {
-  return `tenant_test_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-}
-
-/**
- * Generate test request ID
- */
-export function generateTestRequestId(): string {
-  return `req_test_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 }
 
 /**
@@ -179,25 +152,14 @@ export const performance = {
 };
 
 /**
- * Retry helper for flaky operations
+ * Setup complete test environment with billing data
  */
-export async function retryOperation<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  delayMs: number = 100
-): Promise<T> {
-  let lastError: any;
+export function setupTestEnvironment(planTier: PlanTier = "standard") {
+  const mockStripe = setupMockStripe();
+  const billingSetup = createCompleteBillingSetup(planTier);
 
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (i < maxRetries - 1) {
-        await delay(delayMs * (i + 1)); // Exponential backoff
-      }
-    }
-  }
-
-  throw lastError;
+  return {
+    mockStripe,
+    ...billingSetup,
+  };
 }

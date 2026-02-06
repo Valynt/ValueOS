@@ -1,0 +1,4 @@
+{
+  "strict_zones": ["packages/memory", "packages/backend/src/services/billing/__tests__/__helpers"],
+  "comment": "Debt strict zones enforce TODO/FIXME metadata and ratchet counts."
+}
