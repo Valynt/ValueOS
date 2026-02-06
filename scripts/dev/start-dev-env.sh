@@ -267,8 +267,8 @@ else
     log INFO "Applying migrations..."
     export PGHOST="${DB_HOST:-postgres}"
     export DB_HOST="${DB_HOST:-postgres}"
-    export DB_PASSWORD="${DB_PASSWORD:-postgres}"
-    export DB_NAME="${DB_NAME:-postgres}"
+    export DB_PASSWORD="${DB_PASSWORD:-dev_password}"
+    export DB_NAME="${DB_NAME:-valuecanvas_dev}"
 
     if bash "$SCRIPT_DIR/migrate.sh" 2>&1 | tee -a "$LOG_FILE"; then
         log SUCCESS "Migrations applied successfully"

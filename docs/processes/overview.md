@@ -397,6 +397,34 @@ Cross-Track Review → Critical Check → CTO Approval (if critical)
 
 ### Weekly Review Cadence
 
+### Governance Pulse Reporting Standard
+
+Each governance pulse (track-level weekly summaries and the Friday CTO governance review packet) must report both **reliability health** and **structural quality health** for every affected domain.
+
+#### Reliability (Required in every pulse)
+
+- **Error budget remaining**: Percentage and absolute remaining budget for the active SLO window.
+- **Burn rate**: Short-window and long-window burn-rate pair (for example, 1-hour and 24-hour).
+- **Incident frequency**: Count of production incidents opened during the reporting window.
+- **MTTR**: Mean time to recovery for incidents resolved in the reporting window.
+
+#### Structural quality (Required in every pulse)
+
+- **Sea-of-Debt size**: Total scoped debt volume in legacy zones (tickets, weighted points, or normalized debt index).
+- **Strict-island growth**: Net change in code/runtime surface covered by strict architectural boundaries.
+- **Legacy testability**: Change in test coverage and test execution reliability for legacy modules.
+- **Legacy ownership health**: Explicit owner assignment and active maintainer status for legacy modules.
+
+#### Automated Throughput Throttle Policy
+
+When a domain's combined risk exceeds threshold, feature throughput in that domain is reduced automatically until recovery.
+
+- **Combined risk signal**: Reliability + structural quality risk score computed from the pulse metrics above.
+- **Trigger**: Combined risk score above the approved threshold for two consecutive pulses, or immediate trigger for critical incident severity.
+- **Automatic action**: Reduce feature throughput allocation for the affected domain (for example, fewer feature slots/sprint or WIP cap reduction).
+- **Priority shift**: Allocate the recovered capacity to debt retirement and reliability stabilization work.
+- **Exit criteria**: Restore normal throughput only after combined risk falls below threshold and remains stable for the minimum recovery window.
+
 #### Master Schedule
 
 | Day       | Time     | Track         | Review Type        | Duration  | Participants                    |

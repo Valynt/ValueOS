@@ -54,6 +54,33 @@ function runCommand(command, options = {}) {
   });
 }
 
+
+function parseEnvContent(content) {
+  const env = {};
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const idx = line.indexOf("=");
+    if (idx <= 0) continue;
+    const key = line.slice(0, idx).trim();
+    const value = line.slice(idx + 1).trim().replace(/^['"]|['"]$/g, "");
+    env[key] = value;
+  }
+  return env;
+}
+
+function parseDatabaseUrl(databaseUrl) {
+  try {
+    const parsed = new URL(databaseUrl);
+    return {
+      host: parsed.hostname,
+      database: parsed.pathname.replace(/^\//, ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function commandExists(cmd) {
   try {
     execSync(`command -v ${cmd}`, { stdio: "ignore" });
@@ -115,29 +142,49 @@ function checkEnvUrls() {
   }
 
   const content = fs.readFileSync(envPath, "utf8");
+  const env = parseEnvContent(content);
   const issues = [];
 
   // Check VITE_SUPABASE_URL
-  const viteUrlMatch = content.match(/VITE_SUPABASE_URL=(.+)/);
-  if (viteUrlMatch) {
-    const url = viteUrlMatch[1].trim();
-    if (!url.includes("localhost") && !url.includes("127.0.0.1")) {
-      issues.push(`VITE_SUPABASE_URL points to remote: ${url}`);
+  const viteUrl = env.VITE_SUPABASE_URL;
+  if (viteUrl) {
+    if (!viteUrl.includes("localhost") && !viteUrl.includes("127.0.0.1")) {
+      issues.push(`VITE_SUPABASE_URL points to remote: ${viteUrl}`);
     } else {
-      log.success(`VITE_SUPABASE_URL: ${url}`);
+      log.success(`VITE_SUPABASE_URL: ${viteUrl}`);
     }
   } else {
     issues.push("VITE_SUPABASE_URL not set");
   }
 
   // Check SUPABASE_URL (backend)
-  const backendUrlMatch = content.match(/^SUPABASE_URL=(.+)/m);
-  if (backendUrlMatch) {
-    const url = backendUrlMatch[1].trim();
-    if (!url.includes("localhost") && !url.includes("127.0.0.1")) {
-      issues.push(`SUPABASE_URL points to remote: ${url}`);
+  const supabaseUrl = env.SUPABASE_URL;
+  if (supabaseUrl) {
+    if (!supabaseUrl.includes("localhost") && !supabaseUrl.includes("127.0.0.1")) {
+      issues.push(`SUPABASE_URL points to remote: ${supabaseUrl}`);
     } else {
-      log.success(`SUPABASE_URL: ${url}`);
+      log.success(`SUPABASE_URL: ${supabaseUrl}`);
+    }
+  }
+
+  // Assert DATABASE_URL and migration target match host/database.
+  const databaseUrl = env.DATABASE_URL || env.DB_URL;
+  if (!databaseUrl) {
+    issues.push("DATABASE_URL (or DB_URL) not set");
+  } else {
+    const parsedDbUrl = parseDatabaseUrl(databaseUrl);
+    if (!parsedDbUrl) {
+      issues.push(`DATABASE_URL is not a valid URL: ${databaseUrl}`);
+    } else {
+      const targetHost = env.DB_HOST || parsedDbUrl.host;
+      const targetDb = env.DB_NAME || parsedDbUrl.database;
+      if (parsedDbUrl.host !== targetHost || parsedDbUrl.database !== targetDb) {
+        issues.push(
+          `DATABASE_URL resolves to ${parsedDbUrl.host}/${parsedDbUrl.database}, but migration target resolves to ${targetHost}/${targetDb}`
+        );
+      } else {
+        log.success(`DATABASE_URL and migration target aligned: ${targetHost}/${targetDb}`);
+      }
     }
   }
 

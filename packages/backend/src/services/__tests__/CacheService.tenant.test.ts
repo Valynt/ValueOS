@@ -50,6 +50,88 @@ describe('CacheService tenant scoping', () => {
     });
   });
 
+  it('isolates clear() operations by tenant context', async () => {
+    const tenantA: TCTPayload = {
+      iss: 'jwt',
+      sub: 'user-a',
+      tid: 'tenant-a',
+      roles: [],
+      tier: 'basic',
+      exp: 1712345678,
+    };
+    const tenantB: TCTPayload = {
+      iss: 'jwt',
+      sub: 'user-b',
+      tid: 'tenant-b',
+      roles: [],
+      tier: 'basic',
+      exp: 1712345678,
+    };
+
+    await tenantContextStorage.run(tenantA, async () => {
+      await cacheService.set('profile', 'tenant-a-profile');
+    });
+
+    await tenantContextStorage.run(tenantB, async () => {
+      await cacheService.set('profile', 'tenant-b-profile');
+    });
+
+    await tenantContextStorage.run(tenantA, async () => {
+      await cacheService.clear();
+    });
+
+    await tenantContextStorage.run(tenantA, async () => {
+      const value = await cacheService.get<string>('profile');
+      expect(value).toBeNull();
+    });
+
+    await tenantContextStorage.run(tenantB, async () => {
+      const value = await cacheService.get<string>('profile');
+      expect(value).toBe('tenant-b-profile');
+    });
+  });
+
+  it('isolates invalidatePattern() operations by tenant context', async () => {
+    const tenantA: TCTPayload = {
+      iss: 'jwt',
+      sub: 'user-a',
+      tid: 'tenant-a',
+      roles: [],
+      tier: 'basic',
+      exp: 1712345678,
+    };
+    const tenantB: TCTPayload = {
+      iss: 'jwt',
+      sub: 'user-b',
+      tid: 'tenant-b',
+      roles: [],
+      tier: 'basic',
+      exp: 1712345678,
+    };
+
+    await tenantContextStorage.run(tenantA, async () => {
+      await cacheService.set('workflow:1', 'tenant-a-workflow');
+    });
+
+    await tenantContextStorage.run(tenantB, async () => {
+      await cacheService.set('workflow:1', 'tenant-b-workflow');
+    });
+
+    await tenantContextStorage.run(tenantA, async () => {
+      await cacheService.invalidatePattern('workflow:*');
+    });
+
+    await tenantContextStorage.run(tenantA, async () => {
+      const value = await cacheService.get<string>('workflow:1');
+      expect(value).toBeNull();
+    });
+
+    await tenantContextStorage.run(tenantB, async () => {
+      const value = await cacheService.get<string>('workflow:1');
+      expect(value).toBe('tenant-b-workflow');
+    });
+  });
+
   it('rejects mismatched tenant namespaces', async () => {
     const tenantA: TCTPayload = {
       iss: 'jwt',

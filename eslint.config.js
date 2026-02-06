@@ -351,6 +351,22 @@ const envOverrides = {
   },
 };
 
+
+// Backend services guard rail: prevent direct auth schema table queries.
+const backendServiceAuthOverrides = {
+  files: ["packages/backend/src/services/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector: "CallExpression[callee.property.name='schema'][arguments.0.value='auth']",
+        message:
+          "Do not query auth schema tables from backend services. Use Supabase auth admin APIs via AuthDirectoryService.",
+      },
+    ],
+  },
+};
+
 // Config files override - disable type-aware rules and project
 const configOverrides = {
   files: [
@@ -389,6 +405,7 @@ export default [
   ignoresConfig,
   pluginConfig,
   baseConfig,
+  backendServiceAuthOverrides,
   configOverrides,
   testOverrides,
   k6Overrides,
