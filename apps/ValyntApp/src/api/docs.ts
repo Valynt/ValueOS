@@ -12,11 +12,13 @@ import path from 'path';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(requestSanitizationMiddleware({ params: { language: { maxLength: 32 } } }));
 
 // Load OpenAPI specification
 const openApiPath = path.join(__dirname, '../../openapi.yaml');

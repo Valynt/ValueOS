@@ -8,6 +8,7 @@ import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
 import { requireAuth } from '../middleware/auth';
 import { tenantContextMiddleware } from '../middleware/tenantContext';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -16,6 +17,7 @@ router.use(validateRequest);
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
 router.use(requirePermission('agents.execute'));
+router.use(requestSanitizationMiddleware({ params: { executionId: { maxLength: 128 }, stepId: { maxLength: 128 } } }));
 
 function sanitizeEvidence(evidence: any): Array<{ source?: string; description?: string; confidence?: number }> {
   if (!Array.isArray(evidence)) return [];

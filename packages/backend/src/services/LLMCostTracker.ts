@@ -149,8 +149,9 @@ const COST_THRESHOLDS = {
 export interface LLMUsageRecord {
   tenant_id?: string;
   user_id: string;
+  tenant_id?: string;
   session_id?: string;
-  provider: "together_ai" | "openai";
+  provider: "together_ai" | "openai" | "anthropic" | "gemini" | "custom";
   model: string;
   input_tokens: number;
   output_tokens: number;
@@ -219,8 +220,10 @@ export class LLMCostTracker {
   async trackUsage(params: {
     tenantId?: string;
     userId: string;
+    tenantId?: string;
+    tenant_id?: string;
     sessionId?: string;
-    provider: "together_ai" | "openai";
+    provider: "together_ai" | "openai" | "anthropic" | "gemini" | "custom";
     model: string;
     promptTokens: number;
     completionTokens: number;
@@ -240,6 +243,7 @@ export class LLMCostTracker {
     const record: LLMUsageRecord = {
       tenant_id: params.tenantId,
       user_id: params.userId,
+      tenant_id: params.tenantId ?? params.tenant_id,
       session_id: params.sessionId,
       provider: params.provider,
       model: params.model,

@@ -5,9 +5,11 @@ import { rateLimiters } from '../middleware/rateLimiter';
 import { validateRequest } from '../middleware/inputValidation';
 import { requirePermission } from '../middleware/rbac';
 import { getEnvVar } from '../lib/env';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = Router();
 router.use(securityHeadersMiddleware);
+router.use(requestSanitizationMiddleware({ params: { runId: { maxLength: 128 } } }));
 router.use(requirePermission('agents.execute'));
 
 const getGroundtruthConfig = () => {

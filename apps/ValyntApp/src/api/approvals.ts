@@ -10,10 +10,12 @@ import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { logger } from '../utils/logger';
 import { auditBulkDelete } from '../middleware/auditHooks';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
+router.use(requestSanitizationMiddleware({ params: { requestId: { maxLength: 128 } } }));
 
 // Initialize Supabase client (server-side)
 const supabase = createClient(
@@ -30,7 +32,16 @@ const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
  * POST /api/approvals/request
  * Create a new approval request
  */
-router.post('/request', async (req: Request, res: Response) => {
+router.post('/request', requestSanitizationMiddleware({
+  body: {
+    description: {
+      allowHtml: true,
+      allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a'],
+      allowedAttributes: { a: ['href', 'target', 'rel'] },
+      maxLength: 4000,
+    },
+  },
+}), async (req: Request, res: Response) => {
   try {
     const {
       agentName,

@@ -8,6 +8,7 @@ import { Request, Response, Router } from 'express';
 import { logger } from '../utils/logger';
 import { csrfProtectionMiddleware, securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requirePermission } from '../middleware/rbac';
 
@@ -20,6 +21,7 @@ interface LineageMetadata {
 const router = Router();
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
+router.use(requestSanitizationMiddleware({ body: { metadata: { maxLength: 8000 } } }));
 router.use(requirePermission('data.import'));
 
 router.post(

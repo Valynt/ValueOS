@@ -444,7 +444,10 @@ export class LLMQueueService {
     if (this.metricsServer) {
       await new Promise<void>((resolve) => this.metricsServer?.close(() => resolve()));
     }
-    await redisConnection.quit();
+    if (redisConnection) {
+      await redisConnection.quit();
+      redisConnection = null;
+    }
 
     logger.info('LLM queue service shut down');
   }
@@ -452,14 +455,3 @@ export class LLMQueueService {
 
 // Export singleton instance
 export const llmQueue = new LLMQueueService();
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  await llmQueue.shutdown();
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  await llmQueue.shutdown();
-  process.exit(0);
-});

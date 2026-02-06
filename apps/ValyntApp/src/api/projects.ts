@@ -1,9 +1,14 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../lib/supabase";
 import { Logger } from "../utils/logger";
+import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
 
 const router = Router({ mergeParams: true });
 const logger = new Logger({ component: "ProjectsAPI" });
+
+router.use(requestSanitizationMiddleware({
+  params: { projectId: { maxLength: 128 }, tenantId: { maxLength: 128 } },
+}));
 
 // Map backend Initiative to frontend Project
 const mapInitiativeToProject = (initiative: any) => ({
@@ -51,7 +56,16 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 // POST / - Create project
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requestSanitizationMiddleware({
+  body: {
+    description: {
+      allowHtml: true,
+      allowedTags: ["p", "br", "strong", "em", "ul", "ol", "li", "a"],
+      allowedAttributes: { a: ["href", "target", "rel"] },
+      maxLength: 5000,
+    },
+  },
+}), async (req: Request, res: Response) => {
   const tenantId = (req as any).tenantId || req.params.tenantId;
   const user = (req as any).user;
 
@@ -100,7 +114,17 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 // PUT /:projectId - Update project
-router.put("/:projectId", async (req: Request, res: Response) => {
+router.put("/:projectId", requestSanitizationMiddleware({
+  body: {
+    description: {
+      allowHtml: true,
+      allowedTags: ["p", "br", "strong", "em", "ul", "ol", "li", "a"],
+      allowedAttributes: { a: ["href", "target", "rel"] },
+      maxLength: 5000,
+    },
+  },
+  params: { projectId: { maxLength: 128 } },
+}), async (req: Request, res: Response) => {
   const tenantId = (req as any).tenantId || req.params.tenantId;
   const { projectId } = req.params;
   const { name, description, status } = req.body;

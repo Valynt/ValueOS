@@ -43,6 +43,18 @@ import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { llmConfig } from "../config/llm";
 import { z } from "zod";
+import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager";
+import {
+  AgentRequest,
+  AgentResponse as RetryAgentResponse,
+  IAgent,
+  ValidationResult,
+  AgentCapability,
+  AgentMetadata,
+  AgentConfiguration,
+  AgentPerformanceMetrics,
+  AgentHealthStatus as RetryAgentHealthStatus,
+} from "./agents/core/IAgent";
 
 // ============================================================================
 // Types
@@ -231,6 +243,7 @@ export class UnifiedAgentOrchestrator {
   private memorySystem: MemorySystem;
   private llmGateway: LLMGateway;
   private messageBroker: AgentMessageBroker;
+  private retryManager: AgentRetryManager;
   private executionStartTimes: Map<string, number> = new Map();
 
   constructor(config: Partial<OrchestratorConfig> = {}) {
@@ -241,6 +254,7 @@ export class UnifiedAgentOrchestrator {
     this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
     this.messageBroker = getAgentMessageBroker();
+    this.retryManager = AgentRetryManager.getInstance();
   }
 
   private deriveFiscalQuarter(date: Date): string {
@@ -905,18 +919,41 @@ Provide a JSON response with:
     traceId: string
   ): Promise<{ status: "completed" | "failed"; output?: any; error?: string }> {
     const circuitBreakerKey = `${executionId}-${stage.id}`;
-    const retryConfig = stage.retry_config || {
-      max_attempts: this.config.maxRetryAttempts,
-      initial_delay_ms: 1000,
-      max_delay_ms: 10000,
-      multiplier: 2,
-      jitter: true,
+    const retryConfig = {
+      max_attempts: stage.retry_config?.max_attempts ?? this.config.maxRetryAttempts,
+      initial_delay_ms: stage.retry_config?.initial_delay_ms ?? 1000,
+      max_delay_ms: stage.retry_config?.max_delay_ms ?? 10000,
+      multiplier: stage.retry_config?.multiplier ?? 2,
+      jitter: stage.retry_config?.jitter ?? true,
     };
 
-    let lastError: Error | null = null;
+    const retryOptions: Partial<RetryOptions> = {
+      maxRetries: Math.max(retryConfig.max_attempts - 1, 0),
+      strategy: "exponential_backoff",
+      baseDelay: retryConfig.initial_delay_ms,
+      maxDelay: retryConfig.max_delay_ms,
+      backoffMultiplier: retryConfig.multiplier,
+      jitterFactor: retryConfig.jitter ? 0.1 : 0,
+      fallbackAgents: [],
+      fallbackStrategy: "none",
+      attemptTimeout: stage.timeout_seconds * 1000,
+      overallTimeout: stage.timeout_seconds * 1000 * retryConfig.max_attempts,
+      context: {
+        requestId: traceId,
+        sessionId: context.sessionId,
+        userId: context.userId,
+        organizationId: context.organizationId,
+        priority: "medium",
+        source: "unified-agent-orchestrator",
+        metadata: {
+          executionId,
+          stageId: stage.id,
+        },
+      },
+    };
 
-    for (let attempt = 1; attempt <= retryConfig.max_attempts; attempt++) {
-      try {
+    const stageExecutionAgent: IAgent = {
+      execute: async (): Promise<RetryAgentResponse<Record<string, any>>> => {
         const result = await this.circuitBreakers.execute(
           circuitBreakerKey,
           () => this.executeStage(stage, context, route),
@@ -926,34 +963,77 @@ Provide a JSON response with:
           }
         );
 
-        // Record success
-        if (route.selected_agent) {
-          this.registry.recordRelease(route.selected_agent.id);
-          this.registry.markHealthy(route.selected_agent.id);
-        }
+        return {
+          success: true,
+          data: result,
+          confidence: "high",
+          metadata: {
+            executionId,
+            agentType: stage.agent_type as AgentType,
+            startTime: new Date(),
+            endTime: new Date(),
+            duration: 0,
+            tokenUsage: { input: 0, output: 0, total: 0, cost: 0 },
+            cacheHit: false,
+            retryCount: 0,
+            circuitBreakerTripped: false,
+          },
+        };
+      },
+      getCapabilities: (): AgentCapability[] => [],
+      validateInput: (): ValidationResult => ({ valid: true, errors: [], warnings: [] }),
+      getMetadata: (): AgentMetadata => ({}) as AgentMetadata,
+      healthCheck: async (): Promise<RetryAgentHealthStatus> => ({
+        status: "healthy",
+        lastCheck: new Date(),
+        responseTime: 0,
+        errorRate: 0,
+        uptime: 100,
+        activeConnections: 0,
+      }),
+      getConfiguration: (): AgentConfiguration => ({}) as AgentConfiguration,
+      updateConfiguration: async (): Promise<void> => {},
+      getPerformanceMetrics: (): AgentPerformanceMetrics => ({}) as AgentPerformanceMetrics,
+      reset: async (): Promise<void> => {},
+      getAgentType: (): AgentType => stage.agent_type as AgentType,
+      supportsCapability: (): boolean => false,
+      getInputSchema: (): Record<string, unknown> => ({}),
+      getOutputSchema: (): Record<string, unknown> => ({}),
+    };
 
-        return { status: "completed", output: result };
-      } catch (error) {
-        lastError = error as Error;
+    const retryRequest: AgentRequest = {
+      agentType: stage.agent_type as AgentType,
+      query: stage.description || `Execute ${stage.id}`,
+      sessionId: context.sessionId,
+      userId: context.userId,
+      organizationId: context.organizationId,
+      context,
+      timeout: stage.timeout_seconds * 1000,
+    };
 
-        if (route.selected_agent) {
-          this.registry.recordFailure(route.selected_agent.id);
-        }
+    const retryResult = await this.retryManager.executeWithRetry(
+      stageExecutionAgent,
+      retryRequest,
+      retryOptions
+    );
 
-        if (attempt < retryConfig.max_attempts) {
-          const delay = this.calculateRetryDelay(
-            attempt,
-            retryConfig.initial_delay_ms,
-            retryConfig.max_delay_ms,
-            retryConfig.multiplier,
-            retryConfig.jitter
-          );
-          await this.delay(delay);
-        }
+    if (retryResult.success && retryResult.response?.data) {
+      if (route.selected_agent) {
+        this.registry.recordRelease(route.selected_agent.id);
+        this.registry.markHealthy(route.selected_agent.id);
       }
+
+      return { status: "completed", output: retryResult.response.data };
     }
 
-    return { status: "failed", error: lastError?.message || "Unknown error" };
+    if (route.selected_agent) {
+      this.registry.recordFailure(route.selected_agent.id);
+    }
+
+    return {
+      status: "failed",
+      error: retryResult.error?.message || "Unknown error",
+    };
   }
 
   /**
@@ -1428,29 +1508,6 @@ Provide a JSON response with:
     if (error) {
       throw new Error(`Failed to record workflow event: ${error.message}`);
     }
-  }
-
-  private calculateRetryDelay(
-    attempt: number,
-    initialDelay: number,
-    maxDelay: number,
-    multiplier: number,
-    jitter: boolean
-  ): number {
-    let delay = initialDelay * Math.pow(multiplier, attempt - 1);
-    delay = Math.min(delay, maxDelay);
-
-    if (jitter) {
-      const jitterAmount = delay * 0.1;
-      const randomJitter = (Math.random() - 0.5) * 2 * jitterAmount;
-      delay += randomJitter;
-    }
-
-    return Math.floor(delay);
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

@@ -5,29 +5,21 @@
  * rate limiting, cost tracking, and caching.
  */
 
-import { Request, Response, Router } from 'express';
+import { Request, Response } from 'express';
 import { llmFallback } from '../services/LLMFallback';
 import { CostGovernanceError } from '../services/CostGovernanceService';
 import { llmRateLimiter } from '../middleware/llmRateLimiter';
 import { logger } from '../utils/logger';
-import {
-  csrfProtectionMiddleware,
-  securityHeadersMiddleware,
-  sessionTimeoutMiddleware,
-} from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { sessionTimeoutMiddleware } from '../middleware/securityMiddleware';
 import { rateLimiters } from '../middleware/rateLimiter';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requireConsent } from '../middleware/consentMiddleware';
 import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
 import { requireAuth } from '../middleware/auth';
 import { tenantContextMiddleware } from '../middleware/tenantContext';
+import { createSecureRouter } from '../middleware/secureRouter';
 
-const router = Router();
-router.use(requestAuditMiddleware());
-router.use(securityHeadersMiddleware);
-router.use(serviceIdentityMiddleware);
+const router = createSecureRouter('standard');
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
 
@@ -44,7 +36,6 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
 router.post(
   '/chat',
   rateLimiters.agentExecution,
-  csrfProtectionMiddleware,
   sessionTimeoutMiddleware,
   requireConsent('llm.chat', consentRegistry),
   llmRateLimiter,
@@ -236,7 +227,7 @@ router.get('/health', async (req: Request, res: Response) => {
  * 
  * Reset circuit breakers (admin only)
  */
-router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.post('/reset', rateLimiters.strict, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
   try {
     // Check admin permission (assumed to be set by auth middleware)
     const isAdmin = (req as any).user?.role === 'admin';
