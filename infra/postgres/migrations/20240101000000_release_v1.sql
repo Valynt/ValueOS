@@ -3226,12 +3226,43 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     agent_id uuid,
+    tenant_id text REFERENCES public.tenants(id),
     metric_type text NOT NULL,
     metric_value double precision NOT NULL,
     unit text,
     "timestamp" timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
     metadata jsonb DEFAULT '{}'::jsonb
 );
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='agent_metrics' AND column_name='tenant_id') THEN
+        ALTER TABLE agent_metrics ADD COLUMN tenant_id text;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='agent_metrics' AND column_name='created_at') THEN
+        ALTER TABLE agent_metrics ADD COLUMN created_at timestamp with time zone DEFAULT now();
+    END IF;
+
+    UPDATE agent_metrics
+    SET created_at = "timestamp"
+    WHERE created_at IS NULL;
+
+    UPDATE agent_metrics
+    SET tenant_id = agent_sessions.tenant_id
+    FROM agent_sessions
+    WHERE agent_metrics.session_id = agent_sessions.id
+      AND agent_metrics.tenant_id IS NULL;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_metrics_tenant_id_fkey') THEN
+        ALTER TABLE agent_metrics
+        ADD CONSTRAINT agent_metrics_tenant_id_fkey
+        FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+    END IF;
+END $$;
 
 
 --
@@ -6954,6 +6985,12 @@ CREATE INDEX IF NOT EXISTS idx_agent_metrics_session ON public.agent_metrics USI
 
 CREATE INDEX IF NOT EXISTS idx_agent_metrics_type ON public.agent_metrics USING btree (metric_type);
 
+--
+-- Name: idx_agent_metrics_tenant_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_tenant_created_at ON public.agent_metrics USING btree (tenant_id, created_at DESC);
+
 
 --
 -- Name: idx_agent_predictions_accuracy; Type: INDEX; Schema: public; Owner: -
@@ -8157,6 +8194,12 @@ CREATE INDEX IF NOT EXISTS idx_user_tenants_user ON public.user_tenants USING bt
 --
 
 CREATE INDEX IF NOT EXISTS idx_value_cases_session ON public.value_cases USING btree (session_id);
+
+--
+-- Name: idx_opportunities_tenant_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX IF NOT EXISTS idx_opportunities_tenant_created_at ON public.opportunities USING btree (tenant_id, created_at DESC);
 
 
 --
@@ -21151,12 +21194,33 @@ CREATE TABLE IF NOT EXISTS financial_models (
 CREATE TABLE IF NOT EXISTS opportunities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  tenant_id TEXT REFERENCES tenants(id),
   name TEXT NOT NULL,
   amount NUMERIC,
   status TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='opportunities' AND column_name='tenant_id') THEN
+    ALTER TABLE opportunities ADD COLUMN tenant_id TEXT;
+  END IF;
+
+  UPDATE opportunities
+  SET tenant_id = value_cases.tenant_id
+  FROM value_cases
+  WHERE opportunities.value_case_id = value_cases.id
+    AND opportunities.tenant_id IS NULL;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'opportunities_tenant_id_fkey') THEN
+    ALTER TABLE opportunities
+    ADD CONSTRAINT opportunities_tenant_id_fkey
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS benchmarks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23038,5 +23102,3 @@ BEGIN
   RAISE NOTICE '  3. Test workflow_stage_runs access with tenant isolation';
   RAISE NOTICE '';
 END $$;
-
-
