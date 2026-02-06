@@ -8,7 +8,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { MFASetup } from "../Settings/MFASetup";
-import { AuthenticationError } from "../../services/errors";
+import { AuthenticationError, ValidationError } from "../../services/errors";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -37,6 +37,27 @@ export function LoginPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const from = (location.state as any)?.from?.pathname || "/";
 
+  const resolveAuthCode = (err: unknown): string | undefined => {
+    if (err instanceof AuthenticationError) {
+      return err.authCode;
+    }
+
+    if (err instanceof ValidationError) {
+      const details = err.details as Record<string, unknown> | undefined;
+      if (typeof details?.code === "string") {
+        return details.code;
+      }
+    }
+
+    if (err && typeof err === "object") {
+      const candidate = (err as { code?: unknown }).code;
+      if (typeof candidate === "string") {
+        return candidate;
+      }
+    }
+
+    return undefined;
+  };
 
   const extractMFAEnrollmentContext = useCallback(
     async (details: Record<string, unknown> | undefined) => {
@@ -112,7 +133,7 @@ export function LoginPage() {
     } catch (err: unknown) {
       console.error("Login error:", err);
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
-      const authCode = err instanceof AuthenticationError ? err.authCode : undefined;
+      const authCode = resolveAuthCode(err);
 
       if (errorMessage.includes("rate limit")) {
         setError("Too many login attempts. Please try again later.");
@@ -154,7 +175,7 @@ export function LoginPage() {
       });
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      const authCode = err instanceof AuthenticationError ? err.authCode : undefined;
+      const authCode = resolveAuthCode(err);
 
       if (authCode === "MFA_INVALID_CODE" || authCode === "MFA_CODE_REQUIRED") {
         setShowMFA(true);
