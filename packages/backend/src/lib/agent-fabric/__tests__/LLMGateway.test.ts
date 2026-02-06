@@ -78,4 +78,30 @@ describe('LLMGateway usage tracking', () => {
       })
     );
   });
+
+  it('tracks complete() with organization_id metadata', async () => {
+    const gateway = new LLMGateway(
+      { provider: 'openai', model: 'gpt-4o-mini' },
+      { trackUsage } as any
+    );
+
+    await gateway.complete({
+      messages: [{ role: 'user', content: 'hello' }],
+      metadata: {
+        userId: 'user-3',
+        organization_id: 'org-3',
+      },
+    });
+
+    expect(trackUsage).toHaveBeenCalledTimes(1);
+    expect(trackUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-3',
+        tenantId: 'org-3',
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        success: true,
+      })
+    );
+  });
 });
