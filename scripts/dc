@@ -33,4 +33,6 @@ if [[ -n "${ENV_FILE}" && -f "${ENV_FILE}" ]]; then
   args+=(--env-file "${ENV_FILE}")
 fi
 
+DOCKER_BIN="${DOCKER_BIN:-docker}"
 exec "${DOCKER_BIN}" compose "${args[@]}" "$@"
+

@@ -42,7 +42,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - /app/node_modules
+      - valueos-node-modules:/app/node_modules
     command: ["npm", "run", "build:validate"]
     profiles: ["validate"]
 
@@ -77,7 +77,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./package.json:/app/package.json
-      - node_modules:/app/node_modules
+      - valueos-node-modules:/app/node_modules
     networks:
       - valueos-network
     restart: unless-stopped
@@ -144,3 +144,4 @@ volumes:
   prometheus_data:
   grafana_data:
   node_modules:
+
