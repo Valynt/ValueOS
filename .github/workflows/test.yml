@@ -13,10 +13,10 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # Lint and Type Check
+  # Unified Quality Gate
   # ============================================================================
-  lint:
-    name: Lint & Type Check
+  quality-gate:
+    name: Unified CI Verify Gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,11 +34,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run ESLint
-        run: pnpm run lint
-
-      - name: Run TypeScript check
-        run: pnpm run typecheck
+      - name: Run CI verification suite
+        run: pnpm run ci:verify
 
   # ============================================================================
   # Unit Tests (Parallel Execution)

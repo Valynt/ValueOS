@@ -1,0 +1,87 @@
+{
+  "captured_at": "2026-02-06",
+  "phase_prerequisite": {
+    "phases_0_3_stable": true,
+    "stability_window_days": 7
+  },
+  "strict_zones": {
+    "current_files": 49,
+    "weekly_growth_percent": 15,
+    "weekly_growth_min_files": 7,
+    "week_targets": {
+      "week1": 56,
+      "week2": 64,
+      "week3": 73,
+      "week4": 81
+    }
+  },
+  "coverage": {
+    "overall": {
+      "baseline": 80,
+      "week_targets": {
+        "week1": 82,
+        "week2": 84,
+        "week3": 85,
+        "week4": 86
+      }
+    },
+    "agents": {
+      "baseline": 100,
+      "week_targets": {
+        "week1": 100,
+        "week2": 100,
+        "week3": 100,
+        "week4": 100
+      }
+    },
+    "security_billing": {
+      "baseline": 95,
+      "week_targets": {
+        "week1": 95.5,
+        "week2": 96,
+        "week3": 96.5,
+        "week4": 97
+      }
+    }
+  },
+  "ts_strictness": {
+    "week1": {
+      "strict": true,
+      "noImplicitAny": true,
+      "strictNullChecks": true
+    },
+    "week2": {
+      "noPropertyAccessFromIndexSignature": true
+    },
+    "week3": {
+      "exactOptionalPropertyTypes": true
+    },
+    "week4": {
+      "noUnusedLocals": true,
+      "noUnusedParameters": true
+    }
+  },
+  "import_boundaries": {
+    "baseline": {
+      "legacy_route_import_protection": true,
+      "boundary_ci_mode": "warn"
+    },
+    "week_targets": {
+      "week1": "warn + baseline map",
+      "week2": "error on changed files",
+      "week3": "error on affected packages",
+      "week4": "error repository-wide"
+    }
+  },
+  "ts_debt": {
+    "apps/ValyntApp": 4516,
+    "apps/mcp-dashboard": 54,
+    "packages/backend": 2952,
+    "packages/sdui": 179,
+    "packages/mcp": 411,
+    "packages/agents": 86,
+    "packages/infra": 6,
+    "packages/services": 20,
+    "packages/shared": 5
+  }
+}

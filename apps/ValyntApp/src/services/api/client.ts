@@ -26,7 +26,14 @@ class ApiClient {
   }
 
   private buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
-    const url = new URL(endpoint, this.baseUrl);
+    const normalizedBase = this.baseUrl.replace(/\/$/, "");
+    const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
+    const isAbsoluteBase = /^https?:\/\//i.test(normalizedBase);
+    const url = isAbsoluteBase
+      ? new URL(normalizedEndpoint, `${normalizedBase}/`)
+      : new URL(`${normalizedBase}${normalizedEndpoint}`, window.location.origin);
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
@@ -34,6 +41,11 @@ class ApiClient {
         }
       });
     }
+
+    if (!isAbsoluteBase) {
+      return `${url.pathname}${url.search}`;
+    }
+
     return url.toString();
   }
 
