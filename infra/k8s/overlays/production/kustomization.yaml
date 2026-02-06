@@ -13,6 +13,8 @@ commonLabels:
 
 patches:
   - path: deployment-patch.yaml
+  - path: external-secrets-vault-patch.yaml
+  - path: remove-placeholder-secrets.yaml
 
 replicas:
   - name: backend
