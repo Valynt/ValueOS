@@ -129,13 +129,46 @@ jobs:
           echo "Environment: ${{ steps.env.outputs.environment }}"
           echo "Should deploy: ${SHOULD_DEPLOY}"
 
+  drift-detection:
+    name: Drift Detection (Terraform)
+    runs-on: ubuntu-latest
+    needs: validate
+    if: needs.validate.outputs.should_deploy == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Run drift check
+        run: |
+          set -o pipefail
+          SUMMARY_FILE="drift-summary.txt" bash scripts/check_drift.sh 2>&1 | tee drift-summary.log
+
+      - name: Publish drift summary
+        if: always()
+        run: |
+          if [ -f drift-summary.txt ]; then
+            cat drift-summary.txt >> $GITHUB_STEP_SUMMARY
+          elif [ -f drift-summary.log ]; then
+            echo "## Drift Detection" >> $GITHUB_STEP_SUMMARY
+            echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+            cat drift-summary.log >> $GITHUB_STEP_SUMMARY
+            echo "\\`\\`\\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Drift Detection" >> $GITHUB_STEP_SUMMARY
+            echo "- Status: ⚠️ Drift summary unavailable" >> $GITHUB_STEP_SUMMARY
+          fi
+
   # ============================================================================
   # Phase 2: TurboRepo Matrix Planning
   # ============================================================================
   plan-matrix:
     name: Plan Build Matrix (TurboRepo)
     runs-on: ubuntu-latest
-    needs: validate
+    needs: [validate, drift-detection]
     if: needs.validate.outputs.should_deploy == 'true'
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -197,7 +230,7 @@ jobs:
   build-and-sign:
     name: Build & Sign (${{ matrix.package }})
     runs-on: ubuntu-latest
-    needs: [validate, plan-matrix]
+    needs: [validate, plan-matrix, drift-detection]
     if: needs.plan-matrix.outputs.has_changes == 'true'
     strategy:
       fail-fast: false
@@ -266,7 +299,7 @@ jobs:
   ensure-parity:
     name: Ensure Staging Parity with Production
     runs-on: ubuntu-latest
-    needs: [validate, plan-matrix, build-and-sign]
+    needs: [validate, plan-matrix, build-and-sign, drift-detection]
     if: needs.validate.outputs.should_deploy == 'true'
 
     steps:
@@ -291,7 +324,7 @@ jobs:
   deployment-gates:
     name: Deployment Gates
     runs-on: ubuntu-latest
-    needs: [validate, ensure-parity]
+    needs: [validate, ensure-parity, drift-detection]
     if: needs.validate.outputs.should_deploy == 'true'
     outputs:
       environment: ${{ steps.deployment.outputs.environment }}
@@ -351,7 +384,7 @@ jobs:
   deploy:
     name: Deploy to ${{ needs.deployment-gates.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: [validate, plan-matrix, build-and-sign, ensure-parity, deployment-gates]
+    needs: [validate, plan-matrix, build-and-sign, ensure-parity, deployment-gates, drift-detection]
     if: needs.validate.outputs.should_deploy == 'true'
 
     environment:
@@ -434,7 +467,7 @@ jobs:
   post-deploy:
     name: Post-Deployment Verification
     runs-on: ubuntu-latest
-    needs: [validate, deployment-gates, deploy]
+    needs: [validate, deployment-gates, deploy, drift-detection]
     if: needs.validate.outputs.should_deploy == 'true'
 
     steps:
@@ -467,7 +500,7 @@ jobs:
   cleanup:
     name: Cleanup and Notify
     runs-on: ubuntu-latest
-    needs: [validate, deployment-gates, deploy, post-deploy]
+    needs: [validate, deployment-gates, deploy, post-deploy, drift-detection]
     if: always() && needs.validate.outputs.should_deploy == 'true'
 
     steps:
