@@ -44,6 +44,7 @@ import { settings } from "../config/settings";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 import { TenantContextResolver } from "../services/TenantContextResolver";
 import { errorHandler } from "../middleware/errorHandler";
+import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
 import { llmQueue } from "../services/MessageQueue";
 import { agentOrchestrator } from "../services/AgentOrchestratorAdapter";
 import { getAgentMessageBroker } from "../services/AgentMessageBroker";
@@ -244,7 +245,10 @@ app.use(tracingMiddleware()); // Add tracing middleware early
 app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());
 app.use(latencyMetricsMiddleware());
+
+// /api-specific middleware
 app.use("/api", sessionTimeoutMiddleware);
+app.use("/api", requestSanitizationMiddleware());
 
 // Health check
 app.use(healthRouter);
