@@ -81,7 +81,11 @@ export class LLMGateway {
     const model = request.model || this.config.model;
     const metadata = request.metadata || {};
     const userId = metadata.userId ?? metadata.user_id ?? 'system';
-    const tenantId = metadata.tenantId ?? metadata.tenant_id;
+    const tenantId =
+      metadata.tenantId ??
+      metadata.tenant_id ??
+      metadata.organizationId ??
+      metadata.organization_id;
     const sessionId = metadata.sessionId ?? metadata.session_id;
 
     try {

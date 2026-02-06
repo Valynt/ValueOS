@@ -40,4 +40,46 @@ describe("ValyntApp secureTokenManager", () => {
     expect(storedValue).not.toContain("access-token-secret");
     expect(storedValue).not.toContain("refresh-token-secret");
   });
+
+  it("clears non-sensitive state when refresh tokens rotate", () => {
+    const removeItemSpy = vi.spyOn(localStorage, "removeItem");
+
+    secureTokenManager.storeSession({
+      access_token: "access-token-1",
+      refresh_token: "refresh-token-1",
+      expires_at: 1735689600,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    } as any);
+
+    secureTokenManager.storeSession({
+      access_token: "access-token-2",
+      refresh_token: "refresh-token-2",
+      expires_at: 1735689700,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    } as any);
+
+    expect(removeItemSpy).toHaveBeenCalledWith("valynt.auth.state");
+    expect(removeItemSpy).toHaveBeenCalledWith("supabase.auth.token");
+    expect(localStorage.getItem("valynt.auth.state")).not.toBeNull();
+  });
+
+  it("does not persist state when refresh tokens are missing", () => {
+    secureTokenManager.storeSession({
+      access_token: "access-token-1",
+      refresh_token: "",
+      expires_at: 1735689600,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    } as any);
+
+    expect(localStorage.getItem("valynt.auth.state")).toBeNull();
+  });
 });

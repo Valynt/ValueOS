@@ -257,6 +257,145 @@ export class UnifiedAgentOrchestrator {
     this.retryManager = AgentRetryManager.getInstance();
   }
 
+  private buildRetryOptions(
+    traceId: string,
+    agentType: AgentType,
+    timeoutMs: number,
+    context?: AgentContext
+  ): Partial<RetryOptions> {
+    const maxAttempts = this.config.maxRetryAttempts;
+
+    return {
+      maxRetries: Math.max(maxAttempts - 1, 0),
+      strategy: "exponential_backoff",
+      baseDelay: 1000,
+      maxDelay: 10000,
+      backoffMultiplier: 2,
+      jitterFactor: 0.1,
+      fallbackAgents: [],
+      fallbackStrategy: "none",
+      attemptTimeout: timeoutMs,
+      overallTimeout: timeoutMs * maxAttempts,
+      context: {
+        requestId: traceId,
+        sessionId: context?.sessionId,
+        userId: context?.userId,
+        organizationId: context?.organizationId,
+        priority: "medium",
+        source: "unified-agent-orchestrator",
+        metadata: {
+          agentType,
+        },
+      },
+    };
+  }
+
+  private createRetryAgent<T>(
+    agentType: AgentType,
+    breakerKey: string,
+    timeoutMs: number,
+    execute: () => Promise<APIAgentResponse<T>>
+  ): IAgent {
+    return {
+      execute: async (): Promise<RetryAgentResponse<T>> => {
+        const startTime = new Date();
+        const response = await this.circuitBreakers.execute(
+          breakerKey,
+          execute,
+          { timeoutMs }
+        );
+
+        if (!response.success) {
+          throw new Error(response.error || "Agent request failed");
+        }
+
+        const endTime = new Date();
+        return {
+          success: true,
+          data: response.data as T,
+          confidence: "high",
+          metadata: {
+            executionId: breakerKey,
+            agentType,
+            startTime,
+            endTime,
+            duration: endTime.getTime() - startTime.getTime(),
+            tokenUsage: { input: 0, output: 0, total: 0, cost: 0 },
+            cacheHit: false,
+            retryCount: 0,
+            circuitBreakerTripped: false,
+          },
+        };
+      },
+      getCapabilities: (): AgentCapability[] => [],
+      validateInput: (): ValidationResult => ({ valid: true, errors: [], warnings: [] }),
+      getMetadata: (): AgentMetadata => ({}) as AgentMetadata,
+      healthCheck: async (): Promise<RetryAgentHealthStatus> => ({
+        status: "healthy",
+        lastCheck: new Date(),
+        responseTime: 0,
+        errorRate: 0,
+        uptime: 100,
+        activeConnections: 0,
+      }),
+      getConfiguration: (): AgentConfiguration => ({}) as AgentConfiguration,
+      updateConfiguration: async (): Promise<void> => {},
+      getPerformanceMetrics: (): AgentPerformanceMetrics => ({}) as AgentPerformanceMetrics,
+      reset: async (): Promise<void> => {},
+      getAgentType: (): AgentType => agentType,
+      supportsCapability: (): boolean => false,
+      getInputSchema: (): Record<string, unknown> => ({}),
+      getOutputSchema: (): Record<string, unknown> => ({}),
+    };
+  }
+
+  private async executeAgentWithRetry<T>(params: {
+    agentType: AgentType;
+    query: string;
+    context?: AgentContext;
+    traceId: string;
+    timeoutMs: number;
+    breakerKey: string;
+    execute: () => Promise<APIAgentResponse<T>>;
+  }): Promise<{ success: boolean; data?: T; error?: string }> {
+    const retryAgent = this.createRetryAgent<T>(
+      params.agentType,
+      params.breakerKey,
+      params.timeoutMs,
+      params.execute
+    );
+
+    const retryRequest: AgentRequest = {
+      agentType: params.agentType,
+      query: params.query,
+      sessionId: params.context?.sessionId,
+      userId: params.context?.userId,
+      organizationId: params.context?.organizationId,
+      context: params.context ? { ...params.context } : undefined,
+      timeout: params.timeoutMs,
+    };
+
+    const retryResult = await this.retryManager.executeWithRetry(
+      retryAgent,
+      retryRequest,
+      this.buildRetryOptions(
+        params.traceId,
+        params.agentType,
+        params.timeoutMs,
+        params.context
+      )
+    );
+
+    if (retryResult.success && retryResult.response?.data) {
+      return { success: true, data: retryResult.response.data as T };
+    }
+
+    return {
+      success: false,
+      error: retryResult.error?.message || "Agent request failed",
+    };
+  }
+
   private deriveFiscalQuarter(date: Date): string {
     const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
     return `Q${quarter}`;
@@ -379,16 +518,20 @@ export class UnifiedAgentOrchestrator {
 
       // Call agent with circuit breaker protection
       const circuitBreakerKey = `query-${agentType}`;
-      const agentResponse = await this.circuitBreakers.execute(
-        circuitBreakerKey,
-        () =>
+      const agentResponse = await this.executeAgentWithRetry({
+        agentType,
+        query,
+        context: agentContext,
+        traceId,
+        timeoutMs: this.config.defaultTimeoutMs,
+        breakerKey: circuitBreakerKey,
+        execute: () =>
           this.agentAPI.invokeAgent({
             agent: agentType,
             query,
             context: agentContext,
           }),
-        { timeoutMs: this.config.defaultTimeoutMs }
-      );
+      });
 
       // Update state based on response
       if (agentResponse.success && agentResponse.data) {
@@ -1106,21 +1249,54 @@ Provide a JSON response with:
     });
 
     try {
-      let response: APIAgentResponse<SDUIPageDefinition>;
+      let response: { success: boolean; data?: SDUIPageDefinition; error?: string };
+      const breakerKey = `sdui-${agent}`;
 
       // Route to appropriate agent method
       switch (agent) {
         case "opportunity":
-          response = await this.agentAPI.generateValueCase(query, context);
+          response = await this.executeAgentWithRetry({
+            agentType: agent,
+            query,
+            context,
+            traceId,
+            timeoutMs: this.config.defaultTimeoutMs,
+            breakerKey,
+            execute: () => this.agentAPI.generateValueCase(query, context),
+          });
           break;
         case "realization":
-          response = await this.agentAPI.generateRealizationDashboard(query, context);
+          response = await this.executeAgentWithRetry({
+            agentType: agent,
+            query,
+            context,
+            traceId,
+            timeoutMs: this.config.defaultTimeoutMs,
+            breakerKey,
+            execute: () => this.agentAPI.generateRealizationDashboard(query, context),
+          });
           break;
         case "expansion":
-          response = await this.agentAPI.generateExpansionOpportunities(query, context);
+          response = await this.executeAgentWithRetry({
+            agentType: agent,
+            query,
+            context,
+            traceId,
+            timeoutMs: this.config.defaultTimeoutMs,
+            breakerKey,
+            execute: () => this.agentAPI.generateExpansionOpportunities(query, context),
+          });
           break;
         default:
-          response = await this.agentAPI.invokeAgent({ agent, query, context });
+          response = await this.executeAgentWithRetry({
+            agentType: agent,
+            query,
+            context,
+            traceId,
+            timeoutMs: this.config.defaultTimeoutMs,
+            breakerKey,
+            execute: () => this.agentAPI.invokeAgent({ agent, query, context }),
+          });
       }
 
       streamingCallback?.({

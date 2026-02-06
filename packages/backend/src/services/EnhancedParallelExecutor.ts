@@ -18,13 +18,15 @@ import { randomUUID } from 'crypto';
 // Types
 // ============================================================================
 
+export type ParallelPriority = 'critical' | 'high' | 'medium' | 'low';
+
 export interface ParallelTask {
   id: string;
   agentType: AgentType;
   query: string;
   context?: Record<string, any>;
   parameters?: Record<string, any>;
-  priority: 'critical' | 'high' | 'medium' | 'low';
+  priority: ParallelPriority;
   dependencies: string[];
   estimatedDuration: number;
   timeoutMs: number;
@@ -104,6 +106,20 @@ export interface PerformanceMetrics {
   longestTaskDuration: number;
   shortestTaskDuration: number;
   throughput: number; // tasks per second
+}
+
+export interface RunnableTask<TPayload> {
+  id: string;
+  payload: TPayload;
+  priority: ParallelPriority;
+}
+
+export interface RunnableTaskResult<TResult> {
+  taskId: string;
+  success: boolean;
+  result?: TResult;
+  error?: string;
+  duration: number;
 }
 
 // ============================================================================
@@ -249,6 +265,47 @@ export class EnhancedParallelExecutor implements ResourceListener {
         },
       };
     }
+  }
+
+  /**
+   * Execute runnable tasks with concurrency and priority ordering.
+   */
+  async executeRunnableTasks<TPayload, TResult>(
+    tasks: RunnableTask<TPayload>[],
+    runner: (task: RunnableTask<TPayload>) => Promise<TResult>,
+    maxConcurrency: number
+  ): Promise<RunnableTaskResult<TResult>[]> {
+    const concurrency = Math.min(maxConcurrency, this.currentMaxConcurrency);
+    const results: RunnableTaskResult<TResult>[] = [];
+    const batches = this.createPriorityBatches(tasks, concurrency);
+
+    for (const batch of batches) {
+      const batchResults = await Promise.all(
+        batch.map(async (task) => {
+          const startTime = Date.now();
+          try {
+            const result = await runner(task);
+            return {
+              taskId: task.id,
+              success: true,
+              result,
+              duration: Date.now() - startTime,
+            };
+          } catch (error) {
+            return {
+              taskId: task.id,
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+              duration: Date.now() - startTime,
+            };
+          }
+        })
+      );
+
+      results.push(...batchResults);
+    }
+
+    return results;
   }
 
   /**
@@ -486,11 +543,16 @@ export class EnhancedParallelExecutor implements ResourceListener {
    * Create execution batches for parallel processing
    */
   private createBatches(tasks: ParallelTask[], batchSize: number): ParallelTask[][] {
-    const batches: ParallelTask[][] = [];
+    return this.createPriorityBatches(tasks, batchSize);
+  }
 
-    // Sort by priority (critical first)
+  private createPriorityBatches<TTask extends { priority: ParallelPriority }>(
+    tasks: TTask[],
+    batchSize: number
+  ): TTask[][] {
+    const batches: TTask[][] = [];
+    const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
     const sortedTasks = [...tasks].sort((a, b) => {
-      const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
       return priorityOrder[b.priority] - priorityOrder[a.priority];
     });
 

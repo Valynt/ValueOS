@@ -196,6 +196,7 @@ describe('LLMCostTracker', () => {
       new Date('2026-01-01T00:00:00.000Z'),
       new Date('2026-01-02T00:00:00.000Z'),
       'user-123',
+      'tenant-abc',
     );
 
     expect(total).toBe(2);
@@ -207,6 +208,7 @@ describe('LLMCostTracker', () => {
         expect.objectContaining({ op: 'gte', column: 'created_at' }),
         expect.objectContaining({ op: 'lte', column: 'created_at' }),
         expect.objectContaining({ op: 'eq', column: 'user_id', value: 'user-123' }),
+        expect.objectContaining({ op: 'eq', column: 'tenant_id', value: 'tenant-abc' }),
       ]),
     );
   });
@@ -220,15 +222,17 @@ describe('LLMCostTracker', () => {
     vi.spyOn(tracker, 'getMonthlyCost').mockResolvedValue(0);
 
     state.selectResponse = { data: [], error: null };
-    await tracker.checkCostThresholds();
+    await tracker.checkCostThresholds('tenant-99');
 
     // @ts-expect-error test mock client exposes state
     expect(supabase.state.insertCount).toBe(1);
     // @ts-expect-error test mock client exposes state
     expect(supabase.state.lastInsertPayload.level).toBe('critical');
+    // @ts-expect-error test mock client exposes state
+    expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-99');
 
     state.selectResponse = { data: [{ id: 1 }], error: null };
-    await tracker.checkCostThresholds();
+    await tracker.checkCostThresholds('tenant-99');
 
     // @ts-expect-error test mock client exposes state
     expect(supabase.state.insertCount).toBe(1);

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../AuthService';
 import {
+  AuthenticationError,
   RateLimitError,
   SessionTimeoutAuthenticationError,
   TokenAuthenticationError,
@@ -125,6 +126,54 @@ describe('AuthService', () => {
         options: expect.objectContaining({ captchaToken: '654321' }),
       })
     );
+  });
+
+  it('maps Supabase session timeouts to SessionTimeoutAuthenticationError', async () => {
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        status: 440,
+        code: 'SESSION_IDLE_TIMEOUT',
+        message: 'Session expired due to inactivity',
+      },
+    });
+
+    const request = service.login({ email: 'user@example.com', password: 'Secret123!' });
+    await expect(request).rejects.toBeInstanceOf(SessionTimeoutAuthenticationError);
+    await expect(request).rejects.toMatchObject({
+      authCode: 'SESSION_IDLE_TIMEOUT',
+      details: expect.objectContaining({ status: 440, code: 'SESSION_IDLE_TIMEOUT' }),
+    });
+  });
+
+  it('maps Supabase token failures to TokenAuthenticationError', async () => {
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        status: 401,
+        code: 'jwt_expired',
+        message: 'JWT expired',
+      },
+    });
+
+    const request = service.login({ email: 'user@example.com', password: 'Secret123!' });
+    await expect(request).rejects.toBeInstanceOf(TokenAuthenticationError);
+    await expect(request).rejects.toMatchObject({ authCode: 'TOKEN_EXPIRED' });
+  });
+
+  it('maps Supabase MFA errors to AuthenticationError with MFA authCode', async () => {
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        status: 401,
+        code: 'mfa_required',
+        message: 'MFA required',
+      },
+    });
+
+    const request = service.login({ email: 'user@example.com', password: 'Secret123!' });
+    await expect(request).rejects.toBeInstanceOf(AuthenticationError);
+    await expect(request).rejects.toMatchObject({ authCode: 'MFA_CODE_REQUIRED' });
   });
 
   describe('browser auth error mapping', () => {

@@ -56,6 +56,11 @@ export class LLMFallbackService {
   private readonly circuitBreaker: ExternalCircuitBreaker;
   private readonly togetherChatBreakerKey = "external:together_ai:chat";
   private readonly togetherStreamBreakerKey = "external:together_ai:stream";
+  private readonly breakerConfig = {
+    minimumSamples: 1,
+    failureRateThreshold: 0.5,
+    latencyThresholdMs: 20000,
+  };
   private stats = {
     togetherAI: { calls: 0, failures: 0 },
     cache: { hits: 0, misses: 0 },
@@ -316,6 +321,7 @@ export class LLMFallbackService {
       this.togetherChatBreakerKey,
       () => this.callTogetherAI(request),
       {
+        config: this.breakerConfig,
         fallback: (error, state) => {
           logger.error("Together.ai request failed", error, {
             breakerState: state,
@@ -361,6 +367,7 @@ export class LLMFallbackService {
           return streamed;
         },
         {
+          config: this.breakerConfig,
           fallback: async () => {
             logger.warn("Circuit breaker fallback to non-streaming LLM response", {
               model: request.model,

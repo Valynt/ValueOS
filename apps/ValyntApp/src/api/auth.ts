@@ -208,9 +208,15 @@ router.post(
           .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
       }
       if (error instanceof ValidationError) {
-        return res
-          .status(400)
-          .json(buildAuthErrorPayload(error.message, resolveValidationErrorCode(error), error.details));
+        const payload = buildAuthErrorPayload(
+          error.message,
+          resolveValidationErrorCode(error),
+          error.details
+        );
+        return res.status(400).json({
+          ...payload,
+          ...(typeof error.code === "string" ? { errorCode: error.code } : {}),
+        });
       }
 
       res.status(500).json({ error: "Internal server error" });

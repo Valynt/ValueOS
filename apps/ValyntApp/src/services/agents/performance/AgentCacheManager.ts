@@ -10,8 +10,9 @@
 import { AgentType } from "../../agent-types";
 import { IAgent, AgentRequest, AgentResponse } from "../core/IAgent";
 import { logger } from "../../../utils/logger";
-import { v4 as uuidv4 } from "uuid";
 import { agentTelemetryService } from "../telemetry/AgentTelemetryService";
+import { getRedisClient } from "../../../lib/redisClient";
+import { getMessageBus } from "../../MessageBus";
 
 // ============================================================================
 // Cache Types
@@ -51,6 +52,8 @@ export interface CacheMetadata {
   source: "agent" | "fallback" | "synthetic";
   /** Cache version */
   version: string;
+  /** Distributed cache version */
+  distributedVersion?: number;
   /** Dependencies */
   dependencies: CacheDependency[];
 }
@@ -138,6 +141,14 @@ export interface CacheStatistics {
   totalHits: number;
   /** Total misses */
   totalMisses: number;
+  /** Local cache hits */
+  localHits: number;
+  /** Local cache misses */
+  localMisses: number;
+  /** Redis cache hits */
+  redisHits: number;
+  /** Redis cache misses */
+  redisMisses: number;
   /** Average response time from cache */
   avgCacheResponseTime: number;
   /** Average response time from agent */
@@ -148,6 +159,8 @@ export interface CacheStatistics {
   evictions: number;
   /** Invalidations */
   invalidations: number;
+  /** TTL expirations */
+  ttlExpirations: number;
   /** Compression ratio */
   compressionRatio: number;
 }
@@ -218,10 +231,15 @@ export class AgentCacheManager {
   private statistics: CacheStatistics;
   private cleanupInterval: NodeJS.Timeout | null = null;
   private currentSize: number = 0;
+  private redisNamespace = process.env.AGENT_CACHE_NAMESPACE || "agent-cache";
+  private redisClientPromise: Promise<any> | null = null;
+  private messageBus = getMessageBus();
+  private static readonly CACHE_INVALIDATION_CHANNEL = "agent.cache.invalidation";
 
   private constructor() {
     this.statistics = this.initializeStatistics();
     this.initializeDefaultPolicies();
+    this.initializeEventInvalidation();
     this.startCleanup();
     logger.info("AgentCacheManager initialized");
   }
@@ -239,77 +257,37 @@ export class AgentCacheManager {
   /**
    * Get cached response
    */
-  get(request: AgentRequest): AgentResponse | null {
+  async get(request: AgentRequest): Promise<AgentResponse | null> {
     const startTime = Date.now();
     const key = this.generateCacheKey(request);
     const entry = this.cache.get(key);
 
-    if (!entry) {
-      this.statistics.totalMisses++;
-      this.statistics.missRate =
-        (this.statistics.totalMisses / (this.statistics.totalHits + this.statistics.totalMisses)) *
-        100;
+    if (entry) {
+      if (this.isExpired(entry)) {
+        this.removeEntry(key, entry, "ttl");
+      } else {
+        const syncStatus = await this.syncLocalEntryWithRedis(key, entry);
+        if (syncStatus === "valid") {
+          this.recordLocalHit(request, entry, startTime, key);
+          return entry.response;
+        }
 
-      logger.debug("Cache miss", {
-        agentType: request.agentType,
-        key,
-        totalMisses: this.statistics.totalMisses,
-      });
-
-      return null;
+        if (syncStatus === "unavailable") {
+          this.recordLocalHit(request, entry, startTime, key);
+          return entry.response;
+        }
+      }
     }
 
-    // Check TTL
-    if (this.isExpired(entry)) {
-      this.cache.delete(key);
-      this.currentSize -= entry.size;
-      this.statistics.totalMisses++;
-      this.statistics.missRate =
-        (this.statistics.totalMisses / (this.statistics.totalHits + this.statistics.totalMisses)) *
-        100;
+    this.statistics.localMisses++;
 
-      logger.debug("Cache expired", {
-        agentType: request.agentType,
-        key,
-        age: Date.now() - entry.createdAt.getTime(),
-      });
-
-      return null;
+    const redisResponse = await this.getFromRedis(request, key, startTime);
+    if (redisResponse) {
+      return redisResponse;
     }
 
-    // Update access statistics
-    entry.lastAccessedAt = new Date();
-    entry.accessCount++;
-    this.statistics.totalHits++;
-    this.statistics.hitRate =
-      (this.statistics.totalHits / (this.statistics.totalHits + this.statistics.totalMisses)) * 100;
-
-    const responseTime = Date.now() - startTime;
-    this.updateCacheResponseTime(responseTime);
-
-    // Record cache hit in telemetry
-    agentTelemetryService.recordTelemetryEvent({
-      type: "agent_cache_hit",
-      agentType: request.agentType,
-      sessionId: request.sessionId,
-      userId: request.userId,
-      data: {
-        cacheKey: key,
-        responseTime,
-        age: Date.now() - entry.createdAt.getTime(),
-        accessCount: entry.accessCount,
-      },
-      severity: "info",
-    });
-
-    logger.debug("Cache hit", {
-      agentType: request.agentType,
-      key,
-      age: Date.now() - entry.createdAt.getTime(),
-      accessCount: entry.accessCount,
-    });
-
-    return entry.response;
+    this.recordCacheMiss(request, key);
+    return null;
   }
 
   /**
@@ -323,7 +301,22 @@ export class AgentCacheManager {
       tags?: string[];
       metadata?: Partial<CacheMetadata>;
     }
-  ): void {
+  ): Promise<void> {
+    return this.setInternal(request, response, options);
+  }
+
+  /**
+   * Set cached response
+   */
+  private async setInternal(
+    request: AgentRequest,
+    response: AgentResponse,
+    options?: {
+      ttl?: number;
+      tags?: string[];
+      metadata?: Partial<CacheMetadata>;
+    }
+  ): Promise<void> {
     const key = this.generateCacheKey(request);
     const policy = this.getCachePolicy(request.agentType);
 
@@ -380,6 +373,8 @@ export class AgentCacheManager {
 
     this.cache.set(key, entry);
     this.currentSize += size;
+    this.statistics.totalEntries = this.cache.size;
+    this.statistics.currentSize = this.currentSize / (1024 * 1024);
 
     // Record cache set in telemetry
     agentTelemetryService.recordTelemetryEvent({
@@ -403,6 +398,8 @@ export class AgentCacheManager {
       size,
       totalEntries: this.cache.size,
     });
+
+    await this.persistToRedis(entry);
   }
 
   /**
@@ -413,6 +410,20 @@ export class AgentCacheManager {
     tags?: string[];
     key?: string;
     olderThan?: Date;
+    dependencies?: CacheDependency[];
+  }): number {
+    return this.invalidateInternal(pattern);
+  }
+
+  /**
+   * Invalidate cache entries
+   */
+  private invalidateInternal(pattern: {
+    agentType?: AgentType;
+    tags?: string[];
+    key?: string;
+    olderThan?: Date;
+    dependencies?: CacheDependency[];
   }): number {
     let invalidatedCount = 0;
     const keysToDelete: string[] = [];
@@ -435,6 +446,19 @@ export class AgentCacheManager {
         shouldDelete = true;
       }
 
+      // Check dependencies
+      if (pattern.dependencies && pattern.dependencies.length > 0) {
+        const dependencyMatch = pattern.dependencies.some((dependency) =>
+          entry.metadata.dependencies.some(
+            (entryDep) =>
+              entryDep.type === dependency.type && entryDep.identifier === dependency.identifier
+          )
+        );
+        if (dependencyMatch) {
+          shouldDelete = true;
+        }
+      }
+
       // Check age
       if (pattern.olderThan && entry.createdAt < pattern.olderThan) {
         shouldDelete = true;
@@ -446,14 +470,13 @@ export class AgentCacheManager {
     }
 
     // Delete entries
-    keysToDelete.forEach((key) => {
+    for (const key of keysToDelete) {
       const entry = this.cache.get(key);
       if (entry) {
-        this.currentSize -= entry.size;
-        this.cache.delete(key);
+        this.removeEntry(key, entry, "invalidate");
         invalidatedCount++;
       }
-    });
+    }
 
     this.statistics.invalidations += invalidatedCount;
 
@@ -467,6 +490,39 @@ export class AgentCacheManager {
   }
 
   /**
+   * Invalidate cache entries by tag
+   */
+  async invalidateByTag(tag: string, publishEvent: boolean = true): Promise<number> {
+    const invalidated = this.invalidateInternal({ tags: [tag] });
+    await this.invalidateRedisByTag(tag);
+
+    if (publishEvent) {
+      await this.publishInvalidationEvent({ type: "tag", tag });
+    }
+
+    return invalidated;
+  }
+
+  /**
+   * Invalidate cache entries by dependency
+   */
+  async invalidateByDependency(
+    dependency: CacheDependency,
+    publishEvent: boolean = true
+  ): Promise<number> {
+    const invalidated = this.invalidateInternal({
+      dependencies: [dependency],
+    });
+    await this.invalidateRedisByDependency(dependency);
+
+    if (publishEvent) {
+      await this.publishInvalidationEvent({ type: "dependency", dependency });
+    }
+
+    return invalidated;
+  }
+
+  /**
    * Clear cache
    */
   clear(): void {
@@ -474,6 +530,8 @@ export class AgentCacheManager {
     this.cache.clear();
     this.currentSize = 0;
     this.statistics.invalidations += clearedCount;
+    this.statistics.totalEntries = 0;
+    this.statistics.currentSize = 0;
 
     logger.info("Cache cleared", {
       clearedCount,
@@ -561,14 +619,14 @@ export class AgentCacheManager {
 
     for (const request of requests) {
       // Check if already cached
-      if (this.get(request)) {
+      if (await this.get(request)) {
         skipped++;
         continue;
       }
 
       try {
         const response = await agent.execute(request);
-        this.set(request, response, { tags: ["warmup"] });
+        await this.set(request, response, { tags: ["warmup"] });
         successful++;
       } catch (error) {
         failed++;
@@ -694,8 +752,7 @@ export class AgentCacheManager {
     for (const [key, entry] of sorted) {
       if (freedSpace >= requiredSpace) break;
 
-      this.cache.delete(key);
-      this.currentSize -= entry.size;
+      this.removeEntry(key, entry, "eviction");
       freedSpace += entry.size;
     }
   }
@@ -710,8 +767,7 @@ export class AgentCacheManager {
     for (const [key, entry] of sorted) {
       if (freedSpace >= requiredSpace) break;
 
-      this.cache.delete(key);
-      this.currentSize -= entry.size;
+      this.removeEntry(key, entry, "eviction");
       freedSpace += entry.size;
     }
   }
@@ -721,13 +777,10 @@ export class AgentCacheManager {
    */
   private evictTTL(entries: [string, CacheEntry][]): void {
     const now = Date.now();
-    let freedSpace = 0;
 
     for (const [key, entry] of entries) {
       if (now - entry.createdAt.getTime() > entry.ttl) {
-        this.cache.delete(key);
-        this.currentSize -= entry.size;
-        freedSpace += entry.size;
+        this.removeEntry(key, entry, "ttl");
       }
     }
   }
@@ -742,8 +795,7 @@ export class AgentCacheManager {
     for (const [key, entry] of sorted) {
       if (freedSpace >= requiredSpace) break;
 
-      this.cache.delete(key);
-      this.currentSize -= entry.size;
+      this.removeEntry(key, entry, "eviction");
       freedSpace += entry.size;
     }
   }
@@ -758,8 +810,7 @@ export class AgentCacheManager {
     for (const [key, entry] of shuffled) {
       if (freedSpace >= requiredSpace) break;
 
-      this.cache.delete(key);
-      this.currentSize -= entry.size;
+      this.removeEntry(key, entry, "eviction");
       freedSpace += entry.size;
     }
   }
@@ -859,6 +910,532 @@ export class AgentCacheManager {
   }
 
   /**
+   * Initialize event-based invalidation hooks
+   */
+  private initializeEventInvalidation(): void {
+    this.messageBus.subscribe(
+      AgentCacheManager.CACHE_INVALIDATION_CHANNEL,
+      "agent-cache-manager",
+      async (event: any) => {
+        const payload = event?.payload ?? event?.data ?? event;
+        if (!payload || !payload.type) {
+          return;
+        }
+
+        switch (payload.type) {
+          case "tag":
+            if (payload.tag) {
+              await this.invalidateByTag(payload.tag, false);
+            }
+            break;
+          case "dependency":
+            if (payload.dependency) {
+              await this.invalidateByDependency(payload.dependency, false);
+            }
+            break;
+          case "key":
+            if (payload.key) {
+              this.invalidate({ key: payload.key });
+            }
+            break;
+          case "agentType":
+            if (payload.agentType) {
+              this.invalidate({ agentType: payload.agentType });
+            }
+            break;
+          default:
+            break;
+        }
+      }
+    );
+  }
+
+  /**
+   * Publish invalidation events to the message bus
+   */
+  private async publishInvalidationEvent(payload: {
+    type: "tag" | "dependency" | "key" | "agentType";
+    tag?: string;
+    dependency?: CacheDependency;
+    key?: string;
+    agentType?: AgentType;
+  }): Promise<void> {
+    try {
+      await this.messageBus.publishMessage(AgentCacheManager.CACHE_INVALIDATION_CHANNEL, {
+        channel: AgentCacheManager.CACHE_INVALIDATION_CHANNEL,
+        agent_name: "agent-cache-manager",
+        event_type: "broadcast",
+        payload,
+      } as any);
+    } catch (error) {
+      logger.warn("Failed to publish cache invalidation event", {
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Remove entry from local cache
+   */
+  private removeEntry(
+    key: string,
+    entry: CacheEntry,
+    reason: "ttl" | "invalidate" | "eviction"
+  ): void {
+    this.cache.delete(key);
+    this.currentSize -= entry.size;
+    this.statistics.totalEntries = this.cache.size;
+    this.statistics.currentSize = this.currentSize / (1024 * 1024);
+
+    if (reason === "ttl") {
+      this.statistics.ttlExpirations += 1;
+    } else if (reason === "eviction") {
+      this.statistics.evictions += 1;
+    }
+  }
+
+  /**
+   * Record local cache hit
+   */
+  private recordLocalHit(
+    request: AgentRequest,
+    entry: CacheEntry,
+    startTime: number,
+    key: string
+  ): void {
+    entry.lastAccessedAt = new Date();
+    entry.accessCount++;
+    this.statistics.totalHits++;
+    this.statistics.localHits++;
+    this.statistics.hitRate =
+      (this.statistics.totalHits / (this.statistics.totalHits + this.statistics.totalMisses)) * 100;
+
+    const responseTime = Date.now() - startTime;
+    this.updateCacheResponseTime(responseTime);
+
+    agentTelemetryService.recordTelemetryEvent({
+      type: "agent_cache_hit",
+      agentType: request.agentType,
+      sessionId: request.sessionId,
+      userId: request.userId,
+      data: {
+        cacheKey: key,
+        responseTime,
+        age: Date.now() - entry.createdAt.getTime(),
+        accessCount: entry.accessCount,
+        cacheTier: "local",
+      },
+      severity: "info",
+    });
+
+    logger.debug("Cache hit (local)", {
+      agentType: request.agentType,
+      key,
+      age: Date.now() - entry.createdAt.getTime(),
+      accessCount: entry.accessCount,
+    });
+  }
+
+  /**
+   * Record cache miss
+   */
+  private recordCacheMiss(request: AgentRequest, key: string): void {
+    this.statistics.totalMisses++;
+    this.statistics.missRate =
+      (this.statistics.totalMisses / (this.statistics.totalHits + this.statistics.totalMisses)) * 100;
+
+    agentTelemetryService.recordTelemetryEvent({
+      type: "agent_cache_miss",
+      agentType: request.agentType,
+      sessionId: request.sessionId,
+      userId: request.userId,
+      data: {
+        cacheKey: key,
+      },
+      severity: "info",
+    });
+
+    logger.debug("Cache miss", {
+      agentType: request.agentType,
+      key,
+      totalMisses: this.statistics.totalMisses,
+    });
+  }
+
+  /**
+   * Sync local entry with Redis version/TTL
+   */
+  private async syncLocalEntryWithRedis(
+    key: string,
+    entry: CacheEntry
+  ): Promise<"valid" | "stale" | "unavailable"> {
+    const client = await this.getRedisClientSafe();
+    if (!client) {
+      return "unavailable";
+    }
+
+    try {
+      const versionKey = this.buildRedisVersionKey(key);
+      const entryKey = this.buildRedisEntryKey(key);
+      const [redisVersion, ttlMs] = await Promise.all([
+        client.get(versionKey),
+        client.pTTL(entryKey),
+      ]);
+
+      if (!redisVersion || ttlMs <= 0) {
+        this.statistics.redisMisses++;
+        this.removeEntry(key, entry, "ttl");
+        return "stale";
+      }
+
+      const redisVersionNumber = Number(redisVersion);
+      if (
+        Number.isFinite(redisVersionNumber) &&
+        entry.metadata.distributedVersion === undefined
+      ) {
+        entry.metadata.distributedVersion = redisVersionNumber;
+      }
+
+      if (
+        Number.isFinite(redisVersionNumber) &&
+        entry.metadata.distributedVersion !== undefined &&
+        redisVersionNumber !== entry.metadata.distributedVersion
+      ) {
+        this.statistics.invalidations += 1;
+        this.removeEntry(key, entry, "invalidate");
+        return "stale";
+      }
+
+      const remainingLocal = entry.ttl - (Date.now() - entry.createdAt.getTime());
+      if (ttlMs > 0 && ttlMs < remainingLocal) {
+        entry.ttl = ttlMs;
+        entry.createdAt = new Date();
+      }
+
+      return "valid";
+    } catch (error) {
+      logger.warn("Redis sync failed for cache entry", {
+        error: (error as Error).message,
+      });
+      return "unavailable";
+    }
+  }
+
+  /**
+   * Fetch entry from Redis and hydrate local cache
+   */
+  private async getFromRedis(
+    request: AgentRequest,
+    key: string,
+    startTime: number
+  ): Promise<AgentResponse | null> {
+    const client = await this.getRedisClientSafe();
+    if (!client) {
+      return null;
+    }
+
+    try {
+      const redisKey = this.buildRedisEntryKey(key);
+      const cachedValue = await client.get(redisKey);
+
+      if (!cachedValue) {
+        this.statistics.redisMisses++;
+        return null;
+      }
+
+      const ttlMs = await client.pTTL(redisKey);
+      if (ttlMs <= 0) {
+        this.statistics.redisMisses++;
+        this.statistics.ttlExpirations += 1;
+        return null;
+      }
+
+      const parsed = this.deserializeEntry(cachedValue);
+      if (!parsed) {
+        this.statistics.redisMisses++;
+        return null;
+      }
+
+      const originalTtl = parsed.ttl;
+      const ageOffset = Math.max(0, originalTtl - ttlMs);
+      parsed.ttl = ttlMs;
+      parsed.createdAt = new Date(Date.now() - ageOffset);
+      parsed.lastAccessedAt = new Date();
+      parsed.accessCount = 1;
+
+      this.storeLocalEntry(parsed, request.agentType);
+
+      this.statistics.totalHits++;
+      this.statistics.redisHits++;
+      this.statistics.hitRate =
+        (this.statistics.totalHits / (this.statistics.totalHits + this.statistics.totalMisses)) *
+        100;
+
+      const responseTime = Date.now() - startTime;
+      this.updateCacheResponseTime(responseTime);
+
+      agentTelemetryService.recordTelemetryEvent({
+        type: "agent_cache_hit",
+        agentType: request.agentType,
+        sessionId: request.sessionId,
+        userId: request.userId,
+        data: {
+          cacheKey: key,
+          responseTime,
+          age: Date.now() - parsed.createdAt.getTime(),
+          accessCount: parsed.accessCount,
+          cacheTier: "redis",
+        },
+        severity: "info",
+      });
+
+      logger.debug("Cache hit (redis)", {
+        agentType: request.agentType,
+        key,
+        ttlMs,
+      });
+
+      return parsed.response;
+    } catch (error) {
+      this.statistics.redisMisses++;
+      logger.warn("Redis cache lookup failed", {
+        error: (error as Error).message,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Store entry locally with eviction awareness
+   */
+  private storeLocalEntry(entry: CacheEntry, agentType: AgentType): void {
+    const policy = this.getCachePolicy(agentType);
+    if (!policy) {
+      return;
+    }
+
+    if (this.currentSize + entry.size > policy.config.maxSize * 1024 * 1024) {
+      this.evictEntries(policy.config.evictionPolicy, entry.size);
+    }
+
+    if (this.cache.size >= policy.config.maxEntries) {
+      this.evictEntries(policy.config.evictionPolicy, 0);
+    }
+
+    this.cache.set(entry.key, entry);
+    this.currentSize += entry.size;
+    this.statistics.totalEntries = this.cache.size;
+    this.statistics.currentSize = this.currentSize / (1024 * 1024);
+  }
+
+  /**
+   * Persist entry to Redis with versioning
+   */
+  private async persistToRedis(entry: CacheEntry): Promise<void> {
+    const client = await this.getRedisClientSafe();
+    if (!client) {
+      return;
+    }
+
+    try {
+      const ttlSeconds = Math.max(1, Math.ceil(entry.ttl / 1000));
+      const entryKey = this.buildRedisEntryKey(entry.key);
+      const versionKey = this.buildRedisVersionKey(entry.key);
+      const version = await client.incr(versionKey);
+      entry.metadata.distributedVersion = version;
+
+      await client.expire(versionKey, ttlSeconds);
+      await client.setEx(entryKey, ttlSeconds, this.serializeEntry(entry));
+
+      if (entry.tags.length > 0) {
+        await Promise.all(
+          entry.tags.map(async (tag) => {
+            const tagKey = this.buildRedisTagKey(tag);
+            await client.sAdd(tagKey, entry.key);
+            await client.expire(tagKey, ttlSeconds);
+          })
+        );
+      }
+
+      if (entry.metadata.dependencies.length > 0) {
+        await Promise.all(
+          entry.metadata.dependencies.map(async (dependency) => {
+            const depKey = this.buildRedisDependencyKey(dependency);
+            await client.sAdd(depKey, entry.key);
+            await client.expire(depKey, ttlSeconds);
+          })
+        );
+      }
+    } catch (error) {
+      logger.warn("Failed to persist cache entry to Redis", {
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Invalidate Redis entries by tag
+   */
+  private async invalidateRedisByTag(tag: string): Promise<void> {
+    const client = await this.getRedisClientSafe();
+    if (!client) {
+      return;
+    }
+
+    try {
+      const tagKey = this.buildRedisTagKey(tag);
+      const keys = await client.sMembers(tagKey);
+      if (!keys || keys.length === 0) {
+        return;
+      }
+
+      await Promise.all(
+        keys.map(async (key: string) => {
+          const entryKey = this.buildRedisEntryKey(key);
+          const versionKey = this.buildRedisVersionKey(key);
+          await client.del(entryKey, versionKey);
+          await client.sRem(tagKey, key);
+        })
+      );
+    } catch (error) {
+      logger.warn("Failed to invalidate Redis cache by tag", {
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Invalidate Redis entries by dependency
+   */
+  private async invalidateRedisByDependency(dependency: CacheDependency): Promise<void> {
+    const client = await this.getRedisClientSafe();
+    if (!client) {
+      return;
+    }
+
+    try {
+      const depKey = this.buildRedisDependencyKey(dependency);
+      const keys = await client.sMembers(depKey);
+      if (!keys || keys.length === 0) {
+        return;
+      }
+
+      await Promise.all(
+        keys.map(async (key: string) => {
+          const entryKey = this.buildRedisEntryKey(key);
+          const versionKey = this.buildRedisVersionKey(key);
+          await client.del(entryKey, versionKey);
+          await client.sRem(depKey, key);
+        })
+      );
+    } catch (error) {
+      logger.warn("Failed to invalidate Redis cache by dependency", {
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
+   * Build Redis cache key
+   */
+  private buildRedisEntryKey(key: string): string {
+    return `${this.redisNamespace}:entry:${key}`;
+  }
+
+  /**
+   * Build Redis version key
+   */
+  private buildRedisVersionKey(key: string): string {
+    return `${this.redisNamespace}:version:${key}`;
+  }
+
+  /**
+   * Build Redis tag key
+   */
+  private buildRedisTagKey(tag: string): string {
+    return `${this.redisNamespace}:tag:${tag}`;
+  }
+
+  /**
+   * Build Redis dependency key
+   */
+  private buildRedisDependencyKey(dependency: CacheDependency): string {
+    return `${this.redisNamespace}:dependency:${dependency.type}:${dependency.identifier}`;
+  }
+
+  /**
+   * Serialize cache entry for Redis
+   */
+  private serializeEntry(entry: CacheEntry): string {
+    return JSON.stringify({
+      ...entry,
+      createdAt: entry.createdAt.toISOString(),
+      lastAccessedAt: entry.lastAccessedAt.toISOString(),
+      metadata: {
+        ...entry.metadata,
+        dependencies: entry.metadata.dependencies.map((dep) => ({
+          ...dep,
+          lastModified: dep.lastModified.toISOString(),
+        })),
+      },
+    });
+  }
+
+  /**
+   * Deserialize cache entry from Redis
+   */
+  private deserializeEntry(payload: string): CacheEntry | null {
+    try {
+      const parsed = JSON.parse(payload) as CacheEntry & {
+        createdAt: string;
+        lastAccessedAt: string;
+        metadata: CacheMetadata & { dependencies: Array<CacheDependency & { lastModified: string }> };
+      };
+
+      return {
+        ...parsed,
+        createdAt: new Date(parsed.createdAt),
+        lastAccessedAt: new Date(parsed.lastAccessedAt),
+        metadata: {
+          ...parsed.metadata,
+          dependencies: parsed.metadata.dependencies.map((dep) => ({
+            ...dep,
+            lastModified: new Date(dep.lastModified),
+          })),
+        },
+      };
+    } catch (error) {
+      logger.warn("Failed to deserialize Redis cache entry", {
+        error: (error as Error).message,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Get Redis client safely
+   */
+  private async getRedisClientSafe(): Promise<any | null> {
+    if (!this.redisClientPromise) {
+      this.redisClientPromise = getRedisClient();
+    }
+
+    try {
+      const client = await this.redisClientPromise;
+      if (client && "isReady" in client && !client.isReady) {
+        return null;
+      }
+      return client;
+    } catch (error) {
+      this.redisClientPromise = null;
+      logger.warn("Redis client unavailable", {
+        error: (error as Error).message,
+      });
+      return null;
+    }
+  }
+
+  /**
    * Start cleanup interval
    */
   private startCleanup(): void {
@@ -901,11 +1478,16 @@ export class AgentCacheManager {
       missRate: 0,
       totalHits: 0,
       totalMisses: 0,
+      localHits: 0,
+      localMisses: 0,
+      redisHits: 0,
+      redisMisses: 0,
       avgCacheResponseTime: 0,
       avgAgentResponseTime: 0,
       efficiency: 0,
       evictions: 0,
       invalidations: 0,
+      ttlExpirations: 0,
       compressionRatio: 0,
     };
   }
@@ -934,8 +1516,8 @@ export class AgentCacheManager {
         invalidation: {
           enabled: true,
           strategies: [],
-          trackDependencies: false,
-          eventBased: false,
+          trackDependencies: true,
+          eventBased: true,
         },
       },
       rules: [
