@@ -8,6 +8,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { requireAuth } from '../../middleware/auth.js'
+import { requireRole } from '../../middleware/rbac.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 import { 
@@ -38,10 +40,6 @@ interface AuthenticatedRequest extends Request {
 // ============================================================================
 
 const router = Router();
-
-// Placeholder middleware until auth is wired up
-const requireAuth = (_req: Request, _res: Response, next: NextFunction) => next();
-const requireRole = (_roles: string[]) => (_req: Request, _res: Response, next: NextFunction) => next();
 
 // Simple logger
 const logger = {

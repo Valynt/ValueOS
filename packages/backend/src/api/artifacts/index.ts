@@ -8,6 +8,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { requireAuth } from '../../middleware/auth.js'
+import { requireRole } from '../../middleware/rbac.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 import { 
@@ -22,13 +24,6 @@ import {
   NotFoundError,
   DatabaseError,
 } from './repository';
-// Note: Auth middleware imports may need adjustment based on your setup
-// import { requireAuth, requireRole } from '../../middleware/auth';
-// import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter';
-
-// Placeholder middleware until auth is wired up
-const requireAuth = (_req: Request, _res: Response, next: NextFunction) => next();
-const requireRole = (_roles: string[]) => (_req: Request, _res: Response, next: NextFunction) => next();
 const standardLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 const strictLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 
