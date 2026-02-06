@@ -38,6 +38,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS initiatives_tenant_idempotency_unique
   WHERE idempotency_key IS NOT NULL;
 
 ALTER TABLE initiatives ENABLE ROW LEVEL SECURITY;
+ALTER TABLE initiatives FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS initiatives_tenant_select ON initiatives;
 DROP POLICY IF EXISTS initiatives_tenant_insert ON initiatives;
@@ -46,17 +47,17 @@ DROP POLICY IF EXISTS initiatives_tenant_delete ON initiatives;
 
 CREATE POLICY initiatives_tenant_select ON initiatives
   FOR SELECT
-  USING (tenant_id = security.current_tenant_id());
+  USING (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY initiatives_tenant_insert ON initiatives
   FOR INSERT
-  WITH CHECK (tenant_id = security.current_tenant_id());
+  WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY initiatives_tenant_update ON initiatives
   FOR UPDATE
-  USING (tenant_id = security.current_tenant_id())
-  WITH CHECK (tenant_id = security.current_tenant_id());
+  USING (security.user_has_tenant_access(tenant_id))
+  WITH CHECK (security.user_has_tenant_access(tenant_id));
 
 CREATE POLICY initiatives_tenant_delete ON initiatives
   FOR DELETE
-  USING (tenant_id = security.current_tenant_id());
+  USING (security.user_has_tenant_access(tenant_id));
