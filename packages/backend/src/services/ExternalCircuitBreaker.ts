@@ -1,5 +1,5 @@
 import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker.js';
-import { logger } from '../lib/logger.js';
+import { logger } from '../utils/logger.js';
 
 export type BreakerState = 'closed' | 'open' | 'half_open';
 
@@ -39,13 +39,21 @@ export class ExternalCircuitBreaker {
 
     try {
       const result = await this.manager.execute(key, task, options.config);
-      this.logStateTransitionIfNeeded(key, previousState, this.manager.getState(key)?.state ?? 'closed');
+      this.logStateTransitionIfNeeded(
+        key,
+        previousState,
+        this.manager.getState(key)?.state ?? 'closed'
+      );
       return result;
     } catch (error) {
       const currentState = this.manager.getState(key)?.state ?? previousState;
       this.logStateTransitionIfNeeded(key, previousState, currentState);
 
-      const normalizedError = error instanceof Error ? error : new Error('Unknown circuit breaker error');
+      const normalizedError =
+        error instanceof Error
+          ? error
+          : new Error('Unknown circuit breaker error');
+
       if (options.fallback) {
         logger.warn('Executing integration fallback', {
           integration: this.integration,
@@ -64,7 +72,7 @@ export class ExternalCircuitBreaker {
     const state = this.manager.getState(key);
     const metrics = state?.metrics ?? [];
     const totalRequests = metrics.length;
-    const failedRequests = metrics.filter(metric => !metric.success).length;
+    const failedRequests = metrics.filter((metric) => !metric.success).length;
     const successfulRequests = totalRequests - failedRequests;
 
     return {
@@ -96,7 +104,11 @@ export class ExternalCircuitBreaker {
     this.manager.reset(key);
   }
 
-  private logStateTransitionIfNeeded(key: string, previousState: BreakerState, nextState: BreakerState): void {
+  private logStateTransitionIfNeeded(
+    key: string,
+    previousState: BreakerState,
+    nextState: BreakerState
+  ): void {
     if (previousState === nextState) {
       return;
     }
