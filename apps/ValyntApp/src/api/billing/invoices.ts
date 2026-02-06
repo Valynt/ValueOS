@@ -7,9 +7,22 @@ import express, { Request, Response } from 'express';
 import InvoiceService from '../../services/billing/InvoiceService';
 import { createLogger } from '../../lib/logger';
 import { auditDataExport } from '../../middleware/auditHooks';
+import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
 
 const router = express.Router();
 const logger = createLogger({ component: 'InvoicesAPI' });
+
+router.use(
+  requestSanitizationMiddleware({
+    params: {
+      id: { maxLength: 128 },
+    },
+    query: {
+      limit: { maxLength: 8 },
+      offset: { maxLength: 8 },
+    },
+  })
+);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,

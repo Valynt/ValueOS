@@ -20,10 +20,23 @@ import { sanitizeForLogging } from "../lib/piiFilter";
 import { auditLogService } from "../services/AuditLogService";
 import { createServerSupabaseClient } from "../lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security";
+import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
 let serverSupabase: ReturnType<typeof createServerSupabaseClient> | null = null;
+
+router.use(
+  requestSanitizationMiddleware({
+    body: {
+      email: { maxLength: 320 },
+      password: { maxLength: 256 },
+      otpCode: { maxLength: 16 },
+      fullName: { maxLength: 256 },
+      newPassword: { maxLength: 256 },
+    },
+  })
+);
 
 function getServerSupabase() {
   if (!serverSupabase) {

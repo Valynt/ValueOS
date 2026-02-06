@@ -8,9 +8,18 @@ import MetricsCollector from '../../services/metering/MetricsCollector';
 import UsageCache from '../../services/metering/UsageCache';
 import { BillingMetric } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
 
 const router = express.Router();
 const logger = createLogger({ component: 'UsageAPI' });
+
+router.use(
+  requestSanitizationMiddleware({
+    params: {
+      metric: { maxLength: 64 },
+    },
+  })
+);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,
