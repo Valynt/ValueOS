@@ -14,7 +14,7 @@ import { createSecureRouter } from "../middleware/secureRouter";
 import { requireAuth } from "../middleware/auth";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { authService } from "../services/AuthService";
-import { AuthenticationError, ValidationError } from "../services/errors";
+import { AuthenticationError, RateLimitError, ValidationError } from "../services/errors";
 import { createLogger } from "../lib/logger";
 import { sanitizeForLogging } from "../lib/piiFilter";
 import { auditLogService } from "../services/AuditLogService";
@@ -39,6 +39,62 @@ function resolveActor(user?: any) {
     name:
       user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || "Unknown User",
   };
+}
+
+const AUTH_DETAIL_REDACTIONS = new Set([
+  "access_token",
+  "refresh_token",
+  "token",
+  "password",
+  "authorization",
+  "cookie",
+  "set-cookie",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeAuthDetails(details: unknown): Record<string, unknown> | undefined {
+  if (!isRecord(details)) {
+    return undefined;
+  }
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(details)) {
+    if (AUTH_DETAIL_REDACTIONS.has(key.toLowerCase())) {
+      continue;
+    }
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      sanitized[key] = value;
+    }
+  }
+
+  return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
+function buildAuthErrorPayload(message: string, code?: string, details?: unknown) {
+  return {
+    error: message,
+    ...(code ? { code } : {}),
+    details: sanitizeAuthDetails(details) ?? {},
+  };
+}
+
+function resolveAuthErrorCode(error: AuthenticationError): string {
+  if (typeof error.authCode === "string") {
+    return error.authCode;
+  }
+  const details = isRecord(error.details) ? error.details : undefined;
+  if (typeof details?.code === "string") {
+    return details.code;
+  }
+  return "AUTHENTICATION_FAILED";
+}
+
+function resolveValidationErrorCode(error: ValidationError): string {
+  const details = isRecord(error.details) ? error.details : undefined;
+  return typeof details?.code === "string" ? details.code : "VALIDATION_ERROR";
 }
 
 async function buildMFAEnrollmentRequiredPayload(error: AuthenticationError, email?: string) {
@@ -66,8 +122,11 @@ async function buildMFAEnrollmentRequiredPayload(error: AuthenticationError, ema
   return {
     error: error.message,
     code: "MFA_ENROLLMENT_REQUIRED" as const,
-    userId: userId ?? "unknown",
-    role: role ?? "manager",
+    details: {
+      ...(sanitizeAuthDetails(error.details) ?? {}),
+      userId: userId ?? "unknown",
+      role: role ?? "manager",
+    },
   };
 }
 
@@ -79,9 +138,9 @@ router.post(
       const { email, password, otpCode } = req.body;
 
       if (!email || !password) {
-        return res.status(400).json({
-          error: "Email and password are required",
-        });
+        return res
+          .status(400)
+          .json(buildAuthErrorPayload("Email and password are required", "VALIDATION_ERROR"));
       }
 
       const result = await authService.login({ email, password, otpCode });
@@ -129,19 +188,29 @@ router.post(
         errorMsg: String(error),
       });
 
+      if (error instanceof RateLimitError) {
+        if (typeof error.retryAfter === "number") {
+          res.setHeader("Retry-After", String(error.retryAfter));
+        }
+        return res
+          .status(429)
+          .json(buildAuthErrorPayload(error.message, "RATE_LIMIT_EXCEEDED", { retryAfter: error.retryAfter }));
+      }
       if (error instanceof AuthenticationError) {
         if (error.authCode === "MFA_ENROLLMENT_REQUIRED") {
           const payload = await buildMFAEnrollmentRequiredPayload(error, email);
           return res.status(403).json(payload);
         }
 
-        return res.status(401).json({
-          error: error.message,
-          ...(error.authCode ? { code: error.authCode } : {}),
-        });
+        const statusCode = error.statusCode ?? 401;
+        return res
+          .status(statusCode)
+          .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
       }
       if (error instanceof ValidationError) {
-        return res.status(400).json({ error: error.message });
+        return res
+          .status(400)
+          .json(buildAuthErrorPayload(error.message, resolveValidationErrorCode(error), error.details));
       }
 
       res.status(500).json({ error: "Internal server error" });
@@ -217,10 +286,14 @@ router.post(
       });
 
       if (error instanceof ValidationError) {
-        return res.status(400).json({ error: error.message });
+        return res
+          .status(400)
+          .json(buildAuthErrorPayload(error.message, resolveValidationErrorCode(error), error.details));
       }
       if (error instanceof AuthenticationError) {
-        return res.status(409).json({ error: error.message });
+        return res
+          .status(error.statusCode ?? 409)
+          .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
       }
 
       res.status(500).json({ error: "Internal server error" });
@@ -238,9 +311,9 @@ router.post(
       const { email } = req.body;
 
       if (!email) {
-        return res.status(400).json({
-          error: "Email is required",
-        });
+        return res
+          .status(400)
+          .json(buildAuthErrorPayload("Email is required", "VALIDATION_ERROR"));
       }
 
       await authService.requestPasswordReset(email);
@@ -282,6 +355,24 @@ router.post(
       logger.error("Password reset request failed", error instanceof Error ? error : undefined, {
         errorMsg: String(error),
       });
+      if (error instanceof RateLimitError) {
+        if (typeof error.retryAfter === "number") {
+          res.setHeader("Retry-After", String(error.retryAfter));
+        }
+        return res
+          .status(429)
+          .json(buildAuthErrorPayload(error.message, "RATE_LIMIT_EXCEEDED", { retryAfter: error.retryAfter }));
+      }
+      if (error instanceof AuthenticationError) {
+        return res
+          .status(error.statusCode ?? 401)
+          .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
+      }
+      if (error instanceof ValidationError) {
+        return res
+          .status(400)
+          .json(buildAuthErrorPayload(error.message, resolveValidationErrorCode(error), error.details));
+      }
       // Don't expose internal errors for security
       res.status(500).json({ error: "Internal server error" });
     }
@@ -298,7 +389,9 @@ router.post(
       const { email } = req.body;
 
       if (!email) {
-        return res.status(400).json({ error: "Email is required" });
+        return res
+          .status(400)
+          .json(buildAuthErrorPayload("Email is required", "VALIDATION_ERROR"));
       }
 
       const { error } = await getServerSupabase().auth.resend({
@@ -344,6 +437,24 @@ router.post(
       logger.error("Verification resend failed", error instanceof Error ? error : undefined, {
         errorMsg: String(error),
       });
+      if (error instanceof RateLimitError) {
+        if (typeof error.retryAfter === "number") {
+          res.setHeader("Retry-After", String(error.retryAfter));
+        }
+        return res
+          .status(429)
+          .json(buildAuthErrorPayload(error.message, "RATE_LIMIT_EXCEEDED", { retryAfter: error.retryAfter }));
+      }
+      if (error instanceof AuthenticationError) {
+        return res
+          .status(error.statusCode ?? 401)
+          .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
+      }
+      if (error instanceof ValidationError) {
+        return res
+          .status(400)
+          .json(buildAuthErrorPayload(error.message, resolveValidationErrorCode(error), error.details));
+      }
       res.status(500).json({ error: "Internal server error" });
     }
   }
@@ -354,9 +465,9 @@ router.post("/password/update", requireAuth, async (req: Request, res: Response)
     const { newPassword } = req.body;
 
     if (!newPassword) {
-      return res.status(400).json({
-        error: "New password is required",
-      });
+      return res
+        .status(400)
+        .json(buildAuthErrorPayload("New password is required", "VALIDATION_ERROR"));
     }
 
     await authService.updatePassword(newPassword);
@@ -390,10 +501,22 @@ router.post("/password/update", requireAuth, async (req: Request, res: Response)
     });
 
     if (error instanceof ValidationError) {
-      return res.status(400).json({ error: error.message });
+      return res
+        .status(400)
+        .json(buildAuthErrorPayload(error.message, resolveValidationErrorCode(error), error.details));
+    }
+    if (error instanceof RateLimitError) {
+      if (typeof error.retryAfter === "number") {
+        res.setHeader("Retry-After", String(error.retryAfter));
+      }
+      return res
+        .status(429)
+        .json(buildAuthErrorPayload(error.message, "RATE_LIMIT_EXCEEDED", { retryAfter: error.retryAfter }));
     }
     if (error instanceof AuthenticationError) {
-      return res.status(401).json({ error: error.message });
+      return res
+        .status(error.statusCode ?? 401)
+        .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
     }
 
     res.status(500).json({ error: "Internal server error" });
@@ -429,6 +552,19 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
     logger.error("Logout failed", error instanceof Error ? error : undefined, {
       errorMsg: String(error),
     });
+    if (error instanceof RateLimitError) {
+      if (typeof error.retryAfter === "number") {
+        res.setHeader("Retry-After", String(error.retryAfter));
+      }
+      return res
+        .status(429)
+        .json(buildAuthErrorPayload(error.message, "RATE_LIMIT_EXCEEDED", { retryAfter: error.retryAfter }));
+    }
+    if (error instanceof AuthenticationError) {
+      return res
+        .status(error.statusCode ?? 401)
+        .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
+    }
     // Logout should always succeed on client side
     res.status(500).json({ error: "Internal server error" });
   }
@@ -489,8 +625,18 @@ router.post("/refresh", async (_req: Request, res: Response) => {
       errorMsg: String(error),
     });
 
+    if (error instanceof RateLimitError) {
+      if (typeof error.retryAfter === "number") {
+        res.setHeader("Retry-After", String(error.retryAfter));
+      }
+      return res
+        .status(429)
+        .json(buildAuthErrorPayload(error.message, "RATE_LIMIT_EXCEEDED", { retryAfter: error.retryAfter }));
+    }
     if (error instanceof AuthenticationError) {
-      return res.status(401).json({ error: error.message });
+      return res
+        .status(error.statusCode ?? 401)
+        .json(buildAuthErrorPayload(error.message, resolveAuthErrorCode(error), error.details));
     }
 
     res.status(500).json({ error: "Internal server error" });
