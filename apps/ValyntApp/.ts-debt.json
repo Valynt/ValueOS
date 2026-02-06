@@ -1,3 +1,11 @@
 {
-  "baseline": 4516
+  "baseline": 4516,
+  "burnDown": {
+    "startDate": "2026-02-06",
+    "cadence": "weekly",
+    "weeklyReductionTarget": 136,
+    "targetWeeks": 12,
+    "targetErrorBudget": 2884,
+    "nextCheckpointDate": "2026-02-13"
+  }
 }

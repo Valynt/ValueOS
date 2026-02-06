@@ -43,6 +43,20 @@ interface TelemetryReport {
   };
 }
 
+interface BurnDownPlan {
+  startDate: string;
+  cadence: "weekly";
+  weeklyReductionTarget: number;
+  targetWeeks: number;
+  targetErrorBudget: number;
+  nextCheckpointDate: string;
+}
+
+interface TsDebtSidecar {
+  baseline: number;
+  burnDown?: BurnDownPlan;
+}
+
 const ERROR_CODE_DESCRIPTIONS: Record<string, string> = {
   TS6133: "Unused variable/parameter",
   TS2307: "Cannot find module",
@@ -202,6 +216,7 @@ async function updatePackageBaselines(report: TelemetryReport): Promise<void> {
   // 2. Update each package's baseline (Sidecar)
   console.log("💾 Updating local sidecar baselines (.ts-debt.json)...");
   let updated = 0;
+  const today = new Date();
 
   for (const [pkgName, count] of Object.entries(report.errorsByPackage)) {
     if (pkgName === "root" || pkgName === "global" || pkgName.startsWith(".")) continue;
@@ -209,11 +224,38 @@ async function updatePackageBaselines(report: TelemetryReport): Promise<void> {
     const pkgDir = path.join(projectRoot, pkgName);
     const sidecarPath = path.join(pkgDir, ".ts-debt.json");
 
-    // Create sidecar content
-    const debtData = { baseline: count };
+    let existingData: TsDebtSidecar | null = null;
+    if (fs.existsSync(sidecarPath)) {
+      try {
+        existingData = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as TsDebtSidecar;
+      } catch {
+        existingData = null;
+      }
+    }
+
+    const existingBurnDown = existingData?.burnDown;
+    const weeklyReductionTarget =
+      existingBurnDown?.weeklyReductionTarget ?? Math.max(1, Math.ceil(count * 0.03));
+    const targetWeeks = existingBurnDown?.targetWeeks ?? 12;
+    const clampedToday = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+    );
+    const nextCheckpoint = new Date(clampedToday);
+    nextCheckpoint.setUTCDate(clampedToday.getUTCDate() + 7);
+
+    const burnDown: BurnDownPlan = {
+      startDate: existingBurnDown?.startDate ?? clampedToday.toISOString().slice(0, 10),
+      cadence: "weekly",
+      weeklyReductionTarget,
+      targetWeeks,
+      targetErrorBudget: Math.max(0, count - weeklyReductionTarget * targetWeeks),
+      nextCheckpointDate: nextCheckpoint.toISOString().slice(0, 10),
+    };
+
+    const debtData: TsDebtSidecar = { baseline: count, burnDown };
 
     if (fs.existsSync(pkgDir)) {
-      fs.writeFileSync(sidecarPath, JSON.stringify(debtData, null, 2));
+      fs.writeFileSync(sidecarPath, `${JSON.stringify(debtData, null, 2)}\n`);
       updated++;
     }
   }
