@@ -227,7 +227,8 @@
     "build:inject-config": "node scripts/inject-runtime-config.js",
     "build:prod": "pnpm run build && pnpm run build:inject-config -- --env production",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "ci:legacy-risk-gates": "tsx scripts/ci/legacy-risk-gates.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
