@@ -1,0 +1,4 @@
+{
+  "errorCount": 3,
+  "command": "pnpm exec tsc --noEmit --pretty false"
+}
