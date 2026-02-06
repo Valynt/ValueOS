@@ -20,7 +20,7 @@ import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker.js"
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
 import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
-import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
+import { logAgentResponse } from "./AgentAuditLogger.js"
 import { AgentType } from "./agent-types.js"
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
@@ -34,7 +34,6 @@ import {
   AgentMessageBroker,
 } from "./AgentMessageBroker";
 import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue.js"
-import { AgentType } from "./agent-types.js"
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
@@ -49,6 +48,10 @@ import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js"
 import { supabase } from "../lib/supabase.js"
 import { featureFlags } from "../config/featureFlags.js"
+import {
+  BenchmarkResult,
+  getGroundTruthService,
+} from "./GroundTruthIntegrationService.js";
 
 // ============================================================================
 // Types
@@ -59,12 +62,22 @@ export interface AgentResponse {
   payload: any;
   streaming?: boolean;
   sduiPage?: SDUIPageDefinition;
+  metadata?: Record<string, any>;
 }
 
 export interface StreamingUpdate {
   stage: "analyzing" | "processing" | "generating" | "complete";
   message: string;
   progress?: number;
+}
+
+export interface IntegrityVetoMetadata {
+  integrityVeto: true;
+  deviationPercent: number;
+  benchmark: BenchmarkResult;
+  warning?: string;
+  metricId: string;
+  claimedValue: number;
 }
 
 export interface ProcessQueryResult {
@@ -240,12 +253,165 @@ export class UnifiedAgentOrchestrator {
   private agentMessageQueue: AgentMessageQueue;
   private agentInvocationTimes: Map<string, number[]> = new Map();
   private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
+  private groundTruthService = getGroundTruthService();
+  private groundTruthReady = false;
 
   private normalizeExecutionRequest(
     intent: string,
     execution: ExecutionRequest
   ) {
     return { ...execution, intent };
+  }
+
+  private async ensureGroundTruthReady(): Promise<void> {
+    if (!this.groundTruthReady) {
+      await this.groundTruthService.initialize();
+      this.groundTruthReady = true;
+    }
+  }
+
+  private calculateDeviationPercent(
+    claimedValue: number,
+    benchmarkValue: number
+  ): number {
+    if (benchmarkValue === 0) {
+      return claimedValue === 0 ? 0 : 100;
+    }
+    return (
+      (Math.abs(claimedValue - benchmarkValue) / Math.abs(benchmarkValue)) * 100
+    );
+  }
+
+  private extractClaimsFromOutput(
+    output: unknown
+  ): Array<{ metricId: string; value: number }> {
+    const claims: Array<{ metricId: string; value: number }> = [];
+    const visited = new Set<unknown>();
+
+    const walk = (node: unknown) => {
+      if (!node || typeof node !== "object") return;
+      if (visited.has(node)) return;
+      visited.add(node);
+
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+
+      const record = node as Record<string, unknown>;
+      const metricId =
+        (typeof record.metricId === "string" && record.metricId) ||
+        (typeof record.metric_id === "string" && record.metric_id) ||
+        (typeof record.metric === "string" && record.metric) ||
+        undefined;
+      const value =
+        typeof record.value === "number"
+          ? record.value
+          : typeof record.claimedValue === "number"
+          ? record.claimedValue
+          : typeof record.claimed_value === "number"
+          ? record.claimed_value
+          : undefined;
+
+      if (metricId && typeof value === "number" && Number.isFinite(value)) {
+        claims.push({ metricId, value });
+      }
+
+      Object.values(record).forEach(walk);
+    };
+
+    walk(output);
+    return claims;
+  }
+
+  private async evaluateIntegrityGuard(
+    output: unknown,
+    options: {
+      traceId?: string;
+      agentType?: AgentType;
+      query?: string;
+      context?: AgentContext;
+      source?: string;
+    }
+  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
+    const claims = this.extractClaimsFromOutput(output);
+    if (claims.length === 0) {
+      return { vetoed: false };
+    }
+
+    try {
+      await this.ensureGroundTruthReady();
+    } catch (error) {
+      logger.warn("Ground truth guard unavailable", {
+        traceId: options.traceId,
+        source: options.source,
+        error,
+      });
+      return { vetoed: false };
+    }
+
+    let worstViolation: IntegrityVetoMetadata | null = null;
+
+    for (const claim of claims) {
+      try {
+        const benchmark = await this.groundTruthService.getBenchmark(
+          claim.metricId
+        );
+        const validation = await this.groundTruthService.validateClaim(
+          claim.metricId,
+          claim.value
+        );
+        const deviationPercent = this.calculateDeviationPercent(
+          claim.value,
+          benchmark.value
+        );
+
+        if (
+          !worstViolation ||
+          deviationPercent > worstViolation.deviationPercent
+        ) {
+          worstViolation = {
+            integrityVeto: true,
+            deviationPercent,
+            benchmark,
+            warning: validation.warning,
+            metricId: claim.metricId,
+            claimedValue: claim.value,
+          };
+        }
+      } catch (error) {
+        logger.debug("Ground truth check skipped for claim", {
+          metricId: claim.metricId,
+          traceId: options.traceId,
+          error,
+        });
+      }
+    }
+
+    if (worstViolation && worstViolation.deviationPercent > 15) {
+      logger.warn("Integrity veto triggered", {
+        traceId: options.traceId,
+        source: options.source,
+        metricId: worstViolation.metricId,
+        deviationPercent: worstViolation.deviationPercent,
+      });
+
+      if (options.agentType && options.query) {
+        await logAgentResponse(
+          options.agentType,
+          options.query,
+          false,
+          output,
+          worstViolation,
+          "Integrity veto triggered",
+          options.context
+        );
+      }
+
+      return { vetoed: true, metadata: worstViolation };
+    }
+
+    return { vetoed: false };
   }
 
   private deriveFiscalQuarter(date: Date): string {
@@ -466,6 +632,41 @@ export class UnifiedAgentOrchestrator {
       };
     }
 
+    const integrityResult = await this.evaluateIntegrityGuard(result.data, {
+      traceId: result.traceId,
+      source: "async-query-result",
+    });
+
+    if (integrityResult.vetoed && integrityResult.metadata) {
+      logger.warn("Async agent output vetoed", {
+        traceId: result.traceId,
+        integrity: integrityResult.metadata,
+      });
+
+      const vetoState: WorkflowState = {
+        ...currentState,
+        status: "error",
+        context: {
+          ...currentState.context,
+          integrityVeto: integrityResult.metadata,
+        },
+      };
+
+      return {
+        response: {
+          type: "message",
+          payload: {
+            message:
+              "Output failed integrity checks. Please request a revised response.",
+            error: true,
+          },
+          metadata: integrityResult.metadata,
+        },
+        nextState: vetoState,
+        traceId: result.traceId,
+      };
+    }
+
     // Job completed successfully
     logger.info("Async agent invocation completed", {
       jobId,
@@ -562,6 +763,41 @@ export class UnifiedAgentOrchestrator {
         throw new Error(result.error || "Async agent execution failed");
       }
 
+      const integrityResult = await this.evaluateIntegrityGuard(result.data, {
+        traceId: result.traceId,
+        source: "async-query",
+      });
+
+      if (integrityResult.vetoed && integrityResult.metadata) {
+        logger.warn("Async agent output vetoed", {
+          traceId: result.traceId,
+          integrity: integrityResult.metadata,
+        });
+
+        const vetoState: WorkflowState = {
+          ...currentState,
+          status: "error",
+          context: {
+            ...currentState.context,
+            integrityVeto: integrityResult.metadata,
+          },
+        };
+
+        return {
+          response: {
+            type: "message",
+            payload: {
+              message:
+                "Output failed integrity checks. Please request a revised response.",
+              error: true,
+            },
+            metadata: integrityResult.metadata,
+          },
+          nextState: vetoState,
+          traceId: result.traceId,
+        };
+      }
+
       // Convert async result to sync result format
       const nextState: WorkflowState = {
         ...currentState,
@@ -655,6 +891,50 @@ export class UnifiedAgentOrchestrator {
           }),
         { timeoutMs: this.config.defaultTimeoutMs }
       );
+
+      if (agentResponse.success && agentResponse.data) {
+        const integrityResult = await this.evaluateIntegrityGuard(
+          agentResponse.data,
+          {
+            traceId,
+            agentType,
+            query,
+            context: agentContext,
+            source: "sync-query",
+          }
+        );
+
+        if (integrityResult.vetoed && integrityResult.metadata) {
+          logger.warn("Agent output vetoed", {
+            traceId,
+            agentType,
+            integrity: integrityResult.metadata,
+          });
+
+          const vetoState: WorkflowState = {
+            ...currentState,
+            status: "error",
+            context: {
+              ...currentState.context,
+              integrityVeto: integrityResult.metadata,
+            },
+          };
+
+          return {
+            response: {
+              type: "message",
+              payload: {
+                message:
+                  "Output failed integrity checks. Please request a revised response.",
+                error: true,
+              },
+              metadata: integrityResult.metadata,
+            },
+            nextState: vetoState,
+            traceId,
+          };
+        }
+      }
 
       // Update state based on response
       if (agentResponse.success && agentResponse.data) {
@@ -1222,6 +1502,22 @@ Provide a JSON response with:
 
       await this.persistExecutionRecord(executionId, recordSnapshot);
 
+      if (stageResult.output?.metadata?.integrityVeto) {
+        await this.updateExecutionStatus(
+          executionId,
+          "failed",
+          currentStageId,
+          recordSnapshot
+        );
+        logger.warn("Workflow halted due to integrity veto", {
+          executionId,
+          stageId: stage.id,
+          traceId,
+          integrity: stageResult.output.metadata,
+        });
+        return;
+      }
+
       // Move to next stage
       const nextTransition = dag.transitions.find(
         (t) => t.from_stage === currentStageId
@@ -1334,11 +1630,22 @@ Provide a JSON response with:
       throw new Error(`Agent communication failed: ${messageResult.error}`);
     }
 
+    const integrityResult = await this.evaluateIntegrityGuard(
+      messageResult.data,
+      {
+        agentType: stage.agent_type as AgentType,
+        query: stage.description || `Execute ${stage.id}`,
+        context: agentContext,
+        source: `workflow-stage:${stage.id}`,
+      }
+    );
+
     return {
       stage_id: stage.id,
       agent_type: stage.agent_type,
       agent_id: route.selected_agent?.id,
       output: messageResult.data,
+      metadata: integrityResult.metadata,
     };
   }
 
