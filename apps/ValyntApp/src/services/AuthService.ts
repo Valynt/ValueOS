@@ -63,6 +63,7 @@ interface MFAEnrollmentRequiredErrorPayload {
 interface AuthEndpointErrorPayload {
   error?: string;
   code?: AuthFailureCode | string;
+  details?: Record<string, unknown>;
   userId?: unknown;
   role?: unknown;
   [key: string]: unknown;
@@ -86,28 +87,51 @@ export class AuthService extends BaseService {
   }
 
   private mapAuthFailure(payload: AuthEndpointErrorPayload, responseStatus: number): AuthenticationError {
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      typeof value === "object" && value !== null && !Array.isArray(value);
+    const payloadRecord = isRecord(payload) ? payload : {};
+    const payloadDetails = isRecord(payloadRecord.details) ? payloadRecord.details : {};
+    const { error: _error, code: _code, details: _details, ...rest } = payloadRecord;
+    const normalizedDetails = {
+      ...rest,
+      ...payloadDetails,
+    };
+    const hasDetails = Object.keys(normalizedDetails).length > 0;
+    const details = hasDetails ? normalizedDetails : undefined;
     const code = typeof payload.code === "string" ? payload.code : undefined;
     const message = typeof payload.error === "string" ? payload.error : "Request failed";
 
     if (code === "SESSION_IDLE_TIMEOUT" || code === "SESSION_ABSOLUTE_TIMEOUT") {
-      return new SessionTimeoutAuthenticationError(message, code, payload);
+      return new SessionTimeoutAuthenticationError(message, code, details);
     }
 
     if (code === "TOKEN_EXPIRED" || code === "INVALID_TOKEN" || code === "INVALID_TOKEN_CLAIMS") {
-      return new TokenAuthenticationError(message, code, payload);
+      return new TokenAuthenticationError(message, code, details);
     }
 
     if (code === "MFA_ENROLLMENT_REQUIRED") {
+      const mfaUserId =
+        typeof details?.userId === "string"
+          ? details.userId
+          : typeof payload.userId === "string"
+          ? payload.userId
+          : undefined;
+      const mfaRole =
+        typeof details?.role === "string"
+          ? details.role
+          : typeof payload.role === "string"
+          ? payload.role
+          : undefined;
       const mfaDetails: MFAEnrollmentRequiredErrorPayload = {
         code: "MFA_ENROLLMENT_REQUIRED",
-        userId: typeof payload.userId === "string" && payload.userId.length > 0 ? payload.userId : "unknown",
-        role: typeof payload.role === "string" && payload.role.length > 0 ? payload.role : "manager",
+        userId: typeof mfaUserId === "string" && mfaUserId.length > 0 ? mfaUserId : "unknown",
+        role: typeof mfaRole === "string" && mfaRole.length > 0 ? mfaRole : "manager",
       };
 
-      return new AuthenticationError(message, { ...payload, ...mfaDetails }, responseStatus, code);
+      return new AuthenticationError(message, { ...(details ?? {}), ...mfaDetails }, responseStatus, code);
     }
 
-    return new AuthenticationError(message, payload, responseStatus, code);
+    return new AuthenticationError(message, details, responseStatus, code);
   }
 
   private async callAuthEndpoint<T>(path: string, options: RequestInit): Promise<T> {
