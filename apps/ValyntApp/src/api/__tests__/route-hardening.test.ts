@@ -184,12 +184,14 @@ import adminRouter from '../admin';
 import agentsRouter from '../agents';
 import approvalsRouter from '../approvals';
 import billingRouter from '../billing';
+import canvasRouter from '../canvas';
 import docsRouter from '../docs';
 import documentsRouter from '../documents';
 import groundtruthRouter from '../groundtruth';
 import healthRouter from '../health';
 import knowledgeUploadRouter from '../knowledgeUpload';
 import llmRouter from '../llm';
+import projectsRouter from '../projects';
 import queueRouter from '../queue';
 import workflowRouter from '../workflow';
 import customerRouter from '../customer';
@@ -222,12 +224,14 @@ const ROUTERS = [
   { name: 'Approvals', router: approvalsRouter },
   { name: 'Auth', router: authRouter },
   { name: 'Billing', router: billingRouter },
+  { name: 'Canvas', router: canvasRouter },
   { name: 'Docs', router: docsRouter },
   { name: 'Documents', router: documentsRouter },
   { name: 'Groundtruth', router: groundtruthRouter },
   { name: 'Health', router: healthRouter },
   { name: 'KnowledgeUpload', router: knowledgeUploadRouter },
   { name: 'LLM', router: llmRouter },
+  { name: 'Projects', router: projectsRouter },
   { name: 'Queue', router: queueRouter },
   { name: 'Workflow', router: workflowRouter },
   { name: 'Customer', router: customerRouter },
