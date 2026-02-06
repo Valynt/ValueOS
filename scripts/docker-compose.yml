@@ -42,7 +42,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - valueos-node-modules:/app/node_modules
+      - node_modules:/app/node_modules
     command: ["npm", "run", "build:validate"]
     profiles: ["validate"]
 
@@ -77,7 +77,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./package.json:/app/package.json
-      - valueos-node-modules:/app/node_modules
+      - node_modules:/app/node_modules
     networks:
       - valueos-network
     restart: unless-stopped
@@ -92,7 +92,7 @@ services:
     environment:
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-http://${DOCKER_HOSTNAME:-host.docker.internal}:${SUPABASE_API_PORT:-54321}}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-}
-      - VITE_API_BASE_URL=http://backend:${API_PORT:-8000}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://backend:${API_PORT:-8000}}
     depends_on:
       - backend
     networks:
@@ -123,8 +123,8 @@ services:
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=${GF_USERS_ALLOW_SIGN_UP:-false}
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:
@@ -144,4 +144,3 @@ volumes:
   prometheus_data:
   grafana_data:
   node_modules:
-
