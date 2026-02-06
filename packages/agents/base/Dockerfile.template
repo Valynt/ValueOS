@@ -12,6 +12,7 @@ FROM ${NODE_IMAGE} AS build
 ARG PNPM_VERSION
 ARG AGENT_NAME
 ENV PNPM_HOME=/pnpm
+ENV PNPM_STORE_PATH=/pnpm/store
 ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /workspace
 
@@ -41,6 +42,7 @@ RUN addgroup -g 1001 -S agent && adduser -S -D -H -u 1001 -G agent agent
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PNPM_HOME=/pnpm
+ENV PNPM_STORE_PATH=/pnpm/store
 ENV PATH=$PNPM_HOME:$PATH
 
 RUN test -n "${AGENT_NAME}"
