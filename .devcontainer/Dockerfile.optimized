@@ -182,14 +182,13 @@ ENV PNPM_STORE_PATH=/pnpm/store
 
 # Copy package metadata for dependency installation
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY apps/*/package.json apps/*/package.json
-COPY packages/*/package.json packages/*/package.json
+COPY .npmrc ./
 
 # Install dependencies with a reusable cache layer
 RUN corepack enable \
     && pnpm config set store-dir ${PNPM_STORE_PATH} \
     && pnpm fetch --frozen-lockfile \
-    && pnpm install --frozen-lockfile --ignore-scripts
+    && pnpm install --frozen-lockfile
 
 # Stage 7: Final image with user setup
 FROM dbtools AS final
