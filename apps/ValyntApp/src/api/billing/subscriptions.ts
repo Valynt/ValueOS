@@ -8,9 +8,22 @@ import SubscriptionService from '../../services/billing/SubscriptionService';
 import CustomerService from '../../services/billing/CustomerService';
 import { PlanTier } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
 
 const router = express.Router();
 const logger = createLogger({ component: 'SubscriptionsAPI' });
+
+router.use(
+  requestSanitizationMiddleware({
+    body: {
+      planTier: { maxLength: 32 },
+      trialDays: { maxLength: 8 },
+    },
+    query: {
+      immediately: { maxLength: 8 },
+    },
+  })
+);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,

@@ -8,9 +8,20 @@ import CustomerService from "../../services/billing/CustomerService";
 import StripeService from "../../services/billing/StripeService";
 import { PLANS, type PlanTier } from "../../config/billing";
 import { createLogger } from "../../lib/logger";
+import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware";
 
 const router = express.Router();
 const logger = createLogger({ component: "BillingCheckoutAPI" });
+
+router.use(
+  requestSanitizationMiddleware({
+    body: {
+      planTier: { maxLength: 32 },
+      email: { maxLength: 320 },
+      name: { maxLength: 256 },
+    },
+  })
+);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,

@@ -19,10 +19,20 @@ import { sanitizeAgentInput } from '../utils/security';
 import { requireAuth } from '../middleware/auth';
 import { tenantContextMiddleware } from '../middleware/tenantContext';
 import { createSecureRouter } from '../middleware/secureRouter';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = createSecureRouter('standard');
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
+router.use(
+  requestSanitizationMiddleware({
+    body: {
+      prompt: { maxLength: 10000 },
+      model: { maxLength: 128 },
+      dealId: { maxLength: 128 },
+    },
+  })
+);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,
