@@ -8,7 +8,7 @@
 
 set -e
 
-MIGRATIONS_DIR="supabase/migrations"
+MIGRATIONS_DIR="infra/postgres/migrations"
 
 echo "╔══════════════════════════════════════════════════════════════════════╗"
 echo "║           Database Migration Linter                                  ║"

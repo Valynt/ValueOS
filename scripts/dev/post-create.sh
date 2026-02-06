@@ -42,7 +42,7 @@ if [ -f "${PROJECT_ROOT}/.env.local" ]; then
     # Convert host-based DATABASE_URL to container network URL for migrations
     if [ -n "$DATABASE_URL" ]; then
         ORIGINAL_URL="$DATABASE_URL"
-        DATABASE_URL=$(echo "$DATABASE_URL" | sed 's/localhost:54322/postgres:5432/')
+        DATABASE_URL=$(echo "$DATABASE_URL" | sed 's/localhost:54322/db:5432/')
         echo "🔄 Context-aware DATABASE_URL: $DATABASE_URL"
     fi
 fi
@@ -64,23 +64,23 @@ if [ -n "$DATABASE_URL" ]; then
     echo "   Using DATABASE_URL from environment: $DB_URL"
 else
     # Compose service DNS is deterministic when using ./scripts/dc.
-    DB_HOST="postgres"
+    DB_HOST="db"
     DB_URL="postgresql://postgres:postgres@${DB_HOST}:5432/postgres?sslmode=disable"
     echo "   Using DB: ${DB_HOST}:5432"
 fi
 
 # Wait for DB via canonical Compose entrypoint (service-based, no hard-coded container names).
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    echo "   Waiting for postgres service readiness via ./scripts/dc exec..."
+    echo "   Waiting for db service readiness via ./scripts/dc exec..."
     MAX_CONTAINER_ATTEMPTS=30
     CONTAINER_ATTEMPT=0
     while [ $CONTAINER_ATTEMPT -lt $MAX_CONTAINER_ATTEMPTS ]; do
-        if "${PROJECT_ROOT}/scripts/dc" exec -T postgres pg_isready -U postgres >/dev/null 2>&1; then
+        if "${PROJECT_ROOT}/scripts/dc" exec -T db pg_isready -U postgres >/dev/null 2>&1; then
             echo "   ✅ Postgres service is ready."
             break
         fi
         CONTAINER_ATTEMPT=$((CONTAINER_ATTEMPT + 1))
-        echo "   Attempt $CONTAINER_ATTEMPT/$MAX_CONTAINER_ATTEMPTS - waiting for postgres service..."
+        echo "   Attempt $CONTAINER_ATTEMPT/$MAX_CONTAINER_ATTEMPTS - waiting for db service..."
         sleep 2
     done
 

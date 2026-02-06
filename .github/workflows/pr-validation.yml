@@ -10,13 +10,13 @@ jobs:
     name: Code Quality Gates
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
@@ -25,32 +25,42 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: pnpm
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Check code formatting
         run: pnpm run format:check
-      
+
       - name: Run CI verification suite
         run: pnpm run ci:verify
-      
+
+      - name: Enforce legacy risk quality gates
+        run: pnpm run ci:legacy-risk-gates -- --base "${{ github.event.pull_request.base.sha }}" --head "${{ github.event.pull_request.head.sha }}"
+
+      - name: Upload legacy risk report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-risk-report
+          path: artifacts/legacy-risk-report.*
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
-  
+
   security-validation:
     name: Security Validation
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
@@ -59,16 +69,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: pnpm
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Run npm audit
         run: pnpm audit --audit-level=high
         continue-on-error: true
-      
+
       - name: Check for secrets in code
         uses: trufflesecurity/trufflehog@main
         with:
@@ -78,17 +88,17 @@ jobs:
 
       - name: Fail on placeholder tokens in production Terraform
         run: ./scripts/check-placeholder-tokens.sh
-  
+
   migration-validation:
     name: Database Migration Validation
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Get changed migration files
         id: changed-migrations
         run: |
@@ -101,7 +111,7 @@ jobs:
           else
             echo "found=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Validate migration files
         if: steps.changed-migrations.outputs.found == 'true'
         run: |
@@ -112,7 +122,7 @@ jobs:
               ./scripts/validate-migration.sh "$migration"
             fi
           done <<< "${{ steps.changed-migrations.outputs.files }}"
-      
+
       - name: Check for rollback scripts
         if: steps.changed-migrations.outputs.found == 'true'
         run: |
@@ -125,7 +135,7 @@ jobs:
               fi
             fi
           done <<< "${{ steps.changed-migrations.outputs.files }}"
-          
+
           if [ -n "$MISSING_ROLLBACKS" ]; then
             echo "⚠️ Warning: Missing rollback scripts for:"
             echo -e "$MISSING_ROLLBACKS"
@@ -151,7 +161,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: pnpm
 
       - name: Install dependencies
@@ -172,15 +182,15 @@ jobs:
         run: pnpm exec supabase stop
         env:
           SUPABASE_DB_PASSWORD: postgres
-  
+
   performance-check:
     name: Performance Budget Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
@@ -189,32 +199,32 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: pnpm
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Build application
         run: pnpm run build
         env:
           VITE_SUPABASE_URL: https://placeholder.supabase.co
           VITE_SUPABASE_ANON_KEY: placeholder-key
-      
+
       - name: Check bundle size
         run: |
           echo "Checking bundle sizes..."
-          
+
           # Get bundle sizes
           TOTAL_SIZE=$(du -sh dist | cut -f1)
           JS_SIZE=$(find dist -name "*.js" -type f -exec du -ch {} + | grep total | cut -f1)
           CSS_SIZE=$(find dist -name "*.css" -type f -exec du -ch {} + | grep total | cut -f1)
-          
+
           echo "📦 Bundle Sizes:"
           echo "Total: $TOTAL_SIZE"
           echo "JavaScript: $JS_SIZE"
           echo "CSS: $CSS_SIZE"
-          
+
           # Bundle size budget check (target: < 1.5MB total)
           TOTAL_KB=$(du -sk dist | cut -f1)
           if [ $TOTAL_KB -gt 1536 ]; then
@@ -224,7 +234,7 @@ jobs:
           else
             echo "✅ Bundle size within budget"
           fi
-      
+
       - name: Analyze bundle composition
         run: |
           echo "Bundle composition:"
@@ -232,18 +242,18 @@ jobs:
             xargs du -h | \
             sort -rh | \
             head -20
-  
+
   pr-validation-summary:
     name: PR Validation Summary
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - code-quality-gates
       - security-validation
       - migration-validation
       - rls-validation
       - performance-check
     if: always()
-    
+
     steps:
       - name: Check all validations passed
         run: |
@@ -255,7 +265,7 @@ jobs:
           echo "RLS: ${{ needs.rls-validation.result }}"
           echo "Performance: ${{ needs.performance-check.result }}"
           echo ""
-          
+
           if [[ "${{ needs.code-quality-gates.result }}" != "success" ]] || \
              [[ "${{ needs.security-validation.result }}" != "success" ]] || \
              [[ "${{ needs.migration-validation.result }}" != "success" ]] || \
@@ -265,10 +275,10 @@ jobs:
             echo "Review failed checks above before merging"
             exit 1
           fi
-          
+
           echo "✅ All PR validations PASSED"
           echo "Safe to merge when ready!"
-      
+
       - name: Comment on PR
         uses: actions/github-script@v7
         with:
@@ -279,35 +289,35 @@ jobs:
               cancelled: '🚫',
               skipped: '⏭️'
             };
-            
+
             const codeQuality = '${{ needs.code-quality-gates.result }}';
             const security = '${{ needs.security-validation.result }}';
             const migrations = '${{ needs.migration-validation.result }}';
             const rls = '${{ needs.rls-validation.result }}';
             const performance = '${{ needs.performance-check.result }}';
-            
+
             const allPassed = 
               codeQuality === 'success' &&
               security === 'success' &&
               migrations === 'success' &&
               rls === 'success' &&
               performance === 'success';
-            
+
             const body = `## PR Validation Results
-            
+
             ${statusEmoji[codeQuality]} **Code Quality Gates**: ${codeQuality}
             ${statusEmoji[security]} **Security Validation**: ${security}
             ${statusEmoji[migrations]} **Migration Validation**: ${migrations}
             ${statusEmoji[rls]} **RLS Policy Tests**: ${rls}
             ${statusEmoji[performance]} **Performance Check**: ${performance}
-            
+
             ---
-            
+
             ${allPassed ? 
               '✅ **All checks passed!** This PR is ready to merge.' : 
               '❌ **Some checks failed.** Please review the failed checks before merging.'}
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

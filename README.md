@@ -53,13 +53,17 @@ We use the Strangler Fig Pattern for type safety.
 
 Legacy Code: Lives in the "Sea of Debt".
 
-Strict Zones: Defined in config/strict-zones.json.
+Strict Zones: Defined in `config/strict-zones.json` (canonical source).
+
+Migration note: `packages/config-v2/strict-zones.config.js` is deprecated/removed. Do not re-introduce it.
 
 These folders operate under tsconfig.strict.json.
 
 Zero TypeScript errors allowed here.
 
 If you touch a Green Island, you must keep it Green.
+
+Enforcement command: `pnpm run typecheck:verify` (runs telemetry + strict-zone verification).
 
 Protocol C: The Ratchet
 

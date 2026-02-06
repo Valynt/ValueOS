@@ -1,0 +1,6 @@
+{
+  "updated_at": "2026-02-06T01:06:14.188Z",
+  "strict_zones": ["packages/memory", "packages/backend/src/services/billing/__tests__/__helpers"],
+  "strict_todo_fixme_count": 0,
+  "strict_dead_export_count": 0
+}

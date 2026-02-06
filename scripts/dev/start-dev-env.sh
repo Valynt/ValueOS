@@ -132,6 +132,17 @@ if [[ -f "/.dockerenv" ]] || [[ -n "${CODESPACES:-}" ]] || [[ -n "${REMOTE_CONTA
     INSIDE_DEVCONTAINER=true
 fi
 
+# Runtime service names differ between host-compose and devcontainer sibling services.
+if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
+    DB_SERVICE="${DB_SERVICE:-db}"
+    APP_HEALTH_URL_PRIMARY="${APP_HEALTH_URL_PRIMARY:-http://rest:3000/}"
+    APP_HEALTH_URL_FALLBACK="${APP_HEALTH_URL_FALLBACK:-http://kong:8000/rest/v1/}"
+else
+    DB_SERVICE="${DB_SERVICE:-postgres}"
+    APP_HEALTH_URL_PRIMARY="${APP_HEALTH_URL_PRIMARY:-http://backend:8000/health}"
+    APP_HEALTH_URL_FALLBACK="${APP_HEALTH_URL_FALLBACK:-http://localhost:8000/health}"
+fi
+
 # Check Docker availability and Mode
 if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
     log INFO "Running in Devcontainer Mode"
@@ -206,18 +217,19 @@ wait_for_db() {
     while [[ $elapsed -lt $DB_TIMEOUT ]]; do
         if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
             # Use docker compose exec when Docker is available
-            if $COMPOSE_CMD exec -T postgres pg_isready -U postgres -d valuecanvas_dev &> /dev/null; then
+            if $COMPOSE_CMD exec -T "$DB_SERVICE" pg_isready -U postgres -d valuecanvas_dev &> /dev/null; then
                 return 0
             fi
         else
             # Use network connectivity check when inside devcontainer
-            if pg_isready -h postgres -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
+            # RESOLUTION: Using codex logic here as it robustly falls back to 'db' 
+            if pg_isready -h "${DB_HOST:-db}" -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
                 return 0
-            elif nc -z postgres 5432 &> /dev/null 2>&1; then
+            elif nc -z "${DB_HOST:-db}" 5432 &> /dev/null 2>&1; then
                 # Fallback to netcat if pg_isready not available
                 return 0
-            elif curl -s --max-time 2 "http://backend:8000/health" &> /dev/null 2>&1; then
-                # If backend responds, dependencies are up
+            elif curl -s --max-time 2 "$APP_HEALTH_URL_PRIMARY" &> /dev/null 2>&1; then
+                # If API responds, dependencies are up
                 return 0
             fi
         fi
@@ -235,7 +247,7 @@ if wait_for_db; then
 else
     log ERROR "Database did not become healthy within ${DB_TIMEOUT}s"
     if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-        $COMPOSE_CMD logs postgres --tail=50 >> "$LOG_FILE" 2>&1
+        $COMPOSE_CMD logs "$DB_SERVICE" --tail=50 >> "$LOG_FILE" 2>&1
     fi
     exit 3
 fi
@@ -243,11 +255,12 @@ fi
 # Ensure shadow database exists
 log INFO "Ensuring shadow database exists..."
 if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
-    $COMPOSE_CMD exec -T postgres psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+    $COMPOSE_CMD exec -T "$DB_SERVICE" psql -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
 else
     # Use psql directly if available, otherwise skip
     if command -v psql &> /dev/null; then
-        PGPASSWORD=postgres psql -h postgres -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+        # RESOLUTION: Using codex logic for variable expansion consistency
+        PGPASSWORD=postgres psql -h "${DB_HOST:-db}" -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
     else
         log INFO "psql not available, shadow DB creation skipped (will be created on first migration)"
     fi
@@ -265,10 +278,20 @@ else
     cd "$PROJECT_ROOT"
 
     log INFO "Applying migrations..."
-    export PGHOST="${DB_HOST:-postgres}"
-    export DB_HOST="${DB_HOST:-postgres}"
-    export DB_PASSWORD="${DB_PASSWORD:-postgres}"
-    export DB_NAME="${DB_NAME:-postgres}"
+    
+    # RESOLUTION: Kept the robust DevContainer check from 'codex', 
+    # but used the specific DB credentials from 'main' (valuecanvas_dev) 
+    # to avoid accidentally migrating the system 'postgres' DB.
+    if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
+        export PGHOST="${DB_HOST:-db}"
+        export DB_HOST="${DB_HOST:-db}"
+    else
+        export PGHOST="${DB_HOST:-postgres}"
+        export DB_HOST="${DB_HOST:-postgres}"
+    fi
+    
+    export DB_PASSWORD="${DB_PASSWORD:-dev_password}"
+    export DB_NAME="${DB_NAME:-valuecanvas_dev}"
 
     if bash "$SCRIPT_DIR/migrate.sh" 2>&1 | tee -a "$LOG_FILE"; then
         log SUCCESS "Migrations applied successfully"
@@ -309,9 +332,9 @@ wait_for_app() {
             fi
         else
             # Inside devcontainer - check via network aliases
-            if curl -fsS --max-time 2 http://backend:8000/health &> /dev/null 2>&1; then
+            if curl -fsS --max-time 2 "$APP_HEALTH_URL_PRIMARY" &> /dev/null 2>&1; then
                 return 0
-            elif curl -fsS --max-time 2 http://localhost:8000/health &> /dev/null 2>&1; then
+            elif curl -fsS --max-time 2 "$APP_HEALTH_URL_FALLBACK" &> /dev/null 2>&1; then
                 return 0
             fi
         fi
