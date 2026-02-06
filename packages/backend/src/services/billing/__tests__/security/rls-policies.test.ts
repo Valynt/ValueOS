@@ -66,30 +66,20 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Service role should see both
-      const { data: allCustomers } = await supabase
-        .from("billing_customers")
-        .select("*");
+      const { data: allCustomers } = await supabase.from("billing_customers").select("*");
 
       expect(allCustomers).toHaveLength(2);
 
-      // Check RLS for user1 (should only see tenant1 data)
+      // Check RLS for user1 (must only see tenant1 data)
       await executeAsUser(
         { id: user1Id, email: user1Email, tenantId: tenant1Id },
         async (client) => {
-          const { data } = await client.from("billing_customers").select("*");
-          // Expecting only 1 record (or 0 if user not linked properly in test setup, but theoretically 1)
-          // However, standard RLS often requires a policy mapping user to tenant.
-          // Assuming RLS is set up:
-          // expect(data).toHaveLength(1);
-          // expect(data?.[0].tenant_id).toBe(tenant1Id);
+          const { data, error } = await client.from("billing_customers").select("*");
 
-          // Since RLS policies might not be fully active or depend on claim 'tenant_id'
-          // If we can't assume policies are perfect yet, we at least verify we CAN test it.
-          // But the task is to ADD tests.
-          // If the RLS policies ARE implemented in the migration, this should pass.
-          // If they are not, this test might fail or show 0 rows.
+          expect(error).toBeNull();
+          expect(data).toHaveLength(1);
+          expect(data?.[0].tenant_id).toBe(tenant1Id);
 
-          // Let's assert that user CANNOT see tenant2 data.
           const tenant2Data = data?.filter((c) => c.tenant_id === tenant2Id);
           expect(tenant2Data).toHaveLength(0);
         }
@@ -99,21 +89,20 @@ describe("RLS Policy Security Tests", () => {
     it("should allow users to view their own tenant billing data", async () => {
       const customer = createBillingCustomer({ tenant_id: tenant1Id });
 
-      const { error } = await supabase
-        .from("billing_customers")
-        .insert(customer);
+      const { error } = await supabase.from("billing_customers").insert(customer);
 
       expect(error).toBeNull();
 
       await executeAsUser(
         { id: user1Id, email: user1Email, tenantId: tenant1Id },
         async (client) => {
-          const { data } = await client
+          const { data, error } = await client
             .from("billing_customers")
             .select("*")
             .eq("tenant_id", tenant1Id)
             .single();
 
+          expect(error).toBeNull();
           expect(data).toBeTruthy();
           expect(data?.tenant_id).toBe(tenant1Id);
         }
@@ -138,9 +127,7 @@ describe("RLS Policy Security Tests", () => {
             .eq("tenant_id", tenant2Id)
             .select("id", { count: "exact" });
 
-          // RLS usually just filters rows, so update affects 0 rows.
-          // Or if using specific policy, it might throw error.
-          // Standard Postgres RLS: visible rows are 0, so updated rows are 0.
+          expect(error).toBeNull();
           expect(count).toBe(0);
         }
       );
@@ -205,11 +192,10 @@ describe("RLS Policy Security Tests", () => {
       await executeAsUser(
         { id: user1Id, email: user1Email, tenantId: tenant1Id },
         async (client) => {
-          const { error } = await client
-            .from("subscriptions")
-            .insert(maliciousSubscription);
+          const { error } = await client.from("subscriptions").insert(maliciousSubscription);
 
           expect(error).toBeTruthy();
+          expect(error?.code).toBe("42501");
         }
       );
     });
@@ -239,9 +225,7 @@ describe("RLS Policy Security Tests", () => {
             .eq("tenant_id", tenant1Id);
 
           expect(tenant1Events).toHaveLength(5);
-          expect(tenant1Events?.every((e) => e.tenant_id === tenant1Id)).toBe(
-            true
-          );
+          expect(tenant1Events?.every((e) => e.tenant_id === tenant1Id)).toBe(true);
 
           // Should not see tenant2 events
           const { data: tenant2Events } = await client
@@ -264,11 +248,10 @@ describe("RLS Policy Security Tests", () => {
       await executeAsUser(
         { id: user1Id, email: user1Email, tenantId: tenant1Id },
         async (client) => {
-          const { error } = await client
-            .from("usage_events")
-            .insert(maliciousEvent);
+          const { error } = await client.from("usage_events").insert(maliciousEvent);
 
           expect(error).toBeTruthy();
+          expect(error?.code).toBe("42501");
         }
       );
     });
@@ -322,8 +305,7 @@ describe("RLS Policy Security Tests", () => {
       const invoice = createInvoice({
         tenant_id: tenant2Id,
         billing_customer_id: customer.id,
-        invoice_pdf_url:
-          "https://invoice.stripe.com/secret/tenant2_invoice.pdf",
+        invoice_pdf_url: "https://invoice.stripe.com/secret/tenant2_invoice.pdf",
         hosted_invoice_url: "https://invoice.stripe.com/secret/tenant2",
       });
 
@@ -369,9 +351,7 @@ describe("RLS Policy Security Tests", () => {
         hard_cap: false,
         current_usage: 500000,
         period_start: new Date().toISOString(),
-        period_end: new Date(
-          Date.now() + 30 * 24 * 60 * 60 * 1000
-        ).toISOString(),
+        period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       };
 
       const quota2 = {
@@ -424,9 +404,7 @@ describe("RLS Policy Security Tests", () => {
         hard_cap: true,
         current_usage: 0,
         period_start: new Date().toISOString(),
-        period_end: new Date(
-          Date.now() + 30 * 24 * 60 * 60 * 1000
-        ).toISOString(),
+        period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       };
 
       await seedTestData(supabase, {
@@ -445,6 +423,7 @@ describe("RLS Policy Security Tests", () => {
             .eq("tenant_id", tenant2Id)
             .select("id", { count: "exact" });
 
+          expect(error).toBeNull();
           expect(count).toBe(0);
         }
       );
@@ -461,18 +440,14 @@ describe("RLS Policy Security Tests", () => {
       });
 
       // Admin (service role) should see all customers
-      const { data: allCustomers, error } = await supabase
-        .from("billing_customers")
-        .select("*");
+      const { data: allCustomers, error } = await supabase.from("billing_customers").select("*");
 
       if (error) {
         console.error("Admin access failed:", error);
       }
 
       expect(allCustomers).toHaveLength(2);
-      expect(allCustomers?.map((c) => c.tenant_id).sort()).toEqual(
-        [tenant1Id, tenant2Id].sort()
-      );
+      expect(allCustomers?.map((c) => c.tenant_id).sort()).toEqual([tenant1Id, tenant2Id].sort());
     });
   });
 });
