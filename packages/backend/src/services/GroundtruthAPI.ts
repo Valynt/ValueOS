@@ -7,6 +7,7 @@
 
 import { logger } from '../lib/logger.js'
 import { getGroundtruthConfig } from '../lib/env';
+import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
 
 export interface GroundtruthAPIConfig {
   baseUrl?: string;
@@ -49,6 +50,12 @@ function getDefaultConfig(): Required<GroundtruthAPIConfig> {
 
 export class GroundtruthAPI {
   private config: Required<GroundtruthAPIConfig>;
+  private readonly circuitBreaker = new ExternalCircuitBreaker('groundtruth');
+  private readonly breakerKey = 'external:groundtruth:api';
+  private readonly breakerConfig = {
+    minimumSamples: 1,
+    failureRateThreshold: 0.5,
+  };
 
   constructor(config: GroundtruthAPIConfig = {}) {
     this.config = { ...getDefaultConfig(), ...config };
@@ -72,43 +79,61 @@ export class GroundtruthAPI {
     const endpoint = options.endpoint ?? '/evaluate';
     const url = this.buildUrl(endpoint);
 
-    try {
-      const response = await this.fetchWithTimeout(
-        url,
-        {
-          method: 'POST',
-          headers: this.buildHeaders(),
-          body: JSON.stringify(payload),
-        },
-        options.timeoutMs ?? this.config.timeoutMs
-      );
+    return this.circuitBreaker.execute(
+      this.breakerKey,
+      async () => {
+        const response = await this.fetchWithTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: this.buildHeaders(),
+            body: JSON.stringify(payload),
+          },
+          options.timeoutMs ?? this.config.timeoutMs
+        );
 
-      const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-      const responseBody = isJson ? await response.json() : await response.text();
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const responseBody = isJson ? await response.json() : await response.text();
 
-      if (!response.ok) {
+        if (!response.ok) {
+          const message = this.normalizeErrorMessage(response.status, response.statusText, responseBody);
+          const error = new Error(message) as Error & { status?: number; details?: unknown };
+          error.status = response.status;
+          error.details = responseBody;
+          throw error;
+        }
+
         return {
-          success: false,
-          error: this.normalizeErrorMessage(response.status, response.statusText, responseBody),
+          success: true,
+          data: (responseBody as T) ?? undefined,
           status: response.status,
-          details: responseBody,
         };
+      },
+      {
+        config: this.breakerConfig,
+        fallback: async (error, state) => {
+          const responseError = error as Error & { status?: number; details?: unknown };
+          logger.warn('Groundtruth API circuit breaker fallback activated', {
+            integration: 'groundtruth',
+            breakerKey: this.breakerKey,
+            breakerState: state,
+            circuitOpen: state === 'open',
+            error: error.message,
+          });
+          return {
+            success: false,
+            error: error.message,
+            status: responseError.status,
+            details: responseError.details,
+          };
+        },
       }
+    );
+  }
 
-      return {
-        success: true,
-        data: (responseBody as T) ?? undefined,
-        status: response.status,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.warn('Groundtruth API request failed', error instanceof Error ? error : undefined);
-      return {
-        success: false,
-        error: message,
-      };
-    }
+  getCircuitBreakerMetrics(): ReturnType<ExternalCircuitBreaker["getMetrics"]> {
+    return this.circuitBreaker.getMetrics(this.breakerKey);
   }
 
   private buildHeaders(): Record<string, string> {
