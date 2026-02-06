@@ -307,74 +307,134 @@ alter table public.memory_narratives enable row level security;
 alter table public.memory_approvals enable row level security;
 alter table public.memory_access_grants enable row level security;
 
--- Tenant Access Policies
-create policy "memory_value_cases_tenant_access" on public.memory_value_cases
-for all using (
-    tenant_id = public.get_tenant_id()
-    or exists (
-        select 1 from public.memory_access_grants
-        where resource_id = memory_value_cases.id
-        and (grantee_email = auth.jwt()->>'email' or token_hash = current_setting('app.guest_token', true))
-        and (expires_at is null or expires_at > now())
-    )
-);
+-- Tenant Access Policies (canonical user_tenants access)
+create policy "memory_value_cases_select" on public.memory_value_cases
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_value_cases_insert" on public.memory_value_cases
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_value_cases_update" on public.memory_value_cases
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_value_cases_delete" on public.memory_value_cases
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_artifacts_tenant_access" on public.memory_artifacts
-for all using (
-    tenant_id = public.get_tenant_id()
-    or exists (
-        select 1 from public.memory_access_grants
-        where resource_id = memory_artifacts.id
-        and (grantee_email = auth.jwt()->>'email' or token_hash = current_setting('app.guest_token', true))
-        and (expires_at is null or expires_at > now())
-    )
-);
+create policy "memory_artifacts_select" on public.memory_artifacts
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_artifacts_insert" on public.memory_artifacts
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_artifacts_update" on public.memory_artifacts
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_artifacts_delete" on public.memory_artifacts
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_artifact_chunks_tenant_access" on public.memory_artifact_chunks
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_artifact_chunks_select" on public.memory_artifact_chunks
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_artifact_chunks_insert" on public.memory_artifact_chunks
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_artifact_chunks_update" on public.memory_artifact_chunks
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_artifact_chunks_delete" on public.memory_artifact_chunks
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_entities_tenant_access" on public.memory_entities
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_entities_select" on public.memory_entities
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_entities_insert" on public.memory_entities
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_entities_update" on public.memory_entities
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_entities_delete" on public.memory_entities
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_entity_edges_tenant_access" on public.memory_entity_edges
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_entity_edges_select" on public.memory_entity_edges
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_entity_edges_insert" on public.memory_entity_edges
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_entity_edges_update" on public.memory_entity_edges
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_entity_edges_delete" on public.memory_entity_edges
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_facts_tenant_access" on public.memory_facts
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_facts_select" on public.memory_facts
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_facts_insert" on public.memory_facts
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_facts_update" on public.memory_facts
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_facts_delete" on public.memory_facts
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_fact_evidence_tenant_access" on public.memory_fact_evidence
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_fact_evidence_select" on public.memory_fact_evidence
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_fact_evidence_insert" on public.memory_fact_evidence
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_fact_evidence_update" on public.memory_fact_evidence
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_fact_evidence_delete" on public.memory_fact_evidence
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_benchmark_datasets_tenant_access" on public.memory_benchmark_datasets
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_benchmark_datasets_select" on public.memory_benchmark_datasets
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_benchmark_datasets_insert" on public.memory_benchmark_datasets
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_benchmark_datasets_update" on public.memory_benchmark_datasets
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_benchmark_datasets_delete" on public.memory_benchmark_datasets
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_model_runs_tenant_access" on public.memory_model_runs
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_model_runs_select" on public.memory_model_runs
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_model_runs_insert" on public.memory_model_runs
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_model_runs_update" on public.memory_model_runs
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_model_runs_delete" on public.memory_model_runs
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_narratives_tenant_access" on public.memory_narratives
-for all using (
-    tenant_id = public.get_tenant_id()
-    or exists (
-        select 1 from public.memory_access_grants
-        where resource_id = memory_narratives.id
-        and (grantee_email = auth.jwt()->>'email' or token_hash = current_setting('app.guest_token', true))
-        and (expires_at is null or expires_at > now())
-    )
-);
+create policy "memory_narratives_select" on public.memory_narratives
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_narratives_insert" on public.memory_narratives
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_narratives_update" on public.memory_narratives
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_narratives_delete" on public.memory_narratives
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_approvals_tenant_access" on public.memory_approvals
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_approvals_select" on public.memory_approvals
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_approvals_insert" on public.memory_approvals
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_approvals_update" on public.memory_approvals
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_approvals_delete" on public.memory_approvals
+for delete using (security.user_has_tenant_access(tenant_id));
 
-create policy "memory_access_grants_tenant_access" on public.memory_access_grants
-for all using (tenant_id = public.get_tenant_id());
+create policy "memory_access_grants_select" on public.memory_access_grants
+for select using (security.user_has_tenant_access(tenant_id));
+create policy "memory_access_grants_insert" on public.memory_access_grants
+for insert with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_access_grants_update" on public.memory_access_grants
+for update using (security.user_has_tenant_access(tenant_id))
+with check (security.user_has_tenant_access(tenant_id));
+create policy "memory_access_grants_delete" on public.memory_access_grants
+for delete using (security.user_has_tenant_access(tenant_id));
 
 -- Profile Access Policy
 create policy "memory_profiles_access" on public.memory_profiles
-for select using (tenant_id = public.get_tenant_id());
+for select using (security.user_has_tenant_access(tenant_id));
 
 -- Tenant Visibility Policy
 create policy "memory_tenants_visibility" on public.memory_tenants
-for select using (id = public.get_tenant_id());
+for select using (security.user_has_tenant_access(id));
 
 -- ==========================================
 -- 11. HYBRID SEARCH UTILITY FUNCTION
