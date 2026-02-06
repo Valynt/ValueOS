@@ -169,6 +169,7 @@ export interface CostAlert {
   threshold: number;
   actual: number;
   message: string;
+  tenantId?: string;
 }
 
 export class LLMCostTracker {
@@ -275,7 +276,7 @@ export class LLMCostTracker {
         }
 
         // Fire and forget cost threshold check with error handling
-        this.checkCostThresholds().catch((err) => {
+        this.checkCostThresholds(normalizedTenantId).catch((err) => {
           logger.error("Failed to check cost thresholds", {
             err: err instanceof Error ? err.message : String(err),
             userId: params.userId,
@@ -298,7 +299,8 @@ export class LLMCostTracker {
   async getCostForPeriod(
     startTime: Date,
     endTime: Date,
-    userId?: string
+    userId?: string,
+    tenantId?: string
   ): Promise<number> {
     if (!this.isEnabled() || !this.supabase) return 0;
 
@@ -310,6 +312,9 @@ export class LLMCostTracker {
 
     if (userId) {
       query = query.eq("user_id", userId);
+    }
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
     }
 
     const { data, error } = await query;
@@ -329,40 +334,40 @@ export class LLMCostTracker {
   /**
    * Get hourly cost
    */
-  async getHourlyCost(): Promise<number> {
+  async getHourlyCost(tenantId?: string): Promise<number> {
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - ONE_HOUR_MS);
-    return this.getCostForPeriod(oneHourAgo, now);
+    return this.getCostForPeriod(oneHourAgo, now, undefined, tenantId);
   }
 
   /**
    * Get daily cost
    */
-  async getDailyCost(userId?: string): Promise<number> {
+  async getDailyCost(userId?: string, tenantId?: string): Promise<number> {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - ONE_DAY_MS);
-    return this.getCostForPeriod(oneDayAgo, now, userId);
+    return this.getCostForPeriod(oneDayAgo, now, userId, tenantId);
   }
 
   /**
    * Get monthly cost
    */
-  async getMonthlyCost(): Promise<number> {
+  async getMonthlyCost(tenantId?: string): Promise<number> {
     const now = new Date();
     const oneMonthAgo = new Date(now.getTime() - ONE_MONTH_MS);
-    return this.getCostForPeriod(oneMonthAgo, now);
+    return this.getCostForPeriod(oneMonthAgo, now, undefined, tenantId);
   }
 
   /**
    * Check if cost thresholds are exceeded
    */
-  async checkCostThresholds(): Promise<CostAlert[]> {
+  async checkCostThresholds(tenantId?: string): Promise<CostAlert[]> {
     if (!this.isEnabled()) return [];
 
     const alerts: CostAlert[] = [];
 
     // Check hourly threshold
-    const hourlyCost = await this.getHourlyCost();
+    const hourlyCost = await this.getHourlyCost(tenantId);
     if (hourlyCost >= COST_THRESHOLDS.hourly.critical) {
       alerts.push({
         level: "critical",
@@ -370,6 +375,7 @@ export class LLMCostTracker {
         threshold: COST_THRESHOLDS.hourly.critical,
         actual: hourlyCost,
         message: `CRITICAL: Hourly LLM cost ($${hourlyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.hourly.critical})`,
+        tenantId,
       });
     } else if (hourlyCost >= COST_THRESHOLDS.hourly.warning) {
       alerts.push({
@@ -378,11 +384,12 @@ export class LLMCostTracker {
         threshold: COST_THRESHOLDS.hourly.warning,
         actual: hourlyCost,
         message: `WARNING: Hourly LLM cost ($${hourlyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.hourly.warning})`,
+        tenantId,
       });
     }
 
     // Check daily threshold
-    const dailyCost = await this.getDailyCost();
+    const dailyCost = await this.getDailyCost(undefined, tenantId);
     if (dailyCost >= COST_THRESHOLDS.daily.critical) {
       alerts.push({
         level: "critical",
@@ -390,6 +397,7 @@ export class LLMCostTracker {
         threshold: COST_THRESHOLDS.daily.critical,
         actual: dailyCost,
         message: `CRITICAL: Daily LLM cost ($${dailyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.daily.critical})`,
+        tenantId,
       });
     } else if (dailyCost >= COST_THRESHOLDS.daily.warning) {
       alerts.push({
@@ -398,11 +406,12 @@ export class LLMCostTracker {
         threshold: COST_THRESHOLDS.daily.warning,
         actual: dailyCost,
         message: `WARNING: Daily LLM cost ($${dailyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.daily.warning})`,
+        tenantId,
       });
     }
 
     // Check monthly threshold
-    const monthlyCost = await this.getMonthlyCost();
+    const monthlyCost = await this.getMonthlyCost(tenantId);
     if (monthlyCost >= COST_THRESHOLDS.monthly.critical) {
       alerts.push({
         level: "critical",
@@ -410,6 +419,7 @@ export class LLMCostTracker {
         threshold: COST_THRESHOLDS.monthly.critical,
         actual: monthlyCost,
         message: `CRITICAL: Monthly LLM cost ($${monthlyCost.toFixed(2)}) exceeded critical threshold ($${COST_THRESHOLDS.monthly.critical})`,
+        tenantId,
       });
     } else if (monthlyCost >= COST_THRESHOLDS.monthly.warning) {
       alerts.push({
@@ -418,6 +428,7 @@ export class LLMCostTracker {
         threshold: COST_THRESHOLDS.monthly.warning,
         actual: monthlyCost,
         message: `WARNING: Monthly LLM cost ($${monthlyCost.toFixed(2)}) exceeded warning threshold ($${COST_THRESHOLDS.monthly.warning})`,
+        tenantId,
       });
     }
 
@@ -439,13 +450,18 @@ export class LLMCostTracker {
     const alertKey = `${alert.period}-${alert.level}`;
     const oneHourAgo = new Date(Date.now() - ONE_HOUR_MS).toISOString();
 
-    const { data: existingAlerts, error: checkError } = await this.supabase
+    let duplicateQuery = this.supabase
       .from("cost_alerts")
       .select("id")
       .eq("level", alert.level)
       .eq("period", alert.period)
-      .gte("created_at", oneHourAgo)
-      .limit(1);
+      .gte("created_at", oneHourAgo);
+
+    if (alert.tenantId) {
+      duplicateQuery = duplicateQuery.eq("tenant_id", alert.tenantId);
+    }
+
+    const { data: existingAlerts, error: checkError } = await duplicateQuery.limit(1);
 
     if (checkError) {
       logger.error("Failed to check for duplicate alerts", checkError);
@@ -463,6 +479,7 @@ export class LLMCostTracker {
       threshold: alert.threshold,
       actual_cost: alert.actual,
       message: alert.message,
+      tenant_id: alert.tenantId,
       created_at: new Date().toISOString(),
     });
 
