@@ -232,7 +232,8 @@
     "typecheck:verify": "pnpm run typecheck:signal --verify",
     "guard:strict-zones": "tsx scripts/dx/guard-strict-zone-config.ts",
     "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs",
-    "ci:quality": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
+    "quality:ci": "node scripts/ci/quality-gate.mjs",
+    "ci:quality:legacy": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
