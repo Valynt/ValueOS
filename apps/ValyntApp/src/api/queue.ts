@@ -13,8 +13,23 @@ import { requireConsent } from '../middleware/consentMiddleware';
 import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
 import { createSecureRouter } from '../middleware/secureRouter';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = createSecureRouter('standard');
+router.use(
+  requestSanitizationMiddleware({
+    body: {
+      type: { maxLength: 64 },
+      promptKey: { maxLength: 128 },
+      promptVariables: { maxLength: 10000 },
+      prompt: { maxLength: 10000 },
+      model: { maxLength: 128 },
+    },
+    params: {
+      jobId: { maxLength: 128 },
+    },
+  })
+);
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId || res.locals.requestId,

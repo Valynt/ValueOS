@@ -166,6 +166,28 @@ RUN npm install -g prisma@5 \
     && prisma --version
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Dependencies stage (cached)
+# ─────────────────────────────────────────────────────────────────────────────
+FROM security AS deps
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+WORKDIR /workspaces/valueos
+
+ENV PNPM_STORE_PATH=/pnpm/store
+
+# Copy package metadata for dependency installation
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/*/package.json apps/*/package.json
+COPY packages/*/package.json packages/*/package.json
+
+# Install dependencies with a reusable cache layer
+RUN corepack enable \
+    && pnpm config set store-dir ${PNPM_STORE_PATH} \
+    && pnpm fetch --frozen-lockfile \
+    && pnpm install --frozen-lockfile --ignore-scripts
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Final stage
 # ─────────────────────────────────────────────────────────────────────────────
 FROM security AS final
@@ -201,6 +223,13 @@ RUN echo "NODE_VERSION=$NODE_VERSION" >> /home/$USERNAME/.versions \
     && echo "BUILD_DATE=$(date -Iseconds)" >> /home/$USERNAME/.versions
 
 WORKDIR /workspaces/valueos
+
+# Copy the full repository after dependency installation
+COPY --chown=$USERNAME:$USERNAME . .
+
+# Reuse dependency artifacts from deps stage
+COPY --from=deps --chown=$USERNAME:$USERNAME /pnpm/store /pnpm/store
+COPY --from=deps --chown=$USERNAME:$USERNAME /workspaces/valueos/node_modules ./node_modules
 
 # Environment variables for reproducible builds
 ENV ENVIRONMENT=development \

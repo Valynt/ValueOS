@@ -116,6 +116,16 @@ The devcontainer compose file uses named Docker volumes so key development artif
 
 These are Docker-managed named volumes, so they remain available until you explicitly remove them (for example via `docker volume rm ...` or `docker compose down -v`).
 
+### Secrets volume (optional)
+
+The devcontainer mounts a read-only secrets volume at `/mnt/secrets` and exposes it via `SECRETS_MOUNT_PATH`. The backend secret watcher reads from this path (see `packages/backend/src/config/secrets/SecretConfig.ts` and `SecretVolumeWatcher.ts`). To populate the volume for local development, copy the expected secret files into the Docker volume from the host:
+
+```bash
+docker volume create valueos-secrets
+docker run --rm -v valueos-secrets:/mnt/secrets -v "$PWD":/src alpine \
+  sh -c "cp -R /src/path/to/local/secrets/* /mnt/secrets/"
+```
+
 ## 🔧 Lifecycle Scripts
 
 The devcontainer uses a simplified lifecycle:
@@ -198,6 +208,10 @@ This executes `pnpm run dx:doctor` and exits non-zero on failures, making it saf
   "--cap-drop=ALL"
 ]
 ```
+
+### Seccomp profile
+
+The devcontainer uses a custom seccomp profile at `.devcontainer/seccomp/valueos-seccomp.json`. It is derived from Docker’s default profile (`vendor/github.com/moby/profiles/seccomp/default.json` in the Moby repository) and tightened for ValueOS by removing CAP_SYS_ADMIN-gated filesystem/namespace/LSM syscalls that the application does not require (for example `mount`, `umount`, `unshare`, `setns`, and related `fs*` and LSM operations). The only CAP_SYS_ADMIN-gated syscalls retained are `clone`/`clone3`, which are needed for normal process/thread creation in the devcontainer. Update the profile only after validating any new syscall needs introduced by tooling or dependencies.
 
 **Docker Compose:**
 

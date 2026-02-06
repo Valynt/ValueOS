@@ -224,10 +224,10 @@ export class TrustedDeviceService extends BaseService {
     // Detect OS
     if (ua.includes("Windows")) os = "Windows";
     else if (ua.includes("Mac")) os = "macOS";
-    else if (ua.includes("Linux")) os = "Linux";
     else if (ua.includes("Android")) os = "Android";
     else if (ua.includes("iOS") || ua.includes("iPhone") || ua.includes("iPad"))
       os = "iOS";
+    else if (ua.includes("Linux") || ua.includes("X11")) os = "Linux";
 
     return `${browser} on ${os}`;
   }

@@ -7,6 +7,7 @@
 
 import { logger } from '../lib/logger.js'
 import { isBrowser } from '../lib/env';
+import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
 
 // MCP Server type (dynamic import to avoid circular deps)
 interface MCPServer {
@@ -55,6 +56,19 @@ class MCPGroundTruthService {
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private readonly apiBasePath = '/api/groundtruth';
+  private readonly circuitBreaker = new ExternalCircuitBreaker('groundtruth');
+  private readonly breakerKeys = {
+    financialsApi: 'external:groundtruth:financials',
+    verifyApi: 'external:groundtruth:verify',
+    benchmarksApi: 'external:groundtruth:benchmarks',
+    financialsMcp: 'external:groundtruth:mcp:financials',
+    verifyMcp: 'external:groundtruth:mcp:verify',
+    benchmarksMcp: 'external:groundtruth:mcp:benchmarks',
+  } as const;
+  private readonly breakerConfig = {
+    minimumSamples: 1,
+    failureRateThreshold: 0.5,
+  };
 
   /**
    * Initialize the MCP server (lazy, on first use)
@@ -108,42 +122,145 @@ class MCPGroundTruthService {
   }
 
   private async callGroundtruthApi<T>(
-    path: string,
+    operation: 'financialsApi' | 'verifyApi' | 'benchmarksApi',
     payload: Record<string, unknown>
   ): Promise<T | null> {
-    try {
-      const response = await fetch(`${this.apiBasePath}/${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    const breakerKey = this.breakerKeys[operation];
+    const path = operation.replace('Api', '');
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        logger.warn('Groundtruth API request failed', {
-          path,
-          status: response.status,
-          body: errorBody,
+    return this.circuitBreaker.execute(
+      breakerKey,
+      async () => {
+        const response = await fetch(`${this.apiBasePath}/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
-        return null;
-      }
 
-      const data = await response.json();
-      if (!data?.success) {
-        logger.warn('Groundtruth API responded with an error', {
-          path,
-          error: data?.error || data?.message,
-        });
-        return null;
-      }
+        if (!response.ok) {
+          const errorBody = await response.text();
+          throw new Error(`Groundtruth API error (${operation}): ${response.status} - ${errorBody}`);
+        }
 
-      return data.data as T;
-    } catch (error) {
-      logger.error('Groundtruth API request failed', error instanceof Error ? error : undefined, {
-        path,
-      });
+        const data = await response.json();
+        if (!data?.success) {
+          throw new Error(`Groundtruth API unsuccessful (${operation}): ${data?.error || data?.message || 'unknown'}`);
+        }
+
+        return data.data as T;
+      },
+      {
+        config: this.breakerConfig,
+        fallback: async (error, state) => {
+          logger.warn('Groundtruth circuit breaker fallback activated', {
+            integration: 'groundtruth',
+            operation,
+            breakerKey,
+            breakerState: state,
+            circuitOpen: state === 'open',
+            error: error.message,
+          });
+          return null;
+        },
+      }
+    );
+  }
+
+  private normalizeGroundTruthError(error: unknown): Error & { transient: boolean; kind: 'transient' | 'permanent' } {
+    const rawError = error instanceof Error ? error : new Error('Unknown MCP GroundTruth error');
+    const message = rawError.message.toLowerCase();
+    const transientIndicators = [
+      'timeout',
+      'timed out',
+      'econnreset',
+      'econnrefused',
+      'rate limit',
+      '429',
+      '503',
+      '502',
+      '504',
+      'network',
+      'circuit breaker',
+    ];
+    const permanentIndicators = ['400', '401', '403', '404', 'validation', 'invalid', 'malformed'];
+
+    const transient = transientIndicators.some(token => message.includes(token));
+    const permanent = permanentIndicators.some(token => message.includes(token));
+    const kind = transient || !permanent ? 'transient' : 'permanent';
+
+    const normalized = new Error(rawError.message) as Error & { transient: boolean; kind: 'transient' | 'permanent' };
+    normalized.name = rawError.name;
+    normalized.stack = rawError.stack;
+    normalized.transient = kind === 'transient';
+    normalized.kind = kind;
+    return normalized;
+  }
+
+  private async callMcpTool<T>(
+    operation: 'financialsMcp' | 'verifyMcp' | 'benchmarksMcp',
+    toolName: string,
+    args: Record<string, unknown>,
+    transform: (data: any) => T | null
+  ): Promise<T | null> {
+    if (!this.server) {
+      logger.warn('MCP server not available, returning null', { operation, toolName });
       return null;
     }
+
+    const breakerKey = this.breakerKeys[operation];
+    return this.circuitBreaker.execute(
+      breakerKey,
+      async () => {
+        try {
+          const result = await this.server!.executeTool(toolName, args);
+          const data = this.parseToolResult(result);
+          if (!data) {
+            throw new Error(`MCP tool returned empty result (${toolName})`);
+          }
+
+          const transformed = transform(data);
+          if (!transformed) {
+            throw new Error(`MCP tool transform failed (${toolName})`);
+          }
+
+          return transformed;
+        } catch (error) {
+          const normalizedError = this.normalizeGroundTruthError(error);
+          logger.warn('MCP tool execution failed', {
+            operation,
+            toolName,
+            error: normalizedError.message,
+            errorKind: normalizedError.kind,
+          });
+
+          if (!normalizedError.transient) {
+            logger.warn('MCP tool encountered non-transient error; bypassing breaker trip', {
+              operation,
+              toolName,
+              error: normalizedError.message,
+            });
+            return null;
+          }
+
+          throw normalizedError;
+        }
+      },
+      {
+        config: this.breakerConfig,
+        fallback: async (error, state) => {
+          logger.warn('Groundtruth MCP circuit breaker fallback activated', {
+            integration: 'groundtruth',
+            operation,
+            toolName,
+            breakerKey,
+            breakerState: state,
+            circuitOpen: state === 'open',
+            error: error.message,
+          });
+          return null;
+        },
+      }
+    );
   }
 
   /**
@@ -153,7 +270,7 @@ class MCPGroundTruthService {
     await this.initialize();
 
     if (isBrowser()) {
-      return this.callGroundtruthApi<FinancialDataResult>('financials', {
+      return this.callGroundtruthApi<FinancialDataResult>('financialsApi', {
         entityId: request.entityId,
         metrics: request.metrics,
         period: request.period,
@@ -166,25 +283,12 @@ class MCPGroundTruthService {
       return null;
     }
 
-    try {
-      const result = await this.server.executeTool('get_authoritative_financials', {
-        entity_id: request.entityId,
-        metrics: request.metrics || ['revenue', 'netIncome', 'totalAssets', 'operatingIncome'],
-        period: request.period || 'latest',
-        include_benchmarks: request.includeIndustryBenchmarks ?? true,
-      });
-
-      const data = this.parseToolResult(result);
-      if (!data) {
-        logger.warn('MCP query failed or returned no data');
-        return null;
-      }
-
-      return this.transformResult(data, request);
-    } catch (error) {
-      logger.error('Error fetching financial data', error instanceof Error ? error : undefined);
-      return null;
-    }
+    return this.callMcpTool('financialsMcp', 'get_authoritative_financials', {
+      entity_id: request.entityId,
+      metrics: request.metrics || ['revenue', 'netIncome', 'totalAssets', 'operatingIncome'],
+      period: request.period || 'latest',
+      include_benchmarks: request.includeIndustryBenchmarks ?? true,
+    }, data => this.transformResult(data, request));
   }
 
   /**
@@ -211,7 +315,7 @@ class MCPGroundTruthService {
         deviation?: number;
         source?: string;
         confidence: number;
-      }>('verify', {
+      }>('verifyApi', {
         entityId: claim.entityId,
         metric: claim.metric,
         value: claim.value,
@@ -225,29 +329,19 @@ class MCPGroundTruthService {
       return { verified: false, confidence: 0 };
     }
 
-    try {
-      const result = await this.server.executeTool('verify_claim_aletheia', {
-        claim_text: `${claim.metric} is ${claim.value}`,
-        context_entity: claim.entityId,
-        context_date: claim.period || new Date().toISOString(),
-      });
+    const response = await this.callMcpTool('verifyMcp', 'verify_claim_aletheia', {
+      claim_text: `${claim.metric} is ${claim.value}`,
+      context_entity: claim.entityId,
+      context_date: claim.period || new Date().toISOString(),
+    }, data => ({
+      verified: data.verified ?? false,
+      actualValue: data.actual_value,
+      deviation: data.deviation_percentage,
+      source: data.source,
+      confidence: data.confidence ?? 0,
+    }));
 
-      const data = this.parseToolResult(result);
-      if (!data) {
-        return { verified: false, confidence: 0 };
-      }
-
-      return {
-        verified: data.verified ?? false,
-        actualValue: data.actual_value,
-        deviation: data.deviation_percentage,
-        source: data.source,
-        confidence: data.confidence ?? 0,
-      };
-    } catch (error) {
-      logger.error('Error verifying claim', error instanceof Error ? error : undefined);
-      return { verified: false, confidence: 0 };
-    }
+    return response ?? { verified: false, confidence: 0 };
   }
 
   /**
@@ -267,29 +361,28 @@ class MCPGroundTruthService {
         p25: number;
         p75: number;
         sampleSize: number;
-      }>>('benchmarks', {
+      }>>('benchmarksApi', {
         industryCode,
         metrics,
       });
     }
 
-    if (!this.server) {
-      return null;
-    }
+    return this.callMcpTool('benchmarksMcp', 'populate_value_driver_tree', {
+      target_cik: '',
+      benchmark_naics: industryCode,
+      driver_node_id: 'productivity_delta',
+    }, data => data?.benchmarks || null);
+  }
 
-    try {
-      const result = await this.server.executeTool('populate_value_driver_tree', {
-        target_cik: '',
-        benchmark_naics: industryCode,
-        driver_node_id: 'productivity_delta',
-      });
-
-      const data = this.parseToolResult(result);
-      return data?.benchmarks || null;
-    } catch (error) {
-      logger.error('Error fetching benchmarks', error instanceof Error ? error : undefined);
-      return null;
-    }
+  getCircuitBreakerMetrics(): Record<string, ReturnType<ExternalCircuitBreaker["getMetrics"]>> {
+    return {
+      [this.breakerKeys.financialsApi]: this.circuitBreaker.getMetrics(this.breakerKeys.financialsApi),
+      [this.breakerKeys.verifyApi]: this.circuitBreaker.getMetrics(this.breakerKeys.verifyApi),
+      [this.breakerKeys.benchmarksApi]: this.circuitBreaker.getMetrics(this.breakerKeys.benchmarksApi),
+      [this.breakerKeys.financialsMcp]: this.circuitBreaker.getMetrics(this.breakerKeys.financialsMcp),
+      [this.breakerKeys.verifyMcp]: this.circuitBreaker.getMetrics(this.breakerKeys.verifyMcp),
+      [this.breakerKeys.benchmarksMcp]: this.circuitBreaker.getMetrics(this.breakerKeys.benchmarksMcp),
+    };
   }
 
   /**
