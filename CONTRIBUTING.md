@@ -50,6 +50,17 @@ This is a modular monorepo managed with **pnpm workspaces**.
 - **Formatting**: Prettier is enforced. Run `pnpm run format` before committing.
 - **Type Checking**: TypeScript is used throughout. Run `pnpm run typecheck`.
 
+### Technical Debt Governance
+
+To prevent TODO/dead-code sprawl, the repo enforces a debt inventory ratchet in strict zones:
+
+- Run `pnpm debt:inventory` to generate `docs/debt/inventory-report.json` and validate baseline ratchets.
+- Baselines live in `config/debt-baseline.json` and can be refreshed intentionally with `pnpm debt:baseline`.
+- Strict-zone TODO/FIXME comments must use this format:
+  - `TODO(ticket:ABC-123 owner:team-or-name date:YYYY-MM-DD): short note`
+  - `FIXME(ticket:ABC-123 owner:team-or-name date:YYYY-MM-DD): short note`
+- CI should run `pnpm debt:inventory`; it fails only when strict-zone counts regress or TODO/FIXME metadata is malformed in strict zones.
+
 ### Testing
 
 We use Vitest for unit and integration tests, and Playwright for E2E/accessibility tests.
