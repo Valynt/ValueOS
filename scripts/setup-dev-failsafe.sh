@@ -62,6 +62,8 @@ log_verify "✓ Node.js $(node --version)"
 log_verify "✓ npm $(npm --version)"
 log_verify "✓ Docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
 
+[ -x "${DC_CMD}" ] || fail "Compose wrapper not executable: ${DC_CMD} (run: chmod +x scripts/dc)"
+
 # ============================================================================
 # STEP 2: Clean State
 # ============================================================================
@@ -76,7 +78,7 @@ pkill -9 -f "tsx watch" 2>/dev/null || true
 pkill -9 -f "vite --config" 2>/dev/null || true
 
 # Remove generated env files
-rm -f .env.local .env.ports deploy/envs/.env.ports
+rm -f .env.local .env.ports scripts/.env.ports deploy/envs/.env.ports
 
 # Remove state files
 rm -f .dx-lock .dx-state.json
@@ -108,10 +110,17 @@ log_verify "✓ Environment files generated"
 log_verify "✓ Supabase keys present"
 log_verify "✓ Database URL configured"
 
- ============================================================================
+============================================================================
 # STEP 5: Start Docker Dependencies
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
+
+# Ensure ports env exists for backward compatibility with any scripts expecting it,
+# while still allowing scripts/dc to fall back to scripts/.env.ports.example.
+if [ ! -f "scripts/.env.ports" ] && [ -f "scripts/.env.ports.example" ]; then
+  cp "scripts/.env.ports.example" "scripts/.env.ports"
+  log_verify "✓ Bootstrapped scripts/.env.ports from scripts/.env.ports.example"
+fi
 
 "${DC_CMD}" up -d postgres redis || fail "Compose startup failed"
 
