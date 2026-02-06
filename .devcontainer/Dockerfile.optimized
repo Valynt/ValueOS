@@ -172,7 +172,25 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         echo "Skipping dbtools installation"; \
     fi
 
-# Stage 6: Dependencies (cached)
+# Stage 6: Prune workspace for dependency caching
+FROM dbtools AS prune
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+ARG APP
+
+WORKDIR /workspaces/ValueOS
+
+COPY . .
+
+RUN corepack enable \
+    && if [ -z "${APP:-}" ]; then \
+        echo "APP not set; defaulting prune scope to ValyntApp"; \
+        APP="ValyntApp"; \
+    fi \
+    && pnpm dlx turbo prune --docker --scope="${APP}"
+
+# Stage 7: Dependencies (cached)
 FROM dbtools AS deps
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -181,9 +199,9 @@ WORKDIR /workspaces/ValueOS
 
 ENV PNPM_STORE_PATH=/pnpm/store
 
-# Copy package metadata for dependency installation
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./
+# Copy pruned package metadata for dependency installation
+COPY --from=prune /workspaces/ValueOS/out/json/ ./
+COPY --from=prune /workspaces/ValueOS/.npmrc ./
 
 # Install dependencies with a reusable cache layer
 RUN corepack enable \
@@ -191,7 +209,7 @@ RUN corepack enable \
     && pnpm fetch --frozen-lockfile \
     && pnpm install --frozen-lockfile
 
-# Stage 7: Build (production-oriented)
+# Stage 8: Build (production-oriented)
 FROM nodejs AS build
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -220,7 +238,7 @@ RUN turbo run build --filter=${APP}... \
     && if [ -d "apps/${APP}/.next" ]; then cp -r "apps/${APP}/.next" /artifacts/app/.next; fi \
     && cp "apps/${APP}/package.json" /artifacts/app/package.json
 
-# Stage 8: Runner (production-oriented)
+# Stage 9: Runner (production-oriented)
 FROM node:${NODE_VERSION}-slim AS runner
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -234,7 +252,7 @@ WORKDIR /app
 COPY --from=build /workspaces/ValueOS/node_modules ./node_modules
 COPY --from=build /artifacts/app ./apps/${APP}
 
-# Stage 9: Final image with user setup
+# Stage 10: Final image with user setup
 FROM dbtools AS final
 
 # Create valueos user and workspace directory as root and set permissions
