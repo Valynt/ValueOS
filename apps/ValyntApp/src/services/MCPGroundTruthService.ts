@@ -6,7 +6,8 @@
  */
 
 import { logger } from '../lib/logger';
-import { isBrowser } from '../lib/env';
+import { env } from '../lib/env';
+import { ExternalCircuitBreaker } from './ExternalCircuitBreaker';
 
 // MCP Server type (dynamic import to avoid circular deps)
 interface MCPServer {
@@ -55,6 +56,12 @@ class MCPGroundTruthService {
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private readonly apiBasePath = '/api/groundtruth';
+  private readonly circuitBreaker = new ExternalCircuitBreaker('groundtruth');
+  private readonly breakerKeys = {
+    financials: 'external:groundtruth:financials',
+    verify: 'external:groundtruth:verify',
+    benchmarks: 'external:groundtruth:benchmarks',
+  } as const;
 
   /**
    * Initialize the MCP server (lazy, on first use)
@@ -63,7 +70,7 @@ class MCPGroundTruthService {
     if (this.initialized) return;
     if (this.initPromise) return this.initPromise;
 
-    if (isBrowser()) {
+    if (env.isBrowser) {
       this.initialized = true;
       return;
     }
@@ -90,7 +97,7 @@ class MCPGroundTruthService {
    * Check if service is available
    */
   isAvailable(): boolean {
-    return isBrowser() || this.server !== null;
+    return env.isBrowser || this.server !== null;
   }
 
   /**
@@ -108,42 +115,45 @@ class MCPGroundTruthService {
   }
 
   private async callGroundtruthApi<T>(
-    path: string,
+    path: keyof typeof this.breakerKeys,
     payload: Record<string, unknown>
   ): Promise<T | null> {
-    try {
-      const response = await fetch(`${this.apiBasePath}/${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    const breakerKey = this.breakerKeys[path];
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        logger.warn('Groundtruth API request failed', {
-          path,
-          status: response.status,
-          body: errorBody,
+    return this.circuitBreaker.execute(
+      breakerKey,
+      async () => {
+        const response = await fetch(`${this.apiBasePath}/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
-        return null;
-      }
 
-      const data = await response.json();
-      if (!data?.success) {
-        logger.warn('Groundtruth API responded with an error', {
-          path,
-          error: data?.error || data?.message,
-        });
-        return null;
-      }
+        if (!response.ok) {
+          const errorBody = await response.text();
+          throw new Error(`Groundtruth API error (${path}): ${response.status} - ${errorBody}`);
+        }
 
-      return data.data as T;
-    } catch (error) {
-      logger.error('Groundtruth API request failed', error instanceof Error ? error : undefined, {
-        path,
-      });
-      return null;
-    }
+        const data = await response.json();
+        if (!data?.success) {
+          throw new Error(`Groundtruth API unsuccessful (${path}): ${data?.error || data?.message || 'unknown'}`);
+        }
+
+        return data.data as T;
+      },
+      {
+        fallback: async (error, state) => {
+          logger.warn('Groundtruth circuit breaker fallback activated', {
+            integration: 'groundtruth',
+            path,
+            breakerKey,
+            breakerState: state,
+            error: error.message,
+          });
+          return null;
+        },
+      }
+    );
   }
 
   /**
@@ -152,7 +162,7 @@ class MCPGroundTruthService {
   async getFinancialData(request: FinancialDataRequest): Promise<FinancialDataResult | null> {
     await this.initialize();
 
-    if (isBrowser()) {
+    if (env.isBrowser) {
       return this.callGroundtruthApi<FinancialDataResult>('financials', {
         entityId: request.entityId,
         metrics: request.metrics,
@@ -204,7 +214,7 @@ class MCPGroundTruthService {
   }> {
     await this.initialize();
 
-    if (isBrowser()) {
+    if (env.isBrowser) {
       const response = await this.callGroundtruthApi<{
         verified: boolean;
         actualValue?: number;
@@ -261,7 +271,7 @@ class MCPGroundTruthService {
   }> | null> {
     await this.initialize();
 
-    if (isBrowser()) {
+    if (env.isBrowser) {
       return this.callGroundtruthApi<Record<string, {
         median: number;
         p25: number;
@@ -290,6 +300,15 @@ class MCPGroundTruthService {
       logger.error('Error fetching benchmarks', error instanceof Error ? error : undefined);
       return null;
     }
+  }
+
+
+  getCircuitBreakerMetrics(): Record<string, ReturnType<ExternalCircuitBreaker["getMetrics"]>> {
+    return {
+      [this.breakerKeys.financials]: this.circuitBreaker.getMetrics(this.breakerKeys.financials),
+      [this.breakerKeys.verify]: this.circuitBreaker.getMetrics(this.breakerKeys.verify),
+      [this.breakerKeys.benchmarks]: this.circuitBreaker.getMetrics(this.breakerKeys.benchmarks),
+    };
   }
 
   /**
