@@ -125,6 +125,7 @@ playwright-report/
 .env.*
 !.env.example
 !.env.ports
+!.env.ports.example
 !.env.local.example
 !scripts/.env.ports.example
 
