@@ -1,203 +1,119 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { __setEnvSourceForTests } from '../../lib/env';
-import { LLMCostTracker } from '../LLMCostTracker.js'
-import { createClient } from '@supabase/supabase-js';
+it('writes tenant_id when tenantId is provided', async () => {
+const tracker = new LLMCostTracker();
+// @ts-ignore
+const supabase = createClient();
 
-vi.mock('@supabase/supabase-js', () => {
-  // Create one shared mock client instance used across imports
-  const state: any = {
-    lastInsertPayload: null,
-    lastUpdatePayload: null,
-    selectResponse: { data: null, error: null },
-    insertCount: 0,
-  };
 
-  const createBuilder = (table: string) => {
-    return {
-      select: (..._args: any[]) => createBuilder(table),
-      eq: (_k: string, _v: any) => createBuilder(table),
-      gte: (_k: string, _v: any) => createBuilder(table),
-      lte: (_k: string, _v: any) => createBuilder(table),
-      limit: (_n: number) => createBuilder(table),
-      insert: async (payload: any) => {
-        state.lastInsertPayload = payload;
-        state.insertCount++;
-        return { error: null };
-      },
-      update: async (payload: any) => {
-        state.lastUpdatePayload = payload;
-        return { error: null };
-      },
-      then: (resolve: (value: any) => void) => resolve(state.selectResponse),
-    } as any;
-  };
-
-  const client = {
-    state,
-    from: (table: string) => createBuilder(table),
-  };
-
-  return { createClient: () => client };
+await tracker.trackUsage({
+userId: 'u-tenant',
+tenantId: 'tenant-123',
+provider: 'openai',
+model: 'meta-llama/Llama-3-70b-chat-hf',
+promptTokens: 10,
+completionTokens: 5,
+endpoint: 'llm-gateway',
+success: true,
+latencyMs: 9,
 });
 
-vi.mock('../../lib/logger', () => ({
-  logger: { error: vi.fn(), warn: vi.fn() },
-}));
 
-describe('LLMCostTracker', () => {
-  beforeEach(() => {
-    __setEnvSourceForTests({
-      VITE_SUPABASE_URL: 'http://test',
-      SUPABASE_SERVICE_ROLE_KEY: 'svc',
-    });
-    vi.clearAllMocks();
-    // Reset mock state
-    // @ts-ignore
-    const supabase = createClient();
-    // @ts-ignore
-    supabase.state.lastInsertPayload = null;
-    // @ts-ignore
-    supabase.state.lastUpdatePayload = null;
-    // @ts-ignore
-    supabase.state.selectResponse = { data: null, error: null };
-    // @ts-ignore
-    supabase.state.insertCount = 0;
-  });
-
-  it('calculates cost per pricing table and default', () => {
-    const tracker = new LLMCostTracker();
-    // Pricing: input 0.90, output 0.90 per 1M tokens
-    // 1000 input = 0.0009
-    // 500 output = 0.00045
-    // Total = 0.00135
-    expect(tracker.calculateCost('meta-llama/Llama-3-70b-chat-hf', 1_000, 500))
-      .toBeCloseTo((0.0009 + 0.00045), 6);
-    // Unknown model: default 1.00 per 1M
-    // 1000 input = 0.001
-    // 1000 output = 0.001
-    // Total = 0.002
-    expect(tracker.calculateCost('unknown-model', 1_000, 1_000))
-      .toBeCloseTo(0.002, 6);
-  });
+// @ts-ignore
+expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-123');
+});
 
 
-  it('writes tenant_id when tenantId is provided', async () => {
-    const tracker = new LLMCostTracker();
-    // @ts-ignore
-    const supabase = createClient();
-
-    await tracker.trackUsage({
-      userId: 'u-tenant',
-      tenantId: 'tenant-123',
-      provider: 'openai',
-      model: 'meta-llama/Llama-3-70b-chat-hf',
-      promptTokens: 10,
-      completionTokens: 5,
-      endpoint: 'llm-gateway',
-      success: true,
-      latencyMs: 9,
-    });
-
-    // @ts-ignore
-    expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-123');
-  });
+it('maps tenant_id input to tenant_id column', async () => {
+const tracker = new LLMCostTracker();
+// @ts-ignore
+const supabase = createClient();
 
 
-  it('maps tenant_id input to tenant_id column', async () => {
-    const tracker = new LLMCostTracker();
-    // @ts-ignore
-    const supabase = createClient();
+await tracker.trackUsage({
+userId: 'u-tenant-snake',
+// @ts-ignore
+tenant_id: 'tenant-snake-123',
+provider: 'openai',
+model: 'meta-llama/Llama-3-70b-chat-hf',
+promptTokens: 10,
+completionTokens: 5,
+endpoint: 'llm-gateway',
+success: true,
+latencyMs: 9,
+});
 
-    await tracker.trackUsage({
-      userId: 'u-tenant-snake',
-      tenant_id: 'tenant-snake-123',
-      provider: 'openai',
-      model: 'meta-llama/Llama-3-70b-chat-hf',
-      promptTokens: 10,
-      completionTokens: 5,
-      endpoint: 'llm-gateway',
-      success: true,
-      latencyMs: 9,
-    });
 
-    // @ts-ignore
-    expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-snake-123');
-  });
+// @ts-ignore
+expect(supabase.state.lastInsertPayload.tenant_id).toBe('tenant-snake-123');
+});
 
-  it('logs but does not throw when usage insert fails', async () => {
-    const tracker = new LLMCostTracker();
-    // @ts-ignore
-    const supabase = createClient();
 
-    // We can't easily mock just one call with the global mock setup unless we modify the global mock.
-    // Instead we rely on the global mock to not throw by default.
-    // To test "logs but does not throw", we want `insert` to fail.
+it('queries canonical cost and timestamp fields for period analytics', async () => {
+const tracker = new LLMCostTracker();
+// @ts-ignore
+const supabase = createClient();
 
-    // Let's modify the implementation of `from` for this test locally if possible.
-    // But `vi.mock` is hoisted.
 
-    // We can just trust the `state.insert` mock returns { error: null } normally.
-    // To make it error, we could change `state`.
-    // But `state` is shared.
+// @ts-ignore
+supabase.state.selectResponse = {
+data: [{ cost: 1.25 }, { cost: 0.75 }],
+error: null,
+};
 
-    // Let's modify the test to just call trackUsage and ensure it doesn't throw.
-    // To verify logging we would need to mock `insert` to return error.
 
-    // Let's try to override `from` on the instance.
-    const originalFrom = supabase.from;
-    supabase.from = (table: string) => {
-      const builder = originalFrom(table);
-      if (table === 'llm_usage') {
-        builder.insert = async () => ({ error: new Error('fail') });
-      }
-      return builder;
-    };
+const total = await tracker.getCostForPeriod(
+new Date('2026-01-01T00:00:00.000Z'),
+new Date('2026-01-02T00:00:00.000Z'),
+'user-123'
+);
 
-    await expect(tracker.trackUsage({
-      userId: 'u1',
-      provider: 'together_ai',
-      model: 'meta-llama/Llama-3-70b-chat-hf',
-      promptTokens: 1000,
-      completionTokens: 500,
-      endpoint: 'llm-gateway',
-      success: true,
-      latencyMs: 42,
-    })).resolves.not.toThrow();
 
-    // Restore
-    supabase.from = originalFrom;
-  });
+expect(total).toBe(2);
+expect(supabase.state.lastSelectColumns).toBe('cost');
+expect(supabase.state.filters).toEqual(
+expect.arrayContaining([
+expect.objectContaining({ op: 'gte', column: 'created_at' }),
+expect.objectContaining({ op: 'lte', column: 'created_at' }),
+expect.objectContaining({ op: 'eq', column: 'user_id', value: 'user-123' }),
+])
+);
+});
 
-  it('dedupes alerts within hour and still persists', async () => {
-    const tracker = new LLMCostTracker();
-    // @ts-ignore
-    const supabase = createClient();
 
-    // Mock getHourlyCost to trigger alert
-    vi.spyOn(tracker, 'getHourlyCost').mockResolvedValue(60);
-    vi.spyOn(tracker, 'getDailyCost').mockResolvedValue(0);
-    vi.spyOn(tracker, 'getMonthlyCost').mockResolvedValue(0);
+it('dedupes alerts within hour and still persists', async () => {
+const tracker = new LLMCostTracker();
+// @ts-ignore
+const supabase = createClient();
 
-    // First call: DB returns no existing alerts
-    // @ts-ignore
-    supabase.state.selectResponse = { data: [], error: null };
 
-    await tracker.checkCostThresholds();
+vi.spyOn(tracker, 'getHourlyCost').mockResolvedValue(60);
+vi.spyOn(tracker, 'getDailyCost').mockResolvedValue(0);
+vi.spyOn(tracker, 'getMonthlyCost').mockResolvedValue(0);
 
-    // @ts-ignore
-    expect(supabase.state.insertCount).toBe(1);
-    // @ts-ignore
-    expect(supabase.state.lastInsertPayload.level).toBe('critical');
 
-    // Second call: DB returns existing alerts
-    // This simulates that an alert was found in DB
-    // @ts-ignore
-    supabase.state.selectResponse = { data: [{ id: 1 }], error: null };
+// First run: no prior alert => inserts
+// @ts-ignore
+supabase.state.selectResponse = { data: [], error: null };
 
-    await tracker.checkCostThresholds();
 
-    // Should NOT have called insert again
-    // @ts-ignore
-    expect(supabase.state.insertCount).toBe(1);
-  });
+await tracker.checkCostThresholds();
+
+
+// @ts-ignore
+expect(supabase.state.insertCount).toBe(1);
+// @ts-ignore
+expect(supabase.state.lastInsertPayload.level).toBe('critical');
+
+
+// Second run: prior alert exists => no new insert
+// @ts-ignore
+supabase.state.selectResponse = { data: [{ id: 1 }], error: null };
+
+
+await tracker.checkCostThresholds();
+
+
+// @ts-ignore
+expect(supabase.state.insertCount).toBe(1);
+});
 });

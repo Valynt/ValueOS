@@ -147,20 +147,21 @@ const COST_THRESHOLDS = {
 };
 
 export interface LLMUsageRecord {
+  tenant_id?: string;
   user_id: string;
   tenant_id?: string;
   session_id?: string;
   provider: "together_ai" | "openai" | "anthropic" | "gemini" | "custom";
   model: string;
-  prompt_tokens: number;
-  completion_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
   total_tokens: number;
-  estimated_cost: number;
+  cost: number;
   endpoint: string;
   success: boolean;
   error_message?: string;
   latency_ms: number;
-  timestamp: string;
+  created_at: string;
 }
 
 export interface CostAlert {
@@ -217,6 +218,7 @@ export class LLMCostTracker {
    * Track LLM usage and cost
    */
   async trackUsage(params: {
+    tenantId?: string;
     userId: string;
     tenantId?: string;
     tenant_id?: string;
@@ -239,20 +241,21 @@ export class LLMCostTracker {
     );
 
     const record: LLMUsageRecord = {
+      tenant_id: params.tenantId,
       user_id: params.userId,
       tenant_id: params.tenantId ?? params.tenant_id,
       session_id: params.sessionId,
       provider: params.provider,
       model: params.model,
-      prompt_tokens: params.promptTokens,
-      completion_tokens: params.completionTokens,
+      input_tokens: params.promptTokens,
+      output_tokens: params.completionTokens,
       total_tokens: params.promptTokens + params.completionTokens,
-      estimated_cost: cost,
+      cost,
       endpoint: params.endpoint,
       success: params.success,
       error_message: params.errorMessage,
       latency_ms: params.latencyMs,
-      timestamp: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
     // Store in database (fire and forget)
@@ -294,9 +297,9 @@ export class LLMCostTracker {
 
     let query = this.supabase
       .from("llm_usage")
-      .select("estimated_cost")
-      .gte("timestamp", startTime.toISOString())
-      .lte("timestamp", endTime.toISOString());
+      .select("cost")
+      .gte("created_at", startTime.toISOString())
+      .lte("created_at", endTime.toISOString());
 
     if (userId) {
       query = query.eq("user_id", userId);
@@ -309,8 +312,8 @@ export class LLMCostTracker {
     }
     return (
       data?.reduce(
-        (sum: number, record: { estimated_cost: number }) =>
-          sum + record.estimated_cost,
+        (sum: number, record: { cost: number }) =>
+          sum + record.cost,
         0
       ) || 0
     );
@@ -562,8 +565,8 @@ export class LLMCostTracker {
     const { data, error } = await this.supabase
       .from("llm_usage")
       .select("*")
-      .gte("timestamp", startDate.toISOString())
-      .lte("timestamp", endDate.toISOString());
+      .gte("created_at", startDate.toISOString())
+      .lte("created_at", endDate.toISOString());
 
     if (error || !data) {
       throw new Error(`Failed to get cost analytics: ${error?.message}`);
@@ -580,21 +583,20 @@ export class LLMCostTracker {
     };
 
     for (const record of data) {
-      analytics.totalCost += record.estimated_cost;
+      analytics.totalCost += record.cost;
       analytics.totalTokens += record.total_tokens;
 
       // By model
       analytics.costByModel[record.model] =
-        (analytics.costByModel[record.model] || 0) + record.estimated_cost;
+        (analytics.costByModel[record.model] || 0) + record.cost;
 
       // By user
       analytics.costByUser[record.user_id] =
-        (analytics.costByUser[record.user_id] || 0) + record.estimated_cost;
+        (analytics.costByUser[record.user_id] || 0) + record.cost;
 
       // By endpoint
       analytics.costByEndpoint[record.endpoint] =
-        (analytics.costByEndpoint[record.endpoint] || 0) +
-        record.estimated_cost;
+        (analytics.costByEndpoint[record.endpoint] || 0) + record.cost;
     }
 
     analytics.averageCostPerRequest =
@@ -621,8 +623,8 @@ export class LLMCostTracker {
 
     const { data, error } = await this.supabase
       .from("llm_usage")
-      .select("user_id, estimated_cost")
-      .gte("timestamp", new Date(Date.now() - ONE_DAY_MS).toISOString());
+      .select("user_id, cost")
+      .gte("created_at", new Date(Date.now() - ONE_DAY_MS).toISOString());
 
     if (error || !data) {
       return [];
@@ -633,7 +635,7 @@ export class LLMCostTracker {
     for (const record of data) {
       const current = userCosts.get(record.user_id) || { cost: 0, count: 0 };
       userCosts.set(record.user_id, {
-        cost: current.cost + record.estimated_cost,
+        cost: current.cost + record.cost,
         count: current.count + 1,
       });
     }
