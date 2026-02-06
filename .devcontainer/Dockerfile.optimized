@@ -197,14 +197,14 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 WORKDIR /workspaces/ValueOS
 
-ENV PNPM_STORE_PATH=/pnpm/store
+ENV PNPM_STORE_PATH=/root/.pnpm-store
 
 # Copy pruned package metadata for dependency installation
 COPY --from=prune /workspaces/ValueOS/out/json/ ./
 COPY --from=prune /workspaces/ValueOS/.npmrc ./
 
 # Install dependencies with a reusable cache layer
-RUN corepack enable \
+RUN --mount=type=cache,target=/root/.pnpm-store corepack enable \
     && pnpm config set store-dir ${PNPM_STORE_PATH} \
     && pnpm fetch --frozen-lockfile \
     && pnpm install --frozen-lockfile
