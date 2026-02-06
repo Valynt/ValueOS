@@ -2,6 +2,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "../supabase";
 
 const NON_SENSITIVE_STATE_KEY = "valynt.auth.state";
+let lastRefreshToken: string | null = null;
 
 interface NonSensitiveAuthState {
   userId: string;
@@ -19,6 +20,21 @@ const persistNonSensitiveAuthState = (session: Session) => {
   localStorage.setItem(NON_SENSITIVE_STATE_KEY, JSON.stringify(state));
 };
 
+const trackRefreshTokenState = (session: Session | null): boolean => {
+  if (!session?.refresh_token) {
+    lastRefreshToken = null;
+    return false;
+  }
+
+  if (lastRefreshToken && lastRefreshToken !== session.refresh_token) {
+    localStorage.removeItem(NON_SENSITIVE_STATE_KEY);
+    localStorage.removeItem("supabase.auth.token");
+  }
+
+  lastRefreshToken = session.refresh_token;
+  return true;
+};
+
 export const secureTokenManager = {
   initialize: async () => {
     // Session tokens are expected to be stored and managed via HttpOnly secure cookies.
@@ -29,12 +45,18 @@ export const secureTokenManager = {
     return null;
   },
   storeSession: (session: Session) => {
+    if (!trackRefreshTokenState(session)) {
+      localStorage.removeItem(NON_SENSITIVE_STATE_KEY);
+      localStorage.removeItem("supabase.auth.token");
+      return;
+    }
     // Persist only non-sensitive session metadata for UI convenience.
     persistNonSensitiveAuthState(session);
   },
   clearSessionStorage: () => {
     localStorage.removeItem(NON_SENSITIVE_STATE_KEY);
     localStorage.removeItem("supabase.auth.token");
+    lastRefreshToken = null;
   },
   getCurrentSession: async (): Promise<Session | null> => {
     if (!supabase) {
@@ -43,6 +65,10 @@ export const secureTokenManager = {
 
     const { data, error } = await supabase.auth.getSession();
     if (error) {
+      return null;
+    }
+
+    if (!trackRefreshTokenState(data.session)) {
       return null;
     }
 
