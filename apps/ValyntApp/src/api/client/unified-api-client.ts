@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import { getClientConfig } from "@valueos/shared/config/client-config";
+import { toast } from "../../components/ui/use-toast";
 
 // ============================================================================
 // Types
@@ -58,6 +59,7 @@ export interface RequestConfig {
 
 export class UnifiedApiClient {
   private config: ApiClientConfig;
+  private lastFallbackNoticeAt?: number;
   private interceptors: {
     request: Array<(config: RequestConfig) => RequestConfig>;
     response: Array<(response: ApiResponse) => ApiResponse>;
@@ -311,6 +313,7 @@ export class UnifiedApiClient {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        this.handleFallbackHeader(response);
         return response;
       } catch (error) {
         lastError = error as Error;
@@ -350,6 +353,24 @@ export class UnifiedApiClient {
       success: true,
       data,
     };
+  }
+
+  private handleFallbackHeader(response: Response): void {
+    const fallbackHeader = response.headers.get("X-LLM-Fallback");
+    if (!fallbackHeader) return;
+
+    const normalized = fallbackHeader.toLowerCase();
+    const shouldNotify = normalized === "true" || normalized === "1";
+    if (!shouldNotify || typeof window === "undefined") return;
+
+    const now = Date.now();
+    if (this.lastFallbackNoticeAt && now - this.lastFallbackNoticeAt < 30000) return;
+
+    this.lastFallbackNoticeAt = now;
+    toast("Using fallback model", {
+      description: "Your request was served by the fallback model because the monthly token budget was exceeded.",
+      duration: 6000,
+    });
   }
 
   private createApiError(error: unknown, requestId: string): ApiError {

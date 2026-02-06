@@ -10,6 +10,15 @@ import { AIResponseSchema } from './AgentChatService';
 
 export class FallbackAIService {
   /**
+   * Generate a basic fallback response when budget limits require degradation
+   */
+  static generateFallbackResponse(query: string): string {
+    logger.warn('Using fallback AI response due to budget limits', { queryLength: query.length });
+
+    return "You're currently receiving a fallback response because your monthly LLM token budget has been reached. Please try again later or upgrade your plan for full model access.";
+  }
+
+  /**
    * Generate a basic analysis when AI services are unavailable
    */
   static generateFallbackAnalysis(query: string, context?: any): AIResponseSchema {

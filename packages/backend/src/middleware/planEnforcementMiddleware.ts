@@ -10,6 +10,7 @@ import { BillingMetric, GRACE_PERIOD_MS, isHardCap, PlanTier } from '../config/b
 import { createLogger } from '@shared/lib/logger';
 import SubscriptionService from '../services/billing/SubscriptionService';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { llmCostTracker } from '../services/LLMCostTracker.js';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];
@@ -96,13 +97,25 @@ export function createPlanEnforcement(config: EnforcementConfig) {
 
       const { metric, hardCapOnly = false } = config;
 
+      const monthlyTokensPromise =
+        metric === 'llm_tokens'
+          ? llmCostTracker.getMonthlyTokensByTenant(tenantId)
+          : Promise.resolve(null);
+
       // Get current usage, quota, and plan tier
-      const [usage, quota, isOver, planTier] = await Promise.all([
+      const [usage, quota, isOver, planTier, monthlyTokens] = await Promise.all([
         UsageCache.getCurrentUsage(tenantId, metric),
         UsageCache.getQuota(tenantId, metric),
         UsageCache.isOverQuota(tenantId, metric),
         resolvePlanTier(req, tenantId),
+        monthlyTokensPromise,
       ]);
+
+      // Monthly token budgets should downgrade to fallback when exceeded.
+      if (metric === 'llm_tokens' && monthlyTokens !== null && quota > 0 && monthlyTokens >= quota) {
+        (req as any).useFallbackModel = true;
+        res.setHeader('X-LLM-Fallback', 'true');
+      }
 
       // Check if over quota
       if (isOver) {
