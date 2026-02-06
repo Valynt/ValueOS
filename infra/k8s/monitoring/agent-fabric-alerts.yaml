@@ -13,7 +13,7 @@ spec:
             (
               rate(agent_fabric_execution_failure_total[5m])
               /
-              clamp_min(rate(agent_fabric_executions_total[5m]), 0.000001)
+              clamp_min(rate(agent_fabric_executions_completed_total[5m]), 0.000001)
             ) > 0.05
           for: 10m
           labels:
