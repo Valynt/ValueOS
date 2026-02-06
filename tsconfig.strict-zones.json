@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/integrations/tsconfig.strict-zone.json" },
+    { "path": "./packages/memory/tsconfig.strict-zone.json" }
+  ]
+}
