@@ -134,6 +134,91 @@ export class AuthService extends BaseService {
     return new AuthenticationError(message, details, responseStatus, code);
   }
 
+  private mapSupabaseAuthError(error: unknown): AuthenticationError {
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      typeof value === "object" && value !== null && !Array.isArray(value);
+    const record = isRecord(error) ? error : {};
+    const status = typeof record.status === "number" ? record.status : undefined;
+    const code = typeof record.code === "string" ? record.code : undefined;
+    const message = typeof record.message === "string" ? record.message : "Invalid credentials";
+    const details = this.sanitizeAuthErrorDetails(record);
+
+    const normalizedCode = code?.toLowerCase();
+    const normalizedMessage = message.toLowerCase();
+
+    const isSessionTimeout =
+      status === 440 ||
+      normalizedCode?.includes("session") ||
+      (normalizedMessage.includes("session") &&
+        (normalizedMessage.includes("timeout") ||
+          normalizedMessage.includes("expired") ||
+          normalizedMessage.includes("inactivity")));
+    if (isSessionTimeout) {
+      const timeoutCode: AuthFailureCode =
+        normalizedCode?.includes("idle") || normalizedMessage.includes("idle")
+          ? "SESSION_IDLE_TIMEOUT"
+          : "SESSION_ABSOLUTE_TIMEOUT";
+      return new SessionTimeoutAuthenticationError(message, timeoutCode, details);
+    }
+
+    const isTokenIssue =
+      normalizedCode?.includes("jwt") ||
+      normalizedCode?.includes("token") ||
+      normalizedMessage.includes("jwt") ||
+      normalizedMessage.includes("token");
+    if (isTokenIssue) {
+      const tokenCode: AuthFailureCode =
+        normalizedCode?.includes("claim") || normalizedMessage.includes("claim")
+          ? "INVALID_TOKEN_CLAIMS"
+          : normalizedCode?.includes("expired") || normalizedMessage.includes("expired")
+          ? "TOKEN_EXPIRED"
+          : "INVALID_TOKEN";
+      return new TokenAuthenticationError(message, tokenCode, details);
+    }
+
+    const isMfaIssue =
+      normalizedCode?.includes("mfa") ||
+      normalizedCode?.includes("otp") ||
+      normalizedMessage.includes("mfa") ||
+      normalizedMessage.includes("otp");
+    if (isMfaIssue) {
+      let authCode: AuthFailureCode = "MFA_INVALID_CODE";
+      if (
+        normalizedCode?.includes("enroll") ||
+        normalizedMessage.includes("enroll") ||
+        normalizedMessage.includes("setup")
+      ) {
+        authCode = "MFA_ENROLLMENT_REQUIRED";
+      } else if (
+        normalizedCode?.includes("required") ||
+        normalizedMessage.includes("required") ||
+        normalizedMessage.includes("missing")
+      ) {
+        authCode = "MFA_CODE_REQUIRED";
+      }
+
+      return new AuthenticationError(message, details, status ?? 401, authCode);
+    }
+
+    return new AuthenticationError(message, details, status ?? 401);
+  }
+
+  private sanitizeAuthErrorDetails(error: Record<string, unknown>): Record<string, unknown> | undefined {
+    const redactions = new Set(["access_token", "refresh_token", "token", "password", "authorization", "cookie"]);
+    const sanitized: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(error)) {
+      if (redactions.has(key.toLowerCase())) {
+        continue;
+      }
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        sanitized[key] = value;
+      }
+    }
+
+    return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+  }
+
   private async callAuthEndpoint<T>(path: string, options: RequestInit): Promise<T> {
     const headers = new Headers(options.headers);
     const { data: sessionData } = await this.supabase.auth.getSession();
@@ -334,7 +419,7 @@ export class AuthService extends BaseService {
             severity: "warn",
             metadata: { email: credentials.email },
           });
-          throw new AuthenticationError("Invalid credentials");
+          throw this.mapSupabaseAuthError(error);
         }
         if (!data.user || !data.session) {
           securityLogger.log({
