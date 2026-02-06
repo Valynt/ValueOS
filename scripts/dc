@@ -24,6 +24,7 @@ compose_args=(
 )
 
 if [[ -f "${PORTS_ENV_FILE}" ]]; then
+  # Preferred deterministic port bindings for this repo.
   compose_args+=(--env-file "${PORTS_ENV_FILE}")
 elif [[ -f "${LEGACY_ENV_FILE}" ]]; then
   compose_args+=(--env-file "${LEGACY_ENV_FILE}")
