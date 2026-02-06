@@ -360,7 +360,12 @@ const moduleBoundaryOverrides = {
       {
         patterns: [
           {
-            group: ["../packages/*", "../../packages/*", "../../../packages/*", "../../../../packages/*"],
+            group: [
+              "../packages/*",
+              "../../packages/*",
+              "../../../packages/*",
+              "../../../../packages/*",
+            ],
             message:
               "Do not cross package boundaries via relative paths. Import through package public APIs (@valueos/<pkg>).",
           },
@@ -372,16 +377,39 @@ const moduleBoundaryOverrides = {
         ],
       },
     ],
+
+    // If you already use eslint-plugin-import with this rule available
     "import/no-internal-modules": [
       "error",
       {
         forbid: ["@valueos/**/src/**"],
+        // Temporary carve-outs (keep this list short; shrink over time)
         allow: [
           "@valueos/agents/*",
           "@valueos/mcp/*",
           "@valueos/shared/*",
           "@valueos/design-system/*",
         ],
+      },
+    ],
+  },
+};
+
+// Backend services guard rail: prevent direct auth schema table queries.
+const backendServiceAuthOverrides = {
+  files: ["packages/backend/src/services/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      {
+        selector:
+          "CallExpression[callee.property.name='schema'][arguments.0.value='auth']",
+        message:
+          "Do not query auth schema tables from backend services. Use Supabase auth admin APIs via AuthDirectoryService.",
+      },
+    ],
+  },
+};
       },
     ],
   },
@@ -425,6 +453,7 @@ export default [
   ignoresConfig,
   pluginConfig,
   baseConfig,
+  backendServiceAuthOverrides,
   configOverrides,
   testOverrides,
   k6Overrides,

@@ -9,9 +9,9 @@ const mocks = vi.hoisted(() => {
       auth: {
         admin: {
           getUserById: vi.fn(),
+          listUsers: vi.fn(),
         },
       },
-      schema: vi.fn(),
     },
     logger: {
       error: vi.fn(),
@@ -46,7 +46,7 @@ describe('AdminUserService Performance', () => {
     (service as any).supabase = mocks.supabase;
   });
 
-  it('demonstrates N+1 query inefficiency in listTenantUsers', async () => {
+  it('uses auth admin listUsers batch fetch in listTenantUsers', async () => {
     const userCount = 20;
     const latencyPerCall = 10; // ms
 
@@ -58,34 +58,44 @@ describe('AdminUserService Performance', () => {
       created_at: new Date().toISOString(),
     }));
 
-    mocks.supabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: mockTenantUsers, error: null }),
-      }),
+    mocks.supabase.from.mockImplementation((table: string) => {
+      if (table === 'user_tenants') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: mockTenantUsers, error: null }),
+          }),
+        };
+      }
+
+      if (table === 'user_roles') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              in: vi.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
     });
 
-    // Mock Bulk Fetch (Single Query)
     const mockUsersData = Array.from({ length: userCount }, (_, i) => ({
       id: `user-${i}`,
       email: `user-${i}@example.com`,
-      raw_user_meta_data: { full_name: `User user-${i}` },
+      user_metadata: { full_name: `User user-${i}` },
       last_sign_in_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     }));
 
-    // Setup chain for schema('auth').from('users').select(...).in(...)
-    const mockIn = vi.fn().mockImplementation(async () => {
-       await new Promise((resolve) => setTimeout(resolve, latencyPerCall)); // 1 query latency
-       return { data: mockUsersData, error: null };
+    mocks.supabase.auth.admin.listUsers.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, latencyPerCall));
+      return { data: { users: mockUsersData }, error: null };
     });
-
-    const mockSelect = vi.fn().mockReturnValue({ in: mockIn });
-    const mockFrom = vi.fn().mockReturnValue({ select: mockSelect });
-    mocks.supabase.schema.mockReturnValue({ from: mockFrom });
 
     // Mock N+1 getUserById (should NOT be called)
     mocks.supabase.auth.admin.getUserById.mockImplementation(async () => {
-      throw new Error("Should not be called!");
+      throw new Error('Should not be called!');
     });
 
     const start = Date.now();
@@ -97,10 +107,7 @@ describe('AdminUserService Performance', () => {
 
     // Verify optimization
     expect(mocks.supabase.auth.admin.getUserById).toHaveBeenCalledTimes(0);
-    expect(mocks.supabase.schema).toHaveBeenCalledWith('auth');
-    expect(mockFrom).toHaveBeenCalledWith('users');
-    expect(mockSelect).toHaveBeenCalled();
-    expect(mockIn).toHaveBeenCalled();
+    expect(mocks.supabase.auth.admin.listUsers).toHaveBeenCalledTimes(1);
 
     // Verify data integrity
     expect(result).toHaveLength(userCount);

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Book, Home, Search, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { announceToScreenReader } from '../utils/accessibility';
-import { sanitizeHtml } from '../utils/sanitizeHtml';
+import { SafeHtml } from '../components/security/SafeHtml';
 
 interface DocCategory {
   id: string;
@@ -683,9 +683,9 @@ If issues are detected:
                 </p>
               )}
 
-              <div
+              <SafeHtml
                 className="prose prose-blue max-w-none"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentPage.content) }}
+                html={currentPage.content}
               />
 
               {/* Feedback Section */}

@@ -32,8 +32,8 @@ To prevent accidental regressions, CI includes `pnpm run ci:governance:self-chec
 ### 1. Terraform Validation (`terraform-validate.yml`)
 
 **Triggers:**
-- Pull requests affecting `infrastructure/terraform/**`
-- Pushes to `main` or `develop` branches
+- Pull requests affecting `infra/terraform/**` and workflow changes in `.github/workflows/terraform-*.yml`
+- Pushes to `main` or `develop` branches when Terraform files in `infra/terraform/**` change
 
 **Actions:**
 - Validates Terraform syntax
@@ -49,7 +49,7 @@ Automatically runs on every PR. No manual intervention needed.
 ### 2. Terraform Plan on PR (`terraform-plan-pr.yml`)
 
 **Triggers:**
-- Pull requests affecting `infrastructure/terraform/**`
+- Pull requests (`opened`, `synchronize`, `reopened`) affecting `infra/terraform/**`
 
 **Actions:**
 - Generates Terraform plans for both staging and production
@@ -181,9 +181,9 @@ git push origin develop
 ### 5. Security Scanning (`terraform-security-scan.yml`)
 
 **Triggers:**
-- Pull requests affecting `infrastructure/terraform/**`
-- Pushes to `main` or `develop`
-- Weekly schedule (Sunday at midnight)
+- Pull requests affecting `infra/terraform/**`
+- Pushes to `main` or `develop` when Terraform files in `infra/terraform/**` change
+- Weekly schedule (`0 0 * * 0`, Sunday at midnight UTC)
 - Manual workflow dispatch
 
 **Actions:**

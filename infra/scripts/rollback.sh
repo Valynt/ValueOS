@@ -32,7 +32,8 @@ done
 MIGRATIONS_DIR="infra/postgres/migrations"
 DB_HOST="${DB_HOST:-localhost}"
 DB_USER="${DB_USER:-postgres}"
-DB_NAME="${DB_NAME:-valueos}"
+DB_PASSWORD="${DB_PASSWORD:-dev_password}"
+DB_NAME="${DB_NAME:-valuecanvas_dev}"
 
 echo "🔄 Rolling back database migrations..."
 

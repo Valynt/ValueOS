@@ -41,10 +41,8 @@
 ## 4. Cache Layer (Redis/Memcached)
 
 - [x] Cache keys prefixed with organization_id: `{org_id}:model:{model_id}` (evidence: packages/backend/src/services/CacheService.ts)
-- [ ] Cache invalidation on multi-tenant boundary
-  - Location: packages/backend/src/services/CacheService.ts
-- [ ] No global caches without organization scoping
-  - Location: packages/backend/src/services/CacheService.ts
+- [x] Cache invalidation on multi-tenant boundary (evidence: packages/backend/src/services/CacheService.ts, packages/backend/src/services/__tests__/CacheService.tenant.test.ts)
+- [x] No global caches without organization scoping by default (evidence: packages/backend/src/services/CacheService.ts, packages/backend/src/services/__tests__/CacheService.tenant.test.ts)
 
 ## 5. Search & Indexing
 
@@ -96,6 +94,13 @@
   - Location: packages/backend/src/middleware/globalErrorHandler.ts
 
 ## 10. Testing
+
+### Tenant isolation acceptance criteria
+
+- [x] Middleware binds tenant context per request and blocks spoofed tenant headers (evidence: packages/backend/src/middleware/tenantContext.ts, packages/backend/src/middleware/__tests__/tenantContext.test.ts)
+- [x] Database request context applies tenant binding at transaction scope (`SET LOCAL app.tenant_id`) (evidence: packages/backend/src/middleware/tenantDbContext.ts, packages/backend/src/middleware/__tests__/tenantDbContext.test.ts)
+- [x] Application cache operations are tenant-scoped for reads/writes and invalidation (evidence: packages/backend/src/services/CacheService.ts, packages/backend/src/services/__tests__/CacheService.tenant.test.ts)
+
 
 - [x] Unit tests verify organization_id filtering (evidence: src/lib/rules/**tests**/RulesEnforcer.test.ts)
 - [x] Integration tests verify cross-tenant isolation (evidence: packages/backend/src/api/__tests__/workflow.integration.test.ts, supabase/tests/database/multi_tenant_rls.test.sql in secure CI RLS stage)

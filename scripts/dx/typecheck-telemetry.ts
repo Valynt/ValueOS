@@ -16,6 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import ts from "typescript";
+import { listWorkspacePackageDirsForUpdate, loadRatchetBaselines } from "./ts-ratchet-baseline";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -197,69 +198,37 @@ async function loadStrictZones(): Promise<string[]> {
 }
 
 async function updatePackageBaselines(report: TelemetryReport): Promise<void> {
-  const globalBaselinePath = path.join(projectRoot, ".github/ts-error-baseline.json");
+  loadRatchetBaselines(projectRoot);
 
-  // 1. Delete global baseline if it exists (we are moving to distributed)
-  if (fs.existsSync(globalBaselinePath)) {
-    fs.unlinkSync(globalBaselinePath);
-    console.log("🗑️  Deleted deprecated global baseline (.github/ts-error-baseline.json)");
-  }
-
-  // 2. Update each package's baseline (Sidecar)
   console.log("💾 Updating local sidecar baselines (.ts-debt.json)...");
-  let updated = 0;
+  const packageDirs = listWorkspacePackageDirsForUpdate(projectRoot);
 
-  for (const [pkgName, count] of Object.entries(report.errorsByPackage)) {
-    if (pkgName === "root" || pkgName === "global" || pkgName.startsWith(".")) continue;
-
-    const pkgDir = path.join(projectRoot, pkgName);
-    const sidecarPath = path.join(pkgDir, ".ts-debt.json");
-
-    // Create sidecar content
-    const debtData = { baseline: count };
-
-    if (fs.existsSync(pkgDir)) {
-      fs.writeFileSync(sidecarPath, JSON.stringify(debtData, null, 2));
-      updated++;
-    }
+  for (const pkgName of packageDirs) {
+    const sidecarPath = path.join(projectRoot, pkgName, ".ts-debt.json");
+    const count = report.errorsByPackage[pkgName] ?? 0;
+    fs.writeFileSync(sidecarPath, JSON.stringify({ baseline: count }, null, 2));
   }
 
-  console.log(`✅ Updated baselines for ${updated} packages.`);
+  console.log(`✅ Updated baselines for ${packageDirs.length} workspaces.`);
 }
 
 async function enforceRatchet(report: TelemetryReport): Promise<boolean> {
+  const baselines = loadRatchetBaselines(projectRoot);
+
   let failed = false;
   let regressionCount = 0;
   let winCount = 0;
 
-  for (const [pkgName, count] of Object.entries(report.errorsByPackage)) {
-    if (pkgName === "root" || pkgName === "global" || pkgName.startsWith(".")) continue;
-
-    const sidecarPath = path.join(projectRoot, pkgName, ".ts-debt.json");
-
-    if (fs.existsSync(sidecarPath)) {
-      try {
-        const debtData = JSON.parse(fs.readFileSync(sidecarPath, "utf8"));
-        const baseline = debtData.baseline;
-
-        if (typeof baseline === "number") {
-          if (count > baseline) {
-            console.error(
-              `   ❌ Regression in ${pkgName}: ${count} errors (baseline: ${baseline})`
-            );
-            regressionCount++;
-            failed = true;
-          } else if (count < baseline) {
-            console.log(`   🎉 Debt reduced in ${pkgName}: ${count} errors (was ${baseline})`);
-            console.log(
-              `      → Run pnpm run typecheck:signal --update-baseline to lock in this win!`
-            );
-            winCount++;
-          }
-        }
-      } catch (e) {
-        console.warn(`   ⚠️  Invalid baseline file for ${pkgName}`);
-      }
+  for (const [pkgName, baseline] of Object.entries(baselines.packageBaselines)) {
+    const count = report.errorsByPackage[pkgName] ?? 0;
+    if (count > baseline) {
+      console.error(`   ❌ Regression in ${pkgName}: ${count} errors (baseline: ${baseline})`);
+      regressionCount++;
+      failed = true;
+    } else if (count < baseline) {
+      console.log(`   🎉 Debt reduced in ${pkgName}: ${count} errors (was ${baseline})`);
+      console.log(`      → Run pnpm run typecheck:signal --update-baseline to lock in this win!`);
+      winCount++;
     }
   }
 

@@ -2,72 +2,120 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
+import { listWorkspacePackageDirsForUpdate, loadRatchetBaselines } from "./dx/ts-ratchet-baseline";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BASELINE_FILE = path.join(__dirname, "../.github/ts-error-baseline.json");
+const projectRoot = path.resolve(__dirname, "..");
 
-interface Baseline {
-  total_errors: number;
-  last_updated: string;
+type ErrorCounts = {
+  byPackage: Record<string, number>;
+};
+
+function getPackageForFile(filePath: string): string | null {
+  const normalized = filePath.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+
+  if (parts[0] === "apps" && parts[1]) return `apps/${parts[1]}`;
+  if (parts[0] === "packages" && parts[1]) return `packages/${parts[1]}`;
+  return null;
 }
 
-function getErrorCount(): number {
-  console.log("Running global TypeCheck...");
+function getErrorCounts(): ErrorCounts {
+  console.log("Running TypeScript ratchet check...");
+  const byPackage: Record<string, number> = {};
+
   try {
-    execSync("pnpm tsc --noEmit", { stdio: "pipe" });
-    return 0;
-  } catch (e: any) {
-    const output = e.stdout.toString();
+    execSync("pnpm exec tsc --noEmit --pretty false", { encoding: "utf8", stdio: "pipe" });
+    return { byPackage };
+  } catch (error: any) {
+    const output = String(error.stdout ?? "");
     const lines = output.split("\n");
-    const errors = lines.filter((l: string) => l.includes("error TS")).length;
-    return errors;
+
+    for (const line of lines) {
+      const match = line.match(/^([^(]+)\(\d+,\d+\): error TS\d+:/);
+      if (!match) continue;
+
+      const filePath = match[1]?.trim() ?? "";
+      const pkg = getPackageForFile(filePath);
+      if (pkg) {
+        byPackage[pkg] = (byPackage[pkg] ?? 0) + 1;
+      }
+    }
+
+    return { byPackage };
   }
 }
 
-function main() {
-  const mode = process.argv[2]; // 'check' or 'update'
+function runPerPackage(mode: string, currentByPackage: Record<string, number>): never {
+  const baselines = loadRatchetBaselines(projectRoot);
+  const baselineMap = baselines.packageBaselines;
 
-  if (!fs.existsSync(BASELINE_FILE)) {
-    console.error(`Baseline file not found at ${BASELINE_FILE}`);
+  const packageDirs = listWorkspacePackageDirsForUpdate(projectRoot);
+  const allPackages = Array.from(new Set([...packageDirs, ...Object.keys(baselineMap)])).sort();
+
+  let regressions = 0;
+  let improvements = 0;
+
+  console.log(`\n📊 Status Report:`);
+  console.log(`   Model: per-package`);
+
+  for (const pkg of allPackages) {
+    const baseline = baselineMap[pkg] ?? 0;
+    const current = currentByPackage[pkg] ?? 0;
+
+    if (mode === "update") {
+      const baselinePath = path.join(projectRoot, pkg, ".ts-debt.json");
+      fs.writeFileSync(baselinePath, JSON.stringify({ baseline: current }, null, 2));
+      continue;
+    }
+
+    if (!(pkg in baselines.packageBaselinePaths)) continue;
+
+    if (current > baseline) {
+      console.error(`   ❌ ${pkg}: ${current} errors (baseline: ${baseline})`);
+      regressions++;
+    } else if (current < baseline) {
+      console.log(`   🎉 ${pkg}: ${current} errors (baseline: ${baseline})`);
+      improvements++;
+    } else {
+      console.log(`   ✅ ${pkg}: ${current} errors (baseline: ${baseline})`);
+    }
+  }
+
+  if (mode === "update") {
+    console.log(`✅ Updated per-package baselines for ${allPackages.length} workspaces.`);
+    process.exit(0);
+  }
+
+  if (regressions > 0) {
+    console.error(`\n⛔ RAT CHET FAILURE ⛔`);
+    console.error(`Regression detected in ${regressions} package(s).`);
     process.exit(1);
   }
 
-  const currentErrors = getErrorCount();
-  const baseline: Baseline = JSON.parse(fs.readFileSync(BASELINE_FILE, "utf-8"));
-
-  console.log(`\n📊 Status Report:`);
-  console.log(`   Baseline Errors: ${baseline.total_errors}`);
-  console.log(`   Current Errors:  ${currentErrors}`);
-
-  if (mode === "update") {
-    if (currentErrors < baseline.total_errors) {
-      console.log(`🎉 Improvements detected! Updating baseline to ${currentErrors}.`);
-      const newBaseline: Baseline = {
-        total_errors: currentErrors,
-        last_updated: new Date().toISOString(),
-      };
-      fs.writeFileSync(BASELINE_FILE, JSON.stringify(newBaseline, null, 2));
-      process.exit(0);
-    } else {
-      console.log(`No improvement. Baseline remains at ${baseline.total_errors}.`);
-      process.exit(0);
-    }
+  if (improvements > 0) {
+    console.log("\n⚠️  Improvements detected. Run 'pnpm ts:ratchet:update' to lock them in.");
   } else {
-    // Check mode (CI)
-    if (currentErrors > baseline.total_errors) {
-      console.error(`\n⛔ RAT CHET FAILURE ⛔`);
-      console.error(
-        `Technical debt has increased! You introduced ${currentErrors - baseline.total_errors} new errors.`
-      );
-      process.exit(1);
-    } else if (currentErrors < baseline.total_errors) {
-      console.log(`\n⚠️  Excellent work, but you forgot to lock in the gains.`);
-      console.log(`   Please run 'pnpm ts:ratchet:update' to lower the baseline.`);
-      process.exit(0);
-    } else {
-      console.log(`\n✅ Ratchet check passed. Error count static.`);
-      process.exit(0);
-    }
+    console.log("\n✅ Ratchet check passed. No regressions detected.");
+  }
+
+  process.exit(0);
+}
+
+function main() {
+  const mode = process.argv[2];
+  if (mode !== "check" && mode !== "update") {
+    console.error("Usage: tsx scripts/ts-ratchet.ts <check|update>");
+    process.exit(1);
+  }
+
+  const counts = getErrorCounts();
+
+  try {
+    runPerPackage(mode, counts.byPackage);
+  } catch (error: any) {
+    console.error(`❌ ${error.message}`);
+    process.exit(1);
   }
 }
 

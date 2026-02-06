@@ -1,8 +1,17 @@
 {
   "strict_zones": [
-    "packages/core-utils",
-    "apps/web/src/lib/safe-zone"
+    "packages/shared/src",
+    "packages/components/design-system/src",
+    "packages/infra",
+    "packages/integrations",
+    "packages/memory"
   ],
   "comment": "These directories MUST remain at 0 TypeScript errors. They use tsconfig.strict.json.",
-  "migration_note": "Canonical strict-zone config. Legacy packages/config-v2/strict-zones.config.js was removed; use this file only."
+  "migration_note": "Canonical strict-zone config. Legacy packages/config-v2/strict-zones.config.js was removed; use this file only.",
+  "ratchet": {
+    "weekly_growth_percent": 15,
+    "weekly_min_files": 7,
+    "target_week4_files": 81,
+    "source_of_truth": "quality-baselines.json"
+  }
 }

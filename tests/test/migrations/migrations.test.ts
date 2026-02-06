@@ -7,7 +7,7 @@ const shouldRun = process.env.RUN_MIGRATION_TESTS === 'true';
 const loadModule = async (name: string) => {
   try {
     // Use dynamic import indirection to avoid type resolution when module is absent
-    return await eval(`import("${name}")`);
+    return await import(/* @vite-ignore */ name);
   } catch {
     return null;
   }
