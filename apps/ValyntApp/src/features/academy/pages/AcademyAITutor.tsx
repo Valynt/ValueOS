@@ -1,22 +1,20 @@
-import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Input } from "../../../components/ui/input";
-import { Badge } from "../../../components/ui/badge";
-import { ScrollArea } from "../../../components/ui/scroll-area";
 import {
   Send,
   Bot,
   User,
   Sparkles,
-  BookOpen,
-  Target,
   Lightbulb,
-  MessageCircle,
   Brain,
   ArrowLeft
 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
+
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Input } from "../../../components/ui/input";
+import { ScrollArea } from "../../../components/ui/scroll-area";
 
 interface Message {
   id: string;
@@ -267,6 +265,7 @@ export default function AcademyAITutor() {
                       value={inputMessage}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInputMessage(e.target.value)}
                       placeholder="Ask me anything about VOS..."
+                      aria-label="Message input"
                       onKeyPress={(e: React.KeyboardEvent) => e.key === 'Enter' && handleSendMessage()}
                       disabled={isLoading}
                     />
@@ -274,6 +273,7 @@ export default function AcademyAITutor() {
                       onClick={handleSendMessage}
                       disabled={!inputMessage.trim() || isLoading}
                       size="icon"
+                      aria-label="Send message"
                     >
                       <Send className="h-4 w-4" />
                     </Button>
