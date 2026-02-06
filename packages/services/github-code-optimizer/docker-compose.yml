@@ -8,11 +8,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - DATABASE_TYPE=${DATABASE_TYPE:-memory}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:?GITHUB_TOKEN is required}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:?GITHUB_WEBHOOK_SECRET is required}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?OPENROUTER_API_KEY is required}
+      - DATABASE_TYPE=${DATABASE_TYPE:-}
+      - LOG_LEVEL=${LOG_LEVEL:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
