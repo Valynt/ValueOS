@@ -43,6 +43,7 @@ export interface StageResult {
   stageExecutionId?: string;
   lineage?: StageLineage;
   delta?: StageDelta;
+  compensation?: CompensationOutcome[];
 }
 
 export interface StageLineage {
@@ -56,11 +57,26 @@ export interface StageDelta {
   after: any;
 }
 
+export interface CompensationOutcome {
+  name: string;
+  success: boolean;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface CompensationHandler {
+  name: string;
+  handler: () => Promise<void>;
+  metadata?: Record<string, unknown>;
+}
+
 export class LifecycleError extends Error {
   constructor(
     public stage: LifecycleStage,
     message: string,
-    public originalError?: Error
+    public originalError?: Error,
+    public compensation?: CompensationOutcome[],
+    public stageResult?: StageResult
   ) {
     super(message);
     this.name = "LifecycleError";
@@ -79,6 +95,7 @@ import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
 import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
 import { AgentConfig } from "../types/agent";
 import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore.js"
+import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailService.js";
 
 // ... (other imports remain the same) ...
 
@@ -87,11 +104,12 @@ const DESTRUCTIVE_STAGES = new Set<LifecycleStage>(["integrity", "realization"])
 
 export class ValueLifecycleOrchestrator {
   private circuitBreaker: CircuitBreaker;
-  private compensations: Map<string, (() => Promise<void>)[]> = new Map();
+  private compensations: Map<string, CompensationHandler[]> = new Map();
   private supabase: ReturnType<typeof createClient>;
   private llmGateway: LLMGateway;
   private memorySystem: MemorySystem;
   private auditLogger: AuditLogger;
+  private auditTrailService: AuditTrailService;
 
   constructor(
     supabaseClient: ReturnType<typeof createClient>,
@@ -104,6 +122,7 @@ export class ValueLifecycleOrchestrator {
     this.llmGateway = llmGateway;
     this.memorySystem = memorySystem;
     this.auditLogger = auditLogger;
+    this.auditTrailService = getAuditTrailService();
   }
 
   async executeLifecycleStage(
@@ -111,35 +130,190 @@ export class ValueLifecycleOrchestrator {
     input: StageInput,
     context: LifecycleContext
   ): Promise<StageResult> {
-    this.ensureWorkflowActive(context);
-    // ... (logic before agent creation remains the same) ...
+    const compensationKey = this.getCompensationKey(context);
+    try {
+      this.ensureWorkflowActive(context);
+      // ... (logic before agent creation remains the same) ...
 
-    // Step 2: Execute stage-specific agent
-    const agent = this.getAgentForStage(stage, context);
-    const result = await this.circuitBreaker.execute(async () => {
-      if (!context.sessionId) {
-        throw new Error("Session ID is required to execute an agent.");
-      }
-      return await agent.execute(context.sessionId, input);
-    });
+      // Step 2: Execute stage-specific agent
+      const agent = this.getAgentForStage(stage, context);
+      const result = await this.circuitBreaker.execute(async () => {
+        if (!context.sessionId) {
+          throw new Error("Session ID is required to execute an agent.");
+        }
+        return await agent.execute(context.sessionId, input);
+      });
 
-    const previousResult = (context.metadata as any)?.previousResult as StageResult | undefined;
-    const stageExecutionId = uuidv4();
-    const enrichedResult: StageResult = {
-      ...result,
-      stageExecutionId,
-      lineage: {
+      const previousResult = (context.metadata as any)?.previousResult as StageResult | undefined;
+      const stageExecutionId = uuidv4();
+      const enrichedResult: StageResult = {
+        ...result,
+        stageExecutionId,
+        lineage: {
+          stage,
+          parentExecutionId: previousResult?.stageExecutionId,
+          replayed: this.isReplayableStage(stage) && !!previousResult,
+        },
+        delta: this.captureDelta(previousResult?.data, result.data),
+      };
+
+      const persistedResult = await this.persistStageResults(stage, enrichedResult, context);
+      this.registerStageCompensations(stage, persistedResult, enrichedResult, input, context);
+
+      return enrichedResult;
+    } catch (error) {
+      const compensationResults = await this.executeCompensations(
+        compensationKey,
+        error,
+        context
+      );
+      const failureResult: StageResult = {
+        success: false,
+        data: null,
+        error: error instanceof Error ? error.message : String(error),
+        compensation: compensationResults,
+      };
+      throw new LifecycleError(
         stage,
-        parentExecutionId: previousResult?.stageExecutionId,
-        replayed: this.isReplayableStage(stage) && !!previousResult,
-      },
-      delta: this.captureDelta(previousResult?.data, result.data),
-    };
-
-    await this.persistStageResults(stage, enrichedResult, context);
-    return enrichedResult;
+        `Lifecycle stage ${stage} failed`,
+        error instanceof Error ? error : new Error(String(error)),
+        compensationResults,
+        failureResult
+      );
+    }
 
     // ... (rest of the logic remains the same) ...
+  }
+
+  private getCompensationKey(context: LifecycleContext): string {
+    return context.sessionId || context.organizationId || context.userId || "global";
+  }
+
+  private registerCompensation(
+    context: LifecycleContext,
+    handler: CompensationHandler
+  ): void {
+    const key = this.getCompensationKey(context);
+    const handlers = this.compensations.get(key) ?? [];
+    handlers.push(handler);
+    this.compensations.set(key, handlers);
+  }
+
+  private registerStageCompensations(
+    stage: LifecycleStage,
+    persistedResult: any,
+    enrichedResult: StageResult,
+    input: StageInput,
+    context: LifecycleContext
+  ): void {
+    const persistedId = persistedResult?.id ?? enrichedResult.stageExecutionId;
+    if (persistedId) {
+      this.registerCompensation(context, {
+        name: `${stage}_delete_results`,
+        handler: async () => {
+          await this.deleteStageResults(String(persistedId));
+        },
+        metadata: {
+          stage,
+          persistedId,
+          stageExecutionId: enrichedResult.stageExecutionId,
+        },
+      });
+    }
+
+    const valueTreeId =
+      persistedResult?.value_tree_id ??
+      enrichedResult.data?.value_tree_id ??
+      input.value_tree_id;
+    if (valueTreeId) {
+      this.registerCompensation(context, {
+        name: `${stage}_revert_value_tree`,
+        handler: async () => {
+          await this.revertValueTree(String(valueTreeId));
+        },
+        metadata: {
+          stage,
+          valueTreeId,
+          stageExecutionId: enrichedResult.stageExecutionId,
+        },
+      });
+    }
+  }
+
+  private async executeCompensations(
+    compensationKey: string,
+    failureReason: unknown,
+    context: LifecycleContext
+  ): Promise<CompensationOutcome[]> {
+    const handlers = this.compensations.get(compensationKey) ?? [];
+    const reversed = [...handlers].reverse();
+    this.compensations.delete(compensationKey);
+
+    const failureMessage =
+      failureReason instanceof Error ? failureReason.message : String(failureReason);
+    const results: CompensationOutcome[] = [];
+
+    for (const handler of reversed) {
+      try {
+        await handler.handler();
+        const outcome: CompensationOutcome = {
+          name: handler.name,
+          success: true,
+          metadata: handler.metadata,
+        };
+        results.push(outcome);
+        await this.logCompensationDecision(handler, "success", failureMessage, context);
+      } catch (error) {
+        const outcome: CompensationOutcome = {
+          name: handler.name,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          metadata: handler.metadata,
+        };
+        results.push(outcome);
+        await this.logCompensationDecision(handler, "error", failureMessage, context, error);
+      }
+    }
+
+    return results;
+  }
+
+  private async logCompensationDecision(
+    handler: CompensationHandler,
+    outcome: "success" | "error",
+    failureReason: string,
+    context: LifecycleContext,
+    error?: unknown
+  ): Promise<void> {
+    const correlationId = context.sessionId || uuidv4();
+    await this.auditTrailService.logImmediate({
+      eventType: "saga_compensation",
+      actorId: context.userId || "system",
+      actorType: "service",
+      resourceId: handler.metadata?.stageExecutionId
+        ? String(handler.metadata.stageExecutionId)
+        : correlationId,
+      resourceType: "system",
+      action: "saga_compensation",
+      outcome,
+      details: {
+        compensationName: handler.name,
+        failureReason,
+        handlerMetadata: handler.metadata,
+        error: error instanceof Error ? error.message : error,
+        tenantId: context.tenantId,
+        organizationId: context.organizationId,
+        sessionId: context.sessionId,
+      },
+      ipAddress: "system",
+      userAgent: "system",
+      timestamp: Date.now(),
+      sessionId: context.sessionId || correlationId,
+      correlationId,
+      riskScore: 0,
+      complianceFlags: [],
+      tenantId: context.tenantId,
+    });
   }
 
   private getAgentForStage(stage: LifecycleStage, context: LifecycleContext): BaseAgent {
