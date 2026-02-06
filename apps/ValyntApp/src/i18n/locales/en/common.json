@@ -7,5 +7,14 @@
   "errors.generic": "Something went wrong. Please try again.",
   "errors.network": "A network issue occurred. Check your connection and retry.",
   "canvas.summary": "Business model canvas overview",
-  "canvas.refresh": "Refresh insights"
+  "canvas.refresh": "Refresh insights",
+  "auth.welcomeBack": "Welcome back",
+  "auth.noAccount": "Don't have an account?",
+  "auth.signUp": "Sign up",
+  "auth.language": "Language",
+  "auth.email": "Email",
+  "auth.password": "Password",
+  "auth.signingIn": "Signing in...",
+  "auth.signIn": "Sign in",
+  "auth.continueWith": "Or continue with"
 }

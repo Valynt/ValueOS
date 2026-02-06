@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -19,8 +19,51 @@ const isDockerMode =
 
 const usePolling = process.env.VITE_USE_POLLING === "true";
 
+const toKb = (bytes: number) => bytes / 1024;
+
+type OutputChunk = {
+  type: "chunk";
+  fileName: string;
+  code: string;
+  isEntry?: boolean;
+  isDynamicEntry?: boolean;
+};
+
+const performanceBudgetPlugin = (): Plugin => ({
+  name: "performance-budget",
+  generateBundle(_options, bundle) {
+    const maxChunkSizeKb = Number(process.env.VITE_BUDGET_MAX_CHUNK_KB || 400);
+    const maxInitialJsKb = Number(process.env.VITE_BUDGET_MAX_INITIAL_JS_KB || 700);
+
+    const chunks = Object.values(bundle).filter(
+      (asset): asset is OutputChunk => asset.type === "chunk" && typeof asset.code === "string",
+    );
+
+    const initialChunks = chunks.filter((chunk) => chunk.isEntry && !chunk.isDynamicEntry);
+
+    const oversizedChunks = chunks
+      .map((chunk) => ({ fileName: chunk.fileName, sizeKb: toKb(chunk.code.length) }))
+      .filter((chunk) => chunk.sizeKb > maxChunkSizeKb);
+
+    const totalInitialJsKb = initialChunks.reduce((sum, chunk) => sum + toKb(chunk.code.length), 0);
+
+    if (oversizedChunks.length > 0) {
+      const details = oversizedChunks
+        .map((chunk) => `- ${chunk.fileName}: ${chunk.sizeKb.toFixed(1)}KB > ${maxChunkSizeKb}KB`)
+        .join("\n");
+      this.error(`Bundle budget exceeded (max chunk size).\n${details}`);
+    }
+
+    if (totalInitialJsKb > maxInitialJsKb) {
+      this.error(
+        `Bundle budget exceeded (initial JS total): ${totalInitialJsKb.toFixed(1)}KB > ${maxInitialJsKb}KB`,
+      );
+    }
+  },
+});
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), performanceBudgetPlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
