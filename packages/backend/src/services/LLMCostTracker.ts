@@ -149,7 +149,6 @@ const COST_THRESHOLDS = {
 export interface LLMUsageRecord {
   tenant_id?: string;
   user_id: string;
-  tenant_id?: string;
   session_id?: string;
   provider: "together_ai" | "openai" | "anthropic" | "gemini" | "custom";
   model: string;
@@ -220,7 +219,6 @@ export class LLMCostTracker {
   async trackUsage(params: {
     tenantId?: string;
     userId: string;
-    tenantId?: string;
     tenant_id?: string;
     sessionId?: string;
     provider: "together_ai" | "openai" | "anthropic" | "gemini" | "custom";
@@ -234,6 +232,16 @@ export class LLMCostTracker {
   }): Promise<void> {
     if (!this.isEnabled() || !this.supabase) return;
 
+    const normalizedTenantId = params.tenantId ?? params.tenant_id;
+    if (!normalizedTenantId) {
+      logger.warn("LLM usage missing tenant id; usage may be unbillable", {
+        userId: params.userId,
+        model: params.model,
+        provider: params.provider,
+        endpoint: params.endpoint,
+      });
+    }
+
     const cost = this.calculateCost(
       params.model,
       params.promptTokens,
@@ -241,9 +249,8 @@ export class LLMCostTracker {
     );
 
     const record: LLMUsageRecord = {
-      tenant_id: params.tenantId,
       user_id: params.userId,
-      tenant_id: params.tenantId ?? params.tenant_id,
+      tenant_id: normalizedTenantId,
       session_id: params.sessionId,
       provider: params.provider,
       model: params.model,
