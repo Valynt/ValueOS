@@ -141,7 +141,7 @@
     "check:legacy-routes": "tsx scripts/check-legacy-routes-imports.ts",
     "ci:local": "bash .devcontainer/scripts/local-ci.sh",
     "ci:infra-contract": "bash scripts/ci/infra-contract.sh",
-    "ci:verify": "pnpm run lint && pnpm run typecheck:islands && pnpm run typecheck:signal:summary && pnpm run check:legacy-routes && pnpm run lint:docs-paths && pnpm run test && pnpm run build",
+    "ci:verify": "pnpm run lint && pnpm run typecheck:islands && pnpm run typecheck:signal --verify && pnpm run check:legacy-routes && pnpm run lint:docs-paths && pnpm run test && pnpm run ci:governance:self-check && pnpm run build",
     "db:validate": "tsx scripts/run-sql-file.ts supabase/tests/database/validate_all_fixes.sql",
     "db:validate-tenant-rls": "bash scripts/validate-tenant-rls.sh",
     "security:scan": "pnpm audit --audit-level=high",
@@ -227,7 +227,8 @@
     "build:inject-config": "node scripts/inject-runtime-config.js",
     "build:prod": "pnpm run build && pnpm run build:inject-config -- --env production",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
