@@ -321,7 +321,7 @@ export class AgentTelemetryService {
   private executionCompletedCounter: Counter = this.meter.createCounter(
     "agent_fabric_executions_completed_total",
     {
-      description: "Total number of completed agent executions",
+      description: "Total number of completed agent executions (success + failure)",
       unit: "{execution}",
     }
   );
