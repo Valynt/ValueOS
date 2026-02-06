@@ -2,8 +2,10 @@
 
 ARG NODE_VERSION=20.19.0
 ARG PNPM_VERSION=9.15.0
+ARG NODE_BUILD_IMAGE=node:${NODE_VERSION}-bookworm-slim
+ARG NODE_RUNTIME_IMAGE=node:${NODE_VERSION}-slim
 
-FROM node:${NODE_VERSION}-bookworm-slim AS base
+FROM ${NODE_BUILD_IMAGE} AS base
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=${PNPM_HOME}:${PATH}
@@ -35,39 +37,55 @@ COPY packages/backend/package.json packages/backend/
 COPY packages/shared/package.json packages/shared/
 COPY packages/sdui/package.json packages/sdui/
 
-# Deterministic install with cached pnpm store
+# Fetch dependency metadata for deterministic installs
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-  pnpm install --frozen-lockfile --prefer-offline --filter @valueos/backend...
+  pnpm fetch --filter @valueos/backend...
 
 # Builder stage for build verification
-FROM deps AS builder
+FROM deps AS build
 WORKDIR /app
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile --offline --filter @valueos/backend...
+
 COPY packages/backend ./packages/backend
 COPY packages/shared ./packages/shared
 COPY packages/sdui ./packages/sdui
-RUN pnpm --filter @valueos/backend build
 
-FROM base AS runtime
+RUN pnpm --filter @valueos/shared build \
+  && pnpm --filter @valueos/backend build
+
+FROM deps AS prod-deps
 WORKDIR /app
 
-# Bring in node_modules + workspace structure that pnpm expects
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY .npmrc* ./
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --prod --frozen-lockfile --offline --filter @valueos/backend... \
+  && pnpm store prune
 
-# Copy actual source (runtime/dev)
-COPY packages/backend ./packages/backend
-COPY packages/shared ./packages/shared
-COPY packages/sdui ./packages/sdui
+FROM ${NODE_RUNTIME_IMAGE} AS final
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    dumb-init \
+  && rm -rf /var/lib/apt/lists/*
+
+# Non-root user
+RUN groupadd -r nodejs -g 1001 \
+  && useradd -r nodejs -u 1001 -g nodejs
+
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/packages/backend/package.json ./packages/backend/package.json
+COPY --from=build /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=build /app/packages/backend/dist ./packages/backend/dist
+COPY --from=build /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build /app/packages/shared/src ./packages/shared/src
 
 # Sensitive configuration is provided at runtime (env vars, Docker secrets, or
 # external secret managers). Do not copy .env files into this image.
 
-# Non-root user
-RUN groupadd -r nodejs -g 1001 \
-  && useradd -r nodejs -u 1001 -g nodejs \
-  && chown -R nodejs:nodejs /app
+RUN chown -R nodejs:nodejs /app
 
 USER nodejs
 
@@ -78,5 +96,4 @@ EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
 
-# Dev default (compose can override)
-CMD ["pnpm", "--filter", "@valueos/backend", "dev"]
+CMD ["node", "packages/backend/dist/server.js"]
