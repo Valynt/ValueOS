@@ -4,11 +4,12 @@
 # Generate per-agent Dockerfiles from this template to avoid drift.
 
 ARG NODE_VERSION=20.19.0
-ARG NODE_IMAGE=node:${NODE_VERSION}-alpine
+ARG BUILD_IMAGE=node:${NODE_VERSION}-slim
+ARG RUNTIME_IMAGE=node:${NODE_VERSION}-slim
 ARG PNPM_VERSION=9.15.0
 ARG AGENT_NAME=value-eval
 
-FROM ${NODE_IMAGE} AS build
+FROM ${BUILD_IMAGE} AS deps
 ARG PNPM_VERSION
 ARG AGENT_NAME
 ENV PNPM_HOME=/pnpm
@@ -24,37 +25,33 @@ COPY packages/agents/package.json packages/agents/package.json
 COPY packages/agents/base/package.json packages/agents/base/package.json
 COPY packages/agents/${AGENT_NAME}/package.json packages/agents/${AGENT_NAME}/package.json
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm fetch --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME}
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME}
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --offline --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME}
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile --offline --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME}
 
+FROM deps AS build
 COPY packages/agents packages/agents
 
-RUN pnpm --filter ./packages/agents/base build \
-    && pnpm --filter ./packages/agents/${AGENT_NAME} build
+RUN pnpm --filter ./packages/agents/base build && pnpm --filter ./packages/agents/${AGENT_NAME} build
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --prod --frozen-lockfile --offline --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME} \
-    && pnpm store prune
+FROM deps AS prod-deps
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --prod --frozen-lockfile --offline --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME} && pnpm store prune
 
-FROM ${NODE_IMAGE} AS runtime
+FROM ${RUNTIME_IMAGE} AS final
 ARG AGENT_NAME
 RUN addgroup -g 1001 -S agent && adduser -S -D -H -u 1001 -G agent agent
 WORKDIR /app
 ENV NODE_ENV=production
 
 RUN test -n "${AGENT_NAME}"
-COPY --from=build --chown=agent:agent /workspace/node_modules /app/node_modules
+COPY --from=prod-deps --chown=agent:agent /workspace/node_modules /app/node_modules
 COPY --from=build --chown=agent:agent /workspace/packages/agents/base/package.json /app/packages/agents/base/package.json
 COPY --from=build --chown=agent:agent /workspace/packages/agents/base/dist /app/packages/agents/base/dist
 COPY --from=build --chown=agent:agent /workspace/packages/agents/${AGENT_NAME}/package.json /app/packages/agents/${AGENT_NAME}/package.json
 COPY --from=build --chown=agent:agent /workspace/packages/agents/${AGENT_NAME}/dist /app/packages/agents/${AGENT_NAME}/dist
 
 RUN test -f packages/agents/${AGENT_NAME}/dist/index.js
-RUN find /app -type f -name '*.map' -delete \
-    && rm -rf /tmp/*
+RUN find /app -type f -name '*.map' -delete && rm -rf /tmp/*
 
 USER agent
 EXPOSE 8080
