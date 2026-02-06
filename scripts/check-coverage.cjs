@@ -3,21 +3,34 @@
 const fs = require("fs");
 const path = require("path");
 
-// Default thresholds
-const defaults = {
-  overall: 80,
-  agents: 100, // agents folder must be 100%
-  security_billing: 95,
-};
+function loadDefaultThresholds() {
+  const baselinePath = path.resolve(process.cwd(), "quality-baselines.json");
+
+  if (!fs.existsSync(baselinePath)) {
+    return {
+      overall: 80,
+      agents: 100,
+      security_billing: 95,
+    };
+  }
+
+  const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+  return {
+    overall: baseline?.coverage?.overall?.baseline ?? 80,
+    agents: baseline?.coverage?.agents?.baseline ?? 100,
+    security_billing: baseline?.coverage?.security_billing?.baseline ?? 95,
+  };
+}
+
+const defaults = loadDefaultThresholds();
 
 function parseArgs() {
   const args = process.argv.slice(2);
   const cfg = { ...defaults };
   args.forEach((a, i) => {
-    if (a === "--overall") cfg.overall = parseInt(args[i + 1], 10);
-    if (a === "--agents") cfg.agents = parseInt(args[i + 1], 10);
-    if (a === "--security_billing")
-      cfg.security_billing = parseInt(args[i + 1], 10);
+    if (a === "--overall") cfg.overall = parseFloat(args[i + 1]);
+    if (a === "--agents") cfg.agents = parseFloat(args[i + 1]);
+    if (a === "--security_billing") cfg.security_billing = parseFloat(args[i + 1]);
   });
   return cfg;
 }
@@ -40,7 +53,6 @@ function getPct(entry) {
 }
 
 function computeAggregateForPaths(summary, paths) {
-  // Aggregate by summing covered and total lines for matching paths
   const keys = Object.keys(summary).filter((k) =>
     paths.some((p) => k.includes(p)),
   );
@@ -51,7 +63,6 @@ function computeAggregateForPaths(summary, paths) {
 
   keys.forEach((k) => {
     const entry = summary[k];
-    // Some entries might have lines as { total, covered }
     if (entry && entry.lines && typeof entry.lines.total === "number") {
       covered += entry.lines.covered;
       total += entry.lines.total;

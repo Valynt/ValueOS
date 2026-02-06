@@ -4,9 +4,18 @@
   "private": true,
   "description": "Component library root",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc -p ./design-system/tsconfig.json"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./design-system": "./design-system/src/index.ts",
+    "./design-system/*": "./design-system/src/*"
   }
 }

@@ -3,10 +3,14 @@
  * Sleek authentication with VALYNT-style design
  */
 
+import { Eye, EyeOff } from "lucide-react";
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+
 import { useAuth } from "../../contexts/AuthContext";
+import { getSupportedLocales } from "../../i18n";
+import type { LocaleCode } from "../../i18n/config";
+import { useI18n } from "../../i18n/I18nProvider";
 
 export function ModernLoginPage() {
   const [email, setEmail] = useState("");
@@ -17,10 +21,12 @@ export function ModernLoginPage() {
   const [oauthLoading, setOauthLoading] = useState(false);
 
   const { login, signInWithProvider } = useAuth();
+  const { locale, setLocale, t } = useI18n();
+  const locales = getSupportedLocales();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const from = (location.state as any)?.from?.pathname || "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,17 +121,36 @@ export function ModernLoginPage() {
           </div>
 
           <div className="space-y-1.5">
-            <h1 className="text-xl font-semibold text-white tracking-tight">Welcome back</h1>
+            <h1 className="text-xl font-semibold text-white tracking-tight">{t("auth.welcomeBack", "Welcome back")}</h1>
             <p className="text-xs text-zinc-400">
-              Don't have an account?{" "}
+              {t("auth.noAccount", "Don't have an account?")}{" "}
               <Link
                 to="/signup"
                 className="font-medium text-white underline underline-offset-4 hover:text-zinc-300 transition-colors"
               >
-                Sign up
+                {t("auth.signUp", "Sign up")}
               </Link>
             </p>
           </div>
+        </div>
+
+
+        <div className="flex justify-end">
+          <label className="text-[11px] text-zinc-400 flex items-center gap-2">
+            {t("auth.language", "Language")}
+            <select
+              value={locale}
+              onChange={(event) => void setLocale(event.target.value as LocaleCode)}
+              className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-zinc-200"
+              aria-label={t("auth.language", "Language")}
+            >
+              {locales.map((supportedLocale) => (
+                <option key={supportedLocale.code} value={supportedLocale.code}>
+                  {supportedLocale.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {/* Error Message */}
@@ -144,7 +169,7 @@ export function ModernLoginPage() {
             {/* Email Input */}
             <div className="grid gap-2">
               <label htmlFor="email" className="text-xs font-medium leading-none text-zinc-300">
-                Email
+                {t("auth.email", "Email")}
               </label>
               <input
                 id="email"
@@ -164,7 +189,7 @@ export function ModernLoginPage() {
             {/* Password Input */}
             <div className="grid gap-2">
               <label htmlFor="password" className="text-xs font-medium leading-none text-zinc-300">
-                Password
+                {t("auth.password", "Password")}
               </label>
               <div className="relative">
                 <input
@@ -218,10 +243,10 @@ export function ModernLoginPage() {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  Signing in...
+                  {t("auth.signingIn", "Signing in...")}
                 </span>
               ) : (
-                "Sign in"
+                t("auth.signIn", "Sign in")
               )}
             </button>
           </form>
@@ -232,7 +257,7 @@ export function ModernLoginPage() {
               <span className="w-full border-t border-zinc-800" />
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-              <span className="bg-black px-2 text-zinc-500 font-medium">Or continue with</span>
+              <span className="bg-black px-2 text-zinc-500 font-medium">{t("auth.continueWith", "Or continue with")}</span>
             </div>
           </div>
 

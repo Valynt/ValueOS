@@ -23,19 +23,19 @@ if [[ $confirm != [yY] && $confirm != [yY][eE][sS] ]]; then
 fi
 
 # 1. Identify the rollback script
-# Note: In Supabase, migrations are one-way. This script expects a companion 
-# .rollback.sql file or it will attempt to use 'supabase db reset --to'
-ROLLBACK_FILE="supabase/migrations/${MIGRATION_ID}_rollback.sql"
+# Note: migrations are forward-only by default. This script expects a companion
+# ${MIGRATION_ID}_rollback.sql in the canonical migration directory.
+ROLLBACK_FILE="infra/postgres/migrations/${MIGRATION_ID}_rollback.sql"
 
 if [ -f "$ROLLBACK_FILE" ]; then
     echo "Found explicit rollback file: $ROLLBACK_FILE"
     echo "Applying rollback..."
-    npm exec -- supabase db execute --url "$DB_URL" --file "$ROLLBACK_FILE"
+    psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$ROLLBACK_FILE"
 else
     echo "No explicit rollback file found."
     echo "Attempting to reset database to the state before $MIGRATION_ID..."
     # This requires reaching out to the user for confirmation as it might wipe data
-    echo "Manual intervention required: Use 'supabase db reset' or provide a rollback SQL."
+    echo "Manual intervention required: provide a rollback SQL in infra/postgres/migrations/."
     exit 1
 fi
 

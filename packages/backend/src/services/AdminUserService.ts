@@ -7,6 +7,7 @@
 import { createServerSupabaseClient } from "../lib/supabase.js"
 import { logger } from "../lib/logger.js"
 import { AuditLogService } from "./AuditLogService.js"
+import { authDirectoryService } from "./AuthDirectoryService.js"
 import { ValidationError } from "./errors.js"
 
 export type TenantRole = "owner" | "admin" | "member" | "viewer";
@@ -134,43 +135,36 @@ export class AdminUserService {
 
     const userIds = rows.map((r) => r.user_id);
 
-    // Optimize: Bulk fetch users from auth schema using service role to avoid N+1
-    const { data: usersData, error: usersError } = await this.getSupabase()
-      .schema("auth")
-      .from("users")
-      .select("id, email, raw_user_meta_data, last_sign_in_at, created_at")
-      .in("id", userIds);
+    // Guard rail: use AuthDirectoryService (auth admin APIs), never auth schema table queries.
+    const authProfiles = await authDirectoryService.getProfilesByIds(userIds);
 
-    if (usersError) {
-      logger.warn("Failed to bulk fetch users", usersError);
+    const { data: roleRows, error: roleError } = await this.getSupabase()
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("tenant_id", tenantId)
+      .in("user_id", userIds);
+
+    if (roleError) {
+      logger.warn("Failed to load user role enrichment", roleError, { tenantId });
     }
 
-    const userMap = new Map<string, any>();
-    if (usersData) {
-      usersData.forEach((u: any) => {
-        userMap.set(u.id, {
-          ...u,
-          // Map DB column raw_user_meta_data to user_metadata expected by logic
-          user_metadata: u.raw_user_meta_data,
-        });
-      });
+    const roleMap = new Map<string, string>();
+    for (const roleRow of roleRows ?? []) {
+      roleMap.set(roleRow.user_id, roleRow.role);
     }
 
     const userRecords = rows.map((row) => {
-      const user = userMap.get(row.user_id);
-      const fullName =
-        (user?.user_metadata?.full_name as string | undefined) ||
-        (user?.user_metadata?.name as string | undefined) ||
-        (user?.email ? user.email.split("@")[0] : "User");
+      const user = authProfiles.get(row.user_id);
+      const resolvedRole = roleMap.get(row.user_id) || row.role || "member";
 
       return {
         id: row.user_id,
         email: user?.email || "",
-        fullName,
-        role: this.formatRoleLabel(row.role || "member"),
+        fullName: user?.fullName || "User",
+        role: this.formatRoleLabel(resolvedRole),
         status: (row.status || "active") as TenantUserRecord["status"],
-        lastLoginAt: user?.last_sign_in_at || undefined,
-        createdAt: row.created_at || user?.created_at || new Date().toISOString(),
+        lastLoginAt: user?.lastLoginAt || undefined,
+        createdAt: row.created_at || user?.createdAt || new Date().toISOString(),
         groups: [],
       };
     });

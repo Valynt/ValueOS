@@ -23,7 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { sanitizeHtml } from "../../utils/sanitizeHtml";
+import { SafeHtml } from "../../components/security/SafeHtml";
 
 interface DocPage {
   id: string;
@@ -550,11 +550,7 @@ export const DocumentationCMS: React.FC = () => {
                     {selectedPage.description && (
                       <p className="lead">{selectedPage.description}</p>
                     )}
-                    <div
-                      dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(selectedPage.content),
-                      }}
-                    />
+                    <SafeHtml html={selectedPage.content} />
                   </article>
                 </div>
               )}

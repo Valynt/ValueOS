@@ -28,7 +28,7 @@ jobs:
       - name: Start observability stack
         run: |
           echo "🚀 Starting LGTM observability stack..."
-          docker-compose -f docker-compose.observability.yml up -d
+          docker-compose -f infra/docker-compose.observability.yml up -d
           echo "⏳ Waiting for services to be healthy..."
           sleep 30
 
@@ -51,7 +51,7 @@ jobs:
           echo "✅ Grafana is ready"
 
       - name: Display service status
-        run: docker-compose -f docker-compose.observability.yml ps
+        run: docker-compose -f infra/docker-compose.observability.yml ps
 
       - name: Run unit tests
         run: npm run test:observability:unit
@@ -68,17 +68,25 @@ jobs:
         env:
           NODE_ENV: test
 
+      - name: Enforce SLO quality gate (Prometheus)
+        run: bash scripts/ci/observability-slo-gate.sh
+        env:
+          PROMETHEUS_BASE_URL: http://localhost:9090
+          SLO_MAX_P95_LATENCY_MS: "200"
+          SLO_MAX_ERROR_RATE: "0.001"
+          SLO_MAX_MTTR_MINUTES: "15"
+
       - name: Display service logs on failure
         if: failure()
         run: |
           echo "=== Loki Logs ==="
-          docker-compose -f docker-compose.observability.yml logs --tail=100 loki
+          docker-compose -f infra/docker-compose.observability.yml logs --tail=100 loki
           echo "=== Tempo Logs ==="
-          docker-compose -f docker-compose.observability.yml logs --tail=100 tempo
+          docker-compose -f infra/docker-compose.observability.yml logs --tail=100 tempo
           echo "=== Prometheus Logs ==="
-          docker-compose -f docker-compose.observability.yml logs --tail=100 prometheus
+          docker-compose -f infra/docker-compose.observability.yml logs --tail=100 prometheus
           echo "=== Grafana Logs ==="
-          docker-compose -f docker-compose.observability.yml logs --tail=100 grafana
+          docker-compose -f infra/docker-compose.observability.yml logs --tail=100 grafana
 
       - name: Upload test results
         if: always()
@@ -91,7 +99,7 @@ jobs:
 
       - name: Stop observability stack
         if: always()
-        run: docker-compose -f docker-compose.observability.yml down -v
+        run: docker-compose -f infra/docker-compose.observability.yml down -v
 
       - name: Cleanup Docker resources
         if: always()

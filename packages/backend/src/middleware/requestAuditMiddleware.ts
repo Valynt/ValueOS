@@ -81,6 +81,7 @@ export function requestAuditMiddleware(options?: { ignoredPaths?: string[] }) {
               org: sanitizeForLogging(
                 (req.headers["x-organization-id"] as string) || (req as any).organizationId
               ),
+              tenantId: sanitizeForLogging((req as any).tenantId),
               routeParams: sanitizeForLogging(req.params),
               query: sanitizeForLogging(req.query),
             },

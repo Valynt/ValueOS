@@ -147,7 +147,7 @@
 [What else did we evaluate?]
 ```
 
-**Location:** `/docs/adr/`
+**Location:** `/docs/engineering/adr/`
 
 ---
 

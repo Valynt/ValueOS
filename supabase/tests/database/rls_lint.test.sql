@@ -1,27 +1,76 @@
--- RLS Linting Rules Test
--- Ensures all tables have proper RLS policies and tenant isolation
+-- RLS Lint Harness (CI blocking)
+-- Source of truth for schema + RLS policies: infra/postgres/migrations
+-- Legacy bootstrap migrations under infra/migrations are not used for CI validation.
 
--- Test 1: All tables must have RLS enabled
-SELECT schemaname, tablename
-FROM pg_tables
-WHERE schemaname = 'public'
-AND tablename NOT IN ('schema_migrations', 'spatial_ref_sys')
-AND NOT rowsecurity
-ORDER BY tablename;
+DO $$
+DECLARE
+  missing_rls_tables text;
+BEGIN
+  SELECT string_agg(format('%I.%I', n.nspname, c.relname), ', ' ORDER BY n.nspname, c.relname)
+  INTO missing_rls_tables
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE c.relkind IN ('r', 'p')
+    AND n.nspname IN ('public')
+    AND c.relname NOT IN ('schema_migrations', 'spatial_ref_sys')
+    AND NOT c.relrowsecurity;
 
--- Test 2: All tables must have organization_id or tenant_id column for multi-tenancy
-SELECT table_name
-FROM information_schema.columns
-WHERE table_schema = 'public'
-AND table_name NOT IN ('schema_migrations', 'spatial_ref_sys')
-AND table_name NOT LIKE '%_pkey'
-GROUP BY table_name
-HAVING NOT (bool_or(column_name = 'organization_id') OR bool_or(column_name = 'tenant_id'))
-ORDER BY table_name;
+  IF missing_rls_tables IS NOT NULL THEN
+    RAISE EXCEPTION 'RLS must be enabled on all target tables. Missing: %', missing_rls_tables;
+  END IF;
+END $$;
 
--- Test 3: All policies must include tenant filter
-SELECT schemaname, tablename, policyname, cmd, roles, qual
-FROM pg_policies
-WHERE schemaname = 'public'
-AND (qual NOT LIKE '%organization_id%' AND qual NOT LIKE '%tenant_id%')
-ORDER BY tablename, policyname;
+DO $$
+DECLARE
+  missing_tenant_column_tables text;
+BEGIN
+  SELECT string_agg(format('%I.%I', c.table_schema, c.table_name), ', ' ORDER BY c.table_schema, c.table_name)
+  INTO missing_tenant_column_tables
+  FROM (
+    SELECT
+      table_schema,
+      table_name,
+      bool_or(column_name IN ('tenant_id', 'organization_id')) AS has_tenant_column
+    FROM information_schema.columns
+    WHERE table_schema IN ('public')
+      AND table_name NOT IN ('schema_migrations', 'spatial_ref_sys')
+    GROUP BY table_schema, table_name
+  ) c
+  WHERE NOT c.has_tenant_column;
+
+  IF missing_tenant_column_tables IS NOT NULL THEN
+    RAISE EXCEPTION 'Tenant-scoped tables must include tenant_id/organization_id. Missing: %', missing_tenant_column_tables;
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  missing_tenant_policy_tables text;
+BEGIN
+  SELECT string_agg(format('%I.%I', t.schemaname, t.tablename), ', ' ORDER BY t.schemaname, t.tablename)
+  INTO missing_tenant_policy_tables
+  FROM (
+    SELECT
+      n.nspname AS schemaname,
+      c.relname AS tablename
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.relkind IN ('r', 'p')
+      AND n.nspname IN ('public')
+      AND c.relname NOT IN ('schema_migrations', 'spatial_ref_sys')
+  ) t
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM pg_policies p
+    WHERE p.schemaname = t.schemaname
+      AND p.tablename = t.tablename
+      AND (
+        coalesce(p.qual, '') ~* '(tenant_id|organization_id)'
+        OR coalesce(p.with_check, '') ~* '(tenant_id|organization_id)'
+      )
+  );
+
+  IF missing_tenant_policy_tables IS NOT NULL THEN
+    RAISE EXCEPTION 'Tenant-scoped policies are required on all target tables. Missing: %', missing_tenant_policy_tables;
+  END IF;
+END $$;
