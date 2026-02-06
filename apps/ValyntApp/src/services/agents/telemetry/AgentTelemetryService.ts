@@ -318,6 +318,13 @@ export class AgentTelemetryService {
       unit: "{execution}",
     }
   );
+  private executionCompletedCounter: Counter = this.meter.createCounter(
+    "agent_fabric_executions_completed_total",
+    {
+      description: "Total number of completed agent executions",
+      unit: "{execution}",
+    }
+  );
   private executionDurationHistogram: Histogram = this.meter.createHistogram(
     "agent_fabric_execution_duration_seconds",
     {
@@ -470,6 +477,7 @@ export class AgentTelemetryService {
       agent_type: trace.agentType,
       status: response.success ? "success" : "failure",
     });
+    this.executionCompletedCounter.add(1, { agent_type: trace.agentType });
     if (response.success) {
       this.executionSuccessCounter.add(1, { agent_type: trace.agentType });
     } else {
@@ -561,6 +569,7 @@ export class AgentTelemetryService {
       agent_type: trace.agentType,
       status: "error",
     });
+    this.executionCompletedCounter.add(1, { agent_type: trace.agentType });
     this.executionFailureCounter.add(1, { agent_type: trace.agentType });
 
     this.activeTraces.delete(traceId);

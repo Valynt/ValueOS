@@ -14,11 +14,24 @@ import { adminUserService } from "../services/AdminUserService";
 import { invitationsService } from "../services/InvitationsService";
 import { createLogger } from "../lib/logger";
 import { sanitizeForLogging } from "../lib/piiFilter";
+import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");
 
 router.use(requireAuth, tenantContextMiddleware());
+router.use(
+  requestSanitizationMiddleware({
+    params: {
+      userId: { maxLength: 128 },
+      invitationId: { maxLength: 128 },
+    },
+    body: {
+      email: { maxLength: 320 },
+      role: { maxLength: 64 },
+    },
+  })
+);
 
 router.get("/users", requirePermission("users.read"), async (req: Request, res: Response) => {
   try {

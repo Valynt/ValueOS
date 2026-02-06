@@ -18,13 +18,47 @@ export interface LLMGatewayConfig {
   enable_telemetry?: boolean;
 }
 
+type TenantMetadata =
+  | {
+      tenantId: string;
+      tenant_id?: never;
+      organizationId?: never;
+      organization_id?: never;
+    }
+  | {
+      tenantId?: never;
+      tenant_id: string;
+      organizationId?: never;
+      organization_id?: never;
+    }
+  | {
+      tenantId?: never;
+      tenant_id?: never;
+      organizationId: string;
+      organization_id?: never;
+    }
+  | {
+      tenantId?: never;
+      tenant_id?: never;
+      organizationId?: never;
+      organization_id: string;
+    };
+
+export type LLMRequestMetadata = TenantMetadata & {
+  userId?: string;
+  user_id?: string;
+  sessionId?: string;
+  session_id?: string;
+  [key: string]: unknown;
+};
+
 export interface LLMRequest {
   messages: LLMMessage[];
   model?: string;
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
-  metadata?: Record<string, any>;
+  metadata: LLMRequestMetadata;
 }
 
 export interface LLMMessage {
@@ -79,7 +113,7 @@ export class LLMGateway {
   async complete(request: LLMRequest): Promise<LLMResponse> {
     const startTime = Date.now();
     const model = request.model || this.config.model;
-    const metadata = request.metadata || {};
+    const metadata = request.metadata ?? {};
     const userId = metadata.userId ?? metadata.user_id ?? 'system';
     const tenantId =
       metadata.tenantId ??
@@ -87,6 +121,17 @@ export class LLMGateway {
       metadata.organizationId ??
       metadata.organization_id;
     const sessionId = metadata.sessionId ?? metadata.session_id;
+
+    if (!tenantId) {
+      const error = new Error(
+        'LLMGateway.complete requires tenant metadata (tenantId, tenant_id, organizationId, or organization_id).'
+      );
+      logger.error('LLM request missing tenant context', {
+        endpoint: 'llm-gateway.complete',
+        metadata_keys: Object.keys(metadata),
+      });
+      throw error;
+    }
 
     try {
       logger.info('LLM request initiated', {
@@ -107,6 +152,7 @@ export class LLMGateway {
         model,
         promptTokens: response.usage?.prompt_tokens || 0,
         completionTokens: response.usage?.completion_tokens || 0,
+        caller: 'LLMGateway.complete',
         endpoint: 'llm-gateway.complete',
         success: true,
         latencyMs,
@@ -129,6 +175,7 @@ export class LLMGateway {
         model,
         promptTokens: 0,
         completionTokens: 0,
+        caller: 'LLMGateway.complete',
         endpoint: 'llm-gateway.complete',
         success: false,
         errorMessage: error instanceof Error ? error.message : String(error),

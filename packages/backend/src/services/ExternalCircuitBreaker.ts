@@ -1,16 +1,7 @@
-import { CircuitBreakerManager } from "./CircuitBreaker.js";
-import { logger } from "../utils/logger.js";
+import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker.js';
+import { logger } from '../utils/logger.js';
 
-export type BreakerState = "closed" | "open" | "half_open";
-
-export interface ExternalCircuitBreakerConfig {
-  windowMs: number;
-  failureRateThreshold: number;
-  latencyThresholdMs: number;
-  minimumSamples: number;
-  timeoutMs: number;
-  halfOpenMaxProbes: number;
-}
+export type BreakerState = 'closed' | 'open' | 'half_open';
 
 export interface IntegrationCircuitMetrics {
   key: string;
@@ -26,23 +17,9 @@ export interface IntegrationCircuitMetrics {
 }
 
 interface ExecuteOptions<T> {
-  config?: Partial<ExternalCircuitBreakerConfig>;
+  config?: Partial<CircuitBreakerConfig>;
   fallback?: (error: Error, state: BreakerState) => Promise<T> | T;
 }
-
-type CircuitBreakerMetric = {
-  timestamp: number;
-  success: boolean;
-  durationMs: number;
-};
-
-type CircuitBreakerState = {
-  state: BreakerState;
-  metrics: CircuitBreakerMetric[];
-  failure_count?: number;
-  last_failure_time?: string | null;
-  opened_at?: string | null;
-};
 
 export class ExternalCircuitBreaker {
   private readonly manager: CircuitBreakerManager;
@@ -58,14 +35,14 @@ export class ExternalCircuitBreaker {
     task: () => Promise<T>,
     options: ExecuteOptions<T> = {}
   ): Promise<T> {
-    const previousState = this.manager.getState(key)?.state ?? "closed";
+    const previousState = this.manager.getState(key)?.state ?? 'closed';
 
     try {
       const result = await this.manager.execute(key, task, options.config);
       this.logStateTransitionIfNeeded(
         key,
         previousState,
-        this.manager.getState(key)?.state ?? "closed"
+        this.manager.getState(key)?.state ?? 'closed'
       );
       return result;
     } catch (error) {
@@ -73,9 +50,12 @@ export class ExternalCircuitBreaker {
       this.logStateTransitionIfNeeded(key, previousState, currentState);
 
       const normalizedError =
-        error instanceof Error ? error : new Error("Unknown circuit breaker error");
+        error instanceof Error
+          ? error
+          : new Error('Unknown circuit breaker error');
+
       if (options.fallback) {
-        logger.warn("Executing integration fallback", {
+        logger.warn('Executing integration fallback', {
           integration: this.integration,
           breakerKey: key,
           state: currentState,
@@ -89,7 +69,7 @@ export class ExternalCircuitBreaker {
   }
 
   getMetrics(key: string): IntegrationCircuitMetrics {
-    const state = this.manager.getState(key) as CircuitBreakerState | undefined;
+    const state = this.manager.getState(key);
     const metrics = state?.metrics ?? [];
     const totalRequests = metrics.length;
     const failedRequests = metrics.filter((metric) => !metric.success).length;
@@ -98,7 +78,7 @@ export class ExternalCircuitBreaker {
     return {
       key,
       integration: this.integration,
-      state: state?.state ?? "closed",
+      state: state?.state ?? 'closed',
       totalRequests,
       successfulRequests,
       failedRequests,
@@ -117,7 +97,7 @@ export class ExternalCircuitBreaker {
   }
 
   getState(key: string): BreakerState {
-    return this.manager.getState(key)?.state ?? "closed";
+    return this.manager.getState(key)?.state ?? 'closed';
   }
 
   reset(key: string): void {
@@ -141,16 +121,16 @@ export class ExternalCircuitBreaker {
       metrics: this.getMetrics(key),
     };
 
-    if (nextState === "open") {
-      logger.warn("Circuit breaker transitioned to OPEN", payload);
+    if (nextState === 'open') {
+      logger.warn('Circuit breaker transitioned to OPEN', payload);
       return;
     }
 
-    if (nextState === "half_open") {
-      logger.info("Circuit breaker transitioned to HALF_OPEN", payload);
+    if (nextState === 'half_open') {
+      logger.info('Circuit breaker transitioned to HALF_OPEN', payload);
       return;
     }
 
-    logger.info("Circuit breaker transitioned to CLOSED", payload);
+    logger.info('Circuit breaker transitioned to CLOSED', payload);
   }
 }
