@@ -141,7 +141,7 @@
     "check:legacy-routes": "tsx scripts/check-legacy-routes-imports.ts",
     "ci:local": "bash .devcontainer/scripts/local-ci.sh",
     "ci:infra-contract": "bash scripts/ci/infra-contract.sh",
-    "ci:verify": "pnpm run lint && pnpm run guard:strict-zones && pnpm run typecheck:islands && pnpm run typecheck:signal --verify && pnpm run check:legacy-routes && pnpm run lint:docs-paths && pnpm run test && pnpm run ci:governance:self-check && pnpm run build",
+    "ci:verify": "pnpm run ci:quality && pnpm run guard:strict-zones && pnpm run typecheck:islands && pnpm run typecheck:signal --verify && pnpm run check:legacy-routes && pnpm run lint:docs-paths && pnpm run ci:governance:self-check",
     "db:validate": "tsx scripts/run-sql-file.ts supabase/tests/database/validate_all_fixes.sql",
     "db:validate-tenant-rls": "bash scripts/validate-tenant-rls.sh",
     "security:scan": "pnpm audit --audit-level=high",
@@ -230,7 +230,8 @@
     "build-storybook": "storybook build",
     "typecheck:verify": "pnpm run typecheck:signal --verify",
     "guard:strict-zones": "tsx scripts/dx/guard-strict-zone-config.ts",
-    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs"
+    "ci:governance:self-check": "node scripts/ci/check-governance-gate.mjs",
+    "ci:quality": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
