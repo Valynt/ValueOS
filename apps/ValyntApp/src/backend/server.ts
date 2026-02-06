@@ -37,6 +37,7 @@ import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMidd
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
+import { sessionTimeoutMiddleware } from "../middleware/sessionTimeoutMiddleware";
 import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
@@ -243,6 +244,7 @@ app.use(tracingMiddleware()); // Add tracing middleware early
 app.use(metricsMiddleware());
 app.use(requestAuditMiddleware());
 app.use(latencyMetricsMiddleware());
+app.use("/api", sessionTimeoutMiddleware);
 
 // Health check
 app.use(healthRouter);
