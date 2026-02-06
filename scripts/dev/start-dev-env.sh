@@ -211,9 +211,9 @@ wait_for_db() {
             fi
         else
             # Use network connectivity check when inside devcontainer
-            if pg_isready -h postgres -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
+            if pg_isready -h "${DB_HOST:-db}" -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
                 return 0
-            elif nc -z postgres 5432 &> /dev/null 2>&1; then
+            elif nc -z "${DB_HOST:-db}" 5432 &> /dev/null 2>&1; then
                 # Fallback to netcat if pg_isready not available
                 return 0
             elif curl -s --max-time 2 "http://backend:8000/health" &> /dev/null 2>&1; then
@@ -247,7 +247,7 @@ if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
 else
     # Use psql directly if available, otherwise skip
     if command -v psql &> /dev/null; then
-        PGPASSWORD=postgres psql -h postgres -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+        PGPASSWORD=postgres psql -h "${DB_HOST:-db}" -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
     else
         log INFO "psql not available, shadow DB creation skipped (will be created on first migration)"
     fi
@@ -265,8 +265,13 @@ else
     cd "$PROJECT_ROOT"
 
     log INFO "Applying migrations..."
-    export PGHOST="${DB_HOST:-postgres}"
-    export DB_HOST="${DB_HOST:-postgres}"
+    if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
+        export PGHOST="${DB_HOST:-db}"
+        export DB_HOST="${DB_HOST:-db}"
+    else
+        export PGHOST="${DB_HOST:-postgres}"
+        export DB_HOST="${DB_HOST:-postgres}"
+    fi
     export DB_PASSWORD="${DB_PASSWORD:-postgres}"
     export DB_NAME="${DB_NAME:-postgres}"
 
