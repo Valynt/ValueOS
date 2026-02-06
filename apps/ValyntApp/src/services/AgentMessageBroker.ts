@@ -257,6 +257,21 @@ export class AgentMessageBroker {
     };
   }
 
+  async awaitDrain(pollMs: number = 25): Promise<void> {
+    while (this.pendingMessages.size > 0 || this.messageQueue.length > 0 || this.batchProcessing) {
+      await new Promise((resolve) => setTimeout(resolve, pollMs));
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    if (this.batchTimer) {
+      clearInterval(this.batchTimer);
+      this.batchTimer = null;
+    }
+
+    await this.awaitDrain();
+  }
+
   // ============================================================================
   // Private Methods
   // ============================================================================
