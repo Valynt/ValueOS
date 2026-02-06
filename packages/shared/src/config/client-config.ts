@@ -44,6 +44,19 @@ function parseNumber(value?: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function normalizeApiBaseUrl(value?: string): string {
+  if (!value) return "/api";
+  const trimmed = value.trim();
+  if (!trimmed) return "/api";
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/$/, "");
+  }
+
+  const normalizedPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return normalizedPath.replace(/\/$/, "") || "/api";
+}
+
 class ClientConfigLoader {
   private static instance: ClientConfigLoader;
   private config: ClientConfig | null = null;
@@ -81,7 +94,7 @@ class ClientConfigLoader {
         anonKey: getClientEnvVar("VITE_SUPABASE_ANON_KEY") ?? "",
       },
       api: {
-        baseUrl: getClientEnvVar("VITE_API_URL") || getClientEnvVar("VITE_API_BASE_URL") || "/api",
+        baseUrl: normalizeApiBaseUrl(getClientEnvVar("VITE_API_BASE_URL") || "/api"),
         timeout: parseNumber(getClientEnvVar("VITE_API_TIMEOUT")) ?? 30000,
         retryAttempts: parseNumber(getClientEnvVar("VITE_API_RETRY_ATTEMPTS")) ?? 3,
       },
