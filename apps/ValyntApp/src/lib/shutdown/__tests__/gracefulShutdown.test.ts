@@ -53,6 +53,27 @@ describe("graceful shutdown", () => {
     expect(exitSpy).toHaveBeenCalledWith(0);
   });
 
+
+  it("allows long-running in-flight drain to complete when within configured timeout", async () => {
+    vi.useFakeTimers();
+    const exitSpy = vi.fn();
+    const completed = vi.fn();
+
+    configureGracefulShutdown({ timeoutMs: 2_000, exit: exitSpy });
+    registerShutdownHandler("drainInflightExecutions", async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      completed();
+    });
+
+    const shutdownPromise = initiateGracefulShutdown("SIGTERM");
+    await vi.advanceTimersByTimeAsync(1_600);
+    await shutdownPromise;
+
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(exitSpy).toHaveBeenCalledWith(0);
+    vi.useRealTimers();
+  });
+
   it("forces termination when draining exceeds timeout", async () => {
     vi.useFakeTimers();
     const exitSpy = vi.fn();

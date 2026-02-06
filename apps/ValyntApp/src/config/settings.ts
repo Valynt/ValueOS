@@ -4,6 +4,11 @@
 import { z } from "zod";
 import { getEnvVar, env as runtimeEnv } from "../lib/env";
 
+const DEFAULT_API_PORT = 3000;
+// Keep shutdown timeout long enough for the slowest in-flight agent execution,
+// including retry/backoff windows, to drain before forced termination.
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 120_000;
+
 // Define the schema for all environment variables
 const SettingsSchema = z.object({
   // Vite/Frontend variables (must be prefixed with VITE_)
@@ -23,6 +28,7 @@ const SettingsSchema = z.object({
   ALERT_WEBHOOK_URL: z.string().url().optional(),
   ALERT_EMAIL_RECIPIENT: z.string().email().optional(),
   DATABASE_URL: z.string().url().optional(),
+  SHUTDOWN_TIMEOUT_MS: z.string().optional().default(String(DEFAULT_SHUTDOWN_TIMEOUT_MS)),
 
   // Shared variables
   // Add any env vars that might be used in both frontend and backend here.
@@ -76,6 +82,7 @@ const resolvedEnv = {
   ALERT_WEBHOOK_URL: readEnv("ALERT_WEBHOOK_URL"),
   ALERT_EMAIL_RECIPIENT: readEnv("ALERT_EMAIL_RECIPIENT"),
   DATABASE_URL: readEnv("DATABASE_URL"),
+  SHUTDOWN_TIMEOUT_MS: readEnv("SHUTDOWN_TIMEOUT_MS", String(DEFAULT_SHUTDOWN_TIMEOUT_MS)),
 };
 
 let parsedSettings;
@@ -98,8 +105,6 @@ const defaultCorsOrigins = [
   "http://localhost:3000",
 ];
 
-const DEFAULT_API_PORT = 3000;
-
 const parseCorsOrigins = (value?: string) =>
   (value ? value.split(",") : defaultCorsOrigins)
     .map((origin) => origin.trim())
@@ -108,6 +113,8 @@ const parseCorsOrigins = (value?: string) =>
 export const settings = {
   ...parsedSettings,
   API_PORT: Number(parsedSettings.API_PORT) || DEFAULT_API_PORT,
+  SHUTDOWN_TIMEOUT_MS:
+    Number(parsedSettings.SHUTDOWN_TIMEOUT_MS) || DEFAULT_SHUTDOWN_TIMEOUT_MS,
   security: {
     corsOrigins: parseCorsOrigins(parsedSettings.CORS_ALLOWED_ORIGINS),
   },
