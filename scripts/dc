@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+APP_ENV_FILE="${ROOT}/.env.local"
 ENV_FILE="${ROOT}/scripts/.env.ports"
 ENV_EXAMPLE_FILE="${ROOT}/scripts/.env.ports.example"
 LEGACY_ENV_FILE="${ROOT}/.env.ports"
@@ -23,6 +24,11 @@ compose_args=(
   -f "${COMPOSE_FILE}"
 )
 
+if [[ -f "${APP_ENV_FILE}" ]]; then
+  # Optional app-level env vars (non-port settings).
+  compose_args+=(--env-file "${APP_ENV_FILE}")
+fi
+
 if [[ -f "${ENV_FILE}" ]]; then
   # Preferred deterministic port bindings for this repo.
   compose_args+=(--env-file "${ENV_FILE}")
@@ -33,4 +39,3 @@ elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
-
