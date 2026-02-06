@@ -41,7 +41,8 @@ export type AuditEventType =
   | "security_event"
   | "compliance_violation"
   | "permission_change"
-  | "role_change";
+  | "role_change"
+  | "saga_compensation";
 
 export type ActorType = "user" | "agent" | "system" | "service";
 export type ResourceType =

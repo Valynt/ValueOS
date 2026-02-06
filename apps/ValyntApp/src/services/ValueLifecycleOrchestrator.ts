@@ -54,6 +54,7 @@ export interface StageResult {
   stageExecutionId?: string;
   lineage?: StageLineage;
   delta?: StageDelta;
+  compensation?: CompensationOutcome[];
 }
 
 export interface StageLineage {
@@ -67,11 +68,26 @@ export interface StageDelta {
   after: any;
 }
 
+export interface CompensationOutcome {
+  name: string;
+  success: boolean;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+interface CompensationHandler {
+  name: string;
+  handler: () => Promise<void>;
+  metadata?: Record<string, unknown>;
+}
+
 export class LifecycleError extends Error {
   constructor(
     public stage: LifecycleStage,
     message: string,
-    public originalError?: Error
+    public originalError?: Error,
+    public compensation?: CompensationOutcome[],
+    public stageResult?: StageResult
   ) {
     super(message);
     this.name = "LifecycleError";
@@ -95,7 +111,7 @@ const DESTRUCTIVE_STAGES = new Set<LifecycleStage>(["integrity", "realization"])
 
 export class ValueLifecycleOrchestrator {
   private circuitBreaker: CircuitBreaker;
-  private compensations: Map<string, (() => Promise<void>)[]> = new Map();
+  private compensations: Map<string, CompensationHandler[]> = new Map();
   private supabase: ReturnType<typeof createClient>;
   private llmGateway: LLMGateway;
   private memorySystem: MemorySystem;
@@ -119,6 +135,7 @@ export class ValueLifecycleOrchestrator {
     input: StageInput,
     context: LifecycleContext
   ): Promise<StageResult> {
+    const compensationKey = this.getCompensationKey(context);
     const traceId = agentTelemetryService.startExecutionTrace({
       sessionId: context.sessionId || uuidv4(),
       agentType: stage as any,
@@ -156,7 +173,8 @@ export class ValueLifecycleOrchestrator {
         delta: this.captureDelta(previousResult?.data, result.data),
       };
 
-      await this.persistStageResults(stage, enrichedResult, context);
+      const persistedResult = await this.persistStageResults(stage, enrichedResult, context);
+      this.registerStageCompensations(stage, persistedResult, enrichedResult, input, context);
 
       // Add execution step and complete trace with success
       agentTelemetryService.addExecutionStep(traceId, {
@@ -197,12 +215,139 @@ export class ValueLifecycleOrchestrator {
         }
       );
 
+      const compensationResults = await this.executeCompensations(
+        compensationKey,
+        error,
+        context
+      );
+      const failureResult: StageResult = {
+        success: false,
+        data: null,
+        error: error instanceof Error ? error.message : String(error),
+        compensation: compensationResults,
+      };
+
       // Log and rethrow
-      logger.error("Lifecycle stage execution failed", { stage, error, traceId });
-      throw error;
+      logger.error("Lifecycle stage execution failed", {
+        stage,
+        error,
+        traceId,
+        compensationResults,
+      });
+      throw new LifecycleError(
+        stage,
+        `Lifecycle stage ${stage} failed`,
+        error instanceof Error ? error : new Error(String(error)),
+        compensationResults,
+        failureResult
+      );
     }
 
     // ... (rest of the logic remains the same) ...
+  }
+
+  private getCompensationKey(context: LifecycleContext): string {
+    return context.sessionId || context.organizationId || context.userId || "global";
+  }
+
+  private registerCompensation(
+    context: LifecycleContext,
+    handler: CompensationHandler
+  ): void {
+    const key = this.getCompensationKey(context);
+    const handlers = this.compensations.get(key) ?? [];
+    handlers.push(handler);
+    this.compensations.set(key, handlers);
+  }
+
+  private registerStageCompensations(
+    stage: LifecycleStage,
+    persistedResult: any,
+    enrichedResult: StageResult,
+    input: StageInput,
+    context: LifecycleContext
+  ): void {
+    const persistedId = persistedResult?.id ?? enrichedResult.stageExecutionId;
+    if (persistedId) {
+      this.registerCompensation(context, {
+        name: `${stage}_delete_results`,
+        handler: async () => {
+          await this.deleteStageResults(String(persistedId));
+        },
+        metadata: {
+          stage,
+          persistedId,
+          stageExecutionId: enrichedResult.stageExecutionId,
+        },
+      });
+    }
+
+    const valueTreeId =
+      persistedResult?.value_tree_id ??
+      enrichedResult.data?.value_tree_id ??
+      input.value_tree_id;
+    if (valueTreeId) {
+      this.registerCompensation(context, {
+        name: `${stage}_revert_value_tree`,
+        handler: async () => {
+          await this.revertValueTree(String(valueTreeId));
+        },
+        metadata: {
+          stage,
+          valueTreeId,
+          stageExecutionId: enrichedResult.stageExecutionId,
+        },
+      });
+    }
+  }
+
+  private async executeCompensations(
+    compensationKey: string,
+    failureReason: unknown,
+    context: LifecycleContext
+  ): Promise<CompensationOutcome[]> {
+    const handlers = this.compensations.get(compensationKey) ?? [];
+    const reversed = [...handlers].reverse();
+    this.compensations.delete(compensationKey);
+
+    const failureMessage =
+      failureReason instanceof Error ? failureReason.message : String(failureReason);
+    const results: CompensationOutcome[] = [];
+
+    for (const handler of reversed) {
+      try {
+        await handler.handler();
+        const outcome: CompensationOutcome = {
+          name: handler.name,
+          success: true,
+          metadata: handler.metadata,
+        };
+        results.push(outcome);
+        logger.info("Compensation succeeded", {
+          name: handler.name,
+          failureReason: failureMessage,
+          context,
+          metadata: handler.metadata,
+        });
+      } catch (error) {
+        const outcome: CompensationOutcome = {
+          name: handler.name,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          metadata: handler.metadata,
+        };
+        results.push(outcome);
+        logger.error("Compensation failed", {
+          name: handler.name,
+          failureReason: failureMessage,
+          context,
+          metadata: handler.metadata,
+          error,
+        });
+      }
+    }
+
+    return results;
   }
 
   private getAgentForStage(stage: LifecycleStage, context: LifecycleContext): BaseAgent {
