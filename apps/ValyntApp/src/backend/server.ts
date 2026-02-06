@@ -18,6 +18,7 @@ import healthRouter, { markAsShuttingDown } from "../api/health";
 import authRouter from "../api/auth";
 import adminRouter from "../api/admin";
 import projectsRouter from "../api/projects";
+import customerRouter from "../api/customer";
 import docsApiRouter from "./docs-api";
 import {
   initializeSecretVolumeWatcher,
@@ -300,6 +301,7 @@ app.use("/api/llm", llmRouter);
 app.use("/api", workflowRouter);
 app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
 app.use("/api/docs", docsApiRouter);
+app.use("/api/customer", customerRouter);
 app.use(
   "/api/workspaces/:tenantId/projects",
   requireAuth,

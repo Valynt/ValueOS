@@ -1,182 +1,207 @@
-/**
- * Agent Error Handling Tests - Circuit Breaker Integration
- *
- * Tests for circuit breaker behavior with LLM calls:
- * - Circuit breaker opens after consecutive failures
- * - Circuit breaker resets after cooldown period
- * - Circuit breaker metrics tracking
- */
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+vi.mock("../../apps/ValyntApp/src/utils/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    llm: vi.fn(),
+    cache: vi.fn(),
+  },
+}));
+
+vi.mock("../../apps/ValyntApp/src/lib/logger", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    llm: vi.fn(),
+    cache: vi.fn(),
+  },
+}));
+
+vi.mock("../../apps/ValyntApp/src/lib/env", () => ({
+  getEnvVar: vi.fn(() => "test-key"),
+  env: { isBrowser: true },
+}));
+
+vi.mock("../../apps/ValyntApp/src/services/LLMCache", () => ({
+  llmCache: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+vi.mock("../../apps/ValyntApp/src/services/LLMCostTracker", () => ({
+  llmCostTracker: {
+    calculateCost: vi.fn(() => 0.01),
+    trackUsage: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+vi.mock("../../apps/ValyntApp/src/services/CostGovernanceService", () => ({
+  costGovernance: {
+    estimatePromptTokens: vi.fn(() => 10),
+    checkRequest: vi.fn(),
+    recordUsage: vi.fn(),
+    getSummary: vi.fn(() => ({ ok: true })),
+  },
+}));
+
+import {
+  CircuitBreakerManager,
+  type CircuitBreakerConfig,
+} from "../../apps/ValyntApp/src/services/CircuitBreaker";
+import { ExternalCircuitBreaker } from "../../apps/ValyntApp/src/services/ExternalCircuitBreaker";
+import { LLMFallbackService } from "../../apps/ValyntApp/src/services/LLMFallback";
+import { mcpGroundTruthService } from "../../apps/ValyntApp/src/services/MCPGroundTruthService";
 
 describe("Agent Circuit Breaker Integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    globalThis.fetch = vi.fn();
+
+    mcpGroundTruthService["circuitBreaker"].reset("external:groundtruth:financials");
+    mcpGroundTruthService["circuitBreaker"].reset("external:groundtruth:verify");
+    mcpGroundTruthService["circuitBreaker"].reset("external:groundtruth:benchmarks");
   });
 
-  describe("Circuit Breaker Failure Threshold", () => {
-    it("should open circuit after 5 consecutive LLM failures", async () => {
-      // Mock LLM service that always fails
-      const mockLLMService = {
-        callCount: 0,
-        failures: 0,
-        async invoke() {
-          this.callCount++;
-          this.failures++;
-          throw new Error("LLM API error");
-        },
-      };
+  describe("Real state transitions", () => {
+    const config: CircuitBreakerConfig = {
+      windowMs: 60_000,
+      failureRateThreshold: 1,
+      latencyThresholdMs: 10_000,
+      minimumSamples: 3,
+      timeoutMs: 25,
+      halfOpenMaxProbes: 1,
+    };
 
-      // Simulate 10 consecutive calls
-      for (let i = 0; i < 10; i++) {
-        try {
-          await mockLLMService.invoke();
-        } catch (err) {
-          // Expected to fail
-        }
+    it("transitions CLOSED → OPEN after threshold failures", async () => {
+      const manager = new CircuitBreakerManager(config);
+      const breaker = new ExternalCircuitBreaker("test", manager);
+      const key = "external:test:chat";
+
+      for (let i = 0; i < 3; i++) {
+        await expect(
+          breaker.execute(key, async () => {
+            throw new Error("upstream down");
+          })
+        ).rejects.toThrow("upstream down");
       }
 
-      // Circuit breaker should open after 5 failures
-      // Remaining calls should be blocked immediately
-      expect(mockLLMService.callCount).toBeLessThanOrEqual(5);
-      expect(mockLLMService.failures).toBeLessThanOrEqual(5);
+      expect(breaker.getState(key)).toBe("open");
+
+      const blockedTask = vi.fn().mockResolvedValue("should-not-run");
+      await expect(breaker.execute(key, blockedTask)).rejects.toThrow("Circuit breaker open");
+      expect(blockedTask).not.toHaveBeenCalled();
     });
 
-    it("should not open circuit if failures are intermittent", async () => {
-      const mockLLMService = {
-        callCount: 0,
-        async invoke(shouldFail: boolean) {
-          this.callCount++;
-          if (shouldFail) {
-            throw new Error("LLM API error");
-          }
-          return { result: "success" };
-        },
-      };
+    it("enters HALF_OPEN for a probe and closes after a successful recovery", async () => {
+      const manager = new CircuitBreakerManager(config);
+      const breaker = new ExternalCircuitBreaker("test", manager);
+      const key = "external:test:recover";
 
-      // Alternate between success and failure
-      const results = [];
-      for (let i = 0; i < 10; i++) {
-        try {
-          const result = await mockLLMService.invoke(i % 2 === 0);
-          results.push("success");
-        } catch (err) {
-          results.push("failure");
-        }
+      for (let i = 0; i < 3; i++) {
+        await expect(
+          breaker.execute(key, async () => {
+            throw new Error("still failing");
+          })
+        ).rejects.toThrow("still failing");
       }
 
-      // Circuit should stay closed (intermittent failures)
-      expect(mockLLMService.callCount).toBe(10);
-      expect(results.filter((r) => r === "success")).toHaveLength(5);
-    });
-  });
+      const state = manager.getState(key)!;
+      state.opened_at = new Date(Date.now() - 100).toISOString();
 
-  describe("Circuit Breaker Recovery", () => {
-    it("should close circuit after successful test request", async () => {
-      const circuitBreaker = {
-        state: "open" as "closed" | "open" | "half-open",
-        failureCount: 5,
-        async testRequest() {
-          this.state = "half-open";
-          // Simulate successful test
-          this.state = "closed";
-          this.failureCount = 0;
-          return true;
-        },
-      };
+      let resolveProbe: ((value: string) => void) | undefined;
+      const probePromise = breaker.execute(
+        key,
+        () =>
+          new Promise<string>((resolve) => {
+            resolveProbe = resolve;
+          })
+      );
 
-      expect(circuitBreaker.state).toBe("open");
+      expect(manager.getState(key)?.state).toBe("half_open");
+      expect(manager.getState(key)?.half_open_probes).toBe(1);
 
-      await circuitBreaker.testRequest();
+      resolveProbe?.("ok");
+      await expect(probePromise).resolves.toBe("ok");
 
-      expect(circuitBreaker.state).toBe("closed");
-      expect(circuitBreaker.failureCount).toBe(0);
+      expect(breaker.getState(key)).toBe("closed");
+      expect(manager.getState(key)?.failure_count).toBe(0);
     });
 
-    it("should remain open if test request fails", async () => {
-      const circuitBreaker = {
-        state: "open" as "closed" | "open" | "half-open",
-        failureCount: 5,
-        async testRequest() {
-          this.state = "half-open";
-          // Simulate failed test
-          throw new Error("Test failed");
-        },
-      };
+    it("re-opens if the HALF_OPEN probe fails", async () => {
+      const manager = new CircuitBreakerManager(config);
+      const breaker = new ExternalCircuitBreaker("test", manager);
+      const key = "external:test:reopen";
 
-      try {
-        await circuitBreaker.testRequest();
-      } catch (err) {
-        circuitBreaker.state = "open";
+      for (let i = 0; i < 3; i++) {
+        await expect(
+          breaker.execute(key, async () => {
+            throw new Error("failing");
+          })
+        ).rejects.toThrow("failing");
       }
 
-      expect(circuitBreaker.state).toBe("open");
-      expect(circuitBreaker.failureCount).toBe(5);
+      manager.getState(key)!.opened_at = new Date(Date.now() - 100).toISOString();
+
+      await expect(
+        breaker.execute(key, async () => {
+          throw new Error("probe failed");
+        })
+      ).rejects.toThrow("probe failed");
+
+      expect(breaker.getState(key)).toBe("open");
     });
   });
 
-  describe("Circuit Breaker Fallback Behavior", () => {
-    it("should return cached response when circuit is open", async () => {
-      const agent = {
-        circuitOpen: true,
-        cache: { lastSuccessfulResponse: { hypotheses: ["cached result"] } },
-        async generateHypotheses() {
-          if (this.circuitOpen) {
-            return this.cache.lastSuccessfulResponse;
-          }
-          throw new Error("Should not reach here");
-        },
-      };
+  describe("Fallback behavior on open circuits", () => {
+    it("TogetherAI fallback rejects quickly once circuit is OPEN", async () => {
+      const service = new LLMFallbackService();
+      const request = { prompt: "hello", model: "model", userId: "u1" };
+      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
 
-      const result = await agent.generateHypotheses();
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: vi.fn().mockResolvedValue("unavailable"),
+      });
 
-      expect(result).toEqual({ hypotheses: ["cached result"] });
+      await expect(service.processRequest(request)).rejects.toThrow(
+        "LLM provider unavailable"
+      );
+
+      const firstCallCount = fetchMock.mock.calls.length;
+      expect(service.getStats().circuitBreakers["external:together_ai:chat"].state).toBe("open");
+
+      await expect(service.processRequest(request)).rejects.toThrow(
+        "LLM provider unavailable"
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(firstCallCount);
     });
 
-    it("should throw error if no cached response available", async () => {
-      const agent = {
-        circuitOpen: true,
-        cache: { lastSuccessfulResponse: null },
-        async generateHypotheses() {
-          if (this.circuitOpen) {
-            if (!this.cache.lastSuccessfulResponse) {
-              throw new Error("Circuit open and no cached response available");
-            }
-            return this.cache.lastSuccessfulResponse;
-          }
-        },
-      };
+    it("GroundTruth returns fallback null without calling fetch when circuit is OPEN", async () => {
+      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
 
-      await expect(agent.generateHypotheses()).rejects.toThrow("Circuit open");
-    });
-  });
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: vi.fn().mockResolvedValue("down"),
+      });
 
-  describe("Circuit Breaker Metrics", () => {
-    it("should track failure rate over time", () => {
-      const metrics = {
-        totalCalls: 100,
-        failures: 25,
-        getFailureRate() {
-          return this.failures / this.totalCalls;
-        },
-      };
+      const first = await mcpGroundTruthService.getFinancialData({ entityId: "ACME" });
+      expect(first).toBeNull();
 
-      const failureRate = metrics.getFailureRate();
+      const metrics = mcpGroundTruthService.getCircuitBreakerMetrics();
+      expect(metrics["external:groundtruth:financials"].state).toBe("open");
 
-      expect(failureRate).toBe(0.25);
-      expect(failureRate).toBeLessThan(0.5); // Below threshold
-    });
+      const firstCallCount = fetchMock.mock.calls.length;
+      const second = await mcpGroundTruthService.getFinancialData({ entityId: "ACME" });
 
-    it("should track circuit state transitions", () => {
-      const transitions = [
-        { from: "closed", to: "open", timestamp: Date.now() },
-        { from: "open", to: "half-open", timestamp: Date.now() + 60000 },
-        { from: "half-open", to: "closed", timestamp: Date.now() + 61000 },
-      ];
-
-      expect(transitions).toHaveLength(3);
-      expect(transitions[0].from).toBe("closed");
-      expect(transitions[transitions.length - 1].to).toBe("closed");
+      expect(second).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(firstCallCount);
     });
   });
 });

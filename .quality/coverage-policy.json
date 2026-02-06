@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-02-06",
+  "coverage_artifacts_dir": "coverage",
+  "strict_zones": [
+    {
+      "name": "shared-core",
+      "path": "packages/shared/src",
+      "min_lines_pct": 60
+    },
+    {
+      "name": "design-system",
+      "path": "packages/components/design-system/src",
+      "min_lines_pct": 60
+    }
+  ],
+  "ratchet": {
+    "enabled": true,
+    "start_date": "2026-02-09",
+    "cadence": "weekly",
+    "increase_lines_pct": 2,
+    "max_lines_pct": 75
+  }
+}

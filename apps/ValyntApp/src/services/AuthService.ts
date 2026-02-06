@@ -54,9 +54,17 @@ export type AuthFailureCode =
   | "MFA_CODE_REQUIRED"
   | "MFA_INVALID_CODE";
 
+interface MFAEnrollmentRequiredErrorPayload {
+  code: "MFA_ENROLLMENT_REQUIRED";
+  userId: string;
+  role: string;
+}
+
 interface AuthEndpointErrorPayload {
   error?: string;
   code?: AuthFailureCode | string;
+  userId?: unknown;
+  role?: unknown;
   [key: string]: unknown;
 }
 
@@ -87,6 +95,16 @@ export class AuthService extends BaseService {
 
     if (code === "TOKEN_EXPIRED" || code === "INVALID_TOKEN" || code === "INVALID_TOKEN_CLAIMS") {
       return new TokenAuthenticationError(message, code, payload);
+    }
+
+    if (code === "MFA_ENROLLMENT_REQUIRED") {
+      const mfaDetails: MFAEnrollmentRequiredErrorPayload = {
+        code: "MFA_ENROLLMENT_REQUIRED",
+        userId: typeof payload.userId === "string" && payload.userId.length > 0 ? payload.userId : "unknown",
+        role: typeof payload.role === "string" && payload.role.length > 0 ? payload.role : "manager",
+      };
+
+      return new AuthenticationError(message, { ...payload, ...mfaDetails }, responseStatus, code);
     }
 
     return new AuthenticationError(message, payload, responseStatus, code);

@@ -5,11 +5,15 @@ import { rateLimiters } from "../middleware/rateLimiter";
 import { logger } from "../lib/logger";
 import { requireAuth } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
 
 const router = Router();
 
 // Apply standard middleware
 router.use(securityHeadersMiddleware);
+router.use(requireAuth);
+router.use(tenantContextMiddleware());
+router.use(requestSanitizationMiddleware({ params: { id: { maxLength: 128 } } }));
 
 /**
  * Get canvas by ID
