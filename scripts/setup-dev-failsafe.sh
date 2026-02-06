@@ -11,6 +11,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DC_CMD="${PROJECT_ROOT}/scripts/dc"
+
+cd "${PROJECT_ROOT}"
+
 log_step() {
   echo -e "${GREEN}[STEP]${NC} $1"
 }
@@ -102,22 +108,22 @@ log_verify "✓ Environment files generated"
 log_verify "✓ Supabase keys present"
 log_verify "✓ Database URL configured"
 
-# ============================================================================
+ ============================================================================
 # STEP 5: Start Docker Dependencies
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
 
-./scripts/dc up -d postgres redis || fail "Docker compose failed"
+"${DC_CMD}" up -d postgres redis || fail "Compose startup failed"
 
 # Wait for health
 sleep 3
 
 # Verify Postgres
-./scripts/dc exec -T postgres pg_isready -U postgres >/dev/null 2>&1 || fail "Postgres not ready"
+"${DC_CMD}" exec -T postgres pg_isready -U postgres >/dev/null 2>&1 || fail "Postgres not ready"
 log_verify "✓ Postgres ready"
 
 # Verify Redis
-./scripts/dc exec -T redis redis-cli ping >/dev/null 2>&1 || fail "Redis not ready"
+"${DC_CMD}" exec -T redis redis-cli ping >/dev/null 2>&1 || fail "Redis not ready"
 log_verify "✓ Redis ready"
 
 # ============================================================================
@@ -165,7 +171,7 @@ log_step "9. Creating demo user..."
 pnpm run seed:demo || fail "Demo user seeding failed"
 
 # Verify user exists via direct DB query
-USER_EXISTS=$(./scripts/dc exec -T postgres psql -U postgres -d postgres -tAc \
+USER_EXISTS=$("${DC_CMD}" exec -T postgres psql -U postgres -d postgres -tAc \
   "SELECT COUNT(*) FROM auth.users WHERE email='demouser@valynt.com'" 2>/dev/null || echo "0")
 
 if [ "$USER_EXISTS" = "0" ]; then

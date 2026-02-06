@@ -221,7 +221,7 @@ function displaySuccess() {
   console.log("\n💡 Useful commands:");
   console.log("   pnpm run health     - Check system health");
   console.log("   pnpm run dx         - Start all services");
-  console.log("   docker-compose -f docker-compose.deps.yml ps  - Check Docker services");
+  console.log("   ./scripts/dc ps  - Check Docker services");
   console.log("\n🚀 Happy coding!\n");
 }
 
