@@ -373,7 +373,12 @@ export class AuthService extends BaseService {
 
           // Verify MFA token
           if (!credentials.otpCode) {
-            throw new ValidationError("MFA code required for your role", { code: "MFA_CODE_REQUIRED" });
+            throw new AuthenticationError(
+              "MFA code required for your role",
+              { code: "MFA_CODE_REQUIRED" },
+              400,
+              "MFA_CODE_REQUIRED"
+            );
           }
 
           const mfaResult = await mfaService.verifyMFAToken(data.user.id, credentials.otpCode);
@@ -385,7 +390,12 @@ export class AuthService extends BaseService {
               severity: "warn",
               metadata: { userId: data.user.id },
             });
-            throw new AuthenticationError("Invalid MFA code", { code: "MFA_INVALID_CODE", userId: data.user.id }, 401, "MFA_INVALID_CODE");
+            throw new AuthenticationError(
+              "Invalid MFA code",
+              { code: "MFA_INVALID_CODE", userId: data.user.id },
+              401,
+              "MFA_INVALID_CODE"
+            );
           }
 
           if (mfaResult.usedBackupCode) {
