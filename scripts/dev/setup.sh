@@ -65,18 +65,22 @@ export DB_HOST="${DB_HOST:-db}"
 echo "   Using DB_HOST: $DB_HOST"
 
 ###############################################################################
-# Step 5: Apply Migrations (via Supabase CLI)
+# Step 5: Apply Migrations (canonical psql runner)
 ###############################################################################
-echo "🔄 Applying database migrations (Supabase)..."
+echo "🔄 Applying database migrations (canonical runner)..."
 
-# Ensure Supabase CLI uses the correct DB URL and SSL mode
-export PGSSLMODE=disable
-echo "   Using DB_URL: $DB_URL"
+# Ensure migration scripts target the same DB host inside devcontainer.
+export PGHOST="${DB_HOST:-db}"
+export DB_HOST="${DB_HOST:-db}"
+export DB_PASSWORD="${DB_PASSWORD:-postgres}"
+export DB_NAME="${DB_NAME:-postgres}"
 
-# We use --workdir infra/supabase to point to the correct configuration
-if ! supabase db push --yes --workdir infra/supabase --db-url "$DB_URL"; then
+echo "   Using DB_HOST: $DB_HOST"
+echo "   Using DB_NAME: $DB_NAME"
+
+if ! bash "${SCRIPT_DIR}/migrate.sh"; then
     echo "❌ Migration failed. Development environment is NOT ready."
-    echo "   Check Supabase CLI output above."
+    echo "   Check migration output above."
     exit 1
 fi
 echo "✅ Migrations applied successfully."

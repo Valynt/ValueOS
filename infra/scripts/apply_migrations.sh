@@ -6,8 +6,6 @@ DB_RETRY_COUNT=${DB_RETRY_COUNT:-5}
 DB_RETRY_DELAY=${DB_RETRY_DELAY:-2}
 MIGRATION_RETRY_COUNT=${MIGRATION_RETRY_COUNT:-3}
 MIGRATION_RETRY_DELAY=${MIGRATION_RETRY_DELAY:-5}
-MIGRATION_TRACKING_RETRY_COUNT=${MIGRATION_TRACKING_RETRY_COUNT:-3}
-MIGRATION_TRACKING_RETRY_DELAY=${MIGRATION_TRACKING_RETRY_DELAY:-2}
 
 # Parse arguments
 DRY_RUN=false
@@ -39,8 +37,6 @@ while [[ $# -gt 0 ]]; do
       echo "  DB_RETRY_DELAY: Delay between database connection retries ($DB_RETRY_DELAY)"
       echo "  MIGRATION_RETRY_COUNT: Number of retries for migration application ($MIGRATION_RETRY_COUNT)"
       echo "  MIGRATION_RETRY_DELAY: Delay between migration retries ($MIGRATION_RETRY_DELAY)"
-      echo "  MIGRATION_TRACKING_RETRY_COUNT: Number of retries for tracking ($MIGRATION_TRACKING_RETRY_COUNT)"
-      echo "  MIGRATION_TRACKING_RETRY_DELAY: Delay between tracking retries ($MIGRATION_TRACKING_RETRY_DELAY)"
       exit 0
       ;;
     *)
@@ -102,7 +98,7 @@ validate_migration_sources() {
 }
 
 echo "🔄 Syncing Database..."
-echo "Configuration: DB_RETRY_COUNT=$DB_RETRY_COUNT, DB_RETRY_DELAY=$DB_RETRY_DELAY, MIGRATION_RETRY_COUNT=$MIGRATION_RETRY_COUNT, MIGRATION_RETRY_DELAY=$MIGRATION_RETRY_DELAY, MIGRATION_TRACKING_RETRY_COUNT=$MIGRATION_TRACKING_RETRY_COUNT, MIGRATION_TRACKING_RETRY_DELAY=$MIGRATION_TRACKING_RETRY_DELAY"
+echo "Configuration: DB_RETRY_COUNT=$DB_RETRY_COUNT, DB_RETRY_DELAY=$DB_RETRY_DELAY, MIGRATION_RETRY_COUNT=$MIGRATION_RETRY_COUNT, MIGRATION_RETRY_DELAY=$MIGRATION_RETRY_DELAY"
 
 if $DRY_RUN; then
   echo "DRY RUN MODE: No changes will be applied"
@@ -129,9 +125,12 @@ for file_path in $MIGRATIONS_DIR/*.sql; do
     if [[ ! " $APPLIED " =~ " $filename " ]]; then
         echo "🚀 Applying: $filename"
         if ! $DRY_RUN; then
-          retry_command "$MIGRATION_RETRY_COUNT" "$MIGRATION_RETRY_DELAY" env PGPASSWORD="${DB_PASSWORD:-}" psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f "$file_path"
-
-          retry_command "$MIGRATION_TRACKING_RETRY_COUNT" "$MIGRATION_TRACKING_RETRY_DELAY" env PGPASSWORD="${DB_PASSWORD:-}" psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "INSERT INTO public.schema_migrations (name) VALUES ('$filename');"
+          retry_command "$MIGRATION_RETRY_COUNT" "$MIGRATION_RETRY_DELAY" env PGPASSWORD="${DB_PASSWORD:-}" psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" <<SQL
+BEGIN;
+\i $file_path
+INSERT INTO public.schema_migrations (name) VALUES ('$filename');
+COMMIT;
+SQL
         fi
     fi
 done

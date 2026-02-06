@@ -222,9 +222,10 @@ wait_for_db() {
             fi
         else
             # Use network connectivity check when inside devcontainer
-            if pg_isready -h "$DB_SERVICE" -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
+            # RESOLUTION: Using codex logic here as it robustly falls back to 'db' 
+            if pg_isready -h "${DB_HOST:-db}" -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
                 return 0
-            elif nc -z "$DB_SERVICE" 5432 &> /dev/null 2>&1; then
+            elif nc -z "${DB_HOST:-db}" 5432 &> /dev/null 2>&1; then
                 # Fallback to netcat if pg_isready not available
                 return 0
             elif curl -s --max-time 2 "$APP_HEALTH_URL_PRIMARY" &> /dev/null 2>&1; then
@@ -258,7 +259,8 @@ if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
 else
     # Use psql directly if available, otherwise skip
     if command -v psql &> /dev/null; then
-        PGPASSWORD=postgres psql -h "$DB_SERVICE" -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+        # RESOLUTION: Using codex logic for variable expansion consistency
+        PGPASSWORD=postgres psql -h "${DB_HOST:-db}" -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
     else
         log INFO "psql not available, shadow DB creation skipped (will be created on first migration)"
     fi
@@ -276,10 +278,20 @@ else
     cd "$PROJECT_ROOT"
 
     log INFO "Applying migrations..."
-export DB_HOST="${DB_HOST:-postgres}"
-export PGHOST="${DB_HOST}"
-export DB_PASSWORD="${DB_PASSWORD:-dev_password}"
-export DB_NAME="${DB_NAME:-valuecanvas_dev}"
+    
+    # RESOLUTION: Kept the robust DevContainer check from 'codex', 
+    # but used the specific DB credentials from 'main' (valuecanvas_dev) 
+    # to avoid accidentally migrating the system 'postgres' DB.
+    if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
+        export PGHOST="${DB_HOST:-db}"
+        export DB_HOST="${DB_HOST:-db}"
+    else
+        export PGHOST="${DB_HOST:-postgres}"
+        export DB_HOST="${DB_HOST:-postgres}"
+    fi
+    
+    export DB_PASSWORD="${DB_PASSWORD:-dev_password}"
+    export DB_NAME="${DB_NAME:-valuecanvas_dev}"
 
     if bash "$SCRIPT_DIR/migrate.sh" 2>&1 | tee -a "$LOG_FILE"; then
         log SUCCESS "Migrations applied successfully"
