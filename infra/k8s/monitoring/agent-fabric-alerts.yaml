@@ -16,7 +16,7 @@ spec:
             (
               rate(agent_fabric_execution_failure_total[5m]) /
               clamp_min(rate(agent_fabric_executions_total[5m]), 1)
-            ) * 100 > 10
+            ) > 0.10
           for: 2m
           labels:
             severity: warning
@@ -32,7 +32,7 @@ spec:
             (
               rate(agent_fabric_execution_failure_total[5m]) /
               clamp_min(rate(agent_fabric_executions_total[5m]), 1)
-            ) * 100 > 25
+            ) > 0.25
           for: 1m
           labels:
             severity: critical
@@ -45,7 +45,7 @@ spec:
         # High Latency Alert
         - alert: AgentFabricHighLatency
           expr: |
-            histogram_quantile(0.95, rate(agent_fabric_execution_duration_seconds_bucket[5m])) > 30
+            histogram_quantile(0.95, sum(rate(agent_fabric_execution_duration_seconds_bucket[5m])) by (le)) > 30
           for: 5m
           labels:
             severity: warning
@@ -58,7 +58,7 @@ spec:
         # Critical Latency Alert
         - alert: AgentFabricCriticalLatency
           expr: |
-            histogram_quantile(0.95, rate(agent_fabric_execution_duration_seconds_bucket[5m])) > 60
+            histogram_quantile(0.95, sum(rate(agent_fabric_execution_duration_seconds_bucket[5m])) by (le)) > 60
           for: 2m
           labels:
             severity: critical
@@ -74,7 +74,7 @@ spec:
             (
               container_memory_usage_bytes{pod=~"agent-fabric-.*",namespace="valueos"} /
               container_spec_memory_limit_bytes{pod=~"agent-fabric-.*",namespace="valueos"}
-            ) * 100 > 80
+            ) > 0.80
           for: 5m
           labels:
             severity: warning
@@ -90,7 +90,7 @@ spec:
             (
               container_memory_usage_bytes{pod=~"agent-fabric-.*",namespace="valueos"} /
               container_spec_memory_limit_bytes{pod=~"agent-fabric-.*",namespace="valueos"}
-            ) * 100 > 95
+            ) > 0.95
           for: 2m
           labels:
             severity: critical
@@ -213,7 +213,7 @@ spec:
             (
               rate(agent_fabric_execution_success_total[5m]) /
               clamp_min(rate(agent_fabric_executions_total[5m]), 1)
-            ) * 100 < 90
+            ) < 0.90
           for: 5m
           labels:
             severity: warning
@@ -229,7 +229,7 @@ spec:
             (
               rate(agent_fabric_execution_success_total[5m]) /
               clamp_min(rate(agent_fabric_executions_total[5m]), 1)
-            ) * 100 < 75
+            ) < 0.75
           for: 2m
           labels:
             severity: critical
