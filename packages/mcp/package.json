@@ -6,6 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    ".": "./index.ts",
     "./common": "./common/index.ts",
     "./crm": "./crm/index.ts",
     "./ground-truth": "./ground-truth/index.ts"
