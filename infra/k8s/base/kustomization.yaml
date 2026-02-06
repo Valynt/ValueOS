@@ -9,6 +9,7 @@ resources:
   - configmap.yaml
   - secrets.yaml
   - network-policies.yaml
+  - agents/network-policy.yaml
   - backend-deployment.yaml
   - backend-service.yaml
   - frontend-deployment.yaml
