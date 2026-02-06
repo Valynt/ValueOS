@@ -47,6 +47,10 @@ import {
 import { renderPage, RenderPageOptions } from "@sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js"
+import {
+  getEnhancedParallelExecutor,
+  RunnableTask,
+} from "./EnhancedParallelExecutor.js"
 import { supabase } from "../lib/supabase.js"
 import { featureFlags } from "../config/featureFlags.js"
 
@@ -1127,107 +1131,241 @@ Provide a JSON response with:
     traceId: string,
     executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
-    let currentStageId = dag.initial_stage;
     let executionContext = { ...initialContext };
     let recordSnapshot: WorkflowExecutionRecord = {
       ...executionRecord,
       lifecycle: [...executionRecord.lifecycle],
       outputs: [...executionRecord.outputs],
     };
-    const visitedStages = new Set<string>();
+    const dependencies = new Map<string, Set<string>>();
+    const inProgressStages = new Set<string>();
+    const completedStages = new Set<string>();
+    const failedStages = new Map<string, string>();
+    const stageStartTimes = new Map<string, Date>();
+    const executor = getEnhancedParallelExecutor();
 
-    while (currentStageId && !dag.final_stages.includes(currentStageId)) {
-      if (visitedStages.has(currentStageId)) {
-        throw new Error(`Circular dependency at stage: ${currentStageId}`);
+    for (const stage of dag.stages) {
+      dependencies.set(stage.id, new Set());
+    }
+
+    for (const transition of dag.transitions) {
+      const deps = dependencies.get(transition.to_stage);
+      if (deps) {
+        deps.add(transition.from_stage);
+      } else {
+        dependencies.set(transition.to_stage, new Set([transition.from_stage]));
       }
-      visitedStages.add(currentStageId);
+    }
 
-      // Route to appropriate agent
-      const route = this.routingLayer.routeStage(
-        dag,
-        currentStageId,
-        executionContext
+    const dependenciesMet = (stageId: string) => {
+      const deps = dependencies.get(stageId);
+      if (!deps || deps.size === 0) {
+        return true;
+      }
+      return [...deps].every((dep) => completedStages.has(dep));
+    };
+
+    const totalStages = dag.stages.length;
+
+    while (completedStages.size + failedStages.size < totalStages) {
+      const readyStages = dag.stages.filter((stage) => {
+        return (
+          !completedStages.has(stage.id) &&
+          !failedStages.has(stage.id) &&
+          !inProgressStages.has(stage.id) &&
+          dependenciesMet(stage.id)
+        );
+      });
+
+      if (readyStages.length === 0) {
+        break;
+      }
+
+      const stageTasks: RunnableTask<{
+        stage: WorkflowStage;
+        route: StageRoute;
+        context: Record<string, any>;
+        startedAt: Date;
+      }>[] = readyStages.map((stage) => {
+        const route = this.routingLayer.routeStage(
+          dag,
+          stage.id,
+          executionContext
+        );
+        const startedAt = new Date();
+        stageStartTimes.set(stage.id, startedAt);
+        inProgressStages.add(stage.id);
+
+        return {
+          id: stage.id,
+          priority: "high",
+          payload: {
+            stage,
+            route,
+            context: { ...executionContext },
+            startedAt,
+          },
+        };
+      });
+
+      const taskLookup = new Map(stageTasks.map((task) => [task.id, task]));
+      const concurrencyCap = Math.max(
+        1,
+        Math.min(this.maxAgentInvocationsPerMinute, stageTasks.length)
       );
-      const stage = route.stage;
 
-      // Update execution status
+      const results = await executor.executeRunnableTasks(
+        stageTasks,
+        async (task) => {
+          const { stage, route, context } = task.payload;
+          const stageResult = await this.executeStageWithRetry(
+            executionId,
+            stage,
+            context,
+            route,
+            traceId
+          );
+
+          return { stage, stageResult };
+        },
+        concurrencyCap
+      );
+
+      for (const result of results) {
+        const task = taskLookup.get(result.taskId);
+        if (!task) {
+          continue;
+        }
+        const { stage, startedAt } = task.payload;
+        const stageStart = startedAt ?? stageStartTimes.get(stage.id) ?? new Date();
+        const stageCompleted = new Date();
+        inProgressStages.delete(stage.id);
+
+        if (result.success && result.result?.stageResult.status === "completed") {
+          const stageOutput = result.result.stageResult.output || {};
+          executionContext = {
+            ...executionContext,
+            ...stageOutput,
+          };
+
+          const lifecycleRecord: StageLifecycleRecord = {
+            stageId: stage.id,
+            lifecycleStage: stage.agent_type,
+            status: "completed",
+            startedAt: stageStart.toISOString(),
+            completedAt: stageCompleted.toISOString(),
+            summary: stage.description,
+          };
+
+          recordSnapshot = {
+            ...recordSnapshot,
+            lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+            outputs: [
+              ...recordSnapshot.outputs,
+              {
+                stageId: stage.id,
+                payload: stageOutput,
+                completedAt: stageCompleted.toISOString(),
+              },
+            ],
+            io: {
+              ...recordSnapshot.io,
+              outputs: {
+                ...recordSnapshot.io.outputs,
+                [stage.id]: stageOutput,
+              },
+            },
+            economicDeltas:
+              stageOutput?.economic_deltas || recordSnapshot.economicDeltas,
+          };
+
+          await this.recordStageRun(
+            executionId,
+            stage,
+            recordSnapshot,
+            stageStart,
+            stageCompleted,
+            stageOutput
+          );
+
+          completedStages.add(stage.id);
+        } else {
+          const errorMessage =
+            result.result?.stageResult.error ||
+            result.error ||
+            "Unknown stage error";
+          failedStages.set(stage.id, errorMessage);
+
+          const lifecycleRecord: StageLifecycleRecord = {
+            stageId: stage.id,
+            lifecycleStage: stage.agent_type,
+            status: "failed",
+            startedAt: stageStart.toISOString(),
+            completedAt: stageCompleted.toISOString(),
+            summary: stage.description,
+          };
+
+          recordSnapshot = {
+            ...recordSnapshot,
+            lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+            outputs: [
+              ...recordSnapshot.outputs,
+              {
+                stageId: stage.id,
+                payload: { error: errorMessage },
+                completedAt: stageCompleted.toISOString(),
+              },
+            ],
+            io: {
+              ...recordSnapshot.io,
+              outputs: {
+                ...recordSnapshot.io.outputs,
+                [stage.id]: { error: errorMessage },
+              },
+            },
+          };
+        }
+
+        await this.persistExecutionRecord(executionId, recordSnapshot);
+        await this.updateExecutionStatus(
+          executionId,
+          "in_progress",
+          stage.id,
+          recordSnapshot
+        );
+      }
+    }
+
+    if (completedStages.size + failedStages.size < totalStages) {
+      const blockedStages = dag.stages
+        .filter(
+          (stage) =>
+            !completedStages.has(stage.id) && !failedStages.has(stage.id)
+        )
+        .map((stage) => stage.id);
+
+      for (const stageId of blockedStages) {
+        failedStages.set(stageId, "Blocked by unmet dependencies");
+      }
+    }
+
+    if (failedStages.size > 0) {
+      const errorSummary = [...failedStages.entries()]
+        .map(([stageId, error]) => `${stageId}: ${error}`)
+        .join("; ");
+      logger.error("DAG execution failed", {
+        executionId,
+        traceId,
+        errorSummary,
+      });
+
       await this.updateExecutionStatus(
         executionId,
-        "in_progress",
-        currentStageId,
+        "failed",
+        null,
         recordSnapshot
       );
-
-      const stageStart = new Date();
-
-      // Execute stage with retry
-      const stageResult = await this.executeStageWithRetry(
-        executionId,
-        stage,
-        executionContext,
-        route,
-        traceId
-      );
-
-      if (stageResult.status === "failed") {
-        throw new Error(`Stage ${currentStageId} failed: ${stageResult.error}`);
-      }
-
-      // Merge context
-      executionContext = {
-        ...executionContext,
-        ...stageResult.output,
-      };
-
-      const stageCompleted = new Date();
-      const lifecycleRecord: StageLifecycleRecord = {
-        stageId: stage.id,
-        lifecycleStage: stage.agent_type,
-        status: "completed",
-        startedAt: stageStart.toISOString(),
-        completedAt: stageCompleted.toISOString(),
-        summary: stage.description,
-      };
-
-      recordSnapshot = {
-        ...recordSnapshot,
-        lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
-        outputs: [
-          ...recordSnapshot.outputs,
-          {
-            stageId: stage.id,
-            payload: stageResult.output || {},
-            completedAt: stageCompleted.toISOString(),
-          },
-        ],
-        io: {
-          ...recordSnapshot.io,
-          outputs: {
-            ...recordSnapshot.io.outputs,
-            [stage.id]: stageResult.output || {},
-          },
-        },
-        economicDeltas:
-          stageResult.output?.economic_deltas || recordSnapshot.economicDeltas,
-      };
-
-      await this.recordStageRun(
-        executionId,
-        stage,
-        recordSnapshot,
-        stageStart,
-        stageCompleted,
-        stageResult.output
-      );
-
-      await this.persistExecutionRecord(executionId, recordSnapshot);
-
-      // Move to next stage
-      const nextTransition = dag.transitions.find(
-        (t) => t.from_stage === currentStageId
-      );
-      if (!nextTransition) break;
-      currentStageId = nextTransition.to_stage;
+      return;
     }
 
     await this.updateExecutionStatus(
@@ -1261,6 +1399,11 @@ Provide a JSON response with:
 
     for (let attempt = 1; attempt <= retryConfig.max_attempts; attempt++) {
       try {
+        const agentType = stage.agent_type as AgentType;
+        if (!this.checkAgentRateLimit(agentType)) {
+          throw new Error(`Agent ${agentType} rate limit exceeded`);
+        }
+
         const result = await this.circuitBreakers.execute(
           circuitBreakerKey,
           () => this.executeStage(stage, context, route),
