@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 
 const projectRoot = process.cwd();
 const reportPath = path.join(projectRoot, ".typecheck-telemetry.json");
+// Canonical strict-zone config consumed by telemetry verification and promotion.
 const configPath = path.join(projectRoot, "config/strict-zones.json");
 const summaryPath = path.join(projectRoot, "GOVERNANCE_PULSE.md");
 const workspaceMapPath = path.join(projectRoot, "workspace_map.json");

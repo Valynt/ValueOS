@@ -178,12 +178,18 @@ function extractPackage(filePath: string): string {
 
 async function loadStrictZones(): Promise<string[]> {
   try {
-    const configPath = path.join(projectRoot, "packages/config-v2/strict-zones.config.js");
+    // Canonical strict-zone config (Protocol B):
+    // config/strict-zones.json
+    const configPath = path.join(projectRoot, "config/strict-zones.json");
     if (!fs.existsSync(configPath)) return [];
 
-    // Dynamic import for ESM config
-    const config = await import(configPath);
-    return config.default?.zones || [];
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (!Array.isArray(config.strict_zones)) {
+      console.warn("⚠️ Strict zones config is missing strict_zones array.");
+      return [];
+    }
+
+    return config.strict_zones;
   } catch (e) {
     console.warn("⚠️ Failed to load strict zones config:", e);
     return [];
