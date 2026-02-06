@@ -15,7 +15,17 @@ This directory contains GitHub Actions workflows that automate:
 
 ## Canonical CI Entry Point
 
-For application CI, workflows should call the single entry point `pnpm run ci:verify`, which runs linting, type checks, legacy route checks, tests, and the build in a consistent order. Use this script in workflows instead of bespoke step lists so CI behavior stays aligned across pipelines.
+For application CI, workflows should call the single entry point `pnpm run ci:verify`.
+
+### Governance command contract
+
+The required blocking governance gate is `pnpm run typecheck:signal --verify`. This command must be enforced in CI either directly, or transitively through `pnpm run ci:verify` (which is the preferred contract for application workflows).
+
+`pnpm run ci:verify` is expected to run linting, type checks, governance verification, legacy route checks, tests, workflow governance self-checking, and build steps in a consistent order. Do not downgrade governance enforcement to summary-only telemetry (for example `typecheck:signal:summary`) in protected CI paths.
+
+To prevent accidental regressions, CI includes `pnpm run ci:governance:self-check`, which validates that:
+- `ci:verify` still contains `pnpm run typecheck:signal --verify`, and
+- critical workflows (`ci-cd.yml`, `ci-tests.yml`, `pr-validation.yml`, `ci-bootstrap.yml`, `ci.yml`) include either `pnpm run ci:verify` or the direct governance command.
 
 ## Workflows
 

@@ -61,8 +61,5 @@ jobs:
       - name: Environment Verification
         run: pnpm run dev:verify --dependencies-only
 
-      - name: Type Governance (Ratchet)
-        run: pnpm run typecheck:signal --verify
-
       - name: Run CI verification suite
         run: pnpm run ci:verify
