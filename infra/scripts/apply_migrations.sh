@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Configurable parameters via environment variables
 DB_RETRY_COUNT=${DB_RETRY_COUNT:-5}
@@ -87,12 +87,12 @@ fi
 
 # Ensure migrations table exists with retry
 if ! $DRY_RUN; then
-  retry_command $DB_RETRY_COUNT $DB_RETRY_DELAY PGPASSWORD=$DB_PASSWORD psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE TABLE IF NOT EXISTS public.schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW());"
+  retry_command "$DB_RETRY_COUNT" "$DB_RETRY_DELAY" env PGPASSWORD="${DB_PASSWORD:-}" psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE TABLE IF NOT EXISTS public.schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW());"
 fi
 
 # Get applied migrations
 if ! $DRY_RUN; then
-  APPLIED=$(PGPASSWORD=$DB_PASSWORD psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT name FROM public.schema_migrations" | xargs)
+  APPLIED=$(env PGPASSWORD="${DB_PASSWORD:-}" psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT name FROM public.schema_migrations" | xargs)
 else
   APPLIED=""
 fi
@@ -104,9 +104,9 @@ for file_path in $MIGRATIONS_DIR/*.sql; do
     if [[ ! " $APPLIED " =~ " $filename " ]]; then
         echo "🚀 Applying: $filename"
         if ! $DRY_RUN; then
-          retry_command $MIGRATION_RETRY_COUNT $MIGRATION_RETRY_DELAY PGPASSWORD=$DB_PASSWORD psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f "$file_path"
+          retry_command "$MIGRATION_RETRY_COUNT" "$MIGRATION_RETRY_DELAY" env PGPASSWORD="${DB_PASSWORD:-}" psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f "$file_path"
 
-          retry_command $MIGRATION_TRACKING_RETRY_COUNT $MIGRATION_TRACKING_RETRY_DELAY PGPASSWORD=$DB_PASSWORD psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "INSERT INTO public.schema_migrations (name) VALUES ('$filename');"
+          retry_command "$MIGRATION_TRACKING_RETRY_COUNT" "$MIGRATION_TRACKING_RETRY_DELAY" env PGPASSWORD="${DB_PASSWORD:-}" psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "INSERT INTO public.schema_migrations (name) VALUES ('$filename');"
         fi
     fi
 done
