@@ -1,2 +1,5 @@
 console.log("Plain JS loaded");
-document.body.innerHTML = "<h1>Plain JS Loaded</h1>";
+
+const heading = document.createElement('h1');
+heading.textContent = 'Plain JS Loaded';
+document.body.replaceChildren(heading);
