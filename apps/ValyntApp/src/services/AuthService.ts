@@ -9,6 +9,7 @@ import {
   AuthenticationError,
   RateLimitError,
   SessionTimeoutAuthenticationError,
+  ServiceError,
   TokenAuthenticationError,
   ValidationError,
 } from "./errors";
@@ -86,7 +87,84 @@ export class AuthService extends BaseService {
     return `${normalizedBase}/auth${path}`;
   }
 
-  private mapAuthFailure(payload: AuthEndpointErrorPayload, responseStatus: number): AuthenticationError {
+  private static readonly SESSION_TIMEOUTS = {
+    ABSOLUTE_TIMEOUT_MS: 60 * 60 * 1000,
+    IDLE_TIMEOUT_MS: 30 * 60 * 1000,
+    CLOCK_SKEW_MS: 5 * 1000,
+  };
+
+  private decodeJwt(token: string): Record<string, unknown> | null {
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        return null;
+      }
+      const normalized = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+      const payload =
+        typeof Buffer !== "undefined"
+          ? Buffer.from(padded, "base64").toString("utf-8")
+          : typeof atob !== "undefined"
+          ? atob(padded)
+          : "";
+      if (!payload) {
+        return null;
+      }
+      const decoded = JSON.parse(payload) as Record<string, unknown>;
+      return decoded;
+    } catch {
+      return null;
+    }
+  }
+
+  private validateSessionTimeouts(session: Session): void {
+    const accessToken = session.access_token;
+    if (!accessToken) {
+      return;
+    }
+
+    const claims = this.decodeJwt(accessToken);
+    if (!claims) {
+      return;
+    }
+
+    const issuedAt = typeof claims.iat === "number" ? claims.iat : undefined;
+    const expiresAt = typeof claims.exp === "number" ? claims.exp : session.expires_at;
+    if (!issuedAt || !expiresAt) {
+      return;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const clockSkewSeconds = AuthService.SESSION_TIMEOUTS.CLOCK_SKEW_MS / 1000;
+
+    if (expiresAt + clockSkewSeconds < now) {
+      throw new TokenAuthenticationError("Token expired", "TOKEN_EXPIRED", {
+        expiresAt,
+        currentTime: now,
+      });
+    }
+
+    const tokenAge = now - issuedAt;
+    const maxAge = AuthService.SESSION_TIMEOUTS.ABSOLUTE_TIMEOUT_MS / 1000;
+    if (tokenAge > maxAge) {
+      throw new SessionTimeoutAuthenticationError(
+        "Session expired due to absolute timeout (1 hour)",
+        "SESSION_ABSOLUTE_TIMEOUT",
+        { tokenAge, maxAge }
+      );
+    }
+
+    const maxIdle = AuthService.SESSION_TIMEOUTS.IDLE_TIMEOUT_MS / 1000;
+    if (tokenAge > maxIdle) {
+      throw new SessionTimeoutAuthenticationError(
+        "Session expired due to inactivity (30 minutes idle)",
+        "SESSION_IDLE_TIMEOUT",
+        { idleTime: tokenAge, maxIdle }
+      );
+    }
+  }
+
+  private mapAuthFailure(payload: AuthEndpointErrorPayload, responseStatus: number): ServiceError {
     const isRecord = (value: unknown): value is Record<string, unknown> =>
       typeof value === "object" && value !== null && !Array.isArray(value);
     const payloadRecord = isRecord(payload) ? payload : {};
@@ -99,17 +177,48 @@ export class AuthService extends BaseService {
     const hasDetails = Object.keys(normalizedDetails).length > 0;
     const details = hasDetails ? normalizedDetails : undefined;
     const code = typeof payload.code === "string" ? payload.code : undefined;
+    const errorCode = typeof payloadRecord.errorCode === "string" ? payloadRecord.errorCode : undefined;
     const message = typeof payload.error === "string" ? payload.error : "Request failed";
+    const normalizedCode = code?.toUpperCase() ?? errorCode?.toUpperCase();
 
-    if (code === "SESSION_IDLE_TIMEOUT" || code === "SESSION_ABSOLUTE_TIMEOUT") {
-      return new SessionTimeoutAuthenticationError(message, code, details);
+    if (
+      normalizedCode === "SESSION_IDLE_TIMEOUT" ||
+      normalizedCode === "SESSION_ABSOLUTE_TIMEOUT" ||
+      responseStatus === 440
+    ) {
+      const timeoutCode: AuthFailureCode =
+        normalizedCode === "SESSION_IDLE_TIMEOUT" ? "SESSION_IDLE_TIMEOUT" : "SESSION_ABSOLUTE_TIMEOUT";
+      return new SessionTimeoutAuthenticationError(message, timeoutCode, details);
     }
 
-    if (code === "TOKEN_EXPIRED" || code === "INVALID_TOKEN" || code === "INVALID_TOKEN_CLAIMS") {
-      return new TokenAuthenticationError(message, code, details);
+    if (
+      normalizedCode === "TOKEN_EXPIRED" ||
+      normalizedCode === "INVALID_TOKEN" ||
+      normalizedCode === "INVALID_TOKEN_CLAIMS"
+    ) {
+      const tokenCode: AuthFailureCode =
+        normalizedCode === "INVALID_TOKEN_CLAIMS"
+          ? "INVALID_TOKEN_CLAIMS"
+          : normalizedCode === "TOKEN_EXPIRED"
+          ? "TOKEN_EXPIRED"
+          : "INVALID_TOKEN";
+      return new TokenAuthenticationError(message, tokenCode, details);
     }
 
-    if (code === "MFA_ENROLLMENT_REQUIRED") {
+    if (normalizedCode === "RATE_LIMIT_EXCEEDED" || responseStatus === 429) {
+      const retryAfter = typeof details?.retryAfter === "number" ? details.retryAfter : undefined;
+      return new RateLimitError(message, retryAfter);
+    }
+
+    if (
+      normalizedCode === "VALIDATION_ERROR" ||
+      normalizedCode === "AUTH_VALIDATION_ERROR" ||
+      responseStatus === 400
+    ) {
+      return new ValidationError(message, details);
+    }
+
+    if (normalizedCode === "MFA_ENROLLMENT_REQUIRED") {
       const mfaUserId =
         typeof details?.userId === "string"
           ? details.userId
@@ -128,10 +237,10 @@ export class AuthService extends BaseService {
         role: typeof mfaRole === "string" && mfaRole.length > 0 ? mfaRole : "manager",
       };
 
-      return new AuthenticationError(message, { ...(details ?? {}), ...mfaDetails }, responseStatus, code);
+      return new AuthenticationError(message, { ...(details ?? {}), ...mfaDetails }, responseStatus, normalizedCode);
     }
 
-    return new AuthenticationError(message, details, responseStatus, code);
+    return new AuthenticationError(message, details, responseStatus, normalizedCode);
   }
 
   private mapSupabaseAuthError(error: unknown): AuthenticationError {
@@ -430,6 +539,8 @@ export class AuthService extends BaseService {
           });
           throw new AuthenticationError("Invalid credentials");
         }
+
+        this.validateSessionTimeouts(data.session);
 
         // AUTH-001: Check if user's role requires MFA
         const userRole = data.user.user_metadata?.role as string;
