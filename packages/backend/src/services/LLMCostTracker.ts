@@ -354,6 +354,36 @@ export class LLMCostTracker {
   }
 
   /**
+   * Get monthly tokens for a tenant
+   */
+  async getMonthlyTokensByTenant(tenantId: string): Promise<number> {
+    if (!this.isEnabled() || !this.supabase) return 0;
+
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const { data, error } = await this.supabase
+      .from("llm_usage")
+      .select("total_tokens")
+      .eq("tenant_id", tenantId)
+      .gte("created_at", periodStart.toISOString())
+      .lte("created_at", now.toISOString());
+
+    if (error) {
+      logger.error("Failed to get monthly tokens for tenant", error);
+      return 0;
+    }
+
+    return (
+      data?.reduce(
+        (sum: number, record: { total_tokens: number }) =>
+          sum + record.total_tokens,
+        0
+      ) || 0
+    );
+  }
+
+  /**
    * Check if cost thresholds are exceeded
    */
   async checkCostThresholds(): Promise<CostAlert[]> {

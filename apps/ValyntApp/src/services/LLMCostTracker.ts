@@ -77,6 +77,7 @@ const COST_THRESHOLDS = {
 };
 
 export interface LLMUsageRecord {
+  tenant_id?: string;
   user_id: string;
   session_id?: string;
   provider: 'together_ai' | 'openai';
@@ -140,6 +141,7 @@ export class LLMCostTracker {
    * Track LLM usage and cost
    */
   async trackUsage(params: {
+    tenantId?: string;
     userId: string;
     sessionId?: string;
     provider: 'together_ai' | 'openai';
@@ -160,6 +162,7 @@ export class LLMCostTracker {
     );
     
     const record: LLMUsageRecord = {
+      tenant_id: params.tenantId,
       user_id: params.userId,
       session_id: params.sessionId,
       provider: params.provider,
@@ -239,6 +242,30 @@ export class LLMCostTracker {
     const now = new Date();
     const oneMonthAgo = new Date(now.getTime() - ONE_MONTH_MS);
     return this.getCostForPeriod(oneMonthAgo, now);
+  }
+
+  /**
+   * Get monthly tokens for a tenant
+   */
+  async getMonthlyTokensByTenant(tenantId: string): Promise<number> {
+    if (!this.isEnabled() || !this.supabase) return 0;
+
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const { data, error } = await this.supabase
+      .from('llm_usage')
+      .select('total_tokens')
+      .eq('tenant_id', tenantId)
+      .gte('timestamp', periodStart.toISOString())
+      .lte('timestamp', now.toISOString());
+
+    if (error) {
+      logger.error('Failed to get monthly tokens for tenant', error);
+      return 0;
+    }
+
+    return (data?.reduce((sum: number, record: { total_tokens: number }) => sum + record.total_tokens, 0)) || 0;
   }
   
   /**

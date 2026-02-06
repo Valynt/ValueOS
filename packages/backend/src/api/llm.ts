@@ -10,6 +10,7 @@ import { llmFallback } from '../services/LLMFallback.js'
 import { CostGovernanceError } from '../services/CostGovernanceService.js'
 import { llmRateLimiter } from '../middleware/llmRateLimiter.js'
 import { logger } from '../utils/logger.js'
+import { FallbackAIService } from '../services/FallbackAIService.js'
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
@@ -100,6 +101,42 @@ router.post(
         stream: !!stream
       })
     );
+
+    const useFallbackModel = Boolean((req as any).useFallbackModel);
+
+    // If plan enforcement downgraded this request, route to fallback immediately.
+    if (useFallbackModel) {
+      res.setHeader('X-LLM-Fallback', 'true');
+      const fallbackContent = FallbackAIService.generateFallbackResponse(sanitizedPrompt);
+
+      if (stream) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+        res.write(`data: ${JSON.stringify({ content: fallbackContent, done: true, fallback: true })}\n\n`);
+        res.end();
+        return;
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          content: fallbackContent,
+          provider: 'fallback',
+          model: 'fallback',
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0
+          },
+          cost: 0,
+          latency: 0,
+          cached: false,
+          fallback: true
+        }
+      });
+    }
 
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream');

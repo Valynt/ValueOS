@@ -127,6 +127,7 @@ export class LLMFallbackService {
 
       // Track usage
       await llmCostTracker.trackUsage({
+        tenantId: request.tenantId,
         userId: request.userId,
         ...(request.sessionId ? { sessionId: request.sessionId } : {}),
         provider: "together_ai",

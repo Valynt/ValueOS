@@ -3,6 +3,7 @@ import { createPlanEnforcement } from '../planEnforcementMiddleware';
 import UsageCache from '../../services/metering/UsageCache';
 import GracePeriodService from '../../services/metering/GracePeriodService';
 import SubscriptionService from '../../services/billing/SubscriptionService';
+import { llmCostTracker } from '../../services/LLMCostTracker';
 
 vi.mock('../../services/metering/UsageCache', () => ({
   default: {
@@ -26,6 +27,12 @@ vi.mock('../../services/billing/SubscriptionService', () => ({
   },
 }));
 
+vi.mock('../../services/LLMCostTracker', () => ({
+  llmCostTracker: {
+    getMonthlyTokensByTenant: vi.fn(),
+  },
+}));
+
 function mockRes() {
   const headers: Record<string, string> = {};
   return {
@@ -41,6 +48,7 @@ function mockRes() {
 describe('planEnforcementMiddleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(llmCostTracker.getMonthlyTokensByTenant).mockResolvedValue(0);
   });
 
   it('blocks hard capped metrics for free plan tenants', async () => {
