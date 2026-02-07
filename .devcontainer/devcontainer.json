@@ -4,7 +4,7 @@
     "../docker-compose.yml",
     "../docker-compose.deps.yml"
   ],
-  "service": "backend",
+  "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
   "settings": {
     "terminal.integrated.shell.linux": "/bin/bash",
@@ -25,5 +25,5 @@
   "mounts": [
     "source=node_modules,target=/workspaces/ValueOS/node_modules,type=volume"
   ],
-  "remoteUser": "ino"
+  "remoteUser": "app"
 }

@@ -511,4 +511,85 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
   checkStatus();
 });
 
+// POST /api/agents/integrity/veto - accept/reject/modify a flagged integrity issue
+router.post(
+  "/integrity/veto",
+  rateLimiters.loose,
+  async (req: Request, res: Response) => {
+    const bodySchema = z.object({
+      issueId: z.string().min(1),
+      resolution: z.enum(["accept", "reject", "modify"]),
+      modifiedOutput: z.any().optional(),
+      agentId: z.string().optional(),
+      sessionId: z.string().optional(),
+    });
+
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.errors } });
+    }
+
+    const { issueId, resolution, modifiedOutput, agentId, sessionId } = parsed.data;
+
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+    }
+
+    try {
+      const eventProducer = getEventProducer();
+      const correlationId = uuidv4();
+      const userId = (req as any).user?.id;
+
+      // Publish a typed agent request to handle veto resolution
+      const agentRequestEvent: AgentRequestEvent = {
+        ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
+        payload: {
+          agentId: agentId || 'IntegrityAgent',
+          userId,
+          sessionId,
+          tenantId,
+          query: 'resolve_issue',
+          context: { issueId, resolution },
+          parameters: { issueId, resolution, modifiedOutput },
+          priority: 'normal',
+          timeout: getAgentAPIConfig().timeout,
+        },
+      };
+
+      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+
+      // Log to audit trail for immediate compliance record
+      try {
+        const auditService = require("../services/security/AuditTrailService.js").getAuditTrailService();
+        await auditService.logImmediate({
+          eventType: 'integrity_veto',
+          actorId: userId || 'system',
+          actorType: userId ? 'user' : 'system',
+          resourceId: issueId,
+          resourceType: 'integrity_issue',
+          action: `veto_${resolution}`,
+          outcome: 'success',
+          details: { agentId, sessionId, modifiedOutput },
+          ipAddress: (req as any).ip || 'unknown',
+          userAgent: (req as any).headers['user-agent'] || '',
+          timestamp: Date.now(),
+          sessionId: sessionId || correlationId,
+          correlationId,
+          riskScore: 0.5,
+          complianceFlags: ['integrity_resolution'],
+          tenantId,
+        });
+      } catch (auditErr) {
+        logger.warn('Failed to log integrity veto to audit trail', auditErr instanceof Error ? auditErr : undefined);
+      }
+
+      return res.json({ success: true, data: { jobId: correlationId, status: 'queued' } });
+    } catch (error) {
+      logger.error('Integrity veto handler failed', error instanceof Error ? error : undefined);
+      return res.status(500).json({ success: false, error: { code: 'INTEGRITY_VETO_FAILED', message: 'Failed to process veto' } });
+    }
+  }
+);
+
 export default router;

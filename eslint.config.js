@@ -63,7 +63,10 @@ const pluginConfig = {
       version: "detect",
     },
     "import/resolver": {
-      typescript: true,
+      typescript: {
+        // Look up workspace and package tsconfigs so path aliases and package-local files resolve correctly
+        project: ["./tsconfig.json", "apps/*/tsconfig.json", "packages/*/tsconfig.json"],
+      },
       node: true,
     },
   },
@@ -421,13 +424,22 @@ const configOverrides = {
     parserOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
-      // No project for config files
+      // Explicitly disable type-aware checks for config files by using an empty project list
+      project: [],
     },
   },
   rules: {
     "import/no-unresolved": "off", // Config files may have different resolution
     "@typescript-eslint/no-var-requires": "off",
     "@typescript-eslint/no-require-imports": "off",
+    // Disable type-aware @typescript-eslint rules for config files (no type-checking available)
+    "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    "@typescript-eslint/no-unsafe-member-access": "off",
+    "@typescript-eslint/no-unsafe-call": "off",
+    "@typescript-eslint/no-unsafe-return": "off",
+    "@typescript-eslint/restrict-template-expressions": "off",
+    "@typescript-eslint/no-explicit-any": "off",
   },
 };
 

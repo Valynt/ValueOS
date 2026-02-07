@@ -812,22 +812,24 @@ export const AgentReasoningViewer: React.FC = () => {
     modifiedOutput?: any
   ) => {
     try {
-      const resp = await api.executeAgent("IntegrityAgent:resolve_issue", {
-        issueId,
-        resolution,
-        modifiedOutput,
+      const res = await fetch('/api/agents/integrity/veto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueId, resolution, modifiedOutput }),
       });
 
-      if (resp.success) {
-        setIntegrityIssues((prev) => prev.filter((issue) => issue.id !== issueId));
-      } else {
-        console.error("Integrity resolution failed:", resp.error);
-        // Optimistic fallback
-        setIntegrityIssues((prev) => prev.filter((issue) => issue.id !== issueId));
+      const payload = await res.json();
+
+      if (!res.ok) {
+        console.error('Integrity resolution failed:', payload);
+        // Do not remove issue on failure
+        return;
       }
-    } catch (err) {
-      console.error("Error resolving integrity issue:", err);
+
+      // Success: remove issue locally
       setIntegrityIssues((prev) => prev.filter((issue) => issue.id !== issueId));
+    } catch (err) {
+      console.error('Error resolving integrity issue:', err);
     }
   };
 

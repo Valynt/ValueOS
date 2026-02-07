@@ -11,8 +11,8 @@
  */
 
 import { createClient, RedisClientType } from "redis";
-import { logger } from "../../lib/logger";
-import { getCache } from "../core/Cache";
+import { logger } from "../../lib/logger.js";
+import { getCache } from "../core/Cache.js";
 
 export interface Event {
   id: string;
