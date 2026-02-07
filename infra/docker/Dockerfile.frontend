@@ -7,9 +7,10 @@ ARG NODE_VERSION=20.19.0
 ARG NODE_IMAGE=node:${NODE_VERSION}-alpine
 ARG PNPM_VERSION=9.15.0
 ARG NGINX_IMAGE=nginx:1.27-alpine
+ARG APP=valynt-app
 
-# Stage 1: Dependencies
-FROM ${NODE_IMAGE} AS deps
+# Stage 1: Base tooling
+FROM ${NODE_IMAGE} AS base
 ARG PNPM_VERSION
 ENV PNPM_HOME=/pnpm
 ENV PNPM_STORE_PATH=/pnpm/store
@@ -19,14 +20,28 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 RUN pnpm config set store-dir ${PNPM_STORE_PATH}
 
+# Stage 2: Prune workspace for dependency caching
+FROM base AS prune
+ARG APP
+WORKDIR /app
+
+COPY . .
+
+RUN pnpm dlx turbo prune --docker --scope=${APP}
+
+# Stage 3: Dependencies
+FROM base AS deps
+WORKDIR /app
+
 # Copy workspace configuration
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json .npmrc* ./
+COPY --from=prune /app/out/json/ ./
+COPY .npmrc* ./
 
 # Fetch dependencies for reproducible installs
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm fetch --frozen-lockfile
 
-# Stage 2: Development
+# Stage 4: Development
 FROM deps AS development
 WORKDIR /app
 
@@ -43,7 +58,7 @@ CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
 
 # Stage 3: Builder
 FROM deps AS build
-ARG APP=valynt-app
+ARG APP
 ARG VITE_SUPABASE_URL=http://localhost:54321
 ARG VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 ARG VITE_API_BASE_URL=/api
@@ -52,7 +67,7 @@ ARG NODE_ENV=production
 
 WORKDIR /app
 
-COPY . .
+COPY --from=prune /app/out/full/ ./
 
 # Validate required environment variables
 RUN test -n "$VITE_SUPABASE_URL" || (echo "ERROR: VITE_SUPABASE_URL is required" && exit 1)
@@ -66,7 +81,7 @@ ENV NODE_ENV=${NODE_ENV} \
     VITE_APP_URL=${VITE_APP_URL}
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --offline --filter ./apps/ValyntApp...
+    pnpm install --frozen-lockfile --offline
 
 # Build the application
 RUN turbo run build --filter=${APP}...
