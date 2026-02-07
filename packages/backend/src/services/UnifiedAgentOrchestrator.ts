@@ -25,6 +25,10 @@ import { AgentType } from "./agent-types.js"
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
+import {
+  StructuralTruthModuleSchema,
+  STRUCTURAL_TRUTH_SCHEMA_FIELDS,
+} from "@mcp/ground-truth/modules/StructuralTruthModule";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,
@@ -438,6 +442,64 @@ export class UnifiedAgentOrchestrator {
     return { vetoed: false };
   }
 
+  private async evaluateStructuralTruthVeto(
+    payload: unknown,
+    options: {
+      traceId: string;
+      agentType: AgentType;
+      query?: string;
+      stageId?: string;
+      context?: AgentContext;
+    }
+  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
+    if (options.agentType !== "integrity") {
+      return { vetoed: false };
+    }
+
+    const validation = StructuralTruthModuleSchema.safeParse(payload);
+    if (validation.success) {
+      return { vetoed: false };
+    }
+
+    const issueCount = validation.error.issues.length;
+    const fieldCount = Math.max(1, STRUCTURAL_TRUTH_SCHEMA_FIELDS.length);
+    const deviationPercent = Math.min(100, (issueCount / fieldCount) * 100);
+
+    if (deviationPercent <= 15) {
+      return { vetoed: false };
+    }
+
+    const warning = validation.error.issues
+      .slice(0, 3)
+      .map((issue) => issue.message)
+      .join("; ");
+
+    const vetoMetadata: IntegrityVetoMetadata = {
+      integrityVeto: true,
+      deviationPercent,
+      benchmark: 15,
+      metricId: "structural_truth_schema",
+      claimedValue: deviationPercent,
+      warning: warning || "Structural truth schema deviation exceeded threshold.",
+    };
+
+    await logAgentResponse(
+      options.agentType,
+      options.query ?? "structural-truth-veto",
+      false,
+      payload,
+      {
+        traceId: options.traceId,
+        stageId: options.stageId,
+        integrityVeto: vetoMetadata,
+      },
+      "integrity_veto",
+      options.context
+    );
+
+    return { vetoed: true, metadata: vetoMetadata };
+  }
+
   private normalizeExecutionRequest(
     intent: string,
     execution: ExecutionRequest
@@ -670,6 +732,29 @@ export class UnifiedAgentOrchestrator {
       executionTime: result.executionTime,
     });
 
+    const structuralCheck = await this.evaluateStructuralTruthVeto(result.data, {
+      traceId: result.traceId,
+      agentType: "coordinator",
+      query: "async-query-result",
+    });
+    if (structuralCheck.vetoed) {
+      const response: AgentResponse = {
+        type: "message",
+        payload: {
+          message:
+            "Output failed structural truth validation against expected schema.",
+          error: true,
+        },
+        metadata: structuralCheck.metadata,
+      };
+
+      return {
+        response,
+        nextState: currentState,
+        traceId: result.traceId,
+      };
+    }
+
     const integrityCheck = await this.evaluateIntegrityVeto(result.data, {
       traceId: result.traceId,
       agentType: "coordinator",
@@ -783,6 +868,37 @@ export class UnifiedAgentOrchestrator {
       }
 
       const asyncAgentType = this.selectAgent(query, currentState);
+      const structuralCheck = await this.evaluateStructuralTruthVeto(
+        result.data,
+        {
+          traceId,
+          agentType: asyncAgentType,
+          query,
+          context: {
+            userId: envelope.actor.id || userId,
+            sessionId,
+            organizationId: envelope.organizationId,
+          },
+        }
+      );
+      if (structuralCheck.vetoed) {
+        const response: AgentResponse = {
+          type: "message",
+          payload: {
+            message:
+              "Output failed structural truth validation against expected schema.",
+            error: true,
+          },
+          metadata: structuralCheck.metadata,
+        };
+
+        return {
+          response,
+          nextState: currentState,
+          traceId,
+        };
+      }
+
       const integrityCheck = await this.evaluateIntegrityVeto(result.data, {
         traceId,
         agentType: asyncAgentType,
@@ -906,6 +1022,33 @@ export class UnifiedAgentOrchestrator {
       );
 
       if (agentResponse.success) {
+        const structuralCheck = await this.evaluateStructuralTruthVeto(
+          agentResponse.data,
+          {
+            traceId,
+            agentType,
+            query,
+            context: agentContext,
+          }
+        );
+        if (structuralCheck.vetoed) {
+          const response: AgentResponse = {
+            type: "message",
+            payload: {
+              message:
+                "Output failed structural truth validation against expected schema.",
+              error: true,
+            },
+            metadata: structuralCheck.metadata,
+          };
+
+          return {
+            response,
+            nextState: currentState,
+            traceId,
+          };
+        }
+
         const integrityCheck = await this.evaluateIntegrityVeto(
           agentResponse.data,
           {
@@ -1518,6 +1661,76 @@ Provide a JSON response with:
 
         if (result.success && result.result?.stageResult.status === "completed") {
           const stageOutput = result.result.stageResult.output || {};
+          const structuralCheck = await this.evaluateStructuralTruthVeto(
+            stageOutput,
+            {
+              traceId,
+              agentType: stage.agent_type as AgentType,
+              query: stage.description ?? stage.id,
+              stageId: stage.id,
+            }
+          );
+          if (structuralCheck.vetoed) {
+            const vetoMessage =
+              "Output failed structural truth validation against expected schema.";
+            failedStages.set(stage.id, vetoMessage);
+            integrityVetoed = true;
+
+            const lifecycleRecord: StageLifecycleRecord = {
+              stageId: stage.id,
+              lifecycleStage: stage.agent_type,
+              status: "failed",
+              startedAt: stageStart.toISOString(),
+              completedAt: stageCompleted.toISOString(),
+              summary: stage.description,
+            };
+
+            recordSnapshot = {
+              ...recordSnapshot,
+              lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+              outputs: [
+                ...recordSnapshot.outputs,
+                {
+                  stageId: stage.id,
+                  payload: {
+                    error: vetoMessage,
+                    metadata: structuralCheck.metadata,
+                  },
+                  completedAt: stageCompleted.toISOString(),
+                },
+              ],
+              io: {
+                ...recordSnapshot.io,
+                outputs: {
+                  ...recordSnapshot.io.outputs,
+                  [stage.id]: {
+                    error: vetoMessage,
+                    metadata: structuralCheck.metadata,
+                  },
+                },
+              },
+            };
+
+            await this.recordWorkflowEvent(
+              executionId,
+              "stage_failed",
+              stage.id,
+              {
+                reason: "integrity_veto",
+                metadata: structuralCheck.metadata,
+              }
+            );
+
+            await this.persistExecutionRecord(executionId, recordSnapshot);
+            await this.updateExecutionStatus(
+              executionId,
+              "failed",
+              stage.id,
+              recordSnapshot
+            );
+            continue;
+          }
+
           const integrityCheck = await this.evaluateIntegrityVeto(stageOutput, {
             traceId,
             agentType: stage.agent_type as AgentType,
