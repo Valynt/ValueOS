@@ -58,7 +58,11 @@ export function getSupabaseConfig(): SupabaseConfig {
 
   // Server environment - use process.env
   return {
-    url: process.env.SUPABASE_URL || "",
+    url:
+      process.env.SUPABASE_INTERNAL_URL ||
+      process.env.SUPABASE_URL ||
+      process.env.VITE_SUPABASE_URL ||
+      "",
     anonKey: process.env.SUPABASE_ANON_KEY || "",
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "",
   };
@@ -74,7 +78,7 @@ export function validateSupabaseConfig(config: SupabaseConfig): {
   const errors: string[] = [];
 
   if (!config.url) {
-    errors.push("SUPABASE_URL is not configured");
+    errors.push("SUPABASE_INTERNAL_URL or SUPABASE_URL is not configured");
   } else if (!config.url.startsWith("http://") && !config.url.startsWith("https://")) {
     errors.push(`Invalid SUPABASE_URL format: ${config.url}`);
   }
@@ -147,7 +151,7 @@ export function createServerSupabaseClient(options?: {
 
   if (!finalUrl || !finalKey) {
     throw new Error(
-      "[Supabase] Server client not initialized. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+      "[Supabase] Server client not initialized. Set SUPABASE_INTERNAL_URL (or SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY."
     );
   }
 

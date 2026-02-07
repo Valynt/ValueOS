@@ -61,9 +61,11 @@ function getUrlConfig(mode, ports) {
       VITE_API_BASE_URL: "/api", // Relative URL - Caddy proxies to backend
       VITE_APP_URL: `http://localhost:${frontendPort}`,
 
-      // Supabase URL from browser perspective (still localhost)
+      // Supabase URLs
+      SUPABASE_INTERNAL_URL: "http://kong:8000",
+      SUPABASE_PUBLIC_URL: `http://localhost:${supabaseApiPort}`,
       VITE_SUPABASE_URL: `http://localhost:${supabaseApiPort}`,
-      SUPABASE_URL: `http://supabase:${supabaseApiPort}`, // Backend uses Docker DNS
+      SUPABASE_URL: "http://kong:8000",
 
       // Backend internal URLs (Docker network)
       API_UPSTREAM: `http://backend:${backendPort}`,
@@ -81,6 +83,8 @@ function getUrlConfig(mode, ports) {
     VITE_APP_URL: `http://localhost:${frontendPort}`,
 
     // Supabase URL (local instance)
+    SUPABASE_INTERNAL_URL: `http://${backendHost}:${supabaseApiPort}`,
+    SUPABASE_PUBLIC_URL: `http://localhost:${supabaseApiPort}`,
     VITE_SUPABASE_URL: `http://localhost:${supabaseApiPort}`,
     SUPABASE_URL: `http://${backendHost}:${supabaseApiPort}`,
 
@@ -125,6 +129,8 @@ VITE_API_BASE_URL=${urls.VITE_API_BASE_URL}
 # =============================================================================
 # Supabase Configuration
 # =============================================================================
+SUPABASE_INTERNAL_URL=${urls.SUPABASE_INTERNAL_URL}
+SUPABASE_PUBLIC_URL=${urls.SUPABASE_PUBLIC_URL}
 VITE_SUPABASE_URL=${urls.VITE_SUPABASE_URL}
 SUPABASE_URL=${urls.SUPABASE_URL}
 VITE_SUPABASE_ANON_KEY=${LOCAL_SUPABASE_ANON_KEY}
@@ -201,6 +207,10 @@ VITE_HMR_PORT=${ports.frontend.hmrPort}
 SUPABASE_API_PORT=${ports.supabase.apiPort}
 SUPABASE_STUDIO_PORT=${ports.supabase.studioPort}
 SUPABASE_DB_PORT=${ports.supabase.dbPort}
+
+# Supabase URLs
+SUPABASE_INTERNAL_URL=http://kong:8000
+SUPABASE_PUBLIC_URL=http://localhost:${ports.supabase.apiPort}
 
 # Reverse Proxy Ports
 CADDY_HTTP_PORT=${ports.edge.httpPort}

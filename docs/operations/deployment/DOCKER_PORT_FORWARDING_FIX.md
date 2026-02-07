@@ -159,24 +159,30 @@ New-NetFirewallRule -DisplayName "Docker Port 3000" -Direction Inbound -LocalPor
 
 ---
 
-## ✅ Solution 4: Use host.docker.internal
+## ✅ Solution 4: Use Docker service DNS
 
 ### Update Caddyfile
 
 ```caddyfile
 :80 {
-    # Use host.docker.internal to access host network
-    reverse_proxy host.docker.internal:3000
+    # Use the Docker network service name
+    reverse_proxy app:3000
 }
 ```
 
 ### Update docker-compose.yml
 
+Ensure Caddy and the app are on the same Docker network (default in Compose):
+
 ```yaml
 services:
   app:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - app-network
+
+  caddy:
+    networks:
+      - app-network
 ```
 
 ---

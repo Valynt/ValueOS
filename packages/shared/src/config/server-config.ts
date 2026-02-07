@@ -69,7 +69,10 @@ class ServerConfigLoader {
         timeout: parseNumber(process.env.DATABASE_TIMEOUT) ?? 30000,
       },
       supabase: {
-        url: process.env.SUPABASE_URL,
+        url:
+          process.env.SUPABASE_INTERNAL_URL ||
+          process.env.SUPABASE_URL ||
+          process.env.VITE_SUPABASE_URL,
         anonKey: process.env.SUPABASE_ANON_KEY,
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY,
       },

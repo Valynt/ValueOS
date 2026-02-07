@@ -251,7 +251,7 @@ function mapEnvVarsToConfig(env: Record<string, string>): Record<string, any> {
       timeout: parseInt(env.DATABASE_TIMEOUT || '5000'),
     },
     supabase: {
-      url: env.SUPABASE_URL || env.VITE_SUPABASE_URL,
+      url: env.SUPABASE_INTERNAL_URL || env.SUPABASE_URL || env.VITE_SUPABASE_URL,
       anonKey: env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY,
       serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
       functionsUrl: env.SUPABASE_FUNCTIONS_URL,

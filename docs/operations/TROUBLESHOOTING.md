@@ -237,14 +237,14 @@ curl http://localhost:8080/metrics
 ```
 
 3. **Update scrape config:**
-   If running app in Docker, use `host.docker.internal`:
+   If running app in Docker, use the service name on the Docker network (for example, `backend`):
 
 ```yaml
 # observability/prometheus/prometheus.yml
 scrape_configs:
   - job_name: "valueos-app"
     static_configs:
-      - targets: ["host.docker.internal:8080"]
+      - targets: ["backend:8080"]
 ```
 
 4. **Check firewall:**
@@ -252,7 +252,7 @@ scrape_configs:
 
 ```bash
 # Test from inside Prometheus container
-docker exec valueos-prometheus wget -O- http://host.docker.internal:8080/metrics
+docker exec valueos-prometheus wget -O- http://backend:8080/metrics
 ```
 
 #### Problem: High cardinality warning
