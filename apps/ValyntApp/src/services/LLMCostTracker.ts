@@ -80,7 +80,7 @@ export interface LLMUsageRecord {
   tenant_id: string;
   user_id: string;
   session_id?: string;
-  provider: 'together_ai' | 'openai';
+  provider: 'together_ai' | 'openai' | 'anthropic' | 'replicate';
   model: string;
   input_tokens: number;
   output_tokens: number;
@@ -145,7 +145,7 @@ export class LLMCostTracker {
     userId: string;
     tenant_id?: string;
     sessionId?: string;
-    provider: 'together_ai' | 'openai';
+    provider: 'together_ai' | 'openai' | 'anthropic' | 'replicate';
     model: string;
     promptTokens: number;
     completionTokens: number;

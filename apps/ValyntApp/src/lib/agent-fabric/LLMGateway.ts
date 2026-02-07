@@ -7,6 +7,7 @@
 
 import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
+import { LLMCostTracker } from "../../services/LLMCostTracker";
 
 // ============================================================================
 // Provider Types
@@ -18,6 +19,10 @@ export interface LLMRequest {
   id?: string;
   provider: LLMProvider;
   model: string;
+  tenantId: string;
+  tenant_id?: string;
+  userId?: string;
+  sessionId?: string;
   messages: Array<{
     role: "system" | "user" | "assistant";
     content: string;
@@ -263,8 +268,9 @@ class AnthropicProvider extends BaseLLMProvider {
 export class LLMGateway {
   private providers: Map<LLMProvider, BaseLLMProvider> = new Map();
   private defaultProvider: LLMProvider = "openai";
+  private costTracker: LLMCostTracker;
 
-  constructor(configs: Record<LLMProvider, LLMProviderConfig>) {
+  constructor(configs: Record<LLMProvider, LLMProviderConfig>, costTracker?: LLMCostTracker) {
     // Initialize providers
     if (configs.openai) {
       this.providers.set("openai", new OpenAIProvider(configs.openai));
@@ -278,12 +284,20 @@ export class LLMGateway {
       providers: Array.from(this.providers.keys()),
       defaultProvider: this.defaultProvider,
     });
+
+    this.costTracker = costTracker ?? new LLMCostTracker();
   }
 
   async execute(request: LLMRequest): Promise<LLMResponse> {
+    const tenantId = request.tenantId ?? request.tenant_id;
+    if (!tenantId) {
+      throw new Error("TENANT_ID_REQUIRED: LLM requests require an explicit tenantId");
+    }
+
     const enrichedRequest: LLMRequest = {
       id: uuidv4(),
       ...request,
+      tenantId,
     };
 
     const provider = this.providers.get(request.provider);
@@ -298,8 +312,27 @@ export class LLMGateway {
       messageCount: request.messages.length,
     });
 
+    const startTime = Date.now();
+    const costTrackerProvider =
+      request.provider === "together" ? "together_ai" : request.provider;
+    const userId =
+      request.userId ?? (request.metadata?.userId as string | undefined) ?? "unknown";
+
     try {
-      const response = await provider.execute(request);
+      const response = await provider.execute(enrichedRequest);
+
+      await this.costTracker.trackUsage({
+        tenantId,
+        userId,
+        sessionId: request.sessionId,
+        provider: costTrackerProvider,
+        model: response.model,
+        promptTokens: response.tokenUsage.input,
+        completionTokens: response.tokenUsage.output,
+        endpoint: request.provider,
+        success: true,
+        latencyMs: response.latency,
+      });
 
       logger.info("LLM request completed successfully", {
         requestId: enrichedRequest.id,
@@ -311,6 +344,20 @@ export class LLMGateway {
 
       return response;
     } catch (error) {
+      await this.costTracker.trackUsage({
+        tenantId,
+        userId,
+        sessionId: request.sessionId,
+        provider: costTrackerProvider,
+        model: request.model,
+        promptTokens: 0,
+        completionTokens: 0,
+        endpoint: request.provider,
+        success: false,
+        errorMessage: (error as Error).message,
+        latencyMs: Date.now() - startTime,
+      });
+
       logger.error("LLM request failed", error as Error, {
         requestId: enrichedRequest.id,
         provider: request.provider,
