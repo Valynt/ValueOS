@@ -10,12 +10,17 @@
 import { NextFunction, Request, Response } from 'express';
 import { JwtPayload } from 'jsonwebtoken';
 import { verifyAccessToken } from './auth';
+import {
+  ABSOLUTE_TIMEOUT_MS,
+  CLOCK_SKEW_MS,
+  IDLE_TIMEOUT_MS,
+} from '../security/sessionTimeoutConfig';
 
 // Session configuration
 const SESSION_CONFIG = {
-  ABSOLUTE_TIMEOUT_MS: 60 * 60 * 1000,  // 1 hour
-  IDLE_TIMEOUT_MS: 30 * 60 * 1000,      // 30 minutes
-  CLOCK_SKEW_MS: 5 * 1000,              // 5 seconds tolerance
+  ABSOLUTE_TIMEOUT_MS,  // 1 hour
+  IDLE_TIMEOUT_MS,      // 30 minutes
+  CLOCK_SKEW_MS,        // 5 seconds tolerance
 };
 
 /**
