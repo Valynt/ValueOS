@@ -35,7 +35,7 @@ async function testLogin() {
 
     // Find and fill password field
     const passwordInput = page.locator('input[type="password"]').first();
-    await passwordInput.fill("passord");
+    await passwordInput.fill("passw0rd");
 
     // Take screenshot with filled form
     await page.screenshot({ path: "/workspaces/ValueOS/test-results/login-filled.png" });
@@ -96,7 +96,7 @@ async function testLogin() {
     // Print final result
     console.log("\n📊 Test Results:");
     console.log(`   Email: demouser@valynt.com`);
-    console.log(`   Password: passord`);
+    console.log(`   Password: passw0rd`);
     console.log(`   Final URL: ${currentUrl}`);
   } catch (error) {
     console.error("\n❌ Test failed:", error.message);

@@ -7,7 +7,7 @@ test("login flow", async ({ page }) => {
 
   // Fill credentials
   await page.fill("#email", "demouser2@valynt.com");
-  await page.fill("#password", "passord");
+  await page.fill("#password", "passw0rd");
 
   // Click submit
   await page.click('button[type="submit"]');
