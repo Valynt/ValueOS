@@ -7,6 +7,8 @@
 
 import { logger } from '../lib/logger';
 import { getGroundtruthConfig } from '../lib/env';
+import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker';
+import { ExternalCircuitBreaker } from './ExternalCircuitBreaker';
 
 export interface GroundtruthAPIConfig {
   baseUrl?: string;
@@ -49,9 +51,24 @@ function getDefaultConfig(): Required<GroundtruthAPIConfig> {
 
 export class GroundtruthAPI {
   private config: Required<GroundtruthAPIConfig>;
+  private readonly circuitBreakerManager: CircuitBreakerManager;
+  private readonly circuitBreaker: ExternalCircuitBreaker;
+  private readonly breakerKey = 'external:groundtruth:evaluate';
+  private readonly breakerConfig: Partial<CircuitBreakerConfig>;
 
   constructor(config: GroundtruthAPIConfig = {}) {
     this.config = { ...getDefaultConfig(), ...config };
+    this.config.timeoutMs = Number(this.config.timeoutMs) || 30_000;
+    this.circuitBreakerManager = new CircuitBreakerManager();
+    this.circuitBreaker = new ExternalCircuitBreaker('groundtruth', this.circuitBreakerManager);
+    this.breakerConfig = {
+      windowMs: 60_000,
+      failureRateThreshold: 0.5,
+      latencyThresholdMs: Math.max(2_000, this.config.timeoutMs),
+      minimumSamples: 2,
+      timeoutMs: 30_000,
+      halfOpenMaxProbes: 1,
+    };
   }
 
   isConfigured(): boolean {
@@ -73,40 +90,58 @@ export class GroundtruthAPI {
     const url = this.buildUrl(endpoint);
 
     try {
-      const response = await this.fetchWithTimeout(
-        url,
-        {
-          method: 'POST',
-          headers: this.buildHeaders(),
-          body: JSON.stringify(payload),
+      return await this.circuitBreaker.execute(
+        this.breakerKey,
+        async () => {
+          const response = await this.fetchWithTimeout(
+            url,
+            {
+              method: 'POST',
+              headers: this.buildHeaders(),
+              body: JSON.stringify(payload),
+            },
+            options.timeoutMs ?? this.config.timeoutMs
+          );
+
+          const contentType = response.headers.get('content-type') || '';
+          const isJson = contentType.includes('application/json');
+          const responseBody = isJson ? await response.json() : await response.text();
+
+          if (!response.ok) {
+            const message = this.normalizeErrorMessage(response.status, response.statusText, responseBody);
+            throw new GroundtruthRequestError(message, response.status, responseBody);
+          }
+
+          this.logCircuitBreakerState('groundtruth:success');
+
+          return {
+            success: true,
+            data: (responseBody as T) ?? undefined,
+            status: response.status,
+          };
         },
-        options.timeoutMs ?? this.config.timeoutMs
+        {
+          config: this.breakerConfig,
+          fallback: (error, state) => {
+            const normalized = this.normalizeError(error);
+            this.logCircuitBreakerState('groundtruth:fallback', state, normalized.message);
+            return {
+              success: false,
+              error: normalized.message,
+              status: normalized.status,
+              details: normalized.details,
+            };
+          },
+        }
       );
-
-      const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-      const responseBody = isJson ? await response.json() : await response.text();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: this.normalizeErrorMessage(response.status, response.statusText, responseBody),
-          status: response.status,
-          details: responseBody,
-        };
-      }
-
-      return {
-        success: true,
-        data: (responseBody as T) ?? undefined,
-        status: response.status,
-      };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.warn('Groundtruth API request failed', error instanceof Error ? error : undefined);
+      const normalized = this.normalizeError(error);
+      this.logCircuitBreakerState('groundtruth:exception', this.circuitBreaker.getState(this.breakerKey), normalized.message);
       return {
         success: false,
-        error: message,
+        error: normalized.message,
+        status: normalized.status,
+        details: normalized.details,
       };
     }
   }
@@ -149,6 +184,53 @@ export class GroundtruthAPI {
     return `HTTP ${status}: ${fallback}`.trim();
   }
 
+  private normalizeError(error: unknown): { message: string; status?: number; details?: unknown } {
+    if (error instanceof GroundtruthRequestError) {
+      return {
+        message: error.message,
+        status: error.status,
+        details: error.details,
+      };
+    }
+
+    if (error instanceof Error) {
+      return { message: error.message };
+    }
+
+    return { message: String(error) };
+  }
+
+  private logCircuitBreakerState(context: string, state?: string, error?: string): void {
+    const metrics = this.circuitBreaker.getMetrics(this.breakerKey);
+    const breakerState = state ?? metrics.state;
+    const payload = {
+      context,
+      breakerKey: this.breakerKey,
+      state: breakerState,
+      failureRate: metrics.failureRate,
+      totalRequests: metrics.totalRequests,
+      failedRequests: metrics.failedRequests,
+      error,
+    };
+
+    if (breakerState === 'open') {
+      logger.warn('Groundtruth circuit breaker is OPEN', payload);
+      return;
+    }
+
+    if (breakerState === 'half_open') {
+      logger.warn('Groundtruth circuit breaker is HALF_OPEN', payload);
+      return;
+    }
+
+    if (error) {
+      logger.info('Groundtruth circuit breaker state recorded after error', payload);
+      return;
+    }
+
+    logger.debug('Groundtruth circuit breaker state recorded', payload);
+  }
+
   private async fetchWithTimeout(
     url: string,
     options: RequestInit,
@@ -171,6 +253,18 @@ export class GroundtruthAPI {
       }
       throw error;
     }
+  }
+}
+
+class GroundtruthRequestError extends Error {
+  status?: number;
+  details?: unknown;
+
+  constructor(message: string, status?: number, details?: unknown) {
+    super(message);
+    this.name = 'GroundtruthRequestError';
+    this.status = status;
+    this.details = details;
   }
 }
 
