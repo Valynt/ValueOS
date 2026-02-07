@@ -36,7 +36,7 @@ COPY --from=pruner /app/out/full/ .
 RUN pnpm run build
 
 # 3. Final production image
-FROM node:${NODE_VERSION}-alpine
+FROM node:${NODE_VERSION}-alpine AS production
 WORKDIR /app
 
 # Create a non-root user for better security
@@ -48,6 +48,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json .
 
+# Expose port and configure healthcheck
 EXPOSE 3000
 
 # Healthcheck to verify the application is running

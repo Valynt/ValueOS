@@ -3,7 +3,8 @@
   "dockerComposeFile": [
     "../docker-compose.yml",
     "../docker-compose.deps.yml",
-    "compose.auth.stub.yml"
+    "compose.auth.stub.yml",
+    "docker-compose.subagents.yml"
   ],
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
@@ -98,9 +99,10 @@ Server: Docker Desktop 4.59.0 (217644)
     "dbaeumer.vscode-eslint",
     "ms-azuretools.vscode-docker",
     "eamodio.gitlens",
-    "mechatroner.rainbow-csv"
+    "mechatroner.rainbow-csv",
+    "usernamehw.errorlens"
   ],
-  "postCreateCommand": "pnpm install && pnpm run dx",
+  "postCreateCommand": "pnpm install && pnpm run dx && bash .devcontainer/scripts/install-optional-tools.sh || true",
   "mounts": ["source=node_modules,target=/workspaces/ValueOS/node_modules,type=volume"],
   "remoteUser": "app"
 }

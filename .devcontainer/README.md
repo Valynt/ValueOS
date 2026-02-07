@@ -210,6 +210,22 @@ bash scripts/check-env.sh
 
 This executes `pnpm run dx:doctor` and exits non-zero on failures, making it safe to use in CI/devcontainer bootstrap checks.
 
+## 🧩 Subagents (Parallel tasks)
+
+The devcontainer now provides optional helper containers ("subagents") that run common environment tasks in parallel and in isolation. These are small helper services defined in `.devcontainer/docker-compose.subagents.yml` and run under the `devcontainer` compose profile.
+
+Commands:
+
+- `pnpm run dev:subagents:up` — start `subagent-installer`, `subagent-lint`, and `subagent-test` (detached). This primes caches and runs lint/test workloads in parallel.
+- `pnpm run dev:subagents:down` — stop and remove subagents.
+
+Scripts:
+
+- `.devcontainer/scripts/start-subagents.sh` — starts subagents via Docker Compose.
+- `.devcontainer/scripts/wait-subagents.sh` — waits for the installer to complete.
+
+These subagents are optional and intended to accelerate onboarding and CI-like workloads locally. They are safe to run concurrently with the main devcontainer services.
+
 ### Modifying Security Settings
 
 **Dev Container:**

@@ -29,6 +29,16 @@ RUN groupadd -g ${USER_GID} valueos || true \
     && useradd -m -u ${USER_ID} -g ${USER_GID} valueos || true
 
 WORKDIR /workspaces/ValueOS
+
+# Install lightweight runtime client tools needed by setup scripts
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    python3-pip \
+    curl \
+    git \
+    libatomic1 \
+  && rm -rf /var/lib/apt/lists/*
+
 USER valueos
 
 # Ensure pnpm is available to the non-root user (re-prepare corepack in the smaller image)

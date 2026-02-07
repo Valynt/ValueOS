@@ -23,6 +23,8 @@
     "dx:up": "bash scripts/dev/start-dev-env.sh",
     "dx:up:seed": "bash scripts/dev/start-dev-env.sh --seed",
     "dx:up:studio": "bash scripts/dev/start-dev-env.sh --studio",
+    "dev:subagents:up": "docker compose -f .devcontainer/docker-compose.devcontainer.yml -f .devcontainer/docker-compose.subagents.yml --profile devcontainer up --build -d subagent-installer subagent-lint subagent-test",
+    "dev:subagents:down": "docker compose -f .devcontainer/docker-compose.devcontainer.yml -f .devcontainer/docker-compose.subagents.yml --profile devcontainer down",
     "dx:docker": "node scripts/dev-cli.js up --mode docker",
     "dx:doctor": "node scripts/dx/doctor.js",
     "dx:doctor:soft": "node scripts/dx/doctor.js --soft",
