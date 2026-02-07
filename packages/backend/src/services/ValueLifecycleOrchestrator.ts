@@ -316,6 +316,99 @@ export class ValueLifecycleOrchestrator {
     });
   }
 
+  async runLifecycle(
+    input: StageInput,
+    context: LifecycleContext
+  ): Promise<{ opportunity: StageResult; target: StageResult }> {
+    const opportunityResult = await this.executeLifecycleStage(
+      "opportunity",
+      input,
+      context
+    );
+
+    this.registerCompensation(context, {
+      name: "opportunity_restore_snapshot",
+      handler: async () => {
+        await this.restoreOpportunityState(opportunityResult, context);
+      },
+      metadata: {
+        stage: "opportunity",
+        stageExecutionId: opportunityResult.stageExecutionId,
+        delta: opportunityResult.delta,
+      },
+    });
+
+    try {
+      const targetResult = await this.executeLifecycleStage("target", input, {
+        ...context,
+        metadata: {
+          ...context.metadata,
+          previousResult: opportunityResult,
+        },
+      });
+
+      return { opportunity: opportunityResult, target: targetResult };
+    } catch (error) {
+      await this.logOpportunityTargetCompensation(
+        error,
+        opportunityResult,
+        context
+      );
+      throw error;
+    }
+  }
+
+  private async logOpportunityTargetCompensation(
+    error: unknown,
+    opportunityResult: StageResult,
+    context: LifecycleContext
+  ): Promise<void> {
+    const lifecycleError =
+      error instanceof LifecycleError
+        ? error
+        : new LifecycleError(
+            "target",
+            "Lifecycle stage target failed",
+            error instanceof Error ? error : new Error(String(error))
+          );
+    const compensationOutcomes = lifecycleError.compensation ?? [];
+    const failureReason =
+      lifecycleError.originalError?.message ?? lifecycleError.message;
+    const correlationId = context.sessionId || uuidv4();
+
+    await this.auditTrailService.logImmediate({
+      eventType: "saga_opportunity_target_compensation",
+      actorId: context.userId || "system",
+      actorType: "service",
+      resourceId: opportunityResult.stageExecutionId
+        ? String(opportunityResult.stageExecutionId)
+        : correlationId,
+      resourceType: "system",
+      action: "saga_opportunity_target_compensation",
+      outcome: compensationOutcomes.some((result) => !result.success)
+        ? "error"
+        : "success",
+      details: {
+        failureReason,
+        opportunityStageExecutionId: opportunityResult.stageExecutionId,
+        targetStage: "target",
+        compensationOutcomes,
+        opportunityDelta: opportunityResult.delta,
+        tenantId: context.tenantId,
+        organizationId: context.organizationId,
+        sessionId: context.sessionId,
+      },
+      ipAddress: "system",
+      userAgent: "system",
+      timestamp: Date.now(),
+      sessionId: context.sessionId || correlationId,
+      correlationId,
+      riskScore: 0,
+      complianceFlags: [],
+      tenantId: context.tenantId,
+    });
+  }
+
   private getAgentForStage(stage: LifecycleStage, context: LifecycleContext): BaseAgent {
     const agentConfig: AgentConfig = {
       id: `${stage}-agent`, // Or a more sophisticated ID
@@ -441,6 +534,24 @@ export class ValueLifecycleOrchestrator {
   private async revertValueTree(valueTreeId: string): Promise<void> {
     logger.info("Compensating: reverting value tree", { valueTreeId });
     // Implementation would revert value tree changes
+  }
+
+  private async restoreOpportunityState(
+    opportunityResult: StageResult,
+    context: LifecycleContext
+  ): Promise<void> {
+    const snapshot =
+      opportunityResult.delta?.before ??
+      opportunityResult.data?.snapshot ??
+      opportunityResult.data?.previous ??
+      null;
+    if (snapshot) {
+      await this.updateValueTree(snapshot, context);
+      return;
+    }
+    logger.info("No opportunity snapshot available for compensation", {
+      stageExecutionId: opportunityResult.stageExecutionId,
+    });
   }
 
   private hasNextStage(stage: LifecycleStage): boolean {
