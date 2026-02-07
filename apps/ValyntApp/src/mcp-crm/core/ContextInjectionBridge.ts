@@ -1,15 +1,21 @@
 /**
  * CRM Context Injection Bridge
- * 
+ *
  * Connects live CRM deal data to the Ground Truth Engine and Financial Templates.
  * This service transforms normalized CRM context into template-ready data sources.
- * 
+ *
  * Flow: CRM Deal → crm_get_deal_context → ContextInjectionBridge → TemplateDataSource
  */
 
-import { logger } from '../../lib/logger';
-import { MCPCRMServer, getMCPCRMServer } from './MCPCRMServer';
-import type { TemplateDataSource, MetricData, OutcomeData, FinancialData } from '../../components/templates';
+import { logger } from "../../lib/logger";
+import { MCPCRMServer, getMCPCRMServer } from "./MCPCRMServer";
+import type {
+  TemplateDataSource,
+  MetricData,
+  OutcomeData,
+  FinancialData,
+} from "../../components/templates";
+import { UnifiedAgentOrchestrator } from "../../services/UnifiedAgentOrchestrator";
 
 // ============================================================================
 // Types
@@ -50,6 +56,22 @@ export interface NormalizedDealContext {
     lastActivityDate: string | null;
     activityTypes: string[];
   };
+}
+
+export interface GroundedUIContext {
+  timestamp: string;
+  userId: string;
+  tenantId: string;
+  activeComponents: string[];
+  formData: Record<string, any>;
+  navigationState: Record<string, any>;
+  interactionHistory: Array<{
+    component: string;
+    action: string;
+    timestamp: string;
+    data?: any;
+  }>;
+  sessionContext?: Record<string, any>;
 }
 
 export interface ContextInjectionOptions {
@@ -96,17 +118,20 @@ export class ContextInjectionBridge {
    */
   async initialize(): Promise<void> {
     this.crmServer = await getMCPCRMServer(this.tenantId, this.userId);
-    logger.info('ContextInjectionBridge initialized', { tenantId: this.tenantId });
+    logger.info("ContextInjectionBridge initialized", { tenantId: this.tenantId });
   }
 
   /**
    * Get live deal context from CRM
    */
-  async getDealContext(dealId: string, includeHistory = false): Promise<NormalizedDealContext | null> {
+  async getDealContext(
+    dealId: string,
+    includeHistory = false
+  ): Promise<NormalizedDealContext | null> {
     // Check cache first
     const cached = this.contextCache.get(dealId);
     if (cached && cached.expires > Date.now()) {
-      logger.debug('Using cached deal context', { dealId });
+      logger.debug("Using cached deal context", { dealId });
       return cached.data;
     }
 
@@ -114,13 +139,13 @@ export class ContextInjectionBridge {
       await this.initialize();
     }
 
-    const result = await this.crmServer!.executeTool('crm_get_deal_context', {
+    const result = await this.crmServer!.executeTool("crm_get_deal_context", {
       deal_id: dealId,
       include_history: includeHistory,
     });
 
     if (!result.success || !result.data) {
-      logger.warn('Failed to get deal context', { dealId, error: result.error });
+      logger.warn("Failed to get deal context", { dealId, error: result.error });
       return null;
     }
 
@@ -151,7 +176,13 @@ export class ContextInjectionBridge {
     const discountRate = config.discountRate ?? 0.1;
 
     // Transform to TemplateDataSource
-    const dataSource = this.buildTemplateDataSource(context, multiplier, timeHorizon, discountRate, options.metricOverrides);
+    const dataSource = this.buildTemplateDataSource(
+      context,
+      multiplier,
+      timeHorizon,
+      discountRate,
+      options.metricOverrides
+    );
 
     return {
       dataSource,
@@ -183,7 +214,7 @@ export class ContextInjectionBridge {
     const projectedRevenue = annualValue * (timeHorizonMonths / 12);
 
     // Estimate cost savings (typically 15-25% of deal value for B2B)
-    const costSavingsRatio = 0.20;
+    const costSavingsRatio = 0.2;
     const estimatedCostSavings = dealValue * costSavingsRatio;
 
     // Risk reduction estimate (5-10% of deal value)
@@ -192,80 +223,88 @@ export class ContextInjectionBridge {
 
     // Calculate ROI (simplified: net benefit / investment)
     const estimatedImplementationCost = dealValue * 0.15; // 15% implementation cost
-    const netBenefit = dealValue + estimatedCostSavings + estimatedRiskReduction - estimatedImplementationCost;
-    const roi = estimatedImplementationCost > 0 ? (netBenefit / estimatedImplementationCost) * 100 : 0;
+    const netBenefit =
+      dealValue + estimatedCostSavings + estimatedRiskReduction - estimatedImplementationCost;
+    const roi =
+      estimatedImplementationCost > 0 ? (netBenefit / estimatedImplementationCost) * 100 : 0;
 
     // Calculate NPV
-    const npv = this.calculateNPV(annualValue, timeHorizonMonths, discountRate, estimatedImplementationCost);
+    const npv = this.calculateNPV(
+      annualValue,
+      timeHorizonMonths,
+      discountRate,
+      estimatedImplementationCost
+    );
 
     // Payback period (months)
-    const paybackMonths = monthlyValue > 0 ? Math.ceil(estimatedImplementationCost / monthlyValue) : 0;
+    const paybackMonths =
+      monthlyValue > 0 ? Math.ceil(estimatedImplementationCost / monthlyValue) : 0;
 
     // Build metrics array
     const metrics: MetricData[] = [
       {
-        id: 'deal-value',
-        name: 'Deal Value',
+        id: "deal-value",
+        name: "Deal Value",
         value: dealValue,
-        unit: 'currency',
-        category: 'revenue',
+        unit: "currency",
+        category: "revenue",
         confidence: context.financial.probability / 100,
         source: `${context.provider}:${context.externalId}`,
       },
       {
-        id: 'expected-value',
-        name: 'Expected Value',
+        id: "expected-value",
+        name: "Expected Value",
         value: expectedValue,
-        unit: 'currency',
-        category: 'revenue',
+        unit: "currency",
+        category: "revenue",
         confidence: context.financial.probability / 100,
       },
       {
-        id: 'monthly-revenue',
-        name: 'Monthly Revenue',
+        id: "monthly-revenue",
+        name: "Monthly Revenue",
         value: monthlyValue,
-        unit: 'currency',
-        category: 'revenue',
+        unit: "currency",
+        category: "revenue",
         confidence: 0.8,
       },
       {
-        id: 'cost-savings',
-        name: 'Estimated Cost Savings',
+        id: "cost-savings",
+        name: "Estimated Cost Savings",
         value: estimatedCostSavings,
-        unit: 'currency',
-        category: 'cost',
+        unit: "currency",
+        category: "cost",
         confidence: 0.6,
       },
       {
-        id: 'risk-reduction',
-        name: 'Risk Reduction Value',
+        id: "risk-reduction",
+        name: "Risk Reduction Value",
         value: estimatedRiskReduction,
-        unit: 'currency',
-        category: 'risk',
+        unit: "currency",
+        category: "risk",
         confidence: 0.5,
       },
       {
-        id: 'roi',
-        name: 'Return on Investment',
+        id: "roi",
+        name: "Return on Investment",
         value: Math.round(roi),
-        unit: 'percentage',
-        category: 'financial',
+        unit: "percentage",
+        category: "financial",
         confidence: 0.7,
       },
       {
-        id: 'npv',
-        name: 'Net Present Value',
+        id: "npv",
+        name: "Net Present Value",
         value: Math.round(npv),
-        unit: 'currency',
-        category: 'financial',
+        unit: "currency",
+        category: "financial",
         confidence: 0.7,
       },
       {
-        id: 'payback-period',
-        name: 'Payback Period',
+        id: "payback-period",
+        name: "Payback Period",
         value: paybackMonths,
-        unit: 'months',
-        category: 'financial',
+        unit: "months",
+        category: "financial",
         confidence: 0.75,
       },
     ];
@@ -309,55 +348,76 @@ export class ContextInjectionBridge {
 
     // Current state outcome
     outcomes.push({
-      id: 'current-state',
-      name: 'Current Deal Status',
+      id: "current-state",
+      name: "Current Deal Status",
       description: `Deal with ${context.company.name} currently in ${context.stage.current} stage`,
-      category: 'operational',
-      status: stage === 'closed_won' ? 'achieved' : stage === 'closed_lost' ? 'at-risk' : 'in-progress',
-      metrics: [{
-        id: 'probability',
-        name: 'Win Probability',
-        value: context.financial.probability,
-        unit: 'percentage',
-      }],
+      category: "operational",
+      status:
+        stage === "closed_won" ? "achieved" : stage === "closed_lost" ? "at-risk" : "in-progress",
+      metrics: [
+        {
+          id: "probability",
+          name: "Win Probability",
+          value: context.financial.probability,
+          unit: "percentage",
+        },
+      ],
     });
 
     // Revenue outcome
     outcomes.push({
-      id: 'revenue-outcome',
-      name: 'Revenue Generation',
+      id: "revenue-outcome",
+      name: "Revenue Generation",
       description: `Expected ${context.financial.currency} ${context.financial.dealValue.toLocaleString()} in annual revenue`,
-      category: 'revenue',
-      status: context.financial.probability >= 70 ? 'on-track' : context.financial.probability >= 40 ? 'in-progress' : 'at-risk',
-      metrics: [{
-        id: 'deal-value',
-        name: 'Deal Value',
-        value: context.financial.dealValue,
-        unit: 'currency',
-      }],
+      category: "revenue",
+      status:
+        context.financial.probability >= 70
+          ? "on-track"
+          : context.financial.probability >= 40
+            ? "in-progress"
+            : "at-risk",
+      metrics: [
+        {
+          id: "deal-value",
+          name: "Deal Value",
+          value: context.financial.dealValue,
+          unit: "currency",
+        },
+      ],
     });
 
     // Timeline outcome
     if (context.stage.daysToClose !== null) {
       outcomes.push({
-        id: 'timeline',
-        name: 'Close Timeline',
-        description: context.stage.daysToClose > 0 
-          ? `${context.stage.daysToClose} days until expected close`
-          : 'Close date has passed',
-        category: 'operational',
-        status: context.stage.daysToClose > 30 ? 'on-track' : context.stage.daysToClose > 0 ? 'in-progress' : 'at-risk',
+        id: "timeline",
+        name: "Close Timeline",
+        description:
+          context.stage.daysToClose > 0
+            ? `${context.stage.daysToClose} days until expected close`
+            : "Close date has passed",
+        category: "operational",
+        status:
+          context.stage.daysToClose > 30
+            ? "on-track"
+            : context.stage.daysToClose > 0
+              ? "in-progress"
+              : "at-risk",
       });
     }
 
     // Engagement outcome (if history available)
     if (context.history) {
       outcomes.push({
-        id: 'engagement',
-        name: 'Stakeholder Engagement',
-        description: `${context.history.recentActivityCount} recent activities (${context.history.activityTypes.join(', ')})`,
-        category: 'operational',
-        status: context.history.recentActivityCount >= 5 ? 'on-track' : context.history.recentActivityCount >= 2 ? 'in-progress' : 'at-risk',
+        id: "engagement",
+        name: "Stakeholder Engagement",
+        description: `${context.history.recentActivityCount} recent activities (${context.history.activityTypes.join(", ")})`,
+        category: "operational",
+        status:
+          context.history.recentActivityCount >= 5
+            ? "on-track"
+            : context.history.recentActivityCount >= 2
+              ? "in-progress"
+              : "at-risk",
       });
     }
 
@@ -402,7 +462,7 @@ export class ContextInjectionBridge {
       await this.initialize();
     }
 
-    const result = await this.crmServer!.executeTool('crm_sync_metrics', {
+    const result = await this.crmServer!.executeTool("crm_sync_metrics", {
       deal_id: dealId,
       metrics,
       dry_run: dryRun,
@@ -410,10 +470,80 @@ export class ContextInjectionBridge {
 
     return {
       success: result.success,
-      message: result.success 
-        ? (result.data as any)?.message || 'Metrics synced successfully'
-        : result.error || 'Failed to sync metrics',
+      message: result.success
+        ? (result.data as any)?.message || "Metrics synced successfully"
+        : result.error || "Failed to sync metrics",
     };
+  }
+
+  /**
+   * Capture UI state and convert to grounded context for orchestrator
+   */
+  captureUIState(uiState: Record<string, any>): GroundedUIContext {
+    const groundedContext: GroundedUIContext = {
+      timestamp: new Date().toISOString(),
+      userId: this.userId,
+      tenantId: this.tenantId,
+      activeComponents: [],
+      formData: {},
+      navigationState: {},
+      interactionHistory: [],
+    };
+
+    // Extract active components
+    if (uiState.activeComponents) {
+      groundedContext.activeComponents = uiState.activeComponents;
+    }
+
+    // Extract form data
+    if (uiState.formData) {
+      groundedContext.formData = uiState.formData;
+    }
+
+    // Extract navigation state
+    if (uiState.navigationState) {
+      groundedContext.navigationState = uiState.navigationState;
+    }
+
+    // Extract interaction history
+    if (uiState.interactionHistory) {
+      groundedContext.interactionHistory = uiState.interactionHistory;
+    }
+
+    // Add any additional context from current session
+    if (uiState.sessionContext) {
+      groundedContext.sessionContext = uiState.sessionContext;
+    }
+
+    logger.debug("Captured UI state for grounded context", {
+      tenantId: this.tenantId,
+      componentCount: groundedContext.activeComponents.length,
+      formFields: Object.keys(groundedContext.formData).length,
+    });
+
+    return groundedContext;
+  }
+
+  /**
+   * Send grounded UI context to orchestrator
+   */
+  async sendToOrchestrator(
+    sessionId: string,
+    uiState: Record<string, any>,
+    orchestrator: UnifiedAgentOrchestrator
+  ): Promise<void> {
+    const groundedContext = this.captureUIState(uiState);
+
+    // For now, log the context. In a full implementation, this would update
+    // the orchestrator's session context through an appropriate method
+    logger.info('Grounded UI context captured for orchestrator', {
+      sessionId,
+      tenantId: this.tenantId,
+      context: groundedContext,
+    });
+
+    // TODO: Add updateSessionContext method to UnifiedAgentOrchestrator
+    // await orchestrator.updateSessionContext(sessionId, groundedContext);
   }
 
   /**
@@ -439,12 +569,12 @@ export async function getContextInjectionBridge(
   userId: string
 ): Promise<ContextInjectionBridge> {
   const key = `${tenantId}:${userId}`;
-  
+
   if (!bridgeInstances.has(key)) {
     const bridge = new ContextInjectionBridge(tenantId, userId);
     await bridge.initialize();
     bridgeInstances.set(key, bridge);
   }
-  
+
   return bridgeInstances.get(key)!;
 }

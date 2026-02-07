@@ -35,7 +35,6 @@ services:
       dockerfile: .devcontainer/Dockerfile.optimized
       args:
         NODE_VERSION: "20"
-        PNPM_VERSION: "9.15.0"
     volumes:
       - .:/workspaces/ValueOS:cached
       - pnpm-store:/home/vscode/.local/share/pnpm

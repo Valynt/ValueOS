@@ -157,67 +157,64 @@ RUN curl -fsSL "https://github.com/wagoodman/dive/releases/download/v${DIVE_VERS
     && rm dive.deb \
     || echo "Warning: Dive installation failed (non-critical)"
 
-# Hadolint (Dockerfile Linter)
-RUN curl -fsSL -o /usr/local/bin/hadolint "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
-    && chmod +x /usr/local/bin/hadolint \
-    || echo "Warning: Hadolint installation failed (non-critical)"
 
-# Prisma CLI
-RUN npm install -g prisma@5 \
-    && prisma --version
+# syntax=docker/dockerfile:1.4
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Dependencies stage (cached)
-# ─────────────────────────────────────────────────────────────────────────────
-FROM security AS deps
+ARG NODE_VERSION="22.11.0"
+ARG PNPM_VERSION="9.15.0"
+ARG APP="ValyntApp"
 
+# ---- Base: system deps ----
+FROM node:${NODE_VERSION}-slim AS app-base
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl git build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /workspaces/valueos
-
-ENV PNPM_STORE_PATH=/pnpm/store
-
-# Copy package metadata for dependency installation
+# ---- Deps: install pnpm, fetch deps ----
+FROM app-base AS deps
+ARG PNPM_VERSION
+WORKDIR /app
+ENV PNPM_STORE_PATH=/root/.pnpm-store
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY .npmrc ./
-
-# Install dependencies with a reusable cache layer
 RUN corepack enable \
+    && corepack prepare pnpm@${PNPM_VERSION} --activate \
     && pnpm config set store-dir ${PNPM_STORE_PATH} \
-    && pnpm fetch --frozen-lockfile \
     && pnpm install --frozen-lockfile
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Build stage (production-oriented)
-# ─────────────────────────────────────────────────────────────────────────────
-FROM nodejs AS build
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
+# ---- Prune: turbo prune for target app ----
+FROM deps AS prune
 ARG APP
-
-WORKDIR /workspaces/valueos
-
-ENV PNPM_STORE_PATH=/pnpm/store
-
+WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY .npmrc ./
+RUN pnpm dlx turbo prune --scope=${APP} --docker --out=out
 
-RUN corepack enable \
-    && pnpm config set store-dir ${PNPM_STORE_PATH} \
-    && pnpm install --frozen-lockfile
+# ---- Build: build only the target app ----
+FROM deps AS build
+ARG APP
+WORKDIR /app
+COPY --from=prune /app/out/json/ ./
+RUN pnpm install --frozen-lockfile
+COPY --from=prune /app/out/full/ ./
+RUN pnpm turbo run build --filter=apps/${APP}...
 
-COPY . .
+# ---- Deploy: prune to production deps, collect artifacts ----
+FROM build AS deploy
+ARG APP
+WORKDIR /app
+RUN pnpm deploy --filter=apps/${APP} --prod /artifacts/app
 
-RUN turbo run build --filter=${APP}... \
-    && pnpm prune --prod --filter=${APP}... \
-    && mkdir -p /artifacts/app \
-    && if [ -d "apps/${APP}/dist" ]; then cp -r "apps/${APP}/dist" /artifacts/app/dist; fi \
-    && if [ -d "apps/${APP}/.next" ]; then cp -r "apps/${APP}/.next" /artifacts/app/.next; fi \
-    && cp "apps/${APP}/package.json" /artifacts/app/package.json
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Runner stage (production-oriented)
+# ---- Runtime: minimal distroless image ----
+FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production
+WORKDIR /app
+COPY --from=deploy /artifacts/app/ ./
+ENV NODE_ENV=production
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "try{ require('./dist/server'); process.exit(0) } catch(e){ process.exit(1) }"
+CMD ["dist/server.js"]
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION}-slim AS runner
 

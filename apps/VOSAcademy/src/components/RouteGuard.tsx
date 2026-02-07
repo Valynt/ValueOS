@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 
 type RouteGuardProps = {
   children: React.ReactNode;
@@ -29,7 +30,7 @@ export function RouteGuard({ children, requiredRole }: RouteGuardProps) {
   }, [isAuthenticated, loading, location, requiredRole, setLocation, userRole]);
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return <DashboardLayoutSkeleton />;
   }
 
   if (!isAuthenticated) {

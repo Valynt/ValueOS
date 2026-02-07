@@ -3,8 +3,9 @@
  * ⌘K modal for AI agent invocation
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Search, Sparkles, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CommandBarProps {
   open: boolean;
@@ -27,22 +28,46 @@ export function CommandBar({
   suggestions = defaultSuggestions,
 }: CommandBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   useEffect(() => {
     if (open && inputRef.current) {
       inputRef.current.focus();
+      setSelectedIndex(-1);
     }
   }, [open]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
+      if (!open) return;
+
+      if (e.key === "Escape") {
         onClose();
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % suggestions.length);
+        return;
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+        return;
+      }
+
+      if (e.key === "Enter" && selectedIndex >= 0) {
+        e.preventDefault();
+        onSubmit(suggestions[selectedIndex]);
+        onClose();
+        return;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [open, onClose, onSubmit, suggestions, selectedIndex]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +75,8 @@ export function CommandBar({
     if (value) {
       onSubmit(value);
       if (inputRef.current) inputRef.current.value = "";
+      setSelectedIndex(-1);
+      onClose();
     }
   };
 
@@ -89,8 +116,14 @@ export function CommandBar({
           {suggestions.map((suggestion, i) => (
             <button
               key={i}
-              onClick={() => onSubmit(suggestion)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted"
+              onClick={() => {
+                onSubmit(suggestion);
+                onClose();
+              }}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted",
+                selectedIndex === i && "bg-muted"
+              )}
             >
               <Sparkles className="h-4 w-4 text-primary" />
               {suggestion}

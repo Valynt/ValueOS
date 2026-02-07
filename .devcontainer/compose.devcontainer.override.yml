@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  backend:
+    env_file: []
+  frontend:
+    env_file: []
+  # Ensure other devcontainer-bound services don't load local .env files
+  app:
+    env_file: []

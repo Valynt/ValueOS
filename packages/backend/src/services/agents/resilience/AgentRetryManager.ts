@@ -231,6 +231,13 @@ export class AgentRetryManager {
   private retryHistory: Map<string, RetryResult[]> = new Map();
   private maxHistorySize: number = 1000;
 
+  // Global rate limit state for self-healing
+  private globalRateLimitActive: boolean = false;
+  private globalRateLimitUntil: number = 0;
+  private globalRateLimitBackoffMs: number = 1000; // Start with 1 second
+  private rateLimitIncidents: number = 0;
+  private lastRateLimitTime: number = 0;
+
   private constructor() {
     this.initializeDefaultPolicies();
     logger.info("AgentRetryManager initialized");
@@ -588,6 +595,88 @@ export class AgentRetryManager {
   }
 
   // ============================================================================
+  // Self-Healing: Global Rate Limit Management
+  // ============================================================================
+
+  /**
+   * Check if global rate limit is active and wait if necessary
+   */
+  private async checkGlobalRateLimit(requestId: string): Promise<void> {
+    if (!this.globalRateLimitActive) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now < this.globalRateLimitUntil) {
+      const waitTime = this.globalRateLimitUntil - now;
+      logger.warn("Global rate limit active, delaying request", {
+        requestId,
+        waitTime,
+        backoffMs: this.globalRateLimitBackoffMs,
+        incidents: this.rateLimitIncidents,
+      });
+
+      await this.sleep(waitTime);
+    } else {
+      // Rate limit period expired, reset
+      this.globalRateLimitActive = false;
+      logger.info("Global rate limit period expired, resuming normal operations", {
+        requestId,
+        incidents: this.rateLimitIncidents,
+      });
+    }
+  }
+
+  /**
+   * Check if error is a rate limit error
+   */
+  private isRateLimitError(error: RetryError): boolean {
+    const message = error.message.toLowerCase();
+    const type = error.type.toLowerCase();
+
+    return (
+      message.includes("rate limit") ||
+      message.includes("too many requests") ||
+      message.includes("429") ||
+      type.includes("ratelimit") ||
+      type.includes("throttle")
+    );
+  }
+
+  /**
+   * Handle global rate limit by applying exponential backoff
+   */
+  private handleGlobalRateLimit(requestId: string): void {
+    this.rateLimitIncidents++;
+    this.lastRateLimitTime = Date.now();
+
+    // Apply exponential backoff: double the delay, max 5 minutes
+    this.globalRateLimitBackoffMs = Math.min(this.globalRateLimitBackoffMs * 2, 300000);
+    this.globalRateLimitUntil = Date.now() + this.globalRateLimitBackoffMs;
+    this.globalRateLimitActive = true;
+
+    logger.warn("Global rate limit triggered, applying exponential backoff", {
+      requestId,
+      backoffMs: this.globalRateLimitBackoffMs,
+      incidents: this.rateLimitIncidents,
+      until: new Date(this.globalRateLimitUntil).toISOString(),
+    });
+
+    // Record telemetry
+    agentTelemetryService.recordTelemetryEvent({
+      type: "agent_fabric_global_rate_limit",
+      agentType: "system" as AgentType,
+      data: {
+        requestId,
+        backoffMs: this.globalRateLimitBackoffMs,
+        incidents: this.rateLimitIncidents,
+        activeUntil: this.globalRateLimitUntil,
+      },
+      severity: "warning",
+    });
+  }
+
+  // ============================================================================
   // Private Methods
   // ============================================================================
 
@@ -620,6 +709,9 @@ export class AgentRetryManager {
     };
 
     try {
+      // Check global rate limit before execution
+      await this.checkGlobalRateLimit(context.requestId);
+
       // Execute with timeout
       const response = await this.executeWithTimeout(agent, request, options.attemptTimeout);
 
@@ -670,6 +762,11 @@ export class AgentRetryManager {
         },
         severity: "error",
       });
+
+      // Check for rate limit errors and trigger global backoff
+      if (this.isRateLimitError(retryError)) {
+        this.handleGlobalRateLimit(context.requestId);
+      }
 
       // Check if we should retry
       if (

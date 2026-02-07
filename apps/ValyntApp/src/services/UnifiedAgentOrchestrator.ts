@@ -45,6 +45,13 @@ import { llmConfig } from "../config/llm";
 import { z } from "zod";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager";
 import { ESOModule } from "../mcp-ground-truth/modules/StructuralTruthModule";
+import { getEnhancedParallelExecutor, EnhancedParallelExecutor } from "./EnhancedParallelExecutor"; // NEW: Import for parallel execution
+import {
+  validateGroundTruthMetadata,
+  assertHighConfidence,
+  assertProvenance,
+} from "../lib/agent-fabric/ground-truth/GroundTruthValidator";
+import { ConfidenceMonitor } from "./ConfidenceMonitor";
 import {
   AgentRequest,
   AgentResponse as RetryAgentResponse,
@@ -79,7 +86,7 @@ export interface IntegrityVetoMetadata {
 }
 
 export interface StreamingUpdate {
-  stage: "analyzing" | "processing" | "generating" | "complete";
+  stage: "thinking" | "executing" | "completed";
   message: string;
   progress?: number;
 }
@@ -258,6 +265,8 @@ export class UnifiedAgentOrchestrator {
   private executionStartTimes: Map<string, number> = new Map();
   private groundTruthModule = new ESOModule();
   private groundTruthInitialized = false;
+  private parallelExecutor: EnhancedParallelExecutor = getEnhancedParallelExecutor(); // NEW: Parallel execution engine
+  private confidenceMonitor: ConfidenceMonitor;
 
   constructor(config: Partial<OrchestratorConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -268,6 +277,7 @@ export class UnifiedAgentOrchestrator {
     this.memorySystem = new MemorySystem(supabase, this.llmGateway);
     this.messageBroker = getAgentMessageBroker();
     this.retryManager = AgentRetryManager.getInstance();
+    this.confidenceMonitor = new ConfidenceMonitor(supabase);
   }
 
   private async ensureGroundTruthInitialized(): Promise<void> {
@@ -368,8 +378,50 @@ export class UnifiedAgentOrchestrator {
       stageId?: string;
       context?: AgentContext;
     }
-  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
+  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata; reRefine?: boolean }> {
     const claims = this.extractNumericClaims(payload);
+
+    // Always perform ground truth validation on agent outputs
+    try {
+      // Use GroundTruthValidator to validate metadata schema
+      if (typeof payload === "object" && payload !== null && "metadata" in payload) {
+        const metadata = (payload as any).metadata;
+        if (metadata) {
+          validateGroundTruthMetadata(metadata);
+          assertProvenance(metadata);
+        }
+      }
+    } catch (error) {
+      logger.warn("Ground truth metadata validation failed", {
+        traceId: options.traceId,
+        agentType: options.agentType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Check ConfidenceMonitor for low confidence threshold
+    let confidenceScore = 1.0;
+    try {
+      const metrics = await this.confidenceMonitor.getMetrics(options.agentType, "hour");
+      confidenceScore = metrics.avgConfidenceScore;
+
+      if (confidenceScore < 0.85) {
+        logger.warn("Confidence score below threshold, triggering RE-REFINE", {
+          traceId: options.traceId,
+          agentType: options.agentType,
+          confidenceScore,
+          threshold: 0.85,
+        });
+        return { vetoed: false, reRefine: true };
+      }
+    } catch (error) {
+      logger.warn("Failed to check confidence score", {
+        traceId: options.traceId,
+        agentType: options.agentType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     if (claims.length === 0) {
       return { vetoed: false };
     }
@@ -400,9 +452,7 @@ export class UnifiedAgentOrchestrator {
           continue;
         }
         const deviationPercent =
-          (Math.abs(claim.claimedValue - benchmarkValue) /
-            Math.abs(benchmarkValue)) *
-          100;
+          (Math.abs(claim.claimedValue - benchmarkValue) / Math.abs(benchmarkValue)) * 100;
         if (
           deviationPercent > 15 &&
           (!vetoMetadata || deviationPercent > vetoMetadata.deviationPercent)
@@ -488,11 +538,7 @@ export class UnifiedAgentOrchestrator {
     return {
       execute: async (): Promise<RetryAgentResponse<T>> => {
         const startTime = new Date();
-        const response = await this.circuitBreakers.execute(
-          breakerKey,
-          execute,
-          { timeoutMs }
-        );
+        const response = await this.circuitBreakers.execute(breakerKey, execute, { timeoutMs });
 
         if (!response.success) {
           throw new Error(response.error || "Agent request failed");
@@ -646,12 +692,7 @@ export class UnifiedAgentOrchestrator {
     const retryResult = await this.retryManager.executeWithRetry(
       retryAgent,
       retryRequest,
-      this.buildRetryOptions(
-        params.traceId,
-        params.agentType,
-        params.timeoutMs,
-        params.context
-      )
+      this.buildRetryOptions(params.traceId, params.agentType, params.timeoutMs, params.context)
     );
 
     if (retryResult.success && retryResult.response?.data) {
@@ -802,21 +843,42 @@ export class UnifiedAgentOrchestrator {
       });
 
       if (agentResponse.success) {
-        const integrityCheck = await this.evaluateIntegrityVeto(
-          agentResponse.data,
-          {
+        const integrityCheck = await this.evaluateIntegrityVeto(agentResponse.data, {
+          traceId,
+          agentType,
+          query,
+          context: agentContext,
+        });
+        if (integrityCheck.reRefine) {
+          // Trigger RE-REFINE loop instead of sending to UI
+          logger.info("Triggering RE-REFINE loop due to low confidence", {
             traceId,
             agentType,
-            query,
-            context: agentContext,
-          }
-        );
+            sessionId,
+          });
+
+          // Reset state to allow re-processing
+          const reRefineState: WorkflowState = {
+            ...currentState,
+            status: "in_progress",
+            context: {
+              ...currentState.context,
+              lastError: "Low confidence detected, re-refining response",
+              errorTimestamp: new Date().toISOString(),
+            },
+          };
+
+          return {
+            response: null, // No response to UI, trigger re-processing
+            nextState: reRefineState,
+            traceId,
+          };
+        }
         if (integrityCheck.vetoed) {
           const response: AgentResponse = {
             type: "message",
             payload: {
-              message:
-                "Output failed integrity validation against ground truth benchmarks.",
+              message: "Output failed integrity validation against ground truth benchmarks.",
               error: true,
             },
             metadata: integrityCheck.metadata,
@@ -1254,6 +1316,252 @@ Provide a JSON response with:
     traceId: string,
     executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
+    // NEW: Analyze DAG for parallel execution opportunities
+    const parallelGroups = this.analyzeDAGForParallelExecution(dag);
+
+    if (parallelGroups.length > 0 && this.canUseParallelExecution(dag)) {
+      // Use parallel execution for eligible workflows
+      await this.executeDAGWithParallelExecution(
+        executionId,
+        dag,
+        initialContext,
+        traceId,
+        executionRecord,
+        parallelGroups
+      );
+    } else {
+      // Fallback to sequential execution
+      await this.executeDAGSequentially(executionId, dag, initialContext, traceId, executionRecord);
+    }
+  }
+
+  /**
+   * NEW: Analyze DAG to identify parallel execution groups
+   */
+  private analyzeDAGForParallelExecution(dag: WorkflowDAG): Array<{
+    stages: string[];
+    dependencies: string[];
+  }> {
+    const parallelGroups: Array<{ stages: string[]; dependencies: string[] }> = [];
+    const processedStages = new Set<string>();
+    const stageDependencies = new Map<string, string[]>();
+
+    // Build dependency map
+    for (const transition of dag.transitions) {
+      if (!stageDependencies.has(transition.to_stage)) {
+        stageDependencies.set(transition.to_stage, []);
+      }
+      stageDependencies.get(transition.to_stage)!.push(transition.from_stage);
+    }
+
+    // Find stages that can be executed in parallel
+    const queue = [dag.initial_stage];
+    while (queue.length > 0) {
+      const currentLevel: string[] = [];
+      const nextQueue: string[] = [];
+
+      for (const stageId of queue) {
+        if (processedStages.has(stageId)) continue;
+        processedStages.add(stageId);
+
+        // Check if all dependencies are satisfied
+        const deps = stageDependencies.get(stageId) || [];
+        const depsSatisfied = deps.every((dep) => processedStages.has(dep));
+
+        if (depsSatisfied) {
+          currentLevel.push(stageId);
+
+          // Find next stages
+          const nextStages = dag.transitions
+            .filter((t) => t.from_stage === stageId)
+            .map((t) => t.to_stage);
+
+          nextQueue.push(...nextStages);
+        }
+      }
+
+      if (currentLevel.length > 1) {
+        // Multiple stages can run in parallel
+        parallelGroups.push({
+          stages: currentLevel,
+          dependencies: currentLevel
+            .flatMap((stage) => stageDependencies.get(stage) || [])
+            .filter((dep, index, arr) => arr.indexOf(dep) === index), // unique
+        });
+      }
+
+      queue.push(...nextQueue);
+    }
+
+    return parallelGroups;
+  }
+
+  /**
+   * NEW: Check if parallel execution can be used for this DAG
+   */
+  private canUseParallelExecution(dag: WorkflowDAG): boolean {
+    // Enable parallel execution for workflows with:
+    // - More than 3 stages
+    // - No complex branching (single final stage)
+    // - No cycles (already checked elsewhere)
+    return dag.stages.length > 3 && dag.final_stages.length === 1;
+  }
+
+  /**
+   * NEW: Execute DAG with parallel execution for independent stages
+   */
+  private async executeDAGWithParallelExecution(
+    executionId: string,
+    dag: WorkflowDAG,
+    initialContext: Record<string, any>,
+    traceId: string,
+    executionRecord: WorkflowExecutionRecord,
+    parallelGroups: Array<{ stages: string[]; dependencies: string[] }>
+  ): Promise<void> {
+    let executionContext = { ...initialContext };
+    let recordSnapshot: WorkflowExecutionRecord = {
+      ...executionRecord,
+      lifecycle: [...executionRecord.lifecycle],
+      outputs: [...executionRecord.outputs],
+    };
+
+    // Execute parallel groups
+    for (const group of parallelGroups) {
+      // Check if dependencies are met
+      const depsMet = group.dependencies.every((depId) =>
+        recordSnapshot.outputs.some((output) => output.stageId === depId)
+      );
+
+      if (!depsMet) {
+        logger.warn("Dependencies not met for parallel group, falling back to sequential", {
+          executionId,
+          group: group.stages,
+          dependencies: group.dependencies,
+        });
+        continue;
+      }
+
+      // Execute stages in parallel
+      const parallelTasks = group.stages.map((stageId) => {
+        const stage = dag.stages[stageId];
+        const route = this.routingLayer.routeStage(dag, stageId, executionContext);
+
+        return {
+          id: `${executionId}-${stageId}`,
+          agentType: stage.agent_type as AgentType,
+          query: stage.description || `Execute ${stageId}`,
+          context: { ...executionContext, stageId },
+          priority: "high" as const,
+          dependencies: [],
+          estimatedDuration: stage.timeout_seconds || 30,
+          timeoutMs: (stage.timeout_seconds || 30) * 1000,
+          retryConfig: {
+            maxAttempts: stage.retry_config?.max_attempts || 3,
+            initialDelay: stage.retry_config?.initial_delay_ms || 1000,
+            maxDelay: stage.retry_config?.max_delay_ms || 10000,
+            multiplier: stage.retry_config?.multiplier || 2,
+          },
+        };
+      });
+
+      // Execute parallel group
+      const groupResult = await this.parallelExecutor.executeParallelGroup({
+        id: `${executionId}-group-${Date.now()}`,
+        name: `Parallel execution group for ${executionId}`,
+        tasks: parallelTasks,
+        executionStrategy: "parallel",
+        maxConcurrency: Math.min(parallelTasks.length, 5), // Limit concurrency
+        estimatedDuration: Math.max(...parallelTasks.map((t) => t.estimatedDuration)),
+        dependencies: group.dependencies,
+      });
+
+      if (!groupResult.success) {
+        throw new Error(
+          `Parallel execution failed: ${groupResult.results.map((r) => r.error).join(", ")}`
+        );
+      }
+
+      // Process results and update context
+      for (const taskResult of groupResult.results) {
+        const stageId = taskResult.taskId.split("-").slice(-1)[0]; // Extract stage ID
+        const stage = dag.stages[stageId];
+
+        if (!taskResult.success) {
+          throw new Error(`Stage ${stageId} failed: ${taskResult.error}`);
+        }
+
+        // Integrity check
+        const integrityCheck = await this.evaluateIntegrityVeto(taskResult.result, {
+          traceId,
+          agentType: stage.agent_type as AgentType,
+          query: stage.description ?? stage.id,
+          stageId: stage.id,
+        });
+
+        if (integrityCheck.reRefine) {
+          logger.info("RE-REFINE triggered for stage", {
+            traceId,
+            stageId: stage.id,
+            agentType: stage.agent_type,
+          });
+          // For workflow stages, we might need to retry the stage
+          continue; // Retry the stage
+        }
+
+        if (integrityCheck.vetoed) {
+          throw new Error(`Stage ${stageId} failed integrity check`);
+        }
+
+        // Update context and records
+        executionContext = { ...executionContext, ...taskResult.result };
+
+        const stageCompleted = new Date();
+        const lifecycleRecord: StageLifecycleRecord = {
+          stageId: stage.id,
+          lifecycleStage: stage.agent_type,
+          status: "completed",
+          startedAt: new Date(Date.now() - taskResult.duration).toISOString(),
+          completedAt: stageCompleted.toISOString(),
+          summary: stage.description,
+        };
+
+        recordSnapshot = {
+          ...recordSnapshot,
+          lifecycle: [...recordSnapshot.lifecycle, lifecycleRecord],
+          outputs: [
+            ...recordSnapshot.outputs,
+            {
+              stageId: stage.id,
+              payload: taskResult.result || {},
+              completedAt: stageCompleted.toISOString(),
+            },
+          ],
+          io: {
+            ...recordSnapshot.io,
+            outputs: {
+              ...recordSnapshot.io.outputs,
+              [stage.id]: taskResult.result || {},
+            },
+          },
+        };
+
+        await this.persistExecutionRecord(executionId, recordSnapshot);
+      }
+    }
+
+    await this.updateExecutionStatus(executionId, "completed", null, recordSnapshot);
+  }
+
+  /**
+   * Original sequential execution (renamed)
+   */
+  private async executeDAGSequentially(
+    executionId: string,
+    dag: WorkflowDAG,
+    initialContext: Record<string, any>,
+    traceId: string,
+    executionRecord: WorkflowExecutionRecord
+  ): Promise<void> {
     let currentStageId = dag.initial_stage;
     let executionContext = { ...initialContext };
     let recordSnapshot: WorkflowExecutionRecord = {
@@ -1297,9 +1605,19 @@ Provide a JSON response with:
         query: stage.description ?? stage.id,
         stageId: stage.id,
       });
+
+      if (integrityCheck.reRefine) {
+        logger.info("RE-REFINE triggered for stage", {
+          traceId,
+          stageId: currentStageId,
+          agentType: stage.agent_type,
+        });
+        // For sequential execution, we might need to retry the current stage
+        continue; // Retry the stage
+      }
+
       if (integrityCheck.vetoed) {
-        const vetoMessage =
-          "Output failed integrity validation against ground truth benchmarks.";
+        const vetoMessage = "Output failed integrity validation against ground truth benchmarks.";
         const stageCompleted = new Date();
 
         const lifecycleRecord: StageLifecycleRecord = {
