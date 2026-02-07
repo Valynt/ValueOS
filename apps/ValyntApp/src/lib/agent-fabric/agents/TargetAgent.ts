@@ -9,6 +9,10 @@ import { BaseAgent } from "../BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 import { z } from "zod";
+import {
+  getAdvancedCausalEngine,
+  AdvancedCausalEngine,
+} from "../../../services/reasoning/AdvancedCausalEngine";
 
 // ============================================================================
 // Target Agent Schemas
@@ -110,6 +114,20 @@ export interface TargetValidation {
 export interface TargetAnalysis {
   targetId: string;
   validationResult: TargetValidation;
+  causalTrace?: {
+    impactCascade: Array<{
+      action: string;
+      targetKpi: string;
+      effect: {
+        direction: "increase" | "decrease" | "neutral";
+        magnitude: number;
+        confidence: number;
+      };
+      linkedOpportunity?: string;
+    }>;
+    verified: boolean;
+    confidence: number;
+  };
   feasibility: {
     score: number; // 0-100
     factors: Array<{
@@ -172,8 +190,11 @@ export interface TargetAnalysis {
 }
 
 export class TargetAgent extends BaseAgent {
+  private causalEngine: AdvancedCausalEngine;
+
   constructor(config: AgentConfig) {
     super(config);
+    this.causalEngine = getAdvancedCausalEngine();
   }
 
   getAgentType(): AgentType {
@@ -241,6 +262,16 @@ export class TargetAgent extends BaseAgent {
         timestamp: new Date().toISOString(),
       });
 
+      // Check causal trace requirement
+      if (!analysis.causalTrace?.verified) {
+        return this.createResponse(
+          false,
+          `Target rejected: No verified causal link to business opportunities. Causal confidence: ${analysis.causalTrace?.confidence || 0}`,
+          "low" as ConfidenceLevel,
+          "Target must provide causal trace linking back to verified Opportunity"
+        );
+      }
+
       // Generate response
       const response = this.createResponse(
         true,
@@ -287,6 +318,9 @@ export class TargetAgent extends BaseAgent {
     // Perform validation
     const validation = await this.validateTarget(input);
 
+    // Validate causal trace - ensure target is linked to verified opportunities
+    const causalTrace = await this.validateCausalTrace(input);
+
     // Assess feasibility
     const feasibility = await this.assessFeasibility(input);
 
@@ -305,6 +339,7 @@ export class TargetAgent extends BaseAgent {
     return {
       targetId: input.targetId || `target-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       validationResult: validation,
+      causalTrace,
       feasibility,
       strategicAlignment,
       riskAssessment,
@@ -313,7 +348,101 @@ export class TargetAgent extends BaseAgent {
     };
   }
 
-  private async validateTarget(input: TargetAgentInput): Promise<TargetValidation> {
+  private async validateCausalTrace(input: TargetAgentInput): Promise<TargetAnalysis["causalTrace"]> {
+    try {
+      // Infer the action from the target description
+      const action = this.inferActionFromTarget(input);
+
+      // Get the target KPI from the input
+      const targetKpi = this.extractTargetKpi(input);
+
+      // Use AdvancedCausalEngine to get causal inference
+      const causalInference = await this.causalEngine.inferCausalRelationship(
+        action,
+        targetKpi,
+        {
+          category: input.category,
+          timeframe: input.timeframe,
+          currentValue: input.currentValue,
+          targetValue: input.targetValue,
+        }
+      );
+
+      // Check if this target is linked to verified opportunities
+      const linkedOpportunity = await this.findLinkedOpportunity(action, targetKpi);
+
+      const impactCascade = [{
+        action,
+        targetKpi,
+        effect: {
+          direction: causalInference.effect.direction,
+          magnitude: causalInference.effect.magnitude,
+          confidence: causalInference.confidence,
+        },
+        linkedOpportunity,
+      }];
+
+      return {
+        impactCascade,
+        verified: !!linkedOpportunity,
+        confidence: causalInference.confidence,
+      };
+    } catch (error) {
+      // If causal validation fails, return unverified trace
+      return {
+        impactCascade: [],
+        verified: false,
+        confidence: 0,
+      };
+    }
+  }
+
+  private inferActionFromTarget(input: TargetAgentInput): string {
+    // Simple inference based on category and description
+    const categoryActions: Record<string, string> = {
+      revenue: "increase_revenue",
+      cost: "reduce_costs",
+      efficiency: "improve_efficiency",
+      strategic: "strategic_initiative",
+      compliance: "ensure_compliance",
+    };
+
+    return categoryActions[input.category] || "business_improvement";
+  }
+
+  private extractTargetKpi(input: TargetAgentInput): string {
+    // Extract KPI name from title or description
+    const kpiKeywords = ["revenue", "cost", "efficiency", "productivity", "satisfaction", "retention"];
+    const text = `${input.title} ${input.description}`.toLowerCase();
+
+    for (const keyword of kpiKeywords) {
+      if (text.includes(keyword)) {
+        return keyword;
+      }
+    }
+
+    return "business_metric";
+  }
+
+  private async findLinkedOpportunity(action: string, targetKpi: string): Promise<string | undefined> {
+    // Query memory for verified opportunities that could lead to this target
+    try {
+      const opportunities = await this.queryMemory("semantic", {
+        type: "opportunity",
+        verified: true,
+        relatedActions: [action],
+        targetKpis: [targetKpi],
+      });
+
+      if (opportunities && opportunities.length > 0) {
+        return opportunities[0].id;
+      }
+    } catch (error) {
+      // Memory query failed, return undefined
+    }
+
+    return undefined;
+  }
     const issues: TargetValidation["issues"] = [];
     let score = 100;
 
