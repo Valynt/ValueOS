@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+COMPOSE_FILE="${ROOT}/compose.yml"
 APP_ENV_FILE="${ROOT}/.env.local"
 
 ENV_FILE="${ROOT}/scripts/.env.ports"
@@ -25,6 +25,33 @@ compose_args=(
   -f "${COMPOSE_FILE}"
 )
 
+has_profile_arg=false
+for arg in "$@"; do
+  if [[ "${arg}" == "--profile" || "${arg}" == --profile=* ]]; then
+    has_profile_arg=true
+    break
+  fi
+done
+
+if [[ "${has_profile_arg}" == "false" ]]; then
+  profiles=()
+  if [[ -n "${VALUEOS_PROFILES:-}" ]]; then
+    IFS=',' read -r -a profiles <<< "${VALUEOS_PROFILES}"
+  elif [[ -n "${DEVCONTAINER:-}" || -n "${REMOTE_CONTAINERS:-}" || -n "${CODESPACES:-}" ]]; then
+    profiles=("devcontainer")
+  elif [[ -f "/.dockerenv" && -d "${ROOT}/.devcontainer" ]]; then
+    profiles=("devcontainer")
+  else
+    profiles=("dev")
+  fi
+
+  for profile in "${profiles[@]}"; do
+    if [[ -n "${profile}" ]]; then
+      compose_args+=(--profile "${profile}")
+    fi
+  done
+fi
+
 # Optional app-level env vars (non-port settings).
 if [[ -f "${APP_ENV_FILE}" ]]; then
   compose_args+=(--env-file "${APP_ENV_FILE}")
@@ -40,4 +67,3 @@ elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
-

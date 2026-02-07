@@ -17,7 +17,7 @@ else
 fi
 
 echo "3) Starting development stack via ./scripts/dc..."
-echo "This will start local services from scripts/docker-compose.yml."
+echo "This will start local services from compose.yml with the default profile."
 "${ROOT_DIR}/scripts/dc" up -d
 "${ROOT_DIR}/scripts/dc" ps
 
