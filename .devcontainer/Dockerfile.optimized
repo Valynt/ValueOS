@@ -1,51 +1,49 @@
-# CI-only: optimized production Dockerfile (do NOT build locally in devcontainer)
-# - Used by CI to produce reproducible, optimized images
-# - Keep local dev iteration in `.devcontainer/Dockerfile.dev`
+# Set NODE_VERSION and APP for flexibility
 ARG NODE_VERSION=20
+ARG APP="ValyntApp"
+ARG PNPM_VERSION="9.15.0"
 
-# Builder stage
+# ---- Builder Stage: CI and Build Optimization ----
 FROM node:${NODE_VERSION}-alpine AS builder
 WORKDIR /app
 
-# Copy package files first to leverage layer caching
+# Copy package files to leverage layer caching
 COPY package.json pnpm-lock.yaml ./
 
-# Mount pnpm store as cache and install deps
+# Mount pnpm store as cache for faster builds and install deps
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile --ignore-scripts
 
-# Prune monorepo dependencies
-RUN turbo prune --scope=ValyntApp
+# Prune monorepo dependencies using Turbo
+RUN turbo prune --scope=${APP}
 
-# Copy application source code
+# Copy app source code
 COPY . .
 
 # Run build
 RUN pnpm run build
 
-# Runtime stage
-FROM node:${NODE_VERSION}-alpine
+# ---- Runtime Stage: Minimal Distroless Image ----
+FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production
 WORKDIR /app
 
-# Create non-root user for runtime and set ownership
-RUN addgroup -S app && adduser -S -G app app \
-    && chown -R app:app /app
+# Add non-root user for security
+RUN addgroup -S app && adduser -S -G app app && chown -R app:app /app
 USER app
 
-# Copy compiled output and pnpm cache from the builder
+# Copy the build artifacts from the builder stage
 COPY --from=builder /app/dist /app/dist
 COPY --from=builder /root/.pnpm-store /root/.pnpm-store
 
-# Copy package files for production install
+# Copy package files for production deps
 COPY package.json pnpm-lock.yaml ./
 
-# Install only production deps (using cached pnpm store)
+# Install production dependencies
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile --ignore-scripts
 
+# Expose port and configure healthcheck
 EXPOSE 3000
-
-# Simple healthcheck that verifies the built artifact can be required
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD node -e 'try{ require("./dist/index.js"); process.exit(0) }catch(e){ process.exit(1) }'
+    CMD node -e 'try{ require("./dist/index.js"); process.exit(0) }catch(e){ process.exit(1) }'
 
-# Start application
+# Start the application
 CMD ["node", "dist/index.js"]
