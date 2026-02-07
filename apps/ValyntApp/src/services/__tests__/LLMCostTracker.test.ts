@@ -110,6 +110,7 @@ describe('LLMCostTracker', () => {
     };
 
     await expect(tracker.trackUsage({
+      tenantId: 'tenant-1',
       userId: 'u1',
       provider: 'together_ai',
       model: 'meta-llama/Llama-3-70b-chat-hf',
