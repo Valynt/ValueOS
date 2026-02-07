@@ -1,351 +1,121 @@
 # syntax=docker/dockerfile:1.4
+# Optimized multi-stage Dockerfile for ValueOS (pnpm + turbo)
 
-# Multi-stage optimized Dockerfile for dev container
-#
-# Design principles:
-# - Reproducible: pinned versions where possible
-# - Failsafe: each stage validates its output
-# - Cached: BuildKit cache mounts for faster rebuilds
-# - Minimal: only install what's needed
-#
-# Build: docker build -f Dockerfile.optimized -t valueos-dev .
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Version ARGs (synced from .tool-versions by sync-tool-versions.sh)
-# ─────────────────────────────────────────────────────────────────────────────
+# Build arguments (aligned to repo engines)
 ARG NODE_VERSION="22.11.0"
-ARG PYTHON_VERSION="3.11.9"
-ARG GO_VERSION="1.21.13"
-ARG SUPABASE_VERSION="1.200.3"
-ARG TERRAFORM_VERSION="1.9.8"
 ARG PNPM_VERSION="9.15.0"
-ARG NPM_VERSION="10.9.0"
-ARG DIVE_VERSION="0.12.0"
-ARG HADOLINT_VERSION="2.12.0"
+ARG APP="ValyntApp"
 
-ARG VARIANT=ubuntu-22.04
-ARG APP
-
-# Stage 1: Base image with system dependencies
-FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT} AS base
-
-# Fail fast on any error
+# Use a slim Debian-based image for compatibility and debugability
+FROM node:${NODE_VERSION}-slim AS base
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Set environment variables for non-interactive installs
-ENV DEBIAN_FRONTEND=noninteractive
-ARG INSTALL_PLAYWRIGHT_DEPS=0
-ENV INSTALL_PLAYWRIGHT_DEPS=${INSTALL_PLAYWRIGHT_DEPS}
-
-# Install system dependencies in a single layer with BuildKit cache
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update \
-    && apt-get install -y --no-install-recommends \
-    # Build tools
-    build-essential \
-    make \
-    cmake \
-    # Version control
-    git \
-    git-lfs \
-    # Network tools
-    curl \
-    wget \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    gnupg \
-    lsb-release \
-    socat \
-    netcat-openbsd \
-    # Database clients
-    postgresql-client \
-    redis-tools \
-    # Text editors
-    vim \
-    nano \
-    # Process management
-    htop \
-    # Compression
-    zip \
-    unzip \
-    # Python (for node-gyp)
-    python3 \
-    python3-pip \
-    && if [ "$INSTALL_PLAYWRIGHT_DEPS" = "1" ]; then \
-        apt-get install -y --no-install-recommends \
-        libasound2 \
-        libatk1.0-0 \
-        libatk-bridge2.0-0 \
-        libatspi2.0-0 \
-        libcairo2 \
-        libcups2 \
-        libdbus-1-3 \
-        libdrm2 \
-        libgdk-pixbuf2.0-0 \
-        libgtk-3-0 \
-        libgbm1 \
-        libnss3 \
-        libpango-1.0-0 \
-        libpangocairo-1.0-0 \
-        libx11-xcb1 \
-        libxcb1 \
-        libxcomposite1 \
-        libxcursor1 \
-        libxdamage1 \
-        libxext6 \
-        libxfixes3 \
-        libxi6 \
-        libxkbcommon0 \
-        libxrandr2 \
-        libxshmfence1; \
-    else \
-        echo "Skipping Playwright OS dependencies"; \
-    fi \
-    # Verify critical tools installed
-    && command -v git && command -v curl && command -v make \
+    curl \
+    git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user and workspace directories
-RUN groupadd -r -g 1001 valueos \
-    && useradd -r -u 1001 -g valueos -m -s /bin/bash valueos \
-    && mkdir -p /workspaces/ValueOS /home/valueos/.cache /home/valueos/.npm /home/valueos/.local/bin /pnpm/store \
-    && chown -R valueos:valueos /workspaces/ValueOS /home/valueos /pnpm/store
+# Deps stage: install pnpm and populate pnpm store (cacheable)
+FROM base AS deps
+WORKDIR /app
+ENV PNPM_STORE_PATH=/root/.pnpm-store
 
-# Stage 2: Node.js installation
-FROM base AS nodejs
+# Copy only manifest files to leverage layer cache when source changes
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY .npmrc ./ || true
 
-ARG NODE_VERSION
-ARG PNPM_VERSION
-ARG NPM_VERSION
+# Install pnpm and fetch packages using BuildKit cache mounts
+RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
+    --mount=type=cache,target=/root/.cache/pnpm,id=pnpm-cache \
+    corepack enable \
+    && npm install -g pnpm@${PNPM_VERSION} \
+    && pnpm config set store-dir ${PNPM_STORE_PATH} \
+    && pnpm fetch --frozen-lockfile
 
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+# Prune stage: generate a pruned workspace for the target app (reduces context)
+FROM deps AS prune
+WORKDIR /app
+# Re-copy manifests (prune reads the repo metadata)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY .npmrc ./ || true
 
-# Install Node.js using official NodeSource repository
-# Retry logic for network resilience
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    NODE_MAJOR=$(echo $NODE_VERSION | cut -d. -f1) && \
-    for i in 1 2 3; do \
-        curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/* \
-    # Verify Node.js installed correctly
-    && node --version && npm --version
+# Use BuildKit cache for pnpm store during prune as well
+RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
+    pnpm dlx turbo prune --scope=${APP} --docker --out=out
 
-# Enable corepack and install pnpm
-# Pin pnpm version for reproducibility
-RUN corepack enable \
-    && npm install -g npm@${NPM_VERSION} pnpm@${PNPM_VERSION} \
-    && npm cache clean --force \
-    # Verify installation
-    && pnpm --version
-
-# Stage 4: Development tools
-FROM nodejs AS devtools
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Install Terraform with retry
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    for i in 1 2 3; do \
-        wget -qO- https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg && break || \
-        { echo "Retry $i/3 failed"; sleep 5; }; \
-    done \
-    && echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list \
-    && apt-get update \
-    && apt-get install -y terraform \
-    && rm -rf /var/lib/apt/lists/* \
-    && terraform version || true
-
-# Stage 5: Database tools
-FROM devtools AS dbtools
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-ARG INSTALL_DBTOOLS=1
-ARG SUPABASE_VERSION
-
-# Install Database tools (Supabase, pgcli)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    if [ "$INSTALL_DBTOOLS" = "1" ]; then \
-        set -eux; \
-        \
-        # Ensure required installers exist
-        apt-get update; \
-        apt-get install -y --no-install-recommends curl ca-certificates; \
-        \
-        # Install Supabase CLI (pinned, from GitHub releases)
-        arch="$(uname -m)"; \
-        case "$arch" in \
-            x86_64) sb_arch="linux_amd64" ;; \
-            aarch64|arm64) sb_arch="linux_arm64" ;; \
-            *) echo "Unsupported arch: $arch"; exit 1 ;; \
-        esac; \
-        url="https://github.com/supabase/cli/releases/download/v${SUPABASE_VERSION}/supabase_${sb_arch}.tar.gz"; \
-        for i in 1 2 3; do \
-            curl -fL "$url" -o /tmp/supabase.tar.gz && break || { echo "Retry $i/3 failed"; sleep 5; }; \
-        done; \
-        tar -xzf /tmp/supabase.tar.gz -C /tmp; \
-        if [ -f /tmp/supabase ]; then \
-            install -m 0755 /tmp/supabase /usr/local/bin/supabase; \
-        else \
-            install -m 0755 /tmp/supabase-cli /usr/local/bin/supabase; \
-        fi; \
-        rm -f /tmp/supabase.tar.gz /tmp/supabase /tmp/supabase-cli; \
-        supabase --version; \
-        \
-        # Install pgcli (optional but useful)
-        pip3 install --no-cache-dir pgcli; \
-        rm -rf /var/lib/apt/lists/*; \
-    else \
-        echo "Skipping dbtools installation"; \
-    fi
-
-# Stage 6: Prune workspace for dependency caching
-FROM dbtools AS prune
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-ARG APP
-
-WORKDIR /workspaces/ValueOS
-
-COPY --chown=valueos:valueos . .
-
-RUN corepack enable
-
-USER valueos
-
-RUN if [ -z "${APP:-}" ]; then \
-        echo "APP not set; defaulting prune scope to ValyntApp"; \
-        APP="ValyntApp"; \
-    fi \
-    && pnpm dlx turbo prune --docker --scope="${APP}"
-
-# Stage 7: Dependencies (cached)
-FROM dbtools AS deps
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-WORKDIR /workspaces/ValueOS
-
-ENV PNPM_STORE_PATH=/pnpm/store
-
-# Copy pruned package metadata for dependency installation
-COPY --from=prune --chown=valueos:valueos /workspaces/ValueOS/out/json/ ./
-COPY --from=prune --chown=valueos:valueos /workspaces/ValueOS/.npmrc ./
-
-RUN corepack enable
-
-USER valueos
-
-# Install dependencies with a reusable cache layer
-RUN --mount=type=cache,target=/pnpm/store,uid=1001,gid=1001 pnpm config set store-dir ${PNPM_STORE_PATH} \
-    && pnpm fetch --frozen-lockfile \
-    && pnpm install --frozen-lockfile
-
-# Stage 8: Build (production-oriented)
-FROM nodejs AS build
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-ARG APP
-
-WORKDIR /workspaces/ValueOS
-
-ENV PNPM_STORE_PATH=/pnpm/store
-
-# Copy package metadata for dependency installation
-COPY --chown=valueos:valueos package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY --chown=valueos:valueos .npmrc ./
-
-RUN corepack enable
-
-USER valueos
-
-RUN pnpm config set store-dir ${PNPM_STORE_PATH} \
-    && pnpm install --frozen-lockfile
-
-# Copy full source and build target app
-COPY --chown=valueos:valueos . .
-
-RUN turbo run build --filter=${APP}... \
-    && pnpm prune --prod --filter=${APP}... \
-    && mkdir -p /artifacts/app \
-    && if [ -d "apps/${APP}/dist" ]; then cp -r "apps/${APP}/dist" /artifacts/app/dist; fi \
-    && if [ -d "apps/${APP}/.next" ]; then cp -r "apps/${APP}/.next" /artifacts/app/.next; fi \
-    && cp "apps/${APP}/package.json" /artifacts/app/package.json
-
-# Stage 9: Runner (production-oriented)
-FROM node:${NODE_VERSION}-slim AS runner
-
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-ARG APP
-
-ENV NODE_ENV=production
-
-RUN groupadd -r -g 1001 valueos \
-    && useradd -r -u 1001 -g valueos -m -s /bin/bash valueos \
-    && mkdir -p /app \
-    && chown -R valueos:valueos /app
-
+# Build stage: copy pruned workspace and build only the app
+FROM deps AS build
 WORKDIR /app
 
-COPY --from=build --chown=valueos:valueos /workspaces/ValueOS/node_modules ./node_modules
-COPY --from=build --chown=valueos:valueos /artifacts/app ./apps/${APP}
+# Copy only the pruned workspace (much smaller than full repo)
+COPY --from=prune /app/out/full/ ./
 
-# Stage 10: Final image with user setup
-FROM dbtools AS final
+# Install dependencies and build using cache mounts
+RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
+    --mount=type=cache,target=/root/.cache/pnpm,id=pnpm-cache \
+    --mount=type=cache,target=/app/node_modules,id=node-modules-cache \
+    pnpm install --frozen-lockfile && pnpm turbo run build --filter=apps/${APP}...
 
-# Ensure workspace directories exist and are owned by valueos
-RUN mkdir -p /workspaces/ValueOS \
-    && mkdir -p /home/valueos/.cache /home/valueos/.npm /home/valueos/.local/bin \
-    && chown -R valueos:valueos /workspaces/ValueOS /home/valueos
+# Create production-only node_modules for the app to reduce final image size
+RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
+    pnpm install --frozen-lockfile --prod --filter=apps/${APP}...
 
-# Switch to valueos user for remaining setup
+# Gather artifacts
+RUN mkdir -p /artifacts/app \
+    && if [ -d "apps/${APP}/dist" ]; then cp -r "apps/${APP}/dist" /artifacts/app/dist; fi \
+    && if [ -d "apps/${APP}/.next" ]; then cp -r "apps/${APP}/.next" /artifacts/app/.next; fi \
+    && cp "apps/${APP}/package.json" /artifacts/app/package.json \
+    && cp -r "apps/${APP}/node_modules" /artifacts/app/node_modules || true
+
+# Verify native dependencies present in shipped node modules and build artifacts.
+# This runs `ldd` on any native .node modules and writes a report so CI can detect
+# incompatible or missing native libraries early in the release pipeline.
+RUN mkdir -p /artifacts && \
+        echo "Native dependencies ldd report for ${APP}" > /artifacts/native-deps.txt && \
+        find /app -type f -name "*.node" -print0 | \
+            xargs -0 -r -n1 sh -c 'echo "=== $1 ===" >> /artifacts/native-deps.txt && ldd "$1" >> /artifacts/native-deps.txt 2>&1' sh || true
+
+# Production runtime: use slim image for runtime
+FROM node:${NODE_VERSION}-slim AS production
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# Create non-root user for runtime
+RUN addgroup --system --gid 1001 valueos && adduser --system --uid 1001 --ingroup valueos valueos
 USER valueos
+WORKDIR /app
 
-# Set up shell paths
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
-    && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc 2>/dev/null || true
+# Copy built artifacts and production node_modules from build stage
+COPY --from=build /artifacts/app/package.json ./
+COPY --from=build /artifacts/app/dist ./dist
+COPY --from=build /artifacts/app/.next ./.next
+COPY --from=build /artifacts/app/node_modules ./node_modules
 
-# Set working directory
-WORKDIR /workspaces/ValueOS
+ENV NODE_ENV=production
+EXPOSE 3000
 
-# Copy the full repository after dependency installation
-COPY --chown=valueos:valueos . .
-
-# Reuse dependency artifacts from deps stage
-COPY --from=deps --chown=valueos:valueos /pnpm/store /pnpm/store
-COPY --from=deps --chown=valueos:valueos /workspaces/ValueOS/node_modules ./node_modules
-
-# Environment variables for reproducible builds
-ENV ENVIRONMENT=development \
-    NODE_ENV=development \
-    DOCKER_BUILDKIT=1 \
-    COMPOSE_DOCKER_CLI_BUILD=1 \
-    NPM_CONFIG_UPDATE_NOTIFIER=false \
-    NPM_CONFIG_FUND=false \
-    NPM_CONFIG_AUDIT=false \
-    # Disable telemetry for reproducibility
-    NEXT_TELEMETRY_DISABLED=1 \
-    CHECKPOINT_DISABLE=1
-
-# Labels for image metadata
-LABEL org.opencontainers.image.title="ValueOS Dev Container" \
-      org.opencontainers.image.description="Development container for ValueOS" \
-      org.opencontainers.image.vendor="ValueOS" \
-      org.opencontainers.image.version="2.0.0" \
-      org.opencontainers.image.source="https://github.com/Valynt/ValueOS"
-
-# Healthcheck to verify container is ready
+# Healthcheck: adapt as needed for runtime of the app
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node --version && npm --version || exit 1
+    CMD node -e "try{ require('./dist/server'); process.exit(0) } catch(e){ process.exit(1) }"
 
-# Default command
-CMD ["/bin/bash"]
+CMD ["node", "dist/server.js"]
+
+
+# --- Alternative runtime: Distroless (Debian/glibc) for smaller attack surface
+# This stage is safe to use when native deps report shows no missing shared libs.
+# Distroless expects the Node binary to be provided by the image; the command
+# should be the script path (no `node` prefix).
+FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production-distroless
+WORKDIR /app
+
+# Copy only the artifacts required at runtime
+COPY --from=build /artifacts/app/package.json ./
+COPY --from=build /artifacts/app/dist ./dist
+COPY --from=build /artifacts/app/.next ./.next
+COPY --from=build /artifacts/app/node_modules ./node_modules
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+# Distroless has no shell; run the entry script directly (exec form).
+CMD ["dist/server.js"]

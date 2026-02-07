@@ -452,10 +452,9 @@ export class UnifiedAgentOrchestrator {
       context?: AgentContext;
     }
   ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
-    if (options.agentType !== "integrity") {
-      return { vetoed: false };
-    }
-
+    // Always validate structural schema for outputs. If schema deviation
+    // exceeds threshold, flag veto and attempt to get a detailed integrity
+    // assessment from the `integrity` agent for richer audit context.
     const validation = StructuralTruthModuleSchema.safeParse(payload);
     if (validation.success) {
       return { vetoed: false };
@@ -483,6 +482,7 @@ export class UnifiedAgentOrchestrator {
       warning: warning || "Structural truth schema deviation exceeded threshold.",
     };
 
+    // Log the immediate veto decision for traceability
     await logAgentResponse(
       options.agentType,
       options.query ?? "structural-truth-veto",
@@ -496,6 +496,33 @@ export class UnifiedAgentOrchestrator {
       "integrity_veto",
       options.context
     );
+
+    // Try to get a deeper integrity analysis by invoking the Integrity agent
+    // This is best-effort — don't fail the pipeline if the agent call fails.
+    try {
+      if (this.agentAPI) {
+        // Ask the integrity agent for a validation report to include in audit logs
+        const integrityAgentResponse = await this.agentAPI.invokeAgent({
+          agent: "integrity",
+          query: JSON.stringify({ intent: "validate_structural", payload }),
+          context: options.context,
+        });
+
+        if (integrityAgentResponse?.success && integrityAgentResponse.data) {
+          vetoMetadata.warning =
+            `${vetoMetadata.warning} | integrity_agent_summary: ${
+              typeof integrityAgentResponse.data === "string"
+                ? integrityAgentResponse.data
+                : JSON.stringify(integrityAgentResponse.data)
+            }`;
+        }
+      }
+    } catch (err) {
+      logger.warn("Integrity agent call failed while enriching structural veto", {
+        traceId: options.traceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     return { vetoed: true, metadata: vetoMetadata };
   }

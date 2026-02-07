@@ -11,6 +11,7 @@ import { createLogger } from '@shared/lib/logger';
 import SubscriptionService from '../services/billing/SubscriptionService';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { llmCostTracker } from '../services/LLMCostTracker.js';
+import { getAuditTrailService } from '../services/security/AuditTrailService.js';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];
@@ -89,7 +90,7 @@ export function createPlanEnforcement(config: EnforcementConfig) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const tenantId = (req as any).tenantId;
-      
+
       if (!tenantId) {
         // No tenant - skip enforcement (public endpoint)
         return next();
@@ -115,6 +116,33 @@ export function createPlanEnforcement(config: EnforcementConfig) {
       if (metric === 'llm_tokens' && monthlyTokens !== null && quota > 0 && monthlyTokens >= quota) {
         (req as any).useFallbackModel = true;
         res.setHeader('X-LLM-Fallback', 'true');
+        try {
+          const audit = getAuditTrailService();
+          void audit.logImmediate({
+            eventType: 'security_event',
+            actorId: (req as any).user?.id || 'system',
+            actorType: 'service',
+            resourceId: tenantId,
+            resourceType: 'data',
+            action: 'llm_fallback_applied',
+            outcome: 'success',
+            details: {
+              metric,
+              quota,
+              monthlyTokens,
+            },
+            ipAddress: 'system',
+            userAgent: 'system',
+            timestamp: Date.now(),
+            sessionId: (req as any).sessionId || 'unknown',
+            correlationId: (req as any).requestId || 'llm-fallback',
+            riskScore: 0,
+            complianceFlags: [],
+            tenantId,
+          });
+        } catch (err) {
+          logger.warn('Failed to log LLM fallback to audit trail', { error: err instanceof Error ? err.message : String(err) });
+        }
       }
 
       // Check if over quota
@@ -146,7 +174,7 @@ export function createPlanEnforcement(config: EnforcementConfig) {
 
         // Soft cap - check grace period
         const inGracePeriod = await GracePeriodService.isInGracePeriod(tenantId, metric);
-        
+
         if (!inGracePeriod) {
           // Start grace period
           await GracePeriodService.startGracePeriod(tenantId, metric, usage, quota);
@@ -167,7 +195,7 @@ export function createPlanEnforcement(config: EnforcementConfig) {
             message: `Your grace period has expired. Please upgrade your plan to continue.`,
           });
         }
-        
+
         // Still in grace period - allow with warning
         res.setHeader('X-Quota-Warning', 'true');
         res.setHeader('X-Quota-Metric', metric);

@@ -545,13 +545,93 @@ export class ValueLifecycleOrchestrator {
       opportunityResult.data?.snapshot ??
       opportunityResult.data?.previous ??
       null;
-    if (snapshot) {
-      await this.updateValueTree(snapshot, context);
+
+    if (!snapshot) {
+      logger.info("No opportunity snapshot available for compensation", {
+        stageExecutionId: opportunityResult.stageExecutionId,
+      });
       return;
     }
-    logger.info("No opportunity snapshot available for compensation", {
-      stageExecutionId: opportunityResult.stageExecutionId,
-    });
+
+    try {
+      // If snapshot contains a value_tree_id or id, try to restore the value tree
+      const valueTreeId =
+        snapshot.value_tree_id ?? snapshot.id ?? opportunityResult.data?.value_tree_id;
+
+      if (valueTreeId) {
+        // Attempt to restore in the value_trees table
+        try {
+          await this.supabase
+            .from('value_trees')
+            .update({ data: snapshot, restored_at: new Date().toISOString() })
+            .eq('id', String(valueTreeId));
+          logger.info('Restored value tree from snapshot', { valueTreeId, sessionId: context.sessionId });
+        } catch (err) {
+          logger.warn('Failed to restore value tree, falling back to updateValueTree', {
+            error: err instanceof Error ? err.message : String(err),
+            valueTreeId,
+          });
+          await this.updateValueTree(snapshot, context);
+        }
+      } else {
+        // No explicit id — attempt to call generic updater
+        await this.updateValueTree(snapshot, context);
+      }
+
+      // Log the compensation to the audit trail for compliance and forensics
+      await this.auditTrailService.logImmediate({
+        eventType: 'saga_compensation',
+        actorId: context.userId || 'system',
+        actorType: 'service',
+        resourceId: opportunityResult.stageExecutionId || context.sessionId || 'unknown',
+        resourceType: 'data',
+        action: 'restore_opportunity_snapshot',
+        outcome: 'success',
+        details: {
+          stageExecutionId: opportunityResult.stageExecutionId,
+          restored: true,
+          tenantId: context.tenantId,
+          organizationId: context.organizationId,
+        },
+        ipAddress: 'system',
+        userAgent: 'system',
+        timestamp: Date.now(),
+        sessionId: context.sessionId || (opportunityResult.stageExecutionId ?? 'unknown'),
+        correlationId: context.sessionId || opportunityResult.stageExecutionId || uuidv4(),
+        riskScore: 0,
+        complianceFlags: [],
+        tenantId: context.tenantId,
+      });
+    } catch (error) {
+      logger.error('Failed to restore opportunity snapshot', {
+        error: error instanceof Error ? error.message : String(error),
+        stageExecutionId: opportunityResult.stageExecutionId,
+      });
+      // Record failure in audit trail
+      await this.auditTrailService.logImmediate({
+        eventType: 'saga_compensation',
+        actorId: context.userId || 'system',
+        actorType: 'service',
+        resourceId: opportunityResult.stageExecutionId || context.sessionId || 'unknown',
+        resourceType: 'data',
+        action: 'restore_opportunity_snapshot',
+        outcome: 'error',
+        details: {
+          stageExecutionId: opportunityResult.stageExecutionId,
+          error: error instanceof Error ? error.message : String(error),
+          tenantId: context.tenantId,
+          organizationId: context.organizationId,
+        },
+        ipAddress: 'system',
+        userAgent: 'system',
+        timestamp: Date.now(),
+        sessionId: context.sessionId || (opportunityResult.stageExecutionId ?? 'unknown'),
+        correlationId: context.sessionId || opportunityResult.stageExecutionId || uuidv4(),
+        riskScore: 0,
+        complianceFlags: [],
+        tenantId: context.tenantId,
+      });
+    }
   }
 
   private hasNextStage(stage: LifecycleStage): boolean {
