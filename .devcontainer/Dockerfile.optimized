@@ -23,7 +23,7 @@ ENV PNPM_STORE_PATH=/root/.pnpm-store
 
 # Copy only manifest files to leverage layer cache when source changes
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./ || true
+COPY .npmrc ./
 
 # Install pnpm and fetch packages using BuildKit cache mounts
 RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
@@ -38,7 +38,7 @@ FROM deps AS prune
 WORKDIR /app
 # Re-copy manifests (prune reads the repo metadata)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./ || true
+COPY .npmrc ./
 
 # Use BuildKit cache for pnpm store during prune as well
 RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
