@@ -1,5 +1,5 @@
 {
-  "name": "ValueOS DevContainer",
+  "name": "ValueOS Dev Container",
   "dockerComposeFile": [
     "../docker-compose.yml",
     "../docker-compose.deps.yml",
@@ -8,101 +8,64 @@
   ],
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
-  "settings": {
-    "termi[1232 ms]
-[1232 ms] Start: Run in host: test -f '/home/ino/.vscode-server/bin/bdd88df003631aaa0bcbe057cb0a940b80a476fa/node_modules/node-pty/package.json'
-[1234 ms]
-[1234 ms]
-[1234 ms] Start: Run in host: test -f '/home/ino/.vscode-remote-containers/dist/vscode-remote-containers-server-0.442.0.js'
-[1235 ms]
-[1235 ms]
-[1240 ms] userEnvProbe: loginInteractiveShell (default)
-[1240 ms] userEnvProbe: not found in cache
-[1241 ms] userEnvProbe shell: /bin/bash
-[1427 ms] userEnvProbe PATHs:
-Probe:     '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Users/WinWo/AppData/Local/0install.net/injector/executables/git:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/:/mnt/c/WINDOWS/System32/OpenSSH/:/mnt/c/Program Files/dotnet/:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files/Mullvad VPN/resources:/Docker/host/bin:/mnt/c/Program Files/NVIDIA Corporation/NVIDIA App/NvDLISR:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/Users/WinWo/AppData/Local/nvm:/mnt/c/nvm4w/nodejs:/mnt/c/Users/WinWo/AppData/Local/Microsoft/WindowsApps:/mnt/c/Users/WinWo/AppData/Local/Microsoft/WinGet/Links:/mnt/c/Users/WinWo/AppData/Roaming/Programs/Zero Install:/mnt/c/Users/WinWo/AppData/Local/GitHubDesktop/bin:/mnt/c/Users/WinWo/AppData/Local/nvm:/mnt/c/nvm4w/nodejs:/snap/bin'
-Container: None
-[1429 ms] Setting up container for folder or workspace: /home/ino/ValueOS
-[1452 ms] Start: Check Docker is running
-[1452 ms] Start: Run in Host: docker version
-[1491 ms] Client: Docker Engine - Community
- Version:           29.2.1
-[1491 ms]  API version:       1.53
- Go version:        go1.25.6
- Git commit:        a5c7197
- Built:             Mon Feb  2 17:17:26 2026
- OS/Arch:           linux/amd64
- Context:           default
+  "remoteUser": "app",
+  "containerUser": "app",
+  "shutdownAction": "stopCompose",
 
-Server: Docker Desktop 4.59.0 (217644)
- Engine:
-  Version:          29.2.0
-  API version:      1.53 (minimum version 1.44)
-  Go version:       go1.25.6
-  Git commit:       9c62384
-  Built:            Mon Jan 26 19:26:07 2026
-  OS/Arch:          linux/amd64
-  Experimental:     false
- containerd:
-  Version:          v2.2.1
-  GitCommit:        dea7da592f5d1d2b7755e3a161be07f43fad8f75
- runc:
-  Version:          1.3.4
-  GitCommit:        v1.3.4-0-gd6d73eb8
- docker-init:
-  Version:          0.19.0
-  GitCommit:        de40ad0
-[1494 ms] Start: Run in Host: docker volume ls -q
-[1527 ms] Start: Run in Host: docker ps -q -a --filter label=vsch.local.folder=\\wsl.localhost\Ubuntu-24.04\home\ino\ValueOS --filter label=vsch.quality=stable
-[1559 ms] Start: Run in Host: docker ps -q -a --filter label=devcontainer.local_folder=\\wsl.localhost\Ubuntu-24.04\home\ino\ValueOS --filter label=devcontainer.config_file=/home/ino/ValueOS/.devcontainer/devcontainer.json
-[1592 ms] Start: Run in Host: docker ps -q -a --filter label=devcontainer.local_folder=\\wsl.localhost\Ubuntu-24.04\home\ino\ValueOS
-[1642 ms] Start: Run in Host: docker ps -q -a --filter label=devcontainer.local_folder=\\wsl.localhost\Ubuntu-24.04\home\ino\ValueOS
-[1694 ms] Running Dev Containers CLI:   up --container-session-data-folder /tmp/devcontainers-d6ef526b-a942-4b32-9e6a-77db0178c74b1770500787732 --workspace-folder /home/ino/ValueOS --workspace-mount-consistency cached --gpu-availability detect --id-label devcontainer.local_folder=\\wsl.localhost\Ubuntu-24.04\home\ino\ValueOS --id-label devcontainer.config_file=/home/ino/ValueOS/.devcontainer/devcontainer.json --log-level debug --log-format json --config /home/ino/ValueOS/.devcontainer/devcontainer.json --default-user-env-probe loginInteractiveShell --mount type=volume,source=vscode,target=/vscode,external=true --mount type=bind,source=/run/user/1000/wayland-0,target=/tmp/vscode-wayland-4f8b37ae-754c-43e6-80b8-3b321a6a25f1.sock --skip-post-create --update-remote-user-uid-default on --mount-workspace-git-root --include-configuration --include-merged-configuration
-[1694 ms] Start: Checking for Dev Containers CLI
-[1706 ms] Start: Run in Host: /home/ino/.vscode-server/bin/bdd88df003631aaa0bcbe057cb0a940b80a476fa/node /home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js up --container-session-data-folder /tmp/devcontainers-d6ef526b-a942-4b32-9e6a-77db0178c74b1770500787732 --workspace-folder /home/ino/ValueOS --workspace-mount-consistency cached --gpu-availability detect --id-label devcontainer.local_folder=\\wsl.localhost\Ubuntu-24.04\home\ino\ValueOS --id-label devcontainer.config_file=/home/ino/ValueOS/.devcontainer/devcontainer.json --log-level debug --log-format json --config /home/ino/ValueOS/.devcontainer/devcontainer.json --default-user-env-probe loginInteractiveShell --mount type=volume,source=vscode,target=/vscode,external=true --mount type=bind,source=/run/user/1000/wayland-0,target=/tmp/vscode-wayland-4f8b37ae-754c-43e6-80b8-3b321a6a25f1.sock --skip-post-create --update-remote-user-uid-default on --mount-workspace-git-root --include-configuration --include-merged-configuration
-[4993 ms] @devcontainers/cli 0.82.0. Node.js v22.21.1. linux 6.6.87.2-microsoft-standard-WSL2 x64.
-[4993 ms] Start: Run: docker buildx version
-[5374 ms] github.com/docker/buildx v0.31.1-desktop.1 3d153e82f8d99923062781d390607dabe1679613
-[5374 ms]
-[5374 ms] Start: Run: docker version --format {{.Server.Version}}
-[5450 ms] 29.2.0
-[5450 ms]
-[5450 ms] Start: Run: docker -v
-[5466 ms] Start: Resolving Remote
-[5669 ms] Start: Run: docker compose version --short
-[5711 ms] Docker Compose version: 5.0.2
-[5711 ms] Start: Run: docker compose -f /home/ino/ValueOS/docker-compose.yml -f /home/ino/ValueOS/docker-compose.deps.yml -f /home/ino/ValueOS/.devcontainer/compose.auth.stub.yml --profile * config
-[5812 ms]
-[5812 ms] service redis declares mutually exclusive `network_mode` and `networks`: invalid compose project
-
-[5812 ms] Exit code 1
-[2698 ms] Error: Command failed: docker compose -f /home/ino/ValueOS/docker-compose.yml -f /home/ino/ValueOS/docker-compose.deps.yml -f /home/ino/ValueOS/.devcontainer/compose.auth.stub.yml --profile * config
-[2698 ms]     at ta (/home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js:465:889)
-[2698 ms]     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-[2698 ms]     at async y9 (/home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js:412:3470)
-[2699 ms]     at async Z9 (/home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js:485:4043)
-[2699 ms]     at async EC (/home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js:485:4989)
-[2699 ms]     at async M5 (/home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js:666:205)
-[2699 ms]     at async k5 (/home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js:665:15084)
-[2699 ms]     at async /home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js:485:1188
-[2704 ms] Exit code 1
-[2707 ms] Command failed: /home/ino/.vscode-server/bin/bdd88df003631aaa0bcbe057cb0a940b80a476fa/node /home/ino/.vscode-remote-containers/dist/dev-containers-cli-0.442.0/dist/spec-node/devContainersSpecCLI.js up --container-session-data-folder /tmp/devcontainers-d6ef526b-a942-4b32-9e6a-77db0178c74b1770500787732 --workspace-folder /home/ino/ValueOS --workspace-mount-consistency cached --gpu-availability detect --id-label devcontainer.local_folder=\\wsl.localhost\Ubuntu-24.04\home\ino\ValueOS --id-label devcontainer.config_file=/home/ino/ValueOS/.devcontainer/devcontainer.json --log-level debug --log-format json --config /home/ino/ValueOS/.devcontainer/devcontainer.json --default-user-env-probe loginInteractiveShell --mount type=volume,source=vscode,target=/vscode,external=true --mount type=bind,source=/run/user/1000/wayland-0,target=/tmp/vscode-wayland-4f8b37ae-754c-43e6-80b8-3b321a6a25f1.sock --skip-post-create --update-remote-user-uid-default on --mount-workspace-git-root --include-configuration --include-merged-configuration
-[2707 ms] Exit code 1nal.integrated.shell.linux": "/bin/bash",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": true
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-extra/features/supabase-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": true,
+      "installDockerBuildx": true
     }
   },
-  "extensions": [
-    "ms-vscode.vscode-typescript-next",
-    "esbenp.prettier-vscode",
-    "dbaeumer.vscode-eslint",
-    "ms-azuretools.vscode-docker",
-    "eamodio.gitlens",
-    "mechatroner.rainbow-csv",
-    "usernamehw.errorlens"
-  ],
-  "postCreateCommand": "pnpm install && pnpm run dx && bash .devcontainer/scripts/install-optional-tools.sh || true && if [ \"${INSTALL_PLAYWRIGHT_DEPS:-0}\" = \"1\" ]; then bash .devcontainer/scripts/install-playwright-deps.sh || true; fi",
-  "mounts": ["source=node_modules,target=/workspaces/ValueOS/node_modules,type=volume"],
-  "remoteUser": "app"
+
+  // Deterministic boot invariant: always run a single fail-fast entrypoint and persist setup logs.
+  "postCreateCommand": "bash -euo pipefail -c 'bash scripts/dev/setup.sh && bash scripts/check-env.sh' > setup.log 2>&1",
+
+  "remoteEnv": {
+    "PNPM_HOME": "/home/app/.local/share/pnpm",
+    "PATH": "${containerEnv:PATH}:/home/app/.local/share/pnpm",
+    "DOCKER_BUILDKIT": "1",
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    // Ensure services use Docker DNS names
+    "SUPABASE_URL": "http://kong:8000",
+    // CRITICAL: sslmode=disable required - container postgres has no TLS
+    "DATABASE_URL": "postgresql://postgres:dev_password@postgres:5432/valuecanvas_dev?sslmode=disable",
+    "REDIS_URL": "redis://redis:6379"
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "telemetry.telemetryLevel": "off",
+        "redhat.telemetry.enabled": false,
+        "git.telemetry.telemetryLevel": "off",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "files.trimTrailingWhitespace": true
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ms-azuretools.vscode-docker",
+        "msjsdiag.debugger-for-chrome",
+        "jock.svg",
+        "kisstkondoros.vscode-gutter-preview"
+      ]
+    }
+  },
+
+  // Forward ports to host
+  "forwardPorts": [5173, 3001, 54321, 54322, 54323],
+  "portsAttributes": {
+    "5173": { "label": "Frontend", "onAutoForward": "notify" },
+    "3001": { "label": "Backend", "onAutoForward": "notify" },
+    "54321": { "label": "Supabase API", "onAutoForward": "notify" },
+    "54322": { "label": "PostgreSQL", "onAutoForward": "silent" },
+    "54323": { "label": "Supabase Studio", "onAutoForward": "notify" }
+  },
+  "mounts": ["source=node_modules,target=/workspaces/ValueOS/node_modules,type=volume"]
 }
