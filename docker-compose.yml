@@ -1,3 +1,4 @@
 name: valueos
+# Legacy wrapper for ops/compose/compose.yml
 include:
-  - ./scripts/docker-compose.yml
+  - ./ops/compose/compose.yml

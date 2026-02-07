@@ -1,0 +1,3 @@
+services: {}
+# Supabase local services are started via the Supabase CLI ("supabase start").
+# This profile file marks the location for Supabase compose services if needed.

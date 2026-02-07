@@ -1,0 +1,12 @@
+services:
+  build-validator:
+    image: node:20.19.0-alpine
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - node_modules:/app/node_modules
+    command: ["npm", "run", "build:validate"]
+    profiles: ["tools"]
+
+volumes:
+  node_modules:
