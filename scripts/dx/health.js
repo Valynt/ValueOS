@@ -2,11 +2,15 @@ import http from "http";
 import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
+import { buildComposeArgs, getComposeFiles, resolveDxProfiles } from "./compose.js";
 import { loadPorts, resolvePort } from "./ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
+const mode = process.env.DX_MODE || "local";
+const profiles = resolveDxProfiles(process.argv.slice(2));
+const composeFiles = getComposeFiles({ mode, profiles });
 
 // Port configuration
 const portConfig = loadPorts();
@@ -96,7 +100,8 @@ function checkHttpEndpoint(name, url, timeout = 5000) {
  */
 function checkDockerService(serviceName) {
   try {
-    const output = execSync(`docker compose ps ${serviceName}`, {
+    const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: composeFiles }).join(" ");
+    const output = execSync(`docker compose ${composeArgs} ps ${serviceName}`, {
       cwd: projectRoot,
       encoding: "utf8",
       timeout: 10000,

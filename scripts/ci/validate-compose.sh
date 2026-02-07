@@ -1,16 +1,18 @@
 #!/bin/bash
 set -e
 
-# Validate dev compose
-if [ -f infra/docker/docker-compose.dev.yml ]; then
-  docker compose -f infra/docker/docker-compose.dev.yml config >/dev/null
-  echo "✅ infra/docker/docker-compose.dev.yml is valid."
-else
-  echo "⚠️ infra/docker/docker-compose.dev.yml not found."
-fi
+compose_files=(
+  "ops/compose/dev.yml"
+  "ops/compose/core.yml"
+  "ops/compose/observability.yml"
+  "ops/compose/tools.yml"
+)
 
-# Validate deps compose
-if [ -f docker-compose.deps.yml ]; then
-  docker compose -f docker-compose.deps.yml config >/dev/null
-  echo "✅ docker-compose.deps.yml is valid."
-fi
+for file in "${compose_files[@]}"; do
+  if [ -f "$file" ]; then
+    docker compose --project-directory . -f "$file" config >/dev/null
+    echo "✅ $file is valid."
+  else
+    echo "⚠️ $file not found."
+  fi
+done

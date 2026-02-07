@@ -142,7 +142,7 @@ This document captures the key architectural decisions and security requirements
 
 **Implementation:**
 
-- `docker-compose.deps.yml` for dev services (postgres, redis)
+- `ops/compose/core.yml` for dev services (postgres, redis)
 - `infra/docker/docker-compose.prod.yml` for production deployment
 - Optimized images and resource limits
 - Secrets management via Docker secrets

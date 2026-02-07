@@ -13,6 +13,7 @@ import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
 import { resolveMode } from "./lib/mode.js";
+import { buildComposeArgs } from "./compose.js";
 import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from "./ports.js";
 import { resolveSupabaseMode, extractUrlHost, isLocalHost } from "./lib/supabase-mode.js";
 import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
@@ -665,7 +666,7 @@ function checkComposeState() {
   if (commandExists("docker")) {
     try {
       fullRunning = runCommand(
-        'docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml ps --filter "status=running" --services',
+        `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: ['ops/compose/dev.yml'] }).join(' ')} ps --filter "status=running" --services`,
         {
           stdio: "pipe",
         }
@@ -679,7 +680,7 @@ function checkComposeState() {
 
     try {
       depsRunning = runCommand(
-        'docker compose --env-file .env.ports -f docker-compose.deps.yml ps --filter "status=running" --services',
+        `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: ['ops/compose/core.yml'] }).join(' ')} ps --filter "status=running" --services`,
         {
           stdio: "pipe",
         }
@@ -1057,7 +1058,7 @@ function checkMigrationDrift() {
   // Only check if postgres container is running
   try {
     runCommand(
-      'docker compose --env-file .env.ports -f docker-compose.deps.yml ps postgres --filter "status=running"',
+      `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: ['ops/compose/core.yml'] }).join(' ')} ps postgres --filter "status=running"`,
       { stdio: "pipe" }
     );
   } catch {
@@ -1133,12 +1134,13 @@ async function checkDevEdgeRouting() {
     return;
   }
 
-  const composeFile = path.join(projectRoot, "infra", "docker", "docker-compose.dev-caddy.yml");
+  const composeFile = path.join(projectRoot, "ops", "compose", "tools.yml");
+  const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: ["ops/compose/tools.yml"] }).join(" ");
   let runningServices = [];
 
   try {
     runningServices = runCommand(
-      `docker compose -f ${composeFile} ps --filter "status=running" --services`,
+      `docker compose ${composeArgs} ps --filter "status=running" --services`,
       { stdio: "pipe" }
     )
       .trim()
@@ -1156,8 +1158,8 @@ async function checkDevEdgeRouting() {
     `https://localhost:${caddyHttpsPort}/healthz`,
     `https://localhost:${caddyHttpsPort}/api/health`,
   ];
-  const restartCommand = `docker compose -f ${composeFile} restart`;
-  const restartFix = `${restartCommand} (or: docker compose -f ${composeFile} down && docker compose -f ${composeFile} up -d)`;
+  const restartCommand = `docker compose ${composeArgs} restart`;
+  const restartFix = `${restartCommand} (or: docker compose ${composeArgs} down && docker compose ${composeArgs} up -d)`;
 
   for (const endpoint of endpoints) {
     const result = await checkHttpsEndpoint(endpoint);

@@ -172,7 +172,7 @@ docker ps | grep postgres
 docker logs valueos-postgres
 
 # Restart postgres
-docker compose -f docker-compose.deps.yml up -d postgres
+docker compose -f ops/compose/core.yml up -d postgres
 
 # Test connection
 PGPASSWORD=dev_password psql -h localhost -p 5432 -U postgres -d valuecanvas_dev -c 'SELECT 1'

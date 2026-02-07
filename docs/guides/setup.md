@@ -183,7 +183,7 @@ ValueOS/
 │   ├── types/             # TypeScript type definitions
 │   └── __tests__/         # Test suites (unit, integration, E2E)
 ├── tests/                 # Additional test suites and configurations
-└── docker-compose.deps.yml # Dependency services configuration
+└── ops/compose/core.yml # Dependency services configuration
 ```
 
 **Structural principles:**

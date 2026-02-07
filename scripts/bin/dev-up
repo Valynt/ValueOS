@@ -12,7 +12,7 @@ echo -e "${GREEN}🚀 Starting ValueOS Ephemeral Environment...${NC}"
 echo "============================================="
 
 # Configuration
-COMPOSE_FILE="infra/docker/docker-compose.dev.yml"
+COMPOSE_FILE="ops/compose/dev.yml"
 PROJECT_NAME="valueos"
 ENVIRONMENTS_DIR="config/environments"
 ENVIRONMENT="development"

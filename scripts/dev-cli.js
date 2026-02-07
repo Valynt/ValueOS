@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { buildComposeArgs, getComposeFiles, resolveDxProfiles } from "./dx/compose.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +71,7 @@ Usage:
   ./dev reset [--soft|--hard]
   ./dev doctor [--mode local|docker]
   ./dev logs [service] [--mode local|docker]
+  ./dev ps [--mode local|docker]
   ./dev smoke-test [--mode local|docker]
   ./dev bundle [--mode local|docker]
 
@@ -263,11 +265,19 @@ async function main() {
 
   if (command === "logs") {
     ensureDocker();
-    const composeFile =
-      mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
-    run(
-      `docker compose --env-file .env.ports -f ${composeFile} logs -f${service ? ` ${service}` : ""}`
-    );
+    const profiles = resolveDxProfiles(rawArgs);
+    const composeFiles = getComposeFiles({ mode, profiles });
+    const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: composeFiles }).join(" ");
+    run(`docker compose ${composeArgs} logs -f${service ? ` ${service}` : ""}`);
+    return;
+  }
+
+  if (command === "ps") {
+    ensureDocker();
+    const profiles = resolveDxProfiles(rawArgs);
+    const composeFiles = getComposeFiles({ mode, profiles });
+    const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: composeFiles }).join(" ");
+    run(`docker compose ${composeArgs} ps`);
     return;
   }
 

@@ -5,6 +5,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import { buildComposeArgs } from "./compose.js";
 import { resolveMode } from "./lib/mode.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -84,7 +85,7 @@ function createBundle() {
 
   try {
     const ps = run(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml ps",
+      `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: ["ops/compose/dev.yml"] }).join(" ")} ps`,
       { silent: true }
     );
     writeFileSafe(path.join(bundleDir, "compose-dev-ps.txt"), ps);
@@ -97,7 +98,7 @@ function createBundle() {
 
   try {
     const depsPs = run(
-      "docker compose --env-file .env.ports -f docker-compose.deps.yml ps",
+      `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: ["ops/compose/core.yml"] }).join(" ")} ps`,
       { silent: true }
     );
     writeFileSafe(path.join(bundleDir, "compose-deps-ps.txt"), depsPs);
@@ -110,7 +111,7 @@ function createBundle() {
 
   try {
     const logs = run(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml logs --tail 50",
+      `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: ["ops/compose/dev.yml"] }).join(" ")} logs --tail 50`,
       { silent: true }
     );
     writeFileSafe(path.join(bundleDir, "compose-dev-logs.txt"), logs);

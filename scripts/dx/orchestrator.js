@@ -33,6 +33,13 @@ import { loadPorts, resolvePort } from "./ports.js";
 import { writeEnvFiles } from "./env-compiler.js";
 import { resolveSupabaseMode, extractUrlHost, isLocalHost } from "./lib/supabase-mode.js";
 import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
+import {
+  buildComposeArgs,
+  formatComposeCommand,
+  getAllComposeFiles,
+  getComposeFiles,
+  resolveDxProfiles,
+} from "./compose.js";
 import { CheckpointManager } from "./checkpoint-manager.ts";
 import { TraceLogger } from "./trace-logger.ts";
 import { formatError } from "./error-codes.ts";
@@ -570,14 +577,15 @@ function stopSupabase() {
 /**
  * Start Docker dependencies
  */
-async function startDockerDeps(mode) {
+async function startDockerDeps(mode, profiles) {
   const stepStart = traceLogger.stepStart("start_docker_deps", { mode });
   const checkpoint = checkpointManager.save("docker_deps", { mode });
 
   log.info("Starting Docker dependencies...");
 
-  const composeFile =
-    mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
+  const composeFiles = getComposeFiles({ mode, profiles });
+  const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: composeFiles });
+  const composeArgsString = composeArgs.join(" ");
 
   // In full docker mode, we want images current and builds reproducible.
   // For deps-only mode, do not force builds.
@@ -586,7 +594,7 @@ async function startDockerDeps(mode) {
   try {
     await runWithRetries("Docker pull", async () => {
       runCommand(
-        `docker compose --env-file .env.ports -f ${composeFile} pull --ignore-pull-failures`,
+        `docker compose ${composeArgsString} pull --ignore-pull-failures`,
         { silent: false }
       );
     });
@@ -594,7 +602,7 @@ async function startDockerDeps(mode) {
     if (mode === "docker") {
       await runWithRetries("Docker build", async () => {
         try {
-          runCommand(`docker compose --env-file .env.ports -f ${composeFile} build --pull`, {
+          runCommand(`docker compose ${composeArgsString} build --pull`, {
             silent: false,
           });
         } catch (error) {
@@ -615,7 +623,7 @@ async function startDockerDeps(mode) {
     }
 
     await runWithRetries("Docker up", async () => {
-      runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d${upFlags}`, {
+      runCommand(`docker compose ${composeArgsString} up -d${upFlags}`, {
         silent: false,
       });
     });
@@ -625,7 +633,7 @@ async function startDockerDeps(mode) {
     traceLogger.stepSuccess("start_docker_deps", stepStart);
   } catch (error) {
     traceLogger.stepError("start_docker_deps", error);
-    log.error(formatError("ERR_008", { composeFile, error: error.message }));
+    log.error(formatError("ERR_008", { composeFile: composeFiles.join(", "), error: error.message }));
     console.error(String(error?.message || error));
     process.exit(1);
   }
@@ -637,15 +645,12 @@ async function startDockerDeps(mode) {
 function stopDockerDeps() {
   log.info("Stopping Docker dependencies...");
 
-  const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-    "infra/docker/docker-compose.caddy.yml",
-  ];
+  const composeFiles = getAllComposeFiles();
 
   for (const file of composeFiles) {
     try {
-      runCommand(`docker compose --env-file .env.ports -f ${file} down --remove-orphans`, {
+      const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: [file] }).join(" ");
+      runCommand(`docker compose ${composeArgs} down --remove-orphans`, {
         silent: true,
       });
     } catch {
@@ -662,16 +667,13 @@ function stopDockerDeps() {
 function resetDockerDeps(level = "soft") {
   log.info(`Resetting Docker dependencies (${level})...`);
 
-  const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-    "infra/docker/docker-compose.caddy.yml",
-  ];
+  const composeFiles = getAllComposeFiles();
 
   for (const file of composeFiles) {
     try {
       const downArgs = level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
-      runCommand(`docker compose --env-file .env.ports -f ${file} ${downArgs}`, {
+      const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: [file] }).join(" ");
+      runCommand(`docker compose ${composeArgs} ${downArgs}`, {
         silent: true,
       });
     } catch {
@@ -856,8 +858,9 @@ async function seedDatabase() {
 /**
  * Check if Caddy is enabled
  */
-function isCaddyEnabled() {
+function isCaddyEnabled(profiles = []) {
   return (
+    profiles.includes("tools") ||
     process.env.DX_ENABLE_CADDY === "1" ||
     process.env.DX_ENABLE_CADDY === "true" ||
     process.argv.includes("--caddy")
@@ -868,9 +871,9 @@ function isCaddyEnabled() {
  * Start Caddy reverse proxy (optional)
  * Provides HTTPS reverse proxy + local domains
  */
-async function startCaddy() {
-  if (!isCaddyEnabled()) {
-    log.info("Caddy disabled (use --caddy or DX_ENABLE_CADDY=1 to enable)");
+async function startCaddy(profiles = []) {
+  if (!isCaddyEnabled(profiles)) {
+    log.info("Caddy disabled (use --profile tools, --caddy, or DX_ENABLE_CADDY=1 to enable)");
     return null;
   }
 
@@ -892,7 +895,11 @@ async function startCaddy() {
 
     // Start Caddy via Docker Compose
     runCommand(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.caddy.yml up -d",
+      formatComposeCommand({
+        projectDir: projectRoot,
+        files: ["ops/compose/tools.yml"],
+        command: "up -d",
+      }),
       { silent: false }
     );
 
@@ -927,7 +934,11 @@ async function startCaddy() {
 function stopCaddy() {
   try {
     runCommand(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.caddy.yml down",
+      formatComposeCommand({
+        projectDir: projectRoot,
+        files: ["ops/compose/tools.yml"],
+        command: "down",
+      }),
       { silent: true }
     );
   } catch {
@@ -1130,6 +1141,8 @@ async function main() {
     process.exit(1);
   }
 
+  const profiles = resolveDxProfiles(args);
+
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║                    ValueOS Development                         ║
@@ -1156,7 +1169,10 @@ async function main() {
   writeEnvFiles(mode, { force: true });
   reloadEnv();
 
-  const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts });
+  const supabaseEnabled = profiles.includes("supabase");
+  const supabaseMode = supabaseEnabled
+    ? resolveSupabaseMode({ env: process.env, localHosts })
+    : { mode: "skip", reason: "profile-disabled" };
 
   // Step 1b: Preflight checks (now that env exists)
   runPreflightChecks(supabaseMode);
@@ -1172,15 +1188,18 @@ async function main() {
 
   // Step 3: Start Docker dependencies
   log.step(3, "Starting Docker dependencies");
-  await startDockerDeps(mode);
+  await startDockerDeps(mode, profiles);
 
   // Step 4: Start Supabase (local mode only)
-  if (mode === "local") {
+  if (mode === "local" && supabaseEnabled) {
     log.step(4, "Starting Supabase");
     await startSupabase(supabaseMode);
+  } else if (mode === "local") {
+    log.step(4, "Supabase disabled");
+    log.info("Supabase profile disabled. Enable with --profile supabase or DX_PROFILES=supabase.");
   } else {
-    log.step(4, "Supabase (using Docker service)");
-    log.info("Supabase runs as part of Docker Compose in docker mode");
+    log.step(4, "Supabase (docker mode)");
+    log.info("Supabase profile is only applied in local mode.");
   }
 
   // Step 5: Run migrations and verify schema
@@ -1295,7 +1314,7 @@ async function main() {
 
   // Step 9: Start Caddy (optional - if enabled)
   log.step(9, "Caddy HTTPS reverse proxy");
-  const caddyInfo = await startCaddy();
+  const caddyInfo = await startCaddy(profiles);
 
   // Setup shutdown handler
   setupShutdownHandler(services);

@@ -316,7 +316,7 @@ async function main() {
         error("Try running one of these commands manually:");
         error("  • pnpm run dx:up (for full development environment)");
         error("  • supabase start (if Supabase CLI is installed)");
-        error("  • docker-compose -f infra/docker/docker-compose.dev.yml up -d db localstack");
+        error("  • docker compose --project-directory . -f ops/compose/dev.yml up -d db localstack");
         process.exit(1);
       }
     }

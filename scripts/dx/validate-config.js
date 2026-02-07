@@ -76,7 +76,7 @@ function validateFileExists(filePath, description = "") {
  */
 function validateDockerCompose(filePath) {
   try {
-    execSync(`docker compose -f ${filePath} config --quiet`, {
+    execSync(`docker compose --project-directory . -f ${filePath} config --quiet`, {
       cwd: projectRoot,
       stdio: "pipe",
     });
@@ -208,7 +208,10 @@ function runValidation() {
 
   // Docker configuration validation
   validateDockerCompose("infra/docker/docker-compose.yml");
-  validateDockerCompose("infra/docker/docker-compose.dev.yml");
+  validateDockerCompose("ops/compose/dev.yml");
+  validateDockerCompose("ops/compose/core.yml");
+  validateDockerCompose("ops/compose/observability.yml");
+  validateDockerCompose("ops/compose/tools.yml");
 
   // Node.js version check
   try {

@@ -11,6 +11,7 @@ import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
 import { resolveMode } from "./lib/mode.js";
+import { buildComposeArgs, getComposeFiles, resolveDxProfiles } from "./compose.js";
 import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -209,10 +210,10 @@ function runCommand(name, command) {
   });
 }
 
-function getRunningComposeServices(composeFile) {
+function getRunningComposeServices(composeFiles) {
   try {
     const output = execSync(
-      `docker compose --env-file .env.ports -f ${composeFile} ps --status running --services`,
+      `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: composeFiles }).join(" ")} ps --status running --services`,
       {
         cwd: projectRoot,
         encoding: "utf8",
@@ -266,30 +267,30 @@ async function main() {
     process.exit(1);
   }
 
-  const fullComposeFile = "infra/docker/docker-compose.dev.yml";
-  const depsComposeFile = "docker-compose.deps.yml";
-  const composeFile = mode === "docker" ? fullComposeFile : depsComposeFile;
+  const profiles = resolveDxProfiles(process.argv.slice(2));
+  const composeFiles = getComposeFiles({ mode, profiles });
 
   ensurePortsEnvFile();
   assertNoActiveDx();
 
-  const fullRunning = getRunningComposeServices(fullComposeFile);
-  const depsRunning = getRunningComposeServices(depsComposeFile);
+  const fullRunning = getRunningComposeServices(["ops/compose/dev.yml"]);
+  const depsRunning = getRunningComposeServices(["ops/compose/core.yml"]);
   const runningSummary = [
     `full=${fullRunning.length ? fullRunning.join(", ") : "none"}`,
     `deps=${depsRunning.length ? depsRunning.join(", ") : "none"}`,
+    `profiles=${profiles.join(", ")}`,
   ].join("; ");
 
   console.log(
     formatLog(
       "dx",
-      `Detected mode "${mode}" (${composeFile}). Compose state: ${runningSummary}.`,
+      `Detected mode "${mode}" (${composeFiles.join(", ")}). Compose state: ${runningSummary}.`,
       colors.cyan
     )
   );
 
   const lock = readDxLock();
-  if (lock && (lock.mode !== mode || lock.composeFile !== composeFile)) {
+  if (lock && (lock.mode !== mode || lock.composeFile !== composeFiles.join(", "))) {
     console.error(
       formatLog(
         "dx",
@@ -359,7 +360,7 @@ async function main() {
       process.exit(1);
     }
 
-    writeDxLock({ mode, composeFile, createdAt: new Date().toISOString() });
+    writeDxLock({ mode, composeFile: composeFiles.join(", "), createdAt: new Date().toISOString() });
     writeDxState({
       pid: process.pid,
       mode,
@@ -367,7 +368,7 @@ async function main() {
     });
     await runCommand(
       "docker",
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml up -d"
+      `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: composeFiles }).join(" ")} up -d`
     );
     console.log("\n" + "=".repeat(60));
     console.log("✅ Docker services are running!");
@@ -388,10 +389,10 @@ async function main() {
     process.exit(1);
   }
 
-  writeDxLock({ mode, composeFile, createdAt: new Date().toISOString() });
+  writeDxLock({ mode, composeFile: composeFiles.join(", "), createdAt: new Date().toISOString() });
   await runCommand(
     "docker",
-    "docker compose --env-file .env.ports -f docker-compose.deps.yml up -d"
+    `docker compose ${buildComposeArgs({ projectDir: projectRoot, files: composeFiles }).join(" ")} up -d`
   );
 
   const conflicts = [];

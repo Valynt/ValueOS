@@ -36,7 +36,7 @@ PORTS=(
 )
 
 # Docker compose file
-COMPOSE_FILE="infra/docker/docker-compose.dev.yml"
+COMPOSE_FILE="ops/compose/dev.yml"
 COMPOSE_ENV="deploy/envs/.env.ports"
 
 # Check if port is in use

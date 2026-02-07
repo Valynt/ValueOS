@@ -130,7 +130,7 @@ The current repository uses the DX scripts and Docker Compose for local observab
 | :--- | :--- |
 | `pnpm run dx:logs` | Follow logs for the local stack (including observability containers). |
 | `pnpm run dx:check` | Validate health of local services. |
-| `docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml restart otel-collector` | Restart the OTel Collector if telemetry stalls. |
+| `docker compose --env-file .env.ports -f ops/compose/dev.yml restart otel-collector` | Restart the OTel Collector if telemetry stalls. |
 
 ### Healthcheck Script Logic
 If the OTel Collector stops receiving signals, the environment's internal daemon executes the following recovery logic:

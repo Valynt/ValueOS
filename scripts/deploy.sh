@@ -12,7 +12,7 @@ fi
 case $ENVIRONMENT in
     dev)
         echo "🚀 Starting development environment..."
-        docker-compose -f infra/docker/docker-compose.dev.yml up -d
+        docker compose --project-directory . -f ops/compose/dev.yml up -d
         ;;
     stage)
         echo "🚀 Deploying to staging..."

@@ -214,7 +214,7 @@ pnpm run db:reset         # Reset database
 
 **Development:**
 
-- `infra/docker/docker-compose.dev.yml` - Development services
+- `ops/compose/dev.yml` - Development services
 - `infra/docker/docker-compose.test.yml` - Test environment
 
 **Production:**

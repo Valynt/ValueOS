@@ -8,6 +8,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { buildComposeArgs, getAllComposeFiles } from "./compose.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,16 +99,15 @@ function cleanStateFiles(): void {
 function cleanOrphanContainers(): void {
   log("🐳 Cleaning orphan containers...", colors.blue);
 
-  const composeFiles = [
-    "docker-compose.deps.yml",
-    "infra/supabase/docker-compose.yml",
-    "infra/docker/docker-compose.dev.yml",
-  ];
+  const composeFiles = getAllComposeFiles();
 
   for (const file of composeFiles) {
     const filePath = path.join(projectRoot, file);
     if (fs.existsSync(filePath)) {
-      runCommand(`docker compose -f ${filePath} down --remove-orphans 2>/dev/null || true`);
+      const composeArgs = buildComposeArgs({ projectDir: projectRoot, files: [file] }).join(" ");
+      runCommand(
+        `docker compose ${composeArgs} down --remove-orphans 2>/dev/null || true`
+      );
     }
   }
 

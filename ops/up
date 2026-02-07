@@ -126,14 +126,14 @@ up_services() {
     setup_compose_ordering
 
     # Determine compose file
-    local compose_file="$PROJECT_ROOT/infra/docker/docker-compose.dev.yml"
+    local compose_file="$PROJECT_ROOT/ops/compose/dev.yml"
     if [ ! -f "$compose_file" ]; then
         log_error "Compose file not found: $compose_file"
         exit 1
     fi
 
     # Build compose command
-    local compose_cmd=("docker-compose" "-f" "$compose_file")
+    local compose_cmd=("docker" "compose" "--project-directory" "$PROJECT_ROOT" "-f" "$compose_file")
 
     if [ "$detach" = true ]; then
         compose_cmd+=("up" "-d")
