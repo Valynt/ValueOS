@@ -77,20 +77,20 @@ const COST_THRESHOLDS = {
 };
 
 export interface LLMUsageRecord {
-  tenant_id?: string;
+  tenant_id: string;
   user_id: string;
   session_id?: string;
-  provider: 'together_ai' | 'openai';
+  provider: 'together_ai' | 'openai' | 'anthropic' | 'replicate';
   model: string;
-  prompt_tokens: number;
-  completion_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
   total_tokens: number;
-  estimated_cost: number;
+  cost: number;
   endpoint: string;
   success: boolean;
   error_message?: string;
   latency_ms: number;
-  timestamp: string;
+  created_at: string;
 }
 
 export interface CostAlert {
@@ -142,9 +142,11 @@ export class LLMCostTracker {
    */
   async trackUsage(params: {
     tenantId?: string;
+    tenant_id?: string;
     userId: string;
+    tenant_id?: string;
     sessionId?: string;
-    provider: 'together_ai' | 'openai';
+    provider: 'together_ai' | 'openai' | 'anthropic' | 'replicate';
     model: string;
     promptTokens: number;
     completionTokens: number;
@@ -155,6 +157,17 @@ export class LLMCostTracker {
   }): Promise<void> {
     if (!this.isEnabled() || !this.supabase) return;
 
+    const normalizedTenantId = params.tenantId ?? params.tenant_id;
+    if (!normalizedTenantId) {
+      logger.error('LLM usage missing tenant id; skipping usage insert', {
+        userId: params.userId,
+        model: params.model,
+        provider: params.provider,
+        endpoint: params.endpoint
+      });
+      return;
+    }
+
     const cost = this.calculateCost(
       params.model,
       params.promptTokens,
@@ -162,20 +175,20 @@ export class LLMCostTracker {
     );
     
     const record: LLMUsageRecord = {
-      tenant_id: params.tenantId,
+      tenant_id: normalizedTenantId,
       user_id: params.userId,
       session_id: params.sessionId,
       provider: params.provider,
       model: params.model,
-      prompt_tokens: params.promptTokens,
-      completion_tokens: params.completionTokens,
+      input_tokens: params.promptTokens,
+      output_tokens: params.completionTokens,
       total_tokens: params.promptTokens + params.completionTokens,
-      estimated_cost: cost,
+      cost,
       endpoint: params.endpoint,
       success: params.success,
       error_message: params.errorMessage,
       latency_ms: params.latencyMs,
-      timestamp: new Date().toISOString()
+      created_at: new Date().toISOString()
     };
     
     // Store in database
@@ -186,7 +199,7 @@ export class LLMCostTracker {
       logger.error('Failed to track LLM usage', error);
     }
     // Fire and forget, do not await
-    void this.checkCostThresholds();
+    void this.checkCostThresholds(normalizedTenantId);
   }
   
   /**
@@ -195,18 +208,22 @@ export class LLMCostTracker {
   async getCostForPeriod(
     startTime: Date,
     endTime: Date,
-    userId?: string
+    userId?: string,
+    tenantId?: string
   ): Promise<number> {
     if (!this.isEnabled() || !this.supabase) return 0;
 
     let query = this.supabase
       .from('llm_usage')
-      .select('estimated_cost')
-      .gte('timestamp', startTime.toISOString())
-      .lte('timestamp', endTime.toISOString());
+      .select('cost')
+      .gte('created_at', startTime.toISOString())
+      .lte('created_at', endTime.toISOString());
     
     if (userId) {
       query = query.eq('user_id', userId);
+    }
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
     }
     
     const { data, error } = await query;
@@ -214,34 +231,34 @@ export class LLMCostTracker {
       logger.error('Failed to get cost for period', error);
       return 0;
     }
-    return (data?.reduce((sum: number, record: { estimated_cost: number }) => sum + record.estimated_cost, 0)) || 0;
+    return (data?.reduce((sum: number, record: { cost: number }) => sum + record.cost, 0)) || 0;
   }
   
   /**
    * Get hourly cost
    */
-  async getHourlyCost(): Promise<number> {
+  async getHourlyCost(tenantId?: string): Promise<number> {
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - ONE_HOUR_MS);
-    return this.getCostForPeriod(oneHourAgo, now);
+    return this.getCostForPeriod(oneHourAgo, now, undefined, tenantId);
   }
   
   /**
    * Get daily cost
    */
-  async getDailyCost(userId?: string): Promise<number> {
+  async getDailyCost(userId?: string, tenantId?: string): Promise<number> {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - ONE_DAY_MS);
-    return this.getCostForPeriod(oneDayAgo, now, userId);
+    return this.getCostForPeriod(oneDayAgo, now, userId, tenantId);
   }
   
   /**
    * Get monthly cost
    */
-  async getMonthlyCost(): Promise<number> {
+  async getMonthlyCost(tenantId?: string): Promise<number> {
     const now = new Date();
     const oneMonthAgo = new Date(now.getTime() - ONE_MONTH_MS);
-    return this.getCostForPeriod(oneMonthAgo, now);
+    return this.getCostForPeriod(oneMonthAgo, now, undefined, tenantId);
   }
 
   /**
@@ -257,8 +274,8 @@ export class LLMCostTracker {
       .from('llm_usage')
       .select('total_tokens')
       .eq('tenant_id', tenantId)
-      .gte('timestamp', periodStart.toISOString())
-      .lte('timestamp', now.toISOString());
+      .gte('created_at', periodStart.toISOString())
+      .lte('created_at', now.toISOString());
 
     if (error) {
       logger.error('Failed to get monthly tokens for tenant', error);
@@ -271,13 +288,13 @@ export class LLMCostTracker {
   /**
    * Check if cost thresholds are exceeded
    */
-  async checkCostThresholds(): Promise<CostAlert[]> {
+  async checkCostThresholds(tenantId?: string): Promise<CostAlert[]> {
     if (!this.isEnabled()) return [];
 
     const alerts: CostAlert[] = [];
     
     // Check hourly threshold
-    const hourlyCost = await this.getHourlyCost();
+    const hourlyCost = await this.getHourlyCost(tenantId);
     if (hourlyCost >= COST_THRESHOLDS.hourly.critical) {
       alerts.push({
         level: 'critical',
@@ -297,7 +314,7 @@ export class LLMCostTracker {
     }
     
     // Check daily threshold
-    const dailyCost = await this.getDailyCost();
+    const dailyCost = await this.getDailyCost(undefined, tenantId);
     if (dailyCost >= COST_THRESHOLDS.daily.critical) {
       alerts.push({
         level: 'critical',
@@ -317,7 +334,7 @@ export class LLMCostTracker {
     }
     
     // Check monthly threshold
-    const monthlyCost = await this.getMonthlyCost();
+    const monthlyCost = await this.getMonthlyCost(tenantId);
     if (monthlyCost >= COST_THRESHOLDS.monthly.critical) {
       alerts.push({
         level: 'critical',
@@ -479,8 +496,8 @@ export class LLMCostTracker {
     const { data, error } = await this.supabase
       .from('llm_usage')
       .select('*')
-      .gte('timestamp', startDate.toISOString())
-      .lte('timestamp', endDate.toISOString());
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString());
     
     if (error || !data) {
       throw new Error(`Failed to get cost analytics: ${error?.message}`);
@@ -497,20 +514,20 @@ export class LLMCostTracker {
     };
     
     for (const record of data) {
-      analytics.totalCost += record.estimated_cost;
+      analytics.totalCost += record.cost;
       analytics.totalTokens += record.total_tokens;
       
       // By model
       analytics.costByModel[record.model] = 
-        (analytics.costByModel[record.model] || 0) + record.estimated_cost;
+        (analytics.costByModel[record.model] || 0) + record.cost;
       
       // By user
       analytics.costByUser[record.user_id] = 
-        (analytics.costByUser[record.user_id] || 0) + record.estimated_cost;
+        (analytics.costByUser[record.user_id] || 0) + record.cost;
       
       // By endpoint
       analytics.costByEndpoint[record.endpoint] = 
-        (analytics.costByEndpoint[record.endpoint] || 0) + record.estimated_cost;
+        (analytics.costByEndpoint[record.endpoint] || 0) + record.cost;
     }
     
     analytics.averageCostPerRequest = 
@@ -533,8 +550,8 @@ export class LLMCostTracker {
 
     const { data, error } = await this.supabase
       .from('llm_usage')
-      .select('user_id, estimated_cost')
-      .gte('timestamp', new Date(Date.now() - ONE_DAY_MS).toISOString());
+      .select('user_id, cost')
+      .gte('created_at', new Date(Date.now() - ONE_DAY_MS).toISOString());
     
     if (error || !data) {
       return [];
@@ -545,7 +562,7 @@ export class LLMCostTracker {
     for (const record of data) {
       const current = userCosts.get(record.user_id) || { cost: 0, count: 0 };
       userCosts.set(record.user_id, {
-        cost: current.cost + record.estimated_cost,
+        cost: current.cost + record.cost,
         count: current.count + 1
       });
     }

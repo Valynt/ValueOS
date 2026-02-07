@@ -104,10 +104,10 @@
           fi
 
           # Development helpers
-          alias dev-up="./bin/dev-up"
-          alias dev-down="docker-compose -f docker-compose.unified.yml down"
-          alias dev-logs="docker-compose -f docker-compose.unified.yml logs -f"
-          alias dev-ps="docker-compose -f docker-compose.unified.yml ps"
+          alias dev-up="pnpm run dx:up"
+          alias dev-down="pnpm run dx:down"
+          alias dev-logs="pnpm run dx:logs"
+          alias dev-ps="pnpm run dx:ps"
 
           # Database helpers
           alias db-connect="docker exec -it valueos-postgres psql -U postgres -d valuecanvas_dev"
@@ -119,9 +119,9 @@
           alias gps="git push"
 
           echo "💡 Quick commands:"
-          echo "   dev-up     - Start the full development stack"
-          echo "   dev-down   - Stop all services"
-          echo "   dev-logs   - View service logs"
+          echo "   dev-up     - Start the full development stack (DX)"
+          echo "   dev-down   - Stop all services (DX)"
+          echo "   dev-logs   - View service logs (DX)"
           echo "   db-connect - Connect to PostgreSQL"
           echo ""
           echo "🚀 Ready for ValueOS development!"
@@ -140,10 +140,10 @@
 
           # Shell configuration
           shellAliases = {
-            dev-up = "./bin/dev-up";
-            dev-down = "docker-compose -f docker-compose.unified.yml down";
-            dev-logs = "docker-compose -f docker-compose.unified.yml logs -f";
-            dev-ps = "docker-compose -f docker-compose.unified.yml ps";
+            dev-up = "pnpm run dx:up";
+            dev-down = "pnpm run dx:down";
+            dev-logs = "pnpm run dx:logs";
+            dev-ps = "pnpm run dx:ps";
           };
         };
 

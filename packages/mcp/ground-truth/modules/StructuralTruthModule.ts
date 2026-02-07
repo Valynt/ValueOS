@@ -9,6 +9,7 @@
  */
 
 import { BaseModule } from "../core/BaseModule";
+import { z } from "zod";
 import {
   ALL_ESO_KPIS,
   EXTENDED_PERSONA_MAPS,
@@ -27,6 +28,29 @@ import type { VMRT } from "../../types/vmrt";
 // ============================================================================
 // Types
 // ============================================================================
+
+export const STRUCTURAL_TRUTH_SCHEMA_FIELDS = [
+  "integrity_checks",
+  "analysis",
+  "timestamp",
+] as const;
+
+export const StructuralTruthModuleSchema = z
+  .object({
+    integrity_checks: z.array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        confidence: z.number().min(0).max(1),
+        category: z.string(),
+        priority: z.string(),
+        status: z.string(),
+      })
+    ),
+    analysis: z.string(),
+    timestamp: z.string(),
+  })
+  .passthrough();
 
 interface MetricValueRequest {
   metricId: string;

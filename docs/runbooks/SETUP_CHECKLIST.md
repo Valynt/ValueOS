@@ -3,10 +3,10 @@
 ## Files Created
 
 - [x] **Caddyfile.dev** - Development Caddy configuration
-- [x] **infra/docker/docker-compose.caddy.yml** - Complete dev stack
+- [x] **infra/docker/docker-compose.caddy.yml** - DX docker stack config
 - [x] **.env.dev.example** - Environment template
-- [x] **scripts/dev-caddy-start.sh** - Startup automation
-- [x] **scripts/dev-caddy-stop.sh** - Shutdown script
+- [x] **pnpm run dx:docker** - Startup automation
+- [x] **pnpm run dx:down** - Shutdown command
 - [x] **DEV_CADDY_SETUP.md** - Complete documentation
 - [x] **README_DEV_QUICK_START.md** - 2-minute guide
 - [x] **CADDY_SETUP_COMPLETE.md** - Summary & reference
@@ -18,14 +18,12 @@
 ls -lh Caddyfile.dev
 ls -lh infra/docker/docker-compose.caddy.yml
 ls -lh .env.dev.example
-ls -lh scripts/dev-caddy-start.sh
-ls -lh scripts/dev-caddy-stop.sh
 ls -lh DEV_CADDY_SETUP.md
 ls -lh README_DEV_QUICK_START.md
 ls -lh CADDY_SETUP_COMPLETE.md
 
-# Verify scripts are executable
-ls -l scripts/dev-caddy-*.sh | grep rwx
+# Verify DX scripts are available
+pnpm run dx -- --help
 ```
 
 ## To Start Development
@@ -49,7 +47,7 @@ nano .env.dev
 ### 3. Start All Services
 
 ```bash
-./scripts/dev-caddy-start.sh
+pnpm run dx:docker
 ```
 
 ### 4. Verify
@@ -94,22 +92,22 @@ nano .env.dev
 
 ```bash
 # Start development
-./scripts/dev-caddy-start.sh
+pnpm run dx:docker
 
 # Stop development
-./scripts/dev-caddy-stop.sh
+pnpm run dx:down
 
 # View logs
-docker-compose -f infra/docker/docker-compose.caddy.yml logs -f
+pnpm run dx:logs
 
 # Restart a service
-docker-compose -f infra/docker/docker-compose.caddy.yml restart <service>
+pnpm run dx:down && pnpm run dx:up
 
 # Check status
-docker-compose -f infra/docker/docker-compose.caddy.yml ps
+pnpm run dx:ps
 
 # Rebuild
-docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
+pnpm run dx:docker
 ```
 
 ## Troubleshooting Checklist
@@ -118,13 +116,13 @@ docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
 
 - [ ] Check: `lsof -i :80`
 - [ ] Stop conflicting service
-- [ ] Or change port in docker-compose file
+- [ ] Or change port in `config/ports.json` and rerun `pnpm run dx:env`
 
 ### Caddy not starting?
 
 - [ ] Validate: `caddy validate --config Caddyfile.dev`
 - [ ] Check logs: `docker logs valuecanvas-caddy-dev`
-- [ ] Restart: `docker-compose -f infra/docker/docker-compose.caddy.yml restart caddy`
+- [ ] Restart: `pnpm run dx:down && pnpm run dx:docker`
 
 ### HMR not working?
 
@@ -136,7 +134,7 @@ docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
 ### Database issues?
 
 - [ ] Check: `docker exec valuecanvas-postgres-dev pg_isready`
-- [ ] View logs: `docker-compose -f infra/docker/docker-compose.caddy.yml logs postgres`
+- [ ] View logs: `pnpm run dx:logs`
 - [ ] Check .env.dev credentials
 
 ## Next Steps After Setup
@@ -151,4 +149,4 @@ docker-compose -f infra/docker/docker-compose.caddy.yml up -d --build
 
 **Setup Status: Complete ✅**
 
-Ready to code! Start with: `./scripts/dev-caddy-start.sh`
+Ready to code! Start with: `pnpm run dx:docker`

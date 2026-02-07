@@ -26,6 +26,11 @@ import {
 import { clientRateLimit } from "./ClientRateLimit";
 import { mfaService } from "./MFAService";
 import { fetchWithCSRF } from "../security/CSRFProtection";
+import {
+  ABSOLUTE_TIMEOUT_MS,
+  CLOCK_SKEW_MS,
+  IDLE_TIMEOUT_MS,
+} from "../security/sessionTimeoutConfig";
 
 export interface LoginCredentials {
   email: string;
@@ -88,9 +93,9 @@ export class AuthService extends BaseService {
   }
 
   private static readonly SESSION_TIMEOUTS = {
-    ABSOLUTE_TIMEOUT_MS: 60 * 60 * 1000,
-    IDLE_TIMEOUT_MS: 30 * 60 * 1000,
-    CLOCK_SKEW_MS: 5 * 1000,
+    ABSOLUTE_TIMEOUT_MS,
+    IDLE_TIMEOUT_MS,
+    CLOCK_SKEW_MS,
   };
 
   private decodeJwt(token: string): Record<string, unknown> | null {
@@ -154,14 +159,6 @@ export class AuthService extends BaseService {
       );
     }
 
-    const maxIdle = AuthService.SESSION_TIMEOUTS.IDLE_TIMEOUT_MS / 1000;
-    if (tokenAge > maxIdle) {
-      throw new SessionTimeoutAuthenticationError(
-        "Session expired due to inactivity (30 minutes idle)",
-        "SESSION_IDLE_TIMEOUT",
-        { idleTime: tokenAge, maxIdle }
-      );
-    }
   }
 
   private mapAuthFailure(payload: AuthEndpointErrorPayload, responseStatus: number): ServiceError {
@@ -505,6 +502,10 @@ export class AuthService extends BaseService {
 
       if (error) {
         throw new AuthenticationError(sanitizeErrorMessage(error));
+      }
+
+      if (sessionData.session) {
+        this.validateSessionTimeouts(sessionData.session);
       }
 
       return {

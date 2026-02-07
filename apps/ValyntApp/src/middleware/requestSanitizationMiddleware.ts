@@ -5,6 +5,8 @@ interface RequestSanitizationConfig {
   body?: Record<string, SanitizeOptions>;
   query?: Record<string, SanitizeOptions>;
   params?: Record<string, SanitizeOptions>;
+  headers?: Record<string, SanitizeOptions>;
+  skipBody?: boolean;
 }
 
 function applyFieldOptions<T extends Record<string, any>>(
@@ -27,7 +29,16 @@ export function requestSanitizationMiddleware(
   config: RequestSanitizationConfig = {}
 ) {
   return (req: Request, _res: Response, next: NextFunction) => {
-    if (req.body && typeof req.body === 'object') {
+    const isBinaryBody =
+      Buffer.isBuffer(req.body) ||
+      req.body instanceof Uint8Array;
+    const shouldSanitizeBody =
+      !config.skipBody &&
+      req.body &&
+      typeof req.body === 'object' &&
+      !isBinaryBody;
+
+    if (shouldSanitizeBody) {
       req.body = sanitizeObject(req.body);
       req.body = applyFieldOptions(req.body, config.body);
     }
@@ -39,6 +50,11 @@ export function requestSanitizationMiddleware(
 
     if (req.params && typeof req.params === 'object') {
       req.params = applyFieldOptions(req.params, config.params);
+    }
+
+    if (req.headers && typeof req.headers === 'object') {
+      req.headers = sanitizeObject(req.headers);
+      req.headers = applyFieldOptions(req.headers as Record<string, any>, config.headers);
     }
 
     next();

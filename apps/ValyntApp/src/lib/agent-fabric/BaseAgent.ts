@@ -433,8 +433,15 @@ export abstract class BaseAgent implements IAgent {
   }
 
   protected async callLLM(request: Omit<LLMRequest, "id">): Promise<LLMResponse> {
+    if (!this.config.organizationId) {
+      throw new Error("TENANT_ID_REQUIRED: LLM requests require an explicit tenantId");
+    }
+
     const fullRequest: LLMRequest = {
       id: uuidv4(),
+      tenantId: this.config.organizationId,
+      userId: this.config.userId,
+      sessionId: this.config.sessionId,
       ...request,
     };
 

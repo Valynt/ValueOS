@@ -379,14 +379,21 @@ export class UnifiedAgentOrchestrator {
     let vetoMetadata: IntegrityVetoMetadata | undefined;
     for (const claim of claims) {
       try {
-        const metricValue = (await this.groundTruthModule.handleToolCall(
-          "eso_get_metric_value",
-          { metricId: claim.metricId, percentile: "p50" }
-        )) as { value?: number };
-        const validation = (await this.groundTruthModule.handleToolCall(
-          "eso_validate_claim",
-          { metricId: claim.metricId, claimedValue: claim.claimedValue }
-        )) as { warning?: string; benchmark?: { p50?: number } };
+        const metricValue = await this.executeGroundTruthToolCall<{ value?: number }>({
+          toolName: "eso_get_metric_value",
+          payload: { metricId: claim.metricId, percentile: "p50" },
+          traceId: options.traceId,
+          context: options.context,
+        });
+        const validation = await this.executeGroundTruthToolCall<{
+          warning?: string;
+          benchmark?: { p50?: number };
+        }>({
+          toolName: "eso_validate_claim",
+          payload: { metricId: claim.metricId, claimedValue: claim.claimedValue },
+          traceId: options.traceId,
+          context: options.context,
+        });
 
         const benchmarkValue = metricValue.value ?? validation.benchmark?.p50;
         if (!benchmarkValue) {
@@ -529,6 +536,85 @@ export class UnifiedAgentOrchestrator {
       getInputSchema: (): Record<string, unknown> => ({}),
       getOutputSchema: (): Record<string, unknown> => ({}),
     };
+  }
+
+  private async executeGroundTruthToolCall<T>(params: {
+    toolName: string;
+    payload: Record<string, unknown>;
+    traceId: string;
+    context?: AgentContext;
+    timeoutMs?: number;
+  }): Promise<T> {
+    const agentType: AgentType = "groundtruth";
+    const timeoutMs = params.timeoutMs ?? this.config.defaultTimeoutMs;
+    const retryAgent: IAgent = {
+      execute: async (): Promise<RetryAgentResponse<T>> => {
+        const startTime = new Date();
+        const data = (await this.groundTruthModule.handleToolCall(
+          params.toolName,
+          params.payload
+        )) as T;
+        const endTime = new Date();
+
+        return {
+          success: true,
+          data,
+          confidence: "high",
+          metadata: {
+            executionId: `groundtruth-${params.toolName}`,
+            agentType,
+            startTime,
+            endTime,
+            duration: endTime.getTime() - startTime.getTime(),
+            tokenUsage: { input: 0, output: 0, total: 0, cost: 0 },
+            cacheHit: false,
+            retryCount: 0,
+            circuitBreakerTripped: false,
+          },
+        };
+      },
+      getCapabilities: (): AgentCapability[] => [],
+      validateInput: (): ValidationResult => ({ valid: true, errors: [], warnings: [] }),
+      getMetadata: (): AgentMetadata => ({}) as AgentMetadata,
+      healthCheck: async (): Promise<RetryAgentHealthStatus> => ({
+        status: "healthy",
+        lastCheck: new Date(),
+        responseTime: 0,
+        errorRate: 0,
+        uptime: 100,
+        activeConnections: 0,
+      }),
+      getConfiguration: (): AgentConfiguration => ({}) as AgentConfiguration,
+      updateConfiguration: async (): Promise<void> => {},
+      getPerformanceMetrics: (): AgentPerformanceMetrics => ({}) as AgentPerformanceMetrics,
+      reset: async (): Promise<void> => {},
+      getAgentType: (): AgentType => agentType,
+      supportsCapability: (): boolean => false,
+      getInputSchema: (): Record<string, unknown> => ({}),
+      getOutputSchema: (): Record<string, unknown> => ({}),
+    };
+
+    const retryRequest: AgentRequest = {
+      agentType,
+      query: params.toolName,
+      sessionId: params.context?.sessionId,
+      userId: params.context?.userId,
+      organizationId: params.context?.organizationId,
+      context: params.context ? { ...params.context } : undefined,
+      timeout: timeoutMs,
+    };
+
+    const retryResult = await this.retryManager.executeWithRetry(
+      retryAgent,
+      retryRequest,
+      this.buildRetryOptions(params.traceId, agentType, timeoutMs, params.context)
+    );
+
+    if (retryResult.success) {
+      return retryResult.response?.data as T;
+    }
+
+    throw new Error(retryResult.error?.message || "Ground truth request failed");
   }
 
   private async executeAgentWithRetry<T>(params: {

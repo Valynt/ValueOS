@@ -39,7 +39,7 @@ function checkDockerDaemon(): boolean {
 function checkContainers(): { postgres: boolean; localstack: boolean } {
   try {
     const output = execSync(
-      "docker-compose -f infra/docker/docker-compose.yml ps --services --filter status=running",
+      "pnpm run dx:ps -- --services --filter status=running",
       {
         encoding: "utf8",
       }
@@ -101,16 +101,12 @@ async function startSupabaseServices(): Promise<boolean> {
  */
 async function startSpecificService(service: string): Promise<boolean> {
   return new Promise((resolve) => {
-    info(`Starting ${service} service...`);
+    info(`Starting ${service} service via DX...`);
 
-    const child = spawn(
-      "docker-compose",
-      ["-f", "infra/docker/docker-compose.yml", "up", "-d", service],
-      {
-        stdio: ["inherit", "inherit", "inherit"],
-        cwd: process.cwd(),
-      }
-    );
+    const child = spawn("pnpm", ["run", "dx:up"], {
+      stdio: ["inherit", "inherit", "inherit"],
+      cwd: process.cwd(),
+    });
 
     child.on("close", (code) => {
       if (code === 0) {
@@ -134,9 +130,9 @@ async function startSpecificService(service: string): Promise<boolean> {
  */
 async function startContainers(): Promise<boolean> {
   return new Promise((resolve) => {
-    info("Starting full container stack...");
+    info("Starting full container stack via DX...");
 
-    const child = spawn("docker-compose", ["-f", "infra/docker/docker-compose.yml", "up", "-d"], {
+    const child = spawn("pnpm", ["run", "dx:up"], {
       stdio: ["inherit", "inherit", "inherit"],
       cwd: process.cwd(),
     });
@@ -268,6 +264,7 @@ async function runVerification(): Promise<boolean> {
  */
 async function main() {
   console.log("🚑  ValueOS Disaster Recovery  🚑\n");
+  warn("This script is deprecated. Prefer DX diagnostics: pnpm run dx:doctor or pnpm run dx:check.\n");
 
   // Step 1: Initial verification
   const initialCheck = await runVerification();
@@ -309,14 +306,14 @@ async function main() {
 
     // If Supabase didn't work or isn't available, try Docker Compose
     if (!hasSupabase) {
-      info("Starting containers with Docker Compose...");
+      info("Starting containers with DX...");
       const started = await startContainers();
       if (!started) {
-        error("Failed to start containers with Docker Compose.");
+        error("Failed to start containers with DX.");
         error("Try running one of these commands manually:");
         error("  • pnpm run dx:up (for full development environment)");
         error("  • supabase start (if Supabase CLI is installed)");
-        error("  • docker-compose -f infra/docker/docker-compose.dev.yml up -d db localstack");
+        error("  • pnpm run dx:docker (for full Docker stack)");
         process.exit(1);
       }
     }
@@ -356,7 +353,7 @@ async function main() {
     warn("Services are taking longer than expected to start");
     warn("You may need to wait a bit more or check the service logs:");
     warn("  • supabase status (if using Supabase CLI)");
-    warn("  • docker-compose -f infra/docker/docker-compose.yml logs -f");
+    warn("  • pnpm run dx:logs");
   }
 
   // Step 5: Final verification
@@ -371,10 +368,8 @@ async function main() {
     error("\n💥 Automatic recovery failed.");
     error("Manual intervention may be required. Try:");
     error("  1. supabase status (check Supabase services)");
-    error("  2. docker-compose -f infra/docker/docker-compose.yml logs (check container logs)");
-    error(
-      "  3. docker-compose -f infra/docker/docker-compose.yml down && pnpm run dx:up (restart services)"
-    );
+    error("  2. pnpm run dx:logs (check container logs)");
+    error("  3. pnpm run dx:down && pnpm run dx:up (restart services)");
     error("  4. Check that ports 5432 and 4566 are not in use by other services");
     process.exit(1);
   }
