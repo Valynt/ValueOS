@@ -1,12 +1,13 @@
 import React from "react";
-import Dashboard from "./pages/Dashboard";
-import CompanySearch from "./pages/CompanySearch";
-import CompanyDetails from "./pages/CompanyDetails";
-import SentimentAnalysis from "./pages/SentimentAnalysis";
-import Forecasting from "./pages/Forecasting";
-import APIManagement from "./pages/APIManagement";
+
 import AdminPanel from "./pages/AdminPanel";
+import APIManagement from "./pages/APIManagement";
+import CompanyDetails from "./pages/CompanyDetails";
+import CompanySearch from "./pages/CompanySearch";
+import Dashboard from "./pages/Dashboard";
+import Forecasting from "./pages/Forecasting";
 import Login from "./pages/Login";
+import SentimentAnalysis from "./pages/SentimentAnalysis";
 
 export type RouteConfig = {
   path: string;

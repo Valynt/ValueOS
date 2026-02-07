@@ -4,7 +4,8 @@
   "private": true,
   "description": "Component library root",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "tsc -p ./design-system/tsconfig.json"
   },
   "devDependencies": {

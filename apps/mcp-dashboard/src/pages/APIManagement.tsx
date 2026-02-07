@@ -1,22 +1,23 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
 import {
-  Key,
-  Plus,
-  Trash2,
+  AlertTriangle,
+  BarChart3,
+  CheckCircle,
+  Clock,
   Copy,
   Eye,
   EyeOff,
-  AlertTriangle,
-  CheckCircle,
-  Clock,
+  Key,
+  Plus,
+  Trash2,
   TrendingUp,
-  BarChart3,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
 import {
-  MetricCard,
   FinancialLineChart,
+  MetricCard,
 } from "../components/charts/FinancialCharts";
+import { useAuth } from "../contexts/AuthContext";
 
 interface APIKey {
   id: string;

@@ -5,8 +5,8 @@
  * Provides caching, rate limiting, error handling, and data quality validation.
  */
 
-import { logger } from "../lib/logger";
-import { SECEdgarClient, SECFiling, SECCompanyInfo, SECXBRLData } from "./clients/SECEdgarClient";
+import { logger } from "../lib/logger.js";
+import { SECEdgarClient, SECFiling, SECCompanyInfo, SE CXBRLData } from "./clients/SECEdgarClient.js";
 import { BLSClient, BLSWageData, BLSEmploymentData, BLSIndustryData } from "./clients/BLSClient";
 import {
   CensusClient,

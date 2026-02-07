@@ -1,160 +1,128 @@
-/* Quantum View Micro-interactions for Agent Reasoning Viewer */
+/* Quantum View — Production-ready micro-interactions (accessible by default)
+   - Cyan 'quantum-glow' for high confidence
+   - 'confidence-pulse' for low confidence (accessible timing + reduced-motion aware)
+   - 'modal-fade' for subtle modal entrance/exit
+   - 'node-highlight' for Opportunity/Target emphasis
+   - 'chain-connector' for vertical chain visuals
+*/
 
+:root {
+  --quantum-cyan: 46 204 255; /* RGB for currentColor usage */
+  --quantum-cyan-hex: #2ec8ff;
+  --quantum-glow-alpha: 0.18;
+  --confidence-pulse-duration: 1800ms;
+}
+
+/* ---------- Core glow & interactions ---------- */
 .quantum-glow {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  will-change: transform, opacity;
 }
-
-.quantum-glow::before {
-  content: '';
+.quantum-glow::after {
+  content: "";
   position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
-  transition: left 0.5s;
-}
-
-.quantum-glow:hover::before {
-  left: 100%;
-}
-
-.quantum-pulse {
-  animation: quantum-pulse 2s ease-in-out infinite;
-}
-
-@keyframes quantum-pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
-}
-
-.quantum-fade-in {
-  animation: quantum-fade-in 0.6s ease-out;
-}
-
-@keyframes quantum-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.quantum-ripple {
-  position: relative;
-  overflow: hidden;
-}
-
-.quantum-ripple::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-.quantum-ripple:active::after {
-  width: 300px;
-  height: 300px;
-}
-
-.quantum-orbit {
-  position: relative;
-}
-
-.quantum-orbit::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  border: 2px solid transparent;
-  border-top: 2px solid currentColor;
-  border-radius: 50%;
-  animation: quantum-orbit 1s linear infinite;
-}
-
-@keyframes quantum-orbit {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.quantum-collapse {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.quantum-collapse.collapsed {
-  max-height: 0;
+  inset: -6px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(var(--quantum-cyan), 0.0), rgba(var(--quantum-cyan), var(--quantum-glow-alpha)), rgba(var(--quantum-cyan), 0.0));
   opacity: 0;
-  transform: scaleY(0);
-  transform-origin: top;
-}
-
-.quantum-hologram {
-  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
-  background-size: 200% 200%;
-  animation: quantum-hologram 3s ease-in-out infinite;
-}
-
-@keyframes quantum-hologram {
-  0%, 100% {
-    background-position: 0% 0%;
-  }
-  50% {
-    background-position: 100% 100%;
-  }
-}
-
-.quantum-energy {
-  position: relative;
-}
-
-.quantum-energy::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg,
-    transparent 0%,
-    rgba(59, 130, 246, 0.1) 25%,
-    rgba(16, 185, 129, 0.1) 50%,
-    rgba(245, 158, 11, 0.1) 75%,
-    transparent 100%
-  );
-  animation: quantum-energy 4s ease-in-out infinite;
+  transform: scale(0.98);
+  transition: opacity 280ms ease, transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
 }
+.quantum-glow:is(:hover, :focus-within)::after {
+  opacity: 1;
+  transform: scale(1.02);
+}
 
-@keyframes quantum-energy {
-  0%, 100% {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
+/* ---------- Low confidence pulse (subtle red pulse) ---------- */
+.confidence-pulse {
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.06) inset;
+  animation: confidence-pulse var(--confidence-pulse-duration) ease-in-out infinite;
+}
+@keyframes confidence-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.06) inset; }
+  50% { box-shadow: 0 0 12px 6px rgba(220, 38, 38, 0.06) inset; }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.06) inset; }
+}
+
+/* ---------- Modal micro-interaction ---------- */
+.modal-fade {
+  animation: modal-fade-in 260ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+@keyframes modal-fade-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---------- Node highlight for Opportunity/Target ---------- */
+.node-highlight {
+  box-shadow: 0 6px 18px rgba(46, 200, 255, 0.06), 0 0 0 2px rgba(46, 200, 255, 0.08);
+  border-color: rgba(46, 200, 255, 0.3) !important;
+}
+
+/* ---------- Chain connector visuals ---------- */
+.chain-connector {
+  position: relative;
+  padding-left: 14px;
+}
+.chain-connector::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), rgba(15, 23, 42, 0.02));
+  border-radius: 2px;
+}
+.chain-node::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid rgba(var(--quantum-cyan), 0.9);
+  transform: translateX(-5px);
+}
+
+/* ---------- Accessibility / reduced-motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .quantum-glow::after,
+  .modal-fade,
+  .confidence-pulse,
+  .quantum-hologram,
+  .quantum-orbit,
+  .quantum-energy {
+    animation: none !important;
+    transition: none !important;
   }
 }
+
+/* Focus visible (keyboard navigation) */
+:focus-visible {
+  outline: 3px solid rgba(46, 200, 255, 0.22);
+  outline-offset: 2px;
+}
+
+/* Small utility to ensure low-contrast fallback */
+.quantum-contrast-fallback {
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Ensure modal backdrop feels accessible on mobile */
+@media (max-width: 640px) {
+  .modal-fade { transform-origin: center bottom; }
+}
+
+/* Small visual helpers used by components */
+.node-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Segoe UI Mono', monospace;
+  font-size: 0.8rem;
+  color: rgba(0,0,0,0.6);
+}
+
+/* End of production Quantum View CSS */

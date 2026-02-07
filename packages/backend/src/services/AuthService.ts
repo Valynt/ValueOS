@@ -19,6 +19,8 @@ import {
 import { clientRateLimit } from "./ClientRateLimit.js"
 import { mfaService } from "./MFAService.js"
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
+import { assertTenantMember, assertCapability, isPrivilegedAction, deny, toAuthError } from "./AuthPolicy.js";
+import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
 
 export interface LoginCredentials {
   email: string;
@@ -71,7 +73,7 @@ export class AuthService extends BaseService {
 
   private getAuthApiUrl(path: string): string {
     const config = getConfig();
-    const baseUrl = config.app.apiBaseUrl || "/api";
+    const baseUrl = config.app.url || "/api";
     const normalizedBase = baseUrl.endsWith("/api")
       ? baseUrl
       : `${baseUrl.replace(/\/$/, "")}/api`;
@@ -221,7 +223,7 @@ export class AuthService extends BaseService {
           throw new AuthenticationError("Signup failed");
         }
 
-        resetRateLimit("auth", data.email);
+        resetRateLimit(data.email);
 
         return {
           user: authData.user,
@@ -355,7 +357,7 @@ export class AuthService extends BaseService {
           }
         }
 
-        resetRateLimit("auth", credentials.email);
+        resetRateLimit(credentials.email);
         securityLogger.log({
           category: "authentication",
           action: "login-success",
@@ -404,7 +406,8 @@ export class AuthService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.getSession();
-        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
+        if (error) throw toAuthError(error);
+        if (data.session) SessionClaimsSchema.parse(data.session);
         return data.session;
       },
       { deduplicationKey: "current-session" }
@@ -418,7 +421,7 @@ export class AuthService extends BaseService {
     return this.executeRequest(
       async () => {
         const { data, error } = await this.supabase.auth.getUser();
-        if (error) throw new AuthenticationError(sanitizeErrorMessage(error));
+        if (error) throw toAuthError(error);
         return data.user;
       },
       { deduplicationKey: "current-user" }
@@ -495,7 +498,7 @@ export class AuthService extends BaseService {
         if (error) {
           throw new AuthenticationError(sanitizeErrorMessage(error));
         }
-        resetRateLimit("auth", email);
+        resetRateLimit(email);
       },
       { skipCache: true }
     );
@@ -637,6 +640,9 @@ export class AuthService extends BaseService {
   async issueTCT(userId: string, tenantId: string): Promise<string> {
     return this.executeRequest(
       async () => {
+        // Validate user-tenant membership using policy gate
+        assertTenantMember({ user: { id: userId, tenant_id: tenantId, role: "member" } }, tenantId);
+
         // Verify user-tenant membership
         const { data, error } = await this.supabase
           .from("user_tenants")

@@ -13,6 +13,7 @@ export * from './UserSettingsService';
 export * from './AuthService';
 export * from './PermissionService';
 export * from './AuditLogService';
+export * from './AuditTrailService';
 export * from './RbacService';
 export * from './SecretsService';
 export * from './ValueKernel';

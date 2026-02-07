@@ -1,7 +1,8 @@
+import { BarChart3, Eye, EyeOff } from "lucide-react";
 import React, { useState } from "react";
 import { Navigate } from "react-router-dom";
+
 import { useAuth } from "../contexts/AuthContext";
-import { BarChart3, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const { login, register, user, loading } = useAuth();

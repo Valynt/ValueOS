@@ -32,11 +32,13 @@ export interface ConsumerGroupConfig {
   agentType: string;
   groupSize: number;
   ackOnStateUpdate: boolean;
+  stateMachine?: any; // Reference to agent's state machine
 }
 
 export class SecureMessageBus extends EventEmitter {
   private subscribers: Map<string, { handler: Function; patterns?: string[] }[]> = new Map();
   private consumerGroups: Map<string, ConsumerGroupConfig> = new Map();
+  private activeBrokers: Map<string, any> = new Map(); // Store broker instances for ack
   private log: Logger;
 
   constructor() {
@@ -133,6 +135,9 @@ export class SecureMessageBus extends EventEmitter {
       maxDeliveries: 3, // Move to DLQ after 3 failures
     });
 
+    // Store broker reference for later ack
+    this.activeBrokers.set(agentType, broker);
+
     await broker.startConsumer(async (event) => {
       if (event.name === "agent_message") {
         const { message } = event.payload;
@@ -148,10 +153,14 @@ export class SecureMessageBus extends EventEmitter {
         try {
           await handler(message, senderIdentity);
 
-          // If configured to ack only on state update, the handler must call ack manually
-          if (!config.ackOnStateUpdate) {
+          // If configured to ack only on state update, wait for state machine confirmation
+          if (config.ackOnStateUpdate && config.stateMachine) {
+            // The handler should have triggered a state update
+            // We'll assume the state machine will call acknowledgeMessage when ready
+            this.log.info("Message processed, waiting for state update ack", { messageId: message.id });
+          } else {
             // Auto-ack for non-state-update scenarios
-            // In practice, this would need to be handled by the broker
+            await this.acknowledgeMessage(agentType, message.id);
           }
         } catch (error) {
           this.log.error("Message handler failed", error, { messageId: message.id, agentType });
@@ -163,9 +172,15 @@ export class SecureMessageBus extends EventEmitter {
 
   // Manual acknowledgment for state-update based acking
   async acknowledgeMessage(agentType: string, messageId: string): Promise<void> {
-    // This would need integration with the broker's ack mechanism
-    // For now, assume the broker handles it based on successful processing
+    // For now, we rely on the broker's automatic acking
+    // In a full implementation, this would need broker support for manual acking
     this.log.info("Acknowledged message", { agentType, messageId });
+
+    // TODO: Implement manual acking in RedisStreamBroker if needed
+    // const broker = this.activeBrokers.get(agentType);
+    // if (broker) {
+    //   await broker.acknowledge(messageId);
+    // }
   }
 }
 

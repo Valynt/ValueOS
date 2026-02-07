@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from "react";
 import {
-  Users,
   Activity,
-  Database,
-  Shield,
   AlertTriangle,
+  Ban,
   CheckCircle,
   Clock,
-  Server,
-  HardDrive,
-  Zap,
-  Settings,
-  UserPlus,
-  Ban,
+  Database,
   Eye,
+  HardDrive,
+  Server,
+  Settings,
+  Shield,
+  UserPlus,
+  Users,
+  Zap,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
 import { MetricCard } from "../components/charts/FinancialCharts";
 
 interface SystemMetrics {

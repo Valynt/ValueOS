@@ -1,14 +1,15 @@
-import React, { useState } from "react";
 import {
-  TrendingUp,
-  Calculator,
   BarChart3,
+  Calculator,
   LineChart,
   Loader,
+  TrendingUp,
 } from "lucide-react";
+import React, { useState } from "react";
+
 import {
-  FinancialLineChart,
   FinancialBarChart,
+  FinancialLineChart,
 } from "../components/charts/FinancialCharts";
 
 interface ForecastingResult {

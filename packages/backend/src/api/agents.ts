@@ -203,6 +203,135 @@ router.post(
   }
 );
 
+// New typed execute endpoint: POST /api/agents/execute
+router.post(
+  "/execute",
+  rateLimiters.agentExecution,
+  async (req: Request, res: Response) => {
+    const bodySchema = z.object({
+      type: z.string().max(200).describe("AgentType:action"),
+      data: z.any().optional(),
+      sessionId: z.string().max(100).optional(),
+    });
+
+    const result = bodySchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ success: false, error: { code: "INVALID_REQUEST", message: "Invalid payload" } });
+    }
+
+    const { type, data, sessionId } = result.data;
+
+    // Split type like "IntegrityAgent:resolveIssue"
+    const [agentIdRaw, actionRaw] = type.split(":");
+    const agentId = agentIdRaw;
+    const action = actionRaw || "execute";
+
+    // Validate tenant
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: { code: "tenant_required", message: "Tenant context is required" } });
+    }
+
+    try {
+      const eventProducer = getEventProducer();
+      const correlationId = uuidv4();
+      const userId = (req as any).user?.id;
+
+      const payload = {
+        agentId,
+        userId,
+        sessionId,
+        tenantId,
+        query: type,
+        context: { action, data },
+        parameters: { action, data },
+        priority: "normal",
+        timeout: getAgentAPIConfig().timeout,
+      };
+
+      const agentRequestEvent: AgentRequestEvent = {
+        ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
+        payload,
+      };
+
+      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+
+      res.json({ success: true, data: { jobId: correlationId, status: "queued" } });
+    } catch (error) {
+      logger.error("Failed to publish typed agent execute", error as Error);
+      res.status(500).json({ success: false, error: { code: "PUBLISH_FAILED", message: "Failed to enqueue request" } });
+    }
+  }
+);
+
+
+/**
+ * Execute a typed agent action (e.g. { type: 'IntegrityAgent:resolveIssue', data: {...} })
+ * This is a convenience endpoint that allows callers to invoke agent actions without
+ * knowing the internal agent-specific route. It publishes an AgentRequestEvent to the
+ * agent request topic, preserving tenant and user context.
+ */
+router.post(
+  "/execute",
+  rateLimiters.agentExecution,
+  async (req: Request, res: Response) => {
+    const bodySchema = z.object({
+      type: z.string().min(3), // e.g. "IntegrityAgent:resolveIssue"
+      data: z.any().optional(),
+      sessionId: z.string().optional(),
+      priority: z.string().optional(),
+    });
+
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.errors } });
+    }
+
+    const { type, data, sessionId, priority } = parsed.data;
+    const [agentIdPart, actionPart] = type.split(":");
+    const agentId = agentIdPart || type;
+    const action = actionPart || undefined;
+
+    // Tenant validation
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+    }
+
+    try {
+      const eventProducer = getEventProducer();
+      const correlationId = uuidv4();
+      const userId = (req as any).user?.id;
+
+      const normalizedAction = action
+      ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
+      : undefined;
+
+    const agentRequestEvent: AgentRequestEvent = {
+      ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
+      payload: {
+        agentId,
+        userId,
+        sessionId,
+        tenantId,
+        query: normalizedAction || "execute",
+        context: { action: normalizedAction || 'execute' },
+        parameters: { data, action: normalizedAction },
+        priority: priority || "normal",
+        timeout: getAgentAPIConfig().timeout,
+      },
+    };
+
+      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+
+      return res.json({ success: true, data: { jobId: correlationId, status: 'queued', agentId } });
+    } catch (error) {
+      logger.error("Agent execute request failed", error instanceof Error ? error : undefined);
+      return res.status(500).json({ success: false, error: { code: 'AGENT_REQ_FAILED', message: 'Failed to publish agent request' } });
+    }
+  }
+);
+
 /**
  * Get agent job status
  */
@@ -381,5 +510,86 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
   // Start polling
   checkStatus();
 });
+
+// POST /api/agents/integrity/veto - accept/reject/modify a flagged integrity issue
+router.post(
+  "/integrity/veto",
+  rateLimiters.loose,
+  async (req: Request, res: Response) => {
+    const bodySchema = z.object({
+      issueId: z.string().min(1),
+      resolution: z.enum(["accept", "reject", "modify"]),
+      modifiedOutput: z.any().optional(),
+      agentId: z.string().optional(),
+      sessionId: z.string().optional(),
+    });
+
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.errors } });
+    }
+
+    const { issueId, resolution, modifiedOutput, agentId, sessionId } = parsed.data;
+
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+    }
+
+    try {
+      const eventProducer = getEventProducer();
+      const correlationId = uuidv4();
+      const userId = (req as any).user?.id;
+
+      // Publish a typed agent request to handle veto resolution
+      const agentRequestEvent: AgentRequestEvent = {
+        ...createBaseEvent("agent.request" as const, correlationId, "agent-api"),
+        payload: {
+          agentId: agentId || 'IntegrityAgent',
+          userId,
+          sessionId,
+          tenantId,
+          query: 'resolve_issue',
+          context: { issueId, resolution },
+          parameters: { issueId, resolution, modifiedOutput },
+          priority: 'normal',
+          timeout: getAgentAPIConfig().timeout,
+        },
+      };
+
+      await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
+
+      // Log to audit trail for immediate compliance record
+      try {
+        const auditService = require("../services/security/AuditTrailService.js").getAuditTrailService();
+        await auditService.logImmediate({
+          eventType: 'integrity_veto',
+          actorId: userId || 'system',
+          actorType: userId ? 'user' : 'system',
+          resourceId: issueId,
+          resourceType: 'integrity_issue',
+          action: `veto_${resolution}`,
+          outcome: 'success',
+          details: { agentId, sessionId, modifiedOutput },
+          ipAddress: (req as any).ip || 'unknown',
+          userAgent: (req as any).headers['user-agent'] || '',
+          timestamp: Date.now(),
+          sessionId: sessionId || correlationId,
+          correlationId,
+          riskScore: 0.5,
+          complianceFlags: ['integrity_resolution'],
+          tenantId,
+        });
+      } catch (auditErr) {
+        logger.warn('Failed to log integrity veto to audit trail', auditErr instanceof Error ? auditErr : undefined);
+      }
+
+      return res.json({ success: true, data: { jobId: correlationId, status: 'queued' } });
+    } catch (error) {
+      logger.error('Integrity veto handler failed', error instanceof Error ? error : undefined);
+      return res.status(500).json({ success: false, error: { code: 'INTEGRITY_VETO_FAILED', message: 'Failed to process veto' } });
+    }
+  }
+);
 
 export default router;

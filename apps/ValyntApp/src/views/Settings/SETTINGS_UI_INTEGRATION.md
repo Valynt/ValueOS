@@ -45,7 +45,7 @@ function MyComponent({ userId }: { userId: string }) {
     { scope: 'user', defaultValue: 'system' }
   );
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <LoadingSkeleton variant="card" />;
   if (error) return <div>Error: {error.message}</div>;
 
   return (
@@ -70,14 +70,15 @@ function MyComponent({ userId }: { userId: string }) {
     { scope: 'user' }
   );
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <LoadingSkeleton variant="card" />;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div>
       <p>Theme: {values['user.theme']}</p>
       <p>Language: {values['user.language']}</p>
       <p>Timezone: {values['user.timezone']}</p>
-      
+
       <button onClick={() => updateSetting('user.theme', 'dark')}>
         Set Dark Theme
       </button>
@@ -94,6 +95,7 @@ function MyComponent({ userId }: { userId: string }) {
 import React from 'react';
 import { useSettingsGroup } from '../../lib/settingsRegistry';
 import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { LoadingSkeleton } from "@/components/loading/LoadingSkeleton";
 
 interface UserSettingsProps {
   userId: string;
@@ -113,7 +115,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ userId }) => {
   );
 
   if (loading) {
-    return <div>Loading settings...</div>;
+    return <LoadingSkeleton variant="card" />;
   }
 
   return (
@@ -168,7 +170,7 @@ export const TeamSettings: React.FC<TeamSettingsProps> = ({ teamId }) => {
     { scope: 'team' }
   );
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <LoadingSkeleton variant="card" />;
 
   return (
     <div className="space-y-4">
@@ -226,7 +228,7 @@ export const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({
     { scope: 'organization' }
   );
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <LoadingSkeleton variant="card" />;
 
   return (
     <div className="space-y-6">

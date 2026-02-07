@@ -1,80 +1,29 @@
 {
-  "name": "ValueOS Dev Container",
-  "dockerComposeFile": ["../compose.yml", "../.devcontainer/compose.devcontainer.override.yml"],
+  "name": "ValueOS DevContainer",
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "../docker-compose.deps.yml"
+  ],
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
-  "remoteUser": "valueos",
-  "containerUser": "valueos",
-  "shutdownAction": "stopCompose",
-  "runArgs": [
-    "--security-opt",
-    "apparmor=valueos-dev",
-    "--security-opt",
-    "seccomp=/workspaces/ValueOS/.devcontainer/seccomp/valueos-seccomp.json",
-    "--security-opt",
-    "no-new-privileges",
-    "--cap-drop",
-    "ALL",
-    "--cap-add",
-    "NET_BIND_SERVICE"
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true
+    }
+  },
+  "extensions": [
+    "ms-vscode.vscode-typescript-next",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-azuretools.vscode-docker",
+    "eamodio.gitlens",
+    "mechatroner.rainbow-csv"
   ],
-
-  "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers-extra/features/supabase-cli:1": {},
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "moby": true,
-      "installDockerBuildx": true
-    }
-  },
-
-  // Deterministic boot invariant: always run a single fail-fast entrypoint and persist setup logs.
-  "postCreateCommand": "bash -euo pipefail -c 'bash scripts/dev/setup.sh && bash scripts/check-env.sh' > setup.log 2>&1",
-
-  "mounts": ["type=volume,source=valueos-secrets,target=/mnt/secrets,readonly"],
-
-  "remoteEnv": {
-    "PNPM_HOME": "/home/valueos/.local/share/pnpm",
-    "PATH": "${containerEnv:PATH}:/home/valueos/.local/share/pnpm",
-    "DOCKER_BUILDKIT": "1",
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
-    "SECRETS_MOUNT_PATH": "/mnt/secrets",
-    // Ensure services use Docker DNS names
-    "SUPABASE_URL": "http://kong:8000",
-    // CRITICAL: sslmode=disable required - container postgres has no TLS
-    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres?sslmode=disable",
-    "REDIS_URL": "redis://redis:6379"
-  },
-
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "telemetry.telemetryLevel": "off",
-        "redhat.telemetry.enabled": false,
-        "git.telemetry.telemetryLevel": "off",
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "files.trimTrailingWhitespace": true
-      },
-      "extensions": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss",
-        "ms-azuretools.vscode-docker",
-        "msjsdiag.debugger-for-chrome",
-        "jock.svg",
-        "kisstkondoros.vscode-gutter-preview"
-      ]
-    }
-  },
-
-  // Forward ports to host
-  "forwardPorts": [5173, 3001, 54321, 54322, 54323],
-  "portsAttributes": {
-    "5173": { "label": "Frontend", "onAutoForward": "notify" },
-    "3001": { "label": "Backend", "onAutoForward": "notify" },
-    "54321": { "label": "Supabase API", "onAutoForward": "notify" },
-    "54322": { "label": "PostgreSQL", "onAutoForward": "silent" },
-    "54323": { "label": "Supabase Studio", "onAutoForward": "notify" }
-  }
+  "postCreateCommand": "pnpm install && pnpm run dx",
+  "mounts": [
+    "source=node_modules,target=/workspaces/ValueOS/node_modules,type=volume"
+  ],
+  "remoteUser": "app"
 }

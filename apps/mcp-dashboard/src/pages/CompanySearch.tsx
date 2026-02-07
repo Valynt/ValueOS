@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { Building2, DollarSign, Search, TrendingUp, Users } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Building2, TrendingUp, Users, DollarSign } from "lucide-react";
+
 import { MetricCard } from "../components/charts/FinancialCharts";
 
 interface Company {

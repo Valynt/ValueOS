@@ -11,8 +11,8 @@
  */
 
 import crypto from "crypto";
-import { logger } from "../../lib/logger";
-import { getCache } from "../core/Cache";
+import { logger } from "../../lib/logger.js";
+import { getCache } from "../core/Cache.js";
 
 export interface EncryptionKey {
   id: string;

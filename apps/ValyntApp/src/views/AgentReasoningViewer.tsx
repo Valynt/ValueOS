@@ -21,9 +21,12 @@ import {
   Activity,
 } from "lucide-react";
 import { AgentBadge } from "../components/Agents/AgentBadge";
+import { auditTrailService } from "../services/AuditTrailService";
 import { auditLogService } from "../services/AuditLogService";
+import { webSocketManager } from "../services/WebSocketManager";
 import { ConfidenceDisplay } from "@valueos/sdui";
-import { IntegrityVetoPanel } from "@valueos/sdui";import './AgentReasoningViewer.css';
+import { IntegrityVetoPanel } from "@valueos/sdui";
+import "./AgentReasoningViewer.css";
 // ============================================================================
 // Types
 // ============================================================================
@@ -140,11 +143,7 @@ const ThoughtNodeCard: React.FC<{
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-semibold uppercase">{node.type}</span>
               {node.confidence !== undefined && (
-                <ConfidenceDisplay
-                  data={{ score: node.confidence }}
-                  size="sm"
-                  showLabel={false}
-                />
+                <ConfidenceDisplay data={{ score: node.confidence }} size="sm" showLabel={false} />
               )}
               <span className="text-xs text-muted-foreground">
                 {new Date(node.timestamp).toLocaleTimeString()}
@@ -431,9 +430,79 @@ export const AgentReasoningViewer: React.FC = () => {
     inProgress: 0,
   });
 
-  // Load reasoning chains
+  // Load reasoning chains and subscribe to realtime updates
   useEffect(() => {
     loadReasoningChains();
+
+    const handleWS = (message: any) => {
+      try {
+        if (!message || !message.type) return;
+        // normalize to our agent.event envelope
+        if (message.type === 'agent.event' || message.type === 'sdui_update') {
+          const payload = message.payload || {};
+          const eventType = payload.eventType || payload.type;
+
+          if (eventType === 'agent.reasoning.update') {
+            const data = payload.data;
+            // data can be a single chain or an array
+            const chainsToMerge = Array.isArray(data) ? data : [data];
+
+            setChains((prev) => {
+              const byId = new Map(prev.map((c) => [c.id, c]));
+
+              chainsToMerge.forEach((incoming: any) => {
+                if (!incoming || !incoming.agentId) return;
+                const key = incoming.id || `${incoming.sessionId}-${incoming.agentId}`;
+                const existing = byId.get(key);
+
+                if (!existing) {
+                  // Append new chain at top
+                  byId.set(key, { ...incoming, id: key, nodes: incoming.nodes || [] });
+                } else {
+                  // Merge nodes
+                  const mergeNodes = (srcNodes: any[], dstNodes: any[]) => {
+                    srcNodes.forEach((sn) => {
+                      const match = dstNodes.find((d) => d.id === sn.id || (d.content === sn.content && d.timestamp === sn.timestamp));
+                      if (match) {
+                        if (sn.confidence !== undefined && match.confidence !== sn.confidence) {
+                          match.confidence = sn.confidence;
+                        }
+                        if (sn.children && sn.children.length > 0) {
+                          match.children = match.children || [];
+                          mergeNodes(sn.children, match.children);
+                        }
+                      } else {
+                        dstNodes.push(sn);
+                      }
+                    });
+                  };
+
+                  existing.nodes = existing.nodes || [];
+                  mergeNodes(incoming.nodes || [], existing.nodes);
+                }
+              });
+
+              return Array.from(byId.values()).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+            });
+          }
+
+          if (eventType === 'integrity.issue.resolved') {
+            const issue = payload.data;
+            if (issue && issue.issueId) {
+              setIntegrityIssues((prev) => prev.filter((i) => i.id !== issue.issueId));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to handle WS message', err);
+      }
+    };
+
+    webSocketManager.on('message', handleWS);
+
+    return () => {
+      webSocketManager.removeListener('message', handleWS);
+    };
   }, []);
 
   // Apply filters
@@ -737,14 +806,31 @@ export const AgentReasoningViewer: React.FC = () => {
     setAvailableRoles(roles);
   };
 
-  const handleIntegrityResolution = (
+  const handleIntegrityResolution = async (
     issueId: string,
     resolution: "accept" | "reject" | "modify",
     modifiedOutput?: any
   ) => {
-    // Here you would call the IntegrityAgent backend
-    console.log("Resolving integrity issue:", { issueId, resolution, modifiedOutput });
-    setIntegrityIssues((prev) => prev.filter((issue) => issue.id !== issueId));
+    try {
+      const res = await fetch('/api/agents/integrity/veto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueId, resolution, modifiedOutput }),
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        console.error('Integrity resolution failed:', payload);
+        // Do not remove issue on failure
+        return;
+      }
+
+      // Success: remove issue locally
+      setIntegrityIssues((prev) => prev.filter((issue) => issue.id !== issueId));
+    } catch (err) {
+      console.error('Error resolving integrity issue:', err);
+    }
   };
 
   const handleIntegrityDismiss = (issueId: string) => {

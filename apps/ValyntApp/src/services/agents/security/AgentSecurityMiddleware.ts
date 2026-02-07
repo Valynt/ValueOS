@@ -11,6 +11,7 @@
 import { AgentType } from "../../agent-types";
 import { logger } from "../../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
+import { LLMCostTracker } from "../../../../packages/backend/src/services/LLMCostTracker";
 
 // ============================================================================
 // Security Types
@@ -48,6 +49,8 @@ export interface SecurityValidationResult {
   recommendations: SecurityRecommendation[];
   /** Audit log entry */
   auditEntry: SecurityAuditEntry;
+  /** Flag for cost-based downgrade */
+  shouldDowngrade?: boolean;
 }
 
 export interface SecurityViolation {
@@ -362,7 +365,10 @@ export class AgentSecurityMiddleware {
           startTime,
           agentType,
           context,
-          inputHash
+          inputHash,
+          undefined,
+          undefined,
+          false
         );
       }
 
@@ -423,6 +429,12 @@ export class AgentSecurityMiddleware {
         riskScore += 50;
       }
 
+      // Budget check for downgrade
+      let shouldDowngrade = false;
+      if (context.organizationId) {
+        shouldDowngrade = await this.checkBudgetForDowngrade(context.organizationId, agentType);
+      }
+
       // Calculate final risk score and recommendations
       const recommendations = this.generateRecommendations(violations, riskScore, policy);
 
@@ -462,7 +474,8 @@ export class AgentSecurityMiddleware {
         context,
         inputHash,
         recommendations,
-        auditEntry
+        auditEntry,
+        shouldDowngrade
       );
     } catch (error) {
       logger.error("Input validation failed", {
@@ -489,7 +502,10 @@ export class AgentSecurityMiddleware {
         startTime,
         agentType,
         context,
-        inputHash
+        inputHash,
+        undefined,
+        undefined,
+        false
       );
     }
   }
@@ -593,6 +609,39 @@ export class AgentSecurityMiddleware {
     return requiredPermissions.every(
       (permission) => permissions.includes(permission) || permissions.includes("*")
     );
+  }
+
+  /**
+   * Check if agent should be downgraded due to budget constraints
+   */
+  async checkBudgetForDowngrade(organizationId: string, agentType: AgentType): Promise<boolean> {
+    try {
+      const costTracker = LLMCostTracker.getInstance();
+      const thresholds = await costTracker.checkCostThresholds(organizationId);
+
+      // Check if monthly budget is over 90%
+      const monthlyUsage = thresholds.monthly?.current || 0;
+      const monthlyLimit = thresholds.monthly?.limit || 1000000; // default 1M tokens
+      const usagePercent = (monthlyUsage / monthlyLimit) * 100;
+
+      if (usagePercent >= 90) {
+        // Check if agent is non-critical (ExpansionAgent)
+        const isNonCritical = agentType === "ExpansionAgent";
+        if (isNonCritical) {
+          logger.info("Budget threshold exceeded, downgrading non-critical agent", {
+            organizationId,
+            agentType,
+            usagePercent: usagePercent.toFixed(2),
+          });
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      logger.error("Error checking budget for downgrade", { organizationId, agentType, error });
+      return false; // Default to no downgrade on error
+    }
   }
 
   /**
@@ -1121,7 +1170,8 @@ export class AgentSecurityMiddleware {
     context: SecurityContext,
     inputHash: string,
     recommendations?: SecurityRecommendation[],
-    auditEntry?: SecurityAuditEntry
+    auditEntry?: SecurityAuditEntry,
+    shouldDowngrade?: boolean
   ): SecurityValidationResult {
     return {
       valid,
@@ -1139,6 +1189,7 @@ export class AgentSecurityMiddleware {
           riskScore,
           Date.now() - startTime
         ),
+      shouldDowngrade,
     };
   }
 

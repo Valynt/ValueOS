@@ -1,3 +1,4 @@
 name: valueos-devcontainer
 include:
   - ../compose.yml
+  - ./compose.auth.stub.yml

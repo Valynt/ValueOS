@@ -1,152 +1,77 @@
 import Redis from "ioredis";
 import { Logger, logger } from "../logger";
-import { redisStreamBroker } from "../../services/messaging/RedisStreamBroker";
-
-export interface DLQAlert {
-  streamName: string;
-  messageCount: number;
-  lastFailedMessage?: {
-    id: string;
-    eventName: string;
-    failedAt: string;
-    error: string;
-  };
-}
+import { secureMessageBus } from "./SecureMessageBus";
 
 export class FabricMonitor {
   private redis: Redis;
   private log: Logger;
-  private alertCallbacks: ((alert: DLQAlert) => void)[] = [];
-  private monitoringInterval: NodeJS.Timeout | null = null;
+  private dlqStreamName: string;
 
   constructor() {
     this.redis = new Redis();
     this.log = logger.withContext({ component: "fabric-monitor" });
+    this.dlqStreamName = "agent_messages_dlq";
   }
 
-  // Start monitoring DLQ streams
-  startMonitoring(intervalMs: number = 30000): void {
-    this.monitoringInterval = setInterval(() => {
-      this.checkDLQs();
-    }, intervalMs);
-    this.log.info("Started DLQ monitoring", { intervalMs });
-  }
+  async startMonitoring() {
+    this.log.info("Starting DLQ monitoring");
 
-  stopMonitoring(): void {
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-      this.monitoringInterval = null;
-    }
-    this.log.info("Stopped DLQ monitoring");
-  }
-
-  // Register callback for DLQ alerts
-  onDLQAlert(callback: (alert: DLQAlert) => void): void {
-    this.alertCallbacks.push(callback);
-  }
-
-  private async checkDLQs(): Promise<void> {
+    // Create consumer group for DLQ
     try {
-      // Get all streams that have DLQ counterparts
-      const streams = await this.redis.keys("*:dlq");
-      const alerts: DLQAlert[] = [];
-
-      for (const dlqStream of streams) {
-        const streamName = dlqStream.replace(":dlq", "");
-        const messageCount = await this.redis.xlen(dlqStream);
-
-        if (messageCount > 0) {
-          const lastMessage = await this.redis.xrevrange(dlqStream, "+", "-", "COUNT", 1);
-          let lastFailedMessage;
-
-          if (lastMessage.length > 0) {
-            const [, fields] = lastMessage[0];
-            const fieldMap: Record<string, string> = {};
-            for (let i = 0; i < fields.length; i += 2) {
-              fieldMap[fields[i]] = fields[i + 1];
-            }
-
-            lastFailedMessage = {
-              id: lastMessage[0][0],
-              eventName: fieldMap["eventName"],
-              failedAt: fieldMap["failedAt"],
-              error: fieldMap["error"],
-            };
-          }
-
-          const alert: DLQAlert = {
-            streamName,
-            messageCount,
-            lastFailedMessage,
-          };
-
-          alerts.push(alert);
-          this.log.warn("DLQ populated", { streamName, messageCount, lastFailedMessage });
-        }
-      }
-
-      // Trigger alerts
-      for (const alert of alerts) {
-        this.alertCallbacks.forEach((callback) => callback(alert));
-      }
+      await this.redis.xgroup("CREATE", this.dlqStreamName, "dlq-monitors", "$", "MKSTREAM");
     } catch (error) {
-      this.log.error("Failed to check DLQs", error);
-    }
-  }
-
-  // Get current DLQ status
-  async getDLQStatus(): Promise<DLQAlert[]> {
-    const streams = await this.redis.keys("*:dlq");
-    const alerts: DLQAlert[] = [];
-
-    for (const dlqStream of streams) {
-      const streamName = dlqStream.replace(":dlq", "");
-      const messageCount = await this.redis.xlen(dlqStream);
-
-      if (messageCount > 0) {
-        const lastMessage = await this.redis.xrevrange(dlqStream, "+", "-", "COUNT", 1);
-        let lastFailedMessage;
-
-        if (lastMessage.length > 0) {
-          const [, fields] = lastMessage[0];
-          const fieldMap: Record<string, string> = {};
-          for (let i = 0; i < fields.length; i += 2) {
-            fieldMap[fields[i]] = fields[i + 1];
-          }
-
-          lastFailedMessage = {
-            id: lastMessage[0][0],
-            eventName: fieldMap["eventName"],
-            failedAt: fieldMap["failedAt"],
-            error: fieldMap["error"],
-          };
-        }
-
-        alerts.push({
-          streamName,
-          messageCount,
-          lastFailedMessage,
-        });
+      if (!error.message.includes("BUSYGROUP")) {
+        throw error;
       }
     }
 
-    return alerts;
+    // Start monitoring loop
+    while (true) {
+      const messages = await this.redis.xreadgroup(
+        "GROUP",
+        "dlq-monitors",
+        "dlq-monitor-1",
+        "COUNT",
+        "10",
+        "BLOCK",
+        5000,
+        "STREAMS",
+        this.dlqStreamName,
+        ">"
+      );
+
+      if (messages) {
+        for (const [stream, streamMessages] of messages) {
+          for (const [id, fields] of streamMessages) {
+            await this.handleFailedMessage(id, fields);
+            await this.redis.xack(this.dlqStreamName, "dlq-monitors", id);
+          }
+        }
+      }
+    }
   }
 
-  // Alert the Orchestrator (placeholder - integrate with actual orchestrator)
-  private alertOrchestrator(alert: DLQAlert): void {
-    // TODO: Integrate with WorkflowOrchestrator to handle DLQ alerts
-    // For now, just log
-    this.log.error("DLQ Alert for Orchestrator", alert);
+  private async handleFailedMessage(id: string, fields: string[]) {
+    const payload = JSON.parse(fields[1]);
+    this.log.error("DLQ message detected", {
+      messageId: id,
+      originalStream: payload.originalStream,
+      failureCount: payload.attempts,
+      lastError: payload.error,
+    });
+
+    // Alert orchestrator via secure message bus
+    await secureMessageBus.send(
+      "fabric-monitor",
+      "orchestrator",
+      {
+        type: "dlq_alert",
+        messageId: id,
+        payload,
+      },
+      { priority: "urgent" }
+    );
   }
 }
 
 export const fabricMonitor = new FabricMonitor();
-
-// Auto-start monitoring
-fabricMonitor.startMonitoring();
-
-// Register orchestrator alert callback
-fabricMonitor.onDLQAlert((alert) => {
-  fabricMonitor.alertOrchestrator(alert);
-});

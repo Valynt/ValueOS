@@ -216,14 +216,26 @@ export class ContextOptimizer implements MemoryPressureListener {
     // Sort by score descending
     scoredMemories.sort((a, b) => b.score - a.score);
 
-    // Prune to fit within token limit
+    // Prune to fit within token limit, keeping only provenance metadata
     let totalTokens = 0;
     const selectedMemories: typeof scoredMemories = [];
 
     for (const item of scoredMemories) {
-      const memoryTokens = this.estimateTokens(item.memory.content);
+      // Extract only provenance metadata
+      const provenanceData = {
+        source: item.memory.metadata?.source,
+        timestamp: item.memory.created_at,
+        confidence: item.memory.importance,
+        type: item.memory.memory_type,
+      };
+      const provenanceString = JSON.stringify(provenanceData);
+      const memoryTokens = this.estimateTokens(provenanceString);
+
       if (totalTokens + memoryTokens <= maxTokens) {
-        selectedMemories.push(item);
+        selectedMemories.push({
+          ...item,
+          memory: { ...item.memory, content: provenanceString }
+        });
         totalTokens += memoryTokens;
       } else {
         break;

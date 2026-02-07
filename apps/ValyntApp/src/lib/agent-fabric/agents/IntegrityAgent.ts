@@ -228,6 +228,9 @@ export class IntegrityAgent extends BaseAgent {
         case "validate_compliance":
           return await this.validateComplianceRequest(payload, tenantId, sessionId);
 
+        case "resolve_issue":
+          return await this.resolveIssueRequest(payload, tenantId, sessionId);
+
         default:
           return {
             success: false,
@@ -419,6 +422,63 @@ Provide compliance assessment and any exceptions.`,
         executionTime: result.metadata.latencyMs,
         confidence: result.metadata.confidenceLevel.toLowerCase() as any,
       },
+    };
+  }
+
+  private async resolveIssueRequest(payload: any, tenantId: string, sessionId: string): Promise<AgentResponse> {
+    const schema = z.object({
+      issueId: z.string(),
+      resolution: z.enum(["accept", "reject", "modify"]),
+      modifiedOutput: z.any().optional(),
+    });
+
+    const parsed = schema.safeParse(payload);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Invalid resolve issue payload",
+          details: parsed.error.errors,
+        },
+      };
+    }
+
+    const { issueId, resolution, modifiedOutput } = parsed.data;
+
+    // Log audit action for traceability
+    try {
+      await this.logAudit("integrity.resolve_issue", {
+        issueId,
+        resolution,
+        modifiedOutput: modifiedOutput || null,
+        tenantId,
+        sessionId,
+      });
+    } catch (err) {
+      this.logger.warn("Failed to write audit log for resolveIssue", { error: err instanceof Error ? err.message : String(err) });
+    }
+
+    // Persist the resolution in agent memory for later retrieval/observability
+    try {
+      await this.storeMemory(
+        MemoryType.SEMANTIC,
+        `integrity-issue-${issueId}`,
+        { issueId, resolution, modifiedOutput },
+        tenantId
+      );
+    } catch (err) {
+      this.logger.warn("Failed to store integrity resolution", { error: err instanceof Error ? err.message : String(err) });
+    }
+
+    return {
+      success: true,
+      data: {
+        resolvedIssueId: issueId,
+        resolution,
+        modifiedOutput,
+      },
+      metadata: { confidence: "high" },
     };
   }
 

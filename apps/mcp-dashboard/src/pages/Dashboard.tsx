@@ -1,20 +1,21 @@
-import React, { useEffect, useState } from "react";
-import { useWebSocket } from "../../contexts/WebSocketContext";
 import {
-  MetricCard,
-  FinancialLineChart,
-  NotificationList,
-} from "../charts/FinancialCharts";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
   Activity,
-  Building2,
   AlertTriangle,
+  Building2,
   CheckCircle,
   Clock,
+  DollarSign,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { useWebSocket } from "../../contexts/WebSocketContext";
+import {
+  FinancialLineChart,
+  MetricCard,
+  NotificationList,
+} from "../charts/FinancialCharts";
 
 interface DashboardStats {
   totalRequests: number;
