@@ -1,0 +1,33 @@
+# Two-stage devcontainer: keep heavy toolchains in build stage, runtime runs as a non-privileged user
+FROM node:20-slim AS build-deps
+
+# Install build tools and python to compile native modules during dependency install
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl git build-essential python3 python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm via corepack (build stage)
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+# Install workspace deps (optional - helps caching). This runs as root in the build stage
+WORKDIR /workspaces/ValueOS
+COPY --chown=root:root package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+RUN corepack enable && pnpm install --frozen-lockfile || true
+
+# Final runtime: minimal image without developer toolchains, runs as non-root `valueos`
+FROM node:20-slim AS runtime
+ARG USER_ID=65532
+ARG USER_GID=65532
+RUN groupadd -g ${USER_GID} valueos || true \
+    && useradd -m -u ${USER_ID} -g ${USER_GID} valueos || true
+
+WORKDIR /workspaces/ValueOS
+USER valueos
+
+# Ensure pnpm is available to the non-root user (re-prepare corepack in the smaller image)
+ENV PNPM_HOME=/home/valueos/.local/share/pnpm
+ENV PATH=${PATH}:/home/valueos/.local/share/pnpm
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+# Note: Keep the container running so editors can attach; this is intentionally minimal
+CMD ["sleep", "infinity"]

@@ -45,8 +45,6 @@ Node/PNPM Version: Enforced.
 
 Docker Services: Must be reachable (Postgres: 5432, LocalStack: 4566).
 
-.env Parity: You cannot run with missing keys.
-
 Protocol B: The Green Islands
 
 We use the Strangler Fig Pattern for type safety.
@@ -64,6 +62,44 @@ Zero TypeScript errors allowed here.
 If you touch a Green Island, you must keep it Green.
 
 Enforcement command: `pnpm run typecheck:verify` (runs telemetry + strict-zone verification).
+
+## 🔒 Dockerfile Policy
+
+We enforce a small, focused policy to harden container images and keep runtime behavior consistent across environments.
+
+Key rules:
+
+- Runtime images MUST run as a **non-privileged user** (or use a nonroot base image).
+- Copies of repository content into images (e.g. `COPY . .`, `package.json`, `pnpm-lock.yaml`) must use `--chown=valueos:valueos` to avoid permission/ownership drift.
+- Dockerfiles must not install build toolchains (e.g. `build-essential`, `python3-dev`, `build-base`) in final runtime stages — keep toolchains in build stages only.
+- `EXPOSE` ports and `ARG EXPOSE_PORT` defaults must match canonical ports defined in `config/ports.json`.
+
+How to validate locally:
+
+- Lint/validate Dockerfiles (strict mode):
+
+```bash
+DOCKERFILE_STRICT_CHOWN=1 pnpm run lint:dockerfiles
+```
+
+- Run the unit policy tests (fast local feedback):
+
+```bash
+pnpm exec vitest run test/dockerfile.spec.ts --config .config/configs/vitest.config.unit.ts
+```
+
+- Build representative images (mirrors CI):
+
+```bash
+BACKEND_PORT="$(node -e "console.log(require('./config/ports.json').backend.port)")"
+docker build -f Dockerfile.optimized --build-arg EXPOSE_PORT="${BACKEND_PORT}" --build-arg APP=ValyntApp -t valynt-app:ci .
+```
+
+CI Integration:
+
+- CI runs `pnpm exec vitest run test/dockerfile.spec.ts` (unit policy tests) and then runs the Dockerfile validator in **strict** mode (`DOCKERFILE_STRICT_CHOWN=1 pnpm run lint:dockerfiles`). Failures block subsequent image builds.
+
+If a test or validator fails, the output will include file and line details so you can fix the Dockerfile and re-run the checks.
 
 Protocol C: The Ratchet
 

@@ -1,58 +1,49 @@
-
-ARG NODE_VERSION="22.11.0"
-ARG PNPM_VERSION="9.15.0"
+# Set NODE_VERSION and APP for flexibility
+ARG NODE_VERSION=20
 ARG APP="ValyntApp"
+ARG PNPM_VERSION="9.15.0"
 
-# ---- Base: system deps ----
-FROM node:${NODE_VERSION}-slim AS base
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# ---- Deps: install pnpm, fetch deps ----
-FROM base AS deps
-ARG PNPM_VERSION
+# ---- Builder Stage: CI and Build Optimization ----
+FROM node:${NODE_VERSION}-alpine AS builder
 WORKDIR /app
-ENV PNPM_STORE_PATH=/root/.pnpm-store
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./
-RUN corepack enable \
-    && corepack prepare pnpm@${PNPM_VERSION} --activate \
-    && npm install -g pnpm@${PNPM_VERSION} --force \
-    && pnpm config set store-dir ${PNPM_STORE_PATH} \
-    && pnpm install --frozen-lockfile
 
-# ---- Prune: turbo prune for target app ----
-FROM deps AS prune
-ARG APP
-WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./
-RUN pnpm dlx turbo prune --scope=${APP} --docker --out=out
+# Copy package files to leverage layer caching
+COPY package.json pnpm-lock.yaml ./
 
-# ---- Build: build only the target app ----
-FROM deps AS build
-ARG APP
-WORKDIR /app
-COPY --from=prune /app/out/json/ ./
-RUN pnpm install --frozen-lockfile
-COPY --from=prune /app/out/full/ ./
-RUN pnpm turbo run build --filter=apps/${APP}...
+# Mount pnpm store as cache for faster builds and install deps
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile --ignore-scripts
 
-# ---- Deploy: prune to production deps, collect artifacts ----
-FROM build AS deploy
-ARG APP
-WORKDIR /app
-RUN pnpm deploy --filter=apps/${APP} --prod /artifacts/app
+# Prune monorepo dependencies using Turbo
+RUN turbo prune --scope=${APP}
 
-# ---- Runtime: minimal distroless image ----
+# Copy app source code
+COPY . .
+
+# Run build
+RUN pnpm run build
+
+# ---- Runtime Stage: Minimal Distroless Image ----
 FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production
 WORKDIR /app
-COPY --from=deploy /artifacts/app/ ./
-ENV NODE_ENV=production
-EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "try{ require('./dist/server'); process.exit(0) } catch(e){ process.exit(1) }"
-CMD ["dist/server.js"]
 
+# Add non-root user for security
+RUN addgroup -S app && adduser -S -G app app && chown -R app:app /app
+USER app
+
+# Copy the build artifacts from the builder stage
+COPY --from=builder /app/dist /app/dist
+COPY --from=builder /root/.pnpm-store /root/.pnpm-store
+
+# Copy package files for production deps
+COPY package.json pnpm-lock.yaml ./
+
+# Install production dependencies
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile --ignore-scripts
+
+# Expose port and configure healthcheck
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD node -e 'try{ require("./dist/index.js"); process.exit(0) }catch(e){ process.exit(1) }'
+
+# Start the application
+CMD ["node", "dist/index.js"]
