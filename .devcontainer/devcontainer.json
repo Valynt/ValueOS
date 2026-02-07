@@ -1,7 +1,7 @@
 {
   "name": "ValueOS Dev Container",
-  "dockerComposeFile": ["docker-compose.yml"],
-  "service": "dev",
+  "dockerComposeFile": ["../compose.yml"],
+  "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "valueos",
   "containerUser": "valueos",
