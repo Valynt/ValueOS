@@ -6,6 +6,8 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { CircuitBreakerManager } from "./CircuitBreaker";
+import { ExternalCircuitBreaker } from "./ExternalCircuitBreaker";
 import { logger } from "../utils/logger";
 
 export interface MemoryEntry {
@@ -40,11 +42,22 @@ export class SemanticMemoryService {
   private supabase: ReturnType<typeof createClient>;
   private embeddingModel = "togethercomputer/m2-bert-80M-8k-retrieval"; // Together AI embedding model
   private embeddingDimension = 768;
+  private readonly embeddingBreakerKey = "external:together_ai:embeddings";
+  private readonly breakerConfig = {
+    minimumSamples: 1,
+    failureRateThreshold: 0.5,
+    latencyThresholdMs: 20000,
+  };
+  private readonly circuitBreaker: ExternalCircuitBreaker;
 
   constructor() {
     this.supabase = createClient(
       process.env.SUPABASE_URL || "",
       process.env.SUPABASE_KEY || ""
+    );
+    this.circuitBreaker = new ExternalCircuitBreaker(
+      "together_ai",
+      new CircuitBreakerManager()
     );
   }
 
@@ -52,29 +65,39 @@ export class SemanticMemoryService {
    * Generate embedding for text using Together AI
    */
   private async generateEmbedding(text: string): Promise<number[]> {
-    try {
-      const response = await fetch("https://api.together.xyz/v1/embeddings", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.TOGETHER_API_KEY}`,
-          "Content-Type": "application/json",
+    return this.circuitBreaker.execute(
+      this.embeddingBreakerKey,
+      async () => {
+        const response = await fetch("https://api.together.xyz/v1/embeddings", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.TOGETHER_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: this.embeddingModel,
+            input: text,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Together AI API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.data[0].embedding;
+      },
+      {
+        config: this.breakerConfig,
+        fallback: (error, state) => {
+          logger.error("Failed to generate embedding", error, {
+            breakerState: state,
+            breakerKey: this.embeddingBreakerKey,
+          });
+          throw new Error("LLM provider unavailable. Please try again later.");
         },
-        body: JSON.stringify({
-          model: this.embeddingModel,
-          input: text,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Together AI API error: ${response.status}`);
       }
-
-      const data = await response.json();
-      return data.data[0].embedding;
-    } catch (error) {
-      logger.error("Failed to generate embedding", error as Error);
-      throw error;
-    }
+    );
   }
 
   /**
