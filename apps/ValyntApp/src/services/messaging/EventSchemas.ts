@@ -4,7 +4,9 @@ export type EventName =
   | 'notifications.email.requested'
   | 'notifications.webhook.dispatch'
   | 'data.export.requested'
-  | 'billing.usage.reported';
+  | 'billing.usage.reported'
+  | 'agent.stream.update'
+  | 'agent.action.checkpoint';
 
 export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
   'notifications.email.requested': z.object({
@@ -50,6 +52,29 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     periodEnd: z.string().datetime(),
     usage: z.record(z.number()),
   }),
+  'agent.stream.update': z.object({
+    schemaVersion: z.string(),
+    idempotencyKey: z.string().min(1),
+    emittedAt: z.string().datetime(),
+    tenantId: z.string().min(1),
+    sessionId: z.string().min(1),
+    userId: z.string().min(1),
+    stage: z.enum(['thinking', 'executing', 'completed']),
+    message: z.string(),
+    progress: z.number().optional(),
+  }),
+  'agent.action.checkpoint': z.object({
+    schemaVersion: z.string(),
+    idempotencyKey: z.string().min(1),
+    emittedAt: z.string().datetime(),
+    tenantId: z.string().min(1),
+    sessionId: z.string().min(1),
+    userId: z.string().min(1),
+    actionType: z.string(),
+    actionData: z.record(z.any()),
+    requiresApproval: z.boolean(),
+    reason: z.string(),
+  }),
 };
 
 export type EventPayloadMap = {
@@ -57,6 +82,8 @@ export type EventPayloadMap = {
   'notifications.webhook.dispatch': z.infer<typeof eventSchemaRegistry['notifications.webhook.dispatch']>;
   'data.export.requested': z.infer<typeof eventSchemaRegistry['data.export.requested']>;
   'billing.usage.reported': z.infer<typeof eventSchemaRegistry['billing.usage.reported']>;
+  'agent.stream.update': z.infer<typeof eventSchemaRegistry['agent.stream.update']>;
+  'agent.action.checkpoint': z.infer<typeof eventSchemaRegistry['agent.action.checkpoint']>;
 };
 
 export function validateEventPayload<TName extends EventName>(

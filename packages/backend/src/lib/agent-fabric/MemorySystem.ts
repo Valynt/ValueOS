@@ -1,11 +1,11 @@
 /**
  * Memory System
- * 
+ *
  * Agent memory management for context retention, retrieval,
  * and knowledge accumulation across task executions.
  */
 
-import { logger } from '../logger.js';
+import { logger } from "../logger.js";
 
 export interface MemorySystemConfig {
   max_memories: number;
@@ -27,11 +27,7 @@ export interface Memory {
   metadata?: Record<string, any>;
 }
 
-export type MemoryType =
-  | 'episodic'
-  | 'semantic'
-  | 'procedural'
-  | 'working';
+export type MemoryType = "episodic" | "semantic" | "procedural" | "working";
 
 export interface MemoryQuery {
   agent_id: string;
@@ -40,6 +36,7 @@ export interface MemoryQuery {
   memory_type?: MemoryType;
   limit?: number;
   min_importance?: number;
+  organization_id?: string;
 }
 
 export class MemorySystem {
@@ -51,7 +48,9 @@ export class MemorySystem {
     this.memories = new Map();
   }
 
-  async store(memory: Omit<Memory, 'id' | 'created_at' | 'accessed_at' | 'access_count'>): Promise<string> {
+  async store(
+    memory: Omit<Memory, "id" | "created_at" | "accessed_at" | "access_count">
+  ): Promise<string> {
     const memoryId = `mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const fullMemory: Memory = {
       ...memory,
@@ -63,7 +62,7 @@ export class MemorySystem {
 
     this.memories.set(memoryId, fullMemory);
 
-    logger.debug('Memory stored', {
+    logger.debug("Memory stored", {
       memory_id: memoryId,
       agent_id: memory.agent_id,
       type: memory.memory_type,
@@ -80,6 +79,8 @@ export class MemorySystem {
       if (query.workspace_id && memory.workspace_id !== query.workspace_id) continue;
       if (query.memory_type && memory.memory_type !== query.memory_type) continue;
       if (query.min_importance && memory.importance < query.min_importance) continue;
+      if (query.organization_id && memory.metadata?.organization_id !== query.organization_id)
+        continue;
 
       memory.accessed_at = new Date().toISOString();
       memory.access_count++;
@@ -92,12 +93,22 @@ export class MemorySystem {
     return results.slice(0, limit);
   }
 
-  async delete(memoryId: string): Promise<boolean> {
-    const deleted = this.memories.delete(memoryId);
-    if (deleted) {
-      logger.debug('Memory deleted', { memory_id: memoryId });
-    }
-    return deleted;
+  async storeSemanticMemory(
+    sessionId: string,
+    agentId: string,
+    type: MemoryType,
+    content: string,
+    metadata: Record<string, any>,
+    organizationId: string
+  ): Promise<string> {
+    return this.store({
+      agent_id: agentId,
+      workspace_id: sessionId,
+      content,
+      memory_type: type,
+      importance: metadata.importance || 0.5,
+      metadata: { ...metadata, organization_id: organizationId },
+    });
   }
 
   async clear(agentId: string, workspaceId?: string): Promise<number> {
@@ -110,7 +121,7 @@ export class MemorySystem {
         }
       }
     }
-    logger.info('Memories cleared', { agent_id: agentId, count });
+    logger.info("Memories cleared", { agent_id: agentId, count });
     return count;
   }
 }

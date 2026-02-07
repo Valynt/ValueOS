@@ -1,5 +1,8 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { AgentOrchestratorAdapter } from "@/services/AgentOrchestratorAdapter";
+import { RedisStreamBroker } from "@/services/messaging/RedisStreamBroker";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { v4 as uuidv4 } from "uuid";
 
 export interface ChatMessage {
   id: string;
@@ -35,9 +38,14 @@ export interface AgentChatContext {
 
 interface UseAgentStreamOptions {
   context?: AgentChatContext;
+  sessionId?: string;
+  tenantId?: string;
   onMessage?: (message: ChatMessage) => void;
   onError?: (error: Error) => void;
   onToolExecuted?: (toolCall: any, result: any) => void;
+  onThinking?: (message: string) => void;
+  onExecuting?: (message: string) => void;
+  onCompleted?: (message: string) => void;
 }
 
 interface AgentStreamResult {
@@ -53,8 +61,66 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const adapterRef = useRef<AgentOrchestratorAdapter | null>(null);
+  const brokerRef = useRef<RedisStreamBroker | null>(null);
+  const sessionIdRef = useRef<string>(options.sessionId || uuidv4());
 
-  const { context, onMessage, onError, onToolExecuted } = options;
+  const { user } = useAuth();
+  const {
+    context,
+    tenantId: providedTenantId,
+    onMessage,
+    onError,
+    onToolExecuted,
+    onThinking,
+    onExecuting,
+    onCompleted
+  } = options;
+
+  const tenantId = providedTenantId || user?.id || 'default-tenant'; // Fallback for tenantId
+
+  // Initialize Redis broker and subscribe to stream updates
+  useEffect(() => {
+    const initializeBroker = async () => {
+      if (!brokerRef.current) {
+        brokerRef.current = new RedisStreamBroker({
+          streamName: 'agent.streams',
+          consumerName: `ui-${user?.id || 'anonymous'}-${sessionIdRef.current}`,
+        });
+        await brokerRef.current.initialize();
+
+        // Start consumer to listen for streaming updates
+        brokerRef.current.startConsumer(async (event) => {
+          if (event.name === 'agent.stream.update') {
+            const payload = event.payload;
+            if (payload.sessionId === sessionIdRef.current && payload.tenantId === tenantId) {
+              switch (payload.stage) {
+                case 'thinking':
+                  onThinking?.(payload.message);
+                  break;
+                case 'executing':
+                  onExecuting?.(payload.message);
+                  break;
+                case 'completed':
+                  onCompleted?.(payload.message);
+                  setIsStreaming(false);
+                  break;
+              }
+            }
+          }
+        });
+      }
+    };
+
+    initializeBroker();
+
+    return () => {
+      // Cleanup broker on unmount
+      if (brokerRef.current) {
+        // Note: Redis broker doesn't have a cleanup method in the current implementation
+        // This would need to be added to properly close connections
+      }
+    };
+  }, [user?.id, tenantId, onThinking, onExecuting, onCompleted]);
 
   const addMessage = useCallback(
     (message: ChatMessage) => {
@@ -66,7 +132,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (isStreaming) return;
+      if (isStreaming || !brokerRef.current) return;
 
       const userMessage: ChatMessage = {
         id: `msg_${Date.now()}`,
@@ -79,12 +145,27 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
       setIsStreaming(true);
 
       try {
+        // Publish agent query event to trigger backend processing
+        await brokerRef.current.publish('agent.stream.update', {
+          schemaVersion: '1.0.0',
+          idempotencyKey: uuidv4(),
+          emittedAt: new Date().toISOString(),
+          tenantId,
+          sessionId: sessionIdRef.current,
+          userId: user?.id || 'anonymous',
+          stage: 'thinking',
+          message: 'Processing your request...',
+        });
+
+        // For now, still use adapter as fallback, but in full implementation
+        // this would be handled entirely by the stream
         if (!adapterRef.current) {
           adapterRef.current = new AgentOrchestratorAdapter();
         }
 
-        // For now, use processQuery as invokeAgent might not exist
         const response = await adapterRef.current.processQuery(content, {
+          userId: user?.id,
+          sessionId: sessionIdRef.current,
           context: {
             intent: "agent-chat",
             environment: "production",
@@ -101,6 +182,18 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
         };
 
         addMessage(assistantMessage);
+
+        // Publish completion event
+        await brokerRef.current.publish('agent.stream.update', {
+          schemaVersion: '1.0.0',
+          idempotencyKey: uuidv4(),
+          emittedAt: new Date().toISOString(),
+          tenantId,
+          sessionId: sessionIdRef.current,
+          userId: user?.id || 'anonymous',
+          stage: 'completed',
+          message: 'Response generated',
+        });
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         onError?.(err);
@@ -111,11 +204,10 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
           timestamp: new Date(),
         };
         addMessage(errorMessage);
-      } finally {
         setIsStreaming(false);
       }
     },
-    [isStreaming, context, addMessage, onError]
+    [isStreaming, context, addMessage, onError, tenantId, user?.id]
   );
 
   const applySuggestion = useCallback(

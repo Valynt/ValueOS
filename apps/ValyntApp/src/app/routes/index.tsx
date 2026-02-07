@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { MarketingLayout } from "@layouts/MarketingLayout";
 import { AppLayout } from "@layouts/AppLayout";
 import { ProtectedRoute } from "./route-guards";
+import { LoadingSkeleton } from "@valueos/components/ui/loading-skeleton";
 
 const LandingPage = lazy(() => import("@pages/marketing/LandingPage"));
 const DashboardPage = lazy(() => import("@pages/app/DashboardPage"));
@@ -57,7 +58,7 @@ const ValueDriverLibrary = lazy(() => import("@pages/valueos/ValueDriverLibrary"
 function PageLoader() {
   return (
     <div className="flex h-screen items-center justify-center">
-      <div className="text-muted-foreground">Loading...</div>
+      <LoadingSkeleton variant="text" lines={1} className="w-24" />
     </div>
   );
 }

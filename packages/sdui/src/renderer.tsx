@@ -5,13 +5,18 @@ import {
   HorizontalSplit,
   VerticalSplit,
 } from "./components/SDUI/CanvasLayout/index";
-import { SDUIErrorBoundary } from "./components/SDUIErrorBoundary";
+import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
 import { SectionErrorFallback, UnknownComponentFallback } from "./components/SDUI";
 import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
 import { RegistryPlaceholderComponent, resolveComponentWithVersion } from "./registry";
+import {
+  resolveComponentLazy,
+  LazyComponentRegistry,
+  preloadCriticalComponents,
+} from "./LazyComponentRegistry";
 import { DataBindingResolver } from "./DataBindingResolver";
 import { DataSourceContext } from "./DataBindingSchema";
-import { useDataBindings } from "./useDataBinding";
+import { useValidatedDataBindings } from "./typeSafeHydration";
 import { sanitizeProps } from "./security/sanitization";
 import { incrementSecurityMetric } from "./security/metrics";
 import { createLogger } from "./lib/logger";
@@ -74,7 +79,7 @@ const InvalidSchemaFallback: React.FC<{ errors: string[] }> = ({ errors }) => (
 );
 
 /**
- * Component wrapper that resolves data bindings
+ * Component wrapper that resolves data bindings with type validation
  */
 const ComponentWithBindings: React.FC<{
   section: SDUIComponentSection;
@@ -99,14 +104,19 @@ const ComponentWithBindings: React.FC<{
     );
   }
 
-  // Resolve data bindings in props
+  // Resolve data bindings with type validation
   const {
     props: resolvedProps,
     loading,
-    errors,
-  } = useDataBindings(section.props, {
+    errors: bindingErrors,
+    validationErrors,
+    validationWarnings,
+    refresh,
+  } = useValidatedDataBindings(section.props, {
     resolver,
     context,
+    componentName: section.component,
+    componentVersion: section.version,
   });
 
   if (loading) {
@@ -118,16 +128,52 @@ const ComponentWithBindings: React.FC<{
     );
   }
 
-  if (Object.keys(errors).length > 0) {
+  // Check for validation errors
+  if (validationErrors.length > 0) {
+    logger.error("Component prop validation failed", {
+      component: section.component,
+      version: section.version,
+      errors: validationErrors,
+    });
+
     return (
       <div className="text-red-600 text-sm p-4 border border-red-200 rounded">
-        Failed to resolve data bindings: {errors._global || "Unknown error"}
+        <p className="font-semibold">Schema Validation Error</p>
+        <ul className="list-disc pl-5 mt-2">
+          {validationErrors.map((error, idx) => (
+            <li key={idx}>{error}</li>
+          ))}
+        </ul>
+        {debugOverlay && (
+          <HydrationTrace
+            section={section}
+            status="error"
+            warning={`Validation errors: ${validationErrors.length}`}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Check for binding resolution errors
+  if (Object.keys(bindingErrors).length > 0) {
+    return (
+      <div className="text-red-600 text-sm p-4 border border-red-200 rounded">
+        Failed to resolve data bindings: {bindingErrors._global || "Unknown error"}
       </div>
     );
   }
 
   // Sanitize props before rendering
   const sanitizedProps = sanitizeProps(resolvedProps, section.component);
+
+  // Log validation warnings
+  if (validationWarnings.length > 0 && debugOverlay) {
+    logger.warn("Component validation warnings", {
+      component: section.component,
+      warnings: validationWarnings,
+    });
+  }
 
   return (
     <>
@@ -136,7 +182,11 @@ const ComponentWithBindings: React.FC<{
         <HydrationTrace
           section={section}
           status="rendered"
-          warning="Data bindings resolved successfully"
+          warning={
+            validationWarnings.length > 0
+              ? `Warnings: ${validationWarnings.join(", ")}`
+              : "Data bindings resolved successfully"
+          }
         />
       )}
     </>
@@ -240,7 +290,27 @@ const renderSection = (
 
   // Handle component types (original logic)
   const componentSection = section as SDUIComponentSection;
-  const entry = resolveComponentWithVersion(componentSection.component, componentSection.version);
+
+  // Determine if component should be lazy loaded
+  // Critical components are loaded immediately, others are lazy loaded
+  const criticalComponents = [
+    "AgentResponseCard",
+    "TextBlock",
+    "InfoBanner",
+    "SectionErrorFallback",
+    "UnknownComponentFallback",
+    "MetricBadge",
+  ];
+
+  const shouldLazyLoad = !criticalComponents.includes(componentSection.component);
+
+  let entry;
+  if (shouldLazyLoad) {
+    entry = resolveComponentLazy(componentSection);
+  } else {
+    entry = resolveComponentWithVersion(componentSection.component, componentSection.version);
+  }
+
   if (!entry.component) {
     // Log missing component for monitoring
     incrementSecurityMetric("component_not_found", {
@@ -266,7 +336,21 @@ const renderSection = (
 
   return (
     <div key={`${section.component}-${index}`} className="space-y-2">
-      <SDUIErrorBoundary fallback={<SectionErrorFallback componentName={section.component} />}>
+      <ComponentErrorBoundary
+        componentName={section.component}
+        fallback={<SectionErrorFallback componentName={section.component} />}
+        circuitBreaker={{
+          failureThreshold: 3,
+          recoveryTimeout: 30000,
+          monitoringPeriod: 300000,
+        }}
+        retryConfig={{
+          maxAttempts: 2,
+          initialDelay: 1000,
+          backoffMultiplier: 2,
+          maxDelay: 10000,
+        }}
+      >
         <ComponentWithBindings
           section={section}
           Component={Component}
@@ -274,7 +358,7 @@ const renderSection = (
           context={context}
           debugOverlay={debugOverlay}
         />
-      </SDUIErrorBoundary>
+      </ComponentErrorBoundary>
     </div>
   );
 };
@@ -291,6 +375,11 @@ export const SDUIRenderer: React.FC<SDUIRendererProps> = ({
   dataSourceContext,
 }) => {
   const schemaStore = useSchemaStore();
+
+  // Preload critical components on mount
+  useEffect(() => {
+    preloadCriticalComponents();
+  }, []);
 
   // Start streaming if enabled and schemaId provided
   useEffect(() => {

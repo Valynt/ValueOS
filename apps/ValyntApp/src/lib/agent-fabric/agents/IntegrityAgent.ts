@@ -423,8 +423,81 @@ Provide compliance assessment and any exceptions.`,
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // LEGACY COMPATIBILITY METHODS
+  // VETO LOGIC METHODS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Evaluate veto decision based on confidence score and validation results
+   */
+  async evaluateVeto(
+    agentOutput: any,
+    confidenceScore: number,
+    agentType: string,
+    sessionId: string,
+    tenantId: string
+  ): Promise<{ veto: boolean; reason?: string; reRefine?: boolean }> {
+    // Check confidence threshold
+    if (confidenceScore < 0.85) {
+      return {
+        veto: false,
+        reRefine: true,
+        reason: `Confidence score ${confidenceScore} below threshold 0.85`,
+      };
+    }
+
+    // Perform integrity validation on the output
+    const validationSchema = z.object({
+      integrityScore: z.number().min(0).max(100),
+      issues: z.array(z.string()),
+      recommendations: z.array(z.string()),
+      vetoRecommended: z.boolean(),
+      hallucination_check: z.boolean().optional(),
+    });
+
+    const input: SecureInvokeInput = {
+      prompt: `Evaluate this agent output for integrity and determine if veto is required:
+
+Agent Type: ${agentType}
+Output: ${JSON.stringify(agentOutput, null, 2)}
+
+Check for:
+1. Mathematical accuracy
+2. Data consistency
+3. Logical coherence
+4. Compliance with business rules
+5. Potential hallucination or fabrication
+
+Provide integrity score and veto recommendation.`,
+      context: {
+        tenantId,
+        sessionId,
+        additionalContext: { evaluationType: "veto_check" },
+      },
+    };
+
+    const result = await this.secureInvoke(sessionId, input, validationSchema, {
+      riskCategory: RiskCategory.GOVERNANCE,
+      tenantId,
+    });
+
+    if (!result.success || !result.data) {
+      // On validation failure, be conservative and recommend re-refine
+      return {
+        veto: false,
+        reRefine: true,
+        reason: "Failed to validate output integrity",
+      };
+    }
+
+    if (result.data.vetoRecommended || result.data.integrityScore < 70) {
+      return {
+        veto: true,
+        reason: `Integrity score ${result.data.integrityScore}/100. Issues: ${result.data.issues.join(", ")}`,
+      };
+    }
+
+    return { veto: false };
+  }
 
   async execute(
     sessionId: string,

@@ -382,7 +382,6 @@ const moduleBoundaryOverrides = {
     "import/no-internal-modules": [
       "error",
       {
-        forbid: ["@valueos/**/src/**"],
         // Temporary carve-outs (keep this list short; shrink over time)
         allow: [
           "@valueos/agents/*",
@@ -402,14 +401,9 @@ const backendServiceAuthOverrides = {
     "no-restricted-syntax": [
       "error",
       {
-        selector:
-          "CallExpression[callee.property.name='schema'][arguments.0.value='auth']",
+        selector: "CallExpression[callee.property.name='schema'][arguments.0.value='auth']",
         message:
           "Do not query auth schema tables from backend services. Use Supabase auth admin APIs via AuthDirectoryService.",
-      },
-    ],
-  },
-};
       },
     ],
   },

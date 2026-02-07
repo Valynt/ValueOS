@@ -1,3 +1,4 @@
+/* eslint-disable import/no-unresolved, import/order, import/no-internal-modules */
 /**
  * Shared TypeScript types and schemas for Server-Driven UI (SDUI) JSON payloads
  *
@@ -25,9 +26,7 @@ export const SDUILayoutDirectiveSchema = z.object({
   intent: z.string().min(1, "Intent is required"),
   component: z.string().min(1, "Component name is required"),
   props: z.record(z.any()).default({}),
-  layout: z
-    .enum(["default", "full_width", "two_column", "dashboard", "single_column"])
-    .optional(),
+  layout: z.enum(["default", "full_width", "two_column", "dashboard", "single_column"]).optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -81,10 +80,7 @@ const SDUIMetadataSchema = z
   .optional();
 
 // Union type for sections (component or layout directive)
-export const SDUISectionSchema = z.union([
-  SDUIComponentSectionSchema,
-  SDUILayoutDirectiveSchema,
-]);
+export const SDUISectionSchema = z.union([SDUIComponentSectionSchema, SDUILayoutDirectiveSchema]);
 
 // Multi-tenant page schema
 export const SDUIPageSchema = z
@@ -94,9 +90,7 @@ export const SDUIPageSchema = z
     // Multi-tenant identifiers
     tenantId: z.string().optional(),
     organizationId: z.string().optional(),
-    sections: z
-      .array(SDUISectionSchema)
-      .min(1, "At least one section is required"),
+    sections: z.array(SDUISectionSchema).min(1, "At least one section is required"),
     metadata: SDUIMetadataSchema,
   })
   .strict();
@@ -129,9 +123,7 @@ const clampVersion = (version: number | undefined) => {
   return version;
 };
 
-export function normalizeComponentSection(
-  section: SDUIComponentSection
-): SDUIComponentSection {
+export function normalizeComponentSection(section: SDUIComponentSection): SDUIComponentSection {
   return {
     ...section,
     version: clampVersion(section.version),

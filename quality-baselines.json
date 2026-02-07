@@ -83,5 +83,20 @@
     "packages/infra": 6,
     "packages/services": 20,
     "packages/shared": 5
+  },
+  "performance": {
+    "time_to_interaction": {
+      "p50_ms": 2000,
+      "p95_ms": 5000,
+      "p99_ms": 10000
+    },
+    "memory_leak_detection": {
+      "max_heap_growth_per_iteration_mb": 50,
+      "max_total_heap_growth_mb": 1000
+    },
+    "synthetic_user_journey": {
+      "max_duration_per_iteration_ms": 120000,
+      "iterations_for_memory_test": 50
+    }
   }
 }

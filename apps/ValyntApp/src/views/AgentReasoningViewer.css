@@ -1,0 +1,160 @@
+/* Quantum View Micro-interactions for Agent Reasoning Viewer */
+
+.quantum-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.quantum-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.quantum-glow:hover::before {
+  left: 100%;
+}
+
+.quantum-pulse {
+  animation: quantum-pulse 2s ease-in-out infinite;
+}
+
+@keyframes quantum-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.quantum-fade-in {
+  animation: quantum-fade-in 0.6s ease-out;
+}
+
+@keyframes quantum-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.quantum-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.quantum-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.quantum-ripple:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+.quantum-orbit {
+  position: relative;
+}
+
+.quantum-orbit::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: quantum-orbit 1s linear infinite;
+}
+
+@keyframes quantum-orbit {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.quantum-collapse {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quantum-collapse.collapsed {
+  max-height: 0;
+  opacity: 0;
+  transform: scaleY(0);
+  transform-origin: top;
+}
+
+.quantum-hologram {
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+  background-size: 200% 200%;
+  animation: quantum-hologram 3s ease-in-out infinite;
+}
+
+@keyframes quantum-hologram {
+  0%, 100% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+}
+
+.quantum-energy {
+  position: relative;
+}
+
+.quantum-energy::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.1) 25%,
+    rgba(16, 185, 129, 0.1) 50%,
+    rgba(245, 158, 11, 0.1) 75%,
+    transparent 100%
+  );
+  animation: quantum-energy 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes quantum-energy {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}

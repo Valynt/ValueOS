@@ -26,7 +26,8 @@ export type SDUIUpdateType =
   | "layout_change"
   | "state_sync"
   | "validation_result"
-  | "navigation";
+  | "navigation"
+  | "notification";
 
 export type SDUIOperation = "create" | "update" | "delete" | "replace" | "merge";
 
