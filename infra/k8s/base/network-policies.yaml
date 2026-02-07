@@ -147,38 +147,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: llm-gateway-egress-allowlist
-  namespace: valynt
-spec:
-  podSelector:
-    matchLabels:
-      component: llm-gateway
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - podSelector:
-            matchLabels:
-              component: orchestrator
-      ports:
-        - protocol: TCP
-          port: 8443
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: agents-deny-agent-to-agent-ingress
   namespace: valynt-agents
 spec:
