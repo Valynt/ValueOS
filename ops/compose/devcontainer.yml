@@ -3,12 +3,12 @@ name: valueos-devcontainer
 services:
   dev:
     build:
-      context: ..
+      context: ../..
       dockerfile: .devcontainer/Dockerfile.optimized
       args:
         NODE_VERSION: "20"
     volumes:
-      - ..:/workspaces/ValueOS:cached
+      - ../..:/workspaces/ValueOS:cached
       - pnpm-store:/home/vscode/.local/share/pnpm
       - node_modules:/workspaces/ValueOS/node_modules
     working_dir: /workspaces/ValueOS
