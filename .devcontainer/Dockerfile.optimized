@@ -1,49 +1,58 @@
-# Set NODE_VERSION and APP for flexibility
+# CI-only: optimized production Dockerfile (do NOT build locally in devcontainer)
+# - Used by CI to produce reproducible, optimized images
+# - Keep local dev iteration in `.devcontainer/Dockerfile.dev`
 ARG NODE_VERSION=20
-ARG APP="ValyntApp"
-ARG PNPM_VERSION="9.15.0"
 
-# ---- Builder Stage: CI and Build Optimization ----
+# 1. Prune the monorepo to only the necessary files for the ValyntApp
+FROM node:${NODE_VERSION}-alpine AS pruner
+WORKDIR /app
+
+# Copy only the files needed for pruning
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY . .
+
+# Install dependencies to get access to turbo
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Generate the pruned subset of the monorepo
+RUN turbo prune --scope=ValyntApp
+
+# 2. Build the application from the pruned monorepo
 FROM node:${NODE_VERSION}-alpine AS builder
 WORKDIR /app
 
-# Copy package files to leverage layer caching
-COPY package.json pnpm-lock.yaml ./
+# Copy the pruned files from the pruner stage
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=pruner /app/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
-# Mount pnpm store as cache for faster builds and install deps
+# Install dependencies using the pruned lockfile and a cached pnpm store
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile --ignore-scripts
 
-# Prune monorepo dependencies using Turbo
-RUN turbo prune --scope=${APP}
+# Copy the application source code from the pruned subset
+COPY --from=pruner /app/out/full/ .
 
-# Copy app source code
-COPY . .
-
-# Run build
+# Build the application
 RUN pnpm run build
 
-# ---- Runtime Stage: Minimal Distroless Image ----
-FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production
+# 3. Final production image
+FROM node:${NODE_VERSION}-alpine
 WORKDIR /app
 
-# Add non-root user for security
-RUN addgroup -S app && adduser -S -G app app && chown -R app:app /app
+# Create a non-root user for better security
+RUN addgroup -S app && adduser -S -G app app
 USER app
 
-# Copy the build artifacts from the builder stage
-COPY --from=builder /app/dist /app/dist
-COPY --from=builder /root/.pnpm-store /root/.pnpm-store
+# Copy the built application and dependencies from the builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json .
 
-# Copy package files for production deps
-COPY package.json pnpm-lock.yaml ./
-
-# Install production dependencies
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile --ignore-scripts
-
-# Expose port and configure healthcheck
 EXPOSE 3000
+
+# Healthcheck to verify the application is running
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD node -e 'try{ require("./dist/index.js"); process.exit(0) }catch(e){ process.exit(1) }'
+  CMD node -e 'try{ require("./dist/index.js"); process.exit(0) }catch(e){ process.exit(1) }'
 
 # Start the application
 CMD ["node", "dist/index.js"]

@@ -1,0 +1,25 @@
+{
+  "name": "ValueOS Dev Container",
+  "dockerFile": "../Dockerfile.valueos",
+  "context": "..",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "vitest.explorer"
+      ]
+    }
+  },
+  "postCreateCommand": "pnpm install",
+  "remoteUser": "node",
+  "runArgs": [
+    "--env-file",
+    "${localWorkspaceFolder}/.env"
+  ],
+  "mounts": [
+    "source=pnpm-store,target=/root/.pnpm-store,type=volume"
+  ]
+}

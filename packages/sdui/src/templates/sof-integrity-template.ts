@@ -1,11 +1,11 @@
 /**
  * SOF Integrity Page Template
- * 
+ *
  * Extended Integrity template with Governance Integration and System Health Monitoring.
  */
 
-import type { SDUIPageDefinition } from '../types';
-import type { FeedbackLoop, InterventionPoint, SystemMap } from '../../types/sof';
+import type { SDUIPageDefinition } from '../schema';
+import type { FeedbackLoop, InterventionPoint, SystemMap } from '@valueos/sdui-types';
 
 /**
  * Generate SOF-enhanced Integrity page
@@ -54,10 +54,10 @@ export function generateSOFIntegrityPage(data: {
           type: 'StatCard',
           props: {
             label: 'System Health',
-            value: `${data.integrityData?.systemHealthScore || 0}%`,
+            value: `${data.integrityData?.systemHealthScore ?? 0}%`,
             icon: 'heart',
-            color: data.integrityData?.systemHealthScore >= 80 ? 'green' : 
-                   data.integrityData?.systemHealthScore >= 60 ? 'yellow' : 'red',
+            color: (data.integrityData?.systemHealthScore ?? 0) >= 80 ? 'green' :
+                   (data.integrityData?.systemHealthScore ?? 0) >= 60 ? 'yellow' : 'red',
           },
         },
         {
@@ -463,11 +463,11 @@ export function generateSOFIntegrityPage(data: {
   ].filter(Boolean);
 
   return {
-    type: 'IntegrityPage',
-    layout: 'default',
-    components,
+    type: 'page',
+    version: 1,
+    sections: components as any, // Should be SDUIPageDefinition['sections']
     metadata: {
-      stage: 'integrity',
+      lifecycle_stage: 'integrity',
       sofEnabled: true,
       requiresGovernance: true,
       tracksCompliance: true,

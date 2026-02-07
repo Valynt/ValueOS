@@ -58,10 +58,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      kong:
-        condition: service_healthy
-      auth:
-        condition: service_healthy
 
   ###########################################################################
   # Shared Redis
@@ -89,7 +85,7 @@ services:
   ###########################################################################
   db:
     profiles: ["devcontainer"]
-    image: supabase/postgres:15.1.1.78
+    image: postgres:15-alpine
     command: >
       postgres
       -c config_file=/etc/postgresql/postgresql.conf

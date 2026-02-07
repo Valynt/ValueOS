@@ -8,7 +8,7 @@
  */
 
 import type { SDUIPageDefinition } from "../schema";
-import type { WorkflowState } from "../../repositories/WorkflowStateRepository";
+import type { WorkflowState } from "@valueos/sdui-types";
 import { v4 as uuidv4 } from "uuid";
 
 export interface TargetTemplateContext {

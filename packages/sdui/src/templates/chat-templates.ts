@@ -1,15 +1,14 @@
 /**
  * Chat SDUI Templates Index
- * 
+ *
  * Central export for all chat stage-specific SDUI templates.
  * Provides template selection logic based on lifecycle stage.
- * 
+ *
  * Phase 3: SDUI Template System
  */
 
 import type { SDUIPageDefinition } from '../schema';
-import type { WorkflowState } from '../../repositories/WorkflowStateRepository';
-import type { LifecycleStage } from '../../types/vos';
+import type { WorkflowState, LifecycleStage } from '@valueos/sdui-types';
 
 import { generateOpportunityPage, type OpportunityTemplateContext } from './chat-opportunity-template';
 import { generateTargetPage, type TargetTemplateContext } from './chat-target-template';
@@ -45,7 +44,7 @@ export const CHAT_TEMPLATES: Record<LifecycleStage, TemplateGenerator> = {
 
 /**
  * Generate SDUI page using stage-specific template
- * 
+ *
  * @param stage Lifecycle stage
  * @param context Template context
  * @returns Generated SDUI page definition
@@ -55,7 +54,7 @@ export function generateChatSDUIPage(
   context: ChatTemplateContext
 ): SDUIPageDefinition {
   const generator = CHAT_TEMPLATES[stage];
-  
+
   if (!generator) {
     throw new Error(`No template found for stage: ${stage}`);
   }

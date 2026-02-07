@@ -5,7 +5,7 @@
  */
 
 import type { SDUIPageDefinition } from "../schema";
-import type { InterventionPoint, OutcomeHypothesis, SystemMap } from "../../types/sof";
+import type { InterventionPoint, OutcomeHypothesis, SystemMap } from "@valueos/sdui-types";
 
 /**
  * Generate SOF-enhanced Target page

@@ -6,7 +6,7 @@
  */
 
 import { logger } from "../lib/logger.js";
-import { SECEdgarClient, SECFiling, SECCompanyInfo, SE CXBRLData } from "./clients/SECEdgarClient.js";
+import { SECEdgarClient, SECFiling, SECCompanyInfo, SECXBRLData } from "./clients/SECEdgarClient.js";
 import { BLSClient, BLSWageData, BLSEmploymentData, BLSIndustryData } from "./clients/BLSClient";
 import {
   CensusClient,

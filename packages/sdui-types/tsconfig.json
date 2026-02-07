@@ -11,7 +11,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "strict": true,
-    "noEmit": true
+    "noEmit": false
   },
   "include": ["index.ts"],
   "exclude": ["node_modules", "dist"]

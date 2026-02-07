@@ -61,9 +61,7 @@ async function verifyLogin() {
 
     // Verify user properties
     if (data.user.email !== DEMO_EMAIL) {
-      console.error(
-        `❌ Email mismatch: expected ${DEMO_EMAIL}, got ${data.user.email}`
-      );
+      console.error(`❌ Email mismatch: expected ${DEMO_EMAIL}, got ${data.user.email}`);
       process.exit(1);
     }
 

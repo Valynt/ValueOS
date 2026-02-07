@@ -152,11 +152,23 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 
     -- =========================================================================
-    -- Required Extensions
+    -- Required Extensions (create only if available)
     -- =========================================================================
-    CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
-    CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
-    CREATE EXTENSION IF NOT EXISTS pgjwt SCHEMA extensions;
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'uuid-ossp') THEN
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
+      END IF;
+      IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pgcrypto') THEN
+        CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
+      END IF;
+      IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pgjwt') THEN
+        CREATE EXTENSION IF NOT EXISTS pgjwt SCHEMA extensions;
+      ELSE
+        RAISE NOTICE 'Extension pgjwt not available; skipping. For full Supabase compatibility use a Supabase Postgres image or install pgjwt manually.';
+      END IF;
+    END
+    $$;
 
     -- Grant extensions schema usage
     GRANT USAGE ON SCHEMA extensions TO anon, authenticated, service_role;
