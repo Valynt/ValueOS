@@ -142,6 +142,7 @@ export class LLMCostTracker {
    */
   async trackUsage(params: {
     tenantId?: string;
+    tenant_id?: string;
     userId: string;
     tenant_id?: string;
     sessionId?: string;
@@ -198,7 +199,7 @@ export class LLMCostTracker {
       logger.error('Failed to track LLM usage', error);
     }
     // Fire and forget, do not await
-    void this.checkCostThresholds();
+    void this.checkCostThresholds(normalizedTenantId);
   }
   
   /**
@@ -207,7 +208,8 @@ export class LLMCostTracker {
   async getCostForPeriod(
     startTime: Date,
     endTime: Date,
-    userId?: string
+    userId?: string,
+    tenantId?: string
   ): Promise<number> {
     if (!this.isEnabled() || !this.supabase) return 0;
 
@@ -219,6 +221,9 @@ export class LLMCostTracker {
     
     if (userId) {
       query = query.eq('user_id', userId);
+    }
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
     }
     
     const { data, error } = await query;
@@ -232,28 +237,28 @@ export class LLMCostTracker {
   /**
    * Get hourly cost
    */
-  async getHourlyCost(): Promise<number> {
+  async getHourlyCost(tenantId?: string): Promise<number> {
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - ONE_HOUR_MS);
-    return this.getCostForPeriod(oneHourAgo, now);
+    return this.getCostForPeriod(oneHourAgo, now, undefined, tenantId);
   }
   
   /**
    * Get daily cost
    */
-  async getDailyCost(userId?: string): Promise<number> {
+  async getDailyCost(userId?: string, tenantId?: string): Promise<number> {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - ONE_DAY_MS);
-    return this.getCostForPeriod(oneDayAgo, now, userId);
+    return this.getCostForPeriod(oneDayAgo, now, userId, tenantId);
   }
   
   /**
    * Get monthly cost
    */
-  async getMonthlyCost(): Promise<number> {
+  async getMonthlyCost(tenantId?: string): Promise<number> {
     const now = new Date();
     const oneMonthAgo = new Date(now.getTime() - ONE_MONTH_MS);
-    return this.getCostForPeriod(oneMonthAgo, now);
+    return this.getCostForPeriod(oneMonthAgo, now, undefined, tenantId);
   }
 
   /**
@@ -283,13 +288,13 @@ export class LLMCostTracker {
   /**
    * Check if cost thresholds are exceeded
    */
-  async checkCostThresholds(): Promise<CostAlert[]> {
+  async checkCostThresholds(tenantId?: string): Promise<CostAlert[]> {
     if (!this.isEnabled()) return [];
 
     const alerts: CostAlert[] = [];
     
     // Check hourly threshold
-    const hourlyCost = await this.getHourlyCost();
+    const hourlyCost = await this.getHourlyCost(tenantId);
     if (hourlyCost >= COST_THRESHOLDS.hourly.critical) {
       alerts.push({
         level: 'critical',
@@ -309,7 +314,7 @@ export class LLMCostTracker {
     }
     
     // Check daily threshold
-    const dailyCost = await this.getDailyCost();
+    const dailyCost = await this.getDailyCost(undefined, tenantId);
     if (dailyCost >= COST_THRESHOLDS.daily.critical) {
       alerts.push({
         level: 'critical',
@@ -329,7 +334,7 @@ export class LLMCostTracker {
     }
     
     // Check monthly threshold
-    const monthlyCost = await this.getMonthlyCost();
+    const monthlyCost = await this.getMonthlyCost(tenantId);
     if (monthlyCost >= COST_THRESHOLDS.monthly.critical) {
       alerts.push({
         level: 'critical',
