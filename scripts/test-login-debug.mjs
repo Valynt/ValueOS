@@ -74,7 +74,7 @@ async function testLogin() {
 
     // Find and fill password field
     const passwordInput = page.locator('input[type="password"]').first();
-    await passwordInput.fill("passw0rd!");
+    await passwordInput.fill("passord");
 
     // Click submit button
     console.log("🔐 Submitting login form...");
