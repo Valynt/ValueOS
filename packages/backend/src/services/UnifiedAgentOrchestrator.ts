@@ -14,14 +14,14 @@
  * - Extensible: Plugin architecture for routing strategies
  */
 
-import { logger } from "../lib/logger.js"
+import { logger } from "../lib/logger.js";
 import { v4 as uuidv4 } from "uuid";
 import * as z from "zod";
-import { CircuitBreakerManager } from "./CircuitBreaker.js"
-import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
+import { CircuitBreakerManager } from "./CircuitBreaker.js";
+import { AgentRecord, AgentRegistry } from "./AgentRegistry.js";
 import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
-import { logAgentResponse } from "./AgentAuditLogger.js"
-import { AgentType } from "./agent-types.js"
+import { logAgentResponse } from "./AgentAuditLogger.js";
+import { AgentType } from "./agent-types.js";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
@@ -29,25 +29,20 @@ import {
   StructuralTruthModuleSchema,
   STRUCTURAL_TRUTH_SCHEMA_FIELDS,
 } from "@mcp/ground-truth/modules/StructuralTruthModule";
+import { validateGroundTruthMetadata, assertProvenance } from "@mcp/ground-truth/validators/GroundTruthValidator";
+import { ConfidenceMonitor } from "./ConfidenceMonitor";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
-import {
-  getAgentMessageBroker,
-  AgentMessageBroker,
-} from "./AgentMessageBroker";
-import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue.js"
+import { getAgentMessageBroker, AgentMessageBroker } from "./AgentMessageBroker";
+import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue.js";
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
-import {
-  AgentContext,
-  AgentResponse as APIAgentResponse,
-  getAgentAPI,
-} from "./AgentAPI";
+import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
 
 // ============================================================================
 // Middleware Types
@@ -79,9 +74,7 @@ export interface AgentMiddleware {
 export class IntegrityVetoMiddleware implements AgentMiddleware {
   public readonly name = "integrity_veto";
 
-  constructor(
-    private orchestrator: UnifiedAgentOrchestrator
-  ) {}
+  constructor(private orchestrator: UnifiedAgentOrchestrator) {}
 
   async execute(
     context: AgentMiddlewareContext,
@@ -92,19 +85,16 @@ export class IntegrityVetoMiddleware implements AgentMiddleware {
 
     // Apply integrity veto check
     if (response.payload) {
-      const vetoResult = await this.orchestrator.evaluateIntegrityVeto(
-        response.payload,
-        {
-          traceId: context.traceId,
-          agentType: context.agentType,
-          query: context.query,
-          context: {
-            userId: context.userId,
-            sessionId: context.sessionId,
-            organizationId: context.envelope.organizationId,
-          },
-        }
-      );
+      const vetoResult = await this.orchestrator.evaluateIntegrityVeto(response.payload, {
+        traceId: context.traceId,
+        agentType: context.agentType,
+        query: context.query,
+        context: {
+          userId: context.userId,
+          sessionId: context.sessionId,
+          organizationId: context.envelope.organizationId,
+        },
+      });
 
       if (vetoResult.vetoed) {
         // Return vetoed response
@@ -124,13 +114,10 @@ export class IntegrityVetoMiddleware implements AgentMiddleware {
 }
 import { renderPage, RenderPageOptions } from "@sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
-import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js"
-import {
-  getEnhancedParallelExecutor,
-  RunnableTask,
-} from "./EnhancedParallelExecutor.js"
-import { supabase } from "../lib/supabase.js"
-import { featureFlags } from "../config/featureFlags.js"
+import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
+import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExecutor.js";
+import { supabase } from "../lib/supabase.js";
+import { featureFlags } from "../config/featureFlags.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
 import {
   AgentRequest,
@@ -347,6 +334,8 @@ export class UnifiedAgentOrchestrator {
   private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
   private groundTruthService = GroundTruthIntegrationService.getInstance();
   private groundTruthInitialized = false;
+  private confidenceMonitor: ConfidenceMonitor;
+  private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
 
   constructor(
@@ -367,6 +356,9 @@ export class UnifiedAgentOrchestrator {
     this.llmGateway = llmGateway;
     this.messageBroker = messageBroker;
     this.agentMessageQueue = agentMessageQueue;
+
+    // Initialize services
+    this.confidenceMonitor = new ConfidenceMonitor(supabase);
 
     // Initialize middleware
     this.initializeMiddleware();
@@ -474,8 +466,114 @@ export class UnifiedAgentOrchestrator {
       stageId?: string;
       context?: AgentContext;
     }
-  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata }> {
+  ): Promise<{ vetoed: boolean; metadata?: IntegrityVetoMetadata; reRefine?: boolean }> {
     const claims = this.extractNumericClaims(payload);
+
+    // Validate ground truth metadata schema if present (best-effort)
+    try {
+      if (typeof payload === "object" && payload !== null && "metadata" in payload) {
+        const metadata = (payload as any).metadata;
+        if (metadata) {
+          validateGroundTruthMetadata(metadata);
+          assertProvenance(metadata);
+        }
+      }
+    } catch (error) {
+      logger.warn("Ground truth metadata validation failed", {
+        traceId: options.traceId,
+        agentType: options.agentType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Check ConfidenceMonitor for low confidence threshold (global signal)
+    try {
+      const metrics = await this.confidenceMonitor.getMetrics(options.agentType, "hour");
+      const confidenceScore = metrics.avgConfidenceScore;
+
+      if (confidenceScore < 0.85) {
+        logger.warn("Confidence score below threshold, triggering RE-REFINE", {
+          traceId: options.traceId,
+          agentType: options.agentType,
+          confidenceScore,
+          threshold: 0.85,
+        });
+        return { vetoed: false, reRefine: true };
+      }
+    } catch (error) {
+      logger.warn("Failed to check confidence score", {
+        traceId: options.traceId,
+        agentType: options.agentType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Best-effort: ask Integrity agent to evaluate this output for per-output confidence
+    try {
+      if (this.agentAPI) {
+        const integrityAgentResponse = await this.agentAPI.invokeAgent({
+          agent: "integrity",
+          query: JSON.stringify({ intent: "validate_output", payload }),
+          context: options.context,
+        });
+
+        if (integrityAgentResponse?.success && integrityAgentResponse.data) {
+          const ia = integrityAgentResponse.data as any;
+          const integrityCheck = ia.integrityCheck ?? ia;
+
+          if (integrityCheck?.confidence !== undefined && integrityCheck.confidence < 0.85) {
+            logger.warn("Integrity agent reported low confidence, requesting RE-REFINE", {
+              traceId: options.traceId,
+              agentType: options.agentType,
+              integrityConfidence: integrityCheck.confidence,
+            });
+            return { vetoed: false, reRefine: true };
+          }
+
+          if (Array.isArray(integrityCheck?.issues) && integrityCheck.issues.length > 0) {
+            // Check for any high/critical issues that warrant a veto
+            const severe = (integrityCheck.issues as any[]).find((issue) =>
+              ["high", "critical"].includes(issue.severity) &&
+              ["logic_error", "data_integrity"].includes(issue.type)
+            );
+
+            if (severe) {
+              const vetoMetadata: IntegrityVetoMetadata = {
+                integrityVeto: true,
+                deviationPercent: 100,
+                benchmark: 0,
+                metricId: "integrity_agent_issue",
+                claimedValue: 0,
+                warning: `${severe.type}: ${severe.description}`,
+              };
+
+              await logAgentResponse(
+                options.agentType,
+                options.query ?? "integrity-agent-veto",
+                false,
+                payload,
+                {
+                  traceId: options.traceId,
+                  stageId: options.stageId,
+                  integrityVeto: vetoMetadata,
+                },
+                "integrity_veto",
+                options.context
+              );
+
+              return { vetoed: true, metadata: vetoMetadata };
+            }
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn("Integrity agent call failed during integrity evaluation", {
+        traceId: options.traceId,
+        agentType: options.agentType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     if (claims.length === 0) {
       return { vetoed: false };
     }
@@ -485,21 +583,28 @@ export class UnifiedAgentOrchestrator {
     let vetoMetadata: IntegrityVetoMetadata | undefined;
     for (const claim of claims) {
       try {
-        const benchmark = await this.groundTruthService.getBenchmark(
-          claim.metricId
-        );
-        if (!benchmark.value) {
+        const metricValue = await this.executeGroundTruthToolCall<{ value?: number }>({
+          toolName: "eso_get_metric_value",
+          payload: { metricId: claim.metricId, percentile: "p50" },
+          traceId: options.traceId,
+          context: options.context,
+        });
+        const validation = await this.executeGroundTruthToolCall<{
+          warning?: string;
+          benchmark?: { p50?: number };
+        }>({
+          toolName: "eso_validate_claim",
+          payload: { metricId: claim.metricId, claimedValue: claim.claimedValue },
+          traceId: options.traceId,
+          context: options.context,
+        });
+
+        const benchmarkValue = metricValue.value ?? validation.benchmark?.p50;
+        if (!benchmarkValue) {
           continue;
         }
         const deviationPercent =
-          (Math.abs(claim.claimedValue - benchmark.value) /
-            Math.abs(benchmark.value)) *
-          100;
-        const validation = await this.groundTruthService.validateClaim(
-          claim.metricId,
-          claim.claimedValue
-        );
-
+          (Math.abs(claim.claimedValue - benchmarkValue) / Math.abs(benchmarkValue)) * 100;
         if (
           deviationPercent > 15 &&
           (!vetoMetadata || deviationPercent > vetoMetadata.deviationPercent)
@@ -507,7 +612,7 @@ export class UnifiedAgentOrchestrator {
           vetoMetadata = {
             integrityVeto: true,
             deviationPercent,
-            benchmark: benchmark.value,
+            benchmark: benchmarkValue,
             metricId: claim.metricId,
             claimedValue: claim.claimedValue,
             warning: validation.warning,
@@ -611,12 +716,11 @@ export class UnifiedAgentOrchestrator {
         });
 
         if (integrityAgentResponse?.success && integrityAgentResponse.data) {
-          vetoMetadata.warning =
-            `${vetoMetadata.warning} | integrity_agent_summary: ${
-              typeof integrityAgentResponse.data === "string"
-                ? integrityAgentResponse.data
-                : JSON.stringify(integrityAgentResponse.data)
-            }`;
+          vetoMetadata.warning = `${vetoMetadata.warning} | integrity_agent_summary: ${
+            typeof integrityAgentResponse.data === "string"
+              ? integrityAgentResponse.data
+              : JSON.stringify(integrityAgentResponse.data)
+          }`;
         }
       }
     } catch (err) {
@@ -629,10 +733,75 @@ export class UnifiedAgentOrchestrator {
     return { vetoed: true, metadata: vetoMetadata };
   }
 
-  private normalizeExecutionRequest(
-    intent: string,
-    execution: ExecutionRequest
-  ) {
+  private async performReRefine(
+    agentType: AgentType,
+    originalQuery: string,
+    agentContext: AgentContext,
+    traceId: string,
+    maxAttempts: number = this.maxReRefineAttempts
+  ): Promise<{ success: boolean; response?: any; attempts: number }> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        logger.info("Attempting RE-REFINE", { traceId, agentType, attempt });
+        const refinePrompt = `${originalQuery}\n\nREFINE: Please re-run your analysis with explicit grounding: include metric ids (ESO), numeric citations, provenance metadata, and a causal trace (impact cascade) that links back to any verified Opportunity in memory. Provide structured JSON output where possible. Attempt: ${attempt}`;
+
+        const circuitBreakerKey = `query-${agentType}-refine-${attempt}`;
+        const agentResponse = await this.circuitBreakers.execute(
+          circuitBreakerKey,
+          () =>
+            this.agentAPI.invokeAgent({
+              agent: agentType,
+              query: refinePrompt,
+              context: agentContext,
+            }),
+          { timeoutMs: this.config.defaultTimeoutMs }
+        );
+
+        if (!agentResponse?.success) {
+          logger.warn("RE-REFINE attempt failed (agent error)", { traceId, agentType, attempt });
+          continue;
+        }
+
+        const structural = await this.evaluateStructuralTruthVeto(agentResponse.data, {
+          traceId,
+          agentType,
+          query: originalQuery,
+          context: agentContext,
+        });
+        if (structural.vetoed) {
+          logger.warn("RE-REFINE produced structurally invalid output, retrying", { traceId, agentType, attempt });
+          continue;
+        }
+
+        const integrity = await this.evaluateIntegrityVeto(agentResponse.data, {
+          traceId,
+          agentType,
+          query: originalQuery,
+          context: agentContext,
+        });
+
+        if (integrity.reRefine) {
+          logger.info("RE-REFINE requested further refinement", { traceId, agentType, attempt });
+          continue;
+        }
+
+        if (integrity.vetoed) {
+          logger.warn("RE-REFINE produced output that was vetoed", { traceId, agentType, attempt });
+          return { success: false, response: agentResponse, attempts: attempt };
+        }
+
+        return { success: true, response: agentResponse, attempts: attempt };
+      } catch (err) {
+        logger.warn("RE-REFINE attempt errored", { traceId, agentType, attempt, error: err instanceof Error ? err.message : String(err) });
+        continue;
+      }
+    }
+
+    logger.info("RE-REFINE exhausted attempts without acceptance", { traceId, agentType, attempts: maxAttempts });
+    return { success: false, attempts: maxAttempts };
+  }
+
+  private normalizeExecutionRequest(intent: string, execution: ExecutionRequest) {
     return { ...execution, intent };
   }
 
@@ -648,13 +817,10 @@ export class UnifiedAgentOrchestrator {
     userId: string,
     traceId: string
   ): WorkflowExecutionRecord {
-    const persona =
-      context.persona || context.buyer_persona?.role || context.role;
+    const persona = context.persona || context.buyer_persona?.role || context.role;
     const industry = context.industry || context.companyProfile?.industry;
     const fiscalQuarter =
-      context.fiscal_quarter ||
-      context.quarter ||
-      this.deriveFiscalQuarter(new Date());
+      context.fiscal_quarter || context.quarter || this.deriveFiscalQuarter(new Date());
 
     return {
       workflowDefinitionId,
@@ -745,9 +911,7 @@ export class UnifiedAgentOrchestrator {
       currentState.context?.organizationId &&
       currentState.context.organizationId !== envelope.organizationId
     ) {
-      throw new Error(
-        "Execution envelope organization does not match workflow state"
-      );
+      throw new Error("Execution envelope organization does not match workflow state");
     }
 
     logger.info("Processing query asynchronously", {
@@ -870,8 +1034,7 @@ export class UnifiedAgentOrchestrator {
       const response: AgentResponse = {
         type: "message",
         payload: {
-          message:
-            "Output failed structural truth validation against expected schema.",
+          message: "Output failed structural truth validation against expected schema.",
           error: true,
         },
         metadata: structuralCheck.metadata,
@@ -884,17 +1047,63 @@ export class UnifiedAgentOrchestrator {
       };
     }
 
-    const integrityCheck = await this.evaluateIntegrityVeto(result.data, {
+    let integrityCheck = await this.evaluateIntegrityVeto(result.data, {
       traceId: result.traceId,
       agentType: "coordinator",
       query: "async-query-result",
     });
+
+    if (integrityCheck.reRefine) {
+      logger.info("Triggering async RE-REFINE loop due to low confidence", {
+        traceId: result.traceId,
+        agentType: "coordinator",
+      });
+
+      const agentContext: AgentContext = {
+        userId: currentState.context?.requestedBy || currentState.context?.requester || "system",
+        sessionId: currentState.context?.sessionId || "",
+        organizationId: currentState.context?.organizationId || "",
+        metadata: { currentStage: currentState.currentStage },
+      };
+
+      const re = await this.performReRefine(
+        "coordinator",
+        `Refine based on prior async output: ${JSON.stringify(result.data).slice(0, 1000)}`,
+        agentContext,
+        result.traceId
+      );
+
+      if (re.success && re.response) {
+        // Replace result.data with refined response
+        result.data = re.response.data;
+        integrityCheck = await this.evaluateIntegrityVeto(result.data, {
+          traceId: result.traceId,
+          agentType: "coordinator",
+          query: "async-query-result",
+        });
+      } else {
+        const response: AgentResponse = {
+          type: "message",
+          payload: {
+            message:
+              "Unable to auto-refine response. Please try again or request manual review.",
+            error: true,
+          },
+        };
+
+        return {
+          response,
+          nextState: currentState,
+          traceId: result.traceId,
+        };
+      }
+    }
+
     if (integrityCheck.vetoed) {
       const response: AgentResponse = {
         type: "message",
         payload: {
-          message:
-            "Output failed integrity validation against ground truth benchmarks.",
+          message: "Output failed integrity validation against ground truth benchmarks.",
           error: true,
         },
         metadata: integrityCheck.metadata,
@@ -925,10 +1134,7 @@ export class UnifiedAgentOrchestrator {
         },
         {
           role: "assistant",
-          content:
-            typeof result.data === "string"
-              ? result.data
-              : JSON.stringify(result.data),
+          content: typeof result.data === "string" ? result.data : JSON.stringify(result.data),
           timestamp: new Date().toISOString(),
         },
       ];
@@ -941,10 +1147,7 @@ export class UnifiedAgentOrchestrator {
     const response: AgentResponse = {
       type: "message",
       payload: {
-        message:
-          typeof result.data === "string"
-            ? result.data
-            : JSON.stringify(result.data),
+        message: typeof result.data === "string" ? result.data : JSON.stringify(result.data),
       },
     };
 
@@ -1139,7 +1342,7 @@ export class UnifiedAgentOrchestrator {
 
       // Call agent with circuit breaker protection
       const circuitBreakerKey = `query-${agentType}`;
-      const agentResponse = await this.circuitBreakers.execute(
+      let agentResponse = await this.circuitBreakers.execute(
         circuitBreakerKey,
         () =>
           this.agentAPI.invokeAgent({
@@ -1187,6 +1390,36 @@ export class UnifiedAgentOrchestrator {
             context: agentContext,
           }
         );
+
+        if (integrityCheck.reRefine) {
+          logger.info("Triggering RE-REFINE loop due to low confidence", {
+            traceId,
+            agentType,
+            sessionId,
+          });
+
+          const re = await this.performReRefine(agentType, query, agentContext, traceId);
+          if (re.success && re.response) {
+            // Replace agentResponse with refined result
+            agentResponse = re.response;
+          } else {
+            const response: AgentResponse = {
+              type: "message",
+              payload: {
+                message:
+                  "Unable to auto-refine response. Please try again or request manual review.",
+                error: true,
+              },
+            };
+
+            return {
+              response,
+              nextState: currentState,
+              traceId,
+            };
+          }
+        }
+
         if (integrityCheck.vetoed) {
           const response: AgentResponse = {
             type: "message",
@@ -1308,10 +1541,7 @@ export class UnifiedAgentOrchestrator {
       environment: "production",
     }
   ): WorkflowState {
-    const normalizedExecution = normalizeExecutionRequest(
-      "agent-query",
-      execution
-    );
+    const normalizedExecution = normalizeExecutionRequest("agent-query", execution);
 
     return {
       currentStage: initialStage,
@@ -1336,11 +1566,7 @@ export class UnifiedAgentOrchestrator {
   /**
    * Update workflow stage (pure function)
    */
-  updateStage(
-    currentState: WorkflowState,
-    stage: string,
-    status: WorkflowStatus
-  ): WorkflowState {
+  updateStage(currentState: WorkflowState, stage: string, status: WorkflowStatus): WorkflowState {
     const nextState: WorkflowState = {
       ...currentState,
       currentStage: stage,
@@ -1348,10 +1574,7 @@ export class UnifiedAgentOrchestrator {
       completedStages: [...currentState.completedStages],
     };
 
-    if (
-      status === "completed" &&
-      !nextState.completedStages.includes(currentState.currentStage)
-    ) {
+    if (status === "completed" && !nextState.completedStages.includes(currentState.currentStage)) {
       nextState.completedStages.push(currentState.currentStage);
     }
 
@@ -1393,15 +1616,10 @@ export class UnifiedAgentOrchestrator {
         .maybeSingle();
 
       if (defError || !definition) {
-        throw new Error(
-          `Workflow definition not found: ${workflowDefinitionId}`
-        );
+        throw new Error(`Workflow definition not found: ${workflowDefinitionId}`);
       }
 
-      if (
-        definition.organization_id &&
-        definition.organization_id !== envelope.organizationId
-      ) {
+      if (definition.organization_id && definition.organization_id !== envelope.organizationId) {
         throw new Error("Workflow not authorized for this organization");
       }
 
@@ -1439,15 +1657,10 @@ export class UnifiedAgentOrchestrator {
         throw new Error("Failed to create workflow execution");
       }
 
-      await this.recordWorkflowEvent(
-        executionId,
-        "workflow_initiated",
-        dag.initial_stage,
-        {
-          envelope,
-          stageExecutionId: initialStageExecutionId,
-        }
-      );
+      await this.recordWorkflowEvent(executionId, "workflow_initiated", dag.initial_stage, {
+        envelope,
+        stageExecutionId: initialStageExecutionId,
+      });
 
       // Execute DAG asynchronously
       this.executeDAGAsync(
@@ -1466,14 +1679,10 @@ export class UnifiedAgentOrchestrator {
         completedStages: [],
       };
     } catch (error) {
-      logger.error(
-        "Workflow execution failed",
-        error instanceof Error ? error : undefined,
-        {
-          traceId,
-          workflowDefinitionId,
-        }
-      );
+      logger.error("Workflow execution failed", error instanceof Error ? error : undefined, {
+        traceId,
+        workflowDefinitionId,
+      });
       throw error;
     }
   }
@@ -1521,13 +1730,8 @@ export class UnifiedAgentOrchestrator {
     const dag: WorkflowDAG = definition.dag_schema as WorkflowDAG;
 
     // Retrieve similar past episodes for prediction
-    const orgId =
-      (context as any)?.organizationId || (context as any)?.tenantId;
-    const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(
-      context,
-      5,
-      orgId
-    );
+    const orgId = (context as any)?.organizationId || (context as any)?.tenantId;
+    const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(context, 5, orgId);
 
     // Simulate each stage
     const stepsSimulated: any[] = [];
@@ -1545,11 +1749,7 @@ export class UnifiedAgentOrchestrator {
       stepNumber++;
 
       // Predict stage outcome using LLM
-      const prediction = await this.predictStageOutcome(
-        stage,
-        simulationContext,
-        similarEpisodes
-      );
+      const prediction = await this.predictStageOutcome(stage, simulationContext, similarEpisodes);
 
       stepsSimulated.push({
         stage_id: currentStageId,
@@ -1585,17 +1785,14 @@ export class UnifiedAgentOrchestrator {
     }
 
     const duration = Date.now() - startTime;
-    const avgConfidence =
-      stepsSimulated.length > 0 ? totalConfidence / stepsSimulated.length : 0;
+    const avgConfidence = stepsSimulated.length > 0 ? totalConfidence / stepsSimulated.length : 0;
 
     // Assess risks
     const riskAssessment = {
-      low_confidence_steps: stepsSimulated.filter((s) => s.confidence < 0.7)
-        .length,
+      low_confidence_steps: stepsSimulated.filter((s) => s.confidence < 0.7).length,
       estimated_cost_usd: stepsSimulated.length * 0.01,
       requires_approval: stepsSimulated.some(
-        (s) =>
-          s.stage_name.includes("delete") || s.stage_name.includes("remove")
+        (s) => s.stage_name.includes("delete") || s.stage_name.includes("remove")
       ),
     };
 
@@ -1646,13 +1843,10 @@ Provide a JSON response with:
 - estimatedDuration: seconds`;
 
     try {
-      const response = await this.llmGateway.chat(
-        [{ role: "user", content: prompt }],
-        {
-          maxTokens: 500,
-          temperature: 0.3,
-        }
-      );
+      const response = await this.llmGateway.chat([{ role: "user", content: prompt }], {
+        maxTokens: 500,
+        temperature: 0.3,
+      });
 
       const parsed = JSON.parse(response.content);
       return {
@@ -1734,11 +1928,7 @@ Provide a JSON response with:
         context: Record<string, any>;
         startedAt: Date;
       }>[] = readyStages.map((stage) => {
-        const route = this.routingLayer.routeStage(
-          dag,
-          stage.id,
-          executionContext
-        );
+        const route = this.routingLayer.routeStage(dag, stage.id, executionContext);
         const startedAt = new Date();
         stageStartTimes.set(stage.id, startedAt);
         inProgressStages.add(stage.id);
@@ -1790,15 +1980,12 @@ Provide a JSON response with:
 
         if (result.success && result.result?.stageResult.status === "completed") {
           const stageOutput = result.result.stageResult.output || {};
-          const structuralCheck = await this.evaluateStructuralTruthVeto(
-            stageOutput,
-            {
-              traceId,
-              agentType: stage.agent_type as AgentType,
-              query: stage.description ?? stage.id,
-              stageId: stage.id,
-            }
-          );
+          const structuralCheck = await this.evaluateStructuralTruthVeto(stageOutput, {
+            traceId,
+            agentType: stage.agent_type as AgentType,
+            query: stage.description ?? stage.id,
+            stageId: stage.id,
+          });
           if (structuralCheck.vetoed) {
             const vetoMessage =
               "Output failed structural truth validation against expected schema.";
@@ -1840,23 +2027,13 @@ Provide a JSON response with:
               },
             };
 
-            await this.recordWorkflowEvent(
-              executionId,
-              "stage_failed",
-              stage.id,
-              {
-                reason: "integrity_veto",
-                metadata: structuralCheck.metadata,
-              }
-            );
+            await this.recordWorkflowEvent(executionId, "stage_failed", stage.id, {
+              reason: "integrity_veto",
+              metadata: structuralCheck.metadata,
+            });
 
             await this.persistExecutionRecord(executionId, recordSnapshot);
-            await this.updateExecutionStatus(
-              executionId,
-              "failed",
-              stage.id,
-              recordSnapshot
-            );
+            await this.updateExecutionStatus(executionId, "failed", stage.id, recordSnapshot);
             continue;
           }
 
@@ -1908,23 +2085,13 @@ Provide a JSON response with:
               },
             };
 
-            await this.recordWorkflowEvent(
-              executionId,
-              "stage_failed",
-              stage.id,
-              {
-                reason: "integrity_veto",
-                metadata: integrityCheck.metadata,
-              }
-            );
+            await this.recordWorkflowEvent(executionId, "stage_failed", stage.id, {
+              reason: "integrity_veto",
+              metadata: integrityCheck.metadata,
+            });
 
             await this.persistExecutionRecord(executionId, recordSnapshot);
-            await this.updateExecutionStatus(
-              executionId,
-              "failed",
-              stage.id,
-              recordSnapshot
-            );
+            await this.updateExecutionStatus(executionId, "failed", stage.id, recordSnapshot);
             continue;
           }
 
@@ -1960,8 +2127,7 @@ Provide a JSON response with:
                 [stage.id]: stageOutput,
               },
             },
-            economicDeltas:
-              stageOutput?.economic_deltas || recordSnapshot.economicDeltas,
+            economicDeltas: stageOutput?.economic_deltas || recordSnapshot.economicDeltas,
           };
 
           await this.recordStageRun(
@@ -1976,9 +2142,7 @@ Provide a JSON response with:
           completedStages.add(stage.id);
         } else {
           const errorMessage =
-            result.result?.stageResult.error ||
-            result.error ||
-            "Unknown stage error";
+            result.result?.stageResult.error || result.error || "Unknown stage error";
           failedStages.set(stage.id, errorMessage);
 
           const lifecycleRecord: StageLifecycleRecord = {
@@ -2012,12 +2176,7 @@ Provide a JSON response with:
         }
 
         await this.persistExecutionRecord(executionId, recordSnapshot);
-        await this.updateExecutionStatus(
-          executionId,
-          "in_progress",
-          stage.id,
-          recordSnapshot
-        );
+        await this.updateExecutionStatus(executionId, "in_progress", stage.id, recordSnapshot);
       }
 
       if (integrityVetoed) {
@@ -2027,10 +2186,7 @@ Provide a JSON response with:
 
     if (completedStages.size + failedStages.size < totalStages) {
       const blockedStages = dag.stages
-        .filter(
-          (stage) =>
-            !completedStages.has(stage.id) && !failedStages.has(stage.id)
-        )
+        .filter((stage) => !completedStages.has(stage.id) && !failedStages.has(stage.id))
         .map((stage) => stage.id);
 
       for (const stageId of blockedStages) {
@@ -2048,21 +2204,11 @@ Provide a JSON response with:
         errorSummary,
       });
 
-      await this.updateExecutionStatus(
-        executionId,
-        "failed",
-        null,
-        recordSnapshot
-      );
+      await this.updateExecutionStatus(executionId, "failed", null, recordSnapshot);
       return;
     }
 
-    await this.updateExecutionStatus(
-      executionId,
-      "completed",
-      null,
-      recordSnapshot
-    );
+    await this.updateExecutionStatus(executionId, "completed", null, recordSnapshot);
   }
 
   /**
@@ -2276,16 +2422,10 @@ Provide a JSON response with:
           response = await this.agentAPI.generateValueCase(query, context);
           break;
         case "realization":
-          response = await this.agentAPI.generateRealizationDashboard(
-            query,
-            context
-          );
+          response = await this.agentAPI.generateRealizationDashboard(query, context);
           break;
         case "expansion":
-          response = await this.agentAPI.generateExpansionOpportunities(
-            query,
-            context
-          );
+          response = await this.agentAPI.generateExpansionOpportunities(query, context);
           break;
         default:
           response = await this.agentAPI.invokeAgent({ agent, query, context });
@@ -2313,14 +2453,10 @@ Provide a JSON response with:
         sduiPage: response.data,
       };
     } catch (error) {
-      logger.error(
-        "SDUI generation failed",
-        error instanceof Error ? error : undefined,
-        {
-          traceId,
-          agent,
-        }
-      );
+      logger.error("SDUI generation failed", error instanceof Error ? error : undefined, {
+        traceId,
+        agent,
+      });
       throw error;
     }
   }
@@ -2338,12 +2474,7 @@ Provide a JSON response with:
     response: AgentResponse;
     rendered: ReturnType<typeof renderPage>;
   }> {
-    const response = await this.generateSDUIPage(
-      envelope,
-      agent,
-      query,
-      context
-    );
+    const response = await this.generateSDUIPage(envelope, agent, query, context);
 
     if (response.sduiPage) {
       const rendered = renderPage(response.sduiPage, renderOptions);
@@ -2372,12 +2503,7 @@ Provide a JSON response with:
     const taskId = uuidv4();
 
     // Generate subgoals based on intent type
-    const subgoals = this.generateSubgoals(
-      taskId,
-      intentType,
-      description,
-      context
-    );
+    const subgoals = this.generateSubgoals(taskId, intentType, description, context);
 
     // Determine execution order
     const executionOrder = this.determineExecutionOrder(subgoals);
@@ -2386,8 +2512,7 @@ Provide a JSON response with:
     const complexityScore = this.calculateComplexity(subgoals);
 
     // Determine if simulation is needed
-    const requiresSimulation =
-      this.config.enableSimulation && complexityScore > 0.7;
+    const requiresSimulation = this.config.enableSimulation && complexityScore > 0.7;
 
     return {
       taskId,
@@ -2442,8 +2567,7 @@ Provide a JSON response with:
       ],
     };
 
-    const pattern =
-      subgoalPatterns[intentType] || subgoalPatterns.value_assessment;
+    const pattern = subgoalPatterns[intentType] || subgoalPatterns.value_assessment;
     const subgoalIdMap = new Map<string, string>();
 
     return pattern.map((step, index) => {
@@ -2475,9 +2599,7 @@ Provide a JSON response with:
     const remaining = [...subgoals];
 
     while (remaining.length > 0) {
-      const ready = remaining.filter((sg) =>
-        sg.dependencies.every((dep) => completed.has(dep))
-      );
+      const ready = remaining.filter((sg) => sg.dependencies.every((dep) => completed.has(dep)));
 
       if (ready.length === 0 && remaining.length > 0) {
         throw new Error("Circular dependency detected in subgoals");
@@ -2501,13 +2623,9 @@ Provide a JSON response with:
     if (subgoals.length === 0) return 0;
 
     const avgComplexity =
-      subgoals.reduce((sum, sg) => sum + sg.estimatedComplexity, 0) /
-      subgoals.length;
+      subgoals.reduce((sum, sg) => sum + sg.estimatedComplexity, 0) / subgoals.length;
     const countFactor = Math.min(subgoals.length / 10, 1);
-    const totalDeps = subgoals.reduce(
-      (sum, sg) => sum + sg.dependencies.length,
-      0
-    );
+    const totalDeps = subgoals.reduce((sum, sg) => sum + sg.dependencies.length, 0);
     const depFactor = Math.min(totalDeps / (subgoals.length * 2), 1);
 
     return Math.min((avgComplexity + countFactor + depFactor) / 3, 1);
@@ -2580,10 +2698,7 @@ Provide a JSON response with:
       return "system-mapper";
     }
 
-    if (
-      lowerQuery.includes("intervention") ||
-      lowerQuery.includes("solution")
-    ) {
+    if (lowerQuery.includes("intervention") || lowerQuery.includes("solution")) {
       return "intervention-designer";
     }
 
@@ -2635,9 +2750,7 @@ Provide a JSON response with:
   /**
    * Register an agent
    */
-  registerAgent(
-    registration: Parameters<AgentRegistry["registerAgent"]>[0]
-  ): AgentRecord {
+  registerAgent(registration: Parameters<AgentRegistry["registerAgent"]>[0]): AgentRecord {
     return this.registry.registerAgent(registration);
   }
 
@@ -2645,9 +2758,7 @@ Provide a JSON response with:
   // Helper Methods
   // ==========================================================================
 
-  private validateExecutionIntent(
-    envelope: ExecutionEnvelope
-  ): ExecutionEnvelope {
+  private validateExecutionIntent(envelope: ExecutionEnvelope): ExecutionEnvelope {
     const parsed = executionIntentSchema.safeParse(envelope);
     if (!parsed.success) {
       throw new Error(`Invalid execution envelope: ${parsed.error.message}`);
@@ -2663,14 +2774,10 @@ Provide a JSON response with:
 
     const stageIds = new Set(parsed.data.stages.map((stage) => stage.id));
     if (!stageIds.has(parsed.data.initial_stage)) {
-      throw new Error(
-        "Workflow DAG initial_stage must reference an existing stage"
-      );
+      throw new Error("Workflow DAG initial_stage must reference an existing stage");
     }
 
-    const missingFinals = parsed.data.final_stages.filter(
-      (stage) => !stageIds.has(stage)
-    );
+    const missingFinals = parsed.data.final_stages.filter((stage) => !stageIds.has(stage));
     if (missingFinals.length > 0) {
       throw new Error(
         `Workflow DAG final_stages reference missing stages: ${missingFinals.join(", ")}`
@@ -2678,9 +2785,7 @@ Provide a JSON response with:
     }
 
     const invalidTransitions = parsed.data.transitions.filter(
-      (transition) =>
-        !stageIds.has(transition.from_stage) ||
-        !stageIds.has(transition.to_stage)
+      (transition) => !stageIds.has(transition.from_stage) || !stageIds.has(transition.to_stage)
     );
     if (invalidTransitions.length > 0) {
       throw new Error("Workflow DAG transitions reference missing stages");
@@ -2698,9 +2803,7 @@ Provide a JSON response with:
       .limit(1);
 
     if (error) {
-      throw new Error(
-        `Failed to fetch workflow event sequence: ${error.message}`
-      );
+      throw new Error(`Failed to fetch workflow event sequence: ${error.message}`);
     }
 
     const lastSequence = data?.[0]?.sequence ?? 0;
@@ -2756,10 +2859,7 @@ Provide a JSON response with:
     // Check duration limit
     const elapsed = Date.now() - startTime;
     if (elapsed > autonomy.maxDurationMs) {
-      await this.handleWorkflowFailure(
-        executionId,
-        "Autonomy guard: max duration exceeded"
-      );
+      await this.handleWorkflowFailure(executionId, "Autonomy guard: max duration exceeded");
       securityLogger.log({
         category: "autonomy",
         action: "duration_limit_exceeded",
@@ -2777,10 +2877,7 @@ Provide a JSON response with:
     // Check cost limit
     const cost = context.cost_accumulated_usd || 0;
     if (cost > autonomy.maxCostUsd) {
-      await this.handleWorkflowFailure(
-        executionId,
-        "Autonomy guard: max cost exceeded"
-      );
+      await this.handleWorkflowFailure(executionId, "Autonomy guard: max cost exceeded");
       securityLogger.log({
         category: "autonomy",
         action: "cost_limit_exceeded",
@@ -2798,18 +2895,9 @@ Provide a JSON response with:
     // Check destructive action approval
     if (autonomy.requireApprovalForDestructive) {
       const approvalState = context.approvals || {};
-      const destructivePending = context.destructive_actions_pending as
-        | string[]
-        | undefined;
-      if (
-        destructivePending &&
-        destructivePending.length > 0 &&
-        !approvalState[executionId]
-      ) {
-        await this.handleWorkflowFailure(
-          executionId,
-          "Approval required for destructive actions"
-        );
+      const destructivePending = context.destructive_actions_pending as string[] | undefined;
+      if (destructivePending && destructivePending.length > 0 && !approvalState[executionId]) {
+        await this.handleWorkflowFailure(executionId, "Approval required for destructive actions");
         securityLogger.log({
           category: "autonomy",
           action: "destructive_action_unapproved",
@@ -2872,9 +2960,7 @@ Provide a JSON response with:
 
     // Check iteration limits
     const agentMaxIterations = autonomy.agentMaxIterations || {};
-    const maxIterations = stageAgentId
-      ? agentMaxIterations[stageAgentId]
-      : undefined;
+    const maxIterations = stageAgentId ? agentMaxIterations[stageAgentId] : undefined;
     if (maxIterations !== undefined) {
       const executed = (context.executed_steps || []).filter(
         (s: any) => s.agent_id === stageAgentId
@@ -2930,8 +3016,7 @@ Provide a JSON response with:
       inputs: executionRecord.io.inputs,
       assumptions: executionRecord.io.assumptions,
       outputs: output || {},
-      economic_deltas:
-        output?.economic_deltas || executionRecord.economicDeltas,
+      economic_deltas: output?.economic_deltas || executionRecord.economicDeltas,
       persona: executionRecord.persona,
       industry: executionRecord.industry,
       fiscal_quarter: executionRecord.fiscalQuarter,
@@ -2959,18 +3044,11 @@ Provide a JSON response with:
       update.fiscal_quarter = executionRecord.fiscalQuarter;
     }
 
-    if (
-      status === "completed" ||
-      status === "failed" ||
-      status === "rolled_back"
-    ) {
+    if (status === "completed" || status === "failed" || status === "rolled_back") {
       update.completed_at = new Date().toISOString();
     }
 
-    await supabase
-      .from("workflow_executions")
-      .update(update)
-      .eq("id", executionId);
+    await supabase.from("workflow_executions").update(update).eq("id", executionId);
   }
 
   /**
@@ -3007,10 +3085,7 @@ Provide a JSON response with:
     return data || [];
   }
 
-  private async handleWorkflowFailure(
-    executionId: string,
-    errorMessage: string
-  ): Promise<void> {
+  private async handleWorkflowFailure(executionId: string, errorMessage: string): Promise<void> {
     await supabase
       .from("workflow_executions")
       .update({

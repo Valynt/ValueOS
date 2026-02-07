@@ -110,6 +110,35 @@ export class AgentExecutorService {
       // Publish response event
       await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, agentResponseEvent);
 
+      // Broadcast to realtime clients in the tenant
+      try {
+        const broadcastService = (await import("./RealtimeBroadcastService.js")).getRealtimeBroadcastService();
+        broadcastService.broadcastToTenant(
+          agentResponseEvent.payload.tenantId,
+          "agent.reasoning.update",
+          {
+            agentId: agentResponseEvent.payload.agentId,
+            sessionId: agentResponseEvent.payload.sessionId,
+            response: agentResponseEvent.payload.response,
+            status: agentResponseEvent.payload.status,
+            correlationId: agentResponseEvent.correlationId,
+            timestamp: agentResponseEvent.meta?.timestamp || new Date().toISOString(),
+          }
+        );
+
+        // If IntegrityAgent reported a resolved issue, emit a dedicated event
+        if (agentResponseEvent.payload.agentId === "IntegrityAgent" && agentResponseEvent.payload.response && (agentResponseEvent.payload.response.resolvedIssueId || agentResponseEvent.payload.response.issueId)) {
+          const issueId = agentResponseEvent.payload.response.resolvedIssueId || agentResponseEvent.payload.response.issueId;
+          broadcastService.broadcastToTenant(agentResponseEvent.payload.tenantId, "integrity.issue.resolved", {
+            issueId,
+            agentId: agentResponseEvent.payload.agentId,
+            result: agentResponseEvent.payload.response,
+          });
+        }
+      } catch (bErr) {
+        logger.warn("Realtime broadcast failed", bErr instanceof Error ? bErr.message : String(bErr));
+      }
+
       // Store events for audit trail
       await this.eventSourcing.storeEvent(event);
       await this.eventSourcing.storeEvent(agentResponseEvent);
@@ -155,7 +184,33 @@ export class AgentExecutorService {
 
       // Publish error response event
       await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, errorResponseEvent);
+      // Broadcast response to websocket subscribers (tenant-scoped)
+      try {
+        const { getRealtimeBroadcastService } = await import("./RealtimeBroadcastService.js");
+        getRealtimeBroadcastService().broadcastToTenant(
+          payload.tenantId,
+          "agent.reasoning.update",
+          {
+            agentId: payload.agentId,
+            sessionId: payload.sessionId,
+            response: agentResponseEvent.payload.response,
+            latency: agentResponseEvent.payload.latency,
+            status: agentResponseEvent.payload.status,
+          }
+        );
 
+        // If integrity resolution was performed, emit specific event
+        const resp = agentResponseEvent.payload.response as any;
+        if (payload.agentId === "IntegrityAgent" && resp && resp.resolvedIssueId) {
+          getRealtimeBroadcastService().broadcastToTenant(
+            payload.tenantId,
+            "integrity.issue.resolved",
+            { issueId: resp.resolvedIssueId, resolution: resp.resolution, agentId: payload.agentId }
+          );
+        }
+      } catch (err) {
+        logger.warn("Realtime broadcast failed, continuing", err instanceof Error ? err.message : String(err));
+      }
       // Store events for audit trail
       await this.eventSourcing.storeEvent(event);
       await this.eventSourcing.storeEvent(errorResponseEvent);

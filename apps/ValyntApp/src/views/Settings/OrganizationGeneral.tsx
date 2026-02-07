@@ -1,17 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
-import { AlertCircle, Building2, Check, Loader2, Upload, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from "react";
+import { SettingsSection } from "../../components/Settings/SettingsSection";
+import { AlertCircle, Building2, Check, Loader2, Upload, X } from "lucide-react";
 import {
   applyBrandTheme,
   VALYNT_BRAND_PRIMARY,
   VALYNT_BRAND_SECONDARY,
-} from '../../styles/brandTheme';
+} from "../../styles/brandTheme";
+import { ValidatedInput } from "@/components/ui/validated-input";
 
 export const OrganizationGeneral: React.FC = () => {
-  const [orgName, setOrgName] = useState('Acme Corporation');
-  const [domain, setDomain] = useState('acme.com');
-  const [industry, setIndustry] = useState('technology');
-  const [orgSize, setOrgSize] = useState('51-200');
+  const [orgName, setOrgName] = useState("Acme Corporation");
+  const [domain, setDomain] = useState("acme.com");
+  const [industry, setIndustry] = useState("technology");
+  const [orgSize, setOrgSize] = useState("51-200");
   const [primaryColor, setPrimaryColor] = useState(VALYNT_BRAND_PRIMARY);
   const [secondaryColor, setSecondaryColor] = useState(VALYNT_BRAND_SECONDARY);
   const [logo, setLogo] = useState<string | null>(null);
@@ -21,15 +22,15 @@ export const OrganizationGeneral: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateOrgName = (name: string): string | null => {
-    if (!name.trim()) return 'Organization name is required';
-    if (name.length < 2) return 'Name must be at least 2 characters';
+    if (!name.trim()) return "Organization name is required";
+    if (name.length < 2) return "Name must be at least 2 characters";
     return null;
   };
 
   const validateDomain = (domain: string): string | null => {
-    if (!domain.trim()) return 'Domain is required';
+    if (!domain.trim()) return "Domain is required";
     const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
-    if (!domainRegex.test(domain)) return 'Invalid domain format';
+    if (!domainRegex.test(domain)) return "Invalid domain format";
     return null;
   };
 
@@ -37,13 +38,13 @@ export const OrganizationGeneral: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setErrors(prev => ({ ...prev, logo: 'Please upload an image file' }));
+    if (!file.type.startsWith("image/")) {
+      setErrors((prev) => ({ ...prev, logo: "Please upload an image file" }));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setErrors(prev => ({ ...prev, logo: 'Image must be smaller than 5MB' }));
+      setErrors((prev) => ({ ...prev, logo: "Image must be smaller than 5MB" }));
       return;
     }
 
@@ -51,7 +52,7 @@ export const OrganizationGeneral: React.FC = () => {
     reader.onloadend = () => {
       setLogo(reader.result as string);
       setIsDirty(true);
-      setErrors(prev => ({ ...prev, logo: '' }));
+      setErrors((prev) => ({ ...prev, logo: "" }));
     };
     reader.readAsDataURL(file);
   };
@@ -62,15 +63,15 @@ export const OrganizationGeneral: React.FC = () => {
 
     if (nameError || domainError) {
       setErrors({
-        orgName: nameError || '',
-        domain: domainError || '',
+        orgName: nameError || "",
+        domain: domainError || "",
       });
       return;
     }
 
     setSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       applyBrandTheme({ primary: primaryColor, secondary: secondaryColor });
       setIsDirty(false);
     } finally {
@@ -87,13 +88,20 @@ export const OrganizationGeneral: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <SettingsSection title="Organization Identity" description="Manage your organization's basic information and branding">
+      <SettingsSection
+        title="Organization Identity"
+        description="Manage your organization's basic information and branding"
+      >
         <div className="space-y-6">
           <div className="flex items-start space-x-6">
             <div>
               <div className="relative group">
                 {logo ? (
-                  <img src={logo} alt="Organization logo" className="w-24 h-24 rounded-lg object-cover border-2 border-border" />
+                  <img
+                    src={logo}
+                    alt="Organization logo"
+                    className="w-24 h-24 rounded-lg object-cover border-2 border-border"
+                  />
                 ) : (
                   <div className="w-24 h-24 bg-card rounded-lg flex items-center justify-center border-2 border-border">
                     <Building2 className="h-12 w-12 text-primary" />
@@ -101,20 +109,29 @@ export const OrganizationGeneral: React.FC = () => {
                 )}
                 {logo && (
                   <button
-                    onClick={() => { setLogo(null); setIsDirty(true); }}
+                    onClick={() => {
+                      setLogo(null);
+                      setIsDirty(true);
+                    }}
                     className="absolute -top-2 -right-2 p-1.5 bg-error text-error-foreground rounded-full hover:bg-error/80 transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                className="hidden"
+              />
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-3 flex items-center text-sm text-primary hover:text-accent transition-colors"
               >
                 <Upload className="h-4 w-4 mr-1" />
-                {logo ? 'Change Logo' : 'Upload Logo'}
+                {logo ? "Change Logo" : "Upload Logo"}
               </button>
               <p className="text-xs text-muted-foreground mt-1">Max 5MB (PNG, JPG, SVG)</p>
               {errors.logo && <p className="text-xs text-error mt-1">{errors.logo}</p>}
@@ -125,13 +142,18 @@ export const OrganizationGeneral: React.FC = () => {
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Organization Name <span className="text-error">*</span>
                 </label>
-                <input
-                  type="text"
+                <ValidatedInput
+                  label="Organization Name"
                   value={orgName}
-                  onChange={(e) => { setOrgName(e.target.value); setIsDirty(true); }}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.orgName ? 'border-error focus:ring-error' : 'border-border focus:ring-primary'
-                  } bg-background text-foreground`}
+                  onChange={(e) => {
+                    setOrgName(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  error={errors.orgName}
+                  valid={!errors.orgName && orgName.length > 1}
+                  showValidation={true}
+                  required
+                  className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
                 />
                 {errors.orgName && <p className="text-sm text-error mt-1">{errors.orgName}</p>}
               </div>
@@ -140,14 +162,19 @@ export const OrganizationGeneral: React.FC = () => {
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Primary Domain <span className="text-error">*</span>
                 </label>
-                <input
-                  type="text"
+                <ValidatedInput
+                  label="Primary Domain"
                   value={domain}
-                  onChange={(e) => { setDomain(e.target.value); setIsDirty(true); }}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                    errors.domain ? 'border-error focus:ring-error' : 'border-border focus:ring-primary'
-                  } bg-background text-foreground`}
+                  onChange={(e) => {
+                    setDomain(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  error={errors.domain}
+                  valid={!errors.domain && domain.length > 1}
+                  showValidation={true}
+                  required
                   placeholder="example.com"
+                  className="w-full px-3 py-2 border rounded-lg bg-background text-foreground"
                 />
                 {errors.domain && <p className="text-sm text-error mt-1">{errors.domain}</p>}
               </div>
@@ -157,7 +184,10 @@ export const OrganizationGeneral: React.FC = () => {
                   <label className="block text-sm font-medium text-foreground mb-1">Industry</label>
                   <select
                     value={industry}
-                    onChange={(e) => { setIndustry(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => {
+                      setIndustry(e.target.value);
+                      setIsDirty(true);
+                    }}
                     className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="technology">Technology</option>
@@ -170,10 +200,15 @@ export const OrganizationGeneral: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Organization Size</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Organization Size
+                  </label>
                   <select
                     value={orgSize}
-                    onChange={(e) => { setOrgSize(e.target.value); setIsDirty(true); }}
+                    onChange={(e) => {
+                      setOrgSize(e.target.value);
+                      setIsDirty(true);
+                    }}
                     className="w-full px-3 py-2 border border-border bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="1-10">1-10 employees</option>
@@ -189,7 +224,10 @@ export const OrganizationGeneral: React.FC = () => {
         </div>
       </SettingsSection>
 
-      <SettingsSection title="Branding Colors" description="VALYNT colors are fixed to economic intelligence semantics.">
+      <SettingsSection
+        title="Branding Colors"
+        description="VALYNT colors are fixed to economic intelligence semantics."
+      >
         <div className="grid grid-cols-2 gap-6 max-w-2xl">
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Primary Color</label>
@@ -213,7 +251,9 @@ export const OrganizationGeneral: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Secondary Color</label>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Secondary Color
+            </label>
             <div className="flex items-center space-x-3">
               <input
                 type="color"
@@ -234,7 +274,9 @@ export const OrganizationGeneral: React.FC = () => {
           </div>
         </div>
 
-        <p className="text-xs text-muted-foreground mt-2">Brand colors are locked to VALYNT system tokens.</p>
+        <p className="text-xs text-muted-foreground mt-2">
+          Brand colors are locked to VALYNT system tokens.
+        </p>
 
         <div className="mt-6 p-4 bg-card rounded-lg border border-border">
           <p className="text-sm font-medium text-foreground mb-3">Preview</p>
@@ -264,7 +306,7 @@ export const OrganizationGeneral: React.FC = () => {
             className="flex items-center px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-accent transition-colors disabled:opacity-60"
           >
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       )}

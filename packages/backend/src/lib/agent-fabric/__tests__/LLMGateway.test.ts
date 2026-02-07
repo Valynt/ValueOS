@@ -41,7 +41,7 @@ describe('LLMGateway usage tracking', () => {
 
   it('tracks failed complete() with tenant context', async () => {
     class FailingGateway extends LLMGateway {
-      protected async executeCompletion(
+      protected override async executeCompletion(
         _request: LLMRequest,
         _startTime: number
       ): Promise<LLMResponse> {

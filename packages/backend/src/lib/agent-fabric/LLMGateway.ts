@@ -1,12 +1,13 @@
 /**
  * LLM Gateway
- * 
+ *
  * Centralized gateway for LLM interactions with circuit breaker,
  * caching, telemetry, and multi-provider support.
  */
 
 import { logger } from '../logger.js';
 import { LLMCostTracker } from '../../services/LLMCostTracker.js';
+import { CostAwareRouter } from '../../services/CostAwareRouter.js';
 
 export interface LLMGatewayConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
@@ -82,10 +83,22 @@ export interface LLMResponse {
 export class LLMGateway {
   private config: LLMGatewayConfig;
   private costTracker: LLMCostTracker;
+  private costAwareRouter: CostAwareRouter;
 
-  constructor(config: LLMGatewayConfig, costTracker = new LLMCostTracker()) {
-    this.config = config;
-    this.costTracker = costTracker;
+  constructor(config: LLMGatewayConfig | string, costTracker?: LLMCostTracker) {
+    if (typeof config === 'string') {
+      // Backward compatibility: config is provider string
+      this.config = {
+        provider: config as 'openai' | 'anthropic' | 'gemini' | 'custom',
+        model: 'gpt-4',
+        temperature: 0.7,
+        max_tokens: 4096,
+      };
+    } else {
+      this.config = config;
+    }
+    this.costTracker = costTracker || new LLMCostTracker();
+    this.costAwareRouter = new CostAwareRouter(this.costTracker);
   }
 
 
@@ -134,6 +147,32 @@ export class LLMGateway {
     }
 
     try {
+      // Get routing decision
+      const routingDecision = await this.costAwareRouter.routeRequest({
+        tenantId,
+        agentType: (metadata as any).agentType || 'unknown',
+        priority: (metadata as any).priority || 'medium',
+        tokenEstimate: this.estimateTokens(request.messages),
+        sessionId,
+      });
+
+      if (routingDecision.fallbackToBasic) {
+        // Use FallbackAIService
+        const { FallbackAIService } = await import('../../services/FallbackAIService.js');
+        const fallbackResponse = FallbackAIService.generateFallbackResponse(
+          request.messages.map(m => m.content).join(' ')
+        );
+
+        return {
+          id: `fallback_${Date.now()}`,
+          model: 'fallback',
+          content: fallbackResponse,
+          finish_reason: 'stop',
+          usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+          metadata: { ...metadata, fallback: true },
+        };
+      }
+
       logger.info('LLM request initiated', {
         provider: this.config.provider,
         model,
@@ -197,11 +236,27 @@ export class LLMGateway {
   ): Promise<LLMResponse> {
     // Placeholder for streaming implementation
     logger.info('LLM stream request', { provider: this.config.provider });
-    
+
     const fullResponse = await this.complete(request);
     callback(fullResponse.content);
-    
+
     return fullResponse;
+  }
+
+  private estimateTokens(messages: LLMMessage[]): number {
+    // Rough estimation: ~4 characters per token
+    const totalChars = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+    return Math.ceil(totalChars / 4);
+  }
+
+  /**
+   * Generate method for backward compatibility
+   */
+  async generate(prompt: string): Promise<string> {
+    const response = await this.complete({
+      messages: [{ role: 'user', content: prompt }],
+    });
+    return response.content;
   }
 }
 

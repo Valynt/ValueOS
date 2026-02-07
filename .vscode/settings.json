@@ -1,7 +1,8 @@
 {
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
+    // Temporarily disable all code actions on save for stability
+    // "source.fixAll.eslint": "explicit"
   },
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.tabSize": 2,
@@ -10,19 +11,24 @@
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
   "files.eol": "\n",
-  "search.exclude": {
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/build": true,
-    "**/.cache": true,
-    "**/coverage": true
-  },
   "files.watcherExclude": {
-    "**/.git/objects/**": true,
-    "**/.git/subtree-cache/**": true,
+    "**/.git/**": true,
     "**/node_modules/**": true,
+    "**/.pnpm-store/**": true,
     "**/dist/**": true,
-    "**/build/**": true
+    "**/build/**": true,
+    "**/.next/**": true,
+    "**/.turbo/**": true,
+    "**/.cache/**": true,
+    "**/coverage/**": true
+  },
+  "search.exclude": {
+    "**/node_modules/**": true,
+    "**/.pnpm-store/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.next/**": true,
+    "**/coverage/**": true
   },
   "typescript.preferences.importModuleSpecifier": "relative",
   "typescript.suggest.autoImports": true,
@@ -34,12 +40,21 @@
     "javascript",
     "javascriptreact",
     "typescript",
-    "typescriptreact",
-    "json",
-    "jsonc"
+    "typescriptreact"
   ],
+  "eslint.codeActionsOnSave.mode": "problems",
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.lintTask.enable": true,
+  "github.copilot.inlineSuggest.enable": false,
   "eslint.options": {
     "configFile": ".config/configs/eslint.config.js"
+  },
+  "eslint.runtime": "node",
+  "eslint.nodePath": "",
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEventsOnParentDirectory",
+    "watchDirectory": "useFsEvents",
+    "fallbackPolling": "dynamicPriority"
   },
   "tailwindCSS.experimental.configFile": ".config/configs/tailwind.config.js",
   "files.associations": {

@@ -1,69 +1,70 @@
 import type { AgentState, AgentEvent } from "./types";
-import { agentStateStore } from "../../services/AgentStateStore";
+import { workflowExecutionStore } from "../../services/WorkflowExecutionStore";
 
-type StateTransition = {
-  from: AgentState;
-  to: AgentState;
-  event: string;
-};
-
-const validTransitions: StateTransition[] = [
-  { from: "idle", to: "planning", event: "START" },
-  { from: "planning", to: "executing", event: "PLAN_APPROVED" },
-  { from: "planning", to: "waiting", event: "NEED_INPUT" },
-  { from: "planning", to: "error", event: "ERROR" },
-  { from: "executing", to: "completed", event: "DONE" },
-  { from: "executing", to: "waiting", event: "NEED_INPUT" },
-  { from: "executing", to: "error", event: "ERROR" },
-  { from: "waiting", to: "planning", event: "INPUT_RECEIVED" },
-  { from: "waiting", to: "executing", event: "CONTINUE" },
-  { from: "error", to: "idle", event: "RESET" },
-  { from: "completed", to: "idle", event: "RESET" },
-];
-
-export class PersistentAgentStateMachine {
+class PersistentAgentStateMachine {
   private id: string;
   private listeners: ((state: AgentState, event: AgentEvent) => void)[] = [];
+  private currentState: AgentState = "idle";
 
   constructor(agentId: string) {
     this.id = agentId;
   }
 
+  async initialize(): Promise<void> {
+    // Load persisted state on startup
+    const { state, events } = await workflowExecutionStore.loadAgentState(this.id);
+    this.currentState = state as AgentState;
+
+    // Replay events to listeners for state recovery
+    for (const event of events) {
+      this.notifyListeners(this.currentState, event);
+    }
+  }
+
   async getState(): Promise<AgentState> {
-    return await agentStateStore.getState(this.id);
+    return this.currentState;
   }
 
   async getHistory(): Promise<AgentEvent[]> {
-    return await agentStateStore.getHistory(this.id);
+    return await workflowExecutionStore.getAgentEvents(this.id);
   }
 
   async canTransition(event: string): Promise<boolean> {
-    const currentState = await this.getState();
-    return validTransitions.some((t) => t.from === currentState && t.event === event);
+    // Basic validation - can be extended with state transition rules
+    const validStates: Record<AgentState, string[]> = {
+      idle: ["planning", "executing"],
+      planning: ["executing", "error"],
+      executing: ["waiting", "completed", "error"],
+      waiting: ["executing", "completed", "error"],
+      completed: [],
+      error: ["idle"],
+    };
+
+    return validStates[this.currentState]?.includes(event) ?? false;
   }
 
   async transition(event: string, data?: unknown): Promise<boolean> {
-    const currentState = await this.getState();
-    const transition = validTransitions.find((t) => t.from === currentState && t.event === event);
-
-    if (!transition) {
-      console.warn(`Invalid transition: ${currentState} -> ${event}`);
-      return false;
+    if (!(await this.canTransition(event))) {
+      throw new Error(`Invalid transition from ${this.currentState} to ${event}`);
     }
 
-    const agentEvent: AgentEvent = {
+    const fromState = this.currentState;
+    const result = await workflowExecutionStore.persistTransition(this.id, fromState, event, data);
+
+    if (!result.success) {
+      throw new Error(`State transition failed: ${result.error}`);
+    }
+
+    this.currentState = event as AgentState;
+
+    // Create and notify event
+    const transitionEvent: AgentEvent = {
       type: "state_change",
       timestamp: new Date().toISOString(),
-      data: { from: currentState, to: transition.to, event, payload: data },
+      data: { fromState, toState: event, transitionData: data },
     };
 
-    // Persist the new state and event
-    await agentStateStore.setState(this.id, transition.to);
-    await agentStateStore.addEvent(this.id, agentEvent);
-
-    // Notify listeners
-    this.notifyListeners(transition.to, agentEvent);
-
+    this.notifyListeners(this.currentState, transitionEvent);
     return true;
   }
 
@@ -79,14 +80,12 @@ export class PersistentAgentStateMachine {
   }
 
   async reset(): Promise<void> {
-    await agentStateStore.setState(this.id, "idle");
-    // Clear history by setting empty history
-    await agentStateStore.setFullState({ id: this.id, state: "idle", history: [] });
+    await workflowExecutionStore.resetState(this.id);
+    this.currentState = "idle";
   }
 
   async loadFromStore(): Promise<void> {
-    // State is already loaded on demand, but we can preload if needed
-    // For now, this is a no-op since getState() fetches from store
+    await this.initialize();
   }
 }
 

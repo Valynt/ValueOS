@@ -1,11 +1,13 @@
 /**
  * Auth Test Helpers
- * 
+ *
  * Helper functions for authentication testing including mocks,
  * setup, and teardown utilities.
  */
 
 import { TEST_USERS, TEST_TENANTS, TEST_TOKENS, TEST_SESSIONS } from './auth.fixtures.js';
+import { assertTenantMember, assertCapability, deny } from "../services/AuthPolicy.js";
+import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
 
 export interface MockAuthContext {
   user_id: string;
@@ -39,9 +41,16 @@ export function mockAuthMiddleware(userType: keyof typeof TEST_USERS = 'member')
   };
 }
 
-export function createMockToken(userType: keyof typeof TEST_USERS = 'member'): string {
-  return TEST_TOKENS[userType] || TEST_TOKENS.valid;
-}
+/**
+ * Fixes the 'guest' property error by mapping it to a known valid token.
+ */
+export const createMockToken = (role: 'admin' | 'member' | 'viewer' | 'guest') => {
+  if (role === 'guest') {
+    // Fallback to 'viewer' or standard valid token since 'guest' isn't in TEST_TOKENS
+    return TEST_TOKENS.viewer || TEST_TOKENS.valid;
+  }
+  return TEST_TOKENS[role];
+};
 
 export function createMockSession(userType: keyof typeof TEST_USERS = 'admin') {
   const user = TEST_USERS[userType];
@@ -89,7 +98,7 @@ export function assertUserHasPermission(
 export function createAuthHeaders(userType: keyof typeof TEST_USERS = 'member') {
   const token = createMockToken(userType);
   const user = TEST_USERS[userType];
-  
+
   return {
     Authorization: `Bearer ${token}`,
     'X-Tenant-ID': user.tenant_id,
@@ -100,7 +109,7 @@ export function createAuthHeaders(userType: keyof typeof TEST_USERS = 'member') 
 export function mockSupabaseAuth(userType: keyof typeof TEST_USERS = 'member') {
   const user = TEST_USERS[userType];
   const session = createMockSession(userType);
-  
+
   return {
     auth: {
       getSession: async () => ({
@@ -138,4 +147,24 @@ export function expectAuthError(error: any, expectedCode: string) {
   if (!error || error.code !== expectedCode) {
     throw new Error(`Expected auth error with code ${expectedCode}, got: ${error?.code}`);
   }
+}
+
+// Example test for policy gate:
+export function testPolicyGates() {
+  const user = { id: "u1", tenant_id: "t1", role: "admin", capabilities: ["manage"] };
+  assertTenantMember({ user }, "t1");
+  assertCapability({ user }, "manage");
+  try {
+    assertCapability({ user }, "delete");
+  } catch (err) {
+    deny("capability_denied", "delete not allowed");
+  }
+}
+
+// Example test for claim parsing:
+export function testClaimParsing() {
+  const session = { user_id: "u1", tenant_id: "t1", roles: ["admin"], exp: Date.now() / 1000 };
+  SessionClaimsSchema.parse(session);
+  const tct = { iss: "issuer", sub: "u1", tid: "t1", roles: ["admin"], tier: "pro", exp: Date.now() / 1000 };
+  TctClaimsSchema.parse(tct);
 }

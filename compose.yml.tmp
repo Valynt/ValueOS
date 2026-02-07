@@ -1,0 +1,51 @@
+# <!-- BEGIN AUTH SERVICE -->
+#
+# Auth Service
+#
+# Purpose
+# - Provide authentication and tenant-scoped authorization for all API routes.
+# - Produce a stable AuthContext for downstream services (AuditTrail, Integrity, Agents).
+# - Enforce tenant isolation as an invariant: handlers must not trust tenantId from the client
+#   when it can be derived from auth/session.
+#
+# Core invariants
+# - Every request that mutates tenant data must run behind auth middleware.
+# - tenantId is derived from the authenticated principal (token/session), not from request body/query.
+# - Authorization checks must be explicit and capability/role based.
+# - Security-relevant actions should emit audit events via AuditTrailService.logImmediate.
+#
+# AuthContext contract (minimum)
+# - principalId: string
+# - tenantId: string
+# - roles: string[]
+# - scopes/capabilities: string[]
+# - sessionId: string | null
+# - requestId: string
+#
+# Request flow
+# 1) Authenticate: verify bearer token / session cookie; validate signature & expiry; resolve principal + tenant
+# 2) Authorize: enforce tenant access and capability/role gates
+# 3) Attach context: req.auth + requestId
+# 4) Audit: denied requests -> authz_denied; privileged actions -> audited with target metadata
+#
+# Middleware surface (recommended)
+# - requireAuth
+# - requireTenant
+# - requireCapability(capability)
+#
+# Handler rules
+# - Never authorize using tenantId from client input.
+# - Use req.auth.tenantId as source of truth and reject conflicts for diagnostics.
+#
+# Integration points
+# - AuditTrailService: log authz denies and privileged grants.
+# - Integrity endpoints: derive tenant/session from AuthContext; record resolution to VMRT + audit.
+# - Agent endpoints: tenant-scoped execution; reasoning steps persisted to audit trail.
+#
+# Testing guidance
+# - 401 for missing/invalid token
+# - 403 for tenant not accessible
+# - cross-tenant access denied
+# - denies emit audit events with requestId + principalId
+#
+# <!-- END AUTH SERVICE -->

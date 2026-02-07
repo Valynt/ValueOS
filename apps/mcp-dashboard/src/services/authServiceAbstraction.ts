@@ -4,9 +4,9 @@
  * Integrates with secure storage, rate limiting, CSRF protection, and persistence
  */
 
-import { secureTokenStorage } from "../lib/secureStorage";
-import { authRateLimiter } from "../lib/rateLimiter";
 import { csrfProtection } from "../lib/csrfProtection";
+import { authRateLimiter } from "../lib/rateLimiter";
+import { secureTokenStorage } from "../lib/secureStorage";
 
 // Types
 export interface LoginCredentials {

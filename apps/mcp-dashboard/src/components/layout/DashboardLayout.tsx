@@ -1,23 +1,24 @@
-import React, { useState } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
-import { useWebSocket } from "../../contexts/WebSocketContext";
 import {
+  Activity,
   BarChart3,
-  Search,
-  Building2,
-  MessageSquare,
-  TrendingUp,
-  Key,
-  Settings,
   Bell,
-  User,
+  Building2,
+  Key,
   LogOut,
   Menu,
+  MessageSquare,
+  Search,
+  Settings,
+  TrendingUp,
+  User,
   X,
-  Activity,
   Zap,
 } from "lucide-react";
+import React, { useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+
+import { useAuth } from "../../contexts/AuthContext";
+import { useWebSocket } from "../../contexts/WebSocketContext";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },

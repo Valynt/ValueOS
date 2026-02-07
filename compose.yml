@@ -29,7 +29,6 @@ services:
   # Devcontainer App Service
   ###########################################################################
   app:
-    profiles: ["devcontainer"]
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile.optimized
@@ -62,8 +61,6 @@ services:
       kong:
         condition: service_healthy
       auth:
-        condition: service_healthy
-      rest-healthcheck:
         condition: service_healthy
 
   ###########################################################################
@@ -153,37 +150,6 @@ services:
         condition: service_started
       storage:
         condition: service_started
-
-  ###########################################################################
-  # GoTrue Authentication Service
-  ###########################################################################
-  auth:
-    profiles: ["devcontainer"]
-    image: supabase/gotrue:v2.143.0
-    restart: unless-stopped
-    environment:
-      GOTRUE_API_HOST: 0.0.0.0
-      GOTRUE_API_PORT: 9999
-      GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres?sslmode=disable&search_path=auth,public,extensions
-      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:5173}
-      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:5173,http://localhost:3001}
-      GOTRUE_DISABLE_SIGNUP: "false"
-      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
-      GOTRUE_JWT_EXP: 3600
-      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
-      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
-      GOTRUE_MAILER_AUTOCONFIRM: "true"
-      API_EXTERNAL_URL: http://localhost:54321
-    networks:
-      - valueos-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9999/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    depends_on:
       db:
         condition: service_healthy
 
@@ -218,7 +184,7 @@ services:
   # PostgREST Health Check Proxy
   ###########################################################################
   rest-healthcheck:
-    profiles: ["devcontainer"]
+    profiles: ["devcontainer", "dev"]
     image: curlimages/curl:8.5.0
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]

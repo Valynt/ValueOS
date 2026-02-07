@@ -93,6 +93,30 @@ export class IntegrityAgent extends BaseAgent {
     };
   }
 
+  /**
+   * Evaluate veto / re-refine decision based on integrity check
+   */
+  public static evaluateVetoDecision(integrityCheck: IntegrityCheck): { veto: boolean; reRefine?: boolean; reason?: string } {
+    if (!integrityCheck) return { veto: false };
+
+    // If per-output confidence is low, request a re-refine
+    if (integrityCheck.confidence < 0.85) {
+      return { veto: false, reRefine: true, reason: 'low_confidence' };
+    }
+
+    // If critical data integrity or logic errors exist, veto
+    const severe = integrityCheck.issues.find((issue) =>
+      (issue.severity === 'high' || issue.severity === 'critical') &&
+      (issue.type === 'data_integrity' || issue.type === 'logic_error')
+    );
+
+    if (severe) {
+      return { veto: true, reason: severe.description };
+    }
+
+    return { veto: false };
+  }
+
   private isValidDataSource(source: string): boolean {
     // Simplified validation - in real implementation, check against whitelist
     const validSources = ['crm', 'database', 'api', 'memory', 'calculation'];

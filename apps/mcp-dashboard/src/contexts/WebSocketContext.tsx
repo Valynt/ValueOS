@@ -1,14 +1,16 @@
 import React, {
   createContext,
+  ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useState,
-  useCallback,
-  ReactNode,
 } from "react";
 import { io, Socket } from "socket.io-client";
-import { useAuth } from "./AuthContext";
+
 import { secureTokenStorage } from "../lib/secureStorage";
+
+import { useAuth } from "./AuthContext";
 
 export interface StreamData {
   channel: string;

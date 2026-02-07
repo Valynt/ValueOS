@@ -64,7 +64,7 @@
     "build:minimal": "pnpm --filter valynt-app build -- --mode minimal",
     "build:bare": "pnpm --filter valynt-app build -- --mode bare",
     "debug": "pnpm --filter valynt-app dev -- --mode debug",
-    "build:backend": "pnpm tsc -p .config/configs/tsconfig.backend.json && node -e \"require('fs').mkdirSync('dist/backend',{recursive:true});require('fs').writeFileSync('dist/backend/package.json',JSON.stringify({type:'commonjs'}));\"",
+    "build:backend": "pnpm tsc -p packages/backend/tsconfig.json && node -e \"require('fs').mkdirSync('dist/backend',{recursive:true});require('fs').writeFileSync('dist/backend/package.json',JSON.stringify({type:'commonjs'}));\"",
     "build:validate": "node scripts/dx/validate-build.js && bash scripts/ci/check-client-bundle-secrets.sh",
     "build:retry": "bash scripts/build-with-retry.sh",
     "build:docker": "bash scripts/build-docker.sh",

@@ -160,7 +160,7 @@ export const IntegrityVetoPanel: React.FC<IntegrityVetoPanelProps> = ({
       {/* Compare & Resolve Modal */}
       {selectedIssue && showDetails && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-card border border-border rounded-lg modal-fade max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Compare & Resolve</h2>

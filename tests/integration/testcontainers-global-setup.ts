@@ -22,6 +22,11 @@ export enum FaultMode {
   TIMEOUT = "timeout",
   INVALID_RESPONSE = "invalid_response",
   HIGH_LATENCY = "high_latency",
+  RANDOM_FAILURE = "random_failure",
+  RATE_LIMIT = "rate_limit",
+  DATA_CORRUPTION = "data_corruption",
+  PARTIAL_RESPONSE = "partial_response",
+  CONNECTION_RESET = "connection_reset",
 }
 
 /**
@@ -32,11 +37,22 @@ export interface FaultInjectionConfig {
     mode: FaultMode;
     delayMs?: number;
     errorMessage?: string;
+    probability?: number;
+    maxRetries?: number;
+    retryDelay?: number;
   };
   postgresql?: {
     mode: FaultMode;
     delayMs?: number;
     errorMessage?: string;
+    probability?: number;
+    maxRetries?: number;
+    retryDelay?: number;
+  };
+  global?: {
+    enabled: boolean;
+    seed?: number;
+    maxConcurrentFaults?: number;
   };
 }
 
@@ -75,12 +91,52 @@ export class InfrastructureFaultInjector {
   }
 
   /**
+   * Get current count of active faults
+   */
+  private getCurrentFaultCount(): number {
+    let count = 0;
+
+    if (this.config.redis && this.config.redis.mode !== FaultMode.NONE) {
+      count++;
+    }
+
+    if (this.config.postgresql && this.config.postgresql.mode !== FaultMode.NONE) {
+      count++;
+    }
+
+    return count;
+  }
+
+  /**
+   * Reset fault injection to default state
+   */
+  reset(): void {
+    this.config = {};
+  }
+
+  /**
    * Apply fault injection to Redis operations
    */
   async injectRedisFault<T>(operation: () => Promise<T>): Promise<T> {
     const fault = this.config.redis;
     if (!fault || fault.mode === FaultMode.NONE) {
       return operation();
+    }
+
+    // Check global fault injection settings
+    if (this.config.global?.enabled) {
+      // Apply probability-based fault injection
+      if (fault.probability && Math.random() > fault.probability) {
+        return operation();
+      }
+
+      // Check max concurrent faults
+      if (
+        this.config.global.maxConcurrentFaults &&
+        this.getCurrentFaultCount() >= this.config.global.maxConcurrentFaults
+      ) {
+        return operation();
+      }
     }
 
     switch (fault.mode) {
@@ -99,6 +155,40 @@ export class InfrastructureFaultInjector {
         // Allow operation but return invalid data
         return operation();
 
+      case FaultMode.RANDOM_FAILURE:
+        // Randomly fail with 50% probability
+        if (Math.random() > 0.5) {
+          throw new Error(fault.errorMessage || "Random Redis failure");
+        }
+        return operation();
+
+      case FaultMode.RATE_LIMIT:
+        throw new Error(fault.errorMessage || "Redis rate limit exceeded");
+
+      case FaultMode.DATA_CORRUPTION:
+        // Allow operation but corrupt data
+        const result = await operation();
+        if (typeof result === "string") {
+          return result.split("").reverse().join("");
+        }
+        return result;
+
+      case FaultMode.PARTIAL_RESPONSE:
+        // Return partial response
+        const partialResult = await operation();
+        if (typeof partialResult === "object" && partialResult !== null) {
+          const keys = Object.keys(partialResult);
+          const partialKeys = keys.slice(0, Math.floor(keys.length / 2));
+          return partialKeys.reduce((obj, key) => {
+            obj[key] = partialResult[key];
+            return obj;
+          }, {} as any);
+        }
+        return partialResult;
+
+      case FaultMode.CONNECTION_RESET:
+        throw new Error(fault.errorMessage || "Redis connection reset");
+
       default:
         return operation();
     }
@@ -111,6 +201,22 @@ export class InfrastructureFaultInjector {
     const fault = this.config.postgresql;
     if (!fault || fault.mode === FaultMode.NONE) {
       return operation();
+    }
+
+    // Check global fault injection settings
+    if (this.config.global?.enabled) {
+      // Apply probability-based fault injection
+      if (fault.probability && Math.random() > fault.probability) {
+        return operation();
+      }
+
+      // Check max concurrent faults
+      if (
+        this.config.global.maxConcurrentFaults &&
+        this.getCurrentFaultCount() >= this.config.global.maxConcurrentFaults
+      ) {
+        return operation();
+      }
     }
 
     switch (fault.mode) {
@@ -128,6 +234,40 @@ export class InfrastructureFaultInjector {
       case FaultMode.INVALID_RESPONSE:
         // Allow operation but return invalid data
         return operation();
+
+      case FaultMode.RANDOM_FAILURE:
+        // Randomly fail with 50% probability
+        if (Math.random() > 0.5) {
+          throw new Error(fault.errorMessage || "Random PostgreSQL failure");
+        }
+        return operation();
+
+      case FaultMode.RATE_LIMIT:
+        throw new Error(fault.errorMessage || "PostgreSQL rate limit exceeded");
+
+      case FaultMode.DATA_CORRUPTION:
+        // Allow operation but corrupt data
+        const result = await operation();
+        if (typeof result === "string") {
+          return result.split("").reverse().join("");
+        }
+        return result;
+
+      case FaultMode.PARTIAL_RESPONSE:
+        // Return partial response
+        const partialResult = await operation();
+        if (typeof partialResult === "object" && partialResult !== null) {
+          const keys = Object.keys(partialResult);
+          const partialKeys = keys.slice(0, Math.floor(keys.length / 2));
+          return partialKeys.reduce((obj, key) => {
+            obj[key] = partialResult[key];
+            return obj;
+          }, {} as any);
+        }
+        return partialResult;
+
+      case FaultMode.CONNECTION_RESET:
+        throw new Error(fault.errorMessage || "PostgreSQL connection reset");
 
       default:
         return operation();

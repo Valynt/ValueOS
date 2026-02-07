@@ -96,6 +96,7 @@ import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
 import { AgentConfig } from "../types/agent";
 import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore.js"
 import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailService.js";
+import { DLQAlert } from "../lib/agent-fabric/FabricMonitor";
 
 // ... (other imports remain the same) ...
 
@@ -743,5 +744,52 @@ export class ValueLifecycleOrchestrator {
   ): Promise<void> {
     logger.info("Scheduling next stage", { currentStage, persistedData });
     // Implementation would schedule the next stage
+  }
+
+  // Handle DLQ alerts from FabricMonitor
+  async handleDLQAlert(alert: DLQAlert): Promise<void> {
+    logger.error("Received DLQ alert from FabricMonitor", alert);
+
+    // Extract agent type from stream name (e.g., "agent_messages_opportunity" -> "opportunity")
+    const agentType = alert.streamName.replace("agent_messages_", "");
+
+    // Log the alert for monitoring
+    await this.auditTrailService.logImmediate({
+      eventType: 'dlq_alert',
+      actorId: 'system',
+      actorType: 'service',
+      resourceId: alert.streamName,
+      resourceType: 'message_queue',
+      action: 'alert',
+      outcome: 'error',
+      details: {
+        agentType,
+        messageCount: alert.messageCount,
+        lastFailedMessage: alert.lastFailedMessage,
+      },
+      ipAddress: 'system',
+      userAgent: 'system',
+      timestamp: Date.now(),
+      sessionId: uuidv4(),
+      correlationId: uuidv4(),
+      riskScore: 0.8, // High risk for DLQ alerts
+      complianceFlags: ['system_failure'],
+      tenantId: undefined, // System-wide alert
+    });
+
+    // TODO: Implement recovery strategies based on agent type
+    // For example:
+    // - Restart failed agent instances
+    // - Scale up consumer groups
+    // - Alert human operators for manual intervention
+    // - Trigger compensation workflows
+
+    if (alert.messageCount > 10) {
+      logger.error("Critical: High DLQ message count, manual intervention required", {
+        agentType,
+        messageCount: alert.messageCount
+      });
+      // Could trigger escalation to human operators
+    }
   }
 }

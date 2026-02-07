@@ -5,7 +5,7 @@
  * ensuring targets are measurable, achievable, and aligned with business objectives.
  */
 
-import { BaseAgent } from "../BaseAgent";
+import { BaseAgent, ValueLifecycleStage } from "../BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 import { z } from "zod";
@@ -190,6 +190,11 @@ export interface TargetAnalysis {
 }
 
 export class TargetAgent extends BaseAgent {
+  readonly agentId = "target-agent";
+  readonly name = "TargetAgent";
+  readonly version = "1.0.0";
+  readonly lifecycleStage = ValueLifecycleStage.DEFINITION;
+
   private causalEngine: AdvancedCausalEngine;
 
   constructor(config: AgentConfig) {
@@ -348,7 +353,9 @@ export class TargetAgent extends BaseAgent {
     };
   }
 
-  private async validateCausalTrace(input: TargetAgentInput): Promise<TargetAnalysis["causalTrace"]> {
+  private async validateCausalTrace(
+    input: TargetAgentInput
+  ): Promise<TargetAnalysis["causalTrace"]> {
     try {
       // Infer the action from the target description
       const action = this.inferActionFromTarget(input);
@@ -357,30 +364,28 @@ export class TargetAgent extends BaseAgent {
       const targetKpi = this.extractTargetKpi(input);
 
       // Use AdvancedCausalEngine to get causal inference
-      const causalInference = await this.causalEngine.inferCausalRelationship(
-        action,
-        targetKpi,
-        {
-          category: input.category,
-          timeframe: input.timeframe,
-          currentValue: input.currentValue,
-          targetValue: input.targetValue,
-        }
-      );
+      const causalInference = await this.causalEngine.inferCausalRelationship(action, targetKpi, {
+        category: input.category,
+        timeframe: input.timeframe,
+        currentValue: input.currentValue,
+        targetValue: input.targetValue,
+      });
 
       // Check if this target is linked to verified opportunities
       const linkedOpportunity = await this.findLinkedOpportunity(action, targetKpi);
 
-      const impactCascade = [{
-        action,
-        targetKpi,
-        effect: {
-          direction: causalInference.effect.direction,
-          magnitude: causalInference.effect.magnitude,
-          confidence: causalInference.confidence,
+      const impactCascade = [
+        {
+          action,
+          targetKpi,
+          effect: {
+            direction: causalInference.effect.direction,
+            magnitude: causalInference.effect.magnitude,
+            confidence: causalInference.confidence,
+          },
+          linkedOpportunity,
         },
-        linkedOpportunity,
-      }];
+      ];
 
       return {
         impactCascade,
@@ -412,7 +417,14 @@ export class TargetAgent extends BaseAgent {
 
   private extractTargetKpi(input: TargetAgentInput): string {
     // Extract KPI name from title or description
-    const kpiKeywords = ["revenue", "cost", "efficiency", "productivity", "satisfaction", "retention"];
+    const kpiKeywords = [
+      "revenue",
+      "cost",
+      "efficiency",
+      "productivity",
+      "satisfaction",
+      "retention",
+    ];
     const text = `${input.title} ${input.description}`.toLowerCase();
 
     for (const keyword of kpiKeywords) {
@@ -424,7 +436,10 @@ export class TargetAgent extends BaseAgent {
     return "business_metric";
   }
 
-  private async findLinkedOpportunity(action: string, targetKpi: string): Promise<string | undefined> {
+  private async findLinkedOpportunity(
+    action: string,
+    targetKpi: string
+  ): Promise<string | undefined> {
     // Query memory for verified opportunities that could lead to this target
     try {
       const opportunities = await this.queryMemory("semantic", {
@@ -443,6 +458,8 @@ export class TargetAgent extends BaseAgent {
 
     return undefined;
   }
+
+  private async validateTarget(input: TargetAgentInput): Promise<TargetValidation> {
     const issues: TargetValidation["issues"] = [];
     let score = 100;
 
