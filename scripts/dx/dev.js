@@ -53,7 +53,7 @@ function formatLog(service, line, color) {
 }
 
 function ensurePortsEnvFile() {
-  const portsFile = path.join(projectRoot, ".env.ports");
+  const portsFile = path.join(projectRoot, "ops", "env", ".env.ports");
   writePortsEnvFile(portsFile);
 }
 
@@ -212,7 +212,7 @@ function runCommand(name, command) {
 function getRunningComposeServices(composeFile) {
   try {
     const output = execSync(
-      `docker compose --env-file .env.ports -f ${composeFile} ps --status running --services`,
+      `docker compose --env-file ops/env/.env.ports -f ${composeFile} ps --status running --services`,
       {
         cwd: projectRoot,
         encoding: "utf8",
@@ -367,7 +367,7 @@ async function main() {
     });
     await runCommand(
       "docker",
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml up -d"
+      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml up -d"
     );
     console.log("\n" + "=".repeat(60));
     console.log("✅ Docker services are running!");
@@ -391,7 +391,7 @@ async function main() {
   writeDxLock({ mode, composeFile, createdAt: new Date().toISOString() });
   await runCommand(
     "docker",
-    "docker compose --env-file .env.ports -f docker-compose.deps.yml up -d"
+    "docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml up -d"
   );
 
   const conflicts = [];

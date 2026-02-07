@@ -205,8 +205,8 @@ services:
       KAFKA_BROKERS: kafka:9092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
     env_file:
-      - ../../.env.ports
-      - ../../.env.local
+      - ../../ops/env/.env.ports
+      - ../../ops/env/.env.local
     depends_on:
       postgres:
         condition: service_healthy
@@ -263,8 +263,8 @@ services:
       VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
       VITE_HMR_PROTOCOL: ${VITE_HMR_PROTOCOL:-ws}
     env_file:
-      - ../../.env.ports
-      - ../../.env.local
+      - ../../ops/env/.env.ports
+      - ../../ops/env/.env.local
     depends_on:
       backend:
         condition: service_healthy

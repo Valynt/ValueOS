@@ -5,11 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
-APP_ENV_FILE="${ROOT}/.env.local"
+APP_ENV_FILE="${ROOT}/ops/env/.env.local"
 
-ENV_FILE="${ROOT}/scripts/.env.ports"
-ENV_EXAMPLE_FILE="${ROOT}/scripts/.env.ports.example"
+ENV_FILE="${ROOT}/ops/env/.env.ports"
 LEGACY_ENV_FILE="${ROOT}/.env.ports"
+ENV_EXAMPLE_FILE="${ROOT}/ops/env/.env.ports.example"
 
 [[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
@@ -40,4 +40,3 @@ elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
-

@@ -67,16 +67,16 @@ console.log("🔍 Comprehensive Development Environment Check\n");
 // Environment Files
 check(
   "Environment files exist",
-  () => fileExists(".env.local") && fileExists("deploy/envs/.env.ports"),
+  () => fileExists("ops/env/.env.local") && fileExists("ops/env/.env.ports"),
   "Missing required environment files",
-  "pnpm run env:dev"
+  "pnpm run dx:env --mode local --force"
 );
 
 check(
   "Supabase anon key configured",
   () => envVarSet("VITE_SUPABASE_ANON_KEY") && envVarSet("SUPABASE_ANON_KEY"),
   "Supabase anon keys are missing or using placeholders",
-  "Update .env.local and deploy/envs/.env.ports with real anon key"
+  "Update ops/env/.env.local and ops/env/.env.ports with real anon key"
 );
 
 check(

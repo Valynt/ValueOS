@@ -20,8 +20,11 @@ import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
+const opsEnvDir = path.join(projectRoot, "ops", "env");
+const opsEnvLocalPath = path.join(opsEnvDir, ".env.local");
+const opsEnvPortsPath = path.join(opsEnvDir, ".env.ports");
 
-config({ path: path.join(projectRoot, ".env.local") });
+config({ path: opsEnvLocalPath });
 
 const args = process.argv.slice(2);
 let mode;
@@ -150,18 +153,22 @@ function commandExists(command) {
 }
 
 function ensurePortsEnvFile() {
-  const portsPath = path.join(projectRoot, ".env.ports");
+  if (!fs.existsSync(opsEnvPortsPath)) {
+    reportFailure(
+      ".env.ports missing",
+      "ops/env/.env.ports is required for DX tooling.",
+      `Run: pnpm run dx:env --mode ${mode} --force`
+    );
+    return false;
+  }
+
   const desired = formatPortsEnv(ports);
-
-  if (!fs.existsSync(portsPath)) {
-    writePortsEnvFile(portsPath);
-    return;
-  }
-
-  const current = fs.readFileSync(portsPath, "utf8");
+  const current = fs.readFileSync(opsEnvPortsPath, "utf8");
   if (current.trim() !== desired.trim()) {
-    writePortsEnvFile(portsPath);
+    writePortsEnvFile(opsEnvPortsPath);
   }
+
+  return true;
 }
 
 function parseMajor(version) {
@@ -477,25 +484,23 @@ async function checkPorts() {
   }
 
   if (autoShiftPorts && Object.keys(overrides).length > 0) {
-    const portsPath = path.join(projectRoot, ".env.ports");
-    writePortsEnvFile(portsPath, overrides);
-    console.log("✅ Updated .env.ports with auto-shifted ports.");
+    writePortsEnvFile(opsEnvPortsPath, overrides);
+    console.log("✅ Updated ops/env/.env.ports with auto-shifted ports.");
   }
 }
 
 function checkEnvironment() {
-  const envLocalPath = path.join(projectRoot, ".env.local");
-  if (!fs.existsSync(envLocalPath)) {
+  if (!fs.existsSync(opsEnvLocalPath)) {
     reportFailure(
       ".env.local missing",
       "Local environment file is required.",
-      "Run: pnpm run env:dev"
+      `Run: pnpm run dx:env --mode ${mode} --force`
     );
     return;
   }
 
-  const envVars = parseEnvFile(envLocalPath);
-  const envContent = fs.readFileSync(envLocalPath, "utf8");
+  const envVars = parseEnvFile(opsEnvLocalPath);
+  const envContent = fs.readFileSync(opsEnvLocalPath, "utf8");
   const lines = envContent.split("\n");
 
   const supabaseAnonKeyLine = lines.find((line) => line.startsWith("VITE_SUPABASE_ANON_KEY="));
@@ -512,14 +517,14 @@ function checkEnvironment() {
       reportFailure(
         "Invalid Supabase anon key",
         "VITE_SUPABASE_ANON_KEY is missing, blank, or using placeholder value.",
-        "Update .env.local with real anon key: pnpm run env:dev"
+        "Update ops/env/.env.local with real anon key: pnpm run dx:env --mode local --force"
       );
     }
   } else {
     reportFailure(
       "Missing Supabase anon key",
-      "VITE_SUPABASE_ANON_KEY not found in .env.local",
-      "Add to .env.local: VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      "VITE_SUPABASE_ANON_KEY not found in ops/env/.env.local",
+      "Add to ops/env/.env.local: VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     );
   }
 
@@ -530,7 +535,7 @@ function checkEnvironment() {
       reportFailure(
         "Invalid Supabase URL",
         "VITE_SUPABASE_URL should point to local Supabase instance.",
-        "Set VITE_SUPABASE_URL=http://localhost:54321 in .env.local"
+        "Set VITE_SUPABASE_URL=http://localhost:54321 in ops/env/.env.local"
       );
     }
   }
@@ -564,26 +569,12 @@ function checkEnvironment() {
       reportFailure(
         `Placeholder ${key}`,
         `${key} still contains a placeholder value.`,
-        "Update .env.local with a real value."
+        "Update ops/env/.env.local with a real value."
       );
     }
   });
 
-  // Check .env.ports for container environment
-  const envPortsPath = path.join(projectRoot, "deploy/envs/.env.ports");
-  if (fs.existsSync(envPortsPath)) {
-    const portsContent = fs.readFileSync(envPortsPath, "utf8");
-    const portsLines = portsContent.split("\n");
-
-    const portsAnonKeyLine = portsLines.find((line) => line.startsWith("VITE_SUPABASE_ANON_KEY="));
-    if (!portsAnonKeyLine || portsAnonKeyLine.includes("placeholder")) {
-      reportFailure(
-        "Container Supabase key missing",
-        "deploy/envs/.env.ports missing real VITE_SUPABASE_ANON_KEY for containers.",
-        "Update deploy/envs/.env.ports with real anon key"
-      );
-    }
-  }
+  // Container env files load ops/env/.env.local directly; no additional .env.ports checks required.
 }
 
 function checkMixedLockfiles() {
@@ -665,7 +656,7 @@ function checkComposeState() {
   if (commandExists("docker")) {
     try {
       fullRunning = runCommand(
-        'docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml ps --filter "status=running" --services',
+        'docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml ps --filter "status=running" --services',
         {
           stdio: "pipe",
         }
@@ -679,7 +670,7 @@ function checkComposeState() {
 
     try {
       depsRunning = runCommand(
-        'docker compose --env-file .env.ports -f docker-compose.deps.yml ps --filter "status=running" --services',
+        'docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml ps --filter "status=running" --services',
         {
           stdio: "pipe",
         }
@@ -901,7 +892,7 @@ function checkSupabase() {
     reportFailure(
       "Backend Supabase URL mismatch",
       `SUPABASE_URL points to ${backendSupabaseUrl} but local Supabase is running.`,
-      "Set SUPABASE_URL=http://localhost:54321 in .env.local (or use the Docker host gateway in DevContainers)."
+      "Set SUPABASE_URL=http://localhost:54321 in ops/env/.env.local (or use the Docker host gateway in DevContainers)."
     );
   }
 }
@@ -1001,12 +992,11 @@ function checkSupabaseSchema() {
 }
 
 function checkEnvModeConsistency() {
-  const envLocalPath = path.join(projectRoot, ".env.local");
-  if (!fs.existsSync(envLocalPath)) {
+  if (!fs.existsSync(opsEnvLocalPath)) {
     return;
   }
 
-  const content = fs.readFileSync(envLocalPath, "utf8");
+  const content = fs.readFileSync(opsEnvLocalPath, "utf8");
 
   // Check DX_MODE matches current mode
   const modeMatch = content.match(/^DX_MODE=(.*)$/m);
@@ -1015,7 +1005,7 @@ function checkEnvModeConsistency() {
   if (envMode && envMode !== mode) {
     reportFailure(
       "Environment mode mismatch",
-      `.env.local is configured for mode "${envMode}" but you're running mode "${mode}".`,
+      `ops/env/.env.local is configured for mode "${envMode}" but you're running mode "${mode}".`,
       `Regenerate env: pnpm run dx:env --mode ${mode} --force`
     );
     return;
@@ -1044,7 +1034,7 @@ function checkEnvModeConsistency() {
     reportFailure(
       "Deprecated Supabase key name",
       "Using SUPABASE_SERVICE_KEY instead of SUPABASE_SERVICE_ROLE_KEY.",
-      "Update .env.local: rename SUPABASE_SERVICE_KEY to SUPABASE_SERVICE_ROLE_KEY"
+      "Update ops/env/.env.local: rename SUPABASE_SERVICE_KEY to SUPABASE_SERVICE_ROLE_KEY"
     );
   }
 }
@@ -1057,7 +1047,7 @@ function checkMigrationDrift() {
   // Only check if postgres container is running
   try {
     runCommand(
-      'docker compose --env-file .env.ports -f docker-compose.deps.yml ps postgres --filter "status=running"',
+      'docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml ps postgres --filter "status=running"',
       { stdio: "pipe" }
     );
   } catch {
@@ -1353,7 +1343,7 @@ async function main() {
       (f) =>
         (f.title.includes("Docker") && f.title.includes("not running")) ||
         f.title.includes("Node.js version") ||
-        f.title.includes(".env.local missing")
+        f.title.includes(".env.ports missing")
     );
     const warningFailures = failures.filter((f) => !blockingFailures.includes(f));
 

@@ -70,7 +70,10 @@ function exec(command, description) {
  */
 function envFileExists() {
   const projectRoot = path.resolve(__dirname, "../..");
-  return fs.existsSync(path.join(projectRoot, ".env.local"));
+  return (
+    fs.existsSync(path.join(projectRoot, "ops", "env", ".env.local")) ||
+    fs.existsSync(path.join(projectRoot, ".env.local"))
+  );
 }
 
 /**
@@ -102,29 +105,24 @@ function getExistingDxSession() {
  */
 function ensureDotEnvFromLocal() {
   const projectRoot = path.resolve(__dirname, "../..");
-  const envLocalPath = path.join(projectRoot, ".env.local");
+  const envLocalPath = fs.existsSync(path.join(projectRoot, "ops", "env", ".env.local"))
+    ? path.join(projectRoot, "ops", "env", ".env.local")
+    : path.join(projectRoot, ".env.local");
   const envPath = path.join(projectRoot, ".env");
 
   if (!fs.existsSync(envPath) && fs.existsSync(envLocalPath)) {
     fs.copyFileSync(envLocalPath, envPath);
-    console.log("✅ Created .env from .env.local");
+    console.log("✅ Created .env from ops/env/.env.local");
   }
 }
 
 function ensurePortsEnv() {
   // Delegate to canonical env-compiler for .env.ports
   const projectRoot = path.resolve(__dirname, "../..");
-  const portsPath = path.join(projectRoot, ".env.ports");
-  const scriptsPortsPath = path.join(projectRoot, "scripts", ".env.ports");
-  const scriptsPortsExamplePath = path.join(projectRoot, "scripts", ".env.ports.example");
+  const portsPath = path.join(projectRoot, "ops", "env", ".env.ports");
 
   // Use writePortsEnvFile for backwards compatibility, but env-compiler is authoritative
   writePortsEnvFile(portsPath);
-
-  if (!fs.existsSync(scriptsPortsPath) && fs.existsSync(scriptsPortsExamplePath)) {
-    fs.copyFileSync(scriptsPortsExamplePath, scriptsPortsPath);
-    console.log("✅ Bootstrapped scripts/.env.ports from scripts/.env.ports.example");
-  }
 }
 
 /**
@@ -145,11 +143,13 @@ function generateEnvFiles(mode = "local") {
 }
 
 /**
- * Load .env.local into process.env
+ * Load ops/env/.env.local into process.env
  */
 async function loadEnvLocal() {
   const projectRoot = path.resolve(__dirname, "../..");
-  const envLocalPath = path.join(projectRoot, ".env.local");
+  const envLocalPath = fs.existsSync(path.join(projectRoot, "ops", "env", ".env.local"))
+    ? path.join(projectRoot, "ops", "env", ".env.local")
+    : path.join(projectRoot, ".env.local");
 
   if (fs.existsSync(envLocalPath)) {
     try {
@@ -297,16 +297,16 @@ async function main() {
         projectName: "valueos-dev",
         environment: "development",
         enableDebug: true,
-        envFile: ".env.local",
+        envFile: "ops/env/.env.local",
       });
     } else {
-      console.log("\n✅ .env.local already exists, skipping environment setup");
-      console.log("   To regenerate: rm .env.local && pnpm run setup\n");
+      console.log("\n✅ ops/env/.env.local already exists, skipping environment setup");
+      console.log("   To regenerate: rm ops/env/.env.local && pnpm run setup\n");
     }
 
     ensureDotEnvFromLocal();
     ensurePortsEnv();
-    // Load .env.local into process.env so child processes (like db setup)
+    // Load ops/env/.env.local into process.env so child processes (like db setup)
     // receive necessary variables such as SUPABASE_PROJECT_ID.
     await loadEnvLocal();
 
