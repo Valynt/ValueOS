@@ -34,11 +34,23 @@ const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
  */
 router.post('/request', requestSanitizationMiddleware({
   body: {
+    agentName: {
+      allowHtml: false,
+      maxLength: 256,
+    },
+    action: {
+      allowHtml: false,
+      maxLength: 256,
+    },
     description: {
       allowHtml: true,
       allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a'],
       allowedAttributes: { a: ['href', 'target', 'rel'] },
       maxLength: 4000,
+    },
+    metadata: {
+      allowHtml: false,
+      maxLength: 8000,
     },
   },
 }), async (req: Request, res: Response) => {
@@ -144,7 +156,20 @@ router.get('/my-requests', async (req: Request, res: Response) => {
  * POST /api/approvals/:requestId/approve
  * Approve an approval request
  */
-router.post('/:requestId/approve', async (req: Request, res: Response) => {
+router.post('/:requestId/approve', requestSanitizationMiddleware({
+  body: {
+    secondApproverEmail: {
+      allowHtml: false,
+      maxLength: 320,
+    },
+    notes: {
+      allowHtml: true,
+      allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a'],
+      allowedAttributes: { a: ['href', 'target', 'rel'] },
+      maxLength: 4000,
+    },
+  },
+}), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
     const { secondApproverEmail, notes } = req.body;
@@ -196,7 +221,16 @@ router.post('/:requestId/approve', async (req: Request, res: Response) => {
  * POST /api/approvals/:requestId/reject
  * Reject an approval request
  */
-router.post('/:requestId/reject', async (req: Request, res: Response) => {
+router.post('/:requestId/reject', requestSanitizationMiddleware({
+  body: {
+    notes: {
+      allowHtml: true,
+      allowedTags: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a'],
+      allowedAttributes: { a: ['href', 'target', 'rel'] },
+      maxLength: 4000,
+    },
+  },
+}), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
     const { notes } = req.body;

@@ -384,7 +384,14 @@ export abstract class BaseAgent {
       // ─────────────────────────────────────────────────────────────────────
 
       // 3.1 Execute with Retry Logic
-      const rawOutput = await this.executeWithRetry(prompt, options, traceId);
+      const rawOutput = await this.executeWithRetry(
+        prompt,
+        options,
+        traceId,
+        input.context.tenantId,
+        input.context.userId,
+        input.context.sessionId
+      );
 
       // 3.2 Parse and Validate Structure
       const structuredOutput = this.parseAndValidate(rawOutput, resultSchema);
@@ -803,7 +810,10 @@ export abstract class BaseAgent {
   private async executeWithRetry(
     prompt: string,
     options: SecureInvokeOptions,
-    traceId: string
+    traceId: string,
+    tenantId: string,
+    userId?: string,
+    sessionId?: string
   ): Promise<LLMResponse> {
     let lastError: Error | null = null;
 
@@ -815,6 +825,9 @@ export abstract class BaseAgent {
           model: "gpt-4", // TODO: Make configurable
           temperature: options.temperature || 0.7,
           maxTokens: options.maxTokens || 1000,
+          tenantId,
+          userId,
+          sessionId,
         });
       } catch (error) {
         lastError = error as Error;
