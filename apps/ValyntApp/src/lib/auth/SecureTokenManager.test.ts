@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetSession = vi.fn();
+const mockOnAuthStateChange = vi.fn();
+const mockSignOut = vi.fn().mockResolvedValue({ error: null });
 
 vi.mock("../supabase", () => ({
   supabase: {
     auth: {
       getSession: mockGetSession,
+      onAuthStateChange: mockOnAuthStateChange,
+      signOut: mockSignOut,
     },
   },
 }));
@@ -41,9 +45,7 @@ describe("ValyntApp secureTokenManager", () => {
     expect(storedValue).not.toContain("refresh-token-secret");
   });
 
-  it("clears non-sensitive state when refresh tokens rotate", () => {
-    const removeItemSpy = vi.spyOn(localStorage, "removeItem");
-
+  it("updates refresh token fingerprints on new sign-ins", () => {
     secureTokenManager.storeSession({
       access_token: "access-token-1",
       refresh_token: "refresh-token-1",
@@ -53,6 +55,10 @@ describe("ValyntApp secureTokenManager", () => {
         email: "user@example.com",
       },
     } as any);
+
+    const initialFingerprint = localStorage.getItem(
+      "valynt.auth.refresh.fingerprint",
+    );
 
     secureTokenManager.storeSession({
       access_token: "access-token-2",
@@ -64,8 +70,13 @@ describe("ValyntApp secureTokenManager", () => {
       },
     } as any);
 
-    expect(removeItemSpy).toHaveBeenCalledWith("valynt.auth.state");
-    expect(removeItemSpy).toHaveBeenCalledWith("supabase.auth.token");
+    const rotatedFingerprint = localStorage.getItem(
+      "valynt.auth.refresh.fingerprint",
+    );
+
+    expect(initialFingerprint).not.toBeNull();
+    expect(rotatedFingerprint).not.toBeNull();
+    expect(rotatedFingerprint).not.toEqual(initialFingerprint);
     expect(localStorage.getItem("valynt.auth.state")).not.toBeNull();
   });
 
@@ -81,5 +92,42 @@ describe("ValyntApp secureTokenManager", () => {
     } as any);
 
     expect(localStorage.getItem("valynt.auth.state")).toBeNull();
+  });
+
+  it("signs out when refresh tokens rotate without a refresh event", async () => {
+    let authCallback: ((event: string, session: any) => void) | undefined;
+
+    mockOnAuthStateChange.mockImplementation((callback) => {
+      authCallback = callback;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    await secureTokenManager.initialize();
+
+    authCallback?.("SIGNED_IN", {
+      access_token: "access-token-1",
+      refresh_token: "refresh-token-1",
+      expires_at: 1735689600,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    });
+
+    authCallback?.("USER_UPDATED", {
+      access_token: "access-token-2",
+      refresh_token: "refresh-token-2",
+      expires_at: 1735689700,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("valynt.auth.state")).toBeNull();
+    expect(
+      localStorage.getItem("valynt.auth.refresh.fingerprint"),
+    ).toBeNull();
   });
 });
