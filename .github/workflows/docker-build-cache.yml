@@ -1,0 +1,39 @@
+name: Docker Build (buildx cache)
+
+on:
+  push: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build with Buildx and GHA cache
+    runs-on: ubuntu-latest
+    env:
+      APP: ValyntApp
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build (using buildx) with GitHub Actions cache
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: .devcontainer/Dockerfile.optimized
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: build-measure:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            APP=${{ env.APP }}
