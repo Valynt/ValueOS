@@ -189,10 +189,12 @@ function generateEnvPorts(ports) {
 # DO NOT EDIT - regenerate with: pnpm run dx:env
 
 # Database Ports
+DB_PORT=${ports.postgres.port}
 POSTGRES_PORT=${ports.postgres.port}
 REDIS_PORT=${ports.redis.port}
 
 # Application Ports
+WEB_PORT=${ports.frontend.port}
 API_PORT=${ports.backend.port}
 VITE_PORT=${ports.frontend.port}
 VITE_HMR_PORT=${ports.frontend.hmrPort}

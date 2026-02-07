@@ -115,16 +115,9 @@ function ensurePortsEnv() {
   // Delegate to canonical env-compiler for .env.ports
   const projectRoot = path.resolve(__dirname, "../..");
   const portsPath = path.join(projectRoot, ".env.ports");
-  const scriptsPortsPath = path.join(projectRoot, "scripts", ".env.ports");
-  const scriptsPortsExamplePath = path.join(projectRoot, "scripts", ".env.ports.example");
 
   // Use writePortsEnvFile for backwards compatibility, but env-compiler is authoritative
   writePortsEnvFile(portsPath);
-
-  if (!fs.existsSync(scriptsPortsPath) && fs.existsSync(scriptsPortsExamplePath)) {
-    fs.copyFileSync(scriptsPortsExamplePath, scriptsPortsPath);
-    console.log("✅ Bootstrapped scripts/.env.ports from scripts/.env.ports.example");
-  }
 }
 
 /**

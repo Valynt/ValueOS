@@ -208,7 +208,7 @@ function produceFix() {
 function verificationSteps() {
   console.log("\n## Verification Steps");
   console.log("### Commands");
-  console.log("1. docker compose -f .devcontainer/docker-compose.devcontainer.yml config");
+  console.log("1. docker compose --env-file .env.ports -f .devcontainer/docker-compose.devcontainer.yml config");
   console.log("2. Rebuild devcontainer in VS Code");
   console.log("3. Verify workspace root is /workspaces/ValueOS");
   console.log("4. Check tool availability: node, pnpm, docker");

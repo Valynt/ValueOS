@@ -78,7 +78,7 @@ pkill -9 -f "tsx watch" 2>/dev/null || true
 pkill -9 -f "vite --config" 2>/dev/null || true
 
 # Remove generated env files
-rm -f .env.local .env.ports scripts/.env.ports deploy/envs/.env.ports
+rm -f .env.local .env.ports deploy/envs/.env.ports
 
 # Remove state files
 rm -f .dx-lock .dx-state.json
@@ -115,11 +115,10 @@ log_verify "✓ Database URL configured"
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
 
-# Ensure ports env exists for backward compatibility with any scripts expecting it,
-# while still allowing scripts/dc to fall back to scripts/.env.ports.example.
-if [ ! -f "scripts/.env.ports" ] && [ -f "scripts/.env.ports.example" ]; then
-  cp "scripts/.env.ports.example" "scripts/.env.ports"
-  log_verify "✓ Bootstrapped scripts/.env.ports from scripts/.env.ports.example"
+# Ensure ports env exists for docker compose bindings.
+if [ ! -f ".env.ports" ] && [ -f ".env.ports.example" ]; then
+  cp ".env.ports.example" ".env.ports"
+  log_verify "✓ Bootstrapped .env.ports from .env.ports.example"
 fi
 
 "${DC_CMD}" up -d postgres redis || fail "Compose startup failed"

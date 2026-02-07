@@ -52,6 +52,11 @@ else
     exit 1
 fi
 
+ENV_PORTS_FILE="${PROJECT_ROOT}/.env.ports"
+if [[ -f "$ENV_PORTS_FILE" ]]; then
+    COMPOSE_CMD="$COMPOSE_CMD --env-file $ENV_PORTS_FILE"
+fi
+
 # Determine Compose File
 COMPOSE_FILE=""
 if [[ -f "$PROJECT_ROOT/.devcontainer/docker-compose.devcontainer.yml" ]]; then

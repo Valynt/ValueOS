@@ -21,11 +21,16 @@ networks:
   valueos-network:
     driver: bridge
 
+x-env-ports: &env_ports
+  env_file:
+    - ../.env.ports
+
 services:
   ###########################################################################
   # Application Container
   ###########################################################################
   app:
+    <<: *env_ports
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile.optimized
@@ -40,8 +45,6 @@ services:
       # Optional: persist Vite/Storybook cache between rebuilds
       - vite-cache:/workspaces/ValueOS/.cache
     working_dir: /workspaces/ValueOS
-    env_file:
-      - .env.dev
     command: sleep infinity
     networks:
       - valueos-network
@@ -75,6 +78,7 @@ services:
   # Redis Cache
   ###########################################################################
   redis:
+    <<: *env_ports
     image: redis:7-alpine
     restart: unless-stopped
     volumes:
@@ -92,6 +96,7 @@ services:
   # PostgreSQL Database (Supabase-compatible)
   ###########################################################################
   db:
+    <<: *env_ports
     image: supabase/postgres:15.1.1.78
     command: >
       postgres
@@ -100,7 +105,7 @@ services:
       -c wal_level=logical
     restart: unless-stopped
     ports:
-      - "${POSTGRES_HOST_PORT:-54322}:5432"
+      - "${SUPABASE_DB_PORT:-54322}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -121,6 +126,7 @@ services:
   # Kong API Gateway
   ###########################################################################
   kong:
+    <<: *env_ports
     build:
       context: ./kong
       dockerfile: Dockerfile
@@ -136,7 +142,7 @@ services:
     networks:
       - valueos-network
     ports:
-      - "${KONG_PORT:-54321}:8000"
+      - "${SUPABASE_API_PORT:-54321}:8000"
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
@@ -157,6 +163,7 @@ services:
   # GoTrue Authentication Service
   ###########################################################################
   auth:
+    <<: *env_ports
     image: supabase/gotrue:v2.143.0
     restart: unless-stopped
     environment:
@@ -165,15 +172,15 @@ services:
       GOTRUE_DB_DRIVER: postgres
       # CRITICAL: sslmode=disable required - container postgres has no TLS
       GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres?sslmode=disable&search_path=auth,public,extensions
-      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:5173}
-      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:5173,http://localhost:3001}
+      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:${WEB_PORT:-5173}}
+      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:${WEB_PORT:-5173},http://localhost:${API_PORT:-3001}}
       GOTRUE_DISABLE_SIGNUP: "false"
       GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
       GOTRUE_JWT_EXP: 3600
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
-      API_EXTERNAL_URL: http://localhost:54321
+      API_EXTERNAL_URL: http://localhost:${SUPABASE_API_PORT:-54321}
     networks:
       - valueos-network
     healthcheck:
@@ -190,6 +197,7 @@ services:
   # PostgREST API
   ###########################################################################
   rest:
+    <<: *env_ports
     image: postgrest/postgrest:v12.0.2
     restart: unless-stopped
     environment:
@@ -217,6 +225,7 @@ services:
   # PostgREST Health Check Proxy
   ###########################################################################
   rest-healthcheck:
+    <<: *env_ports
     image: curlimages/curl:8.5.0
     restart: unless-stopped
     entrypoint: ["/bin/sh", "-c"]
@@ -245,6 +254,7 @@ services:
   # Realtime Service
   ###########################################################################
   realtime:
+    <<: *env_ports
     image: supabase/realtime:v2.25.50
     restart: unless-stopped
     environment:
@@ -275,6 +285,7 @@ services:
   # Storage Service
   ###########################################################################
   storage:
+    <<: *env_ports
     image: supabase/storage-api:v0.46.4
     restart: unless-stopped
     environment:
@@ -309,6 +320,7 @@ services:
   # Postgres Meta
   ###########################################################################
   meta:
+    <<: *env_ports
     image: supabase/postgres-meta:v0.80.0
     restart: unless-stopped
     environment:
@@ -328,6 +340,7 @@ services:
   # Supabase Studio
   ###########################################################################
   studio:
+    <<: *env_ports
     image: supabase/studio:latest
     restart: unless-stopped
     profiles:
@@ -338,13 +351,13 @@ services:
       DEFAULT_ORGANIZATION_NAME: ValueOS
       DEFAULT_PROJECT_NAME: Development
       SUPABASE_URL: http://kong:8000
-      SUPABASE_PUBLIC_URL: http://localhost:54321
+      SUPABASE_PUBLIC_URL: http://localhost:${SUPABASE_API_PORT:-54321}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.YI5mC4lgC5wJMvBRu-GZxXgRmXxMGk9wB7nHI55HXD8}
     networks:
       - valueos-network
     ports:
-      - "${STUDIO_PORT:-54323}:3000"
+      - "${SUPABASE_STUDIO_PORT:-54323}:3000"
     healthcheck:
       disable: true
     depends_on:

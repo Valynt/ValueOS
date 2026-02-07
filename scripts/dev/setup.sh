@@ -22,9 +22,9 @@ echo "✅ Dependencies installed in Dockerfile. Skipping pnpm install."
 ###############################################################################
 # Step 2: Ensure local env port file exists
 ###############################################################################
-if [ ! -f "${PROJECT_ROOT}/scripts/.env.ports" ] && [ -f "${PROJECT_ROOT}/scripts/.env.ports.example" ]; then
-    echo "📄 Creating scripts/.env.ports from scripts/.env.ports.example..."
-    cp "${PROJECT_ROOT}/scripts/.env.ports.example" "${PROJECT_ROOT}/scripts/.env.ports"
+if [ ! -f "${PROJECT_ROOT}/.env.ports" ] && [ -f "${PROJECT_ROOT}/.env.ports.example" ]; then
+    echo "📄 Creating .env.ports from .env.ports.example..."
+    cp "${PROJECT_ROOT}/.env.ports.example" "${PROJECT_ROOT}/.env.ports"
 fi
 
 ###############################################################################
@@ -34,6 +34,9 @@ if [ ! -f "${PROJECT_ROOT}/.env.local" ]; then
     if [ -f "${PROJECT_ROOT}/.devcontainer/.env.dev" ]; then
         echo "📄 Copying .env.dev to .env.local..."
         cp "${PROJECT_ROOT}/.devcontainer/.env.dev" "${PROJECT_ROOT}/.env.local"
+    elif [ -f "${PROJECT_ROOT}/.env.local.example" ]; then
+        echo "📄 Copying .env.local.example to .env.local..."
+        cp "${PROJECT_ROOT}/.env.local.example" "${PROJECT_ROOT}/.env.local"
     elif [ -f "${PROJECT_ROOT}/.env.example" ]; then
         echo "📄 Copying .env.example to .env.local..."
         cp "${PROJECT_ROOT}/.env.example" "${PROJECT_ROOT}/.env.local"
