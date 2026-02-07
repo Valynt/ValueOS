@@ -1,6 +1,6 @@
 /**
  * Agent API Adapter
- * 
+ *
  * Maps backend agent events to UI AgentEvent types.
  * Provides a clean interface between the orchestrator and the UI store.
  */
@@ -9,7 +9,7 @@ import type { AgentEvent, Artifact, AgentPhase } from './types';
 
 // Backend types (from UnifiedAgentOrchestrator)
 export interface StreamingUpdate {
-  stage: 'analyzing' | 'processing' | 'generating' | 'complete';
+  stage: 'thinking' | 'executing' | 'completed';
   message: string;
   progress?: number;
 }
@@ -29,13 +29,11 @@ const generateId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 9)
  */
 function mapStageToPhase(stage: StreamingUpdate['stage']): AgentPhase {
   switch (stage) {
-    case 'analyzing':
+    case 'thinking':
       return 'clarify';
-    case 'processing':
+    case 'executing':
       return 'execute';
-    case 'generating':
-      return 'execute';
-    case 'complete':
+    case 'completed':
       return 'review';
     default:
       return 'idle';
@@ -125,8 +123,8 @@ export function fromAgentResponse(
         runId,
         payload: {
           messageId,
-          delta: typeof response.payload === 'string' 
-            ? response.payload 
+          delta: typeof response.payload === 'string'
+            ? response.payload
             : JSON.stringify(response.payload),
           done: true,
         },
@@ -300,8 +298,8 @@ export function createErrorEvent(
       code: 'API_ERROR',
       message: typeof error === 'string' ? error : error.message,
       recoverable,
-      suggestions: recoverable 
-        ? ['Try again', 'Rephrase your request'] 
+      suggestions: recoverable
+        ? ['Try again', 'Rephrase your request']
         : ['Contact support'],
     },
   };

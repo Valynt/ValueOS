@@ -349,12 +349,101 @@ export class ValueLifecycleOrchestrator {
 
       return { opportunity: opportunityResult, target: targetResult };
     } catch (error) {
+      // Trigger Compensation Handler for Opportunity to Target failure
+      await this.executeOpportunityTargetCompensationHandler(
+        opportunityResult,
+        error,
+        context
+      );
       await this.logOpportunityTargetCompensation(
         error,
         opportunityResult,
         context
       );
       throw error;
+    }
+  }
+
+  private async executeOpportunityTargetCompensationHandler(
+    opportunityResult: StageResult,
+    error: unknown,
+    context: LifecycleContext
+  ): Promise<void> {
+    const failureReason = error instanceof Error ? error.message : String(error);
+    const correlationId = context.sessionId || uuidv4();
+
+    try {
+      // Restore previous state
+      await this.restoreOpportunityState(opportunityResult, context);
+
+      // Log the compensation to AuditTrailService
+      await this.auditTrailService.logImmediate({
+        eventType: "saga_compensation_executed",
+        actorId: context.userId || "system",
+        actorType: "service",
+        resourceId: opportunityResult.stageExecutionId
+          ? String(opportunityResult.stageExecutionId)
+          : correlationId,
+        resourceType: "system",
+        action: "restore_previous_state",
+        outcome: "success",
+        details: {
+          compensationType: "opportunity_target_failure",
+          failureReason,
+          restoredState: opportunityResult.data,
+          delta: opportunityResult.delta,
+          tenantId: context.tenantId,
+          organizationId: context.organizationId,
+          sessionId: context.sessionId,
+        },
+        ipAddress: "system",
+        userAgent: "system",
+        timestamp: Date.now(),
+        sessionId: context.sessionId || correlationId,
+        correlationId,
+        riskScore: 0,
+        complianceFlags: [],
+        tenantId: context.tenantId,
+      });
+
+      logger.info("Compensation handler executed successfully for opportunity to target failure", {
+        correlationId,
+        opportunityStageExecutionId: opportunityResult.stageExecutionId,
+      });
+    } catch (compensationError) {
+      logger.error("Failed to execute compensation handler", {
+        correlationId,
+        error: compensationError instanceof Error ? compensationError.message : String(compensationError),
+      });
+
+      // Log compensation failure
+      await this.auditTrailService.logImmediate({
+        eventType: "saga_compensation_failed",
+        actorId: context.userId || "system",
+        actorType: "service",
+        resourceId: opportunityResult.stageExecutionId
+          ? String(opportunityResult.stageExecutionId)
+          : correlationId,
+        resourceType: "system",
+        action: "restore_previous_state",
+        outcome: "error",
+        details: {
+          compensationType: "opportunity_target_failure",
+          failureReason,
+          compensationError: compensationError instanceof Error ? compensationError.message : String(compensationError),
+          tenantId: context.tenantId,
+          organizationId: context.organizationId,
+          sessionId: context.sessionId,
+        },
+        ipAddress: "system",
+        userAgent: "system",
+        timestamp: Date.now(),
+        sessionId: context.sessionId || correlationId,
+        correlationId,
+        riskScore: 0,
+        complianceFlags: [],
+        tenantId: context.tenantId,
+      });
     }
   }
 

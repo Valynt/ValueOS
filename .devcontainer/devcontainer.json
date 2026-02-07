@@ -1,6 +1,6 @@
 {
   "name": "ValueOS Dev Container",
-  "dockerComposeFile": ["../compose.yml"],
+  "dockerComposeFile": ["../compose.yml", "../.devcontainer/compose.devcontainer.override.yml"],
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
   "remoteUser": "valueos",
@@ -10,7 +10,13 @@
     "--security-opt",
     "apparmor=valueos-dev",
     "--security-opt",
-    "seccomp=/workspaces/ValueOS/.devcontainer/seccomp/valueos-seccomp.json"
+    "seccomp=/workspaces/ValueOS/.devcontainer/seccomp/valueos-seccomp.json",
+    "--security-opt",
+    "no-new-privileges",
+    "--cap-drop",
+    "ALL",
+    "--cap-add",
+    "NET_BIND_SERVICE"
   ],
 
   "features": {

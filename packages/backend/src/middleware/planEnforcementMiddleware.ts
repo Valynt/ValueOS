@@ -12,6 +12,7 @@ import SubscriptionService from '../services/billing/SubscriptionService';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { llmCostTracker } from '../services/LLMCostTracker.js';
 import { getAuditTrailService } from '../services/security/AuditTrailService.js';
+import { WebSocketManager } from '../services/WebSocketManager.js';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];
@@ -116,6 +117,31 @@ export function createPlanEnforcement(config: EnforcementConfig) {
       if (metric === 'llm_tokens' && monthlyTokens !== null && quota > 0 && monthlyTokens >= quota) {
         (req as any).useFallbackModel = true;
         res.setHeader('X-LLM-Fallback', 'true');
+
+        // Notify user via UI
+        try {
+          await realtimeUpdateService.pushUpdate(tenantId, {
+            id: `llm-fallback-${Date.now()}`,
+            type: 'notification',
+            target: 'user',
+            operation: 'notify',
+            payload: {
+              type: 'warning',
+              title: 'Monthly Token Budget Exceeded',
+              message: 'Your monthly LLM token budget has been reached. Requests are now using fallback AI service with reduced capabilities.',
+              action: 'upgrade_plan',
+              metadata: {
+                monthlyTokens,
+                quota,
+                exceededBy: monthlyTokens - quota,
+              },
+            },
+            timestamp: new Date().toISOString(),
+          });
+        } catch (notifyError) {
+          logger.warn('Failed to send UI notification for LLM fallback', { error: notifyError });
+        }
+
         try {
           const audit = getAuditTrailService();
           void audit.logImmediate({

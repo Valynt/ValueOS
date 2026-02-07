@@ -1,121 +1,58 @@
-# syntax=docker/dockerfile:1.4
-# Optimized multi-stage Dockerfile for ValueOS (pnpm + turbo)
 
-# Build arguments (aligned to repo engines)
 ARG NODE_VERSION="22.11.0"
 ARG PNPM_VERSION="9.15.0"
 ARG APP="ValyntApp"
 
-# Use a slim Debian-based image for compatibility and debugability
+# ---- Base: system deps ----
 FROM node:${NODE_VERSION}-slim AS base
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
-    build-essential \
+    ca-certificates curl git build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Deps stage: install pnpm and populate pnpm store (cacheable)
+# ---- Deps: install pnpm, fetch deps ----
 FROM base AS deps
+ARG PNPM_VERSION
 WORKDIR /app
 ENV PNPM_STORE_PATH=/root/.pnpm-store
-
-# Copy only manifest files to leverage layer cache when source changes
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./ || true
-
-# Install pnpm and fetch packages using BuildKit cache mounts
-RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
-    --mount=type=cache,target=/root/.cache/pnpm,id=pnpm-cache \
-    corepack enable \
-    && npm install -g pnpm@${PNPM_VERSION} \
+COPY .npmrc ./
+RUN corepack enable \
+    && corepack prepare pnpm@${PNPM_VERSION} --activate \
+    && npm install -g pnpm@${PNPM_VERSION} --force \
     && pnpm config set store-dir ${PNPM_STORE_PATH} \
-    && pnpm fetch --frozen-lockfile
+    && pnpm install --frozen-lockfile
 
-# Prune stage: generate a pruned workspace for the target app (reduces context)
+# ---- Prune: turbo prune for target app ----
 FROM deps AS prune
+ARG APP
 WORKDIR /app
-# Re-copy manifests (prune reads the repo metadata)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY .npmrc ./ || true
+COPY .npmrc ./
+RUN pnpm dlx turbo prune --scope=${APP} --docker --out=out
 
-# Use BuildKit cache for pnpm store during prune as well
-RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
-    pnpm dlx turbo prune --scope=${APP} --docker --out=out
-
-# Build stage: copy pruned workspace and build only the app
+# ---- Build: build only the target app ----
 FROM deps AS build
+ARG APP
 WORKDIR /app
-
-# Copy only the pruned workspace (much smaller than full repo)
+COPY --from=prune /app/out/json/ ./
+RUN pnpm install --frozen-lockfile
 COPY --from=prune /app/out/full/ ./
+RUN pnpm turbo run build --filter=apps/${APP}...
 
-# Install dependencies and build using cache mounts
-RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
-    --mount=type=cache,target=/root/.cache/pnpm,id=pnpm-cache \
-    --mount=type=cache,target=/app/node_modules,id=node-modules-cache \
-    pnpm install --frozen-lockfile && pnpm turbo run build --filter=apps/${APP}...
-
-# Create production-only node_modules for the app to reduce final image size
-RUN --mount=type=cache,target=/root/.pnpm-store,id=pnpm-store \
-    pnpm install --frozen-lockfile --prod --filter=apps/${APP}...
-
-# Gather artifacts
-RUN mkdir -p /artifacts/app \
-    && if [ -d "apps/${APP}/dist" ]; then cp -r "apps/${APP}/dist" /artifacts/app/dist; fi \
-    && if [ -d "apps/${APP}/.next" ]; then cp -r "apps/${APP}/.next" /artifacts/app/.next; fi \
-    && cp "apps/${APP}/package.json" /artifacts/app/package.json \
-    && cp -r "apps/${APP}/node_modules" /artifacts/app/node_modules || true
-
-# Verify native dependencies present in shipped node modules and build artifacts.
-# This runs `ldd` on any native .node modules and writes a report so CI can detect
-# incompatible or missing native libraries early in the release pipeline.
-RUN mkdir -p /artifacts && \
-        echo "Native dependencies ldd report for ${APP}" > /artifacts/native-deps.txt && \
-        find /app -type f -name "*.node" -print0 | \
-            xargs -0 -r -n1 sh -c 'echo "=== $1 ===" >> /artifacts/native-deps.txt && ldd "$1" >> /artifacts/native-deps.txt 2>&1' sh || true
-
-# Production runtime: use slim image for runtime
-FROM node:${NODE_VERSION}-slim AS production
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
-
-# Create non-root user for runtime
-RUN addgroup --system --gid 1001 valueos && adduser --system --uid 1001 --ingroup valueos valueos
-USER valueos
+# ---- Deploy: prune to production deps, collect artifacts ----
+FROM build AS deploy
+ARG APP
 WORKDIR /app
+RUN pnpm deploy --filter=apps/${APP} --prod /artifacts/app
 
-# Copy built artifacts and production node_modules from build stage
-COPY --from=build /artifacts/app/package.json ./
-COPY --from=build /artifacts/app/dist ./dist
-COPY --from=build /artifacts/app/.next ./.next
-COPY --from=build /artifacts/app/node_modules ./node_modules
-
+# ---- Runtime: minimal distroless image ----
+FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production
+WORKDIR /app
+COPY --from=deploy /artifacts/app/ ./
 ENV NODE_ENV=production
 EXPOSE 3000
-
-# Healthcheck: adapt as needed for runtime of the app
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "try{ require('./dist/server'); process.exit(0) } catch(e){ process.exit(1) }"
-
-CMD ["node", "dist/server.js"]
-
-
-# --- Alternative runtime: Distroless (Debian/glibc) for smaller attack surface
-# This stage is safe to use when native deps report shows no missing shared libs.
-# Distroless expects the Node binary to be provided by the image; the command
-# should be the script path (no `node` prefix).
-FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production-distroless
-WORKDIR /app
-
-# Copy only the artifacts required at runtime
-COPY --from=build /artifacts/app/package.json ./
-COPY --from=build /artifacts/app/dist ./dist
-COPY --from=build /artifacts/app/.next ./.next
-COPY --from=build /artifacts/app/node_modules ./node_modules
-
-ENV NODE_ENV=production
-EXPOSE 3000
-
-# Distroless has no shell; run the entry script directly (exec form).
 CMD ["dist/server.js"]
+

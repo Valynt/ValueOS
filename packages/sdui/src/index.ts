@@ -37,5 +37,6 @@ export * from "./performance";
 // Caching system
 export * from "./cache";
 
-// Error handling
-export * from "./errors";
+// Agent components
+export { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
+export { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";

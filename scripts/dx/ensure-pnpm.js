@@ -17,7 +17,7 @@ if (!isPnpm) {
 }
 
 // Check Node version (major version match required, minor/patch warnings only)
-const expectedNodeVersion = "20.19.0";
+const expectedNodeVersion = "20.20.0";
 const currentNodeVersion = process.version.slice(1); // remove 'v'
 const [expectedMajor] = expectedNodeVersion.split(".");
 const [currentMajor] = currentNodeVersion.split(".");

@@ -48,6 +48,80 @@ import {
   AgentResponse as APIAgentResponse,
   getAgentAPI,
 } from "./AgentAPI";
+
+// ============================================================================
+// Middleware Types
+// ============================================================================
+
+export interface AgentMiddlewareContext {
+  envelope: ExecutionEnvelope;
+  query: string;
+  currentState: WorkflowState;
+  userId: string;
+  sessionId: string;
+  traceId: string;
+  agentType: AgentType;
+  payload?: unknown;
+}
+
+export interface AgentMiddleware {
+  name: string;
+  execute(
+    context: AgentMiddlewareContext,
+    next: () => Promise<AgentResponse>
+  ): Promise<AgentResponse>;
+}
+
+// ============================================================================
+// Integrity Veto Middleware
+// ============================================================================
+
+export class IntegrityVetoMiddleware implements AgentMiddleware {
+  public readonly name = "integrity_veto";
+
+  constructor(
+    private orchestrator: UnifiedAgentOrchestrator
+  ) {}
+
+  async execute(
+    context: AgentMiddlewareContext,
+    next: () => Promise<AgentResponse>
+  ): Promise<AgentResponse> {
+    // Execute the agent
+    const response = await next();
+
+    // Apply integrity veto check
+    if (response.payload) {
+      const vetoResult = await this.orchestrator.evaluateIntegrityVeto(
+        response.payload,
+        {
+          traceId: context.traceId,
+          agentType: context.agentType,
+          query: context.query,
+          context: {
+            userId: context.userId,
+            sessionId: context.sessionId,
+            organizationId: context.envelope.organizationId,
+          },
+        }
+      );
+
+      if (vetoResult.vetoed) {
+        // Return vetoed response
+        return {
+          type: "message",
+          payload: {
+            message: "Output failed integrity validation against ground truth benchmarks.",
+            error: true,
+          },
+          metadata: vetoResult.metadata,
+        };
+      }
+    }
+
+    return response;
+  }
+}
 import { renderPage, RenderPageOptions } from "@sdui/renderPage";
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js"
@@ -92,7 +166,7 @@ export interface IntegrityVetoMetadata {
 }
 
 export interface StreamingUpdate {
-  stage: "analyzing" | "processing" | "generating" | "complete";
+  stage: "thinking" | "executing" | "completed";
   message: string;
   progress?: number;
 }
@@ -273,6 +347,34 @@ export class UnifiedAgentOrchestrator {
   private maxAgentInvocationsPerMinute = 20; // Conservative limit per agent type
   private groundTruthService = GroundTruthIntegrationService.getInstance();
   private groundTruthInitialized = false;
+  private middleware: AgentMiddleware[] = [];
+
+  constructor(
+    registry: AgentRegistry,
+    routingLayer: AgentRoutingLayer,
+    circuitBreakers: CircuitBreakerManager,
+    config: OrchestratorConfig,
+    memorySystem: MemorySystem,
+    llmGateway: LLMGateway,
+    messageBroker: AgentMessageBroker,
+    agentMessageQueue: AgentMessageQueue
+  ) {
+    this.registry = registry;
+    this.routingLayer = routingLayer;
+    this.circuitBreakers = circuitBreakers;
+    this.config = config;
+    this.memorySystem = memorySystem;
+    this.llmGateway = llmGateway;
+    this.messageBroker = messageBroker;
+    this.agentMessageQueue = agentMessageQueue;
+
+    // Initialize middleware
+    this.initializeMiddleware();
+  }
+
+  private initializeMiddleware(): void {
+    this.middleware.push(new IntegrityVetoMiddleware(this));
+  }
 
   private async ensureGroundTruthInitialized(): Promise<void> {
     if (this.groundTruthInitialized) {

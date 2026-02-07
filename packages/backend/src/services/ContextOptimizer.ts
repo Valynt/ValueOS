@@ -5,9 +5,13 @@
  * context relevance and security boundaries.
  */
 
-import { logger } from '../lib/logger.js'
-import { AgentType } from './agent-types.js'
-import { getMemoryPressureMonitor, MemoryPressure, MemoryPressureListener } from './monitoring/MemoryPressureMonitor.js'
+import { logger } from "../lib/logger.js";
+import { AgentType } from "./agent-types.js";
+import {
+  getMemoryPressureMonitor,
+  MemoryPressure,
+  MemoryPressureListener,
+} from "./monitoring/MemoryPressureMonitor.js";
 
 // ============================================================================
 // Types
@@ -19,7 +23,7 @@ export interface ContextWindow {
   sessionId: string;
   content: string;
   tokens: number;
-  priority: 'critical' | 'high' | 'medium' | 'low';
+  priority: "critical" | "high" | "medium" | "low";
   createdAt: number;
   lastAccessed: number;
   accessCount: number;
@@ -31,8 +35,8 @@ export interface ContextCompression {
   originalTokens: number;
   compressedTokens: number;
   compressionRatio: number;
-  compressionMethod: 'truncation' | 'summarization' | 'semantic' | 'hybrid' | 'none';
-  quality: 'high' | 'medium' | 'low';
+  compressionMethod: "truncation" | "summarization" | "semantic" | "hybrid" | "none";
+  quality: "high" | "medium" | "low";
   processingTime: number;
 }
 
@@ -166,7 +170,7 @@ export class ContextOptimizer implements MemoryPressureListener {
 
     const processingTime = Date.now() - startTime;
 
-    logger.debug('Context optimization completed', {
+    logger.debug("Context optimization completed", {
       windowId,
       agentType,
       originalSize,
@@ -179,8 +183,96 @@ export class ContextOptimizer implements MemoryPressureListener {
   }
 
   /**
-   * Get optimized context for an agent
+   * Prune memory context tokens before sending to LLM
    */
+  async pruneMemoryContext(
+    agentType: AgentType,
+    sessionId: string,
+    organizationId: string,
+    maxTokens: number
+  ): Promise<string> {
+    // Import MemorySystem here to avoid circular dependencies
+    const { createMemorySystem } = await import("../lib/agent-fabric/MemorySystem.js");
+    const memorySystem = createMemorySystem({ max_memories: 1000, enable_persistence: true });
+
+    // Retrieve relevant memories
+    const memories = await memorySystem.retrieve({
+      agent_id: agentType,
+      workspace_id: sessionId,
+      organization_id: organizationId,
+      limit: 50, // Get more memories initially
+    });
+
+    if (memories.length === 0) {
+      return "";
+    }
+
+    // Score memories by provenance and relevance
+    const scoredMemories = memories.map((memory) => ({
+      memory,
+      score: this.calculateProvenanceScore(memory),
+    }));
+
+    // Sort by score descending
+    scoredMemories.sort((a, b) => b.score - a.score);
+
+    // Prune to fit within token limit
+    let totalTokens = 0;
+    const selectedMemories: typeof scoredMemories = [];
+
+    for (const item of scoredMemories) {
+      const memoryTokens = this.estimateTokens(item.memory.content);
+      if (totalTokens + memoryTokens <= maxTokens) {
+        selectedMemories.push(item);
+        totalTokens += memoryTokens;
+      } else {
+        break;
+      }
+    }
+
+    // Format as context string
+    const contextParts = selectedMemories.map(
+      (item) => `[${item.memory.memory_type.toUpperCase()}] ${item.memory.content}`
+    );
+
+    const prunedContext = contextParts.join("\n\n");
+
+    logger.debug("Memory context pruned", {
+      agentType,
+      sessionId,
+      originalMemories: memories.length,
+      selectedMemories: selectedMemories.length,
+      totalTokens,
+      maxTokens,
+    });
+
+    return prunedContext;
+  }
+
+  /**
+   * Calculate provenance score for memory relevance
+   */
+  private calculateProvenanceScore(memory: any): number {
+    let score = memory.importance || 0.5;
+
+    // Boost score based on recency
+    const ageHours = (Date.now() - new Date(memory.created_at).getTime()) / (1000 * 60 * 60);
+    const recencyBoost = Math.max(0, 1 - ageHours / 24); // Boost for memories < 24h old
+    score += recencyBoost * 0.2;
+
+    // Boost score based on access frequency
+    const accessBoost = Math.min(memory.access_count * 0.1, 0.5);
+    score += accessBoost;
+
+    // Boost score for semantic memories (higher provenance)
+    if (memory.memory_type === "semantic") {
+      score += 0.3;
+    } else if (memory.memory_type === "episodic") {
+      score += 0.2;
+    }
+
+    return Math.min(score, 1.0); // Cap at 1.0
+  }
   async getOptimizedContext(
     agentType: AgentType,
     sessionId: string,
@@ -190,7 +282,7 @@ export class ContextOptimizer implements MemoryPressureListener {
     const window = this.contextWindows.get(windowId);
 
     if (!window) {
-      return '';
+      return "";
     }
 
     // Update access statistics
@@ -213,7 +305,7 @@ export class ContextOptimizer implements MemoryPressureListener {
     agentType: AgentType,
     sessionId: string,
     content: string,
-    priority: ContextWindow['priority'] = 'medium',
+    priority: ContextWindow["priority"] = "medium",
     metadata: Record<string, any> = {}
   ): Promise<void> {
     const windowId = this.generateWindowId(agentType, sessionId);
@@ -271,20 +363,26 @@ export class ContextOptimizer implements MemoryPressureListener {
     const cacheSize = this.contextCache.size;
 
     // Calculate cache hit rate
-    const totalCacheAccess = Array.from(this.contextCache.values())
-      .reduce((sum, cache) => sum + cache.hitCount, 0);
+    const totalCacheAccess = Array.from(this.contextCache.values()).reduce(
+      (sum, cache) => sum + cache.hitCount,
+      0
+    );
     const cacheHitRate = cacheSize > 0 ? (totalCacheAccess - cacheSize) / totalCacheAccess : 0;
 
     // Calculate average compression ratio
     const recentOptimizations = this.optimizationHistory.slice(-100);
-    const averageCompressionRatio = recentOptimizations.length > 0
-      ? recentOptimizations.reduce((sum, opt) => sum + opt.compression.compressionRatio, 0) / recentOptimizations.length
-      : 0;
+    const averageCompressionRatio =
+      recentOptimizations.length > 0
+        ? recentOptimizations.reduce((sum, opt) => sum + opt.compression.compressionRatio, 0) /
+          recentOptimizations.length
+        : 0;
 
     // Calculate average optimization score
-    const averageOptimizationScore = recentOptimizations.length > 0
-      ? recentOptimizations.reduce((sum, opt) => sum + opt.optimizationScore, 0) / recentOptimizations.length
-      : 0;
+    const averageOptimizationScore =
+      recentOptimizations.length > 0
+        ? recentOptimizations.reduce((sum, opt) => sum + opt.optimizationScore, 0) /
+          recentOptimizations.length
+        : 0;
 
     return {
       activeWindows,
@@ -308,7 +406,7 @@ export class ContextOptimizer implements MemoryPressureListener {
     content: string,
     originalSize: number
   ): Promise<ContextOptimization> {
-    const windowId = this.generateWindowId(agentType, 'optimization');
+    const windowId = this.generateWindowId(agentType, "optimization");
 
     // Determine optimization strategy
     const strategy = this.determineOptimizationStrategy(originalSize, agentType);
@@ -318,30 +416,50 @@ export class ContextOptimizer implements MemoryPressureListener {
     let compression: ContextCompression;
 
     switch (strategy) {
-      case 'truncation':
+      case "truncation":
         ({ optimizedContent, discardedContent } = this.truncateByPriority(content));
-        compression = this.createCompression(originalSize, this.estimateTokens(optimizedContent), 'truncation', 'medium');
+        compression = this.createCompression(
+          originalSize,
+          this.estimateTokens(optimizedContent),
+          "truncation",
+          "medium"
+        );
         break;
 
-      case 'summarization':
+      case "summarization":
         ({ optimizedContent, discardedContent } = this.summarizeContent(content, agentType));
-        compression = this.createCompression(originalSize, this.estimateTokens(optimizedContent), 'summarization', 'high');
+        compression = this.createCompression(
+          originalSize,
+          this.estimateTokens(optimizedContent),
+          "summarization",
+          "high"
+        );
         break;
 
-      case 'semantic':
+      case "semantic":
         ({ optimizedContent, discardedContent } = this.semanticCompression(content, agentType));
-        compression = this.createCompression(originalSize, this.estimateTokens(optimizedContent), 'semantic', 'high');
+        compression = this.createCompression(
+          originalSize,
+          this.estimateTokens(optimizedContent),
+          "semantic",
+          "high"
+        );
         break;
 
-      case 'hybrid':
+      case "hybrid":
         ({ optimizedContent, discardedContent } = this.hybridOptimization(content, agentType));
-        compression = this.createCompression(originalSize, this.estimateTokens(optimizedContent), 'hybrid', 'high');
+        compression = this.createCompression(
+          originalSize,
+          this.estimateTokens(optimizedContent),
+          "hybrid",
+          "high"
+        );
         break;
 
       default:
         optimizedContent = content;
         discardedContent = [];
-        compression = this.createCompression(originalSize, originalSize, 'none', 'high');
+        compression = this.createCompression(originalSize, originalSize, "none", "high");
     }
 
     const optimizationScore = this.calculateOptimizationScore(compression, strategy);
@@ -361,29 +479,35 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Determine optimization strategy
    */
-  private determineOptimizationStrategy(originalSize: number, agentType: AgentType): ContextCompression['compressionMethod'] {
+  private determineOptimizationStrategy(
+    originalSize: number,
+    agentType: AgentType
+  ): ContextCompression["compressionMethod"] {
     const sizeRatio = originalSize / this.config.maxTokens;
 
     // Critical agents get better optimization
-    const isCriticalAgent = ['integrity', 'groundtruth', 'coordinator'].includes(agentType);
+    const isCriticalAgent = ["integrity", "groundtruth", "coordinator"].includes(agentType);
 
     if (sizeRatio > 0.9) {
-      return isCriticalAgent ? 'semantic' : 'truncation';
+      return isCriticalAgent ? "semantic" : "truncation";
     } else if (sizeRatio > 0.7) {
-      return isCriticalAgent ? 'hybrid' : 'summarization';
+      return isCriticalAgent ? "hybrid" : "summarization";
     } else if (sizeRatio > 0.5) {
-      return 'semantic';
+      return "semantic";
     }
 
-    return 'none';
+    return "none";
   }
 
   /**
    * Truncate content by priority
    */
-  private truncateByPriority(content: string): { optimizedContent: string; discardedContent: string[] } {
+  private truncateByPriority(content: string): {
+    optimizedContent: string;
+    discardedContent: string[];
+  } {
     const sections = this.splitContentByPriority(content);
-    let optimizedContent = '';
+    let optimizedContent = "";
     let discardedContent: string[] = [];
     let currentTokens = 0;
 
@@ -392,7 +516,7 @@ export class ContextOptimizer implements MemoryPressureListener {
       const sectionTokens = this.estimateTokens(section.content);
 
       if (currentTokens + sectionTokens <= this.config.maxTokens) {
-        optimizedContent += section.content + '\n';
+        optimizedContent += section.content + "\n";
         currentTokens += sectionTokens;
       } else {
         discardedContent.push(section.content);
@@ -405,13 +529,16 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Summarize content
    */
-  private summarizeContent(content: string, agentType: AgentType): { optimizedContent: string; discardedContent: string[] } {
+  private summarizeContent(
+    content: string,
+    agentType: AgentType
+  ): { optimizedContent: string; discardedContent: string[] } {
     // Simple summarization - in production, this would use an LLM
-    const sentences = content.split('.').filter(s => s.trim().length > 0);
+    const sentences = content.split(".").filter((s) => s.trim().length > 0);
     const targetSentences = Math.max(1, Math.floor(sentences.length * 0.4));
 
-    const optimizedContent = sentences.slice(0, targetSentences).join('. ') + '.';
-    const discardedContent = sentences.slice(targetSentences).map(s => s + '.');
+    const optimizedContent = sentences.slice(0, targetSentences).join(". ") + ".";
+    const discardedContent = sentences.slice(targetSentences).map((s) => s + ".");
 
     return { optimizedContent, discardedContent };
   }
@@ -419,13 +546,16 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Semantic compression
    */
-  private semanticCompression(content: string, agentType: AgentType): { optimizedContent: string; discardedContent: string[] } {
+  private semanticCompression(
+    content: string,
+    agentType: AgentType
+  ): { optimizedContent: string; discardedContent: string[] } {
     // Remove redundant information and keep semantically unique content
-    const lines = content.split('\n').filter(line => line.trim().length > 0);
+    const lines = content.split("\n").filter((line) => line.trim().length > 0);
     const uniqueLines = this.removeSemanticDuplicates(lines);
 
-    const optimizedContent = uniqueLines.join('\n');
-    const discardedContent = lines.filter(line => !uniqueLines.includes(line));
+    const optimizedContent = uniqueLines.join("\n");
+    const discardedContent = lines.filter((line) => !uniqueLines.includes(line));
 
     return { optimizedContent, discardedContent };
   }
@@ -433,12 +563,17 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Hybrid optimization
    */
-  private hybridOptimization(content: string, agentType: AgentType): { optimizedContent: string; discardedContent: string[] } {
+  private hybridOptimization(
+    content: string,
+    agentType: AgentType
+  ): { optimizedContent: string; discardedContent: string[] } {
     // First remove semantic duplicates
-    const { optimizedContent: semanticContent, discardedContent: semanticDiscarded } = this.semanticCompression(content, agentType);
+    const { optimizedContent: semanticContent, discardedContent: semanticDiscarded } =
+      this.semanticCompression(content, agentType);
 
     // Then truncate if still too large
-    const { optimizedContent, discardedContent: truncationDiscarded } = this.truncateByPriority(semanticContent);
+    const { optimizedContent, discardedContent: truncationDiscarded } =
+      this.truncateByPriority(semanticContent);
 
     return {
       optimizedContent,
@@ -449,38 +584,40 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Split content by priority sections
    */
-  private splitContentByPriority(content: string): Array<{ content: string; priority: ContextWindow['priority'] }> {
-    const sections: Array<{ content: string; priority: ContextWindow['priority'] }> = [];
+  private splitContentByPriority(
+    content: string
+  ): Array<{ content: string; priority: ContextWindow["priority"] }> {
+    const sections: Array<{ content: string; priority: ContextWindow["priority"] }> = [];
 
     // Simple heuristic-based priority assignment
-    const lines = content.split('\n');
-    let currentSection = '';
-    let currentPriority: ContextWindow['priority'] = 'medium';
+    const lines = content.split("\n");
+    let currentSection = "";
+    let currentPriority: ContextWindow["priority"] = "medium";
 
     for (const line of lines) {
       const trimmedLine = line.trim();
 
       // Detect priority indicators
-      if (trimmedLine.startsWith('CRITICAL:') || trimmedLine.startsWith('IMPORTANT:')) {
+      if (trimmedLine.startsWith("CRITICAL:") || trimmedLine.startsWith("IMPORTANT:")) {
         if (currentSection) {
           sections.push({ content: currentSection, priority: currentPriority });
         }
-        currentSection = line + '\n';
-        currentPriority = 'critical';
-      } else if (trimmedLine.startsWith('NOTE:') || trimmedLine.startsWith('INFO:')) {
+        currentSection = line + "\n";
+        currentPriority = "critical";
+      } else if (trimmedLine.startsWith("NOTE:") || trimmedLine.startsWith("INFO:")) {
         if (currentSection) {
           sections.push({ content: currentSection, priority: currentPriority });
         }
-        currentSection = line + '\n';
-        currentPriority = 'high';
-      } else if (trimmedLine.startsWith('DEBUG:') || trimmedLine.startsWith('LOG:')) {
+        currentSection = line + "\n";
+        currentPriority = "high";
+      } else if (trimmedLine.startsWith("DEBUG:") || trimmedLine.startsWith("LOG:")) {
         if (currentSection) {
           sections.push({ content: currentSection, priority: currentPriority });
         }
-        currentSection = line + '\n';
-        currentPriority = 'low';
+        currentSection = line + "\n";
+        currentPriority = "low";
       } else {
-        currentSection += line + '\n';
+        currentSection += line + "\n";
       }
     }
 
@@ -515,12 +652,12 @@ export class ContextOptimizer implements MemoryPressureListener {
    */
   private generateSemanticHash(content: string): string {
     // Simple hash generation - in production, use proper semantic analysis
-    const normalized = content.toLowerCase().replace(/\s+/g, ' ').trim();
+    const normalized = content.toLowerCase().replace(/\s+/g, " ").trim();
     let hash = 0;
 
     for (let i = 0; i < normalized.length; i++) {
       const char = normalized.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
 
@@ -530,24 +667,28 @@ export class ContextOptimizer implements MemoryPressureListener {
   /**
    * Merge content with priority consideration
    */
-  private mergeContent(existingContent: string, newContent: string, priority: ContextWindow['priority']): string {
+  private mergeContent(
+    existingContent: string,
+    newContent: string,
+    priority: ContextWindow["priority"]
+  ): string {
     // Simple concatenation - in production, use intelligent merging
-    return existingContent + '\n\n' + newContent;
+    return existingContent + "\n\n" + newContent;
   }
 
   /**
    * Truncate content to fit token limit
    */
   private truncateContent(content: string, maxTokens: number): string {
-    const words = content.split(' ');
-    let truncatedContent = '';
+    const words = content.split(" ");
+    let truncatedContent = "";
     let currentTokens = 0;
 
     for (const word of words) {
       const wordTokens = this.estimateTokens(word);
 
       if (currentTokens + wordTokens <= maxTokens) {
-        truncatedContent += (truncatedContent ? ' ' : '') + word;
+        truncatedContent += (truncatedContent ? " " : "") + word;
         currentTokens += wordTokens;
       } else {
         break;
@@ -571,8 +712,8 @@ export class ContextOptimizer implements MemoryPressureListener {
   private createCompression(
     originalTokens: number,
     compressedTokens: number,
-    method: ContextCompression['compressionMethod'],
-    quality: ContextCompression['quality']
+    method: ContextCompression["compressionMethod"],
+    quality: ContextCompression["quality"]
   ): ContextCompression {
     return {
       originalTokens,
@@ -617,19 +758,19 @@ export class ContextOptimizer implements MemoryPressureListener {
     const recommendations: string[] = [];
 
     if (compression.compressionRatio > 0.8) {
-      recommendations.push('Consider splitting into multiple smaller contexts');
+      recommendations.push("Consider splitting into multiple smaller contexts");
     }
 
-    if (compression.quality === 'low') {
-      recommendations.push('Quality may be impacted - review critical information');
+    if (compression.quality === "low") {
+      recommendations.push("Quality may be impacted - review critical information");
     }
 
-    if (strategy === 'truncation') {
-      recommendations.push('Consider summarization for better content preservation');
+    if (strategy === "truncation") {
+      recommendations.push("Consider summarization for better content preservation");
     }
 
     if (compression.processingTime > 100) {
-      recommendations.push('Optimization took significant time - consider caching');
+      recommendations.push("Optimization took significant time - consider caching");
     }
 
     return recommendations;
@@ -650,7 +791,7 @@ export class ContextOptimizer implements MemoryPressureListener {
       windowId,
       originalSize,
       optimizedSize,
-      compression: this.createCompression(originalSize, optimizedSize, 'none', 'high'),
+      compression: this.createCompression(originalSize, optimizedSize, "none", "high"),
       retainedContent,
       discardedContent,
       optimizationScore: score,
@@ -680,7 +821,11 @@ export class ContextOptimizer implements MemoryPressureListener {
     return cached;
   }
 
-  private cacheContent(content: string, agentType: AgentType, optimization: ContextOptimization): void {
+  private cacheContent(
+    content: string,
+    agentType: AgentType,
+    optimization: ContextOptimization
+  ): void {
     const semanticHash = this.generateSemanticHash(content);
     const key = `${agentType}:${semanticHash}`;
 
@@ -725,7 +870,7 @@ export class ContextOptimizer implements MemoryPressureListener {
     const newCacheSize = this.memoryMonitor.getRecommendedCacheSize();
     const cleanupPercentage = this.memoryMonitor.getCleanupPercentage();
 
-    logger.info('Memory pressure detected, adjusting cache', {
+    logger.info("Memory pressure detected, adjusting cache", {
       pressure,
       currentCacheSize: this.contextCache.size,
       newCacheSize,
@@ -755,8 +900,9 @@ export class ContextOptimizer implements MemoryPressureListener {
 
     if (entriesToRemove > 0) {
       // Sort by last accessed time (oldest first) and remove entries
-      const sortedEntries = Array.from(this.contextCache.entries())
-        .sort(([, a], [, b]) => a.lastAccessed - b.lastAccessed);
+      const sortedEntries = Array.from(this.contextCache.entries()).sort(
+        ([, a], [, b]) => a.lastAccessed - b.lastAccessed
+      );
 
       const toRemove = sortedEntries.slice(0, entriesToRemove);
 
@@ -764,7 +910,7 @@ export class ContextOptimizer implements MemoryPressureListener {
         this.contextCache.delete(key);
       });
 
-      logger.info('Adaptive cache cleanup completed', {
+      logger.info("Adaptive cache cleanup completed", {
         entriesRemoved: toRemove.length,
         remainingEntries: this.contextCache.size,
         cleanupPercentage,
@@ -792,7 +938,7 @@ export class ContextOptimizer implements MemoryPressureListener {
     }
 
     if (clearedCount > 0) {
-      logger.debug('Expired contexts cleared', { clearedCount });
+      logger.debug("Expired contexts cleared", { clearedCount });
     }
   }
 }

@@ -1,26 +1,24 @@
 # Unified docker-compose.yml for ValueOS with internal networks and Caddy reverse proxy
 # Aligned with Pragmatic Reproducibility framework
 
-x-common:
-  &common
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 40s
 
-x-network:
-  &network
-    networks:
-      - internal
-      - caddy-proxy
+x-network: &network
+  networks:
+    - internal
+    - caddy-proxy
 
 networks:
   internal:
@@ -39,7 +37,7 @@ networks:
 services:
   # Development service
   dev:
-    &common
+    <<: *common
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile.optimized
@@ -73,8 +71,7 @@ services:
 
   # PostgreSQL database
   postgres:
-    &common
-    &network
+    <<: *common
     image: postgres:15-alpine
     environment:
       POSTGRES_DB: valueos_dev
@@ -97,8 +94,7 @@ services:
 
   # Redis cache
   redis:
-    &common
-    &network
+    <<: *common
     image: redis:7-alpine
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-valueos_dev}
     volumes:
@@ -116,7 +112,7 @@ services:
 
   # Caddy reverse proxy
   caddy:
-    &common
+    <<: *common
     image: caddy:2-alpine
     volumes:
       - ./infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
@@ -137,8 +133,7 @@ services:
 
   # Supabase services
   supabase:
-    &common
-    &network
+    <<: *common
     image: supabase/supabase:1.200.3
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
@@ -167,8 +162,7 @@ services:
 
   # Kong API Gateway
   kong:
-    &common
-    &network
+    <<: *common
     image: kong:3.4-alpine
     environment:
       KONG_DATABASE: "off"
@@ -188,7 +182,7 @@ services:
     networks:
       - caddy-proxy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8001/""]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8001/"]
       interval: 30s
       timeout: 10s
       retries: 3

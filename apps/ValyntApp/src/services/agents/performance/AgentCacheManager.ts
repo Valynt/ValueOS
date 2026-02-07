@@ -255,39 +255,108 @@ export class AgentCacheManager {
   }
 
   /**
-   * Get cached response
+   * Get cached response - TWO-TIER CACHING IMPLEMENTATION
    */
   async get(request: AgentRequest): Promise<AgentResponse | null> {
     const startTime = Date.now();
     const key = this.generateCacheKey(request);
-    const entry = this.cache.get(key);
+    const policy = this.getCachePolicy(request.agentType);
 
-    if (entry) {
-      if (this.isExpired(entry)) {
-        this.removeEntry(key, entry, "ttl");
+    if (!policy || !policy.enabled) {
+      this.recordCacheMiss(request, key);
+      return null;
+    }
+
+    // TIER 1: Check local memory cache first (fastest)
+    const localEntry = this.cache.get(key);
+    if (localEntry) {
+      if (this.isExpired(localEntry)) {
+        this.removeEntry(key, localEntry, "ttl");
+        this.statistics.localMisses++;
       } else {
-        const syncStatus = await this.syncLocalEntryWithRedis(key, entry);
-        if (syncStatus === "valid") {
-          this.recordLocalHit(request, entry, startTime, key);
-          return entry.response;
+        // Check if we need to sync with Redis for distributed invalidation
+        const syncResult = await this.syncWithRedis(key, localEntry);
+        if (syncResult.valid) {
+          this.recordLocalHit(request, localEntry, startTime, key);
+          return localEntry.response;
+        } else if (syncResult.updatedEntry) {
+          // Redis had newer version, update local cache
+          this.cache.set(key, syncResult.updatedEntry);
+          this.recordLocalHit(request, syncResult.updatedEntry, startTime, key);
+          return syncResult.updatedEntry.response;
         }
-
-        if (syncStatus === "unavailable") {
-          this.recordLocalHit(request, entry, startTime, key);
-          return entry.response;
-        }
+        // Entry was invalidated in Redis
+        this.removeEntry(key, localEntry, "sync");
       }
     }
 
     this.statistics.localMisses++;
 
-    const redisResponse = await this.getFromRedis(request, key, startTime);
-    if (redisResponse) {
-      return redisResponse;
+    // TIER 2: Check Redis distributed cache
+    const redisEntry = await this.getFromRedis(request, key, startTime);
+    if (redisEntry) {
+      // Store in local cache for faster future access
+      await this.storeInLocalCache(key, redisEntry);
+      return redisEntry;
     }
 
     this.recordCacheMiss(request, key);
     return null;
+  }
+
+  /**
+   * NEW: Sync local entry with Redis for distributed invalidation
+   */
+  private async syncWithRedis(
+    key: string,
+    localEntry: CacheEntry
+  ): Promise<{
+    valid: boolean;
+    updatedEntry?: CacheEntry;
+  }> {
+    try {
+      const redisClient = await this.redisClientPromise;
+      if (!redisClient) {
+        return { valid: true }; // No Redis, assume local is valid
+      }
+
+      const redisData = await redisClient.get(`${this.redisNamespace}:${key}`);
+      if (!redisData) {
+        return { valid: false }; // Entry was invalidated
+      }
+
+      const redisEntry: CacheEntry = JSON.parse(redisData);
+
+      // Check if Redis version is newer
+      if (
+        redisEntry.lastAccessedAt > localEntry.lastAccessedAt ||
+        redisEntry.metadata.version !== localEntry.metadata.version
+      ) {
+        return { valid: true, updatedEntry: redisEntry };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      logger.warn("Failed to sync with Redis", { key, error });
+      return { valid: true }; // Assume local is valid on sync failure
+    }
+  }
+
+  /**
+   * NEW: Store entry in local cache
+   */
+  private async storeInLocalCache(key: string, entry: CacheEntry): Promise<void> {
+    const size = this.calculateSize(entry.response);
+    const policy = this.getCachePolicy(entry.metadata.agentType);
+
+    // Check size limits
+    if (this.currentSize + size > (policy?.config.maxSize || 100) * 1024 * 1024) {
+      this.evictEntries(policy?.config.evictionPolicy || "lru", size);
+    }
+
+    this.cache.set(key, entry);
+    this.currentSize += size;
+    this.statistics.totalEntries = this.cache.size;
   }
 
   /**
@@ -1042,7 +1111,8 @@ export class AgentCacheManager {
   private recordCacheMiss(request: AgentRequest, key: string): void {
     this.statistics.totalMisses++;
     this.statistics.missRate =
-      (this.statistics.totalMisses / (this.statistics.totalHits + this.statistics.totalMisses)) * 100;
+      (this.statistics.totalMisses / (this.statistics.totalHits + this.statistics.totalMisses)) *
+      100;
 
     agentTelemetryService.recordTelemetryEvent({
       type: "agent_cache_miss",
@@ -1089,10 +1159,7 @@ export class AgentCacheManager {
       }
 
       const redisVersionNumber = Number(redisVersion);
-      if (
-        Number.isFinite(redisVersionNumber) &&
-        entry.metadata.distributedVersion === undefined
-      ) {
+      if (Number.isFinite(redisVersionNumber) && entry.metadata.distributedVersion === undefined) {
         entry.metadata.distributedVersion = redisVersionNumber;
       }
 
@@ -1389,7 +1456,9 @@ export class AgentCacheManager {
       const parsed = JSON.parse(payload) as CacheEntry & {
         createdAt: string;
         lastAccessedAt: string;
-        metadata: CacheMetadata & { dependencies: Array<CacheDependency & { lastModified: string }> };
+        metadata: CacheMetadata & {
+          dependencies: Array<CacheDependency & { lastModified: string }>;
+        };
       };
 
       return {
@@ -1556,6 +1625,94 @@ export class AgentCacheManager {
     };
 
     this.cachePolicies.set(defaultPolicy.id, defaultPolicy);
+  }
+
+  /**
+   * NEW: Initialize event-driven invalidation
+   */
+  private initializeEventInvalidation(): void {
+    // Subscribe to cache invalidation events from message bus
+    this.messageBus.subscribe(AgentCacheManager.CACHE_INVALIDATION_CHANNEL, async (event) => {
+      try {
+        const invalidationData = event.payload;
+
+        switch (invalidationData.type) {
+          case 'tag':
+            await this.invalidateByTag(invalidationData.tag, false); // Don't re-publish
+            break;
+          case 'dependency':
+            await this.invalidateByDependency(invalidationData.dependency, false);
+            break;
+          case 'key':
+            this.invalidateInternal({ key: invalidationData.key });
+            break;
+          case 'agent_type':
+            this.invalidateInternal({ agentType: invalidationData.agentType });
+            break;
+          case 'ttl_override':
+            // Force TTL-based invalidation for specific patterns
+            this.invalidateInternal({
+              agentType: invalidationData.agentType,
+              olderThan: new Date(Date.now() - invalidationData.ttlMs)
+            });
+            break;
+        }
+
+        logger.debug('Processed cache invalidation event', {
+          type: invalidationData.type,
+          channel: AgentCacheManager.CACHE_INVALIDATION_CHANNEL
+        });
+      } catch (error) {
+        logger.error('Failed to process cache invalidation event', error);
+      }
+    });
+
+    // Set up automatic TTL invalidation triggers
+    this.setupAutomaticInvalidation();
+  }
+
+  /**
+   * NEW: Set up automatic invalidation triggers based on events
+   */
+  private setupAutomaticInvalidation(): void {
+    // Example: Invalidate opportunity caches when opportunities are updated
+    this.messageBus.subscribe('opportunities.updated', async (event) => {
+      const { tenantId, opportunityId } = event.payload;
+      await this.invalidateByTag(`opportunity-${opportunityId}`, true);
+      await this.invalidateByDependency({
+        type: 'data',
+        identifier: `opportunity-${opportunityId}`,
+        version: event.payload.version || 'latest',
+        lastModified: new Date()
+      }, true);
+    });
+
+    // Example: Invalidate agent metrics caches when new metrics are added
+    this.messageBus.subscribe('agent.metrics.created', async (event) => {
+      const { tenantId, agentId, metricType } = event.payload;
+      await this.invalidateByTag(`metrics-${agentId}-${metricType}`, true);
+    });
+
+    // Example: Invalidate all caches for a tenant when tenant data changes
+    this.messageBus.subscribe('tenant.updated', async (event) => {
+      const { tenantId } = event.payload;
+      this.invalidateInternal({ tags: [`tenant-${tenantId}`] });
+    });
+  }
+
+  /**
+   * NEW: Publish invalidation event to message bus
+   */
+  private async publishInvalidationEvent(data: any): Promise<void> {
+    try {
+      await this.messageBus.publishMessage(AgentCacheManager.CACHE_INVALIDATION_CHANNEL, {
+        channel: AgentCacheManager.CACHE_INVALIDATION_CHANNEL,
+        timestamp: new Date().toISOString(),
+        ...data
+      });
+    } catch (error) {
+      logger.warn('Failed to publish cache invalidation event', { error, data });
+    }
   }
 }
 

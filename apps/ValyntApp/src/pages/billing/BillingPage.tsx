@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CreditCard, TrendingUp, FileText, AlertCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingSkeleton } from "@valueos/components/ui/loading-skeleton";
 import { cn } from "@/lib/utils";
 import { useSubscription } from "@/features/billing";
 import { billingService } from "@/services/billing/billingService";
@@ -70,7 +71,11 @@ export function BillingPage() {
           <div>
             <p className="text-sm opacity-90">Current Plan</p>
             <p className="text-3xl font-bold mt-1 capitalize">
-              {isLoading ? "Loading..." : subscription?.planTier || "Free"}
+              {isLoading ? (
+                <LoadingSkeleton className="w-20 h-8" />
+              ) : (
+                subscription?.planTier || "Free"
+              )}
             </p>
             <p className="text-sm opacity-90 mt-1">
               ${plans.find((p) => p.id === (subscription?.planTier || "free"))?.price || 0}/month

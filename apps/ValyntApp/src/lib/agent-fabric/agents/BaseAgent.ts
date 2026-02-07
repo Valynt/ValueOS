@@ -344,6 +344,18 @@ export abstract class BaseAgent {
       // PHASE 1: PRE-EXECUTION VALIDATION
       // ─────────────────────────────────────────────────────────────────────
 
+      // Log reasoning step: Pre-execution validation
+      await this.logReasoningStep(
+        traceId,
+        sessionId,
+        "pre_execution_validation",
+        "Starting pre-execution validation",
+        {
+          phase: 1,
+          tenantId: input.context.tenantId,
+        }
+      );
+
       // 1.1 Circuit Breaker Check
       if (this.circuitBreaker) {
         await this.circuitBreaker.check(sessionId);
@@ -369,6 +381,12 @@ export abstract class BaseAgent {
       // PHASE 2: CONTEXT ASSEMBLY
       // ─────────────────────────────────────────────────────────────────────
 
+      // Log reasoning step: Context assembly
+      await this.logReasoningStep(traceId, sessionId, "context_assembly", "Assembling context from memory and input", {
+        phase: 2,
+        tenantId: input.context.tenantId,
+      });
+
       // 2.1 Retrieve Relevant Memory
       const memoryContext = await this.assembleMemoryContext(
         sessionId,
@@ -382,6 +400,13 @@ export abstract class BaseAgent {
       // ─────────────────────────────────────────────────────────────────────
       // PHASE 3: LLM EXECUTION
       // ─────────────────────────────────────────────────────────────────────
+
+      // Log reasoning step: LLM execution
+      await this.logReasoningStep(traceId, sessionId, "llm_execution", "Executing LLM request with constructed prompt", {
+        phase: 3,
+        promptLength: prompt.length,
+        tenantId: input.context.tenantId,
+      });
 
       // 3.1 Execute with Retry Logic
       const rawOutput = await this.executeWithRetry(
@@ -399,6 +424,12 @@ export abstract class BaseAgent {
       // ─────────────────────────────────────────────────────────────────────
       // PHASE 4: POST-EXECUTION VALIDATION
       // ─────────────────────────────────────────────────────────────────────
+
+      // Log reasoning step: Post-execution validation
+      await this.logReasoningStep(traceId, sessionId, "post_execution_validation", "Validating output for hallucinations and confidence", {
+        phase: 4,
+        tenantId: input.context.tenantId,
+      });
 
       // 4.1 Hallucination Detection
       const hallucinationResult = await this.detectHallucination(
@@ -1095,5 +1126,41 @@ export abstract class BaseAgent {
         message: `${context ? `${context}: ` : ""}${error.message}`,
       },
     };
+  }
+
+  /**
+   * Log a reasoning step for audit trail and debugging
+   */
+  private async logReasoningStep(
+    traceId: string,
+    sessionId: string,
+    stepType: string,
+    description: string,
+    metadata: Record<string, any>
+  ): Promise<void> {
+    try {
+      await this.auditLogger.logAgentExecution(
+        "reasoning_step",
+        this.agentId,
+        this.name,
+        {
+          sessionId,
+          traceId,
+          stepType,
+          description,
+          ...metadata,
+        },
+        "info",
+        "low",
+        { traceId }
+      );
+    } catch (error) {
+      logger.warn("Failed to log reasoning step", {
+        traceId,
+        sessionId,
+        stepType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }

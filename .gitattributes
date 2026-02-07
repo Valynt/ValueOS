@@ -33,3 +33,22 @@
 *.webp binary
 *.ico binary
 *.pdf binary
+
+# Force Linux line endings for all shell scripts
+*.sh text eol=lf
+
+# Explicitly handle the devcontainer bridge
+.devcontainer/bridge.sh text eol=lf
+
+# Normalize text files and enforce LF in the repo
+* text=auto eol=lf
+
+# Explicit rules for common types
+*.sh   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf

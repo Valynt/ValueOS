@@ -5,10 +5,10 @@
  * and maintaining the existing 15-agent architecture.
  */
 
-import { logger } from '../lib/logger.js'
-import { randomUUID } from 'crypto';
-import { AgentType } from './agent-types.js'
-import { getUnifiedAgentAPI } from './UnifiedAgentAPI.js'
+import { logger } from "../lib/logger.js";
+import { randomUUID } from "crypto";
+import { AgentType } from "./agent-types.js";
+import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js";
 
 // ============================================================================
 // Types
@@ -25,9 +25,9 @@ export interface AgentRequest {
 }
 
 export interface RequestAnalysis {
-  complexity: 'simple' | 'moderate' | 'complex' | 'enterprise';
+  complexity: "simple" | "moderate" | "complex" | "enterprise";
   domains: AgentDomain[];
-  securityLevel: 'low' | 'medium' | 'high' | 'critical';
+  securityLevel: "low" | "medium" | "high" | "critical";
   parallelizable: boolean;
   estimatedDuration: number;
   tokenEstimate: number;
@@ -35,7 +35,7 @@ export interface RequestAnalysis {
 }
 
 export interface AgentDomain {
-  type: 'research' | 'financial' | 'communication' | 'validation' | 'coordination';
+  type: "research" | "financial" | "communication" | "validation" | "coordination";
   agents: AgentType[];
   dataRequirements: string[];
   securityClearance: string[];
@@ -43,7 +43,7 @@ export interface AgentDomain {
 
 export interface ExecutionPlan {
   planId: string;
-  strategy: 'direct' | 'pipeline' | 'parallel' | 'dag';
+  strategy: "direct" | "pipeline" | "parallel" | "dag";
   agents: AgentType[];
   executionOrder: string[][];
   contextSharing: ContextSharingPlan;
@@ -85,6 +85,16 @@ export class IntelligentCoordinator {
   private readonly CACHE_TTL = 300000; // 5 minutes
   private readonly MAX_CACHE_SIZE = 1000;
 
+  // Stall detection
+  private activeExecutions: Map<string, { startTime: number; agent: AgentType; traceId: string }> =
+    new Map();
+  private readonly STALL_TIMEOUT_MS = 30000; // 30 seconds
+  private stallCheckInterval: NodeJS.Timeout | null = null;
+
+  constructor() {
+    this.startStallDetection();
+  }
+
   /**
    * Route request with intelligent optimization
    */
@@ -92,7 +102,14 @@ export class IntelligentCoordinator {
     const startTime = Date.now();
     const traceId = request.traceId || randomUUID();
 
-    logger.info('Intelligent routing started', {
+    // Track active execution for stall detection
+    this.activeExecutions.set(traceId, {
+      startTime,
+      agent: request.agent,
+      traceId,
+    });
+
+    logger.info("Intelligent routing started", {
       traceId,
       agent: request.agent,
       query: request.query.substring(0, 100),
@@ -108,7 +125,7 @@ export class IntelligentCoordinator {
 
       if (cachedPlan && this.isCacheValid(cachedPlan)) {
         cachedPlan.hitCount++;
-        logger.info('Cache hit for intelligent routing', {
+        logger.info("Cache hit for intelligent routing", {
           traceId,
           cacheKey,
           hitCount: cachedPlan.hitCount,
@@ -123,7 +140,7 @@ export class IntelligentCoordinator {
       this.cachePlan(cacheKey, plan);
 
       const duration = Date.now() - startTime;
-      logger.info('Intelligent routing completed', {
+      logger.info("Intelligent routing completed", {
         traceId,
         planId: plan.planId,
         strategy: plan.strategy,
@@ -131,9 +148,15 @@ export class IntelligentCoordinator {
         duration,
       });
 
+      // Remove from active executions
+      this.activeExecutions.delete(traceId);
+
       return plan;
     } catch (error) {
-      logger.error('Intelligent routing failed', error instanceof Error ? error : undefined, {
+      // Remove from active executions on error
+      this.activeExecutions.delete(traceId);
+
+      logger.error("Intelligent routing failed", error instanceof Error ? error : undefined, {
         traceId,
         agent: request.agent,
       });
@@ -181,25 +204,28 @@ export class IntelligentCoordinator {
   /**
    * Assess request complexity
    */
-  private assessComplexity(query: string, context: Record<string, any>): RequestAnalysis['complexity'] {
+  private assessComplexity(
+    query: string,
+    context: Record<string, any>
+  ): RequestAnalysis["complexity"] {
     const indicators = {
-      simple: ['what is', 'how to', 'explain', 'define', 'list'],
-      moderate: ['analyze', 'compare', 'evaluate', 'recommend', 'suggest'],
-      complex: ['optimize', 'design', 'implement', 'integrate', 'transform'],
-      enterprise: ['enterprise', 'organization', 'system-wide', 'compliance', 'audit'],
+      simple: ["what is", "how to", "explain", "define", "list"],
+      moderate: ["analyze", "compare", "evaluate", "recommend", "suggest"],
+      complex: ["optimize", "design", "implement", "integrate", "transform"],
+      enterprise: ["enterprise", "organization", "system-wide", "compliance", "audit"],
     };
 
     for (const [level, keywords] of Object.entries(indicators)) {
-      if (keywords.some(keyword => query.includes(keyword))) {
-        return level as RequestAnalysis['complexity'];
+      if (keywords.some((keyword) => query.includes(keyword))) {
+        return level as RequestAnalysis["complexity"];
       }
     }
 
     // Default based on query length and context complexity
-    if (query.length < 100 && Object.keys(context).length < 3) return 'simple';
-    if (query.length < 300 && Object.keys(context).length < 10) return 'moderate';
-    if (query.length < 500) return 'complex';
-    return 'enterprise';
+    if (query.length < 100 && Object.keys(context).length < 3) return "simple";
+    if (query.length < 300 && Object.keys(context).length < 10) return "moderate";
+    if (query.length < 500) return "complex";
+    return "enterprise";
   }
 
   /**
@@ -209,52 +235,58 @@ export class IntelligentCoordinator {
     const domains: AgentDomain[] = [];
 
     // Research domain
-    if (this.matchesKeywords(query, ['research', 'benchmark', 'market', 'competitor', 'industry'])) {
+    if (
+      this.matchesKeywords(query, ["research", "benchmark", "market", "competitor", "industry"])
+    ) {
       domains.push({
-        type: 'research',
-        agents: ['research', 'benchmark', 'company-intelligence'],
-        dataRequirements: ['market_data', 'competitor_data', 'industry_reports'],
-        securityClearance: ['market_research', 'competitive_intelligence'],
+        type: "research",
+        agents: ["research", "benchmark", "company-intelligence"],
+        dataRequirements: ["market_data", "competitor_data", "industry_reports"],
+        securityClearance: ["market_research", "competitive_intelligence"],
       });
     }
 
     // Financial domain
-    if (this.matchesKeywords(query, ['roi', 'financial', 'cost', 'value', 'investment', 'profit'])) {
+    if (
+      this.matchesKeywords(query, ["roi", "financial", "cost", "value", "investment", "profit"])
+    ) {
       domains.push({
-        type: 'financial',
-        agents: ['financial-modeling', 'value-mapping', 'opportunity', 'target'],
-        dataRequirements: ['financial_statements', 'cost_data', 'value_metrics'],
-        securityClearance: ['financial_analysis', 'value_modeling'],
+        type: "financial",
+        agents: ["financial-modeling", "value-mapping", "opportunity", "target"],
+        dataRequirements: ["financial_statements", "cost_data", "value_metrics"],
+        securityClearance: ["financial_analysis", "value_modeling"],
       });
     }
 
     // Communication domain
-    if (this.matchesKeywords(query, ['report', 'presentation', 'summary', 'communicate', 'narrative'])) {
+    if (
+      this.matchesKeywords(query, ["report", "presentation", "summary", "communicate", "narrative"])
+    ) {
       domains.push({
-        type: 'communication',
-        agents: ['narrative', 'communicator'],
-        dataRequirements: ['templates', 'brand_guidelines', 'stakeholder_info'],
-        securityClearance: ['content_creation', 'external_communication'],
+        type: "communication",
+        agents: ["narrative", "communicator"],
+        dataRequirements: ["templates", "brand_guidelines", "stakeholder_info"],
+        securityClearance: ["content_creation", "external_communication"],
       });
     }
 
     // Validation domain
-    if (this.matchesKeywords(query, ['validate', 'verify', 'compliance', 'audit', 'check'])) {
+    if (this.matchesKeywords(query, ["validate", "verify", "compliance", "audit", "check"])) {
       domains.push({
-        type: 'validation',
-        agents: ['integrity', 'groundtruth'],
-        dataRequirements: ['compliance_rules', 'audit_logs', 'validation_criteria'],
-        securityClearance: ['compliance_audit', 'data_validation'],
+        type: "validation",
+        agents: ["integrity", "groundtruth"],
+        dataRequirements: ["compliance_rules", "audit_logs", "validation_criteria"],
+        securityClearance: ["compliance_audit", "data_validation"],
       });
     }
 
     // Coordination domain (always present for multi-agent workflows)
     if (domains.length > 1) {
       domains.push({
-        type: 'coordination',
-        agents: ['coordinator'],
-        dataRequirements: ['workflow_state', 'agent_status', 'execution_context'],
-        securityClearance: ['workflow_orchestration'],
+        type: "coordination",
+        agents: ["coordinator"],
+        dataRequirements: ["workflow_state", "agent_status", "execution_context"],
+        securityClearance: ["workflow_orchestration"],
       });
     }
 
@@ -268,47 +300,56 @@ export class IntelligentCoordinator {
     query: string,
     context: Record<string, any>,
     domains: AgentDomain[]
-  ): RequestAnalysis['securityLevel'] {
+  ): RequestAnalysis["securityLevel"] {
     // Check for sensitive data indicators
-    const sensitiveKeywords = ['confidential', 'proprietary', 'sensitive', 'classified', 'restricted'];
-    const hasSensitiveData = sensitiveKeywords.some(keyword => query.includes(keyword)) ||
-                            Object.values(context).some(value =>
-                              typeof value === 'string' && sensitiveKeywords.some(k => value.includes(k))
-                            );
+    const sensitiveKeywords = [
+      "confidential",
+      "proprietary",
+      "sensitive",
+      "classified",
+      "restricted",
+    ];
+    const hasSensitiveData =
+      sensitiveKeywords.some((keyword) => query.includes(keyword)) ||
+      Object.values(context).some(
+        (value) => typeof value === "string" && sensitiveKeywords.some((k) => value.includes(k))
+      );
 
     // Check for compliance requirements
-    const complianceKeywords = ['compliance', 'audit', 'regulation', 'sox', 'hipaa', 'gdpr'];
-    const hasCompliance = complianceKeywords.some(keyword => query.includes(keyword));
+    const complianceKeywords = ["compliance", "audit", "regulation", "sox", "hipaa", "gdpr"];
+    const hasCompliance = complianceKeywords.some((keyword) => query.includes(keyword));
 
     // Check for financial data
-    const hasFinancial = domains.some(d => d.type === 'financial');
+    const hasFinancial = domains.some((d) => d.type === "financial");
 
     // Determine security level
-    if (hasSensitiveData && hasCompliance) return 'critical';
-    if (hasSensitiveData || hasCompliance) return 'high';
-    if (hasFinancial) return 'medium';
-    return 'low';
+    if (hasSensitiveData && hasCompliance) return "critical";
+    if (hasSensitiveData || hasCompliance) return "high";
+    if (hasFinancial) return "medium";
+    return "low";
   }
 
   /**
    * Determine if tasks can be parallelized
    */
-  private canParallelize(domains: AgentDomain[], complexity: RequestAnalysis['complexity']): boolean {
+  private canParallelize(
+    domains: AgentDomain[],
+    complexity: RequestAnalysis["complexity"]
+  ): boolean {
     // Simple tasks are usually single-agent
-    if (complexity === 'simple') return false;
+    if (complexity === "simple") return false;
 
     // Check if domains have independent data requirements
-    const domainTypes = domains.map(d => d.type);
-    const independentDomains = ['research', 'financial'];
+    const domainTypes = domains.map((d) => d.type);
+    const independentDomains = ["research", "financial"];
 
-    return domainTypes.some(type => independentDomains.includes(type)) &&
-           domainTypes.length > 1;
+    return domainTypes.some((type) => independentDomains.includes(type)) && domainTypes.length > 1;
   }
 
   /**
    * Estimate execution duration in seconds
    */
-  private estimateDuration(complexity: RequestAnalysis['complexity'], domainCount: number): number {
+  private estimateDuration(complexity: RequestAnalysis["complexity"], domainCount: number): number {
     const baseDurations = {
       simple: 5,
       moderate: 15,
@@ -325,7 +366,7 @@ export class IntelligentCoordinator {
   /**
    * Estimate token consumption
    */
-  private estimateTokens(query: string, complexity: RequestAnalysis['complexity']): number {
+  private estimateTokens(query: string, complexity: RequestAnalysis["complexity"]): number {
     const baseTokens = query.length * 1.3; // Rough estimate
     const complexityMultipliers = {
       simple: 1,
@@ -341,7 +382,7 @@ export class IntelligentCoordinator {
    * Calculate confidence in analysis
    */
   private calculateConfidence(
-    complexity: RequestAnalysis['complexity'],
+    complexity: RequestAnalysis["complexity"],
     domains: AgentDomain[],
     query: string
   ): number {
@@ -356,8 +397,8 @@ export class IntelligentCoordinator {
     if (domains.length > 2) confidence += 0.05;
 
     // Adjust based on complexity
-    if (complexity === 'simple') confidence += 0.1;
-    if (complexity === 'enterprise') confidence -= 0.1;
+    if (complexity === "simple") confidence += 0.1;
+    if (complexity === "enterprise") confidence -= 0.1;
 
     return Math.min(confidence, 0.95);
   }
@@ -405,27 +446,30 @@ export class IntelligentCoordinator {
   /**
    * Determine execution strategy
    */
-  private determineStrategy(analysis: RequestAnalysis): ExecutionPlan['strategy'] {
-    if (analysis.complexity === 'simple') return 'direct';
-    if (analysis.parallelizable && analysis.domains.length <= 3) return 'parallel';
-    if (analysis.domains.length <= 2) return 'pipeline';
-    return 'dag';
+  private determineStrategy(analysis: RequestAnalysis): ExecutionPlan["strategy"] {
+    if (analysis.complexity === "simple") return "direct";
+    if (analysis.parallelizable && analysis.domains.length <= 3) return "parallel";
+    if (analysis.domains.length <= 2) return "pipeline";
+    return "dag";
   }
 
   /**
    * Select agents for execution
    */
-  private selectAgents(analysis: RequestAnalysis, strategy: ExecutionPlan['strategy']): AgentType[] {
+  private selectAgents(
+    analysis: RequestAnalysis,
+    strategy: ExecutionPlan["strategy"]
+  ): AgentType[] {
     const agents: AgentType[] = [];
 
     // Always include coordinator for multi-agent workflows
-    if (strategy !== 'direct') {
-      agents.push('coordinator');
+    if (strategy !== "direct") {
+      agents.push("coordinator");
     }
 
     // Add agents based on domains
-    analysis.domains.forEach(domain => {
-      domain.agents.forEach(agent => {
+    analysis.domains.forEach((domain) => {
+      domain.agents.forEach((agent) => {
         if (!agents.includes(agent)) {
           agents.push(agent);
         }
@@ -433,15 +477,15 @@ export class IntelligentCoordinator {
     });
 
     // Add integrity for complex workflows
-    if (analysis.securityLevel === 'high' || analysis.securityLevel === 'critical') {
-      if (!agents.includes('integrity')) {
-        agents.push('integrity');
+    if (analysis.securityLevel === "high" || analysis.securityLevel === "critical") {
+      if (!agents.includes("integrity")) {
+        agents.push("integrity");
       }
     }
 
     // Add communicator for final output
-    if (strategy !== 'direct' && !agents.includes('communicator')) {
-      agents.push('communicator');
+    if (strategy !== "direct" && !agents.includes("communicator")) {
+      agents.push("communicator");
     }
 
     return agents;
@@ -452,21 +496,25 @@ export class IntelligentCoordinator {
    */
   private determineExecutionOrder(
     agents: AgentType[],
-    strategy: ExecutionPlan['strategy'],
+    strategy: ExecutionPlan["strategy"],
     analysis: RequestAnalysis
   ): string[][] {
     switch (strategy) {
-      case 'direct':
+      case "direct":
         return [agents];
 
-      case 'pipeline':
-        return agents.map(agent => [agent]);
+      case "pipeline":
+        return agents.map((agent) => [agent]);
 
-      case 'parallel':
+      case "parallel":
         // Group agents that can run in parallel
-        const researchAgents = agents.filter(a => ['research', 'benchmark', 'company-intelligence'].includes(a));
-        const analysisAgents = agents.filter(a => ['opportunity', 'target', 'financial-modeling'].includes(a));
-        const outputAgents = agents.filter(a => ['communicator', 'narrative'].includes(a));
+        const researchAgents = agents.filter((a) =>
+          ["research", "benchmark", "company-intelligence"].includes(a)
+        );
+        const analysisAgents = agents.filter((a) =>
+          ["opportunity", "target", "financial-modeling"].includes(a)
+        );
+        const outputAgents = agents.filter((a) => ["communicator", "narrative"].includes(a));
 
         const order: string[][] = [];
         if (researchAgents.length > 0) order.push(researchAgents);
@@ -475,9 +523,9 @@ export class IntelligentCoordinator {
 
         return order.length > 0 ? order : [agents];
 
-      case 'dag':
+      case "dag":
         // Complex DAG execution - simplified for this implementation
-        return agents.map(agent => [agent]);
+        return agents.map((agent) => [agent]);
 
       default:
         return [agents];
@@ -488,30 +536,30 @@ export class IntelligentCoordinator {
    * Plan context sharing between agents
    */
   private planContextSharing(agents: AgentType[], analysis: RequestAnalysis): ContextSharingPlan {
-    const sharedContext: string[] = ['sessionId', 'userId', 'organizationId', 'traceId'];
+    const sharedContext: string[] = ["sessionId", "userId", "organizationId", "traceId"];
 
     const agentSpecificContext: Record<AgentType, string[]> = {
-      coordinator: ['workflowState', 'executionPlan', 'agentStatus'],
-      opportunity: ['marketData', 'stakeholderInfo', 'constraints'],
-      target: ['opportunityData', 'financialBaseline', 'targets'],
-      realization: ['targetData', 'kpiData', 'varianceData'],
-      expansion: ['realizationData', 'growthOpportunities', 'constraints'],
-      integrity: ['allAgentOutputs', 'complianceRules', 'auditRequirements'],
-      research: ['researchQuery', 'dataSources', 'timeRange'],
-      benchmark: ['industryData', 'peerData', 'metrics'],
-      'company-intelligence': ['companyData', 'financialData', 'operationalData'],
-      'financial-modeling': ['financialInputs', 'assumptions', 'scenarios'],
-      'value-mapping': ['valueDrivers', 'metrics', 'outcomes'],
-      'system-mapper': ['systemData', 'architectureInfo', 'dependencies'],
-      'intervention-designer': ['systemData', 'interventionRequirements', 'constraints'],
-      'outcome-engineer': ['outcomeData', 'metrics', 'requirements'],
-      'value-eval': ['valueData', 'evaluationCriteria', 'metrics'],
-      communicator: ['allAgentOutputs', 'audienceInfo', 'formatRequirements'],
-      narrative: ['contentData', 'narrativeStyle', 'keyMessages'],
-      groundtruth: ['claimsData', 'sources', 'verificationCriteria'],
+      coordinator: ["workflowState", "executionPlan", "agentStatus"],
+      opportunity: ["marketData", "stakeholderInfo", "constraints"],
+      target: ["opportunityData", "financialBaseline", "targets"],
+      realization: ["targetData", "kpiData", "varianceData"],
+      expansion: ["realizationData", "growthOpportunities", "constraints"],
+      integrity: ["allAgentOutputs", "complianceRules", "auditRequirements"],
+      research: ["researchQuery", "dataSources", "timeRange"],
+      benchmark: ["industryData", "peerData", "metrics"],
+      "company-intelligence": ["companyData", "financialData", "operationalData"],
+      "financial-modeling": ["financialInputs", "assumptions", "scenarios"],
+      "value-mapping": ["valueDrivers", "metrics", "outcomes"],
+      "system-mapper": ["systemData", "architectureInfo", "dependencies"],
+      "intervention-designer": ["systemData", "interventionRequirements", "constraints"],
+      "outcome-engineer": ["outcomeData", "metrics", "requirements"],
+      "value-eval": ["valueData", "evaluationCriteria", "metrics"],
+      communicator: ["allAgentOutputs", "audienceInfo", "formatRequirements"],
+      narrative: ["contentData", "narrativeStyle", "keyMessages"],
+      groundtruth: ["claimsData", "sources", "verificationCriteria"],
     };
 
-    const securityValidations: SecurityValidation[] = agents.map(agent => ({
+    const securityValidations: SecurityValidation[] = agents.map((agent) => ({
       agent,
       requiredPermissions: this.getRequiredPermissions(agent, analysis),
       dataAccessLevel: this.getDataAccessLevel(agent, analysis),
@@ -530,31 +578,31 @@ export class IntelligentCoordinator {
    */
   private getRequiredPermissions(agent: AgentType, analysis: RequestAnalysis): string[] {
     const basePermissions = {
-      coordinator: ['workflow.execute', 'agents.coordinate'],
-      opportunity: ['data.read', 'opportunity.execute'],
-      target: ['data.read', 'target.execute'],
-      realization: ['data.read', 'realization.execute'],
-      expansion: ['data.read', 'expansion.execute'],
-      integrity: ['data.read', 'integrity.execute', 'audit.read'],
-      research: ['data.read', 'research.execute'],
-      benchmark: ['data.read', 'benchmark.execute'],
-      'company-intelligence': ['data.read', 'company-intelligence.execute'],
-      'financial-modeling': ['data.read', 'financial-modeling.execute'],
-      'value-mapping': ['data.read', 'value-mapping.execute'],
-      'system-mapper': ['data.read', 'system-mapper.execute'],
-      'intervention-designer': ['data.read', 'intervention-designer.execute'],
-      'outcome-engineer': ['data.read', 'outcome-engineer.execute'],
-      'value-eval': ['data.read', 'value-eval.execute'],
-      communicator: ['data.read', 'communicator.execute'],
-      narrative: ['data.read', 'narrative.execute'],
-      groundtruth: ['data.read', 'groundtruth.execute'],
+      coordinator: ["workflow.execute", "agents.coordinate"],
+      opportunity: ["data.read", "opportunity.execute"],
+      target: ["data.read", "target.execute"],
+      realization: ["data.read", "realization.execute"],
+      expansion: ["data.read", "expansion.execute"],
+      integrity: ["data.read", "integrity.execute", "audit.read"],
+      research: ["data.read", "research.execute"],
+      benchmark: ["data.read", "benchmark.execute"],
+      "company-intelligence": ["data.read", "company-intelligence.execute"],
+      "financial-modeling": ["data.read", "financial-modeling.execute"],
+      "value-mapping": ["data.read", "value-mapping.execute"],
+      "system-mapper": ["data.read", "system-mapper.execute"],
+      "intervention-designer": ["data.read", "intervention-designer.execute"],
+      "outcome-engineer": ["data.read", "outcome-engineer.execute"],
+      "value-eval": ["data.read", "value-eval.execute"],
+      communicator: ["data.read", "communicator.execute"],
+      narrative: ["data.read", "narrative.execute"],
+      groundtruth: ["data.read", "groundtruth.execute"],
     };
 
     const permissions = basePermissions[agent] || [];
 
     // Add security-level specific permissions
-    if (analysis.securityLevel === 'high' || analysis.securityLevel === 'critical') {
-      permissions.push('security.elevated');
+    if (analysis.securityLevel === "high" || analysis.securityLevel === "critical") {
+      permissions.push("security.elevated");
     }
 
     return permissions;
@@ -565,27 +613,27 @@ export class IntelligentCoordinator {
    */
   private getDataAccessLevel(agent: AgentType, analysis: RequestAnalysis): string {
     const baseLevels = {
-      coordinator: 'workflow',
-      opportunity: 'business',
-      target: 'financial',
-      realization: 'operational',
-      expansion: 'strategic',
-      integrity: 'audit',
-      research: 'external',
-      benchmark: 'industry',
-      'company-intelligence': 'confidential',
-      'financial-modeling': 'financial',
-      'value-mapping': 'business',
-      'system-mapper': 'system',
-      'intervention-designer': 'design',
-      'outcome-engineer': 'outcome',
-      'value-eval': 'evaluation',
-      communicator: 'public',
-      narrative: 'public',
-      groundtruth: 'verification',
+      coordinator: "workflow",
+      opportunity: "business",
+      target: "financial",
+      realization: "operational",
+      expansion: "strategic",
+      integrity: "audit",
+      research: "external",
+      benchmark: "industry",
+      "company-intelligence": "confidential",
+      "financial-modeling": "financial",
+      "value-mapping": "business",
+      "system-mapper": "system",
+      "intervention-designer": "design",
+      "outcome-engineer": "outcome",
+      "value-eval": "evaluation",
+      communicator: "public",
+      narrative: "public",
+      groundtruth: "verification",
     };
 
-    return baseLevels[agent] || 'standard';
+    return baseLevels[agent] || "standard";
   }
 
   /**
@@ -595,21 +643,21 @@ export class IntelligentCoordinator {
     const checks = [];
 
     // Base compliance checks
-    if (['financial-modeling', 'target'].includes(agent)) {
-      checks.push('sox_compliance', 'financial_accuracy');
+    if (["financial-modeling", "target"].includes(agent)) {
+      checks.push("sox_compliance", "financial_accuracy");
     }
 
-    if (['integrity', 'groundtruth'].includes(agent)) {
-      checks.push('audit_trail', 'data_integrity');
+    if (["integrity", "groundtruth"].includes(agent)) {
+      checks.push("audit_trail", "data_integrity");
     }
 
-    if (['company-intelligence'].includes(agent)) {
-      checks.push('data_privacy', 'confidentiality');
+    if (["company-intelligence"].includes(agent)) {
+      checks.push("data_privacy", "confidentiality");
     }
 
     // Security level specific checks
-    if (analysis.securityLevel === 'critical') {
-      checks.push('enhanced_audit', 'access_logging');
+    if (analysis.securityLevel === "critical") {
+      checks.push("enhanced_audit", "access_logging");
     }
 
     return checks;
@@ -622,25 +670,25 @@ export class IntelligentCoordinator {
     const agentCosts = {
       coordinator: 0.05,
       opportunity: 0.15,
-      target: 0.20,
-      realization: 0.10,
+      target: 0.2,
+      realization: 0.1,
       expansion: 0.15,
       integrity: 0.08,
       research: 0.25,
-      benchmark: 0.20,
-      'company-intelligence': 0.18,
-      'financial-modeling': 0.22,
-      'value-mapping': 0.12,
-      'system-mapper': 0.15,
-      'intervention-designer': 0.18,
-      'outcome-engineer': 0.16,
-      'value-eval': 0.12,
+      benchmark: 0.2,
+      "company-intelligence": 0.18,
+      "financial-modeling": 0.22,
+      "value-mapping": 0.12,
+      "system-mapper": 0.15,
+      "intervention-designer": 0.18,
+      "outcome-engineer": 0.16,
+      "value-eval": 0.12,
       communicator: 0.05,
       narrative: 0.08,
-      groundtruth: 0.10,
+      groundtruth: 0.1,
     };
 
-    const baseCost = agents.reduce((total, agent) => total + (agentCosts[agent] || 0.10), 0);
+    const baseCost = agents.reduce((total, agent) => total + (agentCosts[agent] || 0.1), 0);
 
     // Apply complexity multiplier
     const complexityMultiplier = {
@@ -657,22 +705,24 @@ export class IntelligentCoordinator {
    * Generate reasoning for the execution plan
    */
   private generateReasoning(
-    strategy: ExecutionPlan['strategy'],
+    strategy: ExecutionPlan["strategy"],
     agents: AgentType[],
     analysis: RequestAnalysis
   ): string {
     const strategyDescriptions = {
-      direct: 'Single agent execution for simple request',
-      pipeline: 'Sequential agent execution for moderate complexity',
-      parallel: 'Parallel execution where possible for efficiency',
-      dag: 'Complex workflow with dependencies and optimizations',
+      direct: "Single agent execution for simple request",
+      pipeline: "Sequential agent execution for moderate complexity",
+      parallel: "Parallel execution where possible for efficiency",
+      dag: "Complex workflow with dependencies and optimizations",
     };
 
-    return `Strategy: ${strategyDescriptions[strategy]}. ` +
-           `Selected ${agents.length} agents based on ${analysis.domains.length} identified domains. ` +
-           `Estimated duration: ${analysis.estimatedDuration}s, ` +
-           `Security level: ${analysis.securityLevel}, ` +
-           `Confidence: ${(analysis.confidence * 100).toFixed(1)}%`;
+    return (
+      `Strategy: ${strategyDescriptions[strategy]}. ` +
+      `Selected ${agents.length} agents based on ${analysis.domains.length} identified domains. ` +
+      `Estimated duration: ${analysis.estimatedDuration}s, ` +
+      `Security level: ${analysis.securityLevel}, ` +
+      `Confidence: ${(analysis.confidence * 100).toFixed(1)}%`
+    );
   }
 
   /**
@@ -682,11 +732,11 @@ export class IntelligentCoordinator {
     const keyData = {
       query: request.query.substring(0, 100), // Normalize query
       complexity: analysis.complexity,
-      domains: analysis.domains.map(d => d.type).sort(),
+      domains: analysis.domains.map((d) => d.type).sort(),
       securityLevel: analysis.securityLevel,
     };
 
-    return Buffer.from(JSON.stringify(keyData)).toString('base64');
+    return Buffer.from(JSON.stringify(keyData)).toString("base64");
   }
 
   private getFromCache(key: string): RoutingCache | null {
@@ -694,7 +744,7 @@ export class IntelligentCoordinator {
   }
 
   private isCacheValid(cache: RoutingCache): boolean {
-    return (Date.now() - cache.createdAt) < cache.ttl;
+    return Date.now() - cache.createdAt < cache.ttl;
   }
 
   private cachePlan(key: string, plan: ExecutionPlan): void {
@@ -720,7 +770,7 @@ export class IntelligentCoordinator {
     return {
       ...cachedPlan,
       planId: `plan-${Date.now()}-${randomUUID().substring(0, 8)}`,
-      reasoning: cachedPlan.reasoning + ' (adapted from cache)',
+      reasoning: cachedPlan.reasoning + " (adapted from cache)",
     };
   }
 
@@ -728,7 +778,7 @@ export class IntelligentCoordinator {
    * Utility methods
    */
   private matchesKeywords(text: string, keywords: string[]): boolean {
-    return keywords.some(keyword => text.includes(keyword));
+    return keywords.some((keyword) => text.includes(keyword));
   }
 
   /**
@@ -747,8 +797,8 @@ export class IntelligentCoordinator {
     return {
       size: this.routingCache.size,
       hitRate: totalRequests > 0 ? totalHits / totalRequests : 0,
-      oldestEntry: entries.length > 0 ? Math.min(...entries.map(e => e.createdAt)) : null,
-      newestEntry: entries.length > 0 ? Math.max(...entries.map(e => e.createdAt)) : null,
+      oldestEntry: entries.length > 0 ? Math.min(...entries.map((e) => e.createdAt)) : null,
+      newestEntry: entries.length > 0 ? Math.max(...entries.map((e) => e.createdAt)) : null,
     };
   }
 
@@ -758,6 +808,85 @@ export class IntelligentCoordinator {
   clearCache(): void {
     this.routingCache.clear();
     this.contextCache.clear();
+  }
+
+  // ============================================================================
+  // Stall Detection and Self-Healing
+  // ============================================================================
+
+  /**
+   * Start periodic stall detection
+   */
+  private startStallDetection(): void {
+    this.stallCheckInterval = setInterval(() => {
+      this.checkForStalledAgents();
+    }, 10000); // Check every 10 seconds
+  }
+
+  /**
+   * Check for stalled agents and trigger AGENT_RESET events
+   */
+  private checkForStalledAgents(): void {
+    const now = Date.now();
+    const stalledExecutions: string[] = [];
+
+    for (const [traceId, execution] of this.activeExecutions) {
+      const elapsed = now - execution.startTime;
+      if (elapsed > this.STALL_TIMEOUT_MS) {
+        stalledExecutions.push(traceId);
+        logger.warn("Stalled agent detected, triggering AGENT_RESET", {
+          traceId,
+          agent: execution.agent,
+          elapsedMs: elapsed,
+          stallTimeoutMs: this.STALL_TIMEOUT_MS,
+        });
+      }
+    }
+
+    // Trigger AGENT_RESET for stalled executions
+    for (const traceId of stalledExecutions) {
+      this.triggerAgentReset(traceId);
+    }
+  }
+
+  /**
+   * Trigger AGENT_RESET event for a stalled execution
+   */
+  private async triggerAgentReset(traceId: string): Promise<void> {
+    const execution = this.activeExecutions.get(traceId);
+    if (!execution) return;
+
+    try {
+      // Remove from active executions
+      this.activeExecutions.delete(traceId);
+
+      // Emit AGENT_RESET event (this would integrate with MessageBus)
+      logger.info("AGENT_RESET event triggered for stalled execution", {
+        traceId,
+        agent: execution.agent,
+      });
+
+      // TODO: Integrate with MessageBus to emit AGENT_RESET event
+      // await messageBus.emit('AGENT_RESET', { traceId, agent: execution.agent });
+
+      // For now, just log the event
+      // In a full implementation, this would notify the agent orchestrator to reset the agent
+    } catch (error) {
+      logger.error("Failed to trigger AGENT_RESET", error instanceof Error ? error : undefined, {
+        traceId,
+        agent: execution.agent,
+      });
+    }
+  }
+
+  /**
+   * Stop stall detection (for cleanup)
+   */
+  stopStallDetection(): void {
+    if (this.stallCheckInterval) {
+      clearInterval(this.stallCheckInterval);
+      this.stallCheckInterval = null;
+    }
   }
 }
 
