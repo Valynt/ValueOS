@@ -500,8 +500,6 @@ export class AgentTelemetryService {
 
     // Record completion event
     this.recordTelemetryEvent({
-      eventId: uuidv4(),
-      timestamp: new Date(),
       type: "agent_execution_complete",
       agentType: trace.agentType,
       sessionId: trace.sessionId,
@@ -580,8 +578,6 @@ export class AgentTelemetryService {
 
     // Record error event
     this.recordTelemetryEvent({
-      eventId: uuidv4(),
-      timestamp: new Date(),
       type: "agent_execution_error",
       agentType: trace.agentType,
       sessionId: trace.sessionId,
@@ -600,7 +596,7 @@ export class AgentTelemetryService {
       },
     });
 
-    logger.error("Agent execution trace failed", {
+    logger.error("Agent execution trace failed", undefined, {
       traceId,
       agentType: trace.agentType,
       error: executionError.message,
@@ -696,7 +692,7 @@ export class AgentTelemetryService {
       error: logger.error,
     }[event.severity];
 
-    logMethod("Agent telemetry event", {
+    logMethod("Agent telemetry event", undefined, {
       eventId: telemetryEvent.eventId,
       type: event.type,
       agentType: event.agentType,

@@ -3,7 +3,7 @@
 
 FROM node:22-bookworm-slim AS base
 
-# Install build dependencies
+# Install build dependencies (kept only in build stages)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
@@ -27,9 +27,9 @@ FROM base AS deps
 WORKDIR /app
 
 # Copy pruned package files for dependency installation
-COPY --from=prune /app/out/json/ ./
-COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=prune /app/.npmrc* ./
+COPY --from=prune --chown=root:root /app/out/json/ ./
+COPY --from=prune --chown=root:root /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prune --chown=root:root /app/.npmrc* ./
 
 # Install dependencies with cache mount for faster builds
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
@@ -40,8 +40,8 @@ FROM base AS prod-deps
 WORKDIR /app
 
 # Copy pruned package files for production-only dependency installation
-COPY --from=prune /app/out/json/ ./
-COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prune --chown=root:root /app/out/json/ ./
+COPY --from=prune --chown=root:root /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=prune /app/.npmrc* ./
 
 # Install production dependencies with cache mount for faster builds
@@ -56,7 +56,7 @@ WORKDIR /app
 ARG APP=valynt-app
 
 # Copy pruned source code
-COPY --from=prune /app/out/full/ ./
+COPY --from=prune --chown=root:root /app/out/full/ ./
 
 # Build the application with cache mounts
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm \
@@ -73,8 +73,15 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
+# Create a non-privileged runtime user and make app files owned by it
+ARG USER_ID=1000
+ARG USER_GID=1000
+RUN groupadd -g ${USER_GID} valueos || true \
+    && useradd -r -u ${USER_ID} -g ${USER_GID} valueos || true
+
+COPY --from=prod-deps --chown=valueos:valueos /app/node_modules ./node_modules
+COPY --from=builder --chown=valueos:valueos /app/dist ./dist
+USER valueos
 
 FROM scratch AS export
 COPY --from=builder /app/dist ./

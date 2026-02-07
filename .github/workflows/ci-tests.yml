@@ -5,6 +5,7 @@ on:
     branches: [main, develop]
   push:
     branches: [main, develop]
+  workflow_dispatch:
 
 jobs:
   env-validation:
@@ -52,10 +53,49 @@ jobs:
           fi
           echo "Contradiction detection working correctly"
 
+  dockerfile-hardening:
+    name: Dockerfile Hardening & Port Validation
+    runs-on: ubuntu-latest
+    needs: env-validation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Dockerfile hardening checks
+        run: pnpm run lint:dockerfiles
+
+      - name: Build selected Dockerfiles with EXPOSE ports from config
+        run: |
+          echo "Building server image with backend port"
+          BACKEND_PORT=$(node -e "console.log(require('./config/ports.json').backend.port)")
+          docker build -f .devcontainer/Dockerfile.optimized --build-arg EXPOSE_PORT=${BACKEND_PORT} --build-arg APP=ValyntApp -t valynt-app:ci .
+
+          echo "Building frontend image with edge.httpPort"
+          FRONTEND_PORT=$(node -e "console.log(require('./config/ports.json').edge.httpPort)")
+          docker build -f Dockerfile.optimized.frontend --build-arg EXPOSE_PORT=${FRONTEND_PORT} -t valynt-frontend:ci .
+
+          echo "Building agent image with backend port"
+          AGENT_PORT=$(node -e "console.log(require('./config/ports.json').backend.port)")
+          docker build -f Dockerfile.optimized.agent --build-arg EXPOSE_PORT=${AGENT_PORT} -t valynt-agent:ci .
+
   docker-smoke:
     name: Docker Smoke Test
     runs-on: ubuntu-latest
-    needs: env-validation
+    needs: dockerfile-hardening
     steps:
       - name: Checkout
         uses: actions/checkout@v4
