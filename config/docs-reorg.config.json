@@ -1,0 +1,9 @@
+{
+  "filePatterns": ["**/*.md", "**/*.mdx"],
+  "exclude": ["node_modules", ".git", "tmp", "public", "dist"],
+  "similarityThreshold": 0.92,
+  "deprecatedTerms": ["boston-hoa", "old-library"],
+  "schedule": "0 2 * * *",
+  "prDraftDefault": true,
+  "supabase": { "enabled": true, "table": "docs_embeddings" }
+}

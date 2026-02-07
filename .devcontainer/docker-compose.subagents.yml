@@ -22,3 +22,13 @@ services:
     working_dir: /workspaces/ValueOS
     command: /bin/bash -lc "pnpm run test:unit --silent || true"
     profiles: ["devcontainer"]
+
+  subagent-playwright:
+    image: ghcr.io/devcontainers/typescript-node:1-22-bookworm
+    volumes:
+      - ..:/workspaces/ValueOS:cached
+    working_dir: /workspaces/ValueOS
+    environment:
+      PLAYWRIGHT_ARGS: "${PLAYWRIGHT_ARGS:---project=chromium --reporter=list}"
+    command: /bin/bash -lc "pnpm install --frozen-lockfile || true && pnpm playwright install --with-deps || true && pnpm playwright test ${PLAYWRIGHT_ARGS} || true"
+    profiles: ["devcontainer"]

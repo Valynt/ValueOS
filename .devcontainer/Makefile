@@ -55,3 +55,13 @@ dev:
 test:
 	@echo "🧪 Running tests..."
 	pnpm run test || exit 1
+
+# Install Playwright browsers and OS deps (idempotent)
+install-playwright:
+	@echo "Installing Playwright browsers and OS deps..."
+	@bash .devcontainer/scripts/install-playwright-deps.sh || true
+
+# Build a devcontainer image with Playwright OS deps (for headed mode)
+build-playwright-image:
+	@echo "Building devcontainer image with Playwright OS deps (may take several minutes)"
+	docker build -f .devcontainer/Dockerfile.dev --build-arg INSTALL_PLAYWRIGHT_DEPS=1 -t valueos-dev:playwright . || true

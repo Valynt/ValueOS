@@ -35,7 +35,7 @@ echo "Test 1: Create value case..."
 TOKEN=$(curl -s -X POST http://127.0.0.1:54321/auth/v1/token?grant_type=password \
   -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0" \
   -H "Content-Type: application/json" \
-  -d '{"email":"demouser@valynt.com","password":"passord"}' | \
+  -d '{"email":"demouser@valynt.com","password":"passw0rd"}' | \
   grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
 [ -n "$TOKEN" ] || { echo "FAIL: Could not get auth token"; exit 1; }

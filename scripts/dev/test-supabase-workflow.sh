@@ -34,7 +34,7 @@ ensure_env() {
   fi
 
   # Ensure demo password default
-  export DEMO_USER_PASSWORD="${DEMO_USER_PASSWORD:-passord}"
+  export DEMO_USER_PASSWORD="${DEMO_USER_PASSWORD:-passw0rd}"
 
   # Validate critical vars
   if ! grep -q "VITE_SUPABASE_URL" .env.local || ! grep -q "VITE_SUPABASE_ANON_KEY" .env.local; then

@@ -63,7 +63,7 @@ async function seedDemoData() {
     // Create demo user with fixed credentials (INVARIANT - do not change)
     const demoUserEmail = process.env.DEMO_USER_EMAIL || "demouser@valynt.com";
     // Allow overriding demo password via env var, but enforce minimum length
-    const demoUserPassword = process.env.DEMO_USER_PASSWORD || "passw0rd!";
+    const demoUserPassword = process.env.DEMO_USER_PASSWORD || "passw0rd";
     const demoUserId = "00000000-0000-0000-0000-000000000001"; // Fixed UUID for determinism
 
     if (demoUserPassword.length < 8) {
@@ -71,7 +71,7 @@ async function seedDemoData() {
         "❌ Demo password must be at least 8 characters long. Set DEMO_USER_PASSWORD to a longer value."
       );
       process.exit(1);
-    }
+    
 
     // First, create the user via Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -120,6 +120,11 @@ async function seedDemoData() {
     }
 
     console.log(`✅ Created demo user: ${demoUserEmail}`);
+
+    console.log("\n📋 Demo credentials:");
+    console.log(`   Email:    ${demoUserEmail}`);
+    console.log(`   Password: ${demoUserPassword}`);
+    console.log(`   UUID:     ${demoUserId}`);
 
     // Create some demo projects
     const { error: projectError } = await supabase.from("projects").upsert([

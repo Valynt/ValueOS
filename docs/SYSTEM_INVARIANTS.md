@@ -7,7 +7,7 @@
 ```
 UUID:     00000000-0000-0000-0000-000000000001
 Email:    demouser@valynt.com
-Password: passord
+Password: passw0rd
 Role:     admin
 ```
 

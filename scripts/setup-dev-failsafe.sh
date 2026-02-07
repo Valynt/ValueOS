@@ -181,7 +181,7 @@ if [ "$USER_EXISTS" = "0" ]; then
 fi
 
 log_verify "✓ Demo user created: demouser@valynt.com"
-log_verify "  Password: passord"
+log_verify "  Password: passw0rd"
 log_verify "  Role: admin"
 
 # ============================================================================
@@ -253,7 +253,7 @@ log_step "12. Testing authentication flow..."
 LOGIN_RESPONSE=$(curl -s -X POST http://127.0.0.1:54321/auth/v1/token?grant_type=password \
   -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0" \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"demouser@valynt.com\",\"password\":\"passord\"}")
+  -d "{\"email\":\"demouser@valynt.com\",\"password\":\"passw0rd\"})
 
 ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
@@ -311,7 +311,7 @@ echo "  Supabase Studio: http://localhost:54323"
 echo ""
 echo "Demo credentials:"
 echo "  Email:    demouser@valynt.com"
-echo "  Password: passord"
+echo "  Password: passw0rd"
 echo "  Token:    ${ACCESS_TOKEN:0:20}..."
 echo ""
 echo "Process IDs:"

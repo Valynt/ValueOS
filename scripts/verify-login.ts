@@ -20,7 +20,7 @@ dotenv.config({ path: path.join(projectRoot, ".env.local") });
 
 // Demo user credentials (INVARIANT - see docs/SYSTEM_INVARIANTS.md)
 const DEMO_EMAIL = "demouser@valynt.com";
-const DEMO_PASSWORD = "passord";
+const DEMO_PASSWORD = "passw0rd";
 const DEMO_UUID = "00000000-0000-0000-0000-000000000001";
 
 async function verifyLogin() {

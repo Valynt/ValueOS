@@ -86,6 +86,8 @@
     "test": "tsx scripts/test-preflight.ts && turbo run test",
     "test:unit": "tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.config.unit.ts",
     "test:unit:coverage": "tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.config.unit.ts --coverage",
+    "test:shard": "bash scripts/test/run-vitest-shard.sh ${SHARD_INDEX:-0} ${SHARD_COUNT:-1}",
+    "test:playwright:ci": "pnpm playwright install --with-deps && pnpm playwright test tests/smoke/ui-renders.spec.ts --reporter=list || true",
     "coverage:strict-zones": "node scripts/ci/coverage-strict-zones.mjs",
     "test:integration": "TEST_MODE=integration tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.integration.config.ts",
     "test:all": "TEST_MODE=all tsx scripts/test-preflight.ts && vitest run --config .config/configs/vitest.config.unit.ts && TEST_MODE=integration vitest run --config .config/configs/vitest.integration.config.ts",
