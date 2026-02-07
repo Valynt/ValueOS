@@ -384,7 +384,7 @@ export abstract class BaseAgent {
       // ─────────────────────────────────────────────────────────────────────
 
       // 3.1 Execute with Retry Logic
-      const rawOutput = await this.executeWithRetry(prompt, options, traceId);
+      const rawOutput = await this.executeWithRetry(prompt, options, traceId, input.context);
 
       // 3.2 Parse and Validate Structure
       const structuredOutput = this.parseAndValidate(rawOutput, resultSchema);
@@ -803,18 +803,28 @@ export abstract class BaseAgent {
   private async executeWithRetry(
     prompt: string,
     options: SecureInvokeOptions,
-    traceId: string
+    traceId: string,
+    context: { tenantId: string; userId?: string; sessionId?: string }
   ): Promise<LLMResponse> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.maxRetryAttempts; attempt++) {
       try {
+        if (!context.tenantId) {
+          throw new Error("TENANT_ID_REQUIRED: LLM requests require a tenantId for usage tracking.");
+        }
+
         return await this.llmGateway.execute({
           provider: "openai", // TODO: Make configurable
           messages: [{ role: "user", content: prompt }],
           model: "gpt-4", // TODO: Make configurable
           temperature: options.temperature || 0.7,
           maxTokens: options.maxTokens || 1000,
+          metadata: {
+            tenantId: context.tenantId,
+            userId: context.userId,
+            sessionId: context.sessionId,
+          },
         });
       } catch (error) {
         lastError = error as Error;

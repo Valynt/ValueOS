@@ -7,12 +7,31 @@
 
 import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
+import { LLMCostTracker } from "../../services/LLMCostTracker";
 
 // ============================================================================
 // Provider Types
 // ============================================================================
 
 export type LLMProvider = "openai" | "anthropic" | "together" | "replicate";
+
+type TenantMetadata =
+  | {
+      tenantId: string;
+      tenant_id?: never;
+    }
+  | {
+      tenantId?: never;
+      tenant_id: string;
+    };
+
+export type LLMRequestMetadata = TenantMetadata & {
+  userId?: string;
+  user_id?: string;
+  sessionId?: string;
+  session_id?: string;
+  [key: string]: unknown;
+};
 
 export interface LLMRequest {
   id?: string;
@@ -25,7 +44,7 @@ export interface LLMRequest {
   temperature?: number;
   maxTokens?: number;
   stopSequences?: string[];
-  metadata?: Record<string, unknown>;
+  metadata: LLMRequestMetadata;
 }
 
 export interface LLMResponse {
@@ -263,8 +282,10 @@ class AnthropicProvider extends BaseLLMProvider {
 export class LLMGateway {
   private providers: Map<LLMProvider, BaseLLMProvider> = new Map();
   private defaultProvider: LLMProvider = "openai";
+  private costTracker: LLMCostTracker;
 
-  constructor(configs: Record<LLMProvider, LLMProviderConfig>) {
+  constructor(configs: Record<LLMProvider, LLMProviderConfig>, costTracker = new LLMCostTracker()) {
+    this.costTracker = costTracker;
     // Initialize providers
     if (configs.openai) {
       this.providers.set("openai", new OpenAIProvider(configs.openai));
@@ -281,9 +302,30 @@ export class LLMGateway {
   }
 
   async execute(request: LLMRequest): Promise<LLMResponse> {
+    const metadata = request.metadata ?? {};
+    const tenantId = metadata.tenantId ?? metadata.tenant_id;
+    const userId = metadata.userId ?? metadata.user_id ?? "system";
+    const sessionId = metadata.sessionId ?? metadata.session_id;
+    const startTime = Date.now();
+
+    if (!tenantId) {
+      logger.error("LLM request missing tenant metadata", {
+        provider: request.provider,
+        model: request.model,
+        metadataKeys: Object.keys(metadata),
+      });
+      throw new Error(
+        "LLMGateway.execute requires tenant metadata (tenantId or tenant_id) for usage tracking."
+      );
+    }
+
     const enrichedRequest: LLMRequest = {
       id: uuidv4(),
       ...request,
+      metadata: {
+        ...metadata,
+        tenantId,
+      },
     };
 
     const provider = this.providers.get(request.provider);
@@ -299,7 +341,7 @@ export class LLMGateway {
     });
 
     try {
-      const response = await provider.execute(request);
+      const response = await provider.execute(enrichedRequest);
 
       logger.info("LLM request completed successfully", {
         requestId: enrichedRequest.id,
@@ -309,14 +351,57 @@ export class LLMGateway {
         latency: response.latency,
       });
 
+      void this.costTracker.trackUsage({
+        tenantId,
+        userId,
+        sessionId,
+        provider: this.mapProviderForCostTracker(request.provider),
+        model: request.model,
+        promptTokens: response.tokenUsage.input,
+        completionTokens: response.tokenUsage.output,
+        endpoint: "llm-gateway.execute",
+        success: true,
+        latencyMs: response.latency,
+      });
+
       return response;
     } catch (error) {
+      const latencyMs = Date.now() - startTime;
+      void this.costTracker.trackUsage({
+        tenantId,
+        userId,
+        sessionId,
+        provider: this.mapProviderForCostTracker(request.provider),
+        model: request.model,
+        promptTokens: 0,
+        completionTokens: 0,
+        endpoint: "llm-gateway.execute",
+        success: false,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        latencyMs: Number.isFinite(latencyMs) ? latencyMs : 0,
+      });
+
       logger.error("LLM request failed", error as Error, {
         requestId: enrichedRequest.id,
         provider: request.provider,
         model: request.model,
       });
       throw error;
+    }
+  }
+
+  private mapProviderForCostTracker(provider: LLMProvider): "openai" | "together_ai" | "anthropic" | "replicate" {
+    switch (provider) {
+      case "together":
+        return "together_ai";
+      case "openai":
+        return "openai";
+      case "anthropic":
+        return "anthropic";
+      case "replicate":
+        return "replicate";
+      default:
+        return "openai";
     }
   }
 

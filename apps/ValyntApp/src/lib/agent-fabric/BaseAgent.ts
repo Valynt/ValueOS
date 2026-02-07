@@ -7,7 +7,7 @@
 
 import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
-import { LLMGateway, LLMRequest, LLMResponse } from "./LLMGateway";
+import { LLMGateway, LLMRequest, LLMRequestMetadata, LLMResponse } from "./LLMGateway";
 import { MemorySystem, MemoryEntry, MemoryQuery } from "./MemorySystem";
 import { AuditLogger, AuditLevel } from "./AuditLogger";
 import { createClient } from "@supabase/supabase-js";
@@ -432,10 +432,27 @@ export abstract class BaseAgent implements IAgent {
     };
   }
 
-  protected async callLLM(request: Omit<LLMRequest, "id">): Promise<LLMResponse> {
+  protected async callLLM(
+    request: Omit<LLMRequest, "id" | "metadata"> & { metadata?: Partial<LLMRequestMetadata> }
+  ): Promise<LLMResponse> {
+    const metadata = request.metadata ?? {};
+    const tenantId = metadata.tenantId ?? metadata.tenant_id ?? this.config.organizationId;
+
+    if (!tenantId) {
+      throw new Error("TENANT_ID_REQUIRED: LLM requests require a tenantId for usage tracking.");
+    }
+
+    const resolvedMetadata: LLMRequestMetadata = {
+      ...metadata,
+      tenantId,
+      userId: metadata.userId ?? metadata.user_id ?? this.config.userId,
+      sessionId: metadata.sessionId ?? metadata.session_id ?? this.config.sessionId,
+    };
+
     const fullRequest: LLMRequest = {
       id: uuidv4(),
       ...request,
+      metadata: resolvedMetadata,
     };
 
     return await this.config.llmGateway.execute(fullRequest);
