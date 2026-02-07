@@ -99,3 +99,23 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "try{ require('./dist/server'); process.exit(0) } catch(e){ process.exit(1) }"
 
 CMD ["node", "dist/server.js"]
+
+
+# --- Alternative runtime: Distroless (Debian/glibc) for smaller attack surface
+# This stage is safe to use when native deps report shows no missing shared libs.
+# Distroless expects the Node binary to be provided by the image; the command
+# should be the script path (no `node` prefix).
+FROM gcr.io/distroless/nodejs20-debian12:nonroot AS production-distroless
+WORKDIR /app
+
+# Copy only the artifacts required at runtime
+COPY --from=build /artifacts/app/package.json ./
+COPY --from=build /artifacts/app/dist ./dist
+COPY --from=build /artifacts/app/.next ./.next
+COPY --from=build /artifacts/app/node_modules ./node_modules
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+# Distroless has no shell; run the entry script directly (exec form).
+CMD ["dist/server.js"]
