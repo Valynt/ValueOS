@@ -35,11 +35,7 @@ BEGIN
     WHERE table_schema = 'public'
       AND column_name = 'tenant_id'
   LOOP
-    IF r.udt_name = 'uuid' THEN
-      tenant_expr := 'security.current_tenant_id_uuid()';
-    ELSE
-      tenant_expr := 'security.current_tenant_id()';
-    END IF;
+    tenant_expr := 'security.user_has_tenant_access(tenant_id)';
 
     EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY;', r.table_schema, r.table_name);
     EXECUTE format('ALTER TABLE %I.%I FORCE ROW LEVEL SECURITY;', r.table_schema, r.table_name);
@@ -50,26 +46,26 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation_delete ON %I.%I;', r.table_schema, r.table_name);
 
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_select ON %I.%I AS RESTRICTIVE FOR SELECT USING (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_select ON %I.%I AS RESTRICTIVE FOR SELECT USING (%s);',
       r.table_schema,
       r.table_name,
       tenant_expr
     );
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_insert ON %I.%I AS RESTRICTIVE FOR INSERT WITH CHECK (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_insert ON %I.%I AS RESTRICTIVE FOR INSERT WITH CHECK (%s);',
       r.table_schema,
       r.table_name,
       tenant_expr
     );
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_update ON %I.%I AS RESTRICTIVE FOR UPDATE USING (tenant_id = %s) WITH CHECK (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_update ON %I.%I AS RESTRICTIVE FOR UPDATE USING (%s) WITH CHECK (%s);',
       r.table_schema,
       r.table_name,
       tenant_expr,
       tenant_expr
     );
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_delete ON %I.%I AS RESTRICTIVE FOR DELETE USING (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_delete ON %I.%I AS RESTRICTIVE FOR DELETE USING (%s);',
       r.table_schema,
       r.table_name,
       tenant_expr

@@ -54,11 +54,7 @@ BEGIN
       AND column_name = 'tenant_id'
       AND table_name LIKE 'memory_%'
   LOOP
-    IF r.udt_name = 'uuid' THEN
-      tenant_expr := 'security.current_tenant_id_uuid()';
-    ELSE
-      tenant_expr := 'security.current_tenant_id()';
-    END IF;
+    tenant_expr := 'security.user_has_tenant_access(tenant_id)';
 
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', r.table_name);
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation_select ON public.%I;', r.table_name);
@@ -67,23 +63,23 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation_delete ON public.%I;', r.table_name);
 
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_select ON public.%I FOR SELECT USING (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_select ON public.%I FOR SELECT USING (%s);',
       r.table_name,
       tenant_expr
     );
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_insert ON public.%I FOR INSERT WITH CHECK (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_insert ON public.%I FOR INSERT WITH CHECK (%s);',
       r.table_name,
       tenant_expr
     );
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_update ON public.%I FOR UPDATE USING (tenant_id = %s) WITH CHECK (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_update ON public.%I FOR UPDATE USING (%s) WITH CHECK (%s);',
       r.table_name,
       tenant_expr,
       tenant_expr
     );
     EXECUTE format(
-      'CREATE POLICY tenant_isolation_delete ON public.%I FOR DELETE USING (tenant_id = %s);',
+      'CREATE POLICY tenant_isolation_delete ON public.%I FOR DELETE USING (%s);',
       r.table_name,
       tenant_expr
     );
