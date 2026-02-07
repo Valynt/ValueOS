@@ -9,33 +9,64 @@ ARG RUNTIME_IMAGE=node:${NODE_VERSION}-slim
 ARG PNPM_VERSION=9.15.0
 ARG AGENT_NAME
 
-FROM ${BUILD_IMAGE} AS deps
+# Stage 1: Base tooling
+FROM ${BUILD_IMAGE} AS base
 ARG PNPM_VERSION
-ARG AGENT_NAME
 ENV PNPM_HOME=/pnpm
 ENV PNPM_STORE_PATH=/pnpm/store
 ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /workspace
 
-RUN test -n "${AGENT_NAME}"
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN pnpm config set store-dir ${PNPM_STORE_PATH}
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY packages/agents/package.json packages/agents/package.json
-COPY packages/agents/base/package.json packages/agents/base/package.json
-COPY packages/agents/${AGENT_NAME}/package.json packages/agents/${AGENT_NAME}/package.json
+# Stage 2: Prune workspace for dependency caching
+FROM base AS prune
+ARG AGENT_NAME
+WORKDIR /workspace
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME}
+RUN test -n "${AGENT_NAME}"
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile --offline --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME}
+COPY . .
 
+RUN pnpm dlx turbo prune --docker --scope=@valueos/agent-base --scope=@valueos/${AGENT_NAME}-agent
+
+# Stage 3: Dependencies
+FROM base AS deps
+ARG AGENT_NAME
+WORKDIR /workspace
+
+RUN test -n "${AGENT_NAME}"
+
+COPY --from=prune /workspace/out/json/ ./
+COPY --from=prune /workspace/.npmrc ./
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch --frozen-lockfile
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile --offline
+
+# Stage 4: Build
 FROM deps AS build
-COPY packages/agents packages/agents
+ARG AGENT_NAME
+WORKDIR /workspace
 
-RUN pnpm --filter ./packages/agents/base build && pnpm --filter ./packages/agents/${AGENT_NAME} build
+RUN test -n "${AGENT_NAME}"
 
+COPY --from=prune /workspace/out/full/ ./
+
+RUN pnpm --filter @valueos/agent-base build && pnpm --filter @valueos/${AGENT_NAME}-agent build
+
+# Stage 5: Production dependencies
 FROM deps AS prod-deps
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --prod --frozen-lockfile --offline --filter ./packages/agents/base --filter ./packages/agents/${AGENT_NAME} && pnpm store prune
+ARG AGENT_NAME
+WORKDIR /workspace
+
+RUN test -n "${AGENT_NAME}"
+
+COPY --from=prune /workspace/out/full/ ./
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --prod --frozen-lockfile --offline --filter @valueos/agent-base --filter @valueos/${AGENT_NAME}-agent \
+    && pnpm store prune
 
 FROM ${RUNTIME_IMAGE} AS final
 ARG AGENT_NAME
