@@ -176,6 +176,35 @@ docker build -f .devcontainer/Dockerfile.optimized \
 
 When `INSTALL_PLAYWRIGHT_DEPS=1`, the image includes the system libraries Playwright needs, but browsers are still downloaded on first `npx playwright install`. If the flag is `0` (default), Playwright browser installs may fail with missing system dependency errors.
 
+For headed (visual) browser debugging, follow this quick recipe:
+
+1. Build a devcontainer image that has Playwright OS dependencies baked in:
+
+```bash
+make build-playwright-image
+```
+
+2. Reopen the workspace in the container image (or use the built image in Codespaces/Copilot-like prebuilds). Then install Playwright browsers (if not already installed):
+
+```bash
+pnpm playwright install --with-deps
+```
+
+3. Run tests in headed mode (opens a real browser window inside container with forwarded display if available):
+
+```bash
+pnpm playwright test --headed --project=chromium
+```
+
+Tip: You can also run the Playwright subagent to run Playwright tests in isolation:
+
+```bash
+pnpm run dev:subagents:up
+# or run just the Playwright subagent:
+docker compose -f .devcontainer/docker-compose.devcontainer.yml -f .devcontainer/docker-compose.subagents.yml up --profile devcontainer subagent-playwright
+```
+
+
 ### Adding VS Code Extensions
 
 Edit `.devcontainer/devcontainer.json`:

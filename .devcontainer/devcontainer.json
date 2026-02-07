@@ -102,7 +102,7 @@ Server: Docker Desktop 4.59.0 (217644)
     "mechatroner.rainbow-csv",
     "usernamehw.errorlens"
   ],
-  "postCreateCommand": "pnpm install && pnpm run dx && bash .devcontainer/scripts/install-optional-tools.sh || true",
+  "postCreateCommand": "pnpm install && pnpm run dx && bash .devcontainer/scripts/install-optional-tools.sh || true && if [ \"${INSTALL_PLAYWRIGHT_DEPS:-0}\" = \"1\" ]; then bash .devcontainer/scripts/install-playwright-deps.sh || true; fi",
   "mounts": ["source=node_modules,target=/workspaces/ValueOS/node_modules,type=volume"],
   "remoteUser": "app"
 }
