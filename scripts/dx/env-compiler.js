@@ -19,13 +19,20 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { loadPorts, resolvePort } from "./ports.js";
+import { formatPortsEnv, loadPorts, resolvePort } from "./ports.js";
 import { resolveMode } from "./lib/mode.js";
 import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
+const opsEnvDir = path.join(projectRoot, "ops", "env");
+const opsEnvLocalPath = path.join(opsEnvDir, ".env.local");
+const opsEnvPortsPath = path.join(opsEnvDir, ".env.ports");
+const legacyEnvLocalPath = path.join(projectRoot, ".env.local");
+const legacyEnvPortsPath = path.join(projectRoot, ".env.ports");
+const legacyDeployEnvPortsPath = path.join(projectRoot, "deploy/envs/.env.ports");
+const legacyScriptsEnvPortsPath = path.join(projectRoot, "scripts/.env.ports");
 
 // Local Supabase demo keys (safe to commit - only work with local instance)
 const LOCAL_SUPABASE_ANON_KEY =
@@ -99,7 +106,7 @@ function getUrlConfig(mode, ports) {
 }
 
 /**
- * Generate .env.local content for the specified mode
+ * Generate ops/env/.env.local content for the specified mode
  */
 function generateEnvLocal(mode, ports) {
   const urls = getUrlConfig(mode, ports);
@@ -181,40 +188,14 @@ AUTO_HTTPS=off
 }
 
 /**
- * Generate .env.ports content (always the same, just port mappings)
+ * Generate ops/env/.env.ports content (always the same, just port mappings)
  */
 function generateEnvPorts(ports) {
-  return `# ValueOS Port Configuration
-# Generated from config/ports.json
-# DO NOT EDIT - regenerate with: pnpm run dx:env
-
-# Database Ports
-POSTGRES_PORT=${ports.postgres.port}
-REDIS_PORT=${ports.redis.port}
-
-# Application Ports
-API_PORT=${ports.backend.port}
-VITE_PORT=${ports.frontend.port}
-VITE_HMR_PORT=${ports.frontend.hmrPort}
-
-# Supabase Ports
-SUPABASE_API_PORT=${ports.supabase.apiPort}
-SUPABASE_STUDIO_PORT=${ports.supabase.studioPort}
-SUPABASE_DB_PORT=${ports.supabase.dbPort}
-
-# Reverse Proxy Ports
-CADDY_HTTP_PORT=${ports.edge.httpPort}
-CADDY_HTTPS_PORT=${ports.edge.httpsPort}
-CADDY_ADMIN_PORT=${ports.edge.adminPort}
-
-# Observability Ports
-PROMETHEUS_PORT=${ports.observability.prometheusPort}
-GRAFANA_PORT=${ports.observability.grafanaPort}
-`;
+  return formatPortsEnv(ports);
 }
 
 /**
- * Generate deploy/envs/.env.ports content for Docker Compose.
+ * Generate legacy deploy/envs/.env.ports content for Docker Compose.
  *
  * Note: Docker Compose supports additional env vars in the same file, so we
  * include Supabase keys here to ensure containers can boot without requiring
@@ -231,17 +212,17 @@ SUPABASE_ANON_KEY=${LOCAL_SUPABASE_ANON_KEY}
 }
 
 /**
- * Validate existing .env.local matches the expected mode
+ * Validate existing ops/env/.env.local matches the expected mode
  * Returns hard failures for mode contradictions
  */
 function validateEnvLocal(expectedMode) {
-  const envPath = path.join(projectRoot, ".env.local");
+  const envPath = opsEnvLocalPath;
 
   if (!fs.existsSync(envPath)) {
     return {
       valid: false,
-      error: ".env.local does not exist",
-      errors: [".env.local does not exist"],
+      error: "ops/env/.env.local does not exist",
+      errors: ["ops/env/.env.local does not exist"],
       warnings: [],
     };
   }
@@ -256,10 +237,10 @@ function validateEnvLocal(expectedMode) {
   const currentMode = modeMatch ? modeMatch[1].trim() : null;
 
   if (!currentMode) {
-    errors.push("DX_MODE not set in .env.local");
+    errors.push("DX_MODE not set in ops/env/.env.local");
   } else if (currentMode !== expectedMode) {
     contradictions.push(
-      `MODE CONTRADICTION: .env.local configured for "${currentMode}" but running in "${expectedMode}" mode`
+      `MODE CONTRADICTION: ops/env/.env.local configured for "${currentMode}" but running in "${expectedMode}" mode`
     );
   }
 
@@ -373,11 +354,10 @@ function writeEnvFiles(mode, options = {}) {
   const dryRun = options.dryRun || false;
   const force = options.force || false;
 
-  const envLocalPath = path.join(projectRoot, ".env.local");
-  const envPortsPath = path.join(projectRoot, ".env.ports");
+  fs.mkdirSync(opsEnvDir, { recursive: true });
 
-  // Check if .env.local exists and validate
-  if (fs.existsSync(envLocalPath) && !force) {
+  // Check if ops/env/.env.local exists and validate
+  if (fs.existsSync(opsEnvLocalPath) && !force) {
     const validation = validateEnvLocal(mode);
 
     // Hard failure on contradictions - these WILL break the app
@@ -387,11 +367,11 @@ function writeEnvFiles(mode, options = {}) {
 ║                    ❌ ENVIRONMENT CONTRADICTION                 ║
 ╚════════════════════════════════════════════════════════════════╝
 
-Your .env.local contains URLs that contradict the requested mode.
+Your ops/env/.env.local contains URLs that contradict the requested mode.
 This WILL cause failures that are hard to debug.
 
 Mode requested: ${mode}
-Mode in .env.local: ${validation.currentMode || "unknown"}
+Mode in ops/env/.env.local: ${validation.currentMode || "unknown"}
 
 Contradictions found:
 ${validation.contradictions.map((c) => `  • ${c}`).join("\n")}
@@ -399,13 +379,13 @@ ${validation.contradictions.map((c) => `  • ${c}`).join("\n")}
 Why this matters:
   - In "local" mode, the browser runs on your host machine
   - Docker DNS names (like "backend:3001") only work inside containers
-  - If .env.local has Docker URLs but you're running locally, the browser
+  - If ops/env/.env.local has Docker URLs but you're running locally, the browser
     cannot resolve them, causing silent failures and blank screens
 
 To fix:
   pnpm run dx:env --mode ${mode} --force
 
-This will regenerate .env.local with correct URLs for ${mode} mode.
+This will regenerate ops/env/.env.local with correct URLs for ${mode} mode.
 `);
       process.exit(1);
     }
@@ -415,7 +395,7 @@ This will regenerate .env.local with correct URLs for ${mode} mode.
       console.error(`
 ⚠️  Mode mismatch detected
 
-Current .env.local: mode "${validation.currentMode}"
+Current ops/env/.env.local: mode "${validation.currentMode}"
 Requested mode: "${mode}"
 
 To switch modes, run:
@@ -429,37 +409,47 @@ To switch modes, run:
   const envPortsContent = generateEnvPorts(ports);
 
   if (dryRun) {
-    console.log("=== .env.local (dry run) ===");
+    console.log("=== ops/env/.env.local (dry run) ===");
     console.log(envLocalContent);
-    console.log("\n=== .env.ports (dry run) ===");
+    console.log("\n=== ops/env/.env.ports (dry run) ===");
     console.log(envPortsContent);
     return;
   }
 
-  // Write .env.local (handle read-only bind mounts from Codespaces/devcontainers)
+  // Write ops/env/.env.local (handle read-only bind mounts from Codespaces/devcontainers)
   try {
-    fs.writeFileSync(envLocalPath, envLocalContent, "utf8");
-    console.log(`✓ Wrote ${envLocalPath} for mode: ${mode}`);
+    fs.writeFileSync(opsEnvLocalPath, envLocalContent, "utf8");
+    console.log(`✓ Wrote ${opsEnvLocalPath} for mode: ${mode}`);
   } catch (err) {
     if (err.code === "EROFS" || err.code === "EACCES") {
       console.log(
-        `⚠️  Skipped ${envLocalPath} (read-only mount, likely Codespaces-injected secrets)`
+        `⚠️  Skipped ${opsEnvLocalPath} (read-only mount, likely Codespaces-injected secrets)`
       );
-      console.log(`   Using existing .env.local with injected secrets.`);
+      console.log(`   Using existing ops/env/.env.local with injected secrets.`);
     } else {
       throw err;
     }
   }
 
-  // Write .env.ports
-  fs.writeFileSync(envPortsPath, envPortsContent, "utf8");
-  console.log(`✓ Wrote ${envPortsPath}`);
+  // Write ops/env/.env.ports
+  fs.writeFileSync(opsEnvPortsPath, envPortsContent, "utf8");
+  console.log(`✓ Wrote ${opsEnvPortsPath}`);
 
-  // Also update deploy/envs/.env.ports for Docker Compose
-  const deployEnvPortsPath = path.join(projectRoot, "deploy/envs/.env.ports");
-  if (fs.existsSync(path.dirname(deployEnvPortsPath))) {
-    fs.writeFileSync(deployEnvPortsPath, generateDeployEnvPorts(mode, ports), "utf8");
-    console.log(`✓ Wrote ${deployEnvPortsPath}`);
+  // Derived env artifacts for legacy tooling (do not edit by hand)
+  const derivedEnvPortsContent = generateDeployEnvPorts(mode, ports);
+  fs.writeFileSync(legacyEnvPortsPath, envPortsContent, "utf8");
+  console.log(`✓ Wrote ${legacyEnvPortsPath} (legacy)`);
+  if (fs.existsSync(path.dirname(legacyDeployEnvPortsPath))) {
+    fs.writeFileSync(legacyDeployEnvPortsPath, derivedEnvPortsContent, "utf8");
+    console.log(`✓ Wrote ${legacyDeployEnvPortsPath} (legacy)`);
+  }
+  if (fs.existsSync(path.dirname(legacyScriptsEnvPortsPath))) {
+    fs.writeFileSync(legacyScriptsEnvPortsPath, envPortsContent, "utf8");
+    console.log(`✓ Wrote ${legacyScriptsEnvPortsPath} (legacy)`);
+  }
+  if (fs.existsSync(opsEnvLocalPath) && !fs.existsSync(legacyEnvLocalPath)) {
+    fs.copyFileSync(opsEnvLocalPath, legacyEnvLocalPath);
+    console.log(`✓ Wrote ${legacyEnvLocalPath} (legacy)`);
   }
 
   console.log(`
@@ -508,7 +498,7 @@ function main() {
     }
 
     if (validation.valid) {
-      console.log(`✓ .env.local is valid for mode: ${mode}`);
+      console.log(`✓ ops/env/.env.local is valid for mode: ${mode}`);
       process.exit(0);
     } else {
       console.log("❌ Validation failed:");

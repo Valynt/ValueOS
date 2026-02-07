@@ -22,29 +22,29 @@ echo "✅ Dependencies installed in Dockerfile. Skipping pnpm install."
 ###############################################################################
 # Step 2: Ensure local env port file exists
 ###############################################################################
-if [ ! -f "${PROJECT_ROOT}/scripts/.env.ports" ] && [ -f "${PROJECT_ROOT}/scripts/.env.ports.example" ]; then
-    echo "📄 Creating scripts/.env.ports from scripts/.env.ports.example..."
-    cp "${PROJECT_ROOT}/scripts/.env.ports.example" "${PROJECT_ROOT}/scripts/.env.ports"
+if [ ! -f "${PROJECT_ROOT}/ops/env/.env.ports" ] && [ -f "${PROJECT_ROOT}/ops/env/.env.ports.example" ]; then
+    echo "📄 Creating ops/env/.env.ports from ops/env/.env.ports.example..."
+    cp "${PROJECT_ROOT}/ops/env/.env.ports.example" "${PROJECT_ROOT}/ops/env/.env.ports"
 fi
 
 ###############################################################################
-# Step 3: Ensure .env.local exists
+# Step 3: Ensure ops/env/.env.local exists
 ###############################################################################
-if [ ! -f "${PROJECT_ROOT}/.env.local" ]; then
+if [ ! -f "${PROJECT_ROOT}/ops/env/.env.local" ]; then
     if [ -f "${PROJECT_ROOT}/.devcontainer/.env.dev" ]; then
-        echo "📄 Copying .env.dev to .env.local..."
-        cp "${PROJECT_ROOT}/.devcontainer/.env.dev" "${PROJECT_ROOT}/.env.local"
-    elif [ -f "${PROJECT_ROOT}/.env.example" ]; then
-        echo "📄 Copying .env.example to .env.local..."
-        cp "${PROJECT_ROOT}/.env.example" "${PROJECT_ROOT}/.env.local"
+        echo "📄 Copying .env.dev to ops/env/.env.local..."
+        cp "${PROJECT_ROOT}/.devcontainer/.env.dev" "${PROJECT_ROOT}/ops/env/.env.local"
+    elif [ -f "${PROJECT_ROOT}/ops/env/.env.example" ]; then
+        echo "📄 Copying ops/env/.env.example to ops/env/.env.local..."
+        cp "${PROJECT_ROOT}/ops/env/.env.example" "${PROJECT_ROOT}/ops/env/.env.local"
     fi
 fi
 
 # Load environment variables
-if [ -f "${PROJECT_ROOT}/.env.local" ]; then
-    echo "📄 Loading .env.local..."
+if [ -f "${PROJECT_ROOT}/ops/env/.env.local" ]; then
+    echo "📄 Loading ops/env/.env.local..."
     set -a
-    source "${PROJECT_ROOT}/.env.local"
+    source "${PROJECT_ROOT}/ops/env/.env.local"
     set +a
 
     # Convert host-based DATABASE_URL to container network URL for migrations

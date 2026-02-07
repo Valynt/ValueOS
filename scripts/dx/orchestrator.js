@@ -586,7 +586,7 @@ async function startDockerDeps(mode) {
   try {
     await runWithRetries("Docker pull", async () => {
       runCommand(
-        `docker compose --env-file .env.ports -f ${composeFile} pull --ignore-pull-failures`,
+        `docker compose --env-file ops/env/.env.ports -f ${composeFile} pull --ignore-pull-failures`,
         { silent: false }
       );
     });
@@ -594,7 +594,7 @@ async function startDockerDeps(mode) {
     if (mode === "docker") {
       await runWithRetries("Docker build", async () => {
         try {
-          runCommand(`docker compose --env-file .env.ports -f ${composeFile} build --pull`, {
+          runCommand(`docker compose --env-file ops/env/.env.ports -f ${composeFile} build --pull`, {
             silent: false,
           });
         } catch (error) {
@@ -615,7 +615,7 @@ async function startDockerDeps(mode) {
     }
 
     await runWithRetries("Docker up", async () => {
-      runCommand(`docker compose --env-file .env.ports -f ${composeFile} up -d${upFlags}`, {
+      runCommand(`docker compose --env-file ops/env/.env.ports -f ${composeFile} up -d${upFlags}`, {
         silent: false,
       });
     });
@@ -645,7 +645,7 @@ function stopDockerDeps() {
 
   for (const file of composeFiles) {
     try {
-      runCommand(`docker compose --env-file .env.ports -f ${file} down --remove-orphans`, {
+      runCommand(`docker compose --env-file ops/env/.env.ports -f ${file} down --remove-orphans`, {
         silent: true,
       });
     } catch {
@@ -671,7 +671,7 @@ function resetDockerDeps(level = "soft") {
   for (const file of composeFiles) {
     try {
       const downArgs = level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
-      runCommand(`docker compose --env-file .env.ports -f ${file} ${downArgs}`, {
+      runCommand(`docker compose --env-file ops/env/.env.ports -f ${file} ${downArgs}`, {
         silent: true,
       });
     } catch {
@@ -892,7 +892,7 @@ async function startCaddy() {
 
     // Start Caddy via Docker Compose
     runCommand(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.caddy.yml up -d",
+      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.caddy.yml up -d",
       { silent: false }
     );
 
@@ -927,7 +927,7 @@ async function startCaddy() {
 function stopCaddy() {
   try {
     runCommand(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.caddy.yml down",
+      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.caddy.yml down",
       { silent: true }
     );
   } catch {

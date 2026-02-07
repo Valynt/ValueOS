@@ -13,9 +13,9 @@ trap cleanup EXIT
 "${ROOT_DIR}/dev" up --mode "${MODE}" --ci
 
 set -a
-if [[ -f "${ROOT_DIR}/.env.ports" ]]; then
+if [[ -f "${ROOT_DIR}/ops/env/.env.ports" ]]; then
   # shellcheck source=/dev/null
-  source "${ROOT_DIR}/.env.ports"
+  source "${ROOT_DIR}/ops/env/.env.ports"
 fi
 set +a
 

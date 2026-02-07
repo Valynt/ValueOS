@@ -78,7 +78,7 @@ pkill -9 -f "tsx watch" 2>/dev/null || true
 pkill -9 -f "vite --config" 2>/dev/null || true
 
 # Remove generated env files
-rm -f .env.local .env.ports scripts/.env.ports deploy/envs/.env.ports
+rm -f .env.local .env.ports ops/env/.env.local ops/env/.env.ports deploy/envs/.env.ports
 
 # Remove state files
 rm -f .dx-lock .dx-state.json
@@ -99,12 +99,12 @@ log_verify "✓ Dependencies installed from lockfile"
 # ============================================================================
 log_step "4. Generating environment configuration..."
 
-pnpm run env:dev || fail "Environment generation failed"
+pnpm run dx:env --mode local --force || fail "Environment generation failed"
 
 # Verify critical env vars exist
-grep -q "VITE_SUPABASE_ANON_KEY=" .env.local || fail ".env.local missing VITE_SUPABASE_ANON_KEY"
-grep -q "SUPABASE_SERVICE_ROLE_KEY=" .env.local || fail ".env.local missing SUPABASE_SERVICE_ROLE_KEY"
-grep -q "DATABASE_URL=" .env.local || fail ".env.local missing DATABASE_URL"
+grep -q "VITE_SUPABASE_ANON_KEY=" ops/env/.env.local || fail "ops/env/.env.local missing VITE_SUPABASE_ANON_KEY"
+grep -q "SUPABASE_SERVICE_ROLE_KEY=" ops/env/.env.local || fail "ops/env/.env.local missing SUPABASE_SERVICE_ROLE_KEY"
+grep -q "DATABASE_URL=" ops/env/.env.local || fail "ops/env/.env.local missing DATABASE_URL"
 
 log_verify "✓ Environment files generated"
 log_verify "✓ Supabase keys present"
@@ -114,13 +114,6 @@ log_verify "✓ Database URL configured"
 # STEP 5: Start Docker Dependencies
 # ============================================================================
 log_step "5. Starting Docker dependencies..."
-
-# Ensure ports env exists for backward compatibility with any scripts expecting it,
-# while still allowing scripts/dc to fall back to scripts/.env.ports.example.
-if [ ! -f "scripts/.env.ports" ] && [ -f "scripts/.env.ports.example" ]; then
-  cp "scripts/.env.ports.example" "scripts/.env.ports"
-  log_verify "✓ Bootstrapped scripts/.env.ports from scripts/.env.ports.example"
-fi
 
 "${DC_CMD}" up -d postgres redis || fail "Compose startup failed"
 

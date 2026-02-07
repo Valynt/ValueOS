@@ -78,8 +78,8 @@ async function checkUrl(name, url) {
 async function main() {
   console.log(`\n🧪 DX Smoke Test (mode: ${mode})\n`);
 
-  if (!fs.existsSync(path.join(projectRoot, ".env.ports"))) {
-    console.log("⚠️  .env.ports not found. Run: pnpm run dx:env --mode local --force");
+  if (!fs.existsSync(path.join(projectRoot, "ops", "env", ".env.ports"))) {
+    console.log("⚠️  ops/env/.env.ports not found. Run: pnpm run dx:env --mode local --force");
   }
 
   const results = [];

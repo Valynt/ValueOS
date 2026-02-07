@@ -74,7 +74,7 @@ Usage:
   ./dev bundle [--mode local|docker]
 
 Orchestration Flow (./dev up):
-  1. dx:env         - Generate .env.local + .env.ports from config/ports.json
+  1. dx:env         - Generate ops/env/.env.local + ops/env/.env.ports from config/ports.json
   2. Preflight      - Docker, Node/pnpm, DATABASE_URL, ports
   3. Docker deps    - Start postgres + redis (docker compose)
   4. Supabase       - Start local Supabase (optional, falls back to dx postgres)
@@ -199,7 +199,7 @@ function ensureDocker() {
 }
 
 function loadPortsEnvFile() {
-  const portsPath = path.join(projectRoot, ".env.ports");
+  const portsPath = path.join(projectRoot, "ops", "env", ".env.ports");
   if (!fs.existsSync(portsPath)) {
     return {};
   }
@@ -266,7 +266,7 @@ async function main() {
     const composeFile =
       mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
     run(
-      `docker compose --env-file .env.ports -f ${composeFile} logs -f${service ? ` ${service}` : ""}`
+      `docker compose --env-file ops/env/.env.ports -f ${composeFile} logs -f${service ? ` ${service}` : ""}`
     );
     return;
   }

@@ -84,7 +84,7 @@ function createBundle() {
 
   try {
     const ps = run(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml ps",
+      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml ps",
       { silent: true }
     );
     writeFileSafe(path.join(bundleDir, "compose-dev-ps.txt"), ps);
@@ -97,7 +97,7 @@ function createBundle() {
 
   try {
     const depsPs = run(
-      "docker compose --env-file .env.ports -f docker-compose.deps.yml ps",
+      "docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml ps",
       { silent: true }
     );
     writeFileSafe(path.join(bundleDir, "compose-deps-ps.txt"), depsPs);
@@ -110,7 +110,7 @@ function createBundle() {
 
   try {
     const logs = run(
-      "docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml logs --tail 50",
+      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml logs --tail 50",
       { silent: true }
     );
     writeFileSafe(path.join(bundleDir, "compose-dev-logs.txt"), logs);

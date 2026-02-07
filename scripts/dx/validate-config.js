@@ -157,14 +157,11 @@ function runValidation() {
   console.log("🔧 Configuration Validation\n");
 
   // Required environment files
-  validateFileExists(".env.local", "Required for local development");
-  validateFileExists(
-    "deploy/envs/.env.ports",
-    "Required for port configuration"
-  );
+  validateFileExists("ops/env/.env.local", "Required for local development");
+  validateFileExists("ops/env/.env.ports", "Required for port configuration");
 
   // Environment file validation
-  validateEnvFile("deploy/envs/.env.ports");
+  validateEnvFile("ops/env/.env.ports");
 
   // Critical environment variables
   validateEnvVar(
@@ -198,13 +195,24 @@ function runValidation() {
   }
 
   // Port validation
-  const portConfig = JSON.parse(
-    fs.readFileSync(path.join(projectRoot, "deploy/envs/.env.ports"), "utf8")
-  );
-  validatePort(portConfig.backend?.port || 3001, "Backend API");
-  validatePort(portConfig.frontend?.port || 5173, "Frontend dev server");
-  validatePort(portConfig.postgres?.port || 5432, "PostgreSQL database");
-  validatePort(portConfig.redis?.port || 6379, "Redis cache");
+  const portsEnvPath = path.join(projectRoot, "ops", "env", ".env.ports");
+  const portsContent = fs.existsSync(portsEnvPath)
+    ? fs.readFileSync(portsEnvPath, "utf8")
+    : "";
+  const portConfig = {};
+  portsContent
+    .split("\n")
+    .filter((line) => line.trim() && !line.startsWith("#"))
+    .forEach((line) => {
+      const [key, ...rest] = line.split("=");
+      if (!key) return;
+      portConfig[key.trim()] = rest.join("=").trim();
+    });
+
+  validatePort(portConfig.API_PORT || 3001, "Backend API");
+  validatePort(portConfig.VITE_PORT || 5173, "Frontend dev server");
+  validatePort(portConfig.POSTGRES_PORT || 5432, "PostgreSQL database");
+  validatePort(portConfig.REDIS_PORT || 6379, "Redis cache");
 
   // Docker configuration validation
   validateDockerCompose("infra/docker/docker-compose.yml");

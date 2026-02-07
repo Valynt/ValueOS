@@ -19,6 +19,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
+const opsEnvDir = path.join(projectRoot, "ops", "env");
 
 const colors = {
   reset: "\x1b[0m",
@@ -161,17 +162,17 @@ if (dockerAvailable()) {
 // Section 3: Environment Files
 log.section("Environment Files");
 
-const envLocalPath = path.join(projectRoot, ".env.local");
-const envPortsPath = path.join(projectRoot, ".env.ports");
+const envLocalPath = path.join(opsEnvDir, ".env.local");
+const envPortsPath = path.join(opsEnvDir, ".env.ports");
 
-check(
-  ".env.local exists",
+warn(
+  "ops/env/.env.local exists (optional)",
   fs.existsSync(envLocalPath),
   "Run: node scripts/dx/env-compiler.js --mode local --force"
 );
 
 check(
-  ".env.ports exists",
+  "ops/env/.env.ports exists",
   fs.existsSync(envPortsPath),
   "Run: node scripts/dx/env-compiler.js --mode local --force"
 );

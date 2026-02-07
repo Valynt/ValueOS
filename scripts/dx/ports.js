@@ -171,10 +171,11 @@ export function formatPortsEnv(ports) {
 }
 
 export function writePortsEnvFile(
-  destination = path.join(projectRoot, ".env.ports"),
+  destination = path.join(projectRoot, "ops", "env", ".env.ports"),
   portsOverride = null
 ) {
   const lockFile = `${destination}.lock`;
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
 
   // Simple file locking to prevent concurrent writes
   if (fs.existsSync(lockFile)) {
