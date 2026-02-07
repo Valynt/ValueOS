@@ -172,3 +172,64 @@ export function validateSDUISchema(payload: unknown): SDUIValidationResult {
     warnings,
   };
 }
+
+// SOF (System of Flows) Types
+export interface FeedbackLoop {
+  id: string;
+  type: 'reinforcing' | 'balancing';
+  description: string;
+  strength: number;
+  components: string[];
+}
+
+export interface InterventionPoint {
+  id: string;
+  name: string;
+  description: string;
+  type: 'structural' | 'behavioral' | 'technological';
+  impact: number;
+  feasibility: number;
+  dependencies?: string[];
+}
+
+export interface OutcomeHypothesis {
+  id: string;
+  description: string;
+  probability: number;
+  impact: number;
+  evidence: string[];
+  assumptions: string[];
+}
+
+export interface SystemMap {
+  nodes: Array<{
+    id: string;
+    type: 'actor' | 'process' | 'resource' | 'constraint';
+    name: string;
+    description?: string;
+  }>;
+  edges: Array<{
+    from: string;
+    to: string;
+    type: 'flow' | 'influence' | 'constraint';
+    strength?: number;
+  }>;
+}
+
+// Workflow and Lifecycle Types
+export type LifecycleStage =
+  | 'discovery'
+  | 'target'
+  | 'expansion'
+  | 'realization'
+  | 'integrity'
+  | 'opportunity';
+
+export interface WorkflowState {
+  id: string;
+  stage: LifecycleStage;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  data: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}

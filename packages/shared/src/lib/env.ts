@@ -33,9 +33,20 @@ export function validateEnv() {
   validateRequiredEnv();
 }
 
+// Helper function to safely access environment variables
+function getEnvValue(key: string): string | undefined {
+  if (_isBrowser) {
+    // In browser environments, use import.meta.env if available (Vite)
+    return (import.meta as any)?.env?.[key];
+  } else {
+    // In Node.js environments, use process.env
+    return typeof process !== "undefined" && process.env ? process.env[key] : undefined;
+  }
+}
+
 export const env = {
-  isDevelopment: _isBrowser ? import.meta.env?.DEV === true : false,
-  isProduction: _isBrowser ? import.meta.env?.PROD === true : false,
+  isDevelopment: _isBrowser ? getEnvValue("DEV") === "true" : false,
+  isProduction: _isBrowser ? getEnvValue("PROD") === "true" : false,
   isTest: false,
   isBrowser: _isBrowser,
   isServer: !_isBrowser,
@@ -50,16 +61,7 @@ export interface GetEnvVarOptions {
 export function getEnvVar(key: string, options: GetEnvVarOptions = {}): string | undefined {
   const { required = false, defaultValue, scope } = options;
 
-  let value: string | undefined;
-
-  if (_isBrowser) {
-    value = (import.meta.env as any)?.[key];
-  } else {
-    // Server-side only
-    if (typeof process !== "undefined" && process.env) {
-      value = process.env[key];
-    }
-  }
+  let value: string | undefined = getEnvValue(key);
 
   if (!value && defaultValue) {
     value = defaultValue;
@@ -75,7 +77,9 @@ export function getEnvVar(key: string, options: GetEnvVarOptions = {}): string |
 
 export function setEnvVar(key: string, value: string): void {
   if (_isBrowser) {
-    (import.meta.env as any)[key] = value;
+    if ((import.meta as any)?.env) {
+      (import.meta as any).env[key] = value;
+    }
   } else {
     if (typeof process !== "undefined" && process.env) {
       process.env[key] = value;
@@ -89,7 +93,9 @@ export function checkIsBrowser(): boolean {
 
 export function __setEnvSourceForTests(envSource: Record<string, string>): void {
   if (_isBrowser) {
-    Object.assign(import.meta.env, envSource);
+    if ((import.meta as any)?.env) {
+      Object.assign((import.meta as any).env, envSource);
+    }
   } else {
     if (typeof process !== "undefined" && process.env) {
       Object.assign(process.env, envSource);

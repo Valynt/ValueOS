@@ -46,6 +46,26 @@ services:
       retries: 5
     network_mode: host
 
+  # Simple auth stub for local development (resolves kong -> auth dependency)
+  auth:
+    image: curlimages/curl:8.5.0
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 64M
+        reservations:
+          memory: 32M
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["while true; do sleep 3600; done"]
+    healthcheck:
+      test: ["CMD-SHELL", "echo OK"]
+      interval: 10s
+      timeout: 5s
+      retries: 1
+    network_mode: host
+
 volumes:
   postgres_data:
     driver: local

@@ -5,7 +5,7 @@
  */
 
 import type { SDUIPageDefinition } from "../schema";
-import type { FeedbackLoop, InterventionPoint, SystemMap } from "../../types/sof";
+import type { FeedbackLoop, InterventionPoint, SystemMap } from "@valueos/sdui-types";
 
 /**
  * Generate SOF-enhanced Realization page

@@ -14,7 +14,7 @@ on:
 
 env:
   NODE_VERSION: "18"
-  POSTGRES_VERSION: "15.1.0.117"
+  POSTGRES_VERSION: "15"
 
 jobs:
   migration-safety:
@@ -22,7 +22,7 @@ jobs:
 
     services:
       postgres:
-        image: supabase/postgres:${{ env.POSTGRES_VERSION }}
+        image: postgres:${{ env.POSTGRES_VERSION }}
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: valueos_test

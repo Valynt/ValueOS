@@ -5,7 +5,7 @@
  */
 
 import type { SDUIPageDefinition } from "../schema";
-import type { SystemMap } from "../../types/sof";
+import type { SystemMap } from "@valueos/sdui-types";
 
 /**
  * Generate SOF-enhanced Opportunity page
