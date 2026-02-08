@@ -3,6 +3,7 @@
 ## Composite Indexes (Tenant-First)
 
 ### High-Volume Tables
+
 - `llm_usage`: `(tenant_id, created_at)`
 - `user_sessions`: `(tenant_id, user_id)`
 - `transactions`: `(tenant_id, created_at)`
@@ -21,15 +22,18 @@
 - `memory_model_run_evidence`: `(tenant_id)`
 
 ## Vector Indexes (PGVector)
+
 - `memory_artifact_chunks.embedding`: `USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64)`
 - `memory_entities.embedding`: `USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64)`
 - `memory_facts.embedding`: `USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64)`
 
 ## Full-Text & JSONB Indexes
+
 - GIN on FTS columns for all semantic/memory tables
 - GIN on metadata for docs_embeddings, cases, workflows, agents, shared_artifacts
 
 ## RLS
+
 - All tenant/organization-scoped tables have RLS enabled and enforced
 
 ---
