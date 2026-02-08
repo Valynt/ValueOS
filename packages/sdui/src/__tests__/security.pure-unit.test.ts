@@ -1,11 +1,11 @@
 /**
  * SDUI Security Pure Unit Tests
- * 
+ *
  * These tests bypass Vitest setup to avoid database initialization.
  * Run with: node --import tsx/esm src/sdui/__tests__/security.pure-unit.test.ts
  */
 
- 
+
 
 // Simple test framework
 type TestResult = { name: string; passed: boolean; error?: string };
@@ -87,14 +87,14 @@ async function runTests() {
 
   // XSS Sanitization Tests
   console.log('📦 XSS Sanitization Tests');
-  
+
   await test('should remove script tags', () => {
     resetXSSStats();
     const input = '<script>alert("XSS")</script>Hello';
     const result = sanitizeString(input);
     expect(result).not.toContain('<script>');
     expect(result).toContain('Hello');
-    
+
     const stats = getXSSStats();
     expect(stats.attemptsPrevented).toBe(1);
   })();
@@ -117,7 +117,7 @@ async function runTests() {
     resetXSSStats();
     sanitizeString('<script>evil()</script>');
     sanitizeString('<img onerror="bad()">');
-    
+
     const stats = getXSSStats();
     expect(stats.attemptsPrevented).toBe(2);
   })();
@@ -130,7 +130,7 @@ async function runTests() {
         description: '<img onerror="alert(2)">',
       },
     };
-    
+
     const result = sanitizeProps(input, 'TestComponent');
     expect(result.title).not.toContain('<script>');
     expect(result.nested.description).not.toContain('onerror');
@@ -141,7 +141,7 @@ async function runTests() {
     const input = {
       items: ['<script>1</script>', '<script>2</script>'],
     };
-    
+
     const result = sanitizeProps(input, 'TestComponent');
     expect(result.items[0]).not.toContain('<script>');
     expect(result.items[1]).not.toContain('<script>');
@@ -160,7 +160,7 @@ async function runTests() {
     resetSecurityMetrics();
     incrementSecurityMetric('xss_blocked');
     incrementSecurityMetric('xss_blocked');
-    
+
     const metrics = getSecurityMetrics();
     expect(metrics.xss_blocked).toBe(2);
   })();
@@ -168,7 +168,7 @@ async function runTests() {
   await test('should track rate limit hits', () => {
     resetSecurityMetrics();
     incrementSecurityMetric('rate_limit_hit');
-    
+
     const metrics = getSecurityMetrics();
     expect(metrics.rate_limit_hit).toBe(1);
   })();
@@ -176,7 +176,7 @@ async function runTests() {
   await test('should track tenant violations', () => {
     resetSecurityMetrics();
     incrementSecurityMetric('tenant_violation');
-    
+
     const metrics = getSecurityMetrics();
     expect(metrics.tenant_violation).toBe(1);
   })();
@@ -185,7 +185,7 @@ async function runTests() {
     resetSecurityMetrics();
     incrementSecurityMetric('xss_blocked');
     resetSecurityMetrics();
-    
+
     const metrics = getSecurityMetrics();
     expect(metrics.xss_blocked).toBe(0);
   })();
@@ -194,7 +194,7 @@ async function runTests() {
     resetSecurityMetrics();
     incrementSecurityMetric('xss_blocked');
     incrementSecurityMetric('rate_limit_hit');
-    
+
     const summary = getMetricSummary();
     expect(summary).toHaveProperty('total');
     expect(summary.total).toBeGreaterThan(0);
@@ -203,7 +203,7 @@ async function runTests() {
   await test('should detect critical thresholds for tenant violations', () => {
     resetSecurityMetrics();
     incrementSecurityMetric('tenant_violation');
-    
+
     const alerts = checkCriticalThresholds();
     expect(alerts.length).toBeGreaterThan(0);
     expect(alerts[0]).toContain('tenant_violation');
@@ -214,7 +214,7 @@ async function runTests() {
     for (let i = 0; i < 51; i++) {
       incrementSecurityMetric('xss_blocked');
     }
-    
+
     const alerts = checkCriticalThresholds();
     expect(alerts.length).toBeGreaterThan(0);
   })();
@@ -234,7 +234,7 @@ async function runTests() {
       expect(sanitized).not.toContain('onerror');
       expect(sanitized).not.toContain('javascript:');
     });
-    
+
     const stats = getXSSStats();
     expect(stats.attemptsPrevented).toBeGreaterThan(0);
   })();
@@ -244,22 +244,37 @@ async function runTests() {
   const passed = results.filter((r) => r.passed).length;
   const failed = results.filter((r) => !r.passed).length;
   console.log(`\n📊 Test Results: ${passed} passed, ${failed} failed`);
-  
+
+  const underVitest = Boolean(process.env.VITEST);
+
   if (failed > 0) {
     console.log('\n❌ Failed Tests:');
     results.filter((r) => !r.passed).forEach((r) => {
       console.log(`  - ${r.name}`);
       if (r.error) console.log(`    ${r.error}`);
     });
-    process.exit(1);
+    if (underVitest) {
+      // Throw so Vitest registers the failure without killing the process
+      throw new Error(`${failed} pure-unit tests failed`);
+    } else {
+      process.exit(1);
+    }
   } else {
     console.log('\n✅ All tests passed!');
-    process.exit(0);
+    if (underVitest) {
+      return;
+    } else {
+      process.exit(0);
+    }
   }
 }
 
 // Run tests
 runTests().catch((error) => {
   console.error('Fatal error:', error);
-  process.exit(1);
+  if (process.env.VITEST) {
+    throw error;
+  } else {
+    process.exit(1);
+  }
 });

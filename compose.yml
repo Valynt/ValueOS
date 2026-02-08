@@ -31,7 +31,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile.optimized
+      dockerfile: .devcontainer/Dockerfile.dev
       args:
         NODE_VERSION: "20"
     volumes:
@@ -63,7 +63,6 @@ services:
   # Shared Redis
   ###########################################################################
   redis:
-    profiles: ["devcontainer", "dev"]
     image: redis:7-alpine
     restart: unless-stopped
     ports:
@@ -84,7 +83,6 @@ services:
   # Supabase/Postgres (Devcontainer)
   ###########################################################################
   db:
-    profiles: ["devcontainer"]
     image: postgres:15-alpine
     command: >
       postgres

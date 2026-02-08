@@ -2,7 +2,6 @@
   "name": "ValueOS Dev Container",
   "dockerComposeFile": [
     "../docker-compose.yml",
-    "../docker-compose.deps.yml",
     "compose.auth.stub.yml",
     "docker-compose.subagents.yml"
   ],
@@ -32,7 +31,7 @@
     // Ensure services use Docker DNS names
     "SUPABASE_URL": "http://kong:8000",
     // CRITICAL: sslmode=disable required - container postgres has no TLS
-    "DATABASE_URL": "postgresql://postgres:dev_password@postgres:5432/valuecanvas_dev?sslmode=disable",
+    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres?sslmode=disable",
     "REDIS_URL": "redis://redis:6379"
   },
 

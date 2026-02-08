@@ -43,12 +43,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libatomic1 \
   && rm -rf /var/lib/apt/lists/*
 
+# Ensure pnpm is available (enable corepack as root)
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
 USER valueos
 
-# Ensure pnpm is available to the non-root user (re-prepare corepack in the smaller image)
+# Set user-specific pnpm home
 ENV PNPM_HOME=/home/valueos/.local/share/pnpm
 ENV PATH=${PATH}:/home/valueos/.local/share/pnpm
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 # Expose ports defined in config/ports.json for network isolation
 EXPOSE 5173

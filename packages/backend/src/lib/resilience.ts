@@ -204,7 +204,7 @@ export async function executeWithResilience<T>(
   if (lastError) {
     throw lastError;
   }
-  
+
   // This should only happen if maxAttempts is 0 or negative
   throw new DependencyUnavailableError(options.dependencyName);
 }
@@ -382,4 +382,10 @@ function mergeAbortSignals(
   primary.addEventListener('abort', handleAbort, { once: true });
   secondary.addEventListener('abort', handleAbort, { once: true });
   return controller.signal;
+}
+
+// Test helper: reset internal resilience state (use in tests to avoid cross-test flakiness)
+export function _test_resetResilienceState(): void {
+  circuitBreakers.clear();
+  bulkheads.clear();
 }
