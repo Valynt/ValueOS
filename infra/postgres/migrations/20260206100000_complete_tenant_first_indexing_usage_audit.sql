@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Migration: Complete tenant-first indexing for usage billing and audit/event query paths.
 -- Expected predicates: WHERE tenant_id = ? (or organization_id surrogate for audit_logs)
 -- with additional filters on metric/alert_type/action and ORDER BY period_start|created_at DESC.

@@ -92,7 +92,6 @@ services:
       postgres
       -c log_min_messages=warning
       -c wal_level=logical
-      -c hba_file=/docker-entrypoint-initdb.d/pg_hba.conf
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

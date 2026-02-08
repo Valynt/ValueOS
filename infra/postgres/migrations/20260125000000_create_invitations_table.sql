@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS public.invitations (
   metadata jsonb DEFAULT '{}'::jsonb
 );
 
+-- Enforce RLS on invitations
+ALTER TABLE IF EXISTS public.invitations ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS invitations_tenant_id_idx ON public.invitations (tenant_id);
 CREATE INDEX IF NOT EXISTS invitations_token_idx ON public.invitations (token);
 

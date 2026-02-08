@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Migration: Add tenant-first indexes for high-volume tables per multi-tenant indexing strategy.
 -- Expected predicates: WHERE organization_id = ? with filters on status/case_id and ORDER BY time DESC.
 -- Column order keeps tenant scope first for selectivity and stable cursor pagination.

@@ -1,13 +1,24 @@
-/* Import ValueOS theme */
-@import "./valueos-theme.css";
-@import "./ai-indigo-tokens.css";
-@import "./focus-visible.css";
+
+/*
+ * THEME PRECEDENCE ENFORCEMENT (ADR 0005)
+ *
+ * 1. All component styles must use semantic tokens from valueos-theme.css.
+ * 2. Raw color values only in valueos-palette.css.
+ * 3. Experimental/tenant themes (e.g., AI Indigo) are ONLY activated via data-theme="ai-indigo" on a root/container.
+ * 4. Never override base tokens globally. No direct color overrides.
+ * 5. Import order: valueos-theme.css (semantic tokens) → ai-indigo-tokens.css (scoped theme) → focus-visible.css (a11y).
+ */
+
+@import "./valueos-theme.css";         /* Semantic tokens (always loaded) */
+@import "./ai-indigo-tokens.css";      /* Experimental/tenant themes, only active with [data-theme] */
+@import "./focus-visible.css";         /* Focus ring for keyboard navigation */
 
 /* Import Inter font */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 /* Import JetBrains Mono for code */
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+
 
 @tailwind base;
 @tailwind components;
@@ -34,3 +45,8 @@
     @apply text-primary;
   }
 }
+
+/*
+ * Tenant theme scoping: Only apply theme tokens when [data-theme] is set.
+ * Example: <div data-theme="ai-indigo"> ... </div>
+ */

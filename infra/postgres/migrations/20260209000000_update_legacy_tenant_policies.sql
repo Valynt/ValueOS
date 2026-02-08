@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- ==========================================================================
 -- Replace legacy tenant isolation policies with security.current_tenant_id()
 -- ============================================================================

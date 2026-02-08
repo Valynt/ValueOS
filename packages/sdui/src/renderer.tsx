@@ -198,6 +198,9 @@ const ComponentWithBindings: React.FC<{
  */
 const MAX_RENDER_DEPTH = 10;
 
+/**
+ * Renders a single SDUI section with full error isolation, type-safe hydration, and lazy loading for non-critical widgets.
+ */
 const renderSection = (
   section: any,
   index: number,
@@ -239,60 +242,38 @@ const renderSection = (
     ["VerticalSplit", "HorizontalSplit", "Grid", "DashboardPanel"].includes(section.type)
   ) {
     const key = `layout-${section.type}-${index}`;
-
     // Recursively render children with depth tracking
     const childNodes =
       section.children?.map((child: any, i: number) =>
         renderSection(child, i, debugOverlay, resolver, context, depth + 1)
       ) || [];
-
-    switch (section.type) {
-      case "VerticalSplit":
-        return (
-          <VerticalSplit key={key} ratios={section.ratios || [1, 1]} gap={section.gap}>
-            {childNodes}
-          </VerticalSplit>
-        );
-
-      case "HorizontalSplit":
-        return (
-          <HorizontalSplit key={key} ratios={section.ratios || [1, 1]} gap={section.gap}>
-            {childNodes}
-          </HorizontalSplit>
-        );
-
-      case "Grid":
-        return (
-          <Grid
-            key={key}
-            columns={section.columns || 2}
-            rows={section.rows}
-            gap={section.gap}
-            responsive={section.responsive}
-          >
-            {childNodes}
-          </Grid>
-        );
-
-      case "DashboardPanel":
-        return (
-          <DashboardPanel
-            key={key}
-            title={section.title}
-            collapsible={section.collapsible}
-            defaultExpanded={section.defaultExpanded}
-          >
-            {childNodes}
-          </DashboardPanel>
-        );
-    }
+    // Always wrap layout in error boundary for isolation
+    const LayoutComponent =
+      section.type === "VerticalSplit"
+        ? VerticalSplit
+        : section.type === "HorizontalSplit"
+          ? HorizontalSplit
+          : section.type === "Grid"
+            ? Grid
+            : DashboardPanel;
+    return (
+      <ComponentErrorBoundary
+        key={key}
+        componentName={section.type}
+        fallback={<SectionErrorFallback componentName={section.type} />}
+        circuitBreaker={{ failureThreshold: 3, recoveryTimeout: 30000, monitoringPeriod: 300000 }}
+      >
+        <LayoutComponent {...section} key={key}>
+          {childNodes}
+        </LayoutComponent>
+      </ComponentErrorBoundary>
+    );
   }
 
   // Handle component types (original logic)
   const componentSection = section as SDUIComponentSection;
 
-  // Determine if component should be lazy loaded
-  // Critical components are loaded immediately, others are lazy loaded
+  // Determine if component should be lazy loaded (non-critical widgets)
   const criticalComponents = [
     "AgentResponseCard",
     "TextBlock",
@@ -301,23 +282,19 @@ const renderSection = (
     "UnknownComponentFallback",
     "MetricBadge",
   ];
-
   const shouldLazyLoad = !criticalComponents.includes(componentSection.component);
-
   let entry;
   if (shouldLazyLoad) {
     entry = resolveComponentLazy(componentSection);
   } else {
     entry = resolveComponentWithVersion(componentSection.component, componentSection.version);
   }
-
-  if (!entry.component) {
+  if (!entry || !entry.component) {
     // Log missing component for monitoring
     incrementSecurityMetric("component_not_found", {
       component: section.component,
       version: section.version,
     });
-
     return (
       <div key={`${section.component}-${index}`}>
         <RegistryPlaceholderComponent componentName={section.component} />
@@ -331,9 +308,8 @@ const renderSection = (
       </div>
     );
   }
-
   const Component = entry.component;
-
+  // Always wrap every widget in an error boundary for full isolation
   return (
     <div key={`${section.component}-${index}`} className="space-y-2">
       <ComponentErrorBoundary
@@ -351,6 +327,7 @@ const renderSection = (
           maxDelay: 10000,
         }}
       >
+        {/* Strict type-safe hydration: only render if validation passes */}
         <ComponentWithBindings
           section={section}
           Component={Component}

@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Canonicalize llm_usage schema for production tracker writes.
 -- Canonical columns:
 --   tenant_id, created_at, input_tokens, output_tokens, total_tokens, cost

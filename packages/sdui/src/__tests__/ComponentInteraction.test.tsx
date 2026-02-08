@@ -1,6 +1,6 @@
 /**
  * Component Interaction Tests
- * 
+ *
  * Tests dynamic UI rendering, component targeting, atomic mutations,
  * and interactive component behaviors in SDUI system.
  */
@@ -41,7 +41,7 @@ describe('ComponentInteraction - Dynamic Rendering', () => {
 
   it('handles component hot-swapping during runtime', () => {
     const TestComponent = () => <div data-testid="test-component">Swapped</div>;
-    
+
     const schema: SDUIPageDefinition = {
       type: 'page',
       version: 1,
@@ -138,10 +138,10 @@ describe('ComponentInteraction - Dynamic Rendering', () => {
     };
 
     const { rerender } = render(<SDUIRenderer schema={schema} />);
-    
+
     const button = screen.getByText('Increment');
     fireEvent.click(button);
-    
+
     await waitFor(() => {
       expect(screen.getByTestId('count')).toHaveTextContent('1');
     });
@@ -209,7 +209,7 @@ describe('ComponentInteraction - Component Targeting', () => {
       props: { title: 'Revenue' },
     });
     expect(matches.length).toBeGreaterThan(0);
-    
+
     for (let i = 1; i < matches.length; i++) {
       expect(matches[i - 1].confidence).toBeGreaterThanOrEqual(matches[i].confidence);
     }
@@ -387,7 +387,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
 
   it('handles component click events', async () => {
     const handleClick = vi.fn();
-    
+
     const ClickableComponent = ({ onClick }: { onClick: () => void }) => (
       <button onClick={onClick} data-testid="clickable">Click Me</button>
     );
@@ -407,7 +407,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
     };
 
     render(<SDUIRenderer schema={schema} />);
-    
+
     const button = screen.getByTestId('clickable');
     fireEvent.click(button);
 
@@ -416,7 +416,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
 
   it('handles form input changes', async () => {
     const handleChange = vi.fn();
-    
+
     const FormComponent = ({ onChange }: { onChange: (value: string) => void }) => (
       <input
         data-testid="input"
@@ -439,7 +439,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
     };
 
     render(<SDUIRenderer schema={schema} />);
-    
+
     const input = screen.getByTestId('input');
     fireEvent.change(input, { target: { value: 'test' } });
 
@@ -454,7 +454,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
         setTimeout(() => setData('Loaded'), 100);
       }, []);
 
-      return <div data-testid="async">{data || 'Loading...'}</div>;
+      return <div data-testid="async">{data || <span role="status" aria-live="polite"><svg className="animate-spin w-4 h-4 text-primary inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg></span>}</div>;
     };
 
     hotSwapComponent('Async', AsyncComponent);
@@ -472,8 +472,8 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
     };
 
     render(<SDUIRenderer schema={schema} />);
-    
-    expect(screen.getByTestId('async')).toHaveTextContent('Loading...');
+
+    expect(screen.getByTestId('async').querySelector('[role="status"]')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByTestId('async')).toHaveTextContent('Loaded');
@@ -482,7 +482,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
 
   it('propagates events through component hierarchy', async () => {
     const handleEvent = vi.fn();
-    
+
     const ParentComponent = ({ onEvent }: { onEvent: () => void }) => (
       <div>
         <ChildComponent onEvent={onEvent} />
@@ -511,7 +511,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
     };
 
     render(<SDUIRenderer schema={schema} />);
-    
+
     const button = screen.getByTestId('child-button');
     fireEvent.click(button);
 
@@ -520,7 +520,7 @@ describe('ComponentInteraction - Interactive Behaviors', () => {
 
   it('handles component unmounting cleanup', () => {
     const cleanup = vi.fn();
-    
+
     const CleanupComponent = () => {
       React.useEffect(() => {
         return cleanup;
@@ -581,7 +581,7 @@ describe('ComponentInteraction - Error Handling', () => {
     };
 
     render(<SDUIRenderer schema={schema} />);
-    
+
     expect(screen.getByText(/Component failed to render/)).toBeInTheDocument();
   });
 
@@ -601,7 +601,7 @@ describe('ComponentInteraction - Error Handling', () => {
     };
 
     render(<SDUIRenderer schema={schema} onHydrationWarning={onWarning} />);
-    
+
     expect(onWarning).toHaveBeenCalled();
   });
 
@@ -632,7 +632,7 @@ describe('ComponentInteraction - Error Handling', () => {
 describe('ComponentInteraction - Performance', () => {
   it('memoizes component rendering', () => {
     const renderCount = { count: 0 };
-    
+
     const MemoComponent = React.memo(() => {
       renderCount.count++;
       return <div data-testid="memo">Memoized</div>;
@@ -656,7 +656,7 @@ describe('ComponentInteraction - Performance', () => {
     const initialCount = renderCount.count;
 
     rerender(<SDUIRenderer schema={schema} />);
-    
+
     expect(renderCount.count).toBe(initialCount);
   });
 
@@ -682,7 +682,7 @@ describe('ComponentInteraction - Performance', () => {
     };
 
     render(
-      <React.Suspense fallback={<div>Loading...</div>}>
+      <React.Suspense fallback={<span role="status" aria-live="polite"><svg className="animate-spin w-4 h-4 text-primary inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg></span>}>
         <SDUIRenderer schema={schema} />
       </React.Suspense>
     );

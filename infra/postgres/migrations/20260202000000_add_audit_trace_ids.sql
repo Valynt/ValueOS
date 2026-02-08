@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Add trace/request correlation fields to audit logs
 
 BEGIN;

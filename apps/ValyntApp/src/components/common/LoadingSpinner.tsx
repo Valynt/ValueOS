@@ -27,7 +27,7 @@ export function LoadingSpinner({
         className={`${sizeClasses[size]} text-primary animate-spin`}
         aria-hidden="true"
       />
-      {label && <p className="text-muted-foreground text-sm">{label}</p>}
+      {/* Visually hidden label for screen readers only */}
       <span className="sr-only">{label}</span>
     </div>
   );

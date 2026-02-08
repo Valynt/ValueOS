@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Add tenant_id columns + RLS for benchmark tables and model run evidence
 
 alter table public.memory_benchmark_versions

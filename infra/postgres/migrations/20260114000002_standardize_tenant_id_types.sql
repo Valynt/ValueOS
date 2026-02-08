@@ -36,3 +36,5 @@ CREATE INDEX idx_billing_customers_tenant_uuid ON billing_customers(tenant_id_uu
 
 -- Add comment
 EXEC sp_addextendedproperty 'MS_Description', 'UUID reference to tenants.id_uuid (replaces tenant_id TEXT)', 'SCHEMA', 'dbo', 'TABLE', 'billing_customers', 'COLUMN', 'tenant_id_uuid';
+
+-- No new tables created; no RLS action required in this migration.

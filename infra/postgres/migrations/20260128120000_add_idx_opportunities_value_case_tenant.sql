@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Source (legacy): ValueOS/infra/db/migrations/20260128_add_idx_opportunities_valuecase_tenant.sql
 -- Migration: Add composite index on opportunities(value_case_id, tenant_id) in authoritative infra/postgres/migrations path
 

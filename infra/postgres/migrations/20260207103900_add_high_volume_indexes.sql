@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Add composite indexes for high-volume tables
 
 BEGIN;

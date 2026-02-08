@@ -1,52 +1,40 @@
 ValueOS DevContainer Diagnostics
-Generated: 2026-02-02T06:51:58+00:00
+Generated: 2026-02-08T12:17:37+00:00
 =================================
 
 
 === Environment ===
-Hostname: 918ddf7ba74c
-User: vscode
+Hostname: codespaces-12efd7
+User: valueos
 Working Dir: /workspaces/ValueOS
 In Container: Yes
 Node: v20.20.0
 pnpm: 9.15.0
-Supabase CLI: 2.74.5
+Supabase CLI: N/A
 
 === Docker Status ===
-Docker daemon: Running
+Docker daemon: Not accessible
 
 === Container Status ===
-time="2026-02-02T06:52:00Z" level=warning msg="/workspaces/ValueOS/.devcontainer/docker-compose.devcontainer.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
 NAME      STATUS    <no value>
 
 === Service Health ===
 PostgreSQL: Unhealthy
 Redis: Unhealthy
 Kong: Unhealthy
-Auth (GoTrue): Healthy
-REST (PostgREST): Healthy
+Auth (GoTrue): Unhealthy
+REST (PostgREST): Unhealthy
 
 === Port Bindings ===
 Container ports:
-NAMES                                     PORTS
-valueos_devcontainer-app-1                
-valueos_devcontainer-kong-1               0.0.0.0:54321->8000/tcp, [::]:54321->8000/tcp
-valueos_devcontainer-storage-1            5000/tcp
-valueos_devcontainer-rest-healthcheck-1   
-valueos_devcontainer-meta-1               8080/tcp
-valueos_devcontainer-realtime-1           
-valueos_devcontainer-auth-1               
-valueos_devcontainer-rest-1               3000/tcp
-valueos_devcontainer-db-1                 0.0.0.0:54322->5432/tcp, [::]:54322->5432/tcp
-valueos_devcontainer-redis-1              6379/tcp
 
 === Key Environment Variables ===
 NODE_ENV=development
-DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
-SUPABASE_URL=http://kong:8000
-SUPABASE_ANON_KEY=eyJhbGci...91cE
-SUPABASE_JWT_SECRET=super-se...long
-REDIS_URL=redis://redis:6379
+DATABASE_URL=<not set>
+SUPABASE_URL=<not set>
+SUPABASE_ANON_KEY=<not set>
+SUPABASE_JWT_SECRET=<not set>
+REDIS_URL=<not set>
 
 === Recent Logs (last 20 lines per service) ===
 
@@ -66,16 +54,14 @@ REDIS_URL=redis://redis:6379
 
 === Database Status ===
 Databases:
-time="2026-02-02T06:52:02Z" level=warning msg="/workspaces/ValueOS/.devcontainer/docker-compose.devcontainer.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
-service "db" is not running
+env file /workspaces/ValueOS/.env.local not found: stat /workspaces/ValueOS/.env.local: no such file or directory
 
 Migration tables:
-time="2026-02-02T06:52:02Z" level=warning msg="/workspaces/ValueOS/.devcontainer/docker-compose.devcontainer.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
-service "db" is not running
+env file /workspaces/ValueOS/.env.local not found: stat /workspaces/ValueOS/.env.local: no such file or directory
 
 === Configuration Validation ===
 Kong config: Not found
 Check if kong service is running and /var/lib/kong/kong.yml exists
-.env.local: Present
+.env.local: Missing
 
 === Summary ===

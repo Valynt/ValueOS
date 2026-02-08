@@ -69,6 +69,58 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+
+---
+# Explicitly deny all agent-to-agent communication (Zero-Trust)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-agent-to-agent
+  namespace: valynt-agents
+spec:
+  podSelector:
+    matchLabels:
+      component: agent
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: valynt
+          podSelector:
+            matchLabels:
+              component: orchestrator
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# Deny all egress from agents except to Orchestrator (no agent-to-LLM, no agent-to-agent)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agent-egress-only-orchestrator
+  namespace: valynt-agents
+spec:
+  podSelector:
+    matchLabels:
+      component: agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: valynt
+          podSelector:
+            matchLabels:
+              component: orchestrator
+      ports:
+        - protocol: TCP
+          port: 8080
 ---
 # Allow egress from Orchestrator to LLM Gateway and agents
 apiVersion: networking.k8s.io/v1
@@ -94,10 +146,9 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: valynt-agents
-          podSelector:
+        - podSelector:
             matchLabels:
               component: agent
       ports:
         - protocol: TCP
           port: 8080
-              kubernetes.io/metadata.name: valynt-agents

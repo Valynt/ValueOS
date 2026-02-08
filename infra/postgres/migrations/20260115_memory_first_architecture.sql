@@ -33,6 +33,9 @@ create table if not exists public.memory_tenants (
     updated_at timestamptz default now() not null
 );
 
+-- Enforce RLS on memory_tenants
+alter table if exists public.memory_tenants enable row level security;
+
 -- Profiles (Extends Supabase Auth)
 create table if not exists public.memory_profiles (
     id uuid primary key references auth.users on delete cascade,
@@ -42,6 +45,9 @@ create table if not exists public.memory_profiles (
     created_at timestamptz default now() not null,
     updated_at timestamptz default now() not null
 );
+
+-- Enforce RLS on memory_profiles
+alter table if exists public.memory_profiles enable row level security;
 
 -- ==========================================
 -- 3. THE KNOWLEDGE INPUT LAYER
@@ -58,6 +64,9 @@ create table if not exists public.memory_value_cases (
     created_at timestamptz default now() not null,
     updated_at timestamptz default now() not null
 );
+
+-- Enforce RLS on memory_value_cases
+alter table if exists public.memory_value_cases enable row level security;
 
 -- Artifacts (Documents, Emails, Transcripts)
 create table if not exists public.memory_artifacts (

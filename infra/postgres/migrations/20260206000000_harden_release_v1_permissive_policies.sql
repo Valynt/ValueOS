@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- ============================================================================
 -- Harden permissive authenticated policies from 20240101000000_release_v1.sql
 -- ============================================================================

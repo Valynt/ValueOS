@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Add optimistic concurrency control for invoices
 ALTER TABLE public.invoices
 ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;

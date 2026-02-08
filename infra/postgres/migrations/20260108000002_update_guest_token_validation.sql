@@ -56,3 +56,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 COMMENT ON FUNCTION validate_guest_token IS 'Validates a guest access token and returns user info with expiration';
+
+-- No tables created or altered in this migration; no RLS action required.

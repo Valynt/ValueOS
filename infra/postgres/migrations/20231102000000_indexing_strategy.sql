@@ -8,17 +8,32 @@
 CREATE INDEX IF NOT EXISTS idx_audit_logs_org_created_id
   ON audit_logs (organization_id, created_at DESC, id DESC);
 
+-- Enforce RLS on audit_logs
+ALTER TABLE IF EXISTS audit_logs ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS idx_cases_org_status_updated_id
   ON cases (organization_id, status, updated_at DESC, id DESC);
+
+-- Enforce RLS on cases
+ALTER TABLE IF EXISTS cases ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS idx_workflows_org_updated_id
   ON workflows (organization_id, updated_at DESC, id DESC);
 
+-- Enforce RLS on workflows
+ALTER TABLE IF EXISTS workflows ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS idx_users_org_status_created_id
   ON users (organization_id, status, created_at DESC, id DESC);
 
+-- Enforce RLS on users
+ALTER TABLE IF EXISTS users ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS idx_agent_runs_org_status_created_id
   ON agent_runs (organization_id, status, created_at DESC, id DESC);
+
+-- Enforce RLS on agent_runs
+ALTER TABLE IF EXISTS agent_runs ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- Search indexes (GIN/FTS and trigram)
@@ -35,6 +50,9 @@ CREATE INDEX IF NOT EXISTS idx_models_fts
   ON models USING GIN (
     to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, ''))
   );
+
+-- Enforce RLS on models
+ALTER TABLE IF EXISTS models ENABLE ROW LEVEL SECURITY;
 
 -- Trigram search for fuzzy/ILIKE queries on names
 CREATE INDEX IF NOT EXISTS idx_cases_title_trgm
@@ -58,6 +76,9 @@ CREATE INDEX IF NOT EXISTS idx_workflows_definition_gin
 
 CREATE INDEX IF NOT EXISTS idx_agents_config_gin
   ON agents USING GIN (config);
+
+-- Enforce RLS on agents
+ALTER TABLE IF EXISTS agents ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS idx_shared_artifacts_content_gin
   ON shared_artifacts USING GIN (content);

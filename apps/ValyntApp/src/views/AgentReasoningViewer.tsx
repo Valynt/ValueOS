@@ -21,7 +21,7 @@ import {
   Activity,
 } from "lucide-react";
 import { AgentBadge } from "../components/Agents/AgentBadge";
-import { auditTrailService } from "../services/AuditTrailService";
+import { AuditTrailService } from "../services/AuditTrailService";
 import { auditLogService } from "../services/AuditLogService";
 import { webSocketManager } from "../services/WebSocketManager";
 import { ConfidenceDisplay } from "@valueos/sdui";
@@ -71,7 +71,8 @@ const ThoughtNodeCard: React.FC<{
   node: ThoughtNode;
   depth?: number;
   onNodeClick?: (node: ThoughtNode) => void;
-}> = ({ node, depth = 0, onNodeClick }) => {
+  agentRole?: string;
+}> = ({ node, depth = 0, onNodeClick, agentRole }) => {
   const [expanded, setExpanded] = useState(true);
 
   const getNodeTypeColor = (type: string) => {
@@ -109,15 +110,21 @@ const ThoughtNodeCard: React.FC<{
   };
 
   const hasChildren = node.children && node.children.length > 0;
+  // Highlight Opportunity/Target nodes
+  const highlight = agentRole === "OpportunityAgent" || agentRole === "TargetAgent";
+  // Pulse for low confidence
+  const confidencePulse = node.confidence !== undefined && node.confidence < 0.6;
 
   return (
     <div className="ml-4" style={{ marginLeft: `${depth * 16}px` }}>
       <div
-        className={`p-3 rounded-lg border ${getNodeTypeColor(node.type)} mb-2 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] quantum-glow`}
+        className={`p-3 rounded-lg border ${getNodeTypeColor(node.type)} mb-2 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-[1.02] quantum-glow${highlight ? ' node-highlight' : ''}${confidencePulse ? ' confidence-pulse' : ''}`}
         onClick={() => {
           onNodeClick?.(node);
           if (hasChildren) setExpanded(!expanded);
         }}
+        tabIndex={0}
+        aria-label={`Reasoning node: ${node.type}`}
       >
         <div className="flex items-start gap-2 mb-1">
           {hasChildren && (
@@ -127,6 +134,7 @@ const ThoughtNodeCard: React.FC<{
                 e.stopPropagation();
                 setExpanded(!expanded);
               }}
+              aria-label={expanded ? "Collapse node" : "Expand node"}
             >
               {expanded ? (
                 <ChevronDown className="w-4 h-4" />
@@ -171,6 +179,7 @@ const ThoughtNodeCard: React.FC<{
               node={child}
               depth={depth + 1}
               onNodeClick={onNodeClick}
+              agentRole={agentRole}
             />
           ))}
         </div>
@@ -267,7 +276,7 @@ const ChainDetailPanel: React.FC<{
           <div className="space-y-2">
             <div className="text-sm font-semibold mb-2">Thought Chain</div>
             {chain.nodes.map((node) => (
-              <ThoughtNodeCard key={node.id} node={node} />
+              <ThoughtNodeCard key={node.id} node={node} agentRole={chain.agentRole} />
             ))}
           </div>
         </div>
@@ -782,21 +791,21 @@ export const AgentReasoningViewer: React.FC = () => {
     const avgNodes =
       filteredChains.length > 0
         ? filteredChains.reduce((acc, c) => {
-            const count = (nodes: ThoughtNode[]): number => {
-              return nodes.reduce(
-                (sum, node) => sum + 1 + (node.children ? count(node.children) : 0),
-                0
-              );
-            };
-            return acc + count(c.nodes);
-          }, 0) / filteredChains.length
+          const count = (nodes: ThoughtNode[]): number => {
+            return nodes.reduce(
+              (sum, node) => sum + 1 + (node.children ? count(node.children) : 0),
+              0
+            );
+          };
+          return acc + count(c.nodes);
+        }, 0) / filteredChains.length
         : 0;
 
     const avgDuration =
       filteredChains.length > 0
         ? filteredChains
-            .filter((c) => c.totalDuration)
-            .reduce((acc, c, _, arr) => acc + (c.totalDuration || 0) / arr.length, 0)
+          .filter((c) => c.totalDuration)
+          .reduce((acc, c, _, arr) => acc + (c.totalDuration || 0) / arr.length, 0)
         : 0;
 
     setStats({ totalChains, avgNodes, avgDuration, completed, failed, inProgress });

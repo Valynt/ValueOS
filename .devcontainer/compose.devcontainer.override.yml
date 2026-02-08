@@ -4,3 +4,10 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile.dev
     image: valueos-app:latest
+
+    networks:
+      - valueos-network
+
+networks:
+  valueos-network:
+    external: true

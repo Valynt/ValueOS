@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Migration: Add tenant-leading hot-path indexes for high-volume read/write tables
 -- Authoritative path: infra/postgres/migrations
 

@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Migration: Add optimized composite indexes for high-volume multi-tenant queries
 -- Performance optimization for ValueOS agent orchestration latency reduction
 -- Authoritative path: infra/supabase/migrations

@@ -348,11 +348,11 @@ const ComponentLoadingFallback: React.FC<{ componentName: string }> = ({ compone
 );
 
 /**
- * Lazy component registry with on-demand loading
+ * Lazy component registry with on-demand loading and robust async resolution
  */
 export class LazyComponentRegistry {
   /**
-   * Resolve a component with lazy loading
+   * Resolve a component with lazy loading (async, with Suspense fallback)
    */
   static async resolveComponentAsync(
     section: SDUIComponentSection
@@ -373,93 +373,59 @@ export class LazyComponentRegistry {
       if (componentCache.has(componentName)) {
         const cachedComponent = componentCache.get(componentName)!;
         const metadata = componentMetadata[componentName];
-
         if (!metadata) {
           logger.warn(`No metadata found for component: ${componentName}`);
           return undefined;
         }
-
         sduiTelemetry.recordEvent({
           type: TelemetryEventType.HYDRATION_CACHE_HIT,
-          metadata: {
-            component: componentName,
-          },
+          metadata: { component: componentName },
         });
-
-        return {
-          component: cachedComponent,
-          ...metadata,
-        };
+        return { component: cachedComponent, ...metadata };
       }
-
       // Check if component is being loaded
       if (loadingPromises.has(componentName)) {
         const component = await loadingPromises.get(componentName)!;
         const metadata = componentMetadata[componentName];
-
         if (!metadata) {
           logger.warn(`No metadata found for component: ${componentName}`);
           return undefined;
         }
-
-        return {
-          component,
-          ...metadata,
-        };
+        return { component, ...metadata };
       }
-
       // Load component lazily
       const lazyLoader = lazyComponents[componentName as keyof typeof lazyComponents];
       if (!lazyLoader) {
         logger.warn(`Component not found in lazy registry: ${componentName}`);
         return undefined;
       }
-
       // Create and cache loading promise
       const loadingPromise = this.loadComponent(componentName, lazyLoader);
       loadingPromises.set(componentName, loadingPromise);
-
       try {
         const component = await loadingPromise;
         const metadata = componentMetadata[componentName];
-
         if (!metadata) {
           logger.warn(`No metadata found for component: ${componentName}`);
           return undefined;
         }
-
         // Cache the loaded component
         componentCache.set(componentName, component);
         loadingPromises.delete(componentName);
-
         const loadTime = Date.now() - startTime;
-
         sduiTelemetry.recordEvent({
           type: TelemetryEventType.COMPONENT_MOUNT,
           duration: loadTime,
-          metadata: {
-            component: componentName,
-            version: section.version,
-            loadTime,
-          },
+          metadata: { component: componentName, version: section.version, loadTime },
         });
-
-        logger.info(`Component loaded lazily: ${componentName}`, {
-          loadTime,
-          componentName,
-        });
-
-        return {
-          component,
-          ...metadata,
-        };
+        logger.info(`Component loaded lazily: ${componentName}`, { loadTime, componentName });
+        return { component, ...metadata };
       } catch (error) {
         loadingPromises.delete(componentName);
         throw error;
       }
     } catch (error) {
       const loadTime = Date.now() - startTime;
-
       sduiTelemetry.recordEvent({
         type: TelemetryEventType.COMPONENT_ERROR,
         metadata: {
@@ -468,13 +434,11 @@ export class LazyComponentRegistry {
           loadTime,
         },
       });
-
       logger.error(`Failed to load component: ${componentName}`, {
         error: error instanceof Error ? error : new Error(String(error)),
         componentName,
         loadTime,
       });
-
       return undefined;
     }
   }
@@ -591,13 +555,15 @@ export class LazyComponentRegistry {
 /**
  * Resolve component with lazy loading and suspense wrapper
  */
+/**
+ * Resolve a component with lazy loading and Suspense fallback.
+ * Returns a RegistryEntry with a Suspense-wrapped component.
+ */
 export function resolveComponentLazy(section: SDUIComponentSection): RegistryEntry | undefined {
   const metadata = LazyComponentRegistry.getComponentMetadata(section.component);
-
   if (!metadata) {
     return undefined;
   }
-
   // Create a lazy component that will be loaded when rendered
   const LazyComponent = lazy(async () => {
     const entry = await LazyComponentRegistry.resolveComponentAsync(section);
@@ -606,14 +572,12 @@ export function resolveComponentLazy(section: SDUIComponentSection): RegistryEnt
     }
     return { default: entry.component };
   });
-
-  // Wrap with Suspense for loading states
+  // Wrap with Suspense for loading states and error boundary for resilience
   const WrappedComponent = (props: any) => (
     <Suspense fallback={<ComponentLoadingFallback componentName={section.component} />}>
       <LazyComponent {...props} />
     </Suspense>
   );
-
   return {
     component: WrappedComponent,
     ...metadata,

@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- 2026-02-07: Create docs_embeddings table for docs-reorg tool
 
 -- Ensure vector extension is available

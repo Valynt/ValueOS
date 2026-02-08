@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- Migration: Add parent-first tenant composite indexes for high-volume activity tables.
 -- Mirrors the (value_case_id, tenant_id) strategy by pairing parent identifiers with tenant keys.
 -- Uses CREATE INDEX CONCURRENTLY IF NOT EXISTS to minimize locking on high-volume tables.

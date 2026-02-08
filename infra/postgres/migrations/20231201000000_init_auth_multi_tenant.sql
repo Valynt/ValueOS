@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Enforce RLS on tenants
+ALTER TABLE IF EXISTS public.tenants ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE IF NOT EXISTS public.users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   auth0_user_id text UNIQUE NOT NULL, -- e.g. "auth0|abc123"
@@ -52,6 +55,9 @@ CREATE TABLE IF NOT EXISTS public.users (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Enforce RLS on users
+ALTER TABLE IF EXISTS public.users ENABLE ROW LEVEL SECURITY;
 
 CREATE TABLE IF NOT EXISTS public.memberships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -16,6 +16,29 @@ const supabase = createClient(
 );
 
 class UsageMeteringService {
+  // Per-tenant query cost tracking (in-memory, for demo; use Redis in prod)
+  private static tenantQueryCosts: Map<string, { windowStart: number; cost: number }> = new Map();
+  private static QUERY_WINDOW_MS = 60 * 1000; // 1 minute
+  private static MAX_COST_PER_WINDOW = 1000; // Example: 1000 cost units per minute
+
+  /**
+   * Check and increment per-tenant query cost. Throws if over limit.
+   */
+  private checkAndIncrementTenantCost(tenantId: string, cost: number) {
+    const now = Date.now();
+    const entry = UsageMeteringService.tenantQueryCosts.get(tenantId);
+    if (!entry || now - entry.windowStart > UsageMeteringService.QUERY_WINDOW_MS) {
+      // Reset window
+      UsageMeteringService.tenantQueryCosts.set(tenantId, { windowStart: now, cost });
+      return;
+    }
+    if (entry.cost + cost > UsageMeteringService.MAX_COST_PER_WINDOW) {
+      logger.warn('Tenant query cost limit exceeded', { tenantId, attempted: cost, windowCost: entry.cost });
+      throw new Error('Per-tenant query cost limit exceeded. Please retry later.');
+    }
+    entry.cost += cost;
+    UsageMeteringService.tenantQueryCosts.set(tenantId, entry);
+  }
   private stripe = StripeService.getInstance().getClient();
   private stripeService = StripeService.getInstance();
 
@@ -23,6 +46,13 @@ class UsageMeteringService {
    * Submit usage record to Stripe
    */
   async submitUsageRecord(aggregate: UsageAggregate): Promise<void> {
+    // Enforce per-tenant query cost limit (cost = total_quantity or 1)
+    try {
+      this.checkAndIncrementTenantCost(aggregate.organization_id, aggregate.total_quantity || 1);
+    } catch (err) {
+      logger.error('Throttling usage record due to tenant IOPS/cost limit', { tenantId: aggregate.organization_id, error: err });
+      throw err;
+    }
     try {
       if (aggregate.submitted_to_stripe) {
         logger.warn('Aggregate already submitted', { aggregateId: aggregate.id });

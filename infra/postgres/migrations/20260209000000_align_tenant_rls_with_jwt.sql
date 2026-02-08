@@ -1,3 +1,4 @@
+-- No new tables created; no RLS action required in this migration.
 -- ==========================================================================
 -- Align tenant-scoped RLS policies with JWT tenant claim enforcement
 -- ==========================================================================
