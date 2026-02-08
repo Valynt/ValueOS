@@ -12,13 +12,13 @@ spec:
           expr: |
             (
               rate(agent_fabric_execution_failure_total[5m])
-              /
-              clamp_min(
-                rate(agent_fabric_execution_success_total[5m])
-                + rate(agent_fabric_execution_failure_total[5m]),
-                0.000001
-              )
-            ) > 0.05
+                /
+                clamp_min(
+                  rate(agent_fabric_execution_success_total[5m])
+                  + rate(agent_fabric_execution_failure_total[5m]),
+                  0.000001
+                )
+              ) > 0.05
           for: 10m
           labels:
             severity: warning
@@ -76,9 +76,9 @@ spec:
           expr: |
             (
               rate(agent_fabric_value_generated_usd_total[1h])
-              /
-              clamp_min(rate(agent_fabric_cost_usd_total[1h]), 0.000001)
-            ) * 100 < 50
+                /
+                clamp_min(rate(agent_fabric_cost_usd_total[1h]), 0.000001)
+              ) * 100 < 50
           for: 15m
           labels:
             severity: warning

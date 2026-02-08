@@ -1,7 +1,9 @@
+---
+# Zero-Trust: Default deny all ingress/egress everywhere
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: fabric-default-deny
+  name: default-deny-all
   namespace: valynt
 spec:
   podSelector: {}
@@ -12,7 +14,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: fabric-agents-default-deny
+  name: default-deny-all
   namespace: valynt-agents
 spec:
   podSelector: {}
@@ -20,6 +22,7 @@ spec:
     - Ingress
     - Egress
 ---
+# Only allow Orchestrator to talk to LLM Gateway (ingress)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -43,19 +46,20 @@ spec:
         - protocol: TCP
           port: 8443
 ---
+# Only allow Orchestrator to talk to agents (ingress)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: llm-gateway-egress-allowlist
-  namespace: valynt
+  name: agents-ingress-from-orchestrator
+  namespace: valynt-agents
 spec:
   podSelector:
     matchLabels:
-      component: llm-gateway
+      component: agent
   policyTypes:
-    - Egress
-  egress:
-    - to:
+    - Ingress
+  ingress:
+    - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: valynt
@@ -64,24 +68,13 @@ spec:
               component: orchestrator
       ports:
         - protocol: TCP
-          port: 8443
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
+          port: 8080
 ---
+# Allow egress from Orchestrator to LLM Gateway and agents
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: orchestrator-egress-allowlist
+  name: orchestrator-egress-allow-llm-gateway-and-agents
   namespace: valynt
 spec:
   podSelector:
@@ -107,139 +100,4 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: prometheus
-      ports:
-        - protocol: TCP
-          port: 9090
-    - to:
-        - podSelector:
-            matchLabels:
-              app: redis
-      ports:
-        - protocol: TCP
-          port: 6379
-    - to:
-        - namespaceSelector:
-            matchLabels:
               kubernetes.io/metadata.name: valynt-agents
-          podSelector:
-            matchLabels:
-              component: agent
-      ports:
-        - protocol: TCP
-          port: 8080
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: agents-deny-agent-to-agent-ingress
-  namespace: valynt-agents
-spec:
-  podSelector:
-    matchLabels:
-      component: agent
-  policyTypes:
-    - Ingress
-  ingress: []
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: agents-allow-orchestrator-control-plane
-  namespace: valynt-agents
-spec:
-  podSelector:
-    matchLabels:
-      component: agent
-    matchExpressions:
-      - key: agent-type
-        operator: Exists
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: valynt
-          podSelector:
-            matchLabels:
-              component: orchestrator
-      ports:
-        - protocol: TCP
-          port: 8080
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: agents-allow-orchestrator-control-plane-untagged
-  namespace: valynt-agents
-spec:
-  podSelector:
-    matchLabels:
-      component: agent
-    matchExpressions:
-      - key: agent-type
-        operator: DoesNotExist
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: valynt
-          podSelector:
-            matchLabels:
-              component: orchestrator
-      ports:
-        - protocol: TCP
-          port: 8080
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: agents-egress-allow-orchestrator-control-plane
-  namespace: valynt-agents
-spec:
-  podSelector:
-    matchLabels:
-      component: agent
-  policyTypes:
-    - Egress
-  egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: valynt
-          podSelector:
-            matchLabels:
-              component: orchestrator
-      ports:
-        - protocol: TCP
-          port: 8080
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53

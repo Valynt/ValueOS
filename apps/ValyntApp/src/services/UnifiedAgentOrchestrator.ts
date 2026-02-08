@@ -650,10 +650,33 @@ export class UnifiedAgentOrchestrator {
       timeout: timeoutMs,
     };
 
+    // Standardized retry options for exponential backoff
+    const retryOptions: Partial<RetryOptions> = {
+      maxRetries: 5,
+      strategy: "exponential_backoff",
+      baseDelay: 500,
+      maxDelay: 10000,
+      backoffMultiplier: 2,
+      jitterFactor: 0.3,
+      attemptTimeout: timeoutMs,
+      overallTimeout: timeoutMs * 2,
+      retryableErrors: ["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "429", "5xx", "TimeoutError"],
+      nonRetryableErrors: ["400", "401", "403", "404", "422"],
+      fallbackAgents: [],
+      fallbackStrategy: "none",
+      context: {
+        requestId: params.traceId,
+        sessionId: params.context?.sessionId,
+        userId: params.context?.userId,
+        organizationId: params.context?.organizationId,
+        priority: "medium",
+        source: "UnifiedAgentOrchestrator",
+      },
+    };
     const retryResult = await this.retryManager.executeWithRetry(
       retryAgent,
       retryRequest,
-      this.buildRetryOptions(params.traceId, agentType, timeoutMs, params.context)
+      retryOptions
     );
 
     if (retryResult.success) {
