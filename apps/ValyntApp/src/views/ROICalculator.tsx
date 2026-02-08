@@ -13,8 +13,12 @@ import { useDrawer } from "../contexts/DrawerContext";
 import AgentBadge from "../components/Agents/AgentBadge";
 import ConfidenceIndicator from "../components/Agents/ConfidenceIndicator";
 import Tooltip from "../components/ui/tooltip";
+import { HelpTooltip } from "../components/HelpTooltip";
+import { ReasoningViewer } from "../components/ReasoningViewer";
 
 export default function ROICalculator() {
+  const [showReasoning, setShowReasoning] = useState(false);
+  const [reasoningText, setReasoningText] = useState<string>("");
   const { openDrawer } = useDrawer();
   const [engHeadcount, setEngHeadcount] = useState(20);
   const [engSalary, setEngSalary] = useState(130);
@@ -187,11 +191,10 @@ export default function ROICalculator() {
                   onClick={() =>
                     setOptimizationGoal(goal.id as "roi" | "npv" | "payback")
                   }
-                  className={`px-3 py-3 text-xs font-medium rounded-xl border transition-all ${
-                    optimizationGoal === goal.id
+                  className={`px-3 py-3 text-xs font-medium rounded-xl border transition-all ${optimizationGoal === goal.id
                       ? "bg-primary/20 border-primary/50 text-primary shadow-glow-teal"
                       : "bg-white/5 border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
-                  }`}
+                    }`}
                 >
                   {goal.label}
                 </button>
@@ -331,13 +334,17 @@ export default function ROICalculator() {
             <div className="flex items-center justify-between mb-4">
               <div className="text-[10px] text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-1">
                 3-Year ROI
-                <Tooltip
-                  content="Return on Investment calculated over a 3-year period."
-                  showIcon={false}
-                >
-                  <span className="sr-only">More info</span>
-                </Tooltip>
+                <HelpTooltip
+                  text="Return on Investment calculated over a 3-year period."
+                  onProvenanceClick={() => {
+                    setReasoningText("This ROI metric is suggested by the agent based on your input parameters and historical benchmarks. Click for full reasoning.");
+                    setShowReasoning(true);
+                  }}
+                />
               </div>
+              {showReasoning && (
+                <ReasoningViewer reasoning={reasoningText} onClose={() => setShowReasoning(false)} />
+              )}
               <AgentBadge agentId="integrity" size="sm" showName={false} />
             </div>
             <ConfidenceIndicator

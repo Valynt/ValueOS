@@ -1,14 +1,14 @@
 ValueOS DevContainer Diagnostics
-Generated: 2026-02-08T12:17:37+00:00
+Generated: 2026-02-08T15:06:26+00:00
 =================================
 
 
 === Environment ===
-Hostname: codespaces-12efd7
+Hostname: codespaces-3dfbb6
 User: valueos
 Working Dir: /workspaces/ValueOS
 In Container: Yes
-Node: v20.20.0
+Node: v20.19.0
 pnpm: 9.15.0
 Supabase CLI: N/A
 
@@ -30,7 +30,7 @@ Container ports:
 
 === Key Environment Variables ===
 NODE_ENV=development
-DATABASE_URL=<not set>
+DATABASE_URL=postgres://user:password@localhost:5432/dbname
 SUPABASE_URL=<not set>
 SUPABASE_ANON_KEY=<not set>
 SUPABASE_JWT_SECRET=<not set>
@@ -54,14 +54,14 @@ REDIS_URL=<not set>
 
 === Database Status ===
 Databases:
-env file /workspaces/ValueOS/.env.local not found: stat /workspaces/ValueOS/.env.local: no such file or directory
+service "db" is not running
 
 Migration tables:
-env file /workspaces/ValueOS/.env.local not found: stat /workspaces/ValueOS/.env.local: no such file or directory
+service "db" is not running
 
 === Configuration Validation ===
 Kong config: Not found
 Check if kong service is running and /var/lib/kong/kong.yml exists
-.env.local: Missing
+.env.local: Present
 
 === Summary ===
