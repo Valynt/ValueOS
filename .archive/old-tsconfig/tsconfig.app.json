@@ -1,0 +1,99 @@
+{
+  "extends": "./packages/config-v2/tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "types": ["vitest/globals", "node", "uuid"],
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Path Aliases */
+    "paths": {
+      // Existing @ aliases (preferred style)
+      "@/*": ["./src/*"],
+      "@lib/*": ["./src/lib/*"],
+      "@pages/*": ["./src/pages/*"],
+      "@layouts/*": ["./src/layouts/*"],
+      "@app/*": ["./src/app/*"],
+      "@shared/*": ["./packages/shared/src/*"],
+      "@valueos/shared": ["./packages/shared/src/index.ts"],
+      "@valueos/shared/*": ["./packages/shared/src/*"],
+      "@valueos/infra": ["./packages/infra/index.ts"],
+      "@valueos/memory": ["./packages/memory/index.ts"],
+      "@valueos/sdui": ["./packages/sdui/src/index.ts"],
+      "@valueos/sdui-types": ["./packages/sdui-types/index.ts"],
+      "@valueos/integrations": ["./packages/integrations/index.ts"],
+      "@valueos/mcp": ["./packages/mcp/index.ts"],
+      "@valueos/agents": ["./packages/agents/index.ts"],
+      "@valueos/components": ["./packages/components/index.ts"],
+      "@backend/*": ["./packages/backend/src/*"],
+      "@infra/*": ["./packages/infra/*"],
+      "@memory/*": ["./packages/memory/*"],
+      "@agents/*": ["./packages/agents/*"],
+      "@valueos/agents/*": ["./packages/agents/*/src"],
+      "@integrations/*": ["./packages/integrations/*"],
+      "@mcp/*": ["./packages/mcp/*"],
+      "@mcp-common/*": ["./packages/mcp/common/*"],
+      "@sdui/*": ["./packages/sdui/src/*"],
+      "@valueos/design-system": ["./packages/components/design-system/src"],
+      "@valueos/design-system/*": ["./packages/components/design-system/src/*"],
+
+      // Legacy / non-@ imports observed in the repo (map common bare specifiers)
+      "components/*": [
+        "./src/components/*",
+        "./packages/components/design-system/src/*",
+        "./packages/components/design-system/src/primitives/*"
+      ],
+      "components": ["./src/components", "./packages/components/design-system/src"],
+      "components/ui/*": [
+        "./src/components/ui/*",
+        "./packages/components/design-system/src/primitives/*"
+      ],
+      "lib/*": ["./src/lib/*", "./packages/shared/src/lib/*", "./packages/backend/src/lib/*"],
+      "hooks/*": ["./src/hooks/*", "./packages/shared/src/hooks/*"],
+      "hooks": ["./src/hooks", "./packages/shared/src/hooks"],
+
+      // Fallbacks for a few specific missed imports
+      "lib/trpc": ["./packages/shared/src/lib/trpc", "./src/lib/trpc"],
+      "lib/utils": ["./packages/shared/src/lib/utils", "./src/lib/utils"]
+    },
+
+    /* Linting - Strict Configuration */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    // Disabled temporarily to reduce TS6133 errors - re-enable after debt < 500
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    // Disabled to reduce cascade errors (TS2375/TS2379) - re-enable when debt < 1000
+    "exactOptionalPropertyTypes": false,
+    "noImplicitThis": true
+  },
+  "include": ["src", "scripts", "packages/*/src"],
+  "exclude": [
+    "**/legacy-merge/**",
+    "./src/**/*.test.ts",
+    "./src/**/*.test.tsx",
+    "./src/**/*.spec.ts",
+    "./src/**/*.spec.tsx",
+    "./src/tests/**/*"
+  ]
+}
