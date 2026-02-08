@@ -1,5 +1,5 @@
 # Optimized Deterministic Dockerfile for ValueOS DevContainers
-FROM node:20.19.0-bookworm-slim
+FROM node:20.19.0-slim
 
 ARG PNPM_VERSION=9.15.0
 
@@ -25,8 +25,8 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     sudo \
   && rm -rf /var/lib/apt/lists/*
 
-RUN if ! getent group vscode >/dev/null; then groupadd -g 1000 vscode; fi \
- && if ! id -u vscode >/dev/null 2>&1; then useradd -m -d /home/vscode -s /bin/bash -u 1000 -g 1000 vscode; fi \
+RUN groupadd -g 1000 vscode \
+ && useradd -m -d /home/vscode -s /bin/bash -u 1000 -g vscode vscode \
  && echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode \
  && chmod 0440 /etc/sudoers.d/vscode \
  && mkdir -p /home/vscode/.local/share/pnpm \

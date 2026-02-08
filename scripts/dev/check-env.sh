@@ -70,6 +70,16 @@ else
     exit 1
 fi
 
+# 4.5. db service DNS check (guardrail for Compose networking)
+echo -n "db service DNS: "
+if getent hosts db >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ db resolves${NC}"
+else
+    echo -e "${RED}❌ 'db' does not resolve. You are not on the Docker Compose network.${NC}"
+    echo -e "${RED}   Fix: ensure the devcontainer is launched via dockerComposeFile + service=app.${NC}"
+    exit 1
+fi
+
 # 5. glibc check
 echo -n "glibc version: "
 GLIBC_VERSION=$(node -p "process.report.getReport().header.glibcVersionRuntime" 2>/dev/null || echo "unknown")

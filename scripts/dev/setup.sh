@@ -155,7 +155,7 @@ if [ -f "${PROJECT_ROOT}/ops/env/.env.local" ]; then
     # Convert host-based DATABASE_URL to container network URL for migrations
     if [ -n "$DATABASE_URL" ]; then
         ORIGINAL_URL="$DATABASE_URL"
-        DATABASE_URL=$(echo "$DATABASE_URL" | sed 's/localhost:54322/db:5432/')
+        DATABASE_URL=$(echo "$DATABASE_URL" | sed 's/localhost/db/g')
         log_info "Context-aware DATABASE_URL: $DATABASE_URL"
     fi
 fi
@@ -166,7 +166,11 @@ fi
 # Trust the orchestrator: app depends on db (service_healthy), so DB is ready.
 
 # Set DB_HOST for migration scripts
-export DB_HOST="${DB_HOST:-db}"
+if [[ -n "${DEVCONTAINER:-}" || -n "${REMOTE_CONTAINERS:-}" || -n "${CODESPACES:-}" ]]; then
+    export DB_HOST="db"
+else
+    export DB_HOST="${DB_HOST:-localhost}"
+fi
 log_info "Using DB_HOST: $DB_HOST"
 
 ###############################################################################
