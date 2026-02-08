@@ -398,6 +398,195 @@ When modifying dev container configurations:
   - Log rotation
   - Health checks
 
+## 🔧 Devcontainer Debugging Guide
+
+This section provides tools and steps for debugging VS Code devcontainer issues, particularly "rebuild container" problems.
+
+### The Trap: Understanding Devcontainer Rebuild
+
+**Important truth:** There is no devcontainer rebuild CLI command. "Rebuild Container" in VS Code is orchestration that does:
+
+1. Parses `devcontainer.json`
+2. Generates a temp Compose override
+3. Runs `docker compose build`
+4. Runs `docker compose up`
+5. Attaches VS Code server
+
+Debugging requires replicating these steps manually.
+
+### Quick Start: Interactive Script
+
+Run the interactive debugging script on your **HOST** machine (not inside devcontainer):
+
+```bash
+./.devcontainer/debug-devcontainer.sh
+```
+
+This provides a menu to run individual debugging steps or all of them.
+
+### Manual Debugging Steps
+
+#### 1. Enable VS Code Devcontainer Logging
+
+In VS Code settings (JSON):
+```json
+{
+  "dev.containers.logLevel": "trace",
+  "dev.containers.defaultExtensions": [],
+  "dev.containers.copyGitConfig": false
+}
+```
+
+Reload VS Code, run "Dev Containers: Rebuild Container", then check Output → Dev Containers.
+
+#### 2. Install/Verify Devcontainer CLI
+
+```bash
+npm install -g @devcontainers/cli
+devcontainer --version
+```
+
+#### 3. Check Docker
+
+```bash
+docker context show
+docker info
+```
+
+#### 4. Run Devcontainer Up (CLI)
+
+From repo root:
+
+```bash
+devcontainer up \
+  --workspace-folder . \
+  --log-level trace \
+  --remove-existing-container
+```
+
+#### 5. Extract Final Compose Config
+
+```bash
+docker compose \
+  -f docker-compose.yml \
+  -f .devcontainer/docker-compose.yml \
+  -f .devcontainer/docker-compose.devcontainer.override.yml \
+  config
+```
+
+Look for:
+- Wrong image name (VS Code pulls instead of builds)
+- Wrong service name (must match `devcontainer.json`)
+- Missing `build:` block
+- Wrong `context:` path
+
+#### 6. Manually Build Image
+
+```bash
+COMPOSE_PROFILES=devcontainer \
+docker compose \
+  -f docker-compose.yml \
+  -f .devcontainer/docker-compose.yml \
+  -f .devcontainer/docker-compose.devcontainer.override.yml \
+  build --no-cache app
+```
+
+#### 7. Verify Image Exists
+
+```bash
+docker images | grep valueos-app
+```
+
+If `devcontainer.json` has `"image": "valueos-app"`, it must exist locally.
+
+#### 8. Bring Up Without VS Code
+
+```bash
+COMPOSE_PROFILES=devcontainer \
+docker compose \
+  -f docker-compose.yml \
+  -f .devcontainer/docker-compose.yml \
+  -f .devcontainer/docker-compose.devcontainer.override.yml \
+  up -d
+```
+
+Then attach manually:
+
+```bash
+docker ps
+docker exec -it <container> sh
+```
+
+Inside, verify:
+
+```bash
+node -v
+pnpm -v
+getent hosts db
+```
+
+### Common Failure Modes & Fixes
+
+#### ❌ "CLI doesn't support rebuild"
+
+**Fix:** Use `devcontainer up --remove-existing-container`
+
+#### ❌ VS Code keeps pulling an image
+
+**Cause:** `image:` specified but no local build exists
+
+**Fix:** Remove `image:` and use `build:`, or ensure Compose builds and tags the image
+
+#### ❌ DNS/service name doesn't resolve
+
+**Cause:** Container not on Compose network
+
+**Fix:** Rebuild (network attach happens at creation)
+
+Verify with:
+
+```bash
+ip route
+getent hosts db
+```
+
+#### ❌ Node version mismatch
+
+**Cause:** Host Node leaking into container or glibc Node on Alpine
+
+**Fix:** Pin Node in Dockerfile: `node:20.19.0-alpine`
+
+Never rely on host Node inside devcontainers
+
+#### ❌ Permissions/pnpm store
+
+**Fix:** In Dockerfile:
+
+```dockerfile
+RUN --mount=type=cache,target=/pnpm/store,uid=1001,gid=1001 ...
+```
+
+### Nuclear Reset (Last Resort)
+
+When ghosts remain:
+
+```bash
+docker compose down -v
+docker rm -f $(docker ps -aq) 2>/dev/null || true
+docker volume prune -f
+docker image prune -f
+```
+
+Then rebuild clean.
+
+### Notes
+
+- All CLI commands must be run on the **HOST** machine, not inside the devcontainer
+- The interactive script automates most of these steps
+- Always check the generated Compose config - it catches 50% of issues
+- If the manual build succeeds but VS Code fails → VS Code attachment issue
+- If manual build fails → Dockerfile/build issue, not devcontainer issue
+
 ---
 
 **Questions?** Check the [main documentation](../docs/) or open an issue.

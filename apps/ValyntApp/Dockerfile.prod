@@ -1,15 +1,11 @@
 # syntax=docker/dockerfile:1.7
 
-ARG NODE_VERSION=20.19.0
-ARG PNPM_VERSION=9.15.0
 
-FROM node:20.18.0-bookworm-slim AS build
-ARG PNPM_VERSION
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
+FROM node:20.19.0-alpine AS build
 WORKDIR /workspace
 
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+# Install pnpm directly (no Corepack)
+RUN npm install -g pnpm@9.15.0
 
 RUN addgroup -g 1001 -S valueos \
     && adduser -S -D -H -u 1001 -G valueos valueos \

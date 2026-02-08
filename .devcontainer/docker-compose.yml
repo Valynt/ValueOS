@@ -58,6 +58,13 @@ services:
       - ..:/workspaces/ValueOS:cached
     working_dir: /workspaces/ValueOS/apps/ValyntApp
     command: sleep infinity
+    # Override the healthcheck that depends on other services
+    healthcheck:
+      test: ["CMD", "echo", "ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     network_mode: service:postgres
 
   # PostgreSQL database

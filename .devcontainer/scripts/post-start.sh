@@ -10,4 +10,19 @@ if [[ ! -d "${ROOT_DIR}" ]]; then
 fi
 
 echo "Devcontainer post-start: container is ready."
+
+# Install Docker CLI if not present
+if ! command -v docker &> /dev/null; then
+  echo "Installing Docker CLI..."
+  apk add --no-cache docker-cli
+fi
+
+# Start the devcontainer services (excluding the app service which is already running)
+echo "Starting devcontainer services..."
+cd "${ROOT_DIR}/.devcontainer"
+
+# Start all services except 'app'
+docker compose up -d $(docker compose config --services | grep -v '^app$')
+
+echo "Devcontainer services started."
 echo "Tip: run scripts/dev/setup.sh if dependencies need refresh."

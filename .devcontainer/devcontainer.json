@@ -1,27 +1,76 @@
 {
-  "name": "ValyntApp Dev Container",
-  "dockerComposeFile": "docker-compose.yml",
-  "service": "app",
-  "workspaceFolder": "/workspaces/ValueOS",
-  "mounts": [
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  "name": "ValueOS Development",
+  "dockerComposeFile": [
+    "docker-compose.yml",
+    "compose.devcontainer.override.yml"
   ],
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "terminal.integrated.cwd": "/workspaces/ValueOS/apps/ValyntApp"
-      },
-      "extensions": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "ms-azuretools.vscode-docker",
-        "ms-vscode-remote.remote-containers",
-        "GitHub.codespaces"
-      ]
+  "service": "app",
+  "workspaceFolder": "/workspaces/ValueOS/apps/ValyntApp",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "typescript.preferences.importModuleSpecifierEnding": "js",
+    "typescript.preferences.quoteStyle": "double"
+  },
+  "extensions": [
+    "ms-vscode.vscode-typescript-next",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.vscode-json",
+    "ms-vscode-remote.remote-containers",
+    "GitHub.codespaces"
+  ],
+  "forwardPorts": [3000, 5432, 4000, 5000, 9999, 54323, 8000, 8001, 8443, 8444, 80, 443, 6379],
+  "portsAttributes": {
+    "3000": {
+      "label": "Frontend",
+      "onAutoForward": "openBrowser"
+    },
+    "5432": {
+      "label": "PostgreSQL"
+    },
+    "4000": {
+      "label": "Realtime"
+    },
+    "5000": {
+      "label": "Storage"
+    },
+    "9999": {
+      "label": "Auth"
+    },
+    "54323": {
+      "label": "Studio"
+    },
+    "8000": {
+      "label": "Kong Proxy"
+    },
+    "8001": {
+      "label": "Kong Admin"
+    },
+    "8443": {
+      "label": "Kong HTTPS"
+    },
+    "8444": {
+      "label": "Kong Admin HTTPS"
+    },
+    "80": {
+      "label": "Caddy HTTP"
+    },
+    "443": {
+      "label": "Caddy HTTPS"
+    },
+    "6379": {
+      "label": "Redis"
     }
   },
   "remoteUser": "node",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/ValueOS,type=bind"
+  ],
   "runArgs": [
-    "--group-add", "docker"
+    "--cap-add=SYS_PTRACE",
+    "--security-opt",
+    "seccomp=unconfined"
   ]
 }

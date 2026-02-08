@@ -1,21 +1,19 @@
-# Ensure docker group exists and add user to docker group for socket access
-RUN if ! getent group docker; then groupadd -g 998 docker; fi \
-  && usermod -aG docker node || true
 # Optimized Deterministic Dockerfile for ValueOS DevContainers
 
 # =====================
 # ValueOS DevContainer Build (with verbose logging)
 # =====================
-FROM node:20.18.0-bookworm-slim
+FROM node:20.19.0-alpine
 
-# Install specific Node.js version 20.18.0
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-ENV NVM_DIR /root/.nvm
-RUN . $NVM_DIR/nvm.sh && nvm install 20.18.0 && nvm use 20.18.0 && nvm alias default 20.18.0
-ENV PATH $NVM_DIR/versions/node/v20.18.0/bin:$PATH
+# Ensure docker group exists and add user to docker group for socket access
+RUN if ! getent group docker; then addgroup -g 998 docker; fi \
+  && adduser node docker || true
+
+# Install Docker client and common tooling
+RUN apk add --no-cache docker-cli bash git openssh-client
 
 # Print base image and environment info
-RUN echo "[BUILD-LOG] Base image: mcr.microsoft.com/devcontainers/typescript-node:20" \
+RUN echo "[BUILD-LOG] Base image: node:20.19.0-alpine" \
   && node --version \
   && npm --version \
   && echo "[BUILD-LOG] UID: $(id -u) GID: $(id -g)" \
@@ -27,8 +25,10 @@ WORKDIR /workspaces/ValueOS
 
 RUN set -ex; \
   echo "[BUILD-LOG] Installing pnpm globally..."; \
-  npm install -g pnpm; \
-  echo "[BUILD-LOG] pnpm version: $(pnpm --version)";
+  corepack disable || true; \
+  npm install -g pnpm@9.15.0; \
+  echo "[BUILD-LOG] pnpm version: $(pnpm --version)"; \
+  echo "[BUILD-LOG] Installing dependencies..."
 
 
 # Copy workspace definitions for dependency caching
