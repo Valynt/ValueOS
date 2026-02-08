@@ -1,0 +1,1079 @@
+{
+  "root": "/home/ubuntu/valueos-dev-setup",
+  "generated": "2026-02-08T13:48:30.574646",
+  "files": [
+    {
+      "path": "README.md",
+      "name": "README.md",
+      "dir": "",
+      "size_bytes": 4037,
+      "size_kb": 3.94,
+      "modified": "2026-02-08T12:05:28.116345",
+      "ext": ".md"
+    },
+    {
+      "path": "QUICKSTART.md",
+      "name": "QUICKSTART.md",
+      "dir": "",
+      "size_bytes": 5547,
+      "size_kb": 5.42,
+      "modified": "2026-02-08T10:57:53.533316",
+      "ext": ".md"
+    },
+    {
+      "path": "SETUP_SUMMARY.md",
+      "name": "SETUP_SUMMARY.md",
+      "dir": "",
+      "size_bytes": 8129,
+      "size_kb": 7.94,
+      "modified": "2026-02-08T10:58:26.269288",
+      "ext": ".md"
+    },
+    {
+      "path": "MIGRATION_AUTOMATION_GUIDE.md",
+      "name": "MIGRATION_AUTOMATION_GUIDE.md",
+      "dir": "",
+      "size_bytes": 11690,
+      "size_kb": 11.42,
+      "modified": "2026-02-08T11:55:30.568846",
+      "ext": ".md"
+    },
+    {
+      "path": "MIGRATION_QUICK_REFERENCE.md",
+      "name": "MIGRATION_QUICK_REFERENCE.md",
+      "dir": "",
+      "size_bytes": 3671,
+      "size_kb": 3.58,
+      "modified": "2026-02-08T11:55:58.348822",
+      "ext": ".md"
+    },
+    {
+      "path": "package.json",
+      "name": "package.json",
+      "dir": "",
+      "size_bytes": 26346,
+      "size_kb": 25.73,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "name": "pnpm-workspace.yaml",
+      "dir": "",
+      "size_bytes": 91,
+      "size_kb": 0.09,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".yaml"
+    },
+    {
+      "path": "turbo.json",
+      "name": "turbo.json",
+      "dir": "",
+      "size_bytes": 399,
+      "size_kb": 0.39,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "tsconfig.app.json",
+      "name": "tsconfig.app.json",
+      "dir": "",
+      "size_bytes": 3856,
+      "size_kb": 3.77,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "tsconfig.json",
+      "name": "tsconfig.json",
+      "dir": "",
+      "size_bytes": 134,
+      "size_kb": 0.13,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "tsconfig.node.json",
+      "name": "tsconfig.node.json",
+      "dir": "",
+      "size_bytes": 575,
+      "size_kb": 0.56,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "tsconfig.scripts.json",
+      "name": "tsconfig.scripts.json",
+      "dir": "",
+      "size_bytes": 231,
+      "size_kb": 0.23,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "tsconfig.strict-zones.json",
+      "name": "tsconfig.strict-zones.json",
+      "dir": "",
+      "size_bytes": 172,
+      "size_kb": 0.17,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "tsconfig.strict.json",
+      "name": "tsconfig.strict.json",
+      "dir": "",
+      "size_bytes": 452,
+      "size_kb": 0.44,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".json"
+    },
+    {
+      "path": "docker-compose.yml",
+      "name": "docker-compose.yml",
+      "dir": "",
+      "size_bytes": 41,
+      "size_kb": 0.04,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".yml"
+    },
+    {
+      "path": "docker-compose.override.yml",
+      "name": "docker-compose.override.yml",
+      "dir": "",
+      "size_bytes": 155,
+      "size_kb": 0.15,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".yml"
+    },
+    {
+      "path": "Dockerfile.build",
+      "name": "Dockerfile.build",
+      "dir": "",
+      "size_bytes": 2711,
+      "size_kb": 2.65,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".build"
+    },
+    {
+      "path": "Dockerfile.dev",
+      "name": "Dockerfile.dev",
+      "dir": "",
+      "size_bytes": 254,
+      "size_kb": 0.25,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".dev"
+    },
+    {
+      "path": "Dockerfile.hardened",
+      "name": "Dockerfile.hardened",
+      "dir": "",
+      "size_bytes": 1430,
+      "size_kb": 1.4,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".hardened"
+    },
+    {
+      "path": "Dockerfile.optimized.agent",
+      "name": "Dockerfile.optimized.agent",
+      "dir": "",
+      "size_bytes": 1991,
+      "size_kb": 1.94,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".agent"
+    },
+    {
+      "path": "Dockerfile.optimized.frontend",
+      "name": "Dockerfile.optimized.frontend",
+      "dir": "",
+      "size_bytes": 667,
+      "size_kb": 0.65,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".frontend"
+    },
+    {
+      "path": "Dockerfile.valueos",
+      "name": "Dockerfile.valueos",
+      "dir": "",
+      "size_bytes": 2353,
+      "size_kb": 2.3,
+      "modified": "2026-02-08T12:04:57.760371",
+      "ext": ".valueos"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "name": "CONTRIBUTING.md",
+      "dir": "",
+      "size_bytes": 3670,
+      "size_kb": 3.58,
+      "modified": "2026-02-08T12:05:28.116345",
+      "ext": ".md"
+    },
+    {
+      "path": "SECURITY.md",
+      "name": "SECURITY.md",
+      "dir": "",
+      "size_bytes": 1759,
+      "size_kb": 1.72,
+      "modified": "2026-02-08T12:05:28.116345",
+      "ext": ".md"
+    },
+    {
+      "path": "ARCHITECTURE_DESIGN_BRIEF.md",
+      "name": "ARCHITECTURE_DESIGN_BRIEF.md",
+      "dir": "",
+      "size_bytes": 13534,
+      "size_kb": 13.22,
+      "modified": "2026-02-08T12:05:28.116345",
+      "ext": ".md"
+    },
+    {
+      "path": "DEV_ENV_REVIEW.md",
+      "name": "DEV_ENV_REVIEW.md",
+      "dir": "",
+      "size_bytes": 2228,
+      "size_kb": 2.18,
+      "modified": "2026-02-08T12:05:28.120345",
+      "ext": ".md"
+    },
+    {
+      "path": "SCAFFOLD.md",
+      "name": "SCAFFOLD.md",
+      "dir": "",
+      "size_bytes": 10860,
+      "size_kb": 10.61,
+      "modified": "2026-02-08T12:05:28.120345",
+      "ext": ".md"
+    },
+    {
+      "path": "SCAFFOLD_README.md",
+      "name": "SCAFFOLD_README.md",
+      "dir": "",
+      "size_bytes": 15084,
+      "size_kb": 14.73,
+      "modified": "2026-02-08T12:07:00.300266",
+      "ext": ".md"
+    },
+    {
+      "path": "infra/scripts/apply_migrations.sh",
+      "name": "apply_migrations.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 9361,
+      "size_kb": 9.14,
+      "modified": "2026-02-08T10:54:33.973487",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/supabase-migrate-all.sh",
+      "name": "supabase-migrate-all.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 18276,
+      "size_kb": 17.85,
+      "modified": "2026-02-08T11:53:05.604969",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/validate-migrations.sh",
+      "name": "validate-migrations.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 9077,
+      "size_kb": 8.86,
+      "modified": "2026-02-08T11:53:47.464933",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/rollback-migration.sh",
+      "name": "rollback-migration.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 4644,
+      "size_kb": 4.54,
+      "modified": "2026-02-08T11:54:07.996915",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/migration-status.sh",
+      "name": "migration-status.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 4956,
+      "size_kb": 4.84,
+      "modified": "2026-02-08T11:54:27.176898",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/deploy.sh",
+      "name": "deploy.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 0,
+      "size_kb": 0.0,
+      "modified": "2026-02-08T12:05:19.792352",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/health-check.sh",
+      "name": "health-check.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 0,
+      "size_kb": 0.0,
+      "modified": "2026-02-08T12:05:19.792352",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/rollback.sh",
+      "name": "rollback.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 1967,
+      "size_kb": 1.92,
+      "modified": "2026-02-08T12:05:19.792352",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/seed_data.sh",
+      "name": "seed_data.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 3783,
+      "size_kb": 3.69,
+      "modified": "2026-02-08T12:05:19.792352",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/scripts/check_drift.sh",
+      "name": "check_drift.sh",
+      "dir": "infra/scripts",
+      "size_bytes": 1136,
+      "size_kb": 1.11,
+      "modified": "2026-02-08T12:05:19.792352",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/postgres/migrations/20260208_rls_enforcement.sql",
+      "name": "20260208_rls_enforcement.sql",
+      "dir": "infra/postgres/migrations",
+      "size_bytes": 9925,
+      "size_kb": 9.69,
+      "modified": "2026-02-08T10:55:04.569461",
+      "ext": ".sql"
+    },
+    {
+      "path": "infra/docker/docker-compose.agents.yml",
+      "name": "docker-compose.agents.yml",
+      "dir": "infra/docker",
+      "size_bytes": 22104,
+      "size_kb": 21.59,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/docker-compose.caddy.yml",
+      "name": "docker-compose.caddy.yml",
+      "dir": "infra/docker",
+      "size_bytes": 5243,
+      "size_kb": 5.12,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/docker-compose.dev.yml",
+      "name": "docker-compose.dev.yml",
+      "dir": "infra/docker",
+      "size_bytes": 14086,
+      "size_kb": 13.76,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/docker-compose.ha.yml",
+      "name": "docker-compose.ha.yml",
+      "dir": "infra/docker",
+      "size_bytes": 6633,
+      "size_kb": 6.48,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/docker-compose.observability.yml",
+      "name": "docker-compose.observability.yml",
+      "dir": "infra/docker",
+      "size_bytes": 3611,
+      "size_kb": 3.53,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/docker-compose.prod.yml",
+      "name": "docker-compose.prod.yml",
+      "dir": "infra/docker",
+      "size_bytes": 5468,
+      "size_kb": 5.34,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/docker-compose.staging.yml",
+      "name": "docker-compose.staging.yml",
+      "dir": "infra/docker",
+      "size_bytes": 3352,
+      "size_kb": 3.27,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/docker-compose.test.yml",
+      "name": "docker-compose.test.yml",
+      "dir": "infra/docker",
+      "size_bytes": 2093,
+      "size_kb": 2.04,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/docker/Dockerfile.backend",
+      "name": "Dockerfile.backend",
+      "dir": "infra/docker",
+      "size_bytes": 2257,
+      "size_kb": 2.2,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".backend"
+    },
+    {
+      "path": "infra/docker/Dockerfile.caddy",
+      "name": "Dockerfile.caddy",
+      "dir": "infra/docker",
+      "size_bytes": 634,
+      "size_kb": 0.62,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".caddy"
+    },
+    {
+      "path": "infra/docker/Dockerfile.frontend",
+      "name": "Dockerfile.frontend",
+      "dir": "infra/docker",
+      "size_bytes": 3525,
+      "size_kb": 3.44,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".frontend"
+    },
+    {
+      "path": "infra/docker/Dockerfile.frontend.dockerignore",
+      "name": "Dockerfile.frontend.dockerignore",
+      "dir": "infra/docker",
+      "size_bytes": 159,
+      "size_kb": 0.16,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".dockerignore"
+    },
+    {
+      "path": "infra/docker/Dockerfile.nginx",
+      "name": "Dockerfile.nginx",
+      "dir": "infra/docker",
+      "size_bytes": 262,
+      "size_kb": 0.26,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".nginx"
+    },
+    {
+      "path": "infra/docker/Dockerfile.prod",
+      "name": "Dockerfile.prod",
+      "dir": "infra/docker",
+      "size_bytes": 3142,
+      "size_kb": 3.07,
+      "modified": "2026-02-08T12:05:01.952367",
+      "ext": ".prod"
+    },
+    {
+      "path": "infra/docker/start.sh",
+      "name": "start.sh",
+      "dir": "infra/docker",
+      "size_bytes": 362,
+      "size_kb": 0.35,
+      "modified": "2026-02-08T12:05:01.956367",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/supabase/config.toml",
+      "name": "config.toml",
+      "dir": "infra/supabase",
+      "size_bytes": 14148,
+      "size_kb": 13.82,
+      "modified": "2026-02-08T12:05:06.760363",
+      "ext": ".toml"
+    },
+    {
+      "path": "infra/supabase/setup.sh",
+      "name": "setup.sh",
+      "dir": "infra/supabase",
+      "size_bytes": 4181,
+      "size_kb": 4.08,
+      "modified": "2026-02-08T12:05:06.760363",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/supabase/setup-fixed.sh",
+      "name": "setup-fixed.sh",
+      "dir": "infra/supabase",
+      "size_bytes": 2334,
+      "size_kb": 2.28,
+      "modified": "2026-02-08T12:05:06.760363",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/supabase/apply-pending-migrations.sh",
+      "name": "apply-pending-migrations.sh",
+      "dir": "infra/supabase",
+      "size_bytes": 1609,
+      "size_kb": 1.57,
+      "modified": "2026-02-08T12:05:06.760363",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/prometheus/prometheus.yml",
+      "name": "prometheus.yml",
+      "dir": "infra/prometheus",
+      "size_bytes": 2140,
+      "size_kb": 2.09,
+      "modified": "2026-02-08T12:05:12.508358",
+      "ext": ".yml"
+    },
+    {
+      "path": "infra/gateway/envoy-security-config.yaml",
+      "name": "envoy-security-config.yaml",
+      "dir": "infra/gateway",
+      "size_bytes": 7922,
+      "size_kb": 7.74,
+      "modified": "2026-02-08T12:05:12.512358",
+      "ext": ".yaml"
+    },
+    {
+      "path": "infra/gateway/istio-security-config.yaml",
+      "name": "istio-security-config.yaml",
+      "dir": "infra/gateway",
+      "size_bytes": 7779,
+      "size_kb": 7.6,
+      "modified": "2026-02-08T12:05:12.512358",
+      "ext": ".yaml"
+    },
+    {
+      "path": "infra/gateway/verify-security-headers.sh",
+      "name": "verify-security-headers.sh",
+      "dir": "infra/gateway",
+      "size_bytes": 6280,
+      "size_kb": 6.13,
+      "modified": "2026-02-08T12:05:12.512358",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/tls/generate-dev-certs.sh",
+      "name": "generate-dev-certs.sh",
+      "dir": "infra/tls",
+      "size_bytes": 6363,
+      "size_kb": 6.21,
+      "modified": "2026-02-08T12:05:12.512358",
+      "ext": ".sh"
+    },
+    {
+      "path": "infra/tls/test-mtls.sh",
+      "name": "test-mtls.sh",
+      "dir": "infra/tls",
+      "size_bytes": 5071,
+      "size_kb": 4.95,
+      "modified": "2026-02-08T12:05:12.512358",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev-cli.js",
+      "name": "dev-cli.js",
+      "dir": "scripts",
+      "size_bytes": 9856,
+      "size_kb": 9.62,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dev/check-env.sh",
+      "name": "check-env.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 2821,
+      "size_kb": 2.75,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/diagnostics.sh",
+      "name": "diagnostics.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 8426,
+      "size_kb": 8.23,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/healthcheck-services.sh",
+      "name": "healthcheck-services.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 606,
+      "size_kb": 0.59,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/host-preflight.sh",
+      "name": "host-preflight.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 5641,
+      "size_kb": 5.51,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/migrate.sh",
+      "name": "migrate.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 1344,
+      "size_kb": 1.31,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/post-create.sh",
+      "name": "post-create.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 8175,
+      "size_kb": 7.98,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/seed-ui.sh",
+      "name": "seed-ui.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 2639,
+      "size_kb": 2.58,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/setup.sh",
+      "name": "setup.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 10741,
+      "size_kb": 10.49,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/smoke-test.sh",
+      "name": "smoke-test.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 1038,
+      "size_kb": 1.01,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/start-dev-env.sh",
+      "name": "start-dev-env.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 15091,
+      "size_kb": 14.74,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dev/test-supabase-workflow.sh",
+      "name": "test-supabase-workflow.sh",
+      "dir": "scripts/dev",
+      "size_bytes": 3575,
+      "size_kb": 3.49,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".sh"
+    },
+    {
+      "path": "scripts/dx/bundle.js",
+      "name": "bundle.js",
+      "dir": "scripts/dx",
+      "size_bytes": 3686,
+      "size_kb": 3.6,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/comprehensive-check.js",
+      "name": "comprehensive-check.js",
+      "dir": "scripts/dx",
+      "size_bytes": 5624,
+      "size_kb": 5.49,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/db-verify.js",
+      "name": "db-verify.js",
+      "dir": "scripts/dx",
+      "size_bytes": 17958,
+      "size_kb": 17.54,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/dev.js",
+      "name": "dev.js",
+      "dir": "scripts/dx",
+      "size_bytes": 13120,
+      "size_kb": 12.81,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/devcontainer-diagnostic.js",
+      "name": "devcontainer-diagnostic.js",
+      "dir": "scripts/dx",
+      "size_bytes": 10132,
+      "size_kb": 9.89,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/dockerfile-validate.js",
+      "name": "dockerfile-validate.js",
+      "dir": "scripts/dx",
+      "size_bytes": 3858,
+      "size_kb": 3.77,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/doctor.js",
+      "name": "doctor.js",
+      "dir": "scripts/dx",
+      "size_bytes": 42644,
+      "size_kb": 41.64,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/ensure-pnpm.js",
+      "name": "ensure-pnpm.js",
+      "dir": "scripts/dx",
+      "size_bytes": 1783,
+      "size_kb": 1.74,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/env-compiler.js",
+      "name": "env-compiler.js",
+      "dir": "scripts/dx",
+      "size_bytes": 18422,
+      "size_kb": 17.99,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/health.js",
+      "name": "health.js",
+      "dir": "scripts/dx",
+      "size_bytes": 6385,
+      "size_kb": 6.24,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/lint-ports.js",
+      "name": "lint-ports.js",
+      "dir": "scripts/dx",
+      "size_bytes": 5878,
+      "size_kb": 5.74,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/local-dev-diagnostic.js",
+      "name": "local-dev-diagnostic.js",
+      "dir": "scripts/dx",
+      "size_bytes": 12317,
+      "size_kb": 12.03,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/logger.js",
+      "name": "logger.js",
+      "dir": "scripts/dx",
+      "size_bytes": 632,
+      "size_kb": 0.62,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/orchestrator.js",
+      "name": "orchestrator.js",
+      "dir": "scripts/dx",
+      "size_bytes": 41394,
+      "size_kb": 40.42,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/port-registry.js",
+      "name": "port-registry.js",
+      "dir": "scripts/dx",
+      "size_bytes": 3839,
+      "size_kb": 3.75,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/ports.js",
+      "name": "ports.js",
+      "dir": "scripts/dx",
+      "size_bytes": 7640,
+      "size_kb": 7.46,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/setup-ci.js",
+      "name": "setup-ci.js",
+      "dir": "scripts/dx",
+      "size_bytes": 2097,
+      "size_kb": 2.05,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/setup.js",
+      "name": "setup.js",
+      "dir": "scripts/dx",
+      "size_bytes": 12376,
+      "size_kb": 12.09,
+      "modified": "2026-02-08T12:05:23.992349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/smoke-test.js",
+      "name": "smoke-test.js",
+      "dir": "scripts/dx",
+      "size_bytes": 2615,
+      "size_kb": 2.55,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/test-dx.js",
+      "name": "test-dx.js",
+      "dir": "scripts/dx",
+      "size_bytes": 2962,
+      "size_kb": 2.89,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/validate-build.js",
+      "name": "validate-build.js",
+      "dir": "scripts/dx",
+      "size_bytes": 3500,
+      "size_kb": 3.42,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/validate-config.js",
+      "name": "validate-config.js",
+      "dir": "scripts/dx",
+      "size_bytes": 7809,
+      "size_kb": 7.63,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/validate-env.js",
+      "name": "validate-env.js",
+      "dir": "scripts/dx",
+      "size_bytes": 5721,
+      "size_kb": 5.59,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/validate-startup.js",
+      "name": "validate-startup.js",
+      "dir": "scripts/dx",
+      "size_bytes": 7487,
+      "size_kb": 7.31,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "scripts/dx/verify-build-env.js",
+      "name": "verify-build-env.js",
+      "dir": "scripts/dx",
+      "size_bytes": 2845,
+      "size_kb": 2.78,
+      "modified": "2026-02-08T12:05:23.996349",
+      "ext": ".js"
+    },
+    {
+      "path": "apps/VOSAcademy/package.json",
+      "name": "package.json",
+      "dir": "apps/VOSAcademy",
+      "size_bytes": 2060,
+      "size_kb": 2.01,
+      "modified": "2026-02-08T12:05:33.132341",
+      "ext": ".json"
+    },
+    {
+      "path": "apps/ValyntApp/package.json",
+      "name": "package.json",
+      "dir": "apps/ValyntApp",
+      "size_bytes": 2443,
+      "size_kb": 2.39,
+      "modified": "2026-02-08T12:05:33.132341",
+      "ext": ".json"
+    },
+    {
+      "path": "apps/mcp-dashboard/package.json",
+      "name": "package.json",
+      "dir": "apps/mcp-dashboard",
+      "size_bytes": 1097,
+      "size_kb": 1.07,
+      "modified": "2026-02-08T12:05:33.136341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/agents/package.json",
+      "name": "package.json",
+      "dir": "packages/agents",
+      "size_bytes": 752,
+      "size_kb": 0.73,
+      "modified": "2026-02-08T12:05:33.144341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "name": "package.json",
+      "dir": "packages/backend",
+      "size_bytes": 1392,
+      "size_kb": 1.36,
+      "modified": "2026-02-08T12:05:33.148341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/components/package.json",
+      "name": "package.json",
+      "dir": "packages/components",
+      "size_bytes": 573,
+      "size_kb": 0.56,
+      "modified": "2026-02-08T12:05:33.152341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/config-v2/package.json",
+      "name": "package.json",
+      "dir": "packages/config-v2",
+      "size_bytes": 289,
+      "size_kb": 0.28,
+      "modified": "2026-02-08T12:05:33.156341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/infra/package.json",
+      "name": "package.json",
+      "dir": "packages/infra",
+      "size_bytes": 860,
+      "size_kb": 0.84,
+      "modified": "2026-02-08T12:05:33.160341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/integrations/package.json",
+      "name": "package.json",
+      "dir": "packages/integrations",
+      "size_bytes": 679,
+      "size_kb": 0.66,
+      "modified": "2026-02-08T12:05:33.164341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/mcp/package.json",
+      "name": "package.json",
+      "dir": "packages/mcp",
+      "size_bytes": 635,
+      "size_kb": 0.62,
+      "modified": "2026-02-08T12:05:33.168341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/memory/package.json",
+      "name": "package.json",
+      "dir": "packages/memory",
+      "size_bytes": 631,
+      "size_kb": 0.62,
+      "modified": "2026-02-08T12:05:33.172341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/sdui-types/package.json",
+      "name": "package.json",
+      "dir": "packages/sdui-types",
+      "size_bytes": 589,
+      "size_kb": 0.58,
+      "modified": "2026-02-08T12:05:33.176341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/sdui/package.json",
+      "name": "package.json",
+      "dir": "packages/sdui",
+      "size_bytes": 690,
+      "size_kb": 0.67,
+      "modified": "2026-02-08T12:05:33.180341",
+      "ext": ".json"
+    },
+    {
+      "path": "packages/shared/package.json",
+      "name": "package.json",
+      "dir": "packages/shared",
+      "size_bytes": 884,
+      "size_kb": 0.86,
+      "modified": "2026-02-08T12:05:33.200341",
+      "ext": ".json"
+    }
+  ],
+  "directories": [
+    "infra",
+    "infra/scripts",
+    "infra/postgres",
+    "infra/postgres/migrations",
+    "infra/docker",
+    "infra/supabase",
+    "infra/prometheus",
+    "infra/gateway",
+    "infra/tls",
+    "scripts",
+    "scripts/dev",
+    "scripts/dx",
+    "apps",
+    "apps/VOSAcademy",
+    "apps/ValyntApp",
+    "apps/mcp-dashboard",
+    "packages",
+    "packages/agent-fabric",
+    "packages/agents",
+    "packages/backend",
+    "packages/components",
+    "packages/config-v2",
+    "packages/infra",
+    "packages/integrations",
+    "packages/mcp",
+    "packages/memory",
+    "packages/sdui-types",
+    "packages/sdui",
+    "packages/services",
+    "packages/shared",
+    "packages/test-utils"
+  ],
+  "summary": {
+    "total_files": 115,
+    "total_dirs": 31,
+    "total_size_mb": 0.61
+  }
+}
