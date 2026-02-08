@@ -9,7 +9,14 @@ if [[ ! -d "${ROOT_DIR}" ]]; then
   exit 1
 fi
 
+
 echo "Devcontainer post-start: container is ready."
+
+# Ensure pnpm is always activated via corepack, and hash is refreshed
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+hash -r
+echo "[post-start] pnpm/corepack activation complete."
 
 # Install Docker CLI if not present
 if ! command -v docker &> /dev/null; then

@@ -1,0 +1,7 @@
+#!/bin/bash
+set -e
+
+# Ensure pnpm is always activated and hash is refreshed
+corepack enable
+corepack prepare pnpm@9.15.0 --activate
+hash -r
