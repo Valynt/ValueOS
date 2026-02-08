@@ -1,0 +1,53 @@
+# Optimized Deterministic Dockerfile for ValueOS DevContainers
+FROM node:20.19.0-bookworm-slim
+
+ARG PNPM_VERSION=9.15.0
+
+LABEL org.opencontainers.image.title="ValueOS DevContainer" \
+      org.opencontainers.image.description="Hardened development container for ValueOS" \
+      org.opencontainers.image.vendor="Valynt" \
+      dev.security.hardened="true"
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    bash \
+    ca-certificates \
+    curl \
+    dnsutils \
+    dumb-init \
+    git \
+    jq \
+    postgresql-client \
+    python3 \
+    make \
+    g++ \
+    sudo \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN if ! getent group vscode >/dev/null; then groupadd -g 1000 vscode; fi \
+ && if ! id -u vscode >/dev/null 2>&1; then useradd -m -d /home/vscode -s /bin/bash -u 1000 -g 1000 vscode; fi \
+ && echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode \
+ && chmod 0440 /etc/sudoers.d/vscode \
+ && mkdir -p /home/vscode/.local/share/pnpm \
+ && chown -R vscode:vscode /home/vscode
+
+RUN corepack enable \
+ && corepack prepare pnpm@${PNPM_VERSION} --activate
+
+ENV NODE_ENV=development \
+    PNPM_HOME=/home/vscode/.local/share/pnpm \
+    PATH="/home/vscode/.local/share/pnpm:${PATH}" \
+    HOME=/home/vscode
+
+RUN mkdir -p /workspaces/ValueOS && chown vscode:vscode /workspaces/ValueOS
+
+USER vscode
+WORKDIR /workspaces/ValueOS
+
+EXPOSE 5173 24678 3001 54321 54323
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD [ "node", "-e", "process.exit(0)" ]
+
+CMD ["dumb-init", "sleep", "infinity"]

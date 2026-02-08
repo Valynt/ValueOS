@@ -14,3 +14,4 @@
 pnpm-debug.log
 npm-debug.log
 coverage
+secrets

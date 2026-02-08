@@ -27,10 +27,7 @@
   // Environment variables for development
   "containerEnv": {
     "NODE_ENV": "development",
-    "ENVIRONMENT": "development",
-    // Optimize npm
-    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-    "NPM_CONFIG_FUND": "false"
+    "ENVIRONMENT": "development"
   },
 
   // Lifecycle scripts for automation
@@ -92,8 +89,8 @@
   "mounts": [
     // Cache node_modules for faster installs
     "source=valuecanvas-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
-    // Cache npm cache
-    "source=valuecanvas-npm-cache,target=/home/vscode/.npm,type=volume",
+    // Cache pnpm store
+    "source=valuecanvas-pnpm-store,target=/home/vscode/.local/share/pnpm/store,type=volume",
     // Cache build artifacts
     "source=valuecanvas-build-cache,target=${containerWorkspaceFolder}/.cache,type=volume",
     // Cache playwright browsers
@@ -107,7 +104,10 @@
     "--shm-size=2gb",
     // Add labels for identification
     "--label=project=valuecanvas",
-    "--label=environment=development"
+    "--label=environment=development",
+    // Security hardening
+    "--security-opt=no-new-privileges",
+    "--cap-drop=ALL"
   ],
 
   // Host requirements
@@ -162,7 +162,7 @@
           "source.fixAll.eslint": "explicit"
         },
         // Terminal
-        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.defaultProfile.linux": "bash",
         // Git
         "git.autofetch": true,
         "git.enableSmartCommit": true,
@@ -176,7 +176,7 @@
   },
 
   // Wait for services to be ready
-  "waitFor": "onCreateCommand",
+  "waitFor": "postCreateCommand",
 
   // Update remote user UID/GID to match host (for file permissions)
   "updateRemoteUserUID": true

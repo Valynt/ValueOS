@@ -25,6 +25,7 @@ build/
 .env.production.local
 ops/env/.env.ports
 ops/env/.env.local
+secrets/
 
 # IDE and editor files
 .vscode/*

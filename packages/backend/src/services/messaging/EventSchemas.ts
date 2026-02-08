@@ -4,7 +4,8 @@ export type EventName =
   | 'notifications.email.requested'
   | 'notifications.webhook.dispatch'
   | 'data.export.requested'
-  | 'billing.usage.reported';
+  | 'billing.usage.reported'
+  | 'agent_message';
 
 export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
   'notifications.email.requested': z.object({
@@ -50,6 +51,20 @@ export const eventSchemaRegistry: Record<EventName, z.ZodTypeAny> = {
     periodEnd: z.string().datetime(),
     usage: z.record(z.number()),
   }),
+  'agent_message': z.object({
+    message: z.object({
+      id: z.string(),
+      fromAgentId: z.string(),
+      toAgentId: z.string(),
+      payload: z.any(),
+      priority: z.enum(['low', 'normal', 'high', 'urgent']),
+      encrypted: z.boolean(),
+      correlationId: z.string().optional(),
+      replyTo: z.string().optional(),
+      timestamp: z.date(),
+    }),
+    idempotencyKey: z.string(),
+  }),
 };
 
 export type EventPayloadMap = {
@@ -57,6 +72,7 @@ export type EventPayloadMap = {
   'notifications.webhook.dispatch': z.infer<typeof eventSchemaRegistry['notifications.webhook.dispatch']>;
   'data.export.requested': z.infer<typeof eventSchemaRegistry['data.export.requested']>;
   'billing.usage.reported': z.infer<typeof eventSchemaRegistry['billing.usage.reported']>;
+  'agent_message': z.infer<typeof eventSchemaRegistry['agent_message']>;
 };
 
 export function validateEventPayload<TName extends EventName>(

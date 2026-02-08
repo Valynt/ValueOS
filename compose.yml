@@ -1,7 +1,6 @@
 name: valueos
 
 volumes:
-  postgres-data:
   postgres_data:
   redis_data:
   storage-data:
@@ -29,28 +28,25 @@ services:
   # Devcontainer App Service
   ###########################################################################
   app:
+    profiles: ["devcontainer"]
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile.optimized
+      dockerfile: .devcontainer/Dockerfile.dev
       args:
-        NODE_VERSION: "20.11.1"
+        PNPM_VERSION: "9.15.0"
     volumes:
       - .:/workspaces/ValueOS:cached
       - pnpm-store:/home/vscode/.local/share/pnpm
       - node_modules:/workspaces/ValueOS/node_modules
       - vite-cache:/workspaces/ValueOS/.cache
+      - ./secrets:/mnt/secrets:ro
     working_dir: /workspaces/ValueOS
     command: sleep infinity
     networks:
       - valueos-network
+    env_file:
+      - .env.local
     environment:
-      REDIS_URL: redis://redis:6379
-      SUPABASE_URL: http://kong:8000
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
-      SHADOW_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres_shadow?sslmode=disable
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.d-kmeoRU5c053mXKcFaY2SfiauyJPL6S9nqlTh191cE}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.kzgm3XUHH2lZqaKCX7iqlUlsNvUZu6Ny5_STx2fIPJI}
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
       NODE_ENV: development
       DEV_SEED: ${DEV_SEED:-0}
     depends_on:
@@ -63,13 +59,21 @@ services:
   # Shared Redis
   ###########################################################################
   redis:
-    image: redis:7-alpine
+    profiles: ["devcontainer", "dev", "observability", "istio"]
+    image: redis:7
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-redis_dev_password_CHANGE_ME}
     networks:
       - valueos-network
     healthcheck:
@@ -83,27 +87,71 @@ services:
   # Supabase/Postgres (Devcontainer)
   ###########################################################################
   db:
-    image: postgres:15-alpine
+    image: supabase/postgres:15.1.0.117
     command: >
       postgres
       -c log_min_messages=warning
       -c wal_level=logical
       -c hba_file=/docker-entrypoint-initdb.d/pg_hba.conf
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "${POSTGRES_HOST_PORT:-54322}:5432"
+    env_file:
+      - .env.local
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
       - .devcontainer/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - valueos-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres && psql -U postgres -c 'SELECT 1'"]
       interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  ###########################################################################
+  # Supabase GoTrue (Auth)
+  ###########################################################################
+  auth:
+    profiles: ["devcontainer"]
+    image: supabase/gotrue:v2.143.0
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost:54321
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres?sslmode=disable
+      GOTRUE_SITE_URL: http://localhost:5173
+      GOTRUE_URI_ALLOW_LIST: ""
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+    networks:
+      - valueos-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9999/health"]
+      interval: 10s
       timeout: 5s
       retries: 10
       start_period: 10s
@@ -136,14 +184,14 @@ services:
       retries: 10
       start_period: 15s
     depends_on:
-      auth:
-        condition: service_healthy
-      rest-healthcheck:
+      rest:
         condition: service_healthy
       realtime:
         condition: service_started
       storage:
         condition: service_started
+      auth:
+        condition: service_healthy
       db:
         condition: service_healthy
 
@@ -165,7 +213,7 @@ services:
     networks:
       - valueos-network
     healthcheck:
-      test: ["NONE"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -173,35 +221,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-  ###########################################################################
-  # PostgREST Health Check Proxy
-  ###########################################################################
-  rest-healthcheck:
-    profiles: ["devcontainer", "dev"]
-    image: curlimages/curl:8.5.0
-    restart: unless-stopped
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        while true; do
-          if curl -fsS http://rest:3000/ > /dev/null 2>&1; then
-            echo "PostgREST healthy"
-          else
-            echo "PostgREST not ready"
-          fi
-          sleep 10
-        done
-    networks:
-      - valueos-network
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://rest:3000/"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 15s
-    depends_on:
-      - rest
 
   ###########################################################################
   # Realtime Service
@@ -262,11 +281,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 30
-      start_period: 90s
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
-      rest-healthcheck:
+      rest:
         condition: service_healthy
 
   ###########################################################################
@@ -325,6 +344,13 @@ services:
     image: postgres:15-alpine
     container_name: valueos-postgres
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
         limits:
@@ -332,6 +358,8 @@ services:
           memory: 2G
         reservations:
           memory: 512M
+    env_file:
+      - .env.local
     environment:
       POSTGRES_DB: valuecanvas_dev
       POSTGRES_USER: postgres
