@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+node-v*-linux-x64/
 .pnpm-store/
 .pnpm/
 npm-debug.log*

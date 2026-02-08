@@ -124,7 +124,7 @@ services:
 
   # Supabase core services for local development
   auth:
-    image: supabase/gotrue:v2.185.0
+    image: supabase/gotrue:v2.143.0
     restart: unless-stopped
     environment:
       GOTRUE_DB_DRIVER: postgres
@@ -152,7 +152,7 @@ services:
       - "9999:9999"
 
   rest:
-    image: supabase/postgrest:v10.1.0
+    image: postgrest/postgrest:v12.0.2
     restart: unless-stopped
     environment:
       PGRST_DB_URI: postgres://valueos:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/valueos_dev
@@ -167,7 +167,7 @@ services:
       - "3000:3000"
 
   realtime:
-    image: supabase/realtime:v2.24.0
+    image: supabase/realtime:v2.25.50
     restart: unless-stopped
     environment:
       DB_HOST: postgres
@@ -185,7 +185,7 @@ services:
       - "4000:4000"
 
   storage:
-    image: supabase/storage-api:v0.43.0
+    image: supabase/storage-api:v0.46.4
     restart: unless-stopped
     environment:
       POSTGRES_HOST: postgres
@@ -203,7 +203,7 @@ services:
       - "5000:5000"
 
   studio:
-    image: supabase/studio:2026.01.27-sha-6aa59ff
+    image: supabase/studio:latest
     restart: unless-stopped
     environment:
       POSTGRES_HOST: postgres

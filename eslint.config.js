@@ -68,7 +68,7 @@ const pluginConfig = {
     "import/resolver": {
       typescript: {
         // Look up workspace and package tsconfigs so path aliases and package-local files resolve correctly
-        project: ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json"],
+        project: ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json", "./packages/*/*/tsconfig.json"],
         alwaysTryTypes: true,
       },
       node: {
@@ -99,7 +99,7 @@ const baseConfig = {
       sourceType: "module",
       // Provide an explicit list of tsconfig files so type-aware rules can resolve projects across the monorepo
       // This avoids 'Resolve error: typescript with invalid interface loaded as resolver'
-      project: ["./tsconfig.json", "apps/*/tsconfig.json", "packages/*/tsconfig.json"],
+      project: ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json", "./packages/*/*/tsconfig.json"],
     },
   },
   rules: {

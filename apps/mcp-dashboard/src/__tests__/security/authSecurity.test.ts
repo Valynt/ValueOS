@@ -5,7 +5,18 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { csrfProtection, authRateLimiter, secureTokenStorage, securityLogger } from "../../lib";
+import { authRateLimiter } from "../../lib/rateLimiter";
+import { csrfProtection } from "../../lib/csrfProtection";
+import { secureTokenStorage } from "../../lib/secureStorage";
+import { securityLogger } from "../../lib/securityLogger";
+
+// Test constants
+const MAX_FAILED_ATTEMPTS = 5;
+const ALLOWED_ATTEMPTS_BEFORE_BLOCK = 4;
+const TEST_TIMEOUT_MS = 900000;
+const HOUR_MS = 3600000;
+const MINUTE_MS = 60000;
+const SECOND_MS = 1000;
 
 // Global type declarations for test environment
 declare global {
@@ -65,10 +76,10 @@ describe("MCP Dashboard Authentication Security Tests", () => {
         json: async () => ({ message: "Invalid credentials" }),
       });
 
-      // Make 5 failed attempts
-      for (let i = 0; i < 5; i++) {
+      // Make MAX_FAILED_ATTEMPTS failed attempts
+      for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) {
         const status = authRateLimiter.canAttemptAuth(email);
-        if (i < 4) {
+        if (i < ALLOWED_ATTEMPTS_BEFORE_BLOCK) {
           expect(status.allowed).toBe(true);
         } else {
           expect(status.allowed).toBe(false);

@@ -14,9 +14,14 @@
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
+        "GitHub.codespaces"
       ]
     }
   },
-  "remoteUser": "node"
+  "remoteUser": "node",
+  "runArgs": [
+    "--group-add", "docker"
+  ]
 }

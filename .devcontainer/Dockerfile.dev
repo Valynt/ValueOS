@@ -1,9 +1,18 @@
+# Ensure docker group exists and add user to docker group for socket access
+RUN if ! getent group docker; then groupadd -g 998 docker; fi \
+  && usermod -aG docker node || true
 # Optimized Deterministic Dockerfile for ValueOS DevContainers
 
 # =====================
 # ValueOS DevContainer Build (with verbose logging)
 # =====================
-FROM mcr.microsoft.com/devcontainers/typescript-node:20
+FROM node:20.18.0-bookworm-slim
+
+# Install specific Node.js version 20.18.0
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+ENV NVM_DIR /root/.nvm
+RUN . $NVM_DIR/nvm.sh && nvm install 20.18.0 && nvm use 20.18.0 && nvm alias default 20.18.0
+ENV PATH $NVM_DIR/versions/node/v20.18.0/bin:$PATH
 
 # Print base image and environment info
 RUN echo "[BUILD-LOG] Base image: mcr.microsoft.com/devcontainers/typescript-node:20" \

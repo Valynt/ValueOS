@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json.schemastore.org/docker-compose-build.json",
+  "version": "1.0.0",
+  "lastUpdated": "2026-02-08",
+  "buildConfig": {
+    "nodeVersion": "20.19.0",
+    "pnpmVersion": "9.15.0",
+    "alpineVersion": "3.19",
+    "registry": "ghcr.io/valynt/valueos"
+  },
+  "agents": {
+    "opportunity": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/OpportunityAgent.ts",
+      "package": "@valueos/opportunity-agent",
+      "packagePath": "packages/agents/opportunity",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8081,
+      "lifecycleStage": "discovery",
+      "riskCategory": "discovery",
+      "confidenceThreshold": {
+        "low": 0.5,
+        "target": 0.7,
+        "critical": 0.8
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.5",
+          "memory": "512M"
+        },
+        "reservations": {
+          "cpus": "0.1",
+          "memory": "128M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Discovery phase agent for opportunity identification and analysis"
+    },
+    "target": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/TargetAgent.ts",
+      "package": "@valueos/target-agent",
+      "packagePath": "packages/agents/target",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8082,
+      "lifecycleStage": "definition",
+      "riskCategory": "commitment",
+      "confidenceThreshold": {
+        "low": 0.6,
+        "target": 0.75,
+        "critical": 0.85
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.5",
+          "memory": "512M"
+        },
+        "reservations": {
+          "cpus": "0.1",
+          "memory": "128M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Definition phase agent for target setting and KPI management"
+    },
+    "realization": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/RealizationAgent.ts",
+      "package": "@valueos/realization-agent",
+      "packagePath": "packages/agents/realization",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8083,
+      "lifecycleStage": "realization",
+      "riskCategory": "commitment",
+      "confidenceThreshold": {
+        "low": 0.6,
+        "target": 0.75,
+        "critical": 0.85
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.75",
+          "memory": "768M"
+        },
+        "reservations": {
+          "cpus": "0.2",
+          "memory": "256M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Realization phase agent for execution and value delivery"
+    },
+    "expansion": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/ExpansionAgent.ts",
+      "package": "@valueos/expansion-agent",
+      "packagePath": "packages/agents/expansion",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8084,
+      "lifecycleStage": "expansion",
+      "riskCategory": "discovery",
+      "confidenceThreshold": {
+        "low": 0.5,
+        "target": 0.7,
+        "critical": 0.8
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.5",
+          "memory": "512M"
+        },
+        "reservations": {
+          "cpus": "0.1",
+          "memory": "128M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Expansion phase agent for scaling and growth initiatives"
+    },
+    "integrity": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/IntegrityAgent.ts",
+      "package": "@valueos/integrity-agent",
+      "packagePath": "packages/agents/integrity",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8085,
+      "lifecycleStage": "governance",
+      "riskCategory": "governance",
+      "confidenceThreshold": {
+        "low": 0.7,
+        "target": 0.85,
+        "critical": 0.95
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.5",
+          "memory": "512M"
+        },
+        "reservations": {
+          "cpus": "0.1",
+          "memory": "128M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Governance phase agent for validation and compliance"
+    },
+    "coordinator": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/CoordinatorAgent.ts",
+      "package": "@valueos/coordinator-agent",
+      "packagePath": "packages/agents/coordinator",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8086,
+      "lifecycleStage": "orchestration",
+      "riskCategory": "governance",
+      "confidenceThreshold": {
+        "low": 0.6,
+        "target": 0.8,
+        "critical": 0.9
+      },
+      "resources": {
+        "limits": {
+          "cpus": "1.0",
+          "memory": "1G"
+        },
+        "reservations": {
+          "cpus": "0.25",
+          "memory": "256M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "15s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Orchestration agent for workflow coordination and agent management"
+    },
+    "communicator": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/CommunicatorAgent.ts",
+      "package": "@valueos/communicator-agent",
+      "packagePath": "packages/agents/communicator",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8087,
+      "lifecycleStage": "cross_cutting",
+      "riskCategory": "discovery",
+      "confidenceThreshold": {
+        "low": 0.5,
+        "target": 0.7,
+        "critical": 0.8
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.25",
+          "memory": "256M"
+        },
+        "reservations": {
+          "cpus": "0.05",
+          "memory": "64M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Cross-cutting agent for messaging and notifications"
+    },
+    "company-intelligence": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/CompanyIntelligenceAgent.ts",
+      "package": "@valueos/company-intelligence-agent",
+      "packagePath": "packages/agents/company-intelligence",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8088,
+      "lifecycleStage": "cross_cutting",
+      "riskCategory": "discovery",
+      "confidenceThreshold": {
+        "low": 0.5,
+        "target": 0.7,
+        "critical": 0.8
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.75",
+          "memory": "768M"
+        },
+        "reservations": {
+          "cpus": "0.2",
+          "memory": "256M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Cross-cutting agent for company intelligence and research"
+    },
+    "system-mapper": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/SystemMapperAgent.ts",
+      "package": "@valueos/system-mapper-agent",
+      "packagePath": "packages/agents/system-mapper",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8089,
+      "lifecycleStage": "cross_cutting",
+      "riskCategory": "discovery",
+      "confidenceThreshold": {
+        "low": 0.5,
+        "target": 0.7,
+        "critical": 0.8
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.5",
+          "memory": "512M"
+        },
+        "reservations": {
+          "cpus": "0.1",
+          "memory": "128M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Cross-cutting agent for system mapping and dependency analysis"
+    },
+    "intervention-designer": {
+      "source": "apps/ValyntApp/src/lib/agent-fabric/agents/InterventionDesignerAgent.ts",
+      "package": "@valueos/intervention-designer-agent",
+      "packagePath": "packages/agents/intervention-designer",
+      "dependencies": ["@valueos/agent-base", "@valueos/memory", "@valueos/shared"],
+      "exposePort": 8090,
+      "lifecycleStage": "cross_cutting",
+      "riskCategory": "commitment",
+      "confidenceThreshold": {
+        "low": 0.6,
+        "target": 0.75,
+        "critical": 0.85
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.5",
+          "memory": "512M"
+        },
+        "reservations": {
+          "cpus": "0.1",
+          "memory": "128M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Cross-cutting agent for intervention design and planning"
+    },
+    "groundtruth": {
+      "source": "packages/agents/groundtruth/src/index.ts",
+      "package": "@valueos/groundtruth-agent",
+      "packagePath": "packages/agents/groundtruth",
+      "dependencies": ["@valueos/agent-base"],
+      "exposePort": 8091,
+      "lifecycleStage": "infrastructure",
+      "riskCategory": "governance",
+      "confidenceThreshold": {
+        "low": 0.8,
+        "target": 0.9,
+        "critical": 0.95
+      },
+      "resources": {
+        "limits": {
+          "cpus": "0.25",
+          "memory": "256M"
+        },
+        "reservations": {
+          "cpus": "0.05",
+          "memory": "64M"
+        }
+      },
+      "healthCheck": {
+        "endpoint": "/health",
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3
+      },
+      "description": "Infrastructure agent for ground truth validation and verification"
+    }
+  },
+  "networkPolicies": {
+    "agentNetwork": {
+      "internal": true,
+      "description": "Internal network for agent-to-agent and agent-to-infrastructure communication"
+    },
+    "messageBusNetwork": {
+      "internal": true,
+      "description": "Dedicated network for MessageBus (NATS) communication"
+    },
+    "observabilityNetwork": {
+      "internal": true,
+      "description": "Network for observability stack (Prometheus, Loki, Tempo)"
+    }
+  },
+  "securityContext": {
+    "runAsNonRoot": true,
+    "runAsUser": 1001,
+    "runAsGroup": 1001,
+    "allowPrivilegeEscalation": false,
+    "readOnlyRootFilesystem": true,
+    "capabilities": {
+      "drop": ["ALL"],
+      "add": []
+    }
+  }
+}
