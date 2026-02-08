@@ -1,87 +1,22 @@
 {
-  "name": "ValueOS Dev Container",
-  "dockerComposeFile": "../compose.yml",
+  "name": "ValyntApp Dev Container",
+  "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "runServices": ["db", "auth", "backend", "caddy"],
   "workspaceFolder": "/workspaces/ValueOS",
-  "remoteUser": "vscode",
-  "containerUser": "vscode",
-  "updateRemoteUserUID": true,
-  "shutdownAction": "stopCompose",
-
-  "runArgs": [
-    "--security-opt=no-new-privileges",
-    "--cap-drop=ALL"
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
   ],
-
-  "forwardPorts": [5173, 3001, 54321, 54322, 54323],
-  "portsAttributes": {
-    "5173": {
-      "label": "Vite Dev Server",
-      "onAutoForward": "notify",
-      "protocol": "http"
-    },
-    "3001": {
-      "label": "Backend API",
-      "onAutoForward": "silent"
-    },
-    "54321": {
-      "label": "Supabase API (Kong)",
-      "onAutoForward": "silent"
-    },
-    "54322": {
-      "label": "Supabase DB",
-      "onAutoForward": "silent"
-    },
-    "54323": {
-      "label": "Supabase Studio",
-      "onAutoForward": "notify",
-      "protocol": "http"
-    }
-  },
-
-  "postCreateCommand": "bash -euo pipefail -c 'bash scripts/dev/setup.sh && bash scripts/check-env.sh' 2>&1 | tee /tmp/setup.log",
-  "postStartCommand": "bash scripts/dev/healthcheck-services.sh 2>&1 | tee /tmp/healthcheck.log",
-
-  "remoteEnv": {
-    "PNPM_HOME": "/home/vscode/.local/share/pnpm",
-    "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm",
-    "DOCKER_BUILDKIT": "1",
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
-
-    "SUPABASE_URL": "http://kong:8000",
-    "VITE_SUPABASE_URL": "http://localhost:54321",
-    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres?sslmode=disable",
-    "REDIS_URL": "redis://redis:6379"
-  },
-
-  "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers/features/git-lfs:1": {}
-  },
-
   "customizations": {
     "vscode": {
       "settings": {
-        "telemetry.telemetryLevel": "off",
-        "redhat.telemetry.enabled": false,
-        "git.telemetry.telemetryLevel": "off",
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "files.trimTrailingWhitespace": true,
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "git.autofetch": true,
-        "typescript.tsdk": "node_modules/typescript/lib"
+        "terminal.integrated.cwd": "/workspaces/ValueOS/apps/ValyntApp"
       },
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss",
-        "ms-azuretools.vscode-docker",
-        "eamodio.gitlens",
-        "GitHub.copilot",
-        "GitHub.copilot-chat"
+        "ms-azuretools.vscode-docker"
       ]
     }
-  }
+  },
+  "remoteUser": "node"
 }

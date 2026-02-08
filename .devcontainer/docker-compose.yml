@@ -1,5 +1,6 @@
 # Unified docker-compose.yml for ValueOS with internal networks and Caddy reverse proxy
 # Aligned with Pragmatic Reproducibility framework
+# Includes local Supabase services for development
 
 x-common: &common
   restart: unless-stopped
@@ -20,6 +21,16 @@ x-network: &network
     - internal
     - caddy-proxy
 
+x-supabase-env: &supabase-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: valueos_dev
+  POSTGRES_USER: valueos
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+  JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+  ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+  SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+
 networks:
   internal:
     driver: bridge
@@ -36,38 +47,18 @@ networks:
 
 services:
   # Development service
-  dev:
+  app:
     <<: *common
     build:
       context: ..
-      dockerfile: .devcontainer/Dockerfile.optimized
+      dockerfile: .devcontainer/Dockerfile.dev
       args:
-        NODE_VERSION: "22.11.0"
-        APP: "ValyntApp"
+        NODE_VERSION: "20"
     volumes:
       - ..:/workspaces/ValueOS:cached
-      - pnpm-store:/home/vscode/.local/share/pnpm
-      - node_modules:/workspaces/ValueOS/node_modules
-    working_dir: /workspaces/ValueOS
+    working_dir: /workspaces/ValueOS/apps/ValyntApp
     command: sleep infinity
-    network_mode: service:caddy
-    environment:
-      - NODE_ENV=development
-      - ENVIRONMENT=development
-      - CONTAINER=true
-      - VALUEOS_DEV_MODE=devcontainer
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      caddy:
-        condition: service_started
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dev.rule=Host(`localhost`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.dev.service=dev"
-      - "traefik.http.services.dev.loadbalancer.server.port=3001"
+    network_mode: service:postgres
 
   # PostgreSQL database
   postgres:
@@ -131,34 +122,104 @@ services:
       retries: 3
       start_period: 20s
 
-  # Supabase services
-  supabase:
-    <<: *common
-    image: supabase/supabase:1.200.3
+  # Supabase core services for local development
+  auth:
+    image: supabase/gotrue:v2.185.0
+    restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
-      POSTGRES_USER: valueos
-      POSTGRES_DB: valueos_dev
-      JWT_SECRET: ${JWT_SECRET:-supabase_dev_secret}
-      ANON_KEY: ${ANON_KEY:-supabase_dev_anon}
-      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-supabase_dev_service}
-      DB_CONNECTION_RETRIES: 10
-    volumes:
-      - supabase_data:/supabase
-    ports:
-      - "54321:54321"
-      - "54323:54323"
+      GOTRUE_DB_DRIVER: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: valueos_dev
+      DB_USER: valueos
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      SITE_URL: http://localhost:3000
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_API_URL: http://localhost:9999
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: true
+      GOTRUE_SMTP_HOST: mailhog
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_USER: ""
+      GOTRUE_SMTP_PASS: ""
+      GOTRUE_SMTP_SENDER_NAME: "ValueOS"
+      GOTRUE_SMTP_SENDER_EMAIL: "noreply@valueos.local"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
     networks:
       - internal
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:54321/rest/v1/"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+    ports:
+      - "9999:9999"
+
+  rest:
+    image: supabase/postgrest:v10.1.0
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://valueos:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/valueos_dev
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+    depends_on:
+      - postgres
+    networks:
+      - internal
+    ports:
+      - "3000:3000"
+
+  realtime:
+    image: supabase/realtime:v2.24.0
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: valueos_dev
+      DB_USER: valueos
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+    depends_on:
+      - postgres
+    networks:
+      - internal
+    ports:
+      - "4000:4000"
+
+  storage:
+    image: supabase/storage-api:v0.43.0
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: valueos_dev
+      POSTGRES_USER: valueos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+    depends_on:
+      - postgres
+    networks:
+      - internal
+    ports:
+      - "5000:5000"
+
+  studio:
+    image: supabase/studio:2026.01.27-sha-6aa59ff
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: valueos_dev
+      POSTGRES_USER: valueos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+    depends_on:
+      - postgres
+    networks:
+      - internal
+    ports:
+      - "54323:54323"
 
   # Kong API Gateway
   kong:
@@ -192,8 +253,6 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  supabase_data:
     driver: local
   caddy_data:
     driver: local
