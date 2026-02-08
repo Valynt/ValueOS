@@ -1,12 +1,16 @@
-_format_version: "2.1"
+_format_version: "3.0"
 _transform: true
 
 ###############################################################################
-# Kong Declarative Config for Supabase Local Stack
-# Routes all Supabase services through the Kong gateway
+# Kong Declarative Config for ValueOS Development Environment
+# Routes Supabase services and agent endpoints through the Kong gateway
 ###############################################################################
 
 services:
+  # =============================================================================
+  # SUPABASE SERVICES
+  # =============================================================================
+  
   # Auth Service (GoTrue)
   - name: auth-service
     url: http://auth:9999
@@ -36,6 +40,10 @@ services:
             - x-supabase-api-version
           credentials: true
           max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
 
   # REST Service (PostgREST)
   - name: rest-service
@@ -68,6 +76,10 @@ services:
             - accept-profile
           credentials: true
           max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
 
   # Realtime Service
   - name: realtime-service
@@ -82,6 +94,18 @@ services:
         config:
           origins:
             - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+          credentials: true
+          max_age: 3600
 
   # Storage Service
   - name: storage-service
@@ -114,12 +138,149 @@ services:
             - upload-metadata
           credentials: true
           max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 50
+          policy: local
 
-  # Meta Service (for Studio)
-  - name: meta-service
-    url: http://meta:8080
+  # =============================================================================
+  # AGENT FABRIC SERVICES
+  # =============================================================================
+
+  # Opportunity Agent
+  - name: opportunity-agent
+    url: http://opportunity-agent:8081
     routes:
-      - name: meta-route
+      - name: opportunity-agent-route
         paths:
-          - /pg
+          - /agents/v1/opportunity
         strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Target Agent
+  - name: target-agent
+    url: http://target-agent:8082
+    routes:
+      - name: target-agent-route
+        paths:
+          - /agents/v1/target
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Realization Agent
+  - name: realization-agent
+    url: http://realization-agent:8083
+    routes:
+      - name: realization-agent-route
+        paths:
+          - /agents/v1/realization
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Expansion Agent
+  - name: expansion-agent
+    url: http://expansion-agent:8084
+    routes:
+      - name: expansion-agent-route
+        paths:
+          - /agents/v1/expansion
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+# =============================================================================
+# GLOBAL PLUGINS
+# =============================================================================
+plugins:
+  - name: request-id
+    config:
+      header_name: X-Request-ID
+      echo_downstream: true
+  
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-ID
+      echo_downstream: true

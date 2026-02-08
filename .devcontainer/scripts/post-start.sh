@@ -1,35 +1,104 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# post-start.sh
+# Runs every time the DevContainer starts
+# Performs runtime checks and service monitoring
 
-if [[ ! -d "${ROOT_DIR}" ]]; then
-  echo "Repo root not found at ${ROOT_DIR}." >&2
-  exit 1
+echo "🚀 Running post-start checks..."
+
+# =============================================================================
+# SERVICE HEALTH MONITORING
+# =============================================================================
+
+check_service() {
+    local service_name=$1
+    local check_command=$2
+    local max_attempts=${3:-10}
+    local delay=${4:-3}
+    
+    echo "🔍 Checking $service_name..."
+    
+    local attempt=0
+    until eval "$check_command" > /dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [ $attempt -ge $max_attempts ]; then
+            echo "⚠️  $service_name is not responding after $max_attempts attempts"
+            return 1
+        fi
+        echo "⏳ Waiting for $service_name... (attempt $attempt/$max_attempts)"
+        sleep $delay
+    done
+    
+    echo "✅ $service_name is ready"
+    return 0
+}
+
+# Check core services
+check_service "PostgreSQL" "PGPASSWORD='${POSTGRES_PASSWORD:-valueos_dev}' psql -h localhost -p ${POSTGRES_PORT:-54323} -U ${POSTGRES_USER:-valueos} -d ${POSTGRES_DB:-valueos_dev} -c 'SELECT 1'"
+check_service "Redis" "redis-cli -h localhost -p ${REDIS_PORT:-6379} -a '${REDIS_PASSWORD:-valueos_dev}' ping"
+check_service "Kong" "curl -f http://localhost:8001/"
+check_service "Supabase Auth" "curl -f http://localhost:9999/health"
+check_service "PostgREST" "curl -f http://localhost:3000/"
+
+# Check agent fabric if enabled
+if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
+    check_service "NATS" "curl -f http://localhost:8222/healthz"
+    check_service "Opportunity Agent" "curl -f http://localhost:8081/health" 15 5
+    check_service "Target Agent" "curl -f http://localhost:8082/health" 15 5
+    check_service "Realization Agent" "curl -f http://localhost:8083/health" 15 5
+    check_service "Expansion Agent" "curl -f http://localhost:8084/health" 15 5
 fi
 
+# =============================================================================
+# DISPLAY SERVICE URLS
+# =============================================================================
 
-echo "Devcontainer post-start: container is ready."
+echo ""
+echo "🌐 Service URLs:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Frontend:          http://localhost:3001"
+echo "  Supabase Studio:   http://localhost:54324"
+echo "  Kong Gateway:      http://localhost:8000"
+echo "  Kong Admin:        http://localhost:8001"
+echo "  PostgREST API:     http://localhost:3000"
+echo "  Supabase Auth:     http://localhost:9999"
+echo "  PostgreSQL:        localhost:54323"
+echo "  Redis:             localhost:6379"
 
-# Ensure pnpm is always activated via corepack, and hash is refreshed
-corepack enable
-corepack prepare pnpm@9.15.0 --activate
-hash -r
-echo "[post-start] pnpm/corepack activation complete."
-
-# Install Docker CLI if not present
-if ! command -v docker &> /dev/null; then
-  echo "Installing Docker CLI..."
-  apk add --no-cache docker-cli
+if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
+    echo ""
+    echo "  🤖 Agent Fabric:"
+    echo "  NATS Monitor:      http://localhost:8222"
+    echo "  Opportunity Agent: http://localhost:8081"
+    echo "  Target Agent:      http://localhost:8082"
+    echo "  Realization Agent: http://localhost:8083"
+    echo "  Expansion Agent:   http://localhost:8084"
 fi
 
-# Start the devcontainer services (excluding the app service which is already running)
-echo "Starting devcontainer services..."
-cd "${ROOT_DIR}/.devcontainer"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
-# Start all services except 'app'
-docker compose up -d $(docker compose config --services | grep -v '^app$')
+# =============================================================================
+# DISPLAY USEFUL COMMANDS
+# =============================================================================
 
-echo "Devcontainer services started."
-echo "Tip: run scripts/dev/setup.sh if dependencies need refresh."
+echo "📝 Useful commands:"
+echo "  pnpm dev              - Start development server"
+echo "  pnpm build            - Build for production"
+echo "  pnpm test             - Run tests"
+echo "  pnpm lint             - Lint code"
+echo "  pnpm format           - Format code"
+echo ""
+echo "  Database:"
+echo "  bash infra/scripts/apply_migrations.sh  - Apply migrations"
+echo "  psql -h localhost -p 54323 -U valueos -d valueos_dev  - Connect to DB"
+echo ""
+
+# =============================================================================
+# COMPLETION
+# =============================================================================
+
+echo "✅ All services are ready!"
+echo "🎉 Happy coding!"
+echo ""

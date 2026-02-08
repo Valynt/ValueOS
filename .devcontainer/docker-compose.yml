@@ -1,0 +1,627 @@
+# Unified docker-compose.yml for ValueOS Full Development Environment
+# Container-first orchestration for all infrastructure and application components
+# Aligned with Pragmatic Reproducibility framework
+
+version: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-supabase-env: &supabase-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
+  POSTGRES_USER: ${POSTGRES_USER:-valueos}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+  JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+  ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+  SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+
+networks:
+  # Internal network for agent-to-agent and database communication
+  internal:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  
+  # Public-facing network for reverse proxy
+  caddy-proxy:
+    driver: bridge
+    internal: false
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+  
+  # Message bus network for agent communication
+  messagebus-network:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16
+
+services:
+  # =============================================================================
+  # CORE INFRASTRUCTURE
+  # =============================================================================
+  
+  # PostgreSQL Database - Primary data store
+  postgres:
+    <<: *common
+    image: postgres:15-alpine
+    container_name: valueos-postgres
+    environment:
+      <<: *supabase-env
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT:-54323}:5432"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valueos} -d ${POSTGRES_DB:-valueos_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "1G"
+        reservations:
+          cpus: "0.25"
+          memory: "256M"
+
+  # Redis Cache - Session storage and caching
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    container_name: valueos-redis
+    command: 
+      - redis-server
+      - --appendonly
+      - yes
+      - --requirepass
+      - ${REDIS_PASSWORD:-valueos_dev}
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-valueos_dev}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+
+  # NATS Message Bus - Agent communication
+  nats:
+    <<: *common
+    image: nats:2-alpine
+    container_name: valueos-nats
+    command: -DV -m 8222
+    networks:
+      - internal
+      - messagebus-network
+    ports:
+      - "${NATS_CLIENT_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: "256M"
+        reservations:
+          cpus: "0.05"
+          memory: "64M"
+
+  # =============================================================================
+  # SUPABASE SERVICES
+  # =============================================================================
+
+  # Supabase Auth (GoTrue)
+  auth:
+    <<: *common
+    image: supabase/gotrue:v2.143.0
+    container_name: valueos-auth
+    environment:
+      <<: *supabase-env
+      GOTRUE_DB_DRIVER: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-valueos_dev}
+      DB_USER: ${POSTGRES_USER:-valueos}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOTRUE_API_URL: http://localhost:${AUTH_PORT:-9999}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-mailhog}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-1025}
+      GOTRUE_SMTP_USER: ${SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
+      GOTRUE_SMTP_SENDER_NAME: "ValueOS"
+      GOTRUE_SMTP_SENDER_EMAIL: "noreply@valueos.local"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+      - caddy-proxy
+    ports:
+      - "${AUTH_PORT:-9999}:9999"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Supabase REST API (PostgREST)
+  rest:
+    <<: *common
+    image: postgrest/postgrest:v12.0.2
+    container_name: valueos-rest
+    environment:
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      PGRST_DB_SCHEMA: ${PGRST_DB_SCHEMA:-public}
+      PGRST_DB_ANON_ROLE: ${PGRST_DB_ANON_ROLE:-anon}
+      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      PGRST_DB_EXTRA_SEARCH_PATH: ${PGRST_DB_EXTRA_SEARCH_PATH:-public}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+      - caddy-proxy
+    ports:
+      - "${REST_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Supabase Realtime
+  realtime:
+    <<: *common
+    image: supabase/realtime:v2.25.50
+    container_name: valueos-realtime
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-valueos_dev}
+      DB_USER: ${POSTGRES_USER:-valueos}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+      - caddy-proxy
+    ports:
+      - "${REALTIME_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Supabase Storage
+  storage:
+    <<: *common
+    image: supabase/storage-api:v0.46.4
+    container_name: valueos-storage
+    environment:
+      <<: *supabase-env
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      DATABASE_URL: postgres://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - storage_data:/var/lib/storage
+    networks:
+      - internal
+      - caddy-proxy
+    ports:
+      - "${STORAGE_PORT:-5000}:5000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Supabase Studio
+  studio:
+    <<: *common
+    image: supabase/studio:latest
+    container_name: valueos-studio
+    environment:
+      <<: *supabase-env
+      SUPABASE_URL: http://kong:8000
+      STUDIO_PG_META_URL: http://rest:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+      - caddy-proxy
+    ports:
+      - "${STUDIO_PORT:-54324}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/profile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =============================================================================
+  # API GATEWAY & REVERSE PROXY
+  # =============================================================================
+
+  # Kong API Gateway
+  kong:
+    <<: *common
+    build:
+      context: ./kong
+      dockerfile: Dockerfile
+    container_name: valueos-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: "/etc/kong/kong.yml"
+      KONG_PROXY_ACCESS_LOG: "/dev/stdout"
+      KONG_ADMIN_ACCESS_LOG: "/dev/stdout"
+      KONG_PROXY_ERROR_LOG: "/dev/stderr"
+      KONG_ADMIN_ERROR_LOG: "/dev/stderr"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001, 0.0.0.0:8444 ssl"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+    volumes:
+      - ./kong/kong.yml:/etc/kong/kong.yml:ro
+    ports:
+      - "${KONG_PROXY_PORT:-8000}:8000"
+      - "${KONG_PROXY_SSL_PORT:-8443}:8443"
+      - "${KONG_ADMIN_PORT:-8001}:8001"
+      - "${KONG_ADMIN_SSL_PORT:-8444}:8444"
+    networks:
+      - internal
+      - caddy-proxy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+
+  # Caddy Reverse Proxy
+  caddy:
+    <<: *common
+    image: caddy:2-alpine
+    container_name: valueos-caddy
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_ADMIN_PORT:-2019}:2019"
+    networks:
+      - caddy-proxy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      - kong
+      - frontend
+
+  # =============================================================================
+  # APPLICATION SERVICES
+  # =============================================================================
+
+  # Frontend Application (React/Vite)
+  frontend:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: .devcontainer/frontend/Dockerfile.optimized.frontend
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20}
+        EXPOSE_PORT: ${FRONTEND_PORT:-3001}
+    container_name: valueos-frontend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_SUPABASE_URL: http://kong:8000
+      VITE_SUPABASE_ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+    networks:
+      - caddy-proxy
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - kong
+
+  # =============================================================================
+  # LLM AGENT FABRIC
+  # =============================================================================
+
+  # Opportunity Agent (Discovery Phase)
+  opportunity-agent:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: .devcontainer/agents/Dockerfile.opportunity
+      args:
+        AGENT_NAME: opportunity
+        NODE_VERSION: ${NODE_VERSION:-20}
+        EXPOSE_PORT: 8081
+    container_name: valueos-opportunity-agent
+    user: agent
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+    environment:
+      NODE_ENV: production
+      AGENT_NAME: opportunity
+      MESSAGE_BUS_URL: nats://nats:4222
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CONFIDENCE_THRESHOLDS: '{"low":0.5,"target":0.7,"critical":0.8}'
+      RISK_CATEGORY: "discovery"
+      LIFECYCLE_STAGE: "discovery"
+    networks:
+      - internal
+      - messagebus-network
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Target Agent (Definition Phase)
+  target-agent:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: .devcontainer/agents/Dockerfile.target
+      args:
+        AGENT_NAME: target
+        NODE_VERSION: ${NODE_VERSION:-20}
+        EXPOSE_PORT: 8082
+    container_name: valueos-target-agent
+    user: agent
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+    environment:
+      NODE_ENV: production
+      AGENT_NAME: target
+      MESSAGE_BUS_URL: nats://nats:4222
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CONFIDENCE_THRESHOLDS: '{"low":0.6,"target":0.75,"critical":0.85}'
+      RISK_CATEGORY: "commitment"
+      LIFECYCLE_STAGE: "definition"
+    networks:
+      - internal
+      - messagebus-network
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Realization Agent (Realization Phase)
+  realization-agent:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: .devcontainer/agents/Dockerfile.realization
+      args:
+        AGENT_NAME: realization
+        NODE_VERSION: ${NODE_VERSION:-20}
+        EXPOSE_PORT: 8083
+    container_name: valueos-realization-agent
+    user: agent
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+    environment:
+      NODE_ENV: production
+      AGENT_NAME: realization
+      MESSAGE_BUS_URL: nats://nats:4222
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CONFIDENCE_THRESHOLDS: '{"low":0.6,"target":0.75,"critical":0.85}'
+      RISK_CATEGORY: "commitment"
+      LIFECYCLE_STAGE: "realization"
+    networks:
+      - internal
+      - messagebus-network
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: "768M"
+        reservations:
+          cpus: "0.2"
+          memory: "256M"
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Expansion Agent (Expansion Phase)
+  expansion-agent:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: .devcontainer/agents/Dockerfile.expansion
+      args:
+        AGENT_NAME: expansion
+        NODE_VERSION: ${NODE_VERSION:-20}
+        EXPOSE_PORT: 8084
+    container_name: valueos-expansion-agent
+    user: agent
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+    environment:
+      NODE_ENV: production
+      AGENT_NAME: expansion
+      MESSAGE_BUS_URL: nats://nats:4222
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CONFIDENCE_THRESHOLDS: '{"low":0.5,"target":0.7,"critical":0.8}'
+      RISK_CATEGORY: "discovery"
+      LIFECYCLE_STAGE: "expansion"
+    networks:
+      - internal
+      - messagebus-network
+    ports:
+      - "8084:8084"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+        reservations:
+          cpus: "0.1"
+          memory: "128M"
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  storage_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
