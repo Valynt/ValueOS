@@ -22,7 +22,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    network_mode: host
 
   # Redis cache layer for local development
   redis:
@@ -44,7 +43,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    network_mode: host
 
   # Simple auth stub for local development (resolves kong -> auth dependency)
   auth:
@@ -64,7 +62,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 1
-    network_mode: host
 
 volumes:
   postgres_data:
