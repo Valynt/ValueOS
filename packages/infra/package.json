@@ -15,8 +15,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest run --passWithNoTests --watch"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.90.1",

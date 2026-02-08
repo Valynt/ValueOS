@@ -86,7 +86,6 @@ services:
     image: postgres:15-alpine
     command: >
       postgres
-      -c config_file=/etc/postgresql/postgresql.conf
       -c log_min_messages=warning
       -c wal_level=logical
     restart: unless-stopped

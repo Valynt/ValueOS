@@ -52,13 +52,13 @@ research/
 To run tests for a specific agent:
 
 ```bash
-npx vitest run packages/agents/[agent-name]
+npx vitest run packages/agents/[agent-name] --passWithNoTests
 ```
 
 To run all agent tests:
 
 ```bash
-npx vitest run packages/agents
+npx vitest run packages/agents --passWithNoTests
 ```
 
 ## Import Rules

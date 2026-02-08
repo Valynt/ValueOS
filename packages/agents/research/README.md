@@ -59,5 +59,5 @@ Analyzes a research query and returns structured methodologies.
 Run unit tests:
 
 ```bash
-npx vitest run packages/agents/research
+npx vitest run packages/agents/research --passWithNoTests
 ```

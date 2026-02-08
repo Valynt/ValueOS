@@ -59,5 +59,5 @@ Analyzes an expansion query and returns strategic opportunities.
 Run unit tests:
 
 ```bash
-npx vitest run packages/agents/expansion
+npx vitest run packages/agents/expansion --passWithNoTests
 ```

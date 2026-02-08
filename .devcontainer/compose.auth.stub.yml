@@ -36,9 +36,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 1
-    networks:
-      - valueos-network
-
-networks:
-  valueos-network:
-    external: true

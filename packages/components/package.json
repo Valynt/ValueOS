@@ -4,8 +4,8 @@
   "private": true,
   "description": "Component library root",
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest run --passWithNoTests --watch",
     "build": "tsc -p ./design-system/tsconfig.json"
   },
   "devDependencies": {

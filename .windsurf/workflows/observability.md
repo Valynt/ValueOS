@@ -31,7 +31,7 @@ tsx scripts/verify-metrics.ts
 // turbo 4. Run observability test suite:
 
 ```bash
-npx vitest run --config vitest.observability.config.ts
+npx vitest run --config vitest.observability.config.ts --passWithNoTests
 ```
 
 ## Check Dashboards

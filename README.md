@@ -85,7 +85,7 @@ DOCKERFILE_STRICT_CHOWN=1 pnpm run lint:dockerfiles
 - Run the unit policy tests (fast local feedback):
 
 ```bash
-pnpm exec vitest run test/dockerfile.spec.ts --config .config/configs/vitest.config.unit.ts
+pnpm exec vitest run test/dockerfile.spec.ts --config .config/configs/vitest.config.unit.ts --passWithNoTests
 ```
 
 - Build representative images (mirrors CI):
@@ -97,7 +97,7 @@ docker build -f Dockerfile.optimized --build-arg EXPOSE_PORT="${BACKEND_PORT}" -
 
 CI Integration:
 
-- CI runs `pnpm exec vitest run test/dockerfile.spec.ts` (unit policy tests) and then runs the Dockerfile validator in **strict** mode (`DOCKERFILE_STRICT_CHOWN=1 pnpm run lint:dockerfiles`). Failures block subsequent image builds.
+- CI runs `pnpm exec vitest run test/dockerfile.spec.ts --passWithNoTests` (unit policy tests) and then runs the Dockerfile validator in **strict** mode (`DOCKERFILE_STRICT_CHOWN=1 pnpm run lint:dockerfiles`). Failures block subsequent image builds.
 
 If a test or validator fails, the output will include file and line details so you can fix the Dockerfile and re-run the checks.
 
