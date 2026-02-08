@@ -1,3 +1,21 @@
+/* ============================================
+ * AGENT GLOW ANIMATION (for Thinking state)
+ * ============================================ */
+
+@keyframes agent-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--valueos-primary) / 0.25), 0 0 16px 4px hsl(var(--valueos-primary) / 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 6px hsl(var(--valueos-primary) / 0.12), 0 0 32px 8px hsl(var(--valueos-primary) / 0.32);
+  }
+}
+
+[data-theme="ai-indigo"] .agent-glow,
+[data-theme="ai-indigo"].agent-glow {
+  animation: agent-glow-pulse 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow: 0 0 0 0 hsl(var(--valueos-primary) / 0.25), 0 0 16px 4px hsl(var(--valueos-primary) / 0.18);
+}
 @import "./valueos-palette.css";
 
 /**
@@ -145,21 +163,20 @@
   --duration-slower: 600ms;
 
   /* ============================================
-   * ELEVATION (Shadows)
-   * ============================================ */
 
-  --shadow-sm: 0 1px 2px hsl(var(--valueos-neutral-foreground) / 0.3);
-  --shadow-md: 0 4px 6px -1px hsl(var(--valueos-neutral-foreground) / 0.3),
-    0 2px 4px -2px hsl(var(--valueos-neutral-foreground) / 0.2);
-  --shadow-lg: 0 10px 15px -3px hsl(var(--valueos-neutral-foreground) / 0.3),
-    0 4px 6px -4px hsl(var(--valueos-neutral-foreground) / 0.2);
-  --shadow-xl: 0 20px 25px -5px hsl(var(--valueos-neutral-foreground) / 0.3),
-    0 8px 10px -6px hsl(var(--valueos-neutral-foreground) / 0.2);
+  /* ELEVATION (Glassmorphism + Motion Shadows) */
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+  --shadow-xl: var(--shadow-4);
 
   /* Indigo Glow Shadows */
-  --shadow-glow-sm: 0 0 10px var(--color-indigo-glow);
-  --shadow-glow-md: 0 0 20px var(--color-indigo-glow);
-  --shadow-glow-lg: 0 0 40px var(--color-indigo-glow);
+  --shadow-glow-sm: 0 0 10px var(--color-indigo-glow), var(--shadow-1);
+  --shadow-glow-md: 0 0 20px var(--color-indigo-glow), var(--shadow-2);
+  --shadow-glow-lg: 0 0 40px var(--color-indigo-glow), var(--shadow-3);
+
+  /* Glassmorphism Borderless Layers */
+  --glass-elevation: var(--glass-bg), var(--shadow-2);
 
   /* ============================================
    * BORDER RADIUS
@@ -300,25 +317,30 @@
   background: var(--bg-primary);
 }
 
+
 [data-theme="ai-indigo"] .layer-surface,
 [data-theme="ai-indigo"].layer-surface {
   background: var(--bg-secondary);
-  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-sm);
+  border: none;
 }
 
 [data-theme="ai-indigo"] .layer-elevated,
 [data-theme="ai-indigo"].layer-elevated {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-bg);
   box-shadow: var(--shadow-md);
+  border: none;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 [data-theme="ai-indigo"] .layer-overlay,
 [data-theme="ai-indigo"].layer-overlay {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-xl);
+  border: none;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
 }
 
 /* ============================================
