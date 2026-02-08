@@ -1,0 +1,25 @@
+{
+  "name": "@valueos/sdui-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types and schemas for Server-Driven UI (SDUI) JSON payloads",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.29",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
+  },
+  "peerDependencies": {
+    "zod": "^3.25.76"
+  }
+}

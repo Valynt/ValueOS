@@ -1,0 +1,5 @@
+# NextDNS proxy for devcontainer and all services
+# See docs in compose.nextdns.yml and .env.devcontainer
+include:
+  - compose.yml
+  - compose.nextdns.yml

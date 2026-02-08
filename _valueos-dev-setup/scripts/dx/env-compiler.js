@@ -1,0 +1,529 @@
+#!/usr/bin/env node
+
+/**
+ * DX Environment Compiler
+ *
+ * Single source of truth for environment configuration.
+ * Generates mode-specific .env files with correct URLs.
+ *
+ * Modes:
+ * - local: Frontend/backend run on host, deps in Docker
+ * - docker: Everything runs in Docker containers
+ *
+ * Usage:
+ *   node scripts/dx/env-compiler.js --mode local
+ *   node scripts/dx/env-compiler.js --mode docker
+ *   node scripts/dx/env-compiler.js --validate
+ */
+
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { formatPortsEnv, loadPorts, resolvePort } from "./ports.js";
+import { resolveMode } from "./lib/mode.js";
+import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, "../..");
+const opsEnvDir = path.join(projectRoot, "ops", "env");
+const opsEnvLocalPath = path.join(opsEnvDir, ".env.local");
+const opsEnvPortsPath = path.join(opsEnvDir, ".env.ports");
+const legacyEnvLocalPath = path.join(projectRoot, ".env.local");
+const legacyEnvPortsPath = path.join(projectRoot, ".env.ports");
+const legacyDeployEnvPortsPath = path.join(projectRoot, "deploy/envs/.env.ports");
+const legacyScriptsEnvPortsPath = path.join(projectRoot, "scripts/.env.ports");
+
+// Local Supabase demo keys (safe to commit - only work with local instance)
+const LOCAL_SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+const LOCAL_SUPABASE_SERVICE_ROLE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU";
+
+function appendSslModeDisable(url) {
+  if (!url) return url;
+  if (url.includes("sslmode=")) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}sslmode=disable`;
+}
+
+/**
+ * URL configurations per mode
+ */
+function getUrlConfig(mode, ports) {
+  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
+  const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
+  const supabaseApiPort = resolvePort(process.env.SUPABASE_API_PORT, ports.supabase.apiPort);
+  const supabaseDbPort = resolvePort(process.env.SUPABASE_DB_PORT, ports.supabase.dbPort);
+  const devContainer = isDevContainer();
+  const dockerGateway = resolveDockerHostGateway();
+  // Force loopback for local/devcontainer to avoid host-gateway differences
+  const backendHost = "localhost";
+  const skipSupabase =
+    process.env.DX_FORCE_SUPABASE === "1" ? false : process.env.DX_SKIP_SUPABASE === "1";
+
+  if (mode === "docker") {
+    // Docker mode: services communicate via Docker network DNS
+    return {
+      // Frontend runs in container, accesses backend via service name
+      VITE_API_BASE_URL: "/api", // Relative URL - Caddy proxies to backend
+      VITE_APP_URL: `http://localhost:${frontendPort}`,
+
+      // Supabase URL from browser perspective (still localhost)
+      VITE_SUPABASE_URL: `http://localhost:${supabaseApiPort}`,
+      SUPABASE_URL: `http://supabase:${supabaseApiPort}`, // Backend uses Docker DNS
+
+      // Backend internal URLs (Docker network)
+      API_UPSTREAM: `http://backend:${backendPort}`,
+      FRONTEND_UPSTREAM: "http://frontend:80",
+      // CRITICAL: sslmode=disable required - container postgres has no TLS
+      DATABASE_URL: appendSslModeDisable(`postgresql://postgres:postgres@postgres:5432/postgres`),
+      REDIS_URL: "redis://redis:6379",
+    };
+  }
+
+  // Local mode: everything accessed via localhost
+  return {
+    // Frontend runs on host, accesses backend via localhost
+    VITE_API_BASE_URL: `http://localhost:${backendPort}`,
+    VITE_APP_URL: `http://localhost:${frontendPort}`,
+
+    // Supabase URL (local instance)
+    VITE_SUPABASE_URL: `http://localhost:${supabaseApiPort}`,
+    SUPABASE_URL: `http://${backendHost}:${supabaseApiPort}`,
+
+    // Backend URLs (localhost)
+    API_UPSTREAM: `http://localhost:${backendPort}`,
+    FRONTEND_UPSTREAM: `http://localhost:${frontendPort}`,
+    DATABASE_URL: skipSupabase
+      ? appendSslModeDisable(
+          `postgresql://postgres:dev_password@${backendHost}:${ports.postgres.port}/valuecanvas_dev`
+        )
+      : appendSslModeDisable(
+          `postgresql://postgres:postgres@${backendHost}:${supabaseDbPort}/postgres`
+        ),
+    REDIS_URL: `redis://${backendHost}:${ports.redis.port}`,
+  };
+}
+
+/**
+ * Generate ops/env/.env.local content for the specified mode
+ */
+function generateEnvLocal(mode, ports) {
+  const urls = getUrlConfig(mode, ports);
+  const frontendPort = resolvePort(process.env.VITE_PORT, ports.frontend.port);
+  const backendPort = resolvePort(process.env.API_PORT, ports.backend.port);
+
+  return `# ValueOS Environment Configuration
+# Generated by dx env-compiler for mode: ${mode}
+# DO NOT EDIT - regenerate with: pnpm run dx:env --mode ${mode}
+
+# =============================================================================
+# Mode Configuration
+# =============================================================================
+DX_MODE=${mode}
+NODE_ENV=development
+
+# =============================================================================
+# Application URLs (mode-specific)
+# =============================================================================
+VITE_APP_URL=${urls.VITE_APP_URL}
+VITE_API_BASE_URL=${urls.VITE_API_BASE_URL}
+
+# =============================================================================
+# Supabase Configuration
+# =============================================================================
+VITE_SUPABASE_URL=${urls.VITE_SUPABASE_URL}
+SUPABASE_URL=${urls.SUPABASE_URL}
+VITE_SUPABASE_ANON_KEY=${LOCAL_SUPABASE_ANON_KEY}
+SUPABASE_ANON_KEY=${LOCAL_SUPABASE_ANON_KEY}
+
+# Service Role Key (server-side only - NEVER expose to frontend)
+# Canonical name: SUPABASE_SERVICE_ROLE_KEY (not SUPABASE_SERVICE_KEY)
+SUPABASE_SERVICE_ROLE_KEY=${LOCAL_SUPABASE_SERVICE_ROLE_KEY}
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
+DATABASE_URL=${urls.DATABASE_URL}
+REDIS_URL=${urls.REDIS_URL}
+
+# =============================================================================
+# Application Ports
+# =============================================================================
+VITE_PORT=${frontendPort}
+VITE_HOST=0.0.0.0
+VITE_HMR_PORT=${ports.frontend.hmrPort}
+VITE_HMR_CLIENT_PORT=${ports.frontend.hmrPort}
+VITE_HMR_HOST=localhost
+VITE_HMR_PROTOCOL=ws
+API_PORT=${backendPort}
+
+# =============================================================================
+# LLM Configuration (optional - add your keys)
+# =============================================================================
+VITE_LLM_PROVIDER=together
+# TOGETHER_API_KEY=your-key-here
+# OPENAI_API_KEY=your-key-here
+
+# =============================================================================
+# Development Settings
+# =============================================================================
+VITE_ENABLE_CIRCUIT_BREAKER=false
+VITE_ENABLE_RATE_LIMITING=false
+VITE_ENABLE_AUDIT_LOGGING=true
+VITE_DEV_TOOLS=true
+VITE_SOURCE_MAPS=true
+SECRETS_VOLUME_WATCH_ENABLED=false
+
+# =============================================================================
+# Caddy Edge (for docker mode)
+# =============================================================================
+DEV_DOMAIN=localhost
+API_UPSTREAM=${urls.API_UPSTREAM}
+FRONTEND_UPSTREAM=${urls.FRONTEND_UPSTREAM}
+CADDY_ADMIN=0.0.0.0:2019
+CADDY_LOG_LEVEL=DEBUG
+AUTO_HTTPS=off
+`;
+}
+
+/**
+ * Generate ops/env/.env.ports content (always the same, just port mappings)
+ */
+function generateEnvPorts(ports) {
+  return formatPortsEnv(ports);
+}
+
+/**
+ * Generate legacy deploy/envs/.env.ports content for Docker Compose.
+ *
+ * Note: Docker Compose supports additional env vars in the same file, so we
+ * include Supabase keys here to ensure containers can boot without requiring
+ * manual edits.
+ */
+function generateDeployEnvPorts(mode, ports) {
+  const envPortsContent = generateEnvPorts(ports);
+
+  return `${envPortsContent}
+# Supabase Keys (required for containers)
+VITE_SUPABASE_ANON_KEY=${LOCAL_SUPABASE_ANON_KEY}
+SUPABASE_ANON_KEY=${LOCAL_SUPABASE_ANON_KEY}
+`;
+}
+
+/**
+ * Validate existing ops/env/.env.local matches the expected mode
+ * Returns hard failures for mode contradictions
+ */
+function validateEnvLocal(expectedMode) {
+  const envPath = opsEnvLocalPath;
+
+  if (!fs.existsSync(envPath)) {
+    return {
+      valid: false,
+      error: "ops/env/.env.local does not exist",
+      errors: ["ops/env/.env.local does not exist"],
+      warnings: [],
+    };
+  }
+
+  const content = fs.readFileSync(envPath, "utf8");
+  const errors = [];
+  const warnings = [];
+  const contradictions = []; // Hard failures that prevent startup
+
+  // Check DX_MODE
+  const modeMatch = content.match(/^DX_MODE=(.*)$/m);
+  const currentMode = modeMatch ? modeMatch[1].trim() : null;
+
+  if (!currentMode) {
+    errors.push("DX_MODE not set in ops/env/.env.local");
+  } else if (currentMode !== expectedMode) {
+    contradictions.push(
+      `MODE CONTRADICTION: ops/env/.env.local configured for "${currentMode}" but running in "${expectedMode}" mode`
+    );
+  }
+
+  // Check for deprecated SUPABASE_SERVICE_KEY (should be SUPABASE_SERVICE_ROLE_KEY)
+  if (
+    content.includes("SUPABASE_SERVICE_KEY=") &&
+    !content.includes("SUPABASE_SERVICE_ROLE_KEY=")
+  ) {
+    warnings.push("Deprecated: SUPABASE_SERVICE_KEY should be SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  // Check URL consistency for mode - these are HARD FAILURES
+  const apiUrlMatch = content.match(/^VITE_API_BASE_URL=(.*)$/m);
+  if (apiUrlMatch) {
+    const currentApiUrl = apiUrlMatch[1].trim();
+
+    if (expectedMode === "local") {
+      // Local mode: Docker DNS is a hard failure (browser cannot resolve)
+      if (currentApiUrl.includes("backend:") || currentApiUrl.includes("frontend:")) {
+        contradictions.push(
+          `URL CONTRADICTION: VITE_API_BASE_URL uses Docker DNS (${currentApiUrl}) but mode is "local". Browser cannot resolve Docker hostnames.`
+        );
+      }
+    } else if (expectedMode === "docker") {
+      // Docker mode: localhost URLs may work but are suspicious
+      if (currentApiUrl.includes("localhost:") && !currentApiUrl.includes("/api")) {
+        warnings.push(
+          `VITE_API_BASE_URL uses localhost (${currentApiUrl}) in docker mode. This may cause issues.`
+        );
+      }
+    }
+  }
+
+  // Check DATABASE_URL consistency
+  const dbUrlMatch = content.match(/^DATABASE_URL=(.*)$/m);
+  if (dbUrlMatch) {
+    const dbUrl = dbUrlMatch[1].trim();
+
+    if (expectedMode === "local" && dbUrl.includes("@postgres:")) {
+      contradictions.push(
+        `URL CONTRADICTION: DATABASE_URL uses Docker DNS (${dbUrl}) but mode is "local".`
+      );
+    } else if (expectedMode === "docker" && dbUrl.includes("@localhost:")) {
+      contradictions.push(
+        `URL CONTRADICTION: DATABASE_URL uses localhost (${dbUrl}) but mode is "docker".`
+      );
+    }
+  }
+
+  // Check Supabase URL
+  const supabaseUrlMatch = content.match(/^VITE_SUPABASE_URL=(.*)$/m);
+  if (supabaseUrlMatch) {
+    const currentSupabaseUrl = supabaseUrlMatch[1].trim();
+    if (!currentSupabaseUrl.includes("localhost") && !currentSupabaseUrl.includes("127.0.0.1")) {
+      warnings.push(
+        `VITE_SUPABASE_URL points to remote instance (${currentSupabaseUrl}). Local Supabase will not be used.`
+      );
+    }
+  }
+
+  // Check for placeholder values - these are errors
+  const placeholderPatterns = [
+    { pattern: /VITE_SUPABASE_ANON_KEY=your-/, name: "VITE_SUPABASE_ANON_KEY" },
+    {
+      pattern: /VITE_SUPABASE_ANON_KEY=placeholder/,
+      name: "VITE_SUPABASE_ANON_KEY",
+    },
+    {
+      pattern: /SUPABASE_SERVICE_ROLE_KEY=your-/,
+      name: "SUPABASE_SERVICE_ROLE_KEY",
+    },
+    {
+      pattern: /SUPABASE_SERVICE_ROLE_KEY=placeholder/,
+      name: "SUPABASE_SERVICE_ROLE_KEY",
+    },
+  ];
+
+  for (const { pattern, name } of placeholderPatterns) {
+    if (pattern.test(content)) {
+      errors.push(`Placeholder value in ${name}`);
+    }
+  }
+
+  // Contradictions are fatal
+  if (contradictions.length > 0) {
+    return {
+      valid: false,
+      errors: [...contradictions, ...errors],
+      warnings,
+      currentMode,
+      hasContradictions: true,
+      contradictions,
+    };
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    currentMode,
+    hasContradictions: false,
+    contradictions: [],
+  };
+}
+
+/**
+ * Write environment files
+ */
+function writeEnvFiles(mode, options = {}) {
+  const ports = loadPorts();
+  const dryRun = options.dryRun || false;
+  const force = options.force || false;
+
+  fs.mkdirSync(opsEnvDir, { recursive: true });
+
+  // Check if ops/env/.env.local exists and validate
+  if (fs.existsSync(opsEnvLocalPath) && !force) {
+    const validation = validateEnvLocal(mode);
+
+    // Hard failure on contradictions - these WILL break the app
+    if (validation.hasContradictions) {
+      console.error(`
+╔════════════════════════════════════════════════════════════════╗
+║                    ❌ ENVIRONMENT CONTRADICTION                 ║
+╚════════════════════════════════════════════════════════════════╝
+
+Your ops/env/.env.local contains URLs that contradict the requested mode.
+This WILL cause failures that are hard to debug.
+
+Mode requested: ${mode}
+Mode in ops/env/.env.local: ${validation.currentMode || "unknown"}
+
+Contradictions found:
+${validation.contradictions.map((c) => `  • ${c}`).join("\n")}
+
+Why this matters:
+  - In "local" mode, the browser runs on your host machine
+  - Docker DNS names (like "backend:3001") only work inside containers
+  - If ops/env/.env.local has Docker URLs but you're running locally, the browser
+    cannot resolve them, causing silent failures and blank screens
+
+To fix:
+  pnpm run dx:env --mode ${mode} --force
+
+This will regenerate ops/env/.env.local with correct URLs for ${mode} mode.
+`);
+      process.exit(1);
+    }
+
+    // Soft failure on mode mismatch (no contradictions yet)
+    if (validation.currentMode && validation.currentMode !== mode) {
+      console.error(`
+⚠️  Mode mismatch detected
+
+Current ops/env/.env.local: mode "${validation.currentMode}"
+Requested mode: "${mode}"
+
+To switch modes, run:
+  pnpm run dx:env --mode ${mode} --force
+`);
+      process.exit(1);
+    }
+  }
+
+  const envLocalContent = generateEnvLocal(mode, ports);
+  const envPortsContent = generateEnvPorts(ports);
+
+  if (dryRun) {
+    console.log("=== ops/env/.env.local (dry run) ===");
+    console.log(envLocalContent);
+    console.log("\n=== ops/env/.env.ports (dry run) ===");
+    console.log(envPortsContent);
+    return;
+  }
+
+  // Write ops/env/.env.local (handle read-only bind mounts from Codespaces/devcontainers)
+  try {
+    fs.writeFileSync(opsEnvLocalPath, envLocalContent, "utf8");
+    console.log(`✓ Wrote ${opsEnvLocalPath} for mode: ${mode}`);
+  } catch (err) {
+    if (err.code === "EROFS" || err.code === "EACCES") {
+      console.log(
+        `⚠️  Skipped ${opsEnvLocalPath} (read-only mount, likely Codespaces-injected secrets)`
+      );
+      console.log(`   Using existing ops/env/.env.local with injected secrets.`);
+    } else {
+      throw err;
+    }
+  }
+
+  // Write ops/env/.env.ports
+  fs.writeFileSync(opsEnvPortsPath, envPortsContent, "utf8");
+  console.log(`✓ Wrote ${opsEnvPortsPath}`);
+
+  // Derived env artifacts for legacy tooling (do not edit by hand)
+  const derivedEnvPortsContent = generateDeployEnvPorts(mode, ports);
+  fs.writeFileSync(legacyEnvPortsPath, envPortsContent, "utf8");
+  console.log(`✓ Wrote ${legacyEnvPortsPath} (legacy)`);
+  if (fs.existsSync(path.dirname(legacyDeployEnvPortsPath))) {
+    fs.writeFileSync(legacyDeployEnvPortsPath, derivedEnvPortsContent, "utf8");
+    console.log(`✓ Wrote ${legacyDeployEnvPortsPath} (legacy)`);
+  }
+  if (fs.existsSync(path.dirname(legacyScriptsEnvPortsPath))) {
+    fs.writeFileSync(legacyScriptsEnvPortsPath, envPortsContent, "utf8");
+    console.log(`✓ Wrote ${legacyScriptsEnvPortsPath} (legacy)`);
+  }
+  if (fs.existsSync(opsEnvLocalPath) && !fs.existsSync(legacyEnvLocalPath)) {
+    fs.copyFileSync(opsEnvLocalPath, legacyEnvLocalPath);
+    console.log(`✓ Wrote ${legacyEnvLocalPath} (legacy)`);
+  }
+
+  console.log(`
+Environment configured for mode: ${mode}
+
+URLs configured:
+  Frontend: http://localhost:${ports.frontend.port}
+  Backend:  ${mode === "local" ? `http://localhost:${ports.backend.port}` : "/api (via Caddy)"}
+  Supabase: http://localhost:${ports.supabase.apiPort}
+
+Next steps:
+  pnpm run dx --mode ${mode}
+`);
+}
+
+/**
+ * Main CLI
+ */
+function main() {
+  const args = process.argv.slice(2);
+
+  // Parse arguments
+  const validateOnly = args.includes("--validate");
+  const dryRun = args.includes("--dry-run");
+  const force = args.includes("--force");
+
+  let mode;
+  try {
+    mode = resolveMode(args);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+
+  console.log(`DX Environment Compiler`);
+  console.log(`Mode: ${mode}`);
+  console.log("");
+
+  if (validateOnly) {
+    const validation = validateEnvLocal(mode);
+
+    if (validation.warnings.length > 0) {
+      console.log("⚠️  Warnings:");
+      validation.warnings.forEach((w) => console.log(`   - ${w}`));
+      console.log("");
+    }
+
+    if (validation.valid) {
+      console.log(`✓ ops/env/.env.local is valid for mode: ${mode}`);
+      process.exit(0);
+    } else {
+      console.log("❌ Validation failed:");
+      validation.errors.forEach((e) => console.log(`   - ${e}`));
+      console.log("");
+      console.log(`Fix: pnpm run dx:env --mode ${mode} --force`);
+      process.exit(1);
+    }
+  }
+
+  writeEnvFiles(mode, { dryRun, force });
+}
+
+// Export for use by other scripts
+export {
+  generateEnvLocal,
+  generateEnvPorts,
+  validateEnvLocal,
+  writeEnvFiles,
+  getUrlConfig,
+  LOCAL_SUPABASE_ANON_KEY,
+  LOCAL_SUPABASE_SERVICE_ROLE_KEY,
+};
+
+// Run if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}

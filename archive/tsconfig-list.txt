@@ -1,0 +1,2 @@
+// Archived: tsconfig-list.txt
+// Original file moved for safe-keeping. Restore if needed.

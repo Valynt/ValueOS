@@ -1,0 +1,286 @@
+_format_version: "3.0"
+_transform: true
+
+###############################################################################
+# Kong Declarative Config for ValueOS Development Environment
+# Routes Supabase services and agent endpoints through the Kong gateway
+###############################################################################
+
+services:
+  # =============================================================================
+  # SUPABASE SERVICES
+  # =============================================================================
+  
+  # Auth Service (GoTrue)
+  - name: auth-service
+    url: http://auth:9999
+    routes:
+      - name: auth-route
+        paths:
+          - /auth/v1
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+            - x-supabase-api-version
+          credentials: true
+          max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+
+  # REST Service (PostgREST)
+  - name: rest-service
+    url: http://rest:3000
+    routes:
+      - name: rest-route
+        paths:
+          - /rest/v1
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+            - Prefer
+            - Range
+            - accept-profile
+          credentials: true
+          max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+
+  # Realtime Service
+  - name: realtime-service
+    url: http://realtime:4000
+    routes:
+      - name: realtime-route
+        paths:
+          - /realtime/v1
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+          credentials: true
+          max_age: 3600
+
+  # Storage Service
+  - name: storage-service
+    url: http://storage:5000
+    routes:
+      - name: storage-route
+        paths:
+          - /storage/v1
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+            - upload-length
+            - upload-offset
+            - tus-resumable
+            - upload-metadata
+          credentials: true
+          max_age: 3600
+      - name: rate-limiting
+        config:
+          minute: 50
+          policy: local
+
+  # =============================================================================
+  # AGENT FABRIC SERVICES
+  # =============================================================================
+
+  # Opportunity Agent
+  - name: opportunity-agent
+    url: http://opportunity-agent:8081
+    routes:
+      - name: opportunity-agent-route
+        paths:
+          - /agents/v1/opportunity
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Target Agent
+  - name: target-agent
+    url: http://target-agent:8082
+    routes:
+      - name: target-agent-route
+        paths:
+          - /agents/v1/target
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Realization Agent
+  - name: realization-agent
+    url: http://realization-agent:8083
+    routes:
+      - name: realization-agent-route
+        paths:
+          - /agents/v1/realization
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+  # Expansion Agent
+  - name: expansion-agent
+    url: http://expansion-agent:8084
+    routes:
+      - name: expansion-agent-route
+        paths:
+          - /agents/v1/expansion
+        strip_path: true
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - OPTIONS
+          headers:
+            - Accept
+            - Authorization
+            - Content-Type
+            - apikey
+          credentials: true
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 10
+
+# =============================================================================
+# GLOBAL PLUGINS
+# =============================================================================
+plugins:
+  - name: request-id
+    config:
+      header_name: X-Request-ID
+      echo_downstream: true
+  
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-ID
+      echo_downstream: true

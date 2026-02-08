@@ -1,0 +1,71 @@
+# Stage 1: Builder
+# Use a specific Node.js version as a base image, pinned for reproducibility.
+FROM node:20.19.0-alpine AS builder
+
+# Security: Update packages
+RUN apk upgrade --no-cache
+
+# Set the working directory in the container.
+WORKDIR /app
+
+# Install pnpm, the package manager used by the project.
+RUN npm install -g pnpm
+
+# Copy package management files to leverage Docker layer caching.
+# This ensures that dependencies are only re-fetched when these files change.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+
+# Fetch all dependencies. This is faster than `pnpm install` and is ideal for CI/CD environments.
+RUN pnpm fetch
+
+# Copy the rest of the application source code.
+COPY . .
+
+# Build the application. The `--filter=brain` flag targets the 'brain' workspace.
+RUN pnpm --filter=brain build
+
+# Prune development dependencies to keep only production dependencies.
+RUN pnpm prune --prod
+
+
+# Stage 2: Runner
+# Use a minimal Node.js alpine image for the final stage.
+FROM node:20.19.0-alpine AS runner
+
+LABEL org.opencontainers.image.title="ValueOS Production" \
+      org.opencontainers.image.description="CI-built production image for ValueOS" \
+      org.opencontainers.image.vendor="Valynt" \
+      dev.security.hardened="true"
+
+# Security: Update packages and install dumb-init
+RUN apk upgrade --no-cache && apk add --no-cache dumb-init
+
+# Set the working directory.
+WORKDIR /app
+
+# Set the environment to production.
+ENV NODE_ENV=production
+
+# Create a non-root user 'node' for security purposes.
+# The user is created with a home directory and no shell access.
+# Files will be owned by this user.
+RUN addgroup -S app && adduser -S -G app app && \
+    chown -R app:app /app
+
+# Switch to the non-root user.
+USER app
+
+# Copy compiled code and production dependencies from the builder stage.
+COPY --from=builder --chown=app:app /app/apps/brain/dist ./dist
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/package.json ./
+
+EXPOSE 3001
+
+# Healthcheck to monitor the application's health.
+# It sends a request to the /health endpoint every 30 seconds.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --spider -q http://localhost:3001/health || exit 1
+
+# Command to run the application.
+CMD ["dumb-init", "node", "dist/main.js"]

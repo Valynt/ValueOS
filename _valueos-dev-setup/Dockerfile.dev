@@ -1,0 +1,9 @@
+FROM node:20.19.0-alpine
+
+# Tooling you commonly need in monorepos
+RUN apk add --no-cache bash git openssh-client
+
+# Avoid Corepack signature issues; install pnpm directly
+RUN corepack disable || true && npm i -g pnpm@9.15.0
+
+WORKDIR /workspaces/ValueOS

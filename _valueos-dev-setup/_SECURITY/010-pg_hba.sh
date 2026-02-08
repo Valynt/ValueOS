@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cat > "$PGDATA/pg_hba.conf" <<'EOF'
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            trust
+host    all             all             ::1/128                 trust
+host    all             all             172.18.0.0/16           trust
+host    all             all             0.0.0.0/0               md5
+EOF
