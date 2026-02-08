@@ -14,7 +14,7 @@ alerting:
         - targets:
           # - alertmanager:9093
 
-# Load alert rules
+# Load rules once and periodically evaluate them
 rule_files:
   - "alerts/*.yml"
 
