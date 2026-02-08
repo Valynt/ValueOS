@@ -36,7 +36,7 @@
   // Lifecycle scripts for automation
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
-  "postCreateCommand": "bash scripts/dev/setup.sh > setup.log 2>&1",
+  "postCreateCommand": "bash scripts/dev/setup.sh > /tmp/setup.log 2>&1",
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   // Port forwarding with labels

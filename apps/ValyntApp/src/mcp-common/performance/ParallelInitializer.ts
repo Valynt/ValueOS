@@ -187,7 +187,7 @@ class TaskQueue {
         if (!this.dependencies.has(dep)) {
           this.dependencies.set(dep, new Set());
         }
-        this.dependencies.get(dep)!.add(task.id);
+        this.dependencies.get(dep)?.add(task.id);
       }
     }
   }

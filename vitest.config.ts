@@ -6,6 +6,8 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import CostAwareReporter from "./packages/test-utils/CostAwareReporter";
+
 export default defineConfig({
   plugins: [react()],
   test: {
@@ -28,6 +30,7 @@ export default defineConfig({
         statements: 75,
       },
     },
+    reporters: ["default", CostAwareReporter],
   },
   resolve: {
     alias: {

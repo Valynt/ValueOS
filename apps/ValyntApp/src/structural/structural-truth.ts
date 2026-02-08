@@ -96,7 +96,7 @@ export class StructuralTruth {
       if (!this.edgeMap.has(edge.sourceId)) {
         this.edgeMap.set(edge.sourceId, []);
       }
-      this.edgeMap.get(edge.sourceId)!.push(edge);
+          this.edgeMap.get(edge.sourceId)?.push(edge);
     });
 
     // Build formula registry

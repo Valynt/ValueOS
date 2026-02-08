@@ -88,6 +88,7 @@ services:
       postgres
       -c log_min_messages=warning
       -c wal_level=logical
+      -c hba_file=/docker-entrypoint-initdb.d/pg_hba.conf
     restart: unless-stopped
     ports:
       - "${POSTGRES_HOST_PORT:-54322}:5432"

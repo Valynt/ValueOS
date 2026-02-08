@@ -56,17 +56,21 @@ export function SDUIRenderer({ component, onAction }: SDUIRendererProps) {
         </Card>
       );
 
-    case "grid":
+    case "grid": {
+      // Use Tailwind grid-cols-{n} for up to 12 columns, else fallback to inline style
+      const columns = Number(props.columns) || 2;
+      const gridColsClass = columns <= 12 ? `grid-cols-${columns}` : '';
       return (
         <div
-          className="grid gap-4"
-          style={{ gridTemplateColumns: `repeat(${props.columns || 2}, 1fr)` }}
+          className={`grid gap-4 ${gridColsClass}`}
+          {...(columns > 12 ? { style: { gridTemplateColumns: `repeat(${columns}, 1fr)` } } : {})}
         >
           {children?.map((child) => (
             <SDUIRenderer key={child.id} component={child} onAction={onAction} />
           ))}
         </div>
       );
+    }
 
     case "list":
       return (

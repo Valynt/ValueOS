@@ -1351,7 +1351,7 @@ Provide a JSON response with:
       if (!stageDependencies.has(transition.to_stage)) {
         stageDependencies.set(transition.to_stage, []);
       }
-      stageDependencies.get(transition.to_stage)!.push(transition.from_stage);
+      stageDependencies.get(transition.to_stage)?.push(transition.from_stage);
     }
 
     // Find stages that can be executed in parallel

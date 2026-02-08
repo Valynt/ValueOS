@@ -106,7 +106,7 @@ export function analyzeKnowledgeGain(
     if (!userPillarResults.has(key)) {
       userPillarResults.set(key, []);
     }
-    userPillarResults.get(key)!.push(result);
+    userPillarResults.get(key)?.push(result);
   });
 
   // Calculate knowledge gain for each user-pillar combination
@@ -183,7 +183,7 @@ export function analyzeKnowledgeGain(
     if (!pillarGroups.has(kg.pillarId)) {
       pillarGroups.set(kg.pillarId, []);
     }
-    pillarGroups.get(kg.pillarId)!.push(kg);
+    pillarGroups.get(kg.pillarId)?.push(kg);
   });
 
   const byPillar: PillarKnowledgeGain[] = Array.from(pillarGroups.entries()).map(([pillarId, gains]) => {
@@ -215,7 +215,7 @@ export function analyzeKnowledgeGain(
     if (!roleGroups.has(role)) {
       roleGroups.set(role, []);
     }
-    roleGroups.get(role)!.push(kg);
+    roleGroups.get(role)?.push(kg);
   });
 
   const byRole: RoleKnowledgeGain[] = Array.from(roleGroups.entries()).map(([role, gains]) => {

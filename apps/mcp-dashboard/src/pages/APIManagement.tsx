@@ -284,16 +284,14 @@ export default function APIManagement() {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
-                            className="h-2 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${Math.min(usagePercentage, 100)}%`,
-                              backgroundColor:
-                                usagePercentage >= 90
-                                  ? "#DC2626"
-                                  : usagePercentage >= 75
-                                    ? "#D97706"
-                                    : "#10B981",
-                            }}
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              usagePercentage >= 90
+                                ? "bg-red-600"
+                                : usagePercentage >= 75
+                                ? "bg-amber-600"
+                                : "bg-emerald-500"
+                            }`}
+                            style={{ width: `${Math.min(usagePercentage, 100)}%` }}
                           />
                         </div>
                         <p className="text-xs text-gray-500 mt-1">

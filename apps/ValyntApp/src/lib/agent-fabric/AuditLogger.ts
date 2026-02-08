@@ -204,7 +204,7 @@ class InMemoryAuditStorage implements IAuditStorage {
     if (query.timeRange) {
       filteredEvents = filteredEvents.filter(
         (event) =>
-          event.timestamp >= query.timeRange!.start && event.timestamp <= query.timeRange!.end
+          event.timestamp >= query.timeRange?.start && event.timestamp <= query.timeRange?.end
       );
     }
 
@@ -250,7 +250,7 @@ class InMemoryAuditStorage implements IAuditStorage {
       if (query.timeRange) {
         events = events.filter(
           (event) =>
-            event.timestamp >= query.timeRange!.start && event.timestamp <= query.timeRange!.end
+            event.timestamp >= query.timeRange?.start && event.timestamp <= query.timeRange?.end
         );
       }
     }

@@ -65,8 +65,8 @@ function findRepoContextCopies(content: string) {
 
 const config = JSON.parse(fs.readFileSync(path.join(repoRoot, "config", "ports.json"), "utf8"));
 const allowedPorts = new Set(
-  Object.values(config).flatMap((o: any) =>
-    Object.values(o).filter((v: any) => Number.isInteger(v))
+  Object.values(config).flatMap((o: Record<string, unknown>) =>
+    Object.values(o).filter((v: unknown) => Number.isInteger(v))
   )
 );
 

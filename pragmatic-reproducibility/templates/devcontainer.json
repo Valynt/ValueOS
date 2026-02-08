@@ -36,7 +36,7 @@
   "initializeCommand": "bash .devcontainer/scripts/pre-build.sh 2>/dev/null || true",
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "updateContentCommand": "bash .devcontainer/scripts/update-content.sh",
-  "postCreateCommand": "bash scripts/dev/setup.sh > setup.log 2>&1",
+  "postCreateCommand": "bash scripts/dev/setup.sh > /tmp/setup.log 2>&1",
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
 
   "forwardPorts": [5173, 3001, 5432, 6379, 54321, 54323],

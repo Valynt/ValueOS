@@ -1,17 +1,17 @@
 /**
  * Phase 3.5 Integration Demo
- * 
+ *
  * Demonstrates the complete data flow from Ground Truth Engine → Templates
  * Shows how the adapter bridges Phase 3 and Phase 4
  */
 
-import { IntegratedMCPServer } from '../../mcp-ground-truth/core/IntegratedMCPServer';
-import { adaptBusinessCaseToTemplate, selectTemplateByContext, IntegrationManager } from '../BusinessCaseAdapter';
-import { BusinessCaseResult } from '../../causal/business-case-generator-enhanced';
+import { IntegratedMCPServer } from '@valueos/mcp-ground-truth';
+import { adaptBusinessCaseToTemplate, selectTemplateByContext, IntegrationManager } from '@adapters/BusinessCaseAdapter';
+import { BusinessCaseResult } from '@valueos/business-case';
 
 /**
  * COMPLETE INTEGRATION WORKFLOW
- * 
+ *
  * This demonstrates the 3-Point Integration Strategy:
  * 1. Data Pipeline (The "Fuel")
  * 2. Intelligent Template Selection (The "Brain")
@@ -22,14 +22,14 @@ export async function demonstratePhase3_5Integration() {
 
   // STEP 1: Generate Business Case using Phase 3 Engine
   console.log('1. Generating Business Case with Ground Truth Engine...');
-  
+
   const server = new IntegratedMCPServer({
     edgar: { userAgent: 'Demo/1.0', rateLimit: 10 },
     marketData: { provider: 'alphavantage', apiKey: 'demo-key' },
     industryBenchmark: { enableStaticData: true },
     auditTrail: { enabled: true, maxEntries: 1000 }
   });
-  
+
   await server.initialize();
 
   const businessCaseResult = await server.executeTool('generate_business_case', {
@@ -51,17 +51,17 @@ export async function demonstratePhase3_5Integration() {
   });
 
   const businessCase: BusinessCaseResult = JSON.parse(businessCaseResult.content[0].text);
-  
+
   console.log(`   ✓ Generated business case with ${businessCase.auditTrail.length} audit steps`);
   console.log(`   ✓ ROI: ${(businessCase.summary.roi * 100).toFixed(1)}%`);
   console.log(`   ✓ NPV: $${businessCase.summary.netPresentValue.toLocaleString()}\n`);
 
   // STEP 2: Apply Phase 3.5 Adapter (Data Pipeline)
   console.log('2. Running Phase 3.5 Adapter (Data Pipeline)...');
-  
+
   const adapter = new IntegrationManager();
   const integrationResult = await adapter.processBusinessCase(businessCase);
-  
+
   console.log(`   ✓ Template Selected: ${integrationResult.templateName}`);
   console.log(`   ✓ Metrics Mapped: ${integrationResult.templateData.metrics.length} KPIs`);
   console.log(`   ✓ Financials Extracted: ${Object.keys(integrationResult.templateData.financials).length} fields`);
@@ -70,20 +70,20 @@ export async function demonstratePhase3_5Integration() {
 
   // STEP 3: Show Data Transformation (The "Fuel")
   console.log('3. Data Pipeline Results (The "Fuel"):\n');
-  
+
   // Structural Truth → Metrics
   console.log('   📊 Structural Truth → Metrics:');
   integrationResult.templateData.metrics.slice(0, 3).forEach(m => {
     console.log(`      ${m.name}: ${m.baseline} → ${m.value} (${m.changePercent > 0 ? '+' : ''}${m.changePercent.toFixed(1)}%)`);
   });
-  
+
   // Business Case → Financials
   console.log('\n   💰 Business Case → Financials:');
   const f = integrationResult.templateData.financials;
   console.log(`      ROI: ${(f.roi * 100).toFixed(1)}%`);
   console.log(`      NPV: $${f.netPresentValue.toLocaleString()}`);
   console.log(`      Payback: ${f.paybackPeriod.toFixed(0)} days`);
-  
+
   // Causal Truth → Outcomes
   console.log('\n   ⚡ Causal Truth → Outcomes:');
   integrationResult.templateData.outcomes.slice(0, 2).forEach(o => {
@@ -92,14 +92,14 @@ export async function demonstratePhase3_5Integration() {
 
   // STEP 4: Intelligent Template Selection (The "Brain")
   console.log('\n4. Intelligent Template Selection (The "Brain"):\n');
-  
+
   const context = integrationResult.templateData.context;
   console.log(`   Persona: ${context.persona}`);
   console.log(`   Industry: ${context.industry}`);
   console.log(`   Risk Level: ${context.riskLevel}`);
   console.log(`   Confidence: ${(context.confidenceScore * 100).toFixed(0)}%`);
   console.log(`   → Selected: ${integrationResult.templateName}`);
-  
+
   // Show why this template was chosen
   if (context.persona === 'cfo') {
     console.log('   → Reasoning: CFO persona prioritizes cash flow and risk → Trinity Dashboard');
@@ -107,7 +107,7 @@ export async function demonstratePhase3_5Integration() {
 
   // STEP 5: Trust Badges (The "Trust")
   console.log('\n5. Visualizing the Truth (The "Trust"):\n');
-  
+
   const trustBadges = integrationResult.trustBadges.filter(tb => tb.badge !== null).slice(0, 3);
   trustBadges.forEach(({ metric, badge }) => {
     if (badge) {
@@ -143,7 +143,7 @@ export async function demonstratePhase3_5Integration() {
 
 /**
  * SCENARIO: Persona-Driven Template Switching
- * 
+ *
  * Shows how the Reasoning Engine drives template selection
  */
 export async function demonstratePersonaSwitching() {
@@ -155,7 +155,7 @@ export async function demonstratePersonaSwitching() {
     industryBenchmark: { enableStaticData: true },
     auditTrail: { enabled: true }
   });
-  
+
   await server.initialize();
 
   // Generate business case
@@ -177,7 +177,7 @@ export async function demonstratePersonaSwitching() {
 
   // Simulate persona switch
   const personas = ['cfo', 'cto', 'vp_sales', 'vp_product'];
-  
+
   for (const persona of personas) {
     const newTemplate = await adapter.switchTemplate(persona, integration.templateData);
     console.log(`   ${persona.toUpperCase()}: ${newTemplate}`);
@@ -188,7 +188,7 @@ export async function demonstratePersonaSwitching() {
 
 /**
  * SCENARIO: Trust Overlay Injection
- * 
+ *
  * Shows how to add cryptographic proof to any template
  */
 export async function demonstrateTrustOverlay() {
@@ -200,7 +200,7 @@ export async function demonstrateTrustOverlay() {
     industryBenchmark: { enableStaticData: true },
     auditTrail: { enabled: true }
   });
-  
+
   await server.initialize();
 
   const result = await server.executeTool('generate_business_case', {
@@ -247,7 +247,7 @@ export async function runPhase3_5Demo() {
     await demonstratePhase3_5Integration();
     await demonstratePersonaSwitching();
     await demonstrateTrustOverlay();
-    
+
     console.log('\n' + '='.repeat(80));
     console.log('✅ ALL DEMOS COMPLETE');
     console.log('='.repeat(80));
@@ -256,7 +256,7 @@ export async function runPhase3_5Demo() {
     console.log('2. Intelligent Selection: Reasoning Engine picks the right template');
     console.log('3. Trust Layer: Every number has cryptographic proof');
     console.log('4. Result: Beautiful templates showing mathematically proven data');
-    
+
   } catch (error) {
     console.error('Demo failed:', error);
   }

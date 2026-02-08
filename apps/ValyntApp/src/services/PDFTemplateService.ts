@@ -632,7 +632,7 @@ export class PDFTemplateService {
 
     // Apply branding
     if (brandingProfile) {
-      content.metadata!.branding = {
+      content.metadata.branding = {
         logo: brandingProfile.logoUrl,
         primaryColor: brandingProfile.primaryColor,
         secondaryColor: brandingProfile.secondaryColor,

@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
-import { useWebSocket } from "../../contexts/WebSocketContext";
+import { useWebSocket } from "../../contexts";
 import {
   FinancialLineChart,
   MetricCard,

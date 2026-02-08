@@ -1,6 +1,6 @@
 /**
  * ArtifactRenderer
- * 
+ *
  * Renders artifacts based on their type and content kind.
  * Supports markdown, JSON, tables, and charts.
  */
@@ -9,13 +9,13 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
-import type { 
-  Artifact, 
-  ArtifactContent, 
-  MarkdownContent, 
-  JsonContent, 
-  TableContent, 
-  ChartContent 
+import type {
+  Artifact,
+  ArtifactContent,
+  MarkdownContent,
+  JsonContent,
+  TableContent,
+  ChartContent
 } from '../agent/types';
 
 interface ArtifactRendererProps {
@@ -29,8 +29,8 @@ interface ArtifactRendererProps {
 /**
  * Main artifact renderer - switches on content kind
  */
-export function ArtifactRenderer({ 
-  artifact, 
+export function ArtifactRenderer({
+  artifact,
   className,
   onApprove,
   onReject,
@@ -54,7 +54,7 @@ export function ArtifactRenderer({
             </span>
           </div>
         </div>
-        
+
         {status === 'proposed' && (
           <div className="flex items-center gap-2">
             {onEdit && (
@@ -117,7 +117,7 @@ function ContentRenderer({ content }: { content: ArtifactContent }) {
 function MarkdownRenderer({ content }: { content: MarkdownContent }) {
   return (
     <div className="prose prose-slate max-w-none bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
-      <ReactMarkdown 
+      <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
@@ -234,7 +234,7 @@ function JsonRenderer({ content }: { content: JsonContent }) {
               </div>
             ))}
           </div>
-          
+
           {'totalValue' in data && typeof data.totalValue === 'number' && (
             <div className="mt-4 pt-4 border-t border-slate-200 flex justify-between items-center">
               <span className="font-medium text-slate-700">Total Value ({String(data.timeHorizon)})</span>
@@ -266,7 +266,7 @@ function TableRenderer({ content }: { content: TableContent }) {
 
   const formatValue = (value: unknown, type: string, format?: string): string => {
     if (value === null || value === undefined) return '-';
-    
+
     switch (type) {
       case 'currency':
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value as number);
@@ -335,7 +335,10 @@ function ChartRenderer({ content }: { content: ChartContent }) {
             </span>
             <div
               className="w-16 bg-primary rounded-t-md transition-all duration-500"
-              style={{ height: `${(point.value / maxValue) * 180}px` }}
+              style={{ height: `calc(var(--chart-bar-max, 180px) * ${(point.value / maxValue)})` }}
+              aria-valuenow={point.value}
+              aria-valuemax={maxValue}
+              role="presentation"
             />
             <span className="text-sm text-slate-500">{point.label}</span>
           </div>
@@ -382,7 +385,7 @@ function ChartRenderer({ content }: { content: ChartContent }) {
  */
 function ArtifactTypeIcon({ type }: { type: Artifact['type'] }) {
   const iconClass = "w-5 h-5";
-  
+
   switch (type) {
     case 'value_model':
       return (

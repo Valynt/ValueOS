@@ -25,14 +25,42 @@ curl http://localhost:3001/health
 curl http://localhost:54321
 ```
 
-## Migration + seed commands
 
+## Migration & RLS Policy Enforcement
+
+### Migration commands
 ```bash
-pnpm run db:reset
-pnpm run seed:demo
+pnpm run db:sync           # Applies all canonical migrations (infra/postgres/migrations)
+pnpm run db:types          # Regenerate TypeScript types from DB schema
 ```
 
-## Common failures + fixes
+### RLS Policy Tests (CI Gate)
+RLS (Row Level Security) policies are enforced in CI. All database queries must include `organization_id` or `tenant_id` for multi-tenancy. CI will fail if any RLS test fails:
+```bash
+pnpm run test:rls          # Runs supabase/tests/database/rls_policies.test.sql and multi_tenant_rls.test.sql
+```
+See also: QUALITY_CONTRACT.md for required CI gates.
 
-See the single source of truth:
+## Docker & DevContainer Notes
+
+- node_modules is mounted as a named volume in devcontainer: persists across rebuilds, avoids host masking issues.
+- All service URLs in devcontainer must use Docker DNS names (db, redis, kong, etc.), not localhost.
+- If you see missing dependencies, rebuild the container and check volume mounts.
+
+## Troubleshooting
+
+- **Migration failures:**
+	- Check DATABASE_URL and Docker service health
+	- Ensure all migration files are in infra/postgres/migrations
+	- Use `pnpm run db:sync -- --dry-run` to preview
+- **node_modules not persisting:**
+	- Confirm devcontainer.json mounts node_modules as a named volume
+	- Rebuild the container if issues persist
+- **RLS test failures:**
+	- Ensure all queries include tenant/organization filters
+	- Review supabase/tests/database/rls_policies.test.sql for coverage
+
+See also:
 - [`docs/getting-started/troubleshooting.md`](getting-started/troubleshooting.md)
+- [`docs/dx-architecture.md`](dx-architecture.md)
+- [`QUALITY_CONTRACT.md`](../QUALITY_CONTRACT.md)

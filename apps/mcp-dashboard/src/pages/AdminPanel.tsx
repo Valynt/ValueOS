@@ -293,7 +293,7 @@ export default function AdminPanel() {
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-green-500 h-2 rounded-full"
-                style={{ width: `${metrics.memoryUsage}%` }}
+                style={{ width: `${metrics.memoryUsage}%` }} // TODO: Replace with Tailwind width utility if possible
               />
             </div>
           </div>
@@ -313,7 +313,7 @@ export default function AdminPanel() {
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-orange-500 h-2 rounded-full"
-                style={{ width: `${metrics.cpuUsage}%` }}
+                style={{ width: `${metrics.cpuUsage}%` }} // TODO: Replace with Tailwind width utility if possible
               />
             </div>
           </div>

@@ -1,0 +1,6 @@
+export const TIME = {
+  MS_PER_SECOND: 1000,
+  MS_PER_MINUTE: 60000,
+  MS_PER_HOUR: 3600000,
+  QUARTER_HOUR_MS: 900000,
+} as const;

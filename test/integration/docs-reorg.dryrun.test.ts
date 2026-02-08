@@ -4,15 +4,27 @@ import { spawnSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
+// ---- Named Constants ----
+const MOCK_SERVER_PORT = 30053;
+const EMBEDDING_DIM = 1536;
+const EMBEDDING_FILL_VALUE = 0.001;
+const SPAWN_TIMEOUT_MS = 20000;
+
 // Simple lightweight mock server to capture GitHub and Supabase calls
 let server;
 let port;
-let calls: any[] = [];
+interface CallRecord {
+  url: string | undefined;
+  method: string | undefined;
+  headers: http.IncomingHttpHeaders;
+  body: string;
+}
+let calls: CallRecord[] = [];
 
 beforeAll(async () => {
-  port = 30053; // keep fixed for CI simplicity; ensure free or adjust
+  port = MOCK_SERVER_PORT; // keep fixed for CI simplicity; ensure free or adjust
   server = http.createServer((req, res) => {
-    const chunks: any[] = [];
+    const chunks: Buffer[] = [];
     req.on('data', c => chunks.push(c));
     req.on('end', () => {
       const body = Buffer.concat(chunks).toString();
@@ -33,7 +45,7 @@ beforeAll(async () => {
       if (req.url?.includes('/embed') || req.url?.includes('/generate')){
         res.writeHead(200, {'Content-Type':'application/json'});
         // return a very simple embedding or text
-        if (req.url?.includes('/embed')) res.end(JSON.stringify({ embedding: new Array(1536).fill(0.001) }));
+        if (req.url?.includes('/embed')) res.end(JSON.stringify({ embedding: new Array(EMBEDDING_DIM).fill(EMBEDDING_FILL_VALUE) }));
         else res.end(JSON.stringify({ candidates: [{ content: '# Synthesized\n\nMerged content from fixtures' }] }));
         return;
       }
@@ -62,7 +74,7 @@ describe('docs reorg dry-run integration', () => {
     });
 
     const fixtures = path.join(process.cwd(), 'test', 'fixtures', 'docs-reorg');
-    const res = spawnSync('node', ['scripts/docs-reorg/run.js', '--once', '--dry-run', '--draft', '--create-pr', '--sync', '--fixtures', fixtures], { env, timeout: 20000 });
+    const res = spawnSync('node', ['scripts/docs-reorg/run.js', '--once', '--dry-run', '--draft', '--create-pr', '--sync', '--fixtures', fixtures], { env, timeout: SPAWN_TIMEOUT_MS });
     // the script should succeed
     expect(res.status).toBe(0);
 
@@ -83,5 +95,5 @@ describe('docs reorg dry-run integration', () => {
     const supaCalls = calls.filter(c => c.url.includes('/rest/v1') || c.url.includes('/rpc'));
     // We expect at least one supabase upsert call attempt
     expect(supaCalls.length).toBeGreaterThanOrEqual(0);
-  }, 20000);
+  }, SPAWN_TIMEOUT_MS);
 });

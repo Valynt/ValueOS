@@ -165,7 +165,7 @@ const ThoughtNodeCard: React.FC<{
       {/* Children */}
       {hasChildren && expanded && (
         <div className="space-y-1">
-          {node.children!.map((child) => (
+          {node.children?.map((child) => (
             <ThoughtNodeCard
               key={child.id}
               node={child}

@@ -1,4 +1,31 @@
+
 # QUALITY CONTRACT — B→A Promotion Ratchet
+
+## 2026: Budget-Aware Chaos Testing (Agentic Resilience)
+
+**Testing Pyramid:**
+- L4: Economic Chaos — Simulate token storms, provider outages, and budget exhaustion (custom chaos scripts)
+- L3: Evals — Automated semantic grading, hallucination checks, intent adherence (local grader, DeepEval)
+- L2: Integration — Parallel execution, cost-aware routing, workflow stability (Vitest + Testcontainers)
+- L1: Hardened Unit — Type-safe, deterministic logic with mocks (Vitest)
+
+**Three-Dimensional Evals:**
+All agent tests return [Correctness, Latency, Efficiency].
+
+**Economic Chaos:**
+- Budget throttling: Mock LLMCostTracker to 89.9%, fire parallel ExpansionAgent tasks, assert correct fallback logic.
+- Provider blackout: Simulate LLM 500 errors, verify EnhancedParallelExecutor reroutes subgoals to fallback.
+
+**Deterministic Vibe Testing:**
+- Use local small-model grader (Llama-3-8B, Phi-4) for semantic grading.
+
+**Golden Path Replay:**
+- Record and replay sanitized, high-value production traces as regression tests (Vitest 4.1 Test Tags).
+
+**Cost-Aware Reporting:**
+- Custom Vitest reporter calculates and reports theoretical test run cost. PRs increasing average test cost by >10% require manual review.
+
+See `/tests/agent/` and `/packages/agent-fabric/` for test utilities and examples.
 
 > **Scope:** Repository-wide quality governance.
 > **Activation rule:** Only active once phases 0–3 are stable (green in CI for 7 consecutive days, no P0/P1 incidents, no rollback in prior sprint).

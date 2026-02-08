@@ -109,21 +109,21 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
     };
     handleChange("formula", {
       ...formData.formula!,
-      variables: [...formData.formula!.variables, newVar],
+      variables: [...(formData.formula?.variables ?? []), newVar],
     });
   };
 
   const updateVariable = (id: string, updates: Partial<FormulaVariable>) => {
     handleChange("formula", {
       ...formData.formula!,
-      variables: formData.formula!.variables.map((v) => (v.id === id ? { ...v, ...updates } : v)),
+      variables: formData.formula?.variables?.map((v) => (v.id === id ? { ...v, ...updates } : v)) ?? [],
     });
   };
 
   const removeVariable = (id: string) => {
     handleChange("formula", {
       ...formData.formula!,
-      variables: formData.formula!.variables.filter((v) => v.id !== id),
+      variables: formData.formula?.variables?.filter((v) => v.id !== id) ?? [],
     });
   };
 

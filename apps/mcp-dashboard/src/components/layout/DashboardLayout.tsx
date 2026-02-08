@@ -17,8 +17,7 @@ import {
 import React, { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
-import { useAuth } from "../../contexts/AuthContext";
-import { useWebSocket } from "../../contexts/WebSocketContext";
+import { useAuth, useWebSocket } from "../../contexts";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
@@ -51,6 +50,12 @@ export default function DashboardLayout() {
           <div
             className="fixed inset-0 bg-gray-600 bg-opacity-75"
             onClick={() => setSidebarOpen(false)}
+            onKeyDown={e => {
+              if (e.key === "Enter" || e.key === " ") setSidebarOpen(false);
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Close sidebar overlay"
           />
         </div>
       )}

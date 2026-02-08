@@ -52,12 +52,8 @@ export const FinancialLineChart: React.FC<FinancialChartProps> = ({
           />
           <Tooltip
             formatter={(value: number) => [`$${value.toLocaleString()}`, "Value"]}
-            labelStyle={{ color: "#374151" }}
-            contentStyle={{
-              backgroundColor: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: "6px",
-            }}
+            // Use Tailwind classes for tooltip styling
+            wrapperClassName="text-gray-700 bg-white border border-gray-200 rounded-lg"
           />
           {showLegend && <Legend />}
           <Line

@@ -261,10 +261,10 @@ export default function AcademyQuiz() {
           </CardHeader>
           <CardContent className="space-y-6">
             <RadioGroup
-              value={selectedAnswers[currentQuestion!.id] || ""}
-              onValueChange={(value: string) => handleAnswerSelect(currentQuestion!.id, value)}
+              value={selectedAnswers[currentQuestion?.id ?? ""] || ""}
+              onValueChange={(value: string) => handleAnswerSelect(currentQuestion?.id ?? "", value)}
             >
-              {currentQuestion!.options.map((option, index) => (
+              {currentQuestion?.options?.map((option, index) => (
                 <div key={index} className="flex items-center space-x-2">
                   <RadioGroupItem value={option} id={`option-${index}`} />
                   <Label htmlFor={`option-${index}`} className="text-base">
@@ -286,7 +286,7 @@ export default function AcademyQuiz() {
               {currentQuestionIndex === questions.length - 1 ? (
                 <Button
                   onClick={handleSubmitQuiz}
-                  disabled={!selectedAnswers[currentQuestion!.id]}
+                  disabled={!selectedAnswers[currentQuestion?.id ?? ""]}
                 >
                   <BookCheck className="mr-2 h-4 w-4" />
                   Submit Quiz
@@ -294,7 +294,7 @@ export default function AcademyQuiz() {
               ) : (
                 <Button
                   onClick={handleNext}
-                  disabled={!selectedAnswers[currentQuestion!.id]}
+                  disabled={!selectedAnswers[currentQuestion?.id ?? ""]}
                 >
                   Next
                   <ArrowRight className="ml-2 h-4 w-4" />
