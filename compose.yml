@@ -31,9 +31,9 @@ services:
   app:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile.dev
+      dockerfile: .devcontainer/Dockerfile.optimized
       args:
-        NODE_VERSION: "20"
+        NODE_VERSION: "20.11.1"
     volumes:
       - .:/workspaces/ValueOS:cached
       - pnpm-store:/home/vscode/.local/share/pnpm

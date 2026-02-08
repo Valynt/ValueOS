@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from "react";
+import { ConfirmDialog, AlertDialog } from "@/components/ui";
 import { startRegistration } from "@simplewebauthn/browser";
 import { webAuthnService } from "../../services/WebAuthnService";
 import { logger } from "../../lib/logger";
@@ -224,21 +225,22 @@ export function WebAuthnCredentialList({
     loadCredentials();
   }, [userId]);
 
-  const handleDelete = async (credentialId: string) => {
-    if (
-      !confirm(
-        "Remove this security key? You will no longer be able to use it to sign in."
-      )
-    ) {
-      return;
-    }
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [alertError, setAlertError] = useState<string | null>(null);
+  const handleDelete = (credentialId: string) => {
+    setConfirmDeleteId(credentialId);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteId) return;
     try {
-      await webAuthnService.deleteCredential(userId, credentialId);
-      setCredentials(credentials.filter((c) => c.id !== credentialId));
+      await webAuthnService.deleteCredential(userId, confirmDeleteId);
+      setCredentials(credentials.filter((c) => c.id !== confirmDeleteId));
     } catch (error) {
       logger.error("Failed to delete credential", error);
-      alert("Failed to remove security key");
+      setAlertError("Failed to remove security key");
+    } finally {
+      setConfirmDeleteId(null);
     }
   };
 
@@ -247,52 +249,76 @@ export function WebAuthnCredentialList({
   }
 
   return (
-    <div className="webauthn-credential-list">
-      <h3>Registered Security Keys</h3>
+    <>
+      <div className="webauthn-credential-list">
+        <h3>Registered Security Keys</h3>
 
-      {credentials.length === 0 ? (
-        <div className="empty-state">
-          <p>No security keys registered yet.</p>
-          <button onClick={onAddKey} className="btn btn-primary">
-            Add Your First Security Key
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="credential-items">
-            {credentials.map((cred) => (
-              <div key={cred.id} className="credential-item">
-                <div className="credential-icon">
-                  {cred.device_type === "platform" ? "👆" : "🔑"}
-                </div>
-                <div className="credential-info">
-                  <strong>{cred.name}</strong>
-                  <span className="credential-meta">
-                    {cred.device_type === "platform" ? "Built-in" : "External"}{" "}
-                    • Added {new Date(cred.created_at).toLocaleDateString()}
-                    {cred.last_used_at && (
-                      <>
-                        {" "}
-                        • Last used{" "}
-                        {new Date(cred.last_used_at).toLocaleDateString()}
-                      </>
-                    )}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleDelete(cred.id)}
-                  className="btn btn-danger btn-sm"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+        {credentials.length === 0 ? (
+          <div className="empty-state">
+            <p>No security keys registered yet.</p>
+            <button onClick={onAddKey} className="btn btn-primary">
+              Add Your First Security Key
+            </button>
           </div>
-          <button onClick={onAddKey} className="btn btn-secondary mt-3">
-            Add Another Key
-          </button>
-        </>
+        ) : (
+          <>
+            <div className="credential-items">
+              {credentials.map((cred) => (
+                <div key={cred.id} className="credential-item">
+                  <div className="credential-icon">
+                    {cred.device_type === "platform" ? "👆" : "🔑"}
+                  </div>
+                  <div className="credential-info">
+                    <strong>{cred.name}</strong>
+                    <span className="credential-meta">
+                      {cred.device_type === "platform" ? "Built-in" : "External"}{" "}
+                      • Added {new Date(cred.created_at).toLocaleDateString()}
+                      {cred.last_used_at && (
+                        <>
+                          {" "}
+                          • Last used{" "}
+                          {new Date(cred.last_used_at).toLocaleDateString()}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(cred.id)}
+                    className="btn btn-danger btn-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button onClick={onAddKey} className="btn btn-secondary mt-3">
+              Add Another Key
+            </button>
+          </>
+        )}
+      </div>
+      {confirmDeleteId && (
+        <ConfirmDialog
+          open={!!confirmDeleteId}
+          onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+          title="Remove Security Key"
+          description="Remove this security key? You will no longer be able to use it to sign in."
+          confirmLabel="Remove"
+          cancelLabel="Cancel"
+          variant="destructive"
+          onConfirm={handleConfirmDelete}
+        />
       )}
-    </div>
+      {alertError && (
+        <AlertDialog
+          open={!!alertError}
+          onOpenChange={() => setAlertError(null)}
+          title="Error"
+          description={alertError}
+          actionLabel="OK"
+          variant="destructive"
+        />
+      )}
+    </>
   );
 }

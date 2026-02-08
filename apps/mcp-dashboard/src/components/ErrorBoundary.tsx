@@ -19,25 +19,27 @@ class ErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false, retryCount: 0 };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, retryCount: 0 };
+  static getDerivedStateFromError(_error: Error): State {
+    return { hasError: true, error: _error, retryCount: 0 };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(_error: Error, _errorInfo: ErrorInfo) {
     // Log error without exposing sensitive information
-    console.error("ErrorBoundary caught an error:", error.name);
+    console.error("ErrorBoundary caught an error:", _error.name);
 
     // Call custom error handler if provided
     if (this.props.onError) {
-      this.props.onError(error, errorInfo);
+      this.props.onError(_error, _errorInfo);
     }
 
     // Store error info for debugging
-    this.setState({ errorInfo });
+    this.setState({ errorInfo: _errorInfo });
   }
 
+  // Magic number replaced with constant
+  static readonly MAX_RETRIES = 3;
   handleRetry = () => {
-    if (this.state.retryCount < 3) {
+    if (this.state.retryCount < ErrorBoundary.MAX_RETRIES) {
       this.setState((prevState) => ({
         hasError: false,
         error: undefined,
@@ -89,7 +91,7 @@ class ErrorBoundary extends Component<Props, State> {
                 </p>
                 {this.state.retryCount > 0 && (
                   <p className="mt-1 text-xs text-gray-500">
-                    Retry attempt {this.state.retryCount} of 3
+                    Retry attempt {this.state.retryCount} of {ErrorBoundary.MAX_RETRIES}
                   </p>
                 )}
               </div>
@@ -98,9 +100,9 @@ class ErrorBoundary extends Component<Props, State> {
                   type="button"
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   onClick={this.handleRetry}
-                  disabled={this.state.retryCount >= 3}
+                  disabled={this.state.retryCount >= ErrorBoundary.MAX_RETRIES}
                 >
-                  {this.state.retryCount >= 3 ? "Max Retries Reached" : "Try Again"}
+                  {this.state.retryCount >= ErrorBoundary.MAX_RETRIES ? "Max Retries Reached" : "Try Again"}
                 </button>
                 <button
                   type="button"

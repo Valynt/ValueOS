@@ -83,5 +83,9 @@
   "codium.codeCompletion.enable": false,
   "npm.packageManager": "npm",
   "git.ignoreLimitWarning": true,
-  "remote.autoForwardPortsFallback": 0
+  "remote.autoForwardPortsFallback": 0,
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "snyk.advanced.autoSelectOrganization": true
 }

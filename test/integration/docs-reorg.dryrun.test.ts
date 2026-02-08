@@ -74,7 +74,7 @@ describe('docs reorg dry-run integration', () => {
     });
 
     const fixtures = path.join(process.cwd(), 'test', 'fixtures', 'docs-reorg');
-    const res = spawnSync('node', ['scripts/docs-reorg/run.js', '--once', '--dry-run', '--draft', '--create-pr', '--sync', '--fixtures', fixtures], { env, timeout: SPAWN_TIMEOUT_MS });
+    const res = spawnSync('node', ['scripts/docs-reorg/run.js', '--once', '--dry-run', '--draft', '--sync', '--fixtures', fixtures], { env, timeout: SPAWN_TIMEOUT_MS });
     // the script should succeed
     expect(res.status).toBe(0);
 

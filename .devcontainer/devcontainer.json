@@ -1,36 +1,26 @@
 {
   "name": "ValueOS Dev Container",
-  "dockerComposeFile": [
-    "../docker-compose.yml",
-    "compose.auth.stub.yml",
-    "docker-compose.subagents.yml"
-  ],
+  "dockerComposeFile": "docker-compose.devcontainer.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/ValueOS",
-  "remoteUser": "node",
-  "containerUser": "node",
+  "remoteUser": "app",
+  "containerUser": "app",
   "shutdownAction": "stopCompose",
 
-  "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers-extra/features/supabase-cli:1": {},
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "moby": true,
-      "installDockerBuildx": true
-    }
-  },
 
-  // Deterministic boot invariant: always run a single fail-fast entrypoint and persist setup logs.
+
+
   "postCreateCommand": "bash -euo pipefail -c 'bash scripts/dev/setup.sh && bash scripts/check-env.sh' > /tmp/setup.log 2>&1",
+  "postStartCommand": "bash scripts/dev/healthcheck-services.sh > /tmp/healthcheck.log 2>&1",
 
   "remoteEnv": {
     "PNPM_HOME": "/home/app/.local/share/pnpm",
     "PATH": "${containerEnv:PATH}:/home/app/.local/share/pnpm",
     "DOCKER_BUILDKIT": "1",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
-    // Ensure services use Docker DNS names
+
     "SUPABASE_URL": "http://kong:8000",
-    // CRITICAL: sslmode=disable required - container postgres has no TLS
+
     "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres?sslmode=disable",
     "REDIS_URL": "redis://redis:6379"
   },
@@ -43,11 +33,20 @@
         "git.telemetry.telemetryLevel": "off",
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "files.trimTrailingWhitespace": true
+        "files.trimTrailingWhitespace": true,
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "git.autofetch": true
       },
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
         "ms-azuretools.vscode-docker",
-        "msjsdiag.debugger-for-chrome"
+        "msjsdiag.debugger-for-chrome",
+        "eamodio.gitlens",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ]
+    }
+  }
+}

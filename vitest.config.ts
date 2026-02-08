@@ -18,6 +18,7 @@ export default defineConfig({
       "apps/**/*.{test,spec}.{js,ts,jsx,tsx}",
       "packages/**/*.{test,spec}.{js,ts,jsx,tsx}",
       "tests/**/*.{test,spec}.{js,ts,jsx,tsx}",
+      "test/**/*.{test,spec}.{js,ts,jsx,tsx}",
     ],
     coverage: {
       provider: "v8",

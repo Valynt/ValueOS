@@ -10,12 +10,12 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
-import { useWebSocket } from "../../contexts";
 import {
   FinancialLineChart,
   MetricCard,
   NotificationList,
 } from "../charts/FinancialCharts";
+import { useWebSocket } from "../index";
 
 interface DashboardStats {
   totalRequests: number;

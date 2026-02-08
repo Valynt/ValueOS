@@ -72,3 +72,4 @@ EXPOSE 3200
 
 # Note: Keep the container running so editors can attach; this is intentionally minimal
 CMD ["sleep", "infinity"]
+// DEPRECATED: Use Dockerfile.optimized only

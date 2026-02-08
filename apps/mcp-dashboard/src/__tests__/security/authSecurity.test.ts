@@ -5,10 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { csrfProtection } from "../../lib/csrfProtection";
-import { authRateLimiter } from "../../lib/rateLimiter";
-import { secureTokenStorage } from "../../lib/secureStorage";
-import { securityLogger } from "../../lib/securityLogger";
+import { csrfProtection, authRateLimiter, secureTokenStorage, securityLogger } from "../../lib";
 
 // Global type declarations for test environment
 declare global {
