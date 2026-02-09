@@ -8,4 +8,4 @@ export * from "./domain";
 export * from "./events";
 export * from "./referral";
 export * from "./result";
-export type { Database, Json } from "./database.generated";
+// export type { Database, Json } from "./database.generated";

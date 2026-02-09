@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     bash \
+    fdupes \
     && rm -rf /var/lib/apt/lists/*
 
 # Enable corepack + pnpm

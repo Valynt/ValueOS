@@ -23,6 +23,7 @@ RUN apt-get update && \
     lsb-release \
     sudo \
     python3-pip \
+    fdupes \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js (via nvm)

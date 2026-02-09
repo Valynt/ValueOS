@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { SettingsSection } from "../../components/Settings/SettingsSection";
+import { SettingsSection } from "../../components/settings";
 import { AlertCircle, Building2, Check, Loader2, Upload, X } from "lucide-react";
 import {
   applyBrandTheme,

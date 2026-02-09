@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { SettingsSection } from '../../components/settings';
 import { Check, Edit2, Lock, Plus, Shield, Trash2, Users, X } from 'lucide-react';
-import { OrganizationRole } from '../../types';
+
+interface OrganizationRole {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  isCustom: boolean;
+  permissions: string[];
+  userCount: number;
+  createdAt: string;
+}
 
 const MOCK_ROLES: OrganizationRole[] = [
   {

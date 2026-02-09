@@ -1,10 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { SettingsSection } from '../../components/settings';
 import {
   Ban, CheckCircle, ChevronLeft, ChevronRight, Clock, Download,
   Mail, MoreVertical, Search, UserPlus, XCircle
 } from 'lucide-react';
-import { OrganizationUser } from '../../types';
+
+interface OrganizationUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: string;
+  status: string;
+  department?: string;
+  joinedAt: string;
+}
 import { analyticsClient } from '../../lib/analyticsClient';
 import { useAuth } from '../../contexts/AuthContext';
 import { addCSRFHeader } from '../../security/CSRFProtection';

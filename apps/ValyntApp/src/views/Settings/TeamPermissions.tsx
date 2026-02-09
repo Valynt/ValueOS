@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { SettingsSection } from '../../components/settings';
 import { AlertCircle, Check, Crown, Info, Shield, User, Users, X } from 'lucide-react';
-import { TeamMemberRole } from '../../types';
+
+type TeamMemberRole = 'owner' | 'admin' | 'member' | 'viewer';
 
 interface Permission {
   id: string;
@@ -236,13 +237,12 @@ export const TeamPermissions: React.FC = () => {
                                 <button
                                   onClick={() => !isOwner && togglePermission(role.value, permission.id)}
                                   disabled={isOwner}
-                                  className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-all ${
-                                    isOwner
-                                      ? 'cursor-not-allowed bg-muted'
-                                      : hasPermission
+                                  className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-all ${isOwner
+                                    ? 'cursor-not-allowed bg-muted'
+                                    : hasPermission
                                       ? 'bg-green-100 hover:bg-green-200'
                                       : 'bg-muted hover:bg-muted/80'
-                                  }`}
+                                    }`}
                                   title={isOwner ? 'Owner permissions cannot be modified' : hasPermission ? 'Enabled' : 'Disabled'}
                                 >
                                   {hasPermission ? (

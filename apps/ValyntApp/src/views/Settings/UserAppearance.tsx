@@ -10,7 +10,7 @@
  */
 
 import React, { useMemo } from "react";
-import { SettingsSection } from "../../components/Settings/SettingsSection";
+import { SettingsSection } from "../../components/settings";
 import { useSettings, useSettingsGroup } from "../../lib/settingsRegistry";
 import {
   Calendar,
@@ -119,10 +119,9 @@ export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
                 onClick={() => updateSetting("user.theme", theme.value)}
                 className={`
                   flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all
-                  ${
-                    isSelected
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
+                  ${isSelected
+                    ? "border-blue-600 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300"
                   }
                 `}
               >
@@ -247,20 +246,18 @@ export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
               }
               className={`
                 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                ${
-                  values["user.accessibility.highContrast"]
-                    ? "bg-blue-600"
-                    : "bg-gray-200"
+                ${values["user.accessibility.highContrast"]
+                  ? "bg-blue-600"
+                  : "bg-gray-200"
                 }
               `}
             >
               <span
                 className={`
                   inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-                  ${
-                    values["user.accessibility.highContrast"]
-                      ? "translate-x-6"
-                      : "translate-x-1"
+                  ${values["user.accessibility.highContrast"]
+                    ? "translate-x-6"
+                    : "translate-x-1"
                   }
                 `}
               />
@@ -304,20 +301,18 @@ export const UserAppearance: React.FC<UserAppearanceProps> = ({ userId }) => {
               }
               className={`
                 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                ${
-                  values["user.accessibility.reducedMotion"]
-                    ? "bg-blue-600"
-                    : "bg-gray-200"
+                ${values["user.accessibility.reducedMotion"]
+                  ? "bg-blue-600"
+                  : "bg-gray-200"
                 }
               `}
             >
               <span
                 className={`
                   inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-                  ${
-                    values["user.accessibility.reducedMotion"]
-                      ? "translate-x-6"
-                      : "translate-x-1"
+                  ${values["user.accessibility.reducedMotion"]
+                    ? "translate-x-6"
+                    : "translate-x-1"
                   }
                 `}
               />
