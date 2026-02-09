@@ -1,0 +1,44 @@
+# Gitleaks configuration for ValueOS
+# https://github.com/gitleaks/gitleaks
+
+title = "ValueOS Gitleaks Config"
+
+[extend]
+useDefault = true
+
+# Custom rules for project-specific secret patterns
+[[rules]]
+id = "stripe-secret-key"
+description = "Stripe secret key"
+regex = '''sk_live_[0-9a-zA-Z]{24,}'''
+tags = ["stripe", "secret"]
+
+[[rules]]
+id = "stripe-webhook-secret"
+description = "Stripe webhook secret"
+regex = '''whsec_[0-9a-zA-Z]{24,}'''
+tags = ["stripe", "secret"]
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key"
+regex = '''sk-[0-9a-zA-Z]{20,}'''
+tags = ["openai", "secret"]
+
+[[rules]]
+id = "together-api-key"
+description = "Together AI API key"
+regex = '''together_[0-9a-zA-Z]{20,}'''
+tags = ["together", "secret"]
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+  '''.env\.example$''',
+  '''.env\.ports\.example$''',
+  '''.env\.ports$''',
+  '''tests/fixtures/''',
+  '''tests/test/mocks/''',
+  '''\.gitleaks\.toml$''',
+  '''pnpm-lock\.yaml$''',
+]

@@ -8,12 +8,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Sprint 0: Security gate - block merge on P0/P1 findings
+  # Security gate via unified security pipeline
   security-gate:
-    uses: ./.github/workflows/security-gate.yml
+    uses: ./.github/workflows/security-pipeline.yml
     permissions:
       contents: read
-      security-events: read
+      actions: read
+      security-events: write
+      pull-requests: write
 
   build-test:
     runs-on: ubuntu-latest
