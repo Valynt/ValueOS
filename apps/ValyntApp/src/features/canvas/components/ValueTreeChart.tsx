@@ -1,8 +1,6 @@
 import React, { useState, useCallback } from "react";
 import useDataBinding from "@/sdui/useDataBinding";
 import { Tree, TreeNode } from "recharts";
-}
-export default ValueTreeChart;
 import { Tooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
