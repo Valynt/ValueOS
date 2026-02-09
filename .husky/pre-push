@@ -1,2 +1,8 @@
 echo "Running Quality Governor (Pre-push Gate)..."
-exit 0
+
+# Secret scanning via gitleaks on unpushed commits
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks detect --no-banner --log-opts="origin/main..HEAD"
+else
+  echo "gitleaks not installed — skipping pre-push secret scan"
+fi

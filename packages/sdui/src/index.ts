@@ -40,3 +40,15 @@ export * from "./cache";
 // Agent components
 export { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
 export { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
+
+// Core workflow components
+export { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
+export { KPIForm } from "./components/SDUI/KPIForm";
+export { InteractiveChart } from "./components/SDUI/InteractiveChart";
+export { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
+export { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+export { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
+
+// Atomic action system
+export { AtomicActionExecutor } from "./AtomicActionExecutor";
+export * from "./AtomicUIActions";

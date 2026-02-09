@@ -8,6 +8,44 @@
  * - Migration runner
  * - v1 → v2 migration
  * - Backward compatibility
+ *
+ * ──────────────────────────────────────────────────────────────────
+ * BACKWARD COMPATIBILITY AUDIT (2025-02)
+ * ──────────────────────────────────────────────────────────────────
+ *
+ * 1. Missing intermediate versions:
+ *    `migrateSchema()` and `MigrationRunner.runMigration()` both iterate
+ *    v → v+1 sequentially. If a migration step is missing (e.g., v1→v3
+ *    with no v2→v3), `migrateSchema()` throws and `canMigrate()` returns
+ *    false. This is correct fail-fast behavior — no silent data loss.
+ *
+ * 2. Rollback:
+ *    `MigrationRunner.rollback()` restores from a checkpoint's
+ *    `originalSchema` deep-clone, then applies rollback functions in
+ *    reverse. However, the rollback re-applies rollback functions on
+ *    the *original* (pre-migration) schema rather than the *migrated*
+ *    schema. This is benign for v1→v2 since the checkpoint stores the
+ *    original, but would be incorrect for multi-step rollbacks where
+ *    intermediate state matters. Low risk today (only one migration).
+ *
+ * 3. v1→v2 field preservation:
+ *    - InfoBanner: `title` is renamed to `heading`; original `title`
+ *      is set to `undefined` (not deleted). Rollback reverses this.
+ *    - DiscoveryCard: `variant` is added with default `"default"`.
+ *      Rollback sets `variant` to `undefined`.
+ *    - Actions: old `{ handler }` format converted to `{ tool_id }`.
+ *      Rollback reverses. Extra fields on the original action object
+ *      are preserved via spread.
+ *    - All other sections: only `version` field is bumped. Props are
+ *      untouched.
+ *    - Gap: `migrateV1ToV2` sets `title: undefined` on InfoBanner
+ *      instead of deleting the key. Serialization (JSON.stringify)
+ *      drops it, but in-memory the key persists. Minor.
+ *
+ * 4. Duplicate function:
+ *    `migrateV1ToV2Duplicate` is dead code — not referenced anywhere.
+ *    Should be removed in a cleanup pass.
+ * ──────────────────────────────────────────────────────────────────
  */
 
 import logger from "../../shared/src/lib/logger.js";

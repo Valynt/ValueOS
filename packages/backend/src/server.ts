@@ -47,6 +47,8 @@ import analyticsRouter from "./api/analytics.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import teamsRouter from "./api/teams.js";
 import integrationsRouter from "./api/integrations.js";
+import { createCheckpointRouter } from "./api/checkpoints.js";
+import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
 import docsApiRouter from "./docs-api/index.js";
 import {
   initializeSecretVolumeWatcher,
@@ -407,6 +409,13 @@ app.use("/api/analytics", analyticsRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
 
+// Mount checkpoint HITL endpoints
+const orchestrator = getUnifiedOrchestrator();
+const checkpointMiddleware = orchestrator.getCheckpointMiddleware();
+if (checkpointMiddleware) {
+  app.use("/api/checkpoints", createCheckpointRouter(checkpointMiddleware));
+}
+
 await registerDevRoutes(app);
 
 // 404 handler for unmatched routes
@@ -484,5 +493,31 @@ if (isMainModule || settings.NODE_ENV === "development") {
   void startServer();
 }
 
-export { app, server, wss };
+// ============================================================================
+// Agent Reasoning Broadcast Helper
+// ============================================================================
+
+/**
+ * Broadcast a reasoning chain update to all authenticated WebSocket clients
+ * in the specified tenant. Matches the event format expected by
+ * AgentReasoningViewer: { type: 'agent.event', payload: { eventType, data } }
+ */
+function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
+  const message = JSON.stringify({
+    type: "agent.event",
+    payload: {
+      eventType: "agent.reasoning.update",
+      data: chain,
+    },
+  });
+
+  wss.clients.forEach((client) => {
+    const authed = client as AuthenticatedWebSocket;
+    if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+export { app, server, wss, broadcastReasoningUpdate };
 export default app;
