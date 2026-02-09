@@ -3,7 +3,7 @@ kind: Kustomization
 
 namespace: valynt
 
-bases:
+resources:
   - ../../base
 
 nameSuffix: -production
@@ -17,9 +17,9 @@ patches:
   - path: remove-placeholder-secrets.yaml
 
 replicas:
-  - name: backend
+  - name: backend-blue
     count: 3
-  - name: frontend
+  - name: frontend-blue
     count: 2
 
 images:
