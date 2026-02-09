@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTenant } from "@/contexts/TenantContext";
+import { supabase } from "@/lib/supabase";
 import {
   useCreateCompanyContext,
   useAddCompetitors,
@@ -35,6 +37,7 @@ export default function CompanyOnboarding() {
   const { currentTenant } = useTenant();
   const tenantId = currentTenant?.id ?? "default";
 
+  const queryClient = useQueryClient();
   const [phase, setPhase] = useState(1);
   const [contextId, setContextId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,6 +54,45 @@ export default function CompanyOnboarding() {
   const addPersonas = useAddPersonas(tenantId, contextId ?? "");
   const addClaimGovernance = useAddClaimGovernance(tenantId, contextId ?? "");
   const completeOnboarding = useCompleteOnboarding(tenantId, contextId ?? "");
+
+  const handleSkip = async () => {
+    try {
+      if (supabase) {
+        // Check if a context already exists for this tenant
+        const { data: existing } = await supabase
+          .from("company_contexts")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        if (existing) {
+          // Update existing to completed
+          await supabase
+            .from("company_contexts")
+            .update({
+              onboarding_status: "completed",
+              onboarding_completed_at: new Date().toISOString(),
+            })
+            .eq("id", existing.id);
+        } else {
+          // Insert a minimal completed context
+          await supabase.from("company_contexts").insert({
+            tenant_id: tenantId,
+            company_name: currentTenant?.name ?? "My Company",
+            onboarding_status: "completed",
+            onboarding_completed_at: new Date().toISOString(),
+          });
+        }
+
+        // Invalidate all company-context queries so the gate re-reads
+        await queryClient.invalidateQueries({ queryKey: ["company-context"] });
+      }
+    } catch (err) {
+      console.error("Skip onboarding failed:", err);
+    }
+    navigate("/dashboard");
+  };
 
   const handlePhase1 = async (data: OnboardingPhase1Input) => {
     setPhase1Data(data);
@@ -140,6 +182,13 @@ export default function CompanyOnboarding() {
             Every value case you build after this will be faster and sharper.
           </p>
         </div>
+
+        <button
+          onClick={handleSkip}
+          className="mt-4 w-full text-[12px] text-zinc-400 hover:text-zinc-600 transition-colors py-2"
+        >
+          Skip for now →
+        </button>
       </div>
 
       {/* Right: phase content */}

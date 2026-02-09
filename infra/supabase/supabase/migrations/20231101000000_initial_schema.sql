@@ -375,8 +375,9 @@ DO $$
 DECLARE
     t text;
     fk_exists boolean;
+    tables text[] := ARRAY['users','models','agents','agent_runs','agent_memory','api_keys','kpis','cases','workflows','workflow_states','shared_artifacts','audit_logs'];
 BEGIN
-    FOREACH t IN ARRAY['users','models','agents','agent_runs','agent_memory','api_keys','kpis','cases','workflows','workflow_states','shared_artifacts','audit_logs'] LOOP
+    FOREACH t IN ARRAY tables LOOP
         EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS organization_id uuid', t);
         SELECT EXISTS (
           SELECT 1 FROM information_schema.table_constraints tc

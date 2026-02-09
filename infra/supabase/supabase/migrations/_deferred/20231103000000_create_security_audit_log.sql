@@ -64,7 +64,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_risk_score ON security_audit_log(risk_score
 CREATE INDEX IF NOT EXISTS idx_audit_compliance_flags ON security_audit_log USING GIN(compliance_flags);
 
 -- Create index for time-based retention cleanup
-CREATE INDEX IF NOT EXISTS idx_audit_cleanup ON security_audit_log(timestamp) WHERE timestamp < EXTRACT(EPOCH FROM NOW() - INTERVAL '7 years') * 1000;
+-- Partial index for retention cleanup (uses plain index since NOW() is not immutable)
+CREATE INDEX IF NOT EXISTS idx_audit_cleanup ON security_audit_log(timestamp);
 
 -- Enable Row Level Security
 ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
