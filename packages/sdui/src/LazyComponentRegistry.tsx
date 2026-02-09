@@ -29,10 +29,10 @@ const lazyComponents = {
   // Core components
   InfoBanner: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.InfoBanner }))),
   DiscoveryCard: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.DiscoveryCard }))
+    import("../components/SDUI/DiscoveryCard").then((mod) => ({ default: mod.DiscoveryCard }))
   ),
   ValueTreeCard: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ValueTreeCard }))
+    import("../components/SDUI/ValueTreeCard").then((mod) => ({ default: mod.ValueTreeCard }))
   ),
   ValueHypothesisCard: lazy(() =>
     import("../components/SDUI").then((mod) => ({ default: mod.ValueHypothesisCard }))
@@ -40,12 +40,17 @@ const lazyComponents = {
   ExpansionBlock: lazy(() =>
     import("../components/SDUI").then((mod) => ({ default: mod.ExpansionBlock }))
   ),
+  InteractiveChart: lazy(() =>
+    import("../components/SDUI/InteractiveChart").then((mod) => ({ default: mod.InteractiveChart }))
+  ),
 
   // Metrics and forms
   MetricBadge: lazy(() =>
     import("../components/SDUI").then((mod) => ({ default: mod.MetricBadge }))
   ),
-  KPIForm: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.KPIForm }))),
+  KPIForm: lazy(() =>
+    import("../components/SDUI/KPIForm").then((mod) => ({ default: mod.KPIForm }))
+  ),
   ValueCommitForm: lazy(() =>
     import("../components/SDUI").then((mod) => ({ default: mod.ValueCommitForm }))
   ),
@@ -76,7 +81,7 @@ const lazyComponents = {
     import("../components/SDUI").then((mod) => ({ default: mod.AgentWorkflowPanel }))
   ),
   NarrativeBlock: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.NarrativeBlock }))
+    import("../components/SDUI/NarrativeBlock").then((mod) => ({ default: mod.NarrativeBlock }))
   ),
   SDUIForm: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.SDUIForm }))),
   ScenarioSelector: lazy(() =>
@@ -116,6 +121,11 @@ const lazyComponents = {
   ),
   IntegrityReviewPanel: lazy(() =>
     import("../components/SDUI").then((mod) => ({ default: mod.IntegrityReviewPanel }))
+  ),
+  IntegrityVetoPanel: lazy(() =>
+    import("../components/Agent/IntegrityVetoPanel").then((mod) => ({
+      default: mod.IntegrityVetoPanel,
+    }))
   ),
 
   // Development tools
@@ -301,6 +311,13 @@ const componentMetadata: Record<string, Omit<RegistryEntry, "component">> = {
     description: "Linear progress bar for workflow or loading states",
   },
 
+  // Charts
+  InteractiveChart: {
+    versions: [1],
+    requiredProps: ["type", "data"],
+    description: "Recharts-based chart supporting bar, line, area, and pie types.",
+  },
+
   // Panels and containers
   LifecyclePanel: {
     versions: [1],
@@ -311,6 +328,11 @@ const componentMetadata: Record<string, Omit<RegistryEntry, "component">> = {
     versions: [1],
     requiredProps: ["results"],
     description: "Displays manifesto rule validation results.",
+  },
+  IntegrityVetoPanel: {
+    versions: [1],
+    requiredProps: ["issues", "onResolve", "onDismiss"],
+    description: "Integrity review panel with issue list, severity colors, and resolve modal.",
   },
 
   // Development tools

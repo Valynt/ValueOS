@@ -119,6 +119,13 @@ import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExe
 import { supabase } from "../lib/supabase.js";
 import { featureFlags } from "../config/featureFlags.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
+import { AdversarialIOMiddleware } from "./middleware/AdversarialIOMiddleware.js";
+import { CheckpointMiddleware } from "./middleware/CheckpointMiddleware.js";
+import { HandoverMiddleware } from "./middleware/HandoverMiddleware.js";
+import { auditLogService } from "./AuditLogService.js";
+import { workspaceStateService } from "./WorkspaceStateService.js";
+import { realtimeUpdateService } from "./RealtimeUpdateService.js";
+import { ToolRegistry } from "./ToolRegistry.js";
 import {
   AgentRequest,
   AgentResponse as RetryAgentResponse,
@@ -337,6 +344,8 @@ export class UnifiedAgentOrchestrator {
   private confidenceMonitor: ConfidenceMonitor;
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
+  private _checkpointMiddleware: CheckpointMiddleware | null = null;
+  private toolRegistry: ToolRegistry = new ToolRegistry();
 
   constructor(
     registry: AgentRegistry,
@@ -365,7 +374,57 @@ export class UnifiedAgentOrchestrator {
   }
 
   private initializeMiddleware(): void {
+    // Order: AdversarialIO → Checkpoint → Handover → IntegrityVeto → agent call
+    const groundtruthAPI = new GroundtruthAPI();
+
+    this.middleware.push(
+      new AdversarialIOMiddleware({
+        auditLogService,
+        groundtruthAPI,
+      }),
+    );
+
+    this._checkpointMiddleware = new CheckpointMiddleware({
+      workspaceStateService,
+      realtimeUpdateService,
+    });
+    this.middleware.push(this._checkpointMiddleware);
+
+    this.middleware.push(
+      new HandoverMiddleware({
+        agentRegistry: this.registry,
+        messageBroker: this.messageBroker,
+        toolRegistry: this.toolRegistry,
+      }),
+    );
+
     this.middleware.push(new IntegrityVetoMiddleware(this));
+  }
+
+  /**
+   * Expose the CheckpointMiddleware instance so the REST endpoint can
+   * resolve/reject pending checkpoints.
+   */
+  getCheckpointMiddleware(): CheckpointMiddleware | null {
+    return this._checkpointMiddleware;
+  }
+
+  /**
+   * Compose the registered middleware chain around a core handler.
+   */
+  private async executeWithMiddleware(
+    context: AgentMiddlewareContext,
+    handler: () => Promise<AgentResponse>,
+  ): Promise<AgentResponse> {
+    // Build the chain right-to-left so the first middleware in the array
+    // is the outermost wrapper.
+    let current = handler;
+    for (let i = this.middleware.length - 1; i >= 0; i--) {
+      const mw = this.middleware[i];
+      const next = current;
+      current = () => mw.execute(context, next);
+    }
+    return current();
   }
 
   private async ensureGroundTruthInitialized(): Promise<void> {
@@ -1340,107 +1399,131 @@ export class UnifiedAgentOrchestrator {
         },
       };
 
-      // Call agent with circuit breaker protection
-      const circuitBreakerKey = `query-${agentType}`;
-      let agentResponse = await this.circuitBreakers.execute(
-        circuitBreakerKey,
-        () =>
-          this.agentAPI.invokeAgent({
-            agent: agentType,
-            query,
-            context: agentContext,
-          }),
-        { timeoutMs: this.config.defaultTimeoutMs }
+      // Build middleware context for the pipeline
+      const middlewareContext: AgentMiddlewareContext = {
+        envelope,
+        query,
+        currentState,
+        userId: envelope.actor.id || userId,
+        sessionId,
+        traceId,
+        agentType,
+        payload: undefined,
+      };
+
+      // Execute agent call through the middleware pipeline
+      const middlewareResponse = await this.executeWithMiddleware(
+        middlewareContext,
+        async (): Promise<AgentResponse> => {
+          // Core handler: call agent with circuit breaker protection
+          const circuitBreakerKey = `query-${agentType}`;
+          let agentResponse = await this.circuitBreakers.execute(
+            circuitBreakerKey,
+            () =>
+              this.agentAPI.invokeAgent({
+                agent: agentType,
+                query,
+                context: agentContext,
+              }),
+            { timeoutMs: this.config.defaultTimeoutMs }
+          );
+
+          if (agentResponse.success) {
+            const structuralCheck = await this.evaluateStructuralTruthVeto(
+              agentResponse.data,
+              {
+                traceId,
+                agentType,
+                query,
+                context: agentContext,
+              }
+            );
+            if (structuralCheck.vetoed) {
+              return {
+                type: "message",
+                payload: {
+                  message:
+                    "Output failed structural truth validation against expected schema.",
+                  error: true,
+                },
+                metadata: structuralCheck.metadata,
+              };
+            }
+
+            const integrityCheck = await this.evaluateIntegrityVeto(
+              agentResponse.data,
+              {
+                traceId,
+                agentType,
+                query,
+                context: agentContext,
+              }
+            );
+
+            if (integrityCheck.reRefine) {
+              logger.info("Triggering RE-REFINE loop due to low confidence", {
+                traceId,
+                agentType,
+                sessionId,
+              });
+
+              const re = await this.performReRefine(agentType, query, agentContext, traceId);
+              if (re.success && re.response) {
+                agentResponse = re.response;
+              } else {
+                return {
+                  type: "message",
+                  payload: {
+                    message:
+                      "Unable to auto-refine response. Please try again or request manual review.",
+                    error: true,
+                  },
+                };
+              }
+            }
+
+            if (integrityCheck.vetoed) {
+              return {
+                type: "message",
+                payload: {
+                  message:
+                    "Output failed integrity validation against ground truth benchmarks.",
+                  error: true,
+                },
+                metadata: integrityCheck.metadata,
+              };
+            }
+          }
+
+          return {
+            type: "message",
+            payload: agentResponse.success
+              ? {
+                  message:
+                    typeof agentResponse.data === "string"
+                      ? agentResponse.data
+                      : JSON.stringify(agentResponse.data),
+                }
+              : {
+                  message: agentResponse.error || "Agent request failed",
+                  error: true,
+                },
+          };
+        },
       );
 
-      if (agentResponse.success) {
-        const structuralCheck = await this.evaluateStructuralTruthVeto(
-          agentResponse.data,
-          {
-            traceId,
-            agentType,
-            query,
-            context: agentContext,
-          }
-        );
-        if (structuralCheck.vetoed) {
-          const response: AgentResponse = {
-            type: "message",
-            payload: {
-              message:
-                "Output failed structural truth validation against expected schema.",
-              error: true,
-            },
-            metadata: structuralCheck.metadata,
-          };
-
-          return {
-            response,
-            nextState: currentState,
-            traceId,
-          };
-        }
-
-        const integrityCheck = await this.evaluateIntegrityVeto(
-          agentResponse.data,
-          {
-            traceId,
-            agentType,
-            query,
-            context: agentContext,
-          }
-        );
-
-        if (integrityCheck.reRefine) {
-          logger.info("Triggering RE-REFINE loop due to low confidence", {
-            traceId,
-            agentType,
-            sessionId,
-          });
-
-          const re = await this.performReRefine(agentType, query, agentContext, traceId);
-          if (re.success && re.response) {
-            // Replace agentResponse with refined result
-            agentResponse = re.response;
-          } else {
-            const response: AgentResponse = {
-              type: "message",
-              payload: {
-                message:
-                  "Unable to auto-refine response. Please try again or request manual review.",
-                error: true,
-              },
-            };
-
-            return {
-              response,
-              nextState: currentState,
-              traceId,
-            };
-          }
-        }
-
-        if (integrityCheck.vetoed) {
-          const response: AgentResponse = {
-            type: "message",
-            payload: {
-              message:
-                "Output failed integrity validation against ground truth benchmarks.",
-              error: true,
-            },
-            metadata: integrityCheck.metadata,
-          };
-
-          return {
-            response,
-            nextState: currentState,
-            traceId,
-          };
-        }
+      // If the middleware pipeline returned an error response, return it directly
+      if (middlewareResponse.payload?.error) {
+        return {
+          response: middlewareResponse,
+          nextState: currentState,
+          traceId,
+        };
       }
 
       // Update state based on response
-      if (agentResponse.success && agentResponse.data) {
+      const agentResponseData = middlewareResponse.payload?.message;
+      if (agentResponseData) {
         nextState.context.conversationHistory = [
           ...(nextState.context.conversationHistory || []),
           {
@@ -1450,33 +1533,19 @@ export class UnifiedAgentOrchestrator {
           },
           {
             role: "assistant",
-            content:
-              typeof agentResponse.data === "string"
-                ? agentResponse.data
-                : JSON.stringify(agentResponse.data),
+            content: typeof agentResponseData === "string"
+              ? agentResponseData
+              : JSON.stringify(agentResponseData),
             timestamp: new Date().toISOString(),
           },
         ];
       }
 
-      // Update status based on response
-      nextState.status = agentResponse.success ? "in_progress" : "completed";
+      // Update status
+      nextState.status = "in_progress";
 
-      // Build response
-      const response: AgentResponse = {
-        type: "message",
-        payload: agentResponse.success
-          ? {
-              message:
-                typeof agentResponse.data === "string"
-                  ? agentResponse.data
-                  : JSON.stringify(agentResponse.data),
-            }
-          : {
-              message: agentResponse.error || "Agent request failed",
-              error: true,
-            },
-      };
+      // Use the middleware pipeline response directly
+      const response = middlewareResponse;
 
       logger.info("Query processed successfully", {
         traceId,
@@ -2359,30 +2428,76 @@ Provide a JSON response with:
       currentStage: stage.id,
     };
 
-    // Use SecureMessageBus for inter-agent communication
-    const messageResult = await this.messageBroker.sendToAgent(
-      "orchestrator", // From orchestrator
-      agentType, // To target agent
-      {
-        action: "execute",
-        description: stage.description || `Execute ${stage.id}`,
-        context: agentContext,
+    // Build middleware context for stage execution
+    const middlewareContext: AgentMiddlewareContext = {
+      envelope: {
+        intent: stage.description || stage.id,
+        actor: { id: context.userId || 'system' },
+        organizationId: context.organizationId || 'default',
+        entryPoint: 'executeStage',
+        reason: `Stage execution: ${stage.id}`,
+        timestamps: { requestedAt: new Date().toISOString() },
       },
-      {
-        priority: "normal",
-        timeoutMs: stage.timeout_seconds * 1000,
-      }
+      query: stage.description || `Execute ${stage.id}`,
+      currentState: context.workflowState || { currentStage: stage.id, status: 'in_progress', completedStages: [], context: {} },
+      userId: context.userId || 'system',
+      sessionId: context.sessionId || '',
+      traceId: context.traceId || uuidv4(),
+      agentType,
+      payload: { stageId: stage.id, context: agentContext },
+    };
+
+    // Execute through middleware pipeline
+    const middlewareResponse = await this.executeWithMiddleware(
+      middlewareContext,
+      async (): Promise<AgentResponse> => {
+        // Core handler: use SecureMessageBus for inter-agent communication
+        const messageResult = await this.messageBroker.sendToAgent(
+          "orchestrator",
+          agentType,
+          {
+            action: "execute",
+            description: stage.description || `Execute ${stage.id}`,
+            context: agentContext,
+          },
+          {
+            priority: "normal",
+            timeoutMs: stage.timeout_seconds * 1000,
+          }
+        );
+
+        if (!messageResult.success) {
+          return {
+            type: "message",
+            payload: {
+              message: `Agent communication failed: ${messageResult.error}`,
+              error: true,
+            },
+          };
+        }
+
+        return {
+          type: "message",
+          payload: {
+            stage_id: stage.id,
+            agent_type: stage.agent_type,
+            agent_id: route.selected_agent?.id,
+            output: messageResult.data,
+          },
+        };
+      },
     );
 
-    if (!messageResult.success) {
-      throw new Error(`Agent communication failed: ${messageResult.error}`);
+    // If middleware returned an error, throw to preserve existing error handling
+    if (middlewareResponse.payload?.error && typeof middlewareResponse.payload?.message === 'string') {
+      throw new Error(middlewareResponse.payload.message);
     }
 
     return {
       stage_id: stage.id,
       agent_type: stage.agent_type,
       agent_id: route.selected_agent?.id,
-      output: messageResult.data,
+      output: middlewareResponse.payload?.output ?? middlewareResponse.payload,
     };
   }
 
