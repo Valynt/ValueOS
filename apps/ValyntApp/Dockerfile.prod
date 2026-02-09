@@ -29,7 +29,7 @@ COPY --chown=valueos:valueos packages/infra packages/infra
 RUN pnpm --filter ./apps/ValyntApp build \
     && find apps/ValyntApp/dist -type f -name '*.map' -delete
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.29.5-alpine AS runtime
 RUN addgroup -g 1001 -S valueos && adduser -S -D -H -u 1001 -G valueos valueos
 
 COPY --chown=valueos:valueos infra/docker/nginx/nginx.conf /etc/nginx/nginx.conf
