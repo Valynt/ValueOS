@@ -13,6 +13,7 @@ import { ToastProvider } from "./components/common/Toast";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DrawerProvider } from "./contexts/DrawerContext";
 import { TenantProvider } from "./contexts/TenantContext";
+import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
@@ -57,6 +58,8 @@ const Agents = lazy(() => import("./views/Agents"));
 const AgentDetail = lazy(() => import("./views/AgentDetail"));
 const Integrations = lazy(() => import("./views/Integrations"));
 const SettingsPage = lazy(() => import("./views/SettingsPage"));
+const CompanyOnboarding = lazy(() => import("./views/CompanyOnboarding"));
+const CompanyKnowledge = lazy(() => import("./views/CompanyKnowledge"));
 
 export function AppRoutes() {
   const publicRouteElements: Record<string, ReactElement> = {
@@ -78,6 +81,7 @@ export function AppRoutes() {
       <ErrorBoundary>
         <AuthProvider>
           <TenantProvider>
+            <CompanyContextProvider>
             <DrawerProvider>
               <I18nProvider>
                 <ToastProvider>
@@ -111,6 +115,8 @@ export function AppRoutes() {
                             <Route path="/agents/:id" element={<AgentDetail />} />
                             <Route path="/integrations" element={<Integrations />} />
                             <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="/onboarding" element={<CompanyOnboarding />} />
+                            <Route path="/company" element={<CompanyKnowledge />} />
                           </Route>
                         </Route>
 
@@ -127,6 +133,7 @@ export function AppRoutes() {
                 </ToastProvider>
               </I18nProvider>
             </DrawerProvider>
+            </CompanyContextProvider>
           </TenantProvider>
         </AuthProvider>
       </ErrorBoundary>
