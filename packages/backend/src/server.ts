@@ -484,5 +484,31 @@ if (isMainModule || settings.NODE_ENV === "development") {
   void startServer();
 }
 
-export { app, server, wss };
+// ============================================================================
+// Agent Reasoning Broadcast Helper
+// ============================================================================
+
+/**
+ * Broadcast a reasoning chain update to all authenticated WebSocket clients
+ * in the specified tenant. Matches the event format expected by
+ * AgentReasoningViewer: { type: 'agent.event', payload: { eventType, data } }
+ */
+function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
+  const message = JSON.stringify({
+    type: "agent.event",
+    payload: {
+      eventType: "agent.reasoning.update",
+      data: chain,
+    },
+  });
+
+  wss.clients.forEach((client) => {
+    const authed = client as AuthenticatedWebSocket;
+    if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+export { app, server, wss, broadcastReasoningUpdate };
 export default app;

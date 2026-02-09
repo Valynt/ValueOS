@@ -136,7 +136,7 @@ import {
 // ============================================================================
 
 export interface AgentResponse {
-  type: "component" | "message" | "suggestion" | "sdui-page";
+  type: "component" | "message" | "suggestion" | "sdui-page" | "clarification_needed";
   payload: any;
   streaming?: boolean;
   sduiPage?: SDUIPageDefinition;
@@ -365,7 +365,55 @@ export class UnifiedAgentOrchestrator {
   }
 
   private initializeMiddleware(): void {
+    // Order: SemanticIntent → ReasoningLogger → [core] → AdaptiveRefinement → IntegrityVeto
+    // Pre-middleware (runs before core) is added first.
+    // Post-middleware (runs after core) wraps in reverse order via the chain.
+    // The chain is built so that the first middleware in the array is the outermost wrapper.
+    // SemanticIntent (pre) → ReasoningLogger (wraps) → core → AdaptiveRefinement (post) → IntegrityVeto (post)
+    //
+    // New middleware instances are registered by the orchestrator's public
+    // `registerMiddleware` method or externally after construction.
+    // IntegrityVetoMiddleware is always the last post-middleware.
     this.middleware.push(new IntegrityVetoMiddleware(this));
+  }
+
+  /**
+   * Register additional middleware into the chain.
+   * Middleware is inserted before IntegrityVetoMiddleware (which is always last).
+   */
+  registerMiddleware(mw: AgentMiddleware): void {
+    // Insert before the last element (IntegrityVeto) if it exists
+    const vetoIndex = this.middleware.findIndex((m) => m.name === 'integrity_veto');
+    if (vetoIndex >= 0) {
+      this.middleware.splice(vetoIndex, 0, mw);
+    } else {
+      this.middleware.push(mw);
+    }
+  }
+
+  /**
+   * Execute the middleware chain around a core function.
+   *
+   * Builds a nested call chain: middleware[0] wraps middleware[1] wraps ... wraps coreFn.
+   * Each middleware calls `next()` to proceed to the next layer.
+   */
+  async executeMiddlewareChain(
+    context: AgentMiddlewareContext,
+    coreFn: () => Promise<AgentResponse>
+  ): Promise<AgentResponse> {
+    if (this.middleware.length === 0) {
+      return coreFn();
+    }
+
+    // Build the chain from inside out
+    let chain = coreFn;
+    for (let i = this.middleware.length - 1; i >= 0; i--) {
+      const mw = this.middleware[i]!;
+      const nextFn = chain;
+      chain = () => mw.execute(context, nextFn);
+    }
+
+    return chain();
   }
 
   private async ensureGroundTruthInitialized(): Promise<void> {
@@ -1305,7 +1353,7 @@ export class UnifiedAgentOrchestrator {
       };
     }
 
-    // Original synchronous execution path
+    // Original synchronous execution path — now routed through middleware chain
 
     try {
       // Create immutable copy of state
@@ -1340,107 +1388,89 @@ export class UnifiedAgentOrchestrator {
         },
       };
 
-      // Call agent with circuit breaker protection
-      const circuitBreakerKey = `query-${agentType}`;
-      let agentResponse = await this.circuitBreakers.execute(
-        circuitBreakerKey,
-        () =>
-          this.agentAPI.invokeAgent({
-            agent: agentType,
-            query,
-            context: agentContext,
-          }),
-        { timeoutMs: this.config.defaultTimeoutMs }
-      );
+      // Build middleware context
+      const middlewareContext: AgentMiddlewareContext = {
+        envelope,
+        query,
+        currentState,
+        userId,
+        sessionId,
+        traceId,
+        agentType,
+      };
 
-      if (agentResponse.success) {
-        const structuralCheck = await this.evaluateStructuralTruthVeto(
-          agentResponse.data,
-          {
-            traceId,
-            agentType,
-            query,
-            context: agentContext,
-          }
-        );
-        if (structuralCheck.vetoed) {
-          const response: AgentResponse = {
-            type: "message",
-            payload: {
-              message:
-                "Output failed structural truth validation against expected schema.",
-              error: true,
-            },
-            metadata: structuralCheck.metadata,
-          };
+      // Core execution function (what the middleware chain wraps)
+      const coreExecution = async (): Promise<AgentResponse> => {
+        // Use agentType from middleware context (may be overridden by SemanticIntentMiddleware)
+        const effectiveAgentType = middlewareContext.agentType;
 
-          return {
-            response,
-            nextState: currentState,
-            traceId,
-          };
-        }
-
-        const integrityCheck = await this.evaluateIntegrityVeto(
-          agentResponse.data,
-          {
-            traceId,
-            agentType,
-            query,
-            context: agentContext,
-          }
+        const circuitBreakerKey = `query-${effectiveAgentType}`;
+        const agentResponse = await this.circuitBreakers.execute(
+          circuitBreakerKey,
+          () =>
+            this.agentAPI.invokeAgent({
+              agent: effectiveAgentType,
+              query,
+              context: agentContext,
+            }),
+          { timeoutMs: this.config.defaultTimeoutMs }
         );
 
-        if (integrityCheck.reRefine) {
-          logger.info("Triggering RE-REFINE loop due to low confidence", {
-            traceId,
-            agentType,
-            sessionId,
-          });
-
-          const re = await this.performReRefine(agentType, query, agentContext, traceId);
-          if (re.success && re.response) {
-            // Replace agentResponse with refined result
-            agentResponse = re.response;
-          } else {
-            const response: AgentResponse = {
+        if (agentResponse.success) {
+          // Structural truth check remains inline (not part of middleware chain)
+          const structuralCheck = await this.evaluateStructuralTruthVeto(
+            agentResponse.data,
+            {
+              traceId,
+              agentType: effectiveAgentType,
+              query,
+              context: agentContext,
+            }
+          );
+          if (structuralCheck.vetoed) {
+            return {
               type: "message",
               payload: {
                 message:
-                  "Unable to auto-refine response. Please try again or request manual review.",
+                  "Output failed structural truth validation against expected schema.",
                 error: true,
               },
-            };
-
-            return {
-              response,
-              nextState: currentState,
-              traceId,
+              metadata: structuralCheck.metadata,
             };
           }
         }
 
-        if (integrityCheck.vetoed) {
-          const response: AgentResponse = {
-            type: "message",
-            payload: {
-              message:
-                "Output failed integrity validation against ground truth benchmarks.",
-              error: true,
-            },
-            metadata: integrityCheck.metadata,
-          };
+        return {
+          type: "message",
+          payload: agentResponse.success
+            ? {
+                message:
+                  typeof agentResponse.data === "string"
+                    ? agentResponse.data
+                    : JSON.stringify(agentResponse.data),
+                data: agentResponse.data,
+              }
+            : {
+                message: agentResponse.error || "Agent request failed",
+                error: true,
+              },
+        };
+      };
 
-          return {
-            response,
-            nextState: currentState,
-            traceId,
-          };
-        }
+      // Execute through middleware chain
+      const response = await this.executeMiddlewareChain(middlewareContext, coreExecution);
+
+      // Short-circuit for clarification responses
+      if (response.type === "clarification_needed") {
+        return {
+          response,
+          nextState: currentState,
+          traceId,
+        };
       }
 
       // Update state based on response
-      if (agentResponse.success && agentResponse.data) {
+      if (!(response.payload as any)?.error) {
         nextState.context.conversationHistory = [
           ...(nextState.context.conversationHistory || []),
           {
@@ -1451,32 +1481,16 @@ export class UnifiedAgentOrchestrator {
           {
             role: "assistant",
             content:
-              typeof agentResponse.data === "string"
-                ? agentResponse.data
-                : JSON.stringify(agentResponse.data),
+              typeof response.payload?.message === "string"
+                ? response.payload.message
+                : JSON.stringify(response.payload),
             timestamp: new Date().toISOString(),
           },
         ];
       }
 
       // Update status based on response
-      nextState.status = agentResponse.success ? "in_progress" : "completed";
-
-      // Build response
-      const response: AgentResponse = {
-        type: "message",
-        payload: agentResponse.success
-          ? {
-              message:
-                typeof agentResponse.data === "string"
-                  ? agentResponse.data
-                  : JSON.stringify(agentResponse.data),
-            }
-          : {
-              message: agentResponse.error || "Agent request failed",
-              error: true,
-            },
-      };
+      nextState.status = !(response.payload as any)?.error ? "in_progress" : "completed";
 
       logger.info("Query processed successfully", {
         traceId,
