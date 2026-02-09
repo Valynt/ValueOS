@@ -1,0 +1,84 @@
+{
+  "extends": "../packages/config-v2/tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "types": [
+      "vitest/globals",
+      "node",
+      "uuid"
+    ],
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@lib/*": [
+        "./src/lib/*"
+      ],
+      "@pages/*": [
+        "./src/pages/*"
+      ],
+      "@layouts/*": [
+        "./src/layouts/*"
+      ],
+      "@app/*": [
+        "./src/app/*"
+      ],
+      "@shared/*": [
+        "./packages/shared/src/*"
+      ],
+      "@valueos/shared": [
+        "./packages/shared/src/index.ts"
+      ],
+      "@valueos/shared/*": [
+        "./packages/shared/src/*"
+      ],
+      "@valueos/infra": [
+        "./packages/infra/index.ts"
+      ],
+      "@valueos/memory": [
+        "./packages/memory/index.ts"
+      ],
+      "@valueos/sdui": [
+        "./packages/sdui/src/index.ts"
+      ],
+      "@valueos/sdui-types": [
+        "./packages/sdui-types/index.ts"
+      ],
+      "@valueos/integrations": [
+        "./packages/integrations/index.ts"
+      ],
+      "@valueos/mcp": [
+        "./packages/mcp/index.ts"
+      ],
+      "@valueos/agents": [
+        "./packages/agents/index.ts"
+      ],
+      "@valueos/components": [
+        "./packages/components/index.ts"
+      ],
+      "@backend/*": [
+        "./packages/backend/src/*"
+      ],
+      "@infra/*": [
+        "./packages/infra/*"
+      ],
+      "@memory/*": [
+        "./packages/memory/*"
+      ]
+    }
+  }
+}

@@ -1,3 +1,0 @@
-# ValueOS Full Development Environment Setup
-
-...existing content from refactored README.md...

@@ -15,10 +15,13 @@ echo "🔧 Running on-create setup..."
 if [ -f .devcontainer/.env ]; then
     echo "📋 Loading environment variables..."
     export $(grep -v '^#' .devcontainer/.env | xargs)
-else
-    echo "⚠️  No .env file found, using defaults"
+elif [ -f .devcontainer/.env.template ] && [ ! -f .devcontainer/.env ]; then
     cp .devcontainer/.env.template .devcontainer/.env
     echo "✅ Created .env from template"
+elif [ ! -f .devcontainer/.env ]; then
+    echo "⚠️  No .env or .env.template found, skipping .env creation"
+else
+    echo "Skipping .env creation"
 fi
 
 # =============================================================================
@@ -34,7 +37,7 @@ corepack prepare pnpm@latest --activate
 # Install workspace dependencies
 if [ -f pnpm-lock.yaml ]; then
     echo "📥 Installing pnpm dependencies..."
-    pnpm install --frozen-lockfile
+    pnpm install --frozen-lockfile || echo "⚠️ pnpm install failed (will retry manually)"
 else
     echo "📥 Installing pnpm dependencies (no lockfile)..."
     pnpm install
@@ -80,7 +83,7 @@ fi
 
 if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
     echo "🤖 Setting up agent fabric..."
-    
+
     # Wait for NATS to be ready
     max_attempts=30
     attempt=0
@@ -93,7 +96,7 @@ if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
         echo "⏳ Waiting for NATS... (attempt $attempt/$max_attempts)"
         sleep 2
     done
-    
+
     echo "✅ Agent fabric ready"
 fi
 
@@ -102,6 +105,13 @@ fi
 # =============================================================================
 
 echo "🛠️  Setting up development tools..."
+
+# Ensure build-essential is available in the dev environment. It is intentionally
+# installed at create time so the Dockerfile can keep final stage minimal.
+if ! dpkg -s build-essential >/dev/null 2>&1; then
+    echo "🔧 Installing build-essential for dev environment..."
+    sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential
+fi
 
 # Install global tools if needed
 if ! command -v tsx &> /dev/null; then

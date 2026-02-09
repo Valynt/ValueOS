@@ -82,7 +82,7 @@
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
-    "node": ">=20.18.0",
+    "node": ">=20.19.0",
     "pnpm": ">=9.15.0"
   },
   "workspaces": [
@@ -166,7 +166,7 @@
     "build:docker": "bash scripts/build-docker.sh",
     "test:retry-logic": "bash scripts/test-retry-logic.sh",
     "lint": "turbo run lint",
-    "lint:fix": "eslint . --fix",
+    "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,md}\"",
     "lint:openapi": "node scripts/validate-openapi.mjs",
@@ -364,7 +364,6 @@
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
     "@types/cors": "^2.8.19",
-    "@types/dompurify": "^3.0.5",
     "@types/express": "^4.17.25",
     "@types/helmet": "^0.0.48",
     "@types/jest": "^30.0.0",
@@ -414,7 +413,7 @@
     "snyk": "^1.1301.2",
     "stylelint": "^16.26.1",
     "stylelint-config-standard": "^39.0.1",
-    "supabase": "^2.72.8",
+    "supabase": "^2.76.4",
     "supertest": "^7.2.2",
     "tailwindcss": "^3.4.19",
     "testcontainers": "^11.11.0",

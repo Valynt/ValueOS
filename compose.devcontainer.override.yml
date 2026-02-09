@@ -1,0 +1,13 @@
+services:
+  valyntapp-dev:
+    volumes:
+      # source code (bind mount)
+      - .:/workspaces/ValueOS
+
+
+      # pnpm store (recommended, avoids ~/.cache perms issues)
+      - valueos-pnpm-store:/home/vscode/.pnpm-store
+
+volumes:
+  valueos-node-modules:
+  valueos-pnpm-store:

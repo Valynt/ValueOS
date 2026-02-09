@@ -7,9 +7,9 @@ import {
   Routes,
 } from "react-router-dom";
 
-import DashboardLayout from "./components";
-import { AuthProvider, useAuth } from "./contexts";
-import { WebSocketProvider } from "./contexts";
+import DashboardLayout from "./components/layout/DashboardLayout";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { WebSocketProvider } from "./contexts/WebSocketContext";
 
 // Layout Components
 

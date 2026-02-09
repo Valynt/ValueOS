@@ -1,8 +1,0 @@
-services:
-  app:
-    image: valueos-app:latest
-    container_name: valueos-app
-    working_dir: /workspaces/ValueOS
-    volumes:
-      - .:/workspaces/ValueOS
-    command: sleep infinity

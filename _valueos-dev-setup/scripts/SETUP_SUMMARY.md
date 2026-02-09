@@ -1,3 +1,0 @@
-# ValueOS Development Environment Setup - Summary
-
-...existing content from refactored SETUP_SUMMARY.md...

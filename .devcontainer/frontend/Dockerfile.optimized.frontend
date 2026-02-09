@@ -4,14 +4,15 @@
 # =============================================================================
 # Stage 1: Dependencies
 # =============================================================================
-FROM node:20-alpine AS deps
+FROM node:20.19.0-alpine AS deps
 WORKDIR /app
 
 # Install dependencies only when needed
 RUN apk add --no-cache libc6-compat
 
-# Copy package files
-COPY apps/ValyntApp/package.json apps/ValyntApp/pnpm-lock.yaml* ./
+# Copy package files and scripts (needed for preinstall)
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
 
 # Install dependencies using pnpm
 RUN corepack enable && \
@@ -21,7 +22,7 @@ RUN corepack enable && \
 # =============================================================================
 # Stage 2: Builder
 # =============================================================================
-FROM node:20-alpine AS builder
+FROM node:20.19.0-alpine AS builder
 WORKDIR /app
 
 ARG NODE_ENV=production
@@ -32,7 +33,14 @@ COPY --from=deps /app/node_modules ./node_modules
 
 # Copy application source
 COPY apps/ValyntApp ./
+# Copy root tsconfig.app.json and config-v2 base for TypeScript build
+COPY ../../tsconfig.app.json ./tsconfig.app.json
+COPY ../../tsconfig.app.json /tsconfig.app.json
+COPY ../../packages/config-v2/tsconfig.base.json ./packages/config-v2/tsconfig.base.json
+COPY ../../packages/config-v2/tsconfig.base.json /packages/config-v2/tsconfig.base.json
 
+# Set working directory to ValyntApp for build
+WORKDIR /app/apps/ValyntApp
 # Build the application
 RUN corepack enable && \
     corepack prepare pnpm@latest --activate && \

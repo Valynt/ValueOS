@@ -1,4 +1,4 @@
-FROM kong:3.4-alpine
+FROM kong:alpine
 
 # Install additional plugins if needed
 USER root

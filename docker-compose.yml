@@ -1,3 +1,11 @@
-name: valueos
-include:
-  - ./compose.yml
+
+version: '3.8'
+services:
+  valyntapp-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: valueos-dev:latest
+    container_name: valyntapp-dev
+    # The rest of the config is in compose.devcontainer.override.yml
+

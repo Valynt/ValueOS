@@ -1,9 +1,8 @@
 import React, { useState, useCallback } from "react";
 import useDataBinding from "@/sdui/useDataBinding";
 import { Tree, TreeNode } from "recharts";
-
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+}
+export default ValueTreeChart;
 import { Tooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
@@ -146,6 +145,11 @@ return (
     <div className="absolute bottom-4 right-4 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded border">
       Zoom: {(zoom * 100).toFixed(0)}%
     </div>
+
   </Card>
 );
-};
+}
+
+
+export default ValueTreeChart;
+export default ValueTreeChart;

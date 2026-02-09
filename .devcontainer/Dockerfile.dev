@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04 AS build
+
+# Install build tools in build stage only (kept out of final image for hardening)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
+
+# Install core dev tools (runtime) — excludes build-essential which is installed in build stage
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    ca-certificates \
+    openssh-client \
+    less \
+    nano \
+    unzip \
+    wget \
+    lsb-release \
+    sudo \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node.js (via nvm)
+ENV NVM_DIR=/usr/local/share/nvm
+ENV NODE_VERSION=20.19.0
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
+    && . "$NVM_DIR/nvm.sh" \
+    && nvm install $NODE_VERSION \
+    && nvm use $NODE_VERSION \
+    && nvm alias default $NODE_VERSION \
+    && npm install -g pnpm
+
+ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+# Copy ensure-pnpm.js for preinstall
+COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
+
+# Set up user (devcontainer standard: vscode)
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+USER $USERNAME
+WORKDIR /workspaces/ValueOS

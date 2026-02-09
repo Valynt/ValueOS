@@ -2,8 +2,6 @@
 # Container-first orchestration for all infrastructure and application components
 # Aligned with Pragmatic Reproducibility framework
 
-version: "3.9"
-
 x-common: &common
   restart: unless-stopped
   logging:
@@ -30,7 +28,7 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
-  
+
   # Public-facing network for reverse proxy
   caddy-proxy:
     driver: bridge
@@ -38,7 +36,7 @@ networks:
     ipam:
       config:
         - subnet: 172.21.0.0/16
-  
+
   # Message bus network for agent communication
   messagebus-network:
     driver: bridge
@@ -51,7 +49,7 @@ services:
   # =============================================================================
   # CORE INFRASTRUCTURE
   # =============================================================================
-  
+
   # PostgreSQL Database - Primary data store
   postgres:
     <<: *common
@@ -64,7 +62,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
     ports:
-      - "${POSTGRES_PORT:-54323}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     networks:
       - internal
     healthcheck:
@@ -87,7 +85,7 @@ services:
     <<: *common
     image: redis:7-alpine
     container_name: valueos-redis
-    command: 
+    command:
       - redis-server
       - --appendonly
       - yes
@@ -165,6 +163,7 @@ services:
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
       GOTRUE_API_URL: http://localhost:${AUTH_PORT:-9999}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:9999}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_SMTP_HOST: ${SMTP_HOST:-mailhog}
       GOTRUE_SMTP_PORT: ${SMTP_PORT:-1025}
@@ -367,7 +366,7 @@ services:
   frontend:
     <<: *common
     build:
-      context: ../..
+      context: ..
       dockerfile: .devcontainer/frontend/Dockerfile.optimized.frontend
       args:
         NODE_VERSION: ${NODE_VERSION:-20}
@@ -398,7 +397,7 @@ services:
   opportunity-agent:
     <<: *common
     build:
-      context: ../..
+      context: ..
       dockerfile: .devcontainer/agents/Dockerfile.opportunity
       args:
         AGENT_NAME: opportunity
@@ -453,7 +452,7 @@ services:
   target-agent:
     <<: *common
     build:
-      context: ../..
+      context: ..
       dockerfile: .devcontainer/agents/Dockerfile.target
       args:
         AGENT_NAME: target
@@ -508,7 +507,7 @@ services:
   realization-agent:
     <<: *common
     build:
-      context: ../..
+      context: ..
       dockerfile: .devcontainer/agents/Dockerfile.realization
       args:
         AGENT_NAME: realization
@@ -563,7 +562,7 @@ services:
   expansion-agent:
     <<: *common
     build:
-      context: ../..
+      context: ..
       dockerfile: .devcontainer/agents/Dockerfile.expansion
       args:
         AGENT_NAME: expansion

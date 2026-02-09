@@ -1,0 +1,13 @@
+{
+  "name": "ValyntApp",
+  "dockerComposeFile": [
+    "../../../docker-compose.yml",
+    "compose.devcontainer.override.yml"
+  ],
+  "service": "valyntapp-dev",
+  "workspaceFolder": "/workspaces/ValueOS/apps/ValyntApp",
+  "shutdownAction": "stopCompose",
+  "runServices": [
+    "valyntapp-dev"
+  ]
+}

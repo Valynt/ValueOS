@@ -1,0 +1,20 @@
+FROM node:20.19.0-slim
+
+# Install basic dev tooling
+RUN apt-get update && apt-get install -y \
+    git \
+    ca-certificates \
+    curl \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Enable corepack + pnpm
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+# Create non-root user (required by VS Code)
+RUN useradd -ms /bin/bash vscode
+
+WORKDIR /workspaces/ValueOS
+
+# Keep container alive for VS Code
+CMD ["sleep", "infinity"]

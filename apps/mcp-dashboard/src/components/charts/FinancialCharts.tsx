@@ -92,12 +92,7 @@ export const FinancialBarChart: React.FC<FinancialChartProps> = ({
           />
           <Tooltip
             formatter={(value: number) => [`$${value.toLocaleString()}`, "Value"]}
-            labelStyle={{ color: "#374151" }}
-            contentStyle={{
-              backgroundColor: "#ffffff",
-              border: "1px solid #e5e7eb",
-              borderRadius: "6px",
-            }}
+            wrapperClassName="text-gray-700 bg-white border border-gray-200 rounded-lg"
           />
           {showLegend && <Legend />}
           <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
@@ -226,7 +221,7 @@ export const SentimentGauge: React.FC<SentimentGaugeProps> = ({
           <span className="text-3xl mr-3">{getSentimentEmoji()}</span>
           <div>
             <p className="text-sm font-medium text-gray-600">Overall Sentiment</p>
-            <p className="text-lg font-semibold capitalize" style={{ color: getSentimentColor() }}>
+            <p className={`text-lg font-semibold capitalize ${getSentimentColor()}`}>
               {sentiment.overall}
             </p>
           </div>
@@ -246,10 +241,7 @@ export const SentimentGauge: React.FC<SentimentGaugeProps> = ({
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
             className="h-2 rounded-full transition-all duration-300"
-            style={{
-              width: `${sentiment.confidence * 100}%`,
-              backgroundColor: getSentimentColor(),
-            }}
+            className={`h-2 rounded-full transition-all duration-300 w-[${sentiment.confidence * 100}%] ${getSentimentColor()}`}
           />
         </div>
       </div>
@@ -264,14 +256,14 @@ export const SentimentGauge: React.FC<SentimentGaugeProps> = ({
         <div className="relative">
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-gray-400 rounded-full" />
+            <div
+              className="absolute top-0 w-1 h-3 rounded-full transition-all duration-300"
+              style={{
+                left: `${50 + sentiment.score * 50}%`,
+                backgroundColor: getSentimentColor(),
+              }}
+            />
           </div>
-          <div
-            className="absolute top-0 w-1 h-3 rounded-full transition-all duration-300"
-            style={{
-              left: `${50 + sentiment.score * 50}%`,
-              backgroundColor: getSentimentColor(),
-            }}
-          />
         </div>
       </div>
     </div>

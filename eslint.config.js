@@ -100,6 +100,8 @@ const baseConfig = {
       // Provide an explicit list of tsconfig files so type-aware rules can resolve projects across the monorepo
       // This avoids 'Resolve error: typescript with invalid interface loaded as resolver'
       project: ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json", "./packages/*/*/tsconfig.json"],
+      // Suppress warning about multiple projects - expected in a pnpm monorepo with 17+ workspace packages
+      noWarnOnMultipleProjects: true,
     },
   },
   rules: {

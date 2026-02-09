@@ -1,6 +1,12 @@
 /**
  * Authentication Service
  * Handles session management and authentication operations
+ *
+ * HARDENED FEATURES:
+ * - Redis-backed session store with automatic failover
+ * - Token rotation on security events
+ * - Device fingerprinting and anomaly detection
+ * - Distributed rate limiting
  */
 
 import { BaseService } from "./BaseService.js"
@@ -15,12 +21,18 @@ import {
   consumeAuthRateLimit,
   RateLimitExceededError,
   resetRateLimit,
+  setAuthRateLimiter,
 } from "../security";
+import { createRedisRateLimiter } from "../security/redisRateLimiter.js";
 import { clientRateLimit } from "./ClientRateLimit.js"
 import { mfaService } from "./MFAService.js"
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
 import { assertTenantMember, assertCapability, isPrivilegedAction, deny, toAuthError } from "./AuthPolicy.js";
 import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
+import { getSessionStore, RedisSessionStore, DeviceFingerprint } from "../security/RedisSessionStore.js";
+import { getTokenRotationService, SecurityEventType } from "./TokenRotationService.js";
+import { getDeviceFingerprintService, DeviceFingerprintService } from "./DeviceFingerprintService.js";
+import { getRedisClient } from "@shared/lib/redisClient";
 
 export interface LoginCredentials {
   email: string;
@@ -49,8 +61,18 @@ export interface TCTPayload {
   exp: number;
 }
 
+export interface LoginOptions {
+  deviceId?: string;
+  deviceFingerprint?: DeviceFingerprint;
+  ipAddress?: string;
+}
+
 export class AuthService extends BaseService {
   private readonly tctSecret: string;
+  private sessionStore: RedisSessionStore;
+  private tokenRotationService: ReturnType<typeof getTokenRotationService>;
+  private deviceFingerprintService: DeviceFingerprintService;
+  private redisInitialized = false;
 
   constructor() {
     super("AuthService");
@@ -64,6 +86,35 @@ export class AuthService extends BaseService {
       this.tctSecret = "default-tct-secret-change-me";
     } else {
       this.tctSecret = process.env.TCT_SECRET;
+    }
+
+    // Initialize hardened services
+    this.sessionStore = getSessionStore();
+    this.tokenRotationService = getTokenRotationService();
+    this.deviceFingerprintService = getDeviceFingerprintService();
+
+    // Initialize Redis rate limiter asynchronously
+    this.initializeRedisRateLimiter();
+  }
+
+  /**
+   * Initialize Redis-backed rate limiter for distributed deployments
+   */
+  private async initializeRedisRateLimiter(): Promise<void> {
+    if (this.redisInitialized) return;
+
+    try {
+      const redis = await getRedisClient();
+      setAuthRateLimiter(createRedisRateLimiter(redis, {
+        windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+        maxAttempts: Number(process.env.AUTH_RATE_LIMIT_MAX) || 5,
+        prefix: 'auth:',
+      }));
+      this.redisInitialized = true;
+      this.log('info', 'Redis rate limiter initialized');
+    } catch (error) {
+      this.log('warn', 'Redis unavailable, using in-memory rate limiter', { error: String(error) });
+      // Falls back to default in-memory rate limiter
     }
   }
 

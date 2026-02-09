@@ -4,15 +4,19 @@
 # =============================================================================
 # Stage 1: Dependencies
 # =============================================================================
-FROM node:20-alpine AS deps
+FROM node:20.19.0-alpine AS deps
 WORKDIR /app
 
 # Install system dependencies
 RUN apk add --no-cache \
     libc6-compat \
     python3 \
+    python3-dev \
+    build-base \
+    git \
     make \
-    g++
+    g++ && \
+    ln -sf /usr/bin/python3 /usr/bin/python
 
 # Copy workspace package files
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
@@ -26,7 +30,7 @@ RUN corepack enable && \
 # =============================================================================
 # Stage 2: Builder
 # =============================================================================
-FROM node:20-alpine AS builder
+FROM node:20.19.0-alpine AS builder
 WORKDIR /app
 
 ARG AGENT_NAME
@@ -51,7 +55,7 @@ RUN corepack enable && \
 # =============================================================================
 # Stage 3: Runtime
 # =============================================================================
-FROM node:20-alpine AS runtime
+FROM node:20.19.0-alpine AS runtime
 WORKDIR /app
 
 ARG AGENT_NAME
