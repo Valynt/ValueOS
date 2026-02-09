@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Building2, ChevronRight, Clock, Plus, Search, Sparkles } from 'lucide-react';
-import AgentBadge from '../components/Agents/AgentBadge';
-import { DocsQuickAccessWidget } from '../components/docs/DocsQuickAccessWidget';
+import { Building2, ChevronRight, Clock, Plus } from 'lucide-react';
 
 const accounts = [
   {
@@ -84,34 +82,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Documentation Quick Access Widget */}
-        <div className="mb-8">
-          <DocsQuickAccessWidget />
-        </div>
-
-        <div className="card p-4 mb-8 bg-primary/5 border-primary/20">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <AgentBadge agentId="company-intelligence" size="sm" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-foreground">
-                <span className="font-medium">Ready to research.</span>
-                <span className="text-muted-foreground ml-1">I can scan 10-K filings, news, and industry reports for any company.</span>
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button className="btn btn-outline h-8 px-3 text-xs">
-                <Search className="w-3.5 h-3.5 mr-1.5" />
-                Research Acme Corp
-              </button>
-              <button className="btn btn-primary h-8 px-3 text-xs">
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                Scan New Company
-              </button>
-            </div>
-          </div>
-        </div>
+        
 
         <div className="grid grid-cols-1 gap-4">
           <div className="grid grid-cols-12 px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border/50">
@@ -123,17 +94,10 @@ export default function Home() {
           </div>
 
           {accounts.map((account) => {
-            const stageAgent = {
-              'Discovery': 'company-intelligence',
-              'Value Architecture': 'value-mapping',
-              'Business Case': 'financial-modeling',
-              'Realization': 'realization'
-            }[account.stage] as 'company-intelligence' | 'value-mapping' | 'financial-modeling' | 'realization';
-
             return (
               <Link
                 key={account.id}
-                to="/canvas"
+                to="/home"
                 className="group card grid grid-cols-12 items-center px-6 py-4 hover:border-primary/30 hover:shadow-md transition-all duration-200"
               >
                 <div className="col-span-4 flex items-center gap-4">
@@ -153,7 +117,6 @@ export default function Home() {
                   <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-foreground border border-border">
                     {account.stage}
                   </div>
-                  <AgentBadge agentId={stageAgent} size="sm" showName={false} />
                 </div>
 
                 <div className="col-span-2">

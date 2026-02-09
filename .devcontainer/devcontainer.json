@@ -1,132 +1,35 @@
 {
-  "name": "ValueOS Full Development Environment",
-  "dockerComposeFile": "docker-compose.yml",
-  "service": "opportunity-agent",
-  "workspaceFolder": "/home/ino/ValueOS",
+  "name": "ValueOS Development Environment",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
-      "version": "latest",
-      "enableNonRootDocker": "true",
-      "moby": "true"
+    "ghcr.io/devcontainers/features/docker-in-docker": {
+      "moby": false
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {
-      "version": "latest"
-    },
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "20",
-      "nodeGypDependencies": true,
-      "installYarnUsingApt": false
-    }
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "bradlc.vscode-tailwindcss",
-        "ms-azuretools.vscode-docker",
-        "GitHub.copilot",
-        "GitHub.copilot-chat",
-        "ms-vscode.vscode-typescript-next",
-        "prisma.prisma",
-        "mtxr.sqltools",
-        "mtxr.sqltools-driver-pg",
-        "humao.rest-client"
-      ],
-      "settings": {
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": null,
-        "editor.codeActionsOnSave": {
-          "source.fixAll.eslint": "always"
-        },
-        "typescript.tsdk": "node_modules/typescript/lib",
-        "sqltools.connections": [
-          {
-            "name": "ValueOS PostgreSQL",
-            "driver": "PostgreSQL",
-            "server": "localhost",
-            "port": 54323,
-            "database": "valueos_dev",
-            "username": "valueos",
-            "password": "valueos_dev"
-          }
-        ]
-      }
-    }
-  },
-  "remoteUser": "valueos",
-  "containerEnv": {
-    "NODE_ENV": "development",
-    "ENVIRONMENT": "development",
-    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-    "NPM_CONFIG_FUND": "false",
-    "DOCKER_API_VERSION": "1.43",
-    "ENABLE_LOCAL_SUPABASE": "true",
-    "ENABLE_AGENT_FABRIC": "true"
+    "ghcr.io/devcontainers/features/github-cli": {}
   },
   "forwardPorts": [
-    3000,
     3001,
-    4000,
-    5000,
-    6379,
+    5173,
     8000,
     8001,
-    8081,
-    8082,
-    8083,
-    8084,
-    9999,
     54323,
     54324
   ],
   "portsAttributes": {
-    "3000": {
-      "label": "PostgREST API",
-      "onAutoForward": "notify"
-    },
     "3001": {
       "label": "Frontend (Vite)",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "notify"
     },
-    "4000": {
-      "label": "Supabase Realtime",
-      "onAutoForward": "silent"
-    },
-    "5000": {
-      "label": "Supabase Storage",
-      "onAutoForward": "silent"
-    },
-    "6379": {
-      "label": "Redis",
-      "onAutoForward": "silent"
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
     },
     "8000": {
       "label": "Kong Gateway",
-      "onAutoForward": "notify"
+      "onAutoForward": "silent"
     },
     "8001": {
       "label": "Kong Admin",
-      "onAutoForward": "silent"
-    },
-    "8081": {
-      "label": "Opportunity Agent",
-      "onAutoForward": "silent"
-    },
-    "8082": {
-      "label": "Target Agent",
-      "onAutoForward": "silent"
-    },
-    "8083": {
-      "label": "Realization Agent",
-      "onAutoForward": "silent"
-    },
-    "8084": {
-      "label": "Expansion Agent",
-      "onAutoForward": "silent"
-    },
-    "9999": {
-      "label": "Supabase Auth",
       "onAutoForward": "silent"
     },
     "54323": {
@@ -135,16 +38,12 @@
     },
     "54324": {
       "label": "Supabase Studio",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "silent"
     }
   },
-  "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
-  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
-  "mounts": [
-    "source=valueos-node-modules,target=/workspaces/ValueOS/node_modules,type=volume",
-    "source=valueos-pnpm-store,target=/home/valueos/.local/share/pnpm/store,type=volume"
-  ],
-  "shutdownAction": "stopCompose",
-  "postAttachCommand": "echo '🚀 ValueOS Development Environment Ready!'"
+  "containerEnv": {
+    "NODE_ENV": "development",
+    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
+    "NPM_CONFIG_FUND": "false"
+  }
 }

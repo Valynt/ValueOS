@@ -1,0 +1,169 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { useTenant } from "@/contexts/TenantContext";
+import {
+  useCreateCompanyContext,
+  useAddCompetitors,
+  useAddPersonas,
+  useAddClaimGovernance,
+  useCompleteOnboarding,
+} from "@/hooks/company-context";
+import type {
+  OnboardingPhase1Input,
+  OnboardingPhase2Input,
+  OnboardingPhase3Input,
+  OnboardingPhase4Input,
+} from "@/hooks/company-context/types";
+
+import { Phase1Company } from "./onboarding/Phase1Company";
+import { Phase2Competitors } from "./onboarding/Phase2Competitors";
+import { Phase3Personas } from "./onboarding/Phase3Personas";
+import { Phase4Claims } from "./onboarding/Phase4Claims";
+import { Phase5Review } from "./onboarding/Phase5Review";
+
+const phases = [
+  { key: "company", label: "Company", step: 1 },
+  { key: "competitors", label: "Competitors", step: 2 },
+  { key: "personas", label: "Personas", step: 3 },
+  { key: "claims", label: "Claims", step: 4 },
+  { key: "review", label: "Review", step: 5 },
+];
+
+export default function CompanyOnboarding() {
+  const navigate = useNavigate();
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? "default";
+
+  const [phase, setPhase] = useState(1);
+  const [contextId, setContextId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Collected data
+  const [phase1Data, setPhase1Data] = useState<OnboardingPhase1Input | null>(null);
+  const [phase2Data, setPhase2Data] = useState<OnboardingPhase2Input | null>(null);
+  const [phase3Data, setPhase3Data] = useState<OnboardingPhase3Input | null>(null);
+  const [phase4Data, setPhase4Data] = useState<OnboardingPhase4Input | null>(null);
+
+  // Mutations
+  const createContext = useCreateCompanyContext(tenantId);
+  const addCompetitors = useAddCompetitors(tenantId, contextId ?? "");
+  const addPersonas = useAddPersonas(tenantId, contextId ?? "");
+  const addClaimGovernance = useAddClaimGovernance(tenantId, contextId ?? "");
+  const completeOnboarding = useCompleteOnboarding(tenantId, contextId ?? "");
+
+  const handlePhase1 = async (data: OnboardingPhase1Input) => {
+    setPhase1Data(data);
+    try {
+      const ctx = await createContext.mutateAsync(data);
+      setContextId(ctx.id);
+      setPhase(2);
+    } catch {
+      // If Supabase isn't connected, still allow navigation for demo
+      setPhase(2);
+    }
+  };
+
+  const handlePhase2 = async (data: OnboardingPhase2Input) => {
+    setPhase2Data(data);
+    if (contextId && data.competitors.length > 0) {
+      try { await addCompetitors.mutateAsync(data); } catch { /* demo fallback */ }
+    }
+    setPhase(3);
+  };
+
+  const handlePhase3 = async (data: OnboardingPhase3Input) => {
+    setPhase3Data(data);
+    if (contextId && data.personas.length > 0) {
+      try { await addPersonas.mutateAsync(data); } catch { /* demo fallback */ }
+    }
+    setPhase(4);
+  };
+
+  const handlePhase4 = async (data: OnboardingPhase4Input) => {
+    setPhase4Data(data);
+    if (contextId && data.claim_governance.length > 0) {
+      try { await addClaimGovernance.mutateAsync(data); } catch { /* demo fallback */ }
+    }
+    setPhase(5);
+  };
+
+  const handleConfirm = async () => {
+    setIsSubmitting(true);
+    try {
+      if (contextId) {
+        await completeOnboarding.mutateAsync();
+      }
+      navigate("/dashboard");
+    } catch {
+      // Demo fallback — navigate anyway
+      navigate("/dashboard");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-full bg-zinc-50 flex">
+      {/* Left: progress rail */}
+      <div className="w-64 bg-white border-r border-zinc-200 p-8 flex-shrink-0">
+        <div className="mb-10">
+          <h1 className="text-[18px] font-black text-zinc-950 tracking-[-0.05em]">VALYNT</h1>
+          <p className="text-[11px] text-zinc-400 mt-1">Value Intelligence Setup</p>
+        </div>
+
+        <div className="space-y-1">
+          {phases.map((p) => (
+            <div
+              key={p.key}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors",
+                phase === p.step ? "bg-zinc-950 text-white" :
+                phase > p.step ? "text-zinc-600" : "text-zinc-300"
+              )}
+            >
+              <div className={cn(
+                "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0",
+                phase === p.step ? "bg-white text-zinc-950" :
+                phase > p.step ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-400"
+              )}>
+                {phase > p.step ? "✓" : p.step}
+              </div>
+              <span className="text-[13px] font-medium">{p.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 p-4 rounded-xl bg-zinc-50 border border-zinc-100">
+          <p className="text-[11px] text-zinc-500 leading-relaxed">
+            This one-time setup teaches the system your business, products, and competitive landscape.
+            Every value case you build after this will be faster and sharper.
+          </p>
+        </div>
+      </div>
+
+      {/* Right: phase content */}
+      <div className="flex-1 flex justify-center py-10 px-8 overflow-y-auto">
+        <div className="w-full max-w-2xl">
+          {phase === 1 && <Phase1Company onNext={handlePhase1} />}
+          {phase === 2 && <Phase2Competitors onNext={handlePhase2} onBack={() => setPhase(1)} />}
+          {phase === 3 && <Phase3Personas onNext={handlePhase3} onBack={() => setPhase(2)} />}
+          {phase === 4 && phase1Data && (
+            <Phase4Claims companyName={phase1Data.company_name} onNext={handlePhase4} onBack={() => setPhase(3)} />
+          )}
+          {phase === 5 && phase1Data && (
+            <Phase5Review
+              phase1={phase1Data}
+              phase2={phase2Data ?? { competitors: [] }}
+              phase3={phase3Data ?? { personas: [] }}
+              phase4={phase4Data ?? { claim_governance: [] }}
+              onConfirm={handleConfirm}
+              onBack={() => setPhase(4)}
+              isSubmitting={isSubmitting}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,14 @@
+/**
+ * Small helper to enforce tenant namespaced redis keys.
+ * Always call `ns(organizationId, key)` to avoid accidental cross-tenant keys.
+ */
+export function ns(organizationId, key) {
+    const org = (organizationId || 'public').toString();
+    // Prevent unsafe keys
+    const sanitized = key.replace(/^:+|:+$/g, '');
+    return `${org}:${sanitized}`;
+}
+// Backwards-compatible helper name used by backend
+export const getRedisKey = ns;
+export default ns;
+//# sourceMappingURL=redisKeys.js.map
