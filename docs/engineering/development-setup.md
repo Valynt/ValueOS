@@ -909,7 +909,7 @@ pnpm run dx
 - **Frontend**: `http://localhost:5173`
 - **Backend API**: `http://localhost:3001`
 - **Supabase Studio**: `http://localhost:54323`
-- **Jaeger UI**: `http://localhost:16686`
+- **Grafana (Traces/Logs/Metrics)**: `http://localhost:3000`
 
 ---
 

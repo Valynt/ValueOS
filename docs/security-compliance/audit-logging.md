@@ -921,7 +921,7 @@ ValueOS has strong enterprise intent and broad coverage across governance artifa
 - API/backend, agents, memory, integrations, and infra tiers are documented with explicit flow direction.
 - Data layer includes migrations and RLS-focused tenant foundations.
 - Eventing/async readiness exists via dependencies such as `bullmq`, `ioredis`, and `kafkajs`.
-- Observability stack documentation references Prometheus/Grafana/Jaeger/OpenTelemetry, with K8s observability artifacts present.
+- Observability stack documentation references Prometheus/Grafana/Tempo/Loki/OpenTelemetry, with K8s observability artifacts present.
 
 #### Risks / Gaps
 

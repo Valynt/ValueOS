@@ -113,7 +113,7 @@ A tiered data hierarchy ensures zero-hallucination:
 ## 3. Infrastructure & DevContainer
 
 - **Vite Host Binding:** Must use `0.0.0.0` for Docker port forwarding.
-- **Port Mapping:** 5173 (Vite), 54321 (Supabase), 16686 (Jaeger).
+- **Port Mapping:** 5173 (Vite), 54321 (Supabase), 3000 (Grafana).
 - **Self-Healing:** `.devcontainer/health-check.sh` and `auto-restart.sh` monitor service availability.
 - **Performance:** Async font loading and code splitting reduce Time-to-Interactive by ~97%.
 
@@ -206,7 +206,7 @@ ValueOS is partitioned into two distinct environments:
 | **Backend**       | Supabase (Postgres 15.8) | Row-Level Security (RLS) for cryptographic tenant isolation.       |
 | **AI/LLM**        | Together AI              | Sub-second inference for MARL loops (Llama 3.x / Mixtral).         |
 | **Precision**     | `decimal.js`             | Mandatory for all financial logic; IEEE-754 floats are prohibited. |
-| **Observability** | OpenTelemetry + Jaeger   | Distributed tracing to visualize the "Reasoning Path."             |
+| **Observability** | OpenTelemetry + Tempo    | Distributed tracing to visualize the "Reasoning Path."             |
 
 ---
 

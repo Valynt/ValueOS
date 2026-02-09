@@ -28,15 +28,15 @@ data:
       jsonData:
         maxLines: 1000
         derivedFields:
-          - datasourceUid: Jaeger
+          - datasourceUid: Tempo
             matcherRegex: "traceID=(\\w+)"
             name: TraceID
             url: "$${__value.raw}"
     
-    - name: Jaeger
-      type: jaeger
+    - name: Tempo
+      type: tempo
       access: proxy
-      url: http://jaeger-query:16686
+      url: http://tempo:3200
       editable: false
       jsonData:
         tracesToLogs:

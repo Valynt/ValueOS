@@ -281,7 +281,7 @@ ValueOS is not a standard web application; it is a high-precision financial mult
 
 | ValueOS Principle | Technical Implementation | Engineering Impact |
 | :--- | :--- | :--- |
-| **Multi-Agent Fabric** | **OTel Mesh + Jaeger** | Enables tracing of asynchronous logic flows across autonomous agents in real-time. |
+| **Multi-Agent Fabric** | **OTel Mesh + Tempo** | Enables tracing of asynchronous logic flows across autonomous agents in real-time. |
 | **Ground Truth Benchmarking** | **Nix Pinned Toolchains** | Ensures that performance benchmarks are consistent across local, CI, and Production environments. |
 | **Financial Precision** | **PostgreSQL (pg_stat_statements)** | Local environment includes high-fidelity database monitoring to catch sub-optimal queries before they hit the ledger. |
 | **Security First** | **Pre-commit Hooks + SOPS** | Automated secret scanning and GPG-verified commits are enforced at the hardware level of the environment. |
@@ -295,7 +295,7 @@ The following assets have been integrated into the repository and are now under 
 ### Infrastructure & Configuration
 *   `flake.nix` & `flake.lock`: The source of truth for all system dependencies.
 *   `.devcontainer/devcontainer.json`: The orchestration layer for VS Code/Cursor integration.
-*   `infra/docker/docker-compose.dev.yml`: Definitions for the Multi-Agent support services (Redis, Jaeger, Postgres).
+*   `infra/docker/docker-compose.dev.yml`: Definitions for the Multi-Agent support services (Redis, Tempo, Postgres).
 
 ### Tooling & Scripts
 *   `scripts/self-healing/check-health.sh`: Validates the state of the local fabric.
@@ -305,7 +305,7 @@ The following assets have been integrated into the repository and are now under 
 ### Documentation & Visuals
 *   `docs/arch/environment-4k-map.png`: High-fidelity visualization of the Dev-to-Prod parity.
 *   `docs/guides/onboarding.md`: The "Fast Start" guide for new hires.
-*   **Local Developer Portal**: An internal dashboard (accessible via `localhost:9000` when the environment is up) providing real-time links to Jaeger, Grafana, and API docs.
+*   **Local Developer Portal**: An internal dashboard (accessible via `localhost:9000` when the environment is up) providing real-time links to Grafana and API docs.
 
 ---
 
@@ -335,12 +335,12 @@ The environment includes a "Self-Healing" layer that monitors for common failure
 
 The most significant hurdle in Multi-Agent development is "The Black Box Problem"—understanding why an agent made a specific decision.
 
-### Jaeger & Grafana Integration
+### Tempo & Grafana Integration
 The environment comes pre-configured with an **OpenTelemetry (OTel) Mesh**.
-*   **Distributed Tracing:** Every agent request is tagged with a `trace_id`. Engineers can open Jaeger locally to see the entire waterfall of agent-to-agent communication.
+*   **Distributed Tracing:** Every agent request is tagged with a `trace_id`. Engineers can open Grafana → Explore → Tempo locally to see the entire waterfall of agent-to-agent communication.
 *   **Metrics Visualization:** A local Grafana instance provides real-time CPU/Memory usage per agent, allowing engineers to identify memory leaks during the development phase.
 
-> "The ability to visualize the 'thought process' of the ValueOS agents through Jaeger traces transforms debugging from a guessing game into a surgical operation." — *Architecture Note*
+> "The ability to visualize the 'thought process' of the ValueOS agents through Tempo traces transforms debugging from a guessing game into a surgical operation." — *Architecture Note*
 
 ---
 
@@ -379,7 +379,7 @@ This guide provides a deep technical walkthrough of the **ValueOS Observability 
 Standard observability tracks request/response cycles. **ValueOS Deep Trace** treats every agent "thought process" as a parent Span and every subsequent tool call or sub-agent invocation as a child Span. This allows engineers to reconstruct the exact state of the `ContextFabric.ts` at any point in the agent's execution lifecycle.
 
 ### Core Telemetry Flow
-> **Agent (OTel SDK)** → **OTel Collector** → **Jaeger (Traces)** / **Prometheus (Metrics)** → **Grafana**
+> **Agent (OTel SDK)** → **OTel Collector** → **Tempo (Traces)** / **Prometheus (Metrics)** → **Grafana**
 
 ---
 
@@ -390,9 +390,12 @@ The local environment is orchestrated via **Nix Flakes** and **DevContainers**, 
 | Service | Role | Access Port |
 | :--- | :--- | :--- |
 | **OTel Collector** | Central telemetry processor and batcher. | `4317` (gRPC), `4318` (HTTP) |
-| **Jaeger** | Distributed tracing UI and backend. | `16686` |
+| **Tempo** | Distributed tracing backend. | `3200` |
 | **Prometheus** | Time-series database for token usage and latency. | `9090` |
 | **Grafana** | Mission Control: Unified dashboards. | `3000` |
+| **Loki** | Log aggregation. | `3100` |
+| **Promtail** | Docker log scraper → Loki. | — |
+| **node-exporter** | Host resource metrics. | `9100` |
 | **LiteLLM** | LLM Gateway with OTel instrumentation. | `4000` |
 
 ### 2.2 OTel Collector Implementation
@@ -408,8 +411,8 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 exporters:
-  otlp/jaeger:
-    endpoint: jaeger:4317
+  otlp/tempo:
+    endpoint: tempo:4317
     tls:
       insecure: true
   prometheus:
@@ -420,7 +423,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlp/jaeger]
+      exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
@@ -464,7 +467,7 @@ export class AgentFabric {
 ```
 
 ### 3.2 ContextFabric.ts: State Propagation
-`ContextFabric.ts` ensures that the "Short-term Memory" of an agent is visible in Jaeger. By attaching the `context_window` as a Span Event, we can see exactly what data was sent to the LLM during a specific tool call.
+`ContextFabric.ts` ensures that the "Short-term Memory" of an agent is visible in Tempo. By attaching the `context_window` as a Span Event, we can see exactly what data was sent to the LLM during a specific tool call.
 
 ### 3.3 BenchmarkAgent: Performance Analysis
 The `BenchmarkAgent` uses OTel metrics to track **Tokens Per Second (TPS)** and **Time To First Token (TTFT)**. These metrics are scraped by Prometheus and visualized in the Grafana "Agent Performance" dashboard.
@@ -478,7 +481,7 @@ In the ValueOS environment, agents are programmed to return a `confidence_score`
 
 > **Pro-Tip: Hallucination Detection**
 >
-> Open **Jaeger** and filter by tags: `confidence_score < 0.7`.
+> Open **Grafana → Explore → Tempo** and filter by tags: `confidence_score < 0.7`.
 >
 > Spans matching this filter represent high-risk outputs. Examine the `context.snippet` attribute in these traces to see if the agent had insufficient RAG (Retrieval-Augmented Generation) data, which is the primary driver of hallucinations in the Sales Enablement Platform.
 
@@ -490,7 +493,7 @@ avg(agent_confidence_score) by (agent_id) < 0.65
 ```
 
 ### Trace Correlation with Supabase
-When an agent writes to the local Supabase instance, the `supabase_request_id` is linked to the OTel `trace_id`. If a database record looks corrupted, copy the `trace_id` from the Supabase `audit_logs` and paste it into Jaeger to see the thought process that led to that specific write.
+When an agent writes to the local Supabase instance, the `supabase_request_id` is linked to the OTel `trace_id`. If a database record looks corrupted, copy the `trace_id` from the Supabase `audit_logs` and paste it into Grafana → Explore → Tempo to see the thought process that led to that specific write.
 
 ---
 
@@ -565,7 +568,7 @@ The observability stack is designed to intercept all agent activity. The flow fo
 
 1.  **Ingestion**: Agents and the LiteLLM proxy emit OTLP (OpenTelemetry Protocol) signals.
 2.  **Processing**: The **OTel Collector** aggregates, batches, and processes these signals.
-3.  **Storage**: Traces are sent to **Jaeger**; Metrics are exposed to **Prometheus**.
+3.  **Storage**: Traces are sent to **Tempo**; Metrics are exposed to **Prometheus**; Logs aggregate in **Loki**.
 4.  **Visualization**: **Grafana** provides a unified "Mission Control" interface.
 
 ---
@@ -590,15 +593,15 @@ services:
       - valueos-net
     restart: unless-stopped
 
-  # --- Jaeger: Distributed Tracing ---
-  jaeger:
-    image: jaegertracing/all-in-one:1.50
-    container_name: valueos-jaeger
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
+  # --- Tempo: Distributed Tracing ---
+  tempo:
+    image: grafana/tempo:2.3.0
+    container_name: valueos-tempo
+    command: -config.file=/etc/tempo/tempo-config.yaml
+    volumes:
+      - ./infra/observability/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml
     ports:
-      - "16686:16686" # UI
-      - "4317"        # OTLP gRPC (Internal)
+      - "3200:3200"
     networks:
       - valueos-net
     restart: unless-stopped
@@ -634,7 +637,7 @@ services:
       - valueos-net
     depends_on:
       - prometheus
-      - jaeger
+      - tempo
     restart: unless-stopped
 
   # --- LiteLLM: LLM Gateway & Cost Tracking ---
@@ -685,8 +688,8 @@ processors:
     spike_limit_mib: 128
 
 exporters:
-  otlp/jaeger:
-    endpoint: jaeger:4317
+  otlp/tempo:
+    endpoint: tempo:4317
     tls:
       insecure: true
 
@@ -700,7 +703,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [otlp/jaeger]
+      exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
@@ -802,7 +805,7 @@ Plaintext secrets in environment variables are prohibited. All LLM traffic is fo
 
 #### 3.1 The LiteLLM Chokepoint
 The `valueos-llm-gateway` serves as the single point of egress for model providers (TogetherAI, OpenAI, Ollama).
-- **Redaction**: The OTel Collector's `redaction` processor strips PII from trace logs before they hit Jaeger.
+- **Redaction**: The OTel Collector's `redaction` processor strips PII from trace logs before they hit Tempo.
 - **Key Rotation**: Provider keys are injected into LiteLLM via `secrets.nix` and are never exposed to the `AgentFabric`.
 
 ```yaml
@@ -838,7 +841,7 @@ USING (
 
 #### 4.2 Deep Trace Auditing
 The `ContextFabric.ts` ensures that the "Short-term Memory" of an agent is immutable once a trace is started.
-- **Trace Correlation**: If a record in `audit_logs` is flagged, engineers must use the `trace_id` to reconstruct the `context_window` in Jaeger. This identifies if the breach was due to a **Prompt Injection** or a **Logic Flaw**.
+- **Trace Correlation**: If a record in `audit_logs` is flagged, engineers must use the `trace_id` to reconstruct the `context_window` in Grafana → Explore → Tempo. This identifies if the breach was due to a **Prompt Injection** or a **Logic Flaw**.
 
 ---
 

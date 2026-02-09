@@ -18,8 +18,7 @@ Use this inventory as the source of truth for where to run Compose, Kubernetes, 
 | Test | `infra/docker/docker-compose.test.yml` | Platform / DevOps | Compose stack for integration and CI tests. | Active |
 | Base compose | `infra/docker/docker-compose.yml` | Platform / DevOps | Shared base services referenced by overlays and docs. | Active |
 | mTLS overlay | `infra/docker-compose.mtls.yml` | Platform / Security | mTLS overlay that layers on top of the dev stack. | Active |
-| Observability (LGTM) | `infra/docker/docker-compose.observability.yml` | Platform / DevOps | LGTM (Loki, Grafana, Tempo, Prometheus) stack for local ops testing. | Active |
-| Observability (legacy) | `infra/docker-compose.observability.yml` | Platform / DevOps | Jaeger/Prometheus/Grafana stack kept for reference only. | **Deprecated** |
+| Observability (PGLT) | `infra/docker/docker-compose.observability.yml` | Platform / DevOps | PGLT (Prometheus, Grafana, Loki, Tempo) + OTel Collector, Promtail, node-exporter. | Active |
 | Dependency services | `docker-compose.deps.yml` | Developer Experience | Minimal postgres/redis dependencies for app dev. | Active |
 | Scripts helper stack | `scripts/docker-compose.yml` | Platform / DevOps | Helper stack used by automation scripts. | Active |
 | GitHub code optimizer | `packages/services/github-code-optimizer/docker-compose.yml` | Integrations | Service-local compose for the GitHub optimizer. | Active |

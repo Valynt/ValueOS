@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Spec: Hardened Production Kubernetes Infrastructure
 
 ## Problem Statement
@@ -396,11 +397,214 @@ Update references:
 **Total: 4 created/modified, 8 deleted, 2 modified**
 
 ---
+=======
+# Spec: Operational Observability — PGLT Stack Deployment
+
+## Problem Statement
+
+The ValueOS codebase has partial, fragmented observability infrastructure:
+
+- **Two competing docker-compose files** for observability (one Jaeger-based, one PGLT-based) — neither fully functional
+- **Two metrics systems** (prom-client + OTel SDK) with metric name mismatches against alert rules
+- **No log shipping** — Loki is configured but nothing sends logs to it
+- **No OTel Collector** — referenced in compose but config file is missing; app exports directly to backends
+- **No resource metrics** — Prometheus config references node-exporter but no container exists
+- **Alertmanager disabled** — alert rules exist but have no receiver
+- **No "Mission Control" dashboard** — existing dashboards cover individual concerns but no SLO overview
+- **`lib/observability/index.ts` is all no-ops** — doesn't connect to prom-client or OTel
+
+The goal is a working, end-to-end observability stack where: traces flow through Tempo, metrics are scraped by Prometheus, logs aggregate in Loki, and Grafana provides a unified Mission Control dashboard with SLO tracking and automated alerts.
+
+## Design Decisions (Assumptions)
+
+Since all clarifying questions were skipped, these defaults apply. Each can be revisited before implementation begins.
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | **Consolidate to PGLT — remove Jaeger** | Tempo is already configured, Jaeger is redundant. One tracing backend simplifies the stack. |
+| 2 | **Add OTel Collector** | Central pipeline enables routing, sampling, batching. Decouples app from backend topology. Required for log shipping via OTLP. |
+| 3 | **Unify metrics to prom-client** | prom-client already works with `/metrics` endpoint. Rename metrics to match SLO alert PromQL (`valuecanvas_http_*`). Use OTel only for tracing. Simpler than migrating everything to OTel metrics. |
+| 4 | **Add Promtail for log shipping** | Lightweight, purpose-built for Loki. Scrapes Docker container logs via volume mount. No app-level changes needed. |
+| 5 | **Single "Mission Control" dashboard** | One dashboard with rows: SLO overview, API latency, error rates, resource pressure. Links to existing detailed dashboards. |
+| 6 | **Add node-exporter for resource metrics** | Provides CPU, memory, disk, network. Lightweight single container. cAdvisor adds complexity without proportional value for local dev. |
+| 7 | **Use Grafana unified alerting** | Simpler than adding Alertmanager container. Grafana can evaluate Prometheus alert rules directly and show alerts in the UI. Sufficient for dev; Alertmanager can be added later for production routing. |
+| 8 | **Canonical compose: `infra/docker/docker-compose.observability.yml`** | Consistent with other compose files in that directory. Delete the Jaeger-based `infra/docker-compose.observability.yml`. |
+
+## Requirements
+
+### R1: Docker Compose — Unified PGLT Stack
+
+**File:** `infra/docker/docker-compose.observability.yml`
+
+Services to include:
+- **Grafana** (10.2.x) — dashboards, alerting, datasource provisioning
+- **Prometheus** (v2.47.x) — metrics scraping, alert rule evaluation
+- **Loki** (2.9.x) — log aggregation
+- **Tempo** (2.3.x) — distributed tracing
+- **OTel Collector** (contrib 0.91.x) — central telemetry pipeline
+- **Promtail** (2.9.x) — Docker log scraping → Loki
+- **node-exporter** (1.7.x) — host/system resource metrics
+
+Remove:
+- Delete `infra/docker-compose.observability.yml` (Jaeger-based)
+- Remove all Jaeger references from compose files
+
+Networking:
+- All services on a shared `observability-net` bridge network
+- Backend app connects via `host.docker.internal` or shared network
+
+### R2: OTel Collector Configuration
+
+**File:** `infra/observability/otel-collector-config.yaml`
+
+Pipeline:
+- **Receivers:** OTLP (gRPC :4317, HTTP :4318)
+- **Processors:** batch, memory_limiter
+- **Exporters:**
+  - Traces → Tempo (OTLP gRPC)
+  - Metrics → Prometheus (prometheus exporter on :8889)
+  - (Logs are handled by Promtail, not the collector)
+
+### R3: Promtail Configuration
+
+**File:** `infra/observability/promtail/promtail-config.yaml`
+
+- Scrape Docker container logs via `/var/lib/docker/containers`
+- Add labels: `container_name`, `service`, `compose_service`
+- Pipeline stages: JSON parsing, timestamp extraction, label extraction for `level`, `component`, `trace_id`
+- Ship to Loki at `http://loki:3100/loki/api/v1/push`
+
+### R4: Metrics Unification
+
+**Files:**
+- `packages/backend/src/lib/metrics/httpMetrics.ts`
+- `packages/backend/src/middleware/metricsMiddleware.ts`
+- `packages/backend/src/lib/observability/index.ts`
+
+Changes:
+1. Rename prom-client histogram from `http_request_duration_seconds` → `valuecanvas_http_request_duration_ms` (milliseconds, matching SLO PromQL)
+   - Update bucket boundaries accordingly (from seconds to ms: `[5, 10, 25, 50, 100, 200, 500, 1000, 2000, 5000]`)
+2. Add prom-client counter `valuecanvas_http_requests_total` with labels `{method, route, status_code}`
+3. Replace no-op implementations in `lib/observability/index.ts` with real prom-client wrappers that delegate to the shared registry
+4. Ensure `/metrics` endpoint exposes all metrics from the unified registry
+
+### R5: Backend OTel Tracing — Wire to Collector
+
+**File:** `packages/backend/src/config/telemetry.ts`
+
+Changes:
+1. Update `OTLP_ENDPOINT` default from `http://localhost:4318` → `http://otel-collector:4318` (or keep localhost for non-Docker dev, configurable via env)
+2. Remove OTel metric reader/exporter (metrics handled by prom-client)
+3. Keep OTel tracing SDK with auto-instrumentation (HTTP, Express, PG, Redis)
+4. Ensure `trace_id` is injected into structured log output (already partially done via `getTraceContextForLogging`)
+
+### R6: Logger — Trace Correlation
+
+**File:** `packages/backend/src/lib/logger.ts`
+
+Changes:
+1. Import `getTraceContextForLogging` from telemetry config
+2. Automatically inject `trace_id` and `span_id` into every log entry
+3. This enables Loki → Tempo correlation via the derived field already configured in Grafana datasources
+
+### R7: Prometheus Configuration Update
+
+**File:** `infra/observability/prometheus/prometheus.yml`
+
+Changes:
+1. Add scrape target for OTel Collector metrics exporter (`otel-collector:8889`)
+2. Add scrape target for node-exporter (`node-exporter:9100`)
+3. Update `valueos-app` target to point to backend's `/metrics` endpoint (correct host/port)
+4. Enable `rule_files` to load alert rules
+5. Remove kubernetes_sd_configs (not applicable for local dev compose)
+6. Enable `--web.enable-remote-write-receiver` for Tempo's metrics_generator remote_write
+
+### R8: Prometheus Alert Rules — Fix and Extend
+
+**Files:**
+- `infra/prometheus/alerts/slo-alerts.yml`
+- `infra/prometheus/alerts/backend-api-alerts.yml`
+
+Changes:
+1. Verify metric names match R4 renames (all should use `valuecanvas_http_*`)
+2. Add resource pressure alerts:
+   - `HighCPUUsage`: `node_cpu_seconds_total` idle < 20% for 5m → warning
+   - `HighMemoryUsage`: `node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes` < 10% for 5m → warning
+   - `HighDiskUsage`: `node_filesystem_avail_bytes / node_filesystem_size_bytes` < 10% → warning
+3. Copy alert rule files into the Prometheus container via volume mount in compose
+
+### R9: Grafana — Mission Control Dashboard
+
+**File:** `infra/observability/grafana/dashboards/mission-control.json`
+
+Dashboard structure (single dashboard, multiple rows):
+
+**Row 1: SLO Overview**
+- Stat panels: Current P95 latency (vs 200ms target), Error rate (vs 0.1% target), MTTR
+- Gauge panels with thresholds (green/yellow/red)
+
+**Row 2: API Latency**
+- Time series: P50/P95/P99 latency over time by route
+- Heatmap: Request duration distribution
+
+**Row 3: Error Rates**
+- Time series: 5xx rate over time
+- Time series: Error rate by route
+- Table: Top error routes (last 1h)
+
+**Row 4: System Resource Pressure**
+- Time series: CPU usage %
+- Time series: Memory usage %
+- Time series: Disk usage %
+- Time series: Network I/O
+
+**Row 5: Log Stream (Loki)**
+- Logs panel: Recent error/warn logs from backend
+- Link to Explore for full log search
+
+Variables:
+- `$interval` (auto, 1m, 5m, 15m, 1h)
+- `$service` (valueos-backend, etc.)
+
+### R10: Grafana Provisioning
+
+**Files:**
+- `infra/observability/grafana/datasources.yml` (already exists, verify correctness)
+- `infra/observability/grafana/dashboards/dashboard-provider.yml` (new — tells Grafana to load JSON dashboards from disk)
+
+Changes:
+1. Create dashboard provider config that loads from `/var/lib/grafana/dashboards/`
+2. Mount `infra/observability/grafana/dashboards/` into Grafana container
+3. Mount datasources.yml into provisioning directory
+4. Enable Grafana unified alerting via env var `GF_UNIFIED_ALERTING_ENABLED=true`
+
+### R11: Update Scripts and Makefile
+
+**Files:**
+- `scripts/Makefile.observability` — update compose file path, add Promtail/node-exporter log targets
+- `scripts/verify-observability.sh` — add health checks for OTel Collector, Promtail, node-exporter
+
+### R12: Cleanup
+
+- Delete `infra/docker-compose.observability.yml` (Jaeger-based, replaced by R1)
+- Remove Jaeger port references from any documentation
+- Update `docs/developer-experience/dev-environment.md` Jaeger UI reference → Grafana/Tempo
+
+## Out of Scope
+
+- Production deployment (Kubernetes, Terraform) — this is local dev stack only
+- Alertmanager with external notification channels (Slack, PagerDuty)
+- Frontend (browser) telemetry
+- cAdvisor container metrics
+- Custom business metric dashboards (agent perf, LLM, etc. already exist)
+- CI workflow changes (existing `observability-tests.yml` will work once stack is correct)
+>>>>>>> 1d940125 (feat(observability): consolidate observability stack to PGLT, add Promtail for log shipping, and unify metrics)
 
 ## Acceptance Criteria
 
 All criteria must pass for the implementation to be considered complete.
 
+<<<<<<< HEAD
 ### AC1: Unified Pipeline Exists and Is Syntactically Valid
 - [ ] `.github/workflows/security-pipeline.yml` exists and passes `actionlint` (or manual YAML validation)
 - [ ] Contains jobs: `secret-detection`, `codeql`, `semgrep`, `dependency-audit`, `container-scan`, `iac-scan`, `dockerfile-lint`, `security-gate`
@@ -493,3 +697,71 @@ The Ralph loop is done when:
 3. YAML validation passes on all new/modified workflow files
 4. The pre-commit hook is manually testable (runs gitleaks or prints instructions)
 >>>>>>> dbcbcfd157e7b7ef8796374919b84cfcf917e6e8
+=======
+### AC1: Stack Boots Successfully
+```bash
+docker compose -f infra/docker/docker-compose.observability.yml up -d
+# All 7 containers reach "healthy" status within 60 seconds:
+# grafana, prometheus, loki, tempo, otel-collector, promtail, node-exporter
+```
+
+### AC2: Traces Flow End-to-End
+1. Start the backend (`pnpm run dev` or equivalent)
+2. Make an HTTP request to any API endpoint
+3. Trace appears in Grafana → Explore → Tempo
+4. Trace shows spans for HTTP handler, database query (if applicable), and Redis (if applicable)
+
+### AC3: Metrics Are Scraped
+1. `curl http://localhost:<backend-port>/metrics` returns Prometheus text format
+2. Output includes `valuecanvas_http_request_duration_ms_bucket` and `valuecanvas_http_requests_total`
+3. Prometheus targets page (`http://localhost:9090/targets`) shows `valueos-app`, `otel-collector`, `node-exporter` as UP
+
+### AC4: Logs Aggregate in Loki
+1. Backend produces structured JSON logs to stdout
+2. Logs appear in Grafana → Explore → Loki within 30 seconds
+3. Logs contain `trace_id` field
+4. Clicking a `trace_id` in Loki navigates to the corresponding trace in Tempo
+
+### AC5: Mission Control Dashboard Loads
+1. Open Grafana → Dashboards → Mission Control
+2. Dashboard renders without errors
+3. All 5 rows display data (SLO overview, API latency, error rates, resource pressure, log stream)
+4. SLO stat panels show current values with color-coded thresholds
+
+### AC6: Alert Rules Evaluate
+1. Prometheus → Alerts page shows all rules loaded (SLO + resource pressure)
+2. Rules are in "inactive" state (not firing) under normal conditions
+3. Metric names in rules match actual metric names from `/metrics`
+
+### AC7: Resource Metrics Available
+1. `node_cpu_seconds_total`, `node_memory_MemTotal_bytes`, `node_filesystem_size_bytes` metrics exist in Prometheus
+2. Mission Control resource pressure row displays CPU/memory/disk charts
+
+### AC8: No Jaeger References Remain
+1. `grep -r "jaeger" infra/ scripts/ docs/` returns no results (case-insensitive)
+2. No container named `*jaeger*` in any compose file
+
+### AC9: Existing Functionality Preserved
+1. `/health` endpoint still works
+2. `/metrics` endpoint still works (with renamed metrics)
+3. Backend starts without errors when `ENABLE_TELEMETRY=true`
+4. Backend starts without errors when `ENABLE_TELEMETRY=false` (graceful degradation)
+5. Existing Grafana dashboards in `infra/grafana/dashboards/` are not broken
+
+## Implementation Order
+
+1. R1: Docker Compose (foundation — everything depends on this)
+2. R2: OTel Collector config
+3. R3: Promtail config
+4. R10: Grafana provisioning (datasources + dashboard provider)
+5. R4: Metrics unification (prom-client renames)
+6. R5: Backend OTel tracing update
+7. R6: Logger trace correlation
+8. R7: Prometheus config update
+9. R8: Alert rules fix/extend
+10. R9: Mission Control dashboard JSON
+11. R11: Scripts/Makefile update
+12. R12: Cleanup (Jaeger removal, doc updates)
+
+Verification after each group: boot the stack, confirm the relevant AC.
+>>>>>>> 1d940125 (feat(observability): consolidate observability stack to PGLT, add Promtail for log shipping, and unify metrics)

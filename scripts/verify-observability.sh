@@ -1,81 +1,80 @@
 #!/bin/bash
-# Quick verification script for LGTM observability stack
+# Verification script for PGLT observability stack (7 services)
 
 set -e
 
-echo "🔍 LGTM Observability Stack - Health Check"
-echo "=========================================="
-echo ""
+COMPOSE_FILE="infra/docker/docker-compose.observability.yml"
 
-# Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Function to check service health
 check_service() {
     local name=$1
     local url=$2
-    
-    echo -n "Checking $name... "
-    
+
+    printf "  %-18s" "$name"
+
     if curl -sf "$url" > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ Healthy${NC}"
+        echo -e "${GREEN}OK${NC}"
         return 0
     else
-        echo -e "${RED}❌ Unhealthy${NC}"
+        echo -e "${RED}FAIL${NC}"
         return 1
     fi
 }
 
-# Check if Docker Compose is running
-echo "📦 Checking if observability stack is running..."
-if docker-compose -f docker-compose.observability.yml ps | grep -q "Up"; then
-    echo -e "${GREEN}✅ Stack is running${NC}"
+echo "PGLT Observability Stack - Health Check"
+echo "========================================"
+echo ""
+
+# Check if stack is running
+if docker compose -f "$COMPOSE_FILE" ps 2>/dev/null | grep -q "running"; then
+    echo -e "Stack status: ${GREEN}running${NC}"
     echo ""
 else
-    echo -e "${YELLOW}⚠️  Stack is not running${NC}"
-    echo "Start it with: make -f Makefile.observability obs-up"
+    echo -e "Stack status: ${YELLOW}not running${NC}"
+    echo "Start with: make -f scripts/Makefile.observability obs-up"
     exit 1
 fi
 
-# Check each service
-echo "🏥 Health Checks:"
-echo "----------------"
+echo "Health Checks:"
+echo "--------------"
 
 all_healthy=true
 
-check_service "Loki      " "http://localhost:3100/ready" || all_healthy=false
-check_service "Tempo     " "http://localhost:3200/ready" || all_healthy=false
-check_service "Prometheus" "http://localhost:9090/-/ready" || all_healthy=false
-check_service "Grafana   " "http://localhost:3000/api/health" || all_healthy=false
+check_service "Grafana"        "http://localhost:3000/api/health" || all_healthy=false
+check_service "Prometheus"     "http://localhost:9090/-/ready"    || all_healthy=false
+check_service "Loki"           "http://localhost:3100/ready"      || all_healthy=false
+check_service "Tempo"          "http://localhost:3200/ready"      || all_healthy=false
+check_service "OTel Collector" "http://localhost:13133/"          || all_healthy=false
+check_service "node-exporter"  "http://localhost:9100/metrics"    || all_healthy=false
+
+# Promtail has no health endpoint; check container status
+printf "  %-18s" "Promtail"
+if docker inspect valueos-promtail --format='{{.State.Running}}' 2>/dev/null | grep -q "true"; then
+    echo -e "${GREEN}OK${NC}"
+else
+    echo -e "${RED}FAIL${NC}"
+    all_healthy=false
+fi
 
 echo ""
-echo "📊 Service Endpoints:"
-echo "--------------------"
-echo "  Grafana:    http://localhost:3000 (No login required)"
-echo "  Prometheus: http://localhost:9090"
-echo "  Loki API:   http://localhost:3100"
-echo "  Tempo API:  http://localhost:3200"
+echo "Endpoints:"
+echo "  Grafana:        http://localhost:3000 (no login)"
+echo "  Prometheus:     http://localhost:9090"
+echo "  Loki:           http://localhost:3100"
+echo "  Tempo:          http://localhost:3200"
+echo "  OTel Collector: http://localhost:13133"
+echo "  node-exporter:  http://localhost:9100"
 echo ""
 
 if [ "$all_healthy" = true ]; then
-    echo -e "${GREEN}✅ All services are healthy!${NC}"
-    echo ""
-    echo "🎉 You're ready to:"
-    echo "  1. View traces in Grafana (Explore → Tempo)"
-    echo "  2. Query logs in Loki (Explore → Loki)"
-    echo "  3. Check metrics in Prometheus (Explore → Prometheus)"
-    echo ""
+    echo -e "${GREEN}All 7 services healthy.${NC}"
     exit 0
 else
-    echo -e "${RED}❌ Some services are unhealthy${NC}"
-    echo ""
-    echo "🔧 Troubleshooting:"
-    echo "  - Check logs: make -f Makefile.observability obs-logs"
-    echo "  - Restart stack: make -f Makefile.observability obs-restart"
-    echo "  - See troubleshooting guide: docs/observability/TROUBLESHOOTING.md"
-    echo ""
+    echo -e "${RED}Some services are unhealthy.${NC}"
+    echo "Check logs: make -f scripts/Makefile.observability obs-logs"
     exit 1
 fi

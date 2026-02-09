@@ -2,6 +2,8 @@
  * Structured JSON Logger
  *
  * Production-grade logging with correlation IDs and safe metadata.
+ * Automatically injects trace_id and span_id from the active OTel span
+ * to enable Loki → Tempo correlation.
  */
 
 import { redactSensitiveData } from "./redaction.js";
@@ -16,13 +18,34 @@ interface LogEntry {
 }
 
 /**
+ * Attempt to get trace context from OTel. Returns empty object if unavailable.
+ * Uses dynamic import to avoid hard dependency on telemetry module.
+ */
+function getTraceContext(): Record<string, string> {
+  try {
+    // Inline require-style access to avoid circular dependency with telemetry.ts
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const api = require("@opentelemetry/api");
+    const span = api.trace.getActiveSpan?.();
+    if (!span) return {};
+    const ctx = span.spanContext();
+    if (!ctx || ctx.traceId === "00000000000000000000000000000000") return {};
+    return { traceId: ctx.traceId, spanId: ctx.spanId };
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Create a log entry
  */
 function createEntry(level: LogLevel, message: string, meta?: Record<string, unknown>): LogEntry {
+  const traceCtx = getTraceContext();
   return {
     timestamp: new Date().toISOString(),
     level,
     message,
+    ...traceCtx,
     ...(meta ? (redactSensitiveData(meta) as Record<string, unknown>) : {}),
   };
 }

@@ -16,9 +16,9 @@ Complete observability solution with metrics, logs, and distributed tracing.
 - Alerting and notifications
 - User management
 
-### 3. **Jaeger** - Distributed Tracing
-- OpenTelemetry compatible
-- Trace visualization
+### 3. **Tempo** - Distributed Tracing
+- OpenTelemetry native (OTLP gRPC/HTTP)
+- Trace visualization via Grafana
 - Service dependency graphs
 - Performance analysis
 
@@ -44,7 +44,7 @@ Complete observability solution with metrics, logs, and distributed tracing.
          │              │              │
          ▼              ▼              ▼
 ┌────────────┐  ┌────────────┐  ┌────────────┐
-│ Prometheus │  │   Jaeger   │  │    Loki    │
+│ Prometheus │  │   Tempo    │  │    Loki    │
 │  (Metrics) │  │  (Traces)  │  │   (Logs)   │
 └─────┬──────┘  └─────┬──────┘  └─────┬──────┘
       │               │               │
@@ -90,10 +90,10 @@ kubectl port-forward -n observability svc/grafana 3000:3000
 # Password: (see below)
 ```
 
-**Jaeger:**
+**Tempo:**
 ```bash
-kubectl port-forward -n observability svc/jaeger-query 16686:16686
-# Open: http://localhost:16686
+kubectl port-forward -n observability svc/tempo 3200:3200
+# Traces are viewed via Grafana → Explore → Tempo
 ```
 
 ### Get Grafana Password
@@ -190,9 +190,9 @@ initTelemetry();
 
 ### View Traces
 
-1. Open Jaeger UI: http://localhost:16686
-2. Select service: `valuecanvas-backend`
-3. Click "Find Traces"
+1. Open Grafana: http://localhost:3000
+2. Navigate to Explore → select Tempo datasource
+3. Search by service: `valuecanvas-backend`
 4. Explore trace details
 
 ### Trace Features
@@ -299,14 +299,16 @@ limits_config:
   retention_period: 744h  # 31 days
 ```
 
-### Jaeger Storage
+### Tempo Storage
 
-Edit `jaeger-all-in-one.yaml`:
+Edit `tempo-config.yaml`:
 
 ```yaml
-env:
-  - name: SPAN_STORAGE_TYPE
-    value: "badger"  # or "elasticsearch", "cassandra"
+storage:
+  trace:
+    backend: local  # or "s3", "gcs", "azure"
+    local:
+      path: /tmp/tempo/blocks
 ```
 
 ## 📦 Resource Requirements
@@ -315,7 +317,7 @@ env:
 |-----------|-------------|----------------|---------|
 | Prometheus | 500m | 2Gi | 50Gi |
 | Grafana | 100m | 256Mi | 10Gi |
-| Jaeger | 200m | 512Mi | 20Gi |
+| Tempo | 200m | 512Mi | 20Gi |
 | Loki | 200m | 512Mi | 30Gi |
 | Fluent Bit | 100m | 128Mi | - |
 
@@ -389,14 +391,14 @@ kubectl get configmap grafana-datasources -n observability -o yaml
 kubectl get endpoints -n observability
 ```
 
-### Jaeger Not Receiving Traces
+### Tempo Not Receiving Traces
 
 ```bash
-# Check Jaeger collector logs
-kubectl logs -n observability deployment/jaeger -c jaeger
+# Check Tempo logs
+kubectl logs -n observability deployment/tempo
 
-# Verify OTLP endpoint
-kubectl get svc jaeger-collector -n observability
+# Verify Tempo endpoint
+kubectl get svc tempo -n observability
 ```
 
 ### Loki Not Receiving Logs
@@ -468,7 +470,7 @@ kubectl scale deployment loki -n observability --replicas=2
 
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
-- [Jaeger Documentation](https://www.jaegertracing.io/docs/)
+- [Tempo Documentation](https://grafana.com/docs/tempo/)
 - [Loki Documentation](https://grafana.com/docs/loki/)
 - [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 - [Fluent Bit Documentation](https://docs.fluentbit.io/)

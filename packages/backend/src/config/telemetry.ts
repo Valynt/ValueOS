@@ -55,11 +55,11 @@ const noopTracer = {
 };
 
 // Exporter endpoints (Node.js only)
-let OTLP_ENDPOINT, TRACES_ENDPOINT, METRICS_ENDPOINT;
+// Default to otel-collector when running in Docker, localhost for local dev
+let OTLP_ENDPOINT, TRACES_ENDPOINT;
 if (!isBrowser) {
-  OTLP_ENDPOINT = process.env.OTLP_ENDPOINT || 'http://localhost:4318';
+  OTLP_ENDPOINT = process.env.OTLP_ENDPOINT || 'http://otel-collector:4318';
   TRACES_ENDPOINT = `${OTLP_ENDPOINT}/v1/traces`;
-  METRICS_ENDPOINT = `${OTLP_ENDPOINT}/v1/metrics`;
 }
 
 /**
@@ -75,12 +75,10 @@ export async function initializeTelemetry(): Promise<any> {
   // Wait for imports to be available
   await initializeTelemetryImports();
 
-  // Node.js environment - full SDK initialization
+  // Node.js environment - tracing only (metrics handled by prom-client)
   const { NodeSDK } = await import('@opentelemetry/sdk-node');
   const { getNodeAutoInstrumentations } = await import('@opentelemetry/auto-instrumentations-node');
   const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
-  const { OTLPMetricExporter } = await import('@opentelemetry/exporter-metrics-otlp-http');
-  const { PeriodicExportingMetricReader } = await import('@opentelemetry/sdk-metrics');
   const resources = await import('@opentelemetry/resources');
   const { SemanticResourceAttributes } = await import('@opentelemetry/semantic-conventions');
   const { logger } = await import('../lib/logger');
@@ -96,15 +94,6 @@ export async function initializeTelemetry(): Promise<any> {
       headers: {
         'Authorization': `Bearer ${process.env.OTLP_AUTH_TOKEN || ''}`
       }
-    }),
-    metricReader: new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter({
-        url: METRICS_ENDPOINT,
-        headers: {
-          'Authorization': `Bearer ${process.env.OTLP_AUTH_TOKEN || ''}`
-        }
-      }),
-      exportIntervalMillis: 60000 // Export every 60 seconds
     }),
     instrumentations: [
       getNodeAutoInstrumentations({
