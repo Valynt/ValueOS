@@ -10,6 +10,7 @@ import {
   ChevronRight,
   X,
   User,
+  Building2,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ const navItems = [
   { path: "/opportunities", label: "Cases", icon: Briefcase },
   { path: "/models", label: "Models", icon: Boxes },
   { path: "/agents", label: "Agents", icon: Bot },
+  { path: "/company", label: "Company Intel", icon: Building2 },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

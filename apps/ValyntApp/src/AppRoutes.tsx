@@ -14,6 +14,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { DrawerProvider } from "./contexts/DrawerContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
+import { OnboardingGate } from "./app/routes/OnboardingGate";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
@@ -104,19 +105,24 @@ export function AppRoutes() {
 
                         {/* Protected routes */}
                         <Route element={<ProtectedRoute />}>
-                          <Route element={<MainLayout />}>
-                            <Route path="/dashboard" element={<Dashboard />} />
-                            <Route path="/opportunities" element={<Opportunities />} />
-                            <Route path="/opportunities/:id" element={<OpportunityDetail />} />
-                            <Route path="/opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
-                            <Route path="/models" element={<Models />} />
-                            <Route path="/models/:id" element={<ModelDetail />} />
-                            <Route path="/agents" element={<Agents />} />
-                            <Route path="/agents/:id" element={<AgentDetail />} />
-                            <Route path="/integrations" element={<Integrations />} />
-                            <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="/onboarding" element={<CompanyOnboarding />} />
-                            <Route path="/company" element={<CompanyKnowledge />} />
+                          {/* Onboarding — own layout, no gate */}
+                          <Route path="/onboarding" element={<CompanyOnboarding />} />
+
+                          {/* Main app — gated by onboarding completion */}
+                          <Route element={<OnboardingGate />}>
+                            <Route element={<MainLayout />}>
+                              <Route path="/dashboard" element={<Dashboard />} />
+                              <Route path="/opportunities" element={<Opportunities />} />
+                              <Route path="/opportunities/:id" element={<OpportunityDetail />} />
+                              <Route path="/opportunities/:oppId/cases/:caseId" element={<ValueCaseCanvas />} />
+                              <Route path="/models" element={<Models />} />
+                              <Route path="/models/:id" element={<ModelDetail />} />
+                              <Route path="/agents" element={<Agents />} />
+                              <Route path="/agents/:id" element={<AgentDetail />} />
+                              <Route path="/integrations" element={<Integrations />} />
+                              <Route path="/settings" element={<SettingsPage />} />
+                              <Route path="/company" element={<CompanyKnowledge />} />
+                            </Route>
                           </Route>
                         </Route>
 

@@ -8,8 +8,12 @@ import {
   AlertTriangle,
   Plus,
   Sparkles,
+  Package,
+  Users,
+  Swords,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
 
 // Inline-editable text field
 function EditableField({
@@ -79,6 +83,8 @@ function ConfidenceBadge({ value, source }: { value: number; source: string }) {
 }
 
 export function HypothesisStage() {
+  const { companyContext, isReady } = useCompanyValueContext();
+
   const [hypotheses, setHypotheses] = useState([
     {
       id: "h1",
@@ -169,40 +175,133 @@ export function HypothesisStage() {
         })}
       </div>
 
-      {/* Company intelligence — auto-populated, never blank */}
+      {/* Company intelligence — from CompanyValueContext when available */}
       <div className="bg-white border border-zinc-200 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-4 h-4 text-zinc-500" />
           <h4 className="text-[13px] font-semibold text-zinc-900">Company Intelligence</h4>
-          <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">
-            Auto-populated
+          <span className={cn(
+            "ml-auto text-[10px] px-2 py-0.5 rounded-full font-semibold",
+            isReady ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
+          )}>
+            {isReady ? "From onboarding" : "Auto-populated"}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: "Annual Revenue", value: "$2.4B", sub: "+8.2% YoY", conf: 98, subColor: "text-emerald-600" },
-            { label: "Employees", value: "12,400", sub: "Manufacturing", conf: 95, subColor: "text-zinc-500" },
-            { label: "IT Spend (est.)", value: "$180M", sub: "7.5% of revenue", conf: 82, subColor: "text-zinc-500" },
-            { label: "Pain Score", value: "8.4/10", sub: "Legacy migration urgency", conf: 76, subColor: "text-red-500" },
-          ].map((m) => (
-            <div key={m.label} className="p-3 bg-zinc-50 rounded-xl">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[11px] text-zinc-400">{m.label}</p>
-                <ConfidenceBadge value={m.conf} source="" />
+
+        {isReady && companyContext ? (
+          <>
+            {/* Real data from company context */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="p-3 bg-zinc-50 rounded-xl">
+                <p className="text-[11px] text-zinc-400">Company</p>
+                <p className="text-lg font-black text-zinc-950 tracking-tight">{companyContext.context.company_name}</p>
+                <p className="text-[11px] font-medium text-zinc-500 capitalize">
+                  {companyContext.context.industry || "—"} · {companyContext.context.company_size?.replace("_", " ") || "—"}
+                </p>
               </div>
-              <p className="text-lg font-black text-zinc-950 tracking-tight">{m.value}</p>
-              <p className={cn("text-[11px] font-medium", m.subColor)}>{m.sub}</p>
+              <div className="p-3 bg-zinc-50 rounded-xl">
+                <p className="text-[11px] text-zinc-400">Sales Motion</p>
+                <p className="text-lg font-black text-zinc-950 tracking-tight capitalize">
+                  {companyContext.context.sales_motion?.replace("_", " ") || "—"}
+                </p>
+                <p className="text-[11px] font-medium text-zinc-500">
+                  {companyContext.context.annual_revenue || "Revenue not set"}
+                </p>
+              </div>
             </div>
-          ))}
-        </div>
+
+            {/* Products from context */}
+            {companyContext.products.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Package className="w-3 h-3 text-zinc-400" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Products</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {companyContext.products.map((p) => (
+                    <span key={p.id} className="px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg text-[11px] font-medium text-blue-700">
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Personas from context */}
+            {companyContext.personas.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Users className="w-3 h-3 text-zinc-400" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Target Personas</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {companyContext.personas.map((p) => (
+                    <span key={p.id} className="px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg text-[11px] font-medium text-emerald-700">
+                      {p.title}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Competitors from context */}
+            {companyContext.competitors.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Swords className="w-3 h-3 text-zinc-400" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-400">Competitive Landscape</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {companyContext.competitors.map((c) => (
+                    <span key={c.id} className="px-3 py-1.5 bg-violet-50 border border-violet-100 rounded-lg text-[11px] font-medium text-violet-700">
+                      {c.name}
+                      <span className="text-violet-400 ml-1 capitalize">· {c.relationship}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Fallback: mock data when no context */
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Annual Revenue", value: "$2.4B", sub: "+8.2% YoY", conf: 98, subColor: "text-emerald-600" },
+              { label: "Employees", value: "12,400", sub: "Manufacturing", conf: 95, subColor: "text-zinc-500" },
+              { label: "IT Spend (est.)", value: "$180M", sub: "7.5% of revenue", conf: 82, subColor: "text-zinc-500" },
+              { label: "Pain Score", value: "8.4/10", sub: "Legacy migration urgency", conf: 76, subColor: "text-red-500" },
+            ].map((m) => (
+              <div key={m.label} className="p-3 bg-zinc-50 rounded-xl">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[11px] text-zinc-400">{m.label}</p>
+                  <ConfidenceBadge value={m.conf} source="" />
+                </div>
+                <p className="text-lg font-black text-zinc-950 tracking-tight">{m.value}</p>
+                <p className={cn("text-[11px] font-medium", m.subColor)}>{m.sub}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Discovery stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Stakeholders Mapped", value: "14", sub: "4 decision makers" },
-          { label: "Competitors Identified", value: "6", sub: "2 incumbent" },
-          { label: "Use Cases Found", value: "8", sub: "3 high priority" },
+          {
+            label: "Personas Mapped",
+            value: isReady ? String(companyContext?.personas.length ?? 0) : "14",
+            sub: isReady ? "from onboarding" : "4 decision makers",
+          },
+          {
+            label: "Competitors Identified",
+            value: isReady ? String(companyContext?.competitors.length ?? 0) : "6",
+            sub: isReady ? "from onboarding" : "2 incumbent",
+          },
+          {
+            label: "Products",
+            value: isReady ? String(companyContext?.products.length ?? 0) : "8",
+            sub: isReady ? "from onboarding" : "3 high priority",
+          },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-zinc-200 rounded-2xl p-4 text-center">
             <p className="text-2xl font-black text-zinc-950 tracking-tight">{s.value}</p>
