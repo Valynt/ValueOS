@@ -119,6 +119,13 @@ import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExe
 import { supabase } from "../lib/supabase.js";
 import { featureFlags } from "../config/featureFlags.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
+import { AdversarialIOMiddleware } from "./middleware/AdversarialIOMiddleware.js";
+import { CheckpointMiddleware } from "./middleware/CheckpointMiddleware.js";
+import { HandoverMiddleware } from "./middleware/HandoverMiddleware.js";
+import { auditLogService } from "./AuditLogService.js";
+import { workspaceStateService } from "./WorkspaceStateService.js";
+import { realtimeUpdateService } from "./RealtimeUpdateService.js";
+import { ToolRegistry } from "./ToolRegistry.js";
 import {
   AgentRequest,
   AgentResponse as RetryAgentResponse,
@@ -136,7 +143,7 @@ import {
 // ============================================================================
 
 export interface AgentResponse {
-  type: "component" | "message" | "suggestion" | "sdui-page" | "clarification_needed";
+  type: "component" | "message" | "suggestion" | "sdui-page";
   payload: any;
   streaming?: boolean;
   sduiPage?: SDUIPageDefinition;
@@ -337,6 +344,8 @@ export class UnifiedAgentOrchestrator {
   private confidenceMonitor: ConfidenceMonitor;
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
+  private _checkpointMiddleware: CheckpointMiddleware | null = null;
+  private toolRegistry: ToolRegistry = new ToolRegistry();
 
   constructor(
     registry: AgentRegistry,
@@ -365,55 +374,57 @@ export class UnifiedAgentOrchestrator {
   }
 
   private initializeMiddleware(): void {
-    // Order: SemanticIntent → ReasoningLogger → [core] → AdaptiveRefinement → IntegrityVeto
-    // Pre-middleware (runs before core) is added first.
-    // Post-middleware (runs after core) wraps in reverse order via the chain.
-    // The chain is built so that the first middleware in the array is the outermost wrapper.
-    // SemanticIntent (pre) → ReasoningLogger (wraps) → core → AdaptiveRefinement (post) → IntegrityVeto (post)
-    //
-    // New middleware instances are registered by the orchestrator's public
-    // `registerMiddleware` method or externally after construction.
-    // IntegrityVetoMiddleware is always the last post-middleware.
+    // Order: AdversarialIO → Checkpoint → Handover → IntegrityVeto → agent call
+    const groundtruthAPI = new GroundtruthAPI();
+
+    this.middleware.push(
+      new AdversarialIOMiddleware({
+        auditLogService,
+        groundtruthAPI,
+      }),
+    );
+
+    this._checkpointMiddleware = new CheckpointMiddleware({
+      workspaceStateService,
+      realtimeUpdateService,
+    });
+    this.middleware.push(this._checkpointMiddleware);
+
+    this.middleware.push(
+      new HandoverMiddleware({
+        agentRegistry: this.registry,
+        messageBroker: this.messageBroker,
+        toolRegistry: this.toolRegistry,
+      }),
+    );
+
     this.middleware.push(new IntegrityVetoMiddleware(this));
   }
 
   /**
-   * Register additional middleware into the chain.
-   * Middleware is inserted before IntegrityVetoMiddleware (which is always last).
+   * Expose the CheckpointMiddleware instance so the REST endpoint can
+   * resolve/reject pending checkpoints.
    */
-  registerMiddleware(mw: AgentMiddleware): void {
-    // Insert before the last element (IntegrityVeto) if it exists
-    const vetoIndex = this.middleware.findIndex((m) => m.name === 'integrity_veto');
-    if (vetoIndex >= 0) {
-      this.middleware.splice(vetoIndex, 0, mw);
-    } else {
-      this.middleware.push(mw);
-    }
+  getCheckpointMiddleware(): CheckpointMiddleware | null {
+    return this._checkpointMiddleware;
   }
 
   /**
-   * Execute the middleware chain around a core function.
-   *
-   * Builds a nested call chain: middleware[0] wraps middleware[1] wraps ... wraps coreFn.
-   * Each middleware calls `next()` to proceed to the next layer.
+   * Compose the registered middleware chain around a core handler.
    */
-  async executeMiddlewareChain(
+  private async executeWithMiddleware(
     context: AgentMiddlewareContext,
-    coreFn: () => Promise<AgentResponse>
+    handler: () => Promise<AgentResponse>,
   ): Promise<AgentResponse> {
-    if (this.middleware.length === 0) {
-      return coreFn();
-    }
-
-    // Build the chain from inside out
-    let chain = coreFn;
+    // Build the chain right-to-left so the first middleware in the array
+    // is the outermost wrapper.
+    let current = handler;
     for (let i = this.middleware.length - 1; i >= 0; i--) {
-      const mw = this.middleware[i]!;
-      const nextFn = chain;
-      chain = () => mw.execute(context, nextFn);
+      const mw = this.middleware[i];
+      const next = current;
+      current = () => mw.execute(context, next);
     }
-
-    return chain();
+    return current();
   }
 
   private async ensureGroundTruthInitialized(): Promise<void> {
@@ -1353,7 +1364,7 @@ export class UnifiedAgentOrchestrator {
       };
     }
 
-    // Original synchronous execution path — now routed through middleware chain
+    // Original synchronous execution path
 
     try {
       // Create immutable copy of state
@@ -1388,89 +1399,131 @@ export class UnifiedAgentOrchestrator {
         },
       };
 
-      // Build middleware context
+      // Build middleware context for the pipeline
       const middlewareContext: AgentMiddlewareContext = {
         envelope,
         query,
         currentState,
-        userId,
+        userId: envelope.actor.id || userId,
         sessionId,
         traceId,
         agentType,
+        payload: undefined,
       };
 
-      // Core execution function (what the middleware chain wraps)
-      const coreExecution = async (): Promise<AgentResponse> => {
-        // Use agentType from middleware context (may be overridden by SemanticIntentMiddleware)
-        const effectiveAgentType = middlewareContext.agentType;
-
-        const circuitBreakerKey = `query-${effectiveAgentType}`;
-        const agentResponse = await this.circuitBreakers.execute(
-          circuitBreakerKey,
-          () =>
-            this.agentAPI.invokeAgent({
-              agent: effectiveAgentType,
-              query,
-              context: agentContext,
-            }),
-          { timeoutMs: this.config.defaultTimeoutMs }
-        );
-
-        if (agentResponse.success) {
-          // Structural truth check remains inline (not part of middleware chain)
-          const structuralCheck = await this.evaluateStructuralTruthVeto(
-            agentResponse.data,
-            {
-              traceId,
-              agentType: effectiveAgentType,
-              query,
-              context: agentContext,
-            }
+      // Execute agent call through the middleware pipeline
+      const middlewareResponse = await this.executeWithMiddleware(
+        middlewareContext,
+        async (): Promise<AgentResponse> => {
+          // Core handler: call agent with circuit breaker protection
+          const circuitBreakerKey = `query-${agentType}`;
+          let agentResponse = await this.circuitBreakers.execute(
+            circuitBreakerKey,
+            () =>
+              this.agentAPI.invokeAgent({
+                agent: agentType,
+                query,
+                context: agentContext,
+              }),
+            { timeoutMs: this.config.defaultTimeoutMs }
           );
-          if (structuralCheck.vetoed) {
-            return {
-              type: "message",
-              payload: {
-                message:
-                  "Output failed structural truth validation against expected schema.",
-                error: true,
-              },
-              metadata: structuralCheck.metadata,
-            };
-          }
-        }
 
-        return {
-          type: "message",
-          payload: agentResponse.success
-            ? {
-                message:
-                  typeof agentResponse.data === "string"
-                    ? agentResponse.data
-                    : JSON.stringify(agentResponse.data),
-                data: agentResponse.data,
+          if (agentResponse.success) {
+            const structuralCheck = await this.evaluateStructuralTruthVeto(
+              agentResponse.data,
+              {
+                traceId,
+                agentType,
+                query,
+                context: agentContext,
               }
-            : {
-                message: agentResponse.error || "Agent request failed",
-                error: true,
-              },
-        };
-      };
+            );
+            if (structuralCheck.vetoed) {
+              return {
+                type: "message",
+                payload: {
+                  message:
+                    "Output failed structural truth validation against expected schema.",
+                  error: true,
+                },
+                metadata: structuralCheck.metadata,
+              };
+            }
 
-      // Execute through middleware chain
-      const response = await this.executeMiddlewareChain(middlewareContext, coreExecution);
+            const integrityCheck = await this.evaluateIntegrityVeto(
+              agentResponse.data,
+              {
+                traceId,
+                agentType,
+                query,
+                context: agentContext,
+              }
+            );
 
-      // Short-circuit for clarification responses
-      if (response.type === "clarification_needed") {
+            if (integrityCheck.reRefine) {
+              logger.info("Triggering RE-REFINE loop due to low confidence", {
+                traceId,
+                agentType,
+                sessionId,
+              });
+
+              const re = await this.performReRefine(agentType, query, agentContext, traceId);
+              if (re.success && re.response) {
+                agentResponse = re.response;
+              } else {
+                return {
+                  type: "message",
+                  payload: {
+                    message:
+                      "Unable to auto-refine response. Please try again or request manual review.",
+                    error: true,
+                  },
+                };
+              }
+            }
+
+            if (integrityCheck.vetoed) {
+              return {
+                type: "message",
+                payload: {
+                  message:
+                    "Output failed integrity validation against ground truth benchmarks.",
+                  error: true,
+                },
+                metadata: integrityCheck.metadata,
+              };
+            }
+          }
+
+          return {
+            type: "message",
+            payload: agentResponse.success
+              ? {
+                  message:
+                    typeof agentResponse.data === "string"
+                      ? agentResponse.data
+                      : JSON.stringify(agentResponse.data),
+                }
+              : {
+                  message: agentResponse.error || "Agent request failed",
+                  error: true,
+                },
+          };
+        },
+      );
+
+      // If the middleware pipeline returned an error response, return it directly
+      if (middlewareResponse.payload?.error) {
         return {
-          response,
+          response: middlewareResponse,
           nextState: currentState,
           traceId,
         };
       }
 
       // Update state based on response
-      if (!(response.payload as any)?.error) {
+      const agentResponseData = middlewareResponse.payload?.message;
+      if (agentResponseData) {
         nextState.context.conversationHistory = [
           ...(nextState.context.conversationHistory || []),
           {
@@ -1480,17 +1533,19 @@ export class UnifiedAgentOrchestrator {
           },
           {
             role: "assistant",
-            content:
-              typeof response.payload?.message === "string"
-                ? response.payload.message
-                : JSON.stringify(response.payload),
+            content: typeof agentResponseData === "string"
+              ? agentResponseData
+              : JSON.stringify(agentResponseData),
             timestamp: new Date().toISOString(),
           },
         ];
       }
 
-      // Update status based on response
-      nextState.status = !(response.payload as any)?.error ? "in_progress" : "completed";
+      // Update status
+      nextState.status = "in_progress";
+
+      // Use the middleware pipeline response directly
+      const response = middlewareResponse;
 
       logger.info("Query processed successfully", {
         traceId,
@@ -2373,30 +2428,76 @@ Provide a JSON response with:
       currentStage: stage.id,
     };
 
-    // Use SecureMessageBus for inter-agent communication
-    const messageResult = await this.messageBroker.sendToAgent(
-      "orchestrator", // From orchestrator
-      agentType, // To target agent
-      {
-        action: "execute",
-        description: stage.description || `Execute ${stage.id}`,
-        context: agentContext,
+    // Build middleware context for stage execution
+    const middlewareContext: AgentMiddlewareContext = {
+      envelope: {
+        intent: stage.description || stage.id,
+        actor: { id: context.userId || 'system' },
+        organizationId: context.organizationId || 'default',
+        entryPoint: 'executeStage',
+        reason: `Stage execution: ${stage.id}`,
+        timestamps: { requestedAt: new Date().toISOString() },
       },
-      {
-        priority: "normal",
-        timeoutMs: stage.timeout_seconds * 1000,
-      }
+      query: stage.description || `Execute ${stage.id}`,
+      currentState: context.workflowState || { currentStage: stage.id, status: 'in_progress', completedStages: [], context: {} },
+      userId: context.userId || 'system',
+      sessionId: context.sessionId || '',
+      traceId: context.traceId || uuidv4(),
+      agentType,
+      payload: { stageId: stage.id, context: agentContext },
+    };
+
+    // Execute through middleware pipeline
+    const middlewareResponse = await this.executeWithMiddleware(
+      middlewareContext,
+      async (): Promise<AgentResponse> => {
+        // Core handler: use SecureMessageBus for inter-agent communication
+        const messageResult = await this.messageBroker.sendToAgent(
+          "orchestrator",
+          agentType,
+          {
+            action: "execute",
+            description: stage.description || `Execute ${stage.id}`,
+            context: agentContext,
+          },
+          {
+            priority: "normal",
+            timeoutMs: stage.timeout_seconds * 1000,
+          }
+        );
+
+        if (!messageResult.success) {
+          return {
+            type: "message",
+            payload: {
+              message: `Agent communication failed: ${messageResult.error}`,
+              error: true,
+            },
+          };
+        }
+
+        return {
+          type: "message",
+          payload: {
+            stage_id: stage.id,
+            agent_type: stage.agent_type,
+            agent_id: route.selected_agent?.id,
+            output: messageResult.data,
+          },
+        };
+      },
     );
 
-    if (!messageResult.success) {
-      throw new Error(`Agent communication failed: ${messageResult.error}`);
+    // If middleware returned an error, throw to preserve existing error handling
+    if (middlewareResponse.payload?.error && typeof middlewareResponse.payload?.message === 'string') {
+      throw new Error(middlewareResponse.payload.message);
     }
 
     return {
       stage_id: stage.id,
       agent_type: stage.agent_type,
       agent_id: route.selected_agent?.id,
-      output: messageResult.data,
+      output: middlewareResponse.payload?.output ?? middlewareResponse.payload,
     };
   }
 

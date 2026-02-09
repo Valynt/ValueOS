@@ -1,359 +1,297 @@
-# Agentic Middleware Spec
-
-**Date**: 2026-02-09
-**Status**: Draft — awaiting confirmation
-
----
+# Spec: Agent Middleware Pipeline — Checkpoint, Handover, and Adversarial I/O
 
 ## Problem Statement
 
-The `UnifiedAgentOrchestrator` currently routes queries using keyword matching (`selectAgent`), has no pre-execution intent validation, no real-time reasoning transparency, and no post-execution quality gate before results reach users. Three middleware layers are needed:
+The `UnifiedAgentOrchestrator` defines an `AgentMiddleware` interface and maintains a `middleware[]` array, but:
 
-1. **Semantic Intent Middleware** — Replace keyword routing with embedding-based intent classification; handle ambiguous intents via clarification before heavy execution.
-2. **Reasoning Logger Middleware** — Capture agent reasoning steps and stream them to the frontend `AgentReasoningViewer` via WebSocket, with PII scrubbing.
-3. **Adaptive Refinement Middleware** — Score agent output against user constraints before delivery; auto-retry with a different model if quality is below threshold.
+1. The pipeline is **not wired** into the execution flow (`processQuery`, `executeStage`).
+2. Only one middleware exists (`IntegrityVetoMiddleware`), and it runs inline rather than through the pipeline.
+3. Three middleware capabilities are missing:
+   - **Checkpoint (HITL)**: No mechanism to pause agent execution for human approval of high-risk actions.
+   - **Handover**: No middleware-level mechanism for agents to delegate sub-tasks to other agents mid-execution.
+   - **Adversarial I/O**: Safety checks (`SafetyGuard`, `inputValidation`) exist but are scattered across the codebase, not consolidated into the middleware pipeline.
 
----
+## Scope
 
-## Codebase Context (discovered during exploration)
+This work delivers four things:
 
-| Component | Location | State |
-|---|---|---|
-| `UnifiedAgentOrchestrator` | `packages/backend/src/services/UnifiedAgentOrchestrator.ts` | Has `AgentMiddleware` interface + `middleware[]` array, but the chain is **never executed** in `processQuery`. `IntegrityVetoMiddleware` is registered but called directly instead. |
-| `selectAgent()` | Same file, line ~2641 | Keyword-based (`lowerQuery.includes(...)`) routing. This is what Prompt 1 replaces. |
-| `VectorSearchService` | `packages/backend/src/services/VectorSearchService.ts` | Queries pgvector via Supabase RPC. Does **not** generate embeddings — only accepts pre-computed vectors. |
-| `SemanticMemoryService` | `packages/backend/src/services/SemanticMemory.ts` | Generates embeddings via Together AI (`m2-bert-80M-8k-retrieval`, 768 dims). |
-| `ReflectionEngine` | `packages/backend/src/services/ReflectionEngine.ts` | 18-point rubric scoring (0-10). Thresholds: 7.0 overall, 6.5 per category. Has `evaluate()` and `refine()`. |
-| `LLMCostTracker` | `packages/backend/src/services/LLMCostTracker.ts` | Tracks per-call cost to `llm_usage` table. `trackUsage()` accepts model, tokens, provider. |
-| `CostAwareRouter` | `packages/backend/src/services/CostAwareRouter.ts` | Model hierarchy with budget-aware selection. `selectModel()` picks cheaper models as budget tightens. |
-| `LLMGateway` | `packages/backend/src/lib/agent-fabric/LLMGateway.ts` | Multi-provider LLM calls. Uses `CostAwareRouter` + `LLMCostTracker`. |
-| WebSocket server | `packages/backend/src/server.ts` line 122 | `WebSocketServer` on `/ws/sdui`. Authenticated, tenant-isolated. Handles `sdui_update` and `ping`. |
-| `AgentReasoningViewer` | `apps/ValyntApp/src/views/AgentReasoningViewer.tsx` | Frontend component. Listens for `agent.reasoning.update` events via WebSocket. Expects `ReasoningChain` with `ThoughtNode[]`. |
-| `types/intent.ts` | `packages/backend/src/types/intent.ts` | Defines `Intent`, `IntentCategory`, `IntentRecognitionResult`, `ExtractedEntity`, `IntentRoutingDecision`. |
-| `IntentRegistry` | `packages/backend/src/services/IntentRegistry.ts` | Maps UI intents to React components (not agent routing). |
-| `performReRefine()` | Orchestrator, line ~736 | Existing re-refinement loop: retries with same agent + modified prompt. Max 2 attempts. |
-| Express middleware | `packages/backend/src/middleware/` | Standard Express middleware (auth, RBAC, rate limiting, etc.). Separate from agent middleware. |
+1. **Pipeline wiring** — Connect the `middleware[]` array into `processQuery()` and `executeStage()`.
+2. **CheckpointMiddleware** — HITL approval gate for high-risk actions.
+3. **HandoverMiddleware** — Inter-agent sub-task delegation within the pipeline.
+4. **AdversarialIOMiddleware** — Consolidated input/output safety screening.
 
----
+All middleware implements the existing `AgentMiddleware` interface:
 
-## Design Decisions (defaults chosen — all overridable)
-
-These decisions were made based on codebase analysis. Each is flagged for review.
-
-| # | Decision | Rationale |
-|---|---|---|
-| D1 | **Build a proper middleware chain** that wraps `processQuery`, and migrate the existing `IntegrityVetoMiddleware` into it. | The interface and array already exist but are unused. Wiring them properly is the right fix — avoids more ad-hoc direct calls. |
-| D2 | **Clarification returns a `clarification_needed` response type** that the frontend renders as a form. User resubmits with filled parameters. | Simpler than WebSocket dialog; matches the existing request-response flow of `processQuery`. No new protocol needed. |
-| D3 | **Create an `EmbeddingService` abstraction** defaulting to Together AI. | Decouples intent middleware from a specific provider. Reuses existing Together AI config. |
-| D4 | **Regex + configurable field-name blocklist** for PII scrubbing. | Fast, no external deps, covers the stated requirements (PII + credentials). NLP-based detection can be added later. |
-| D5 | **Configurable threshold**, defaulting to `ReflectionEngine`'s 7.0. | Consistency with existing system, but allows per-agent tuning. |
-| D6 | **Upgrade to a more capable model** on retry, using `CostAwareRouter`'s hierarchy. | "Different model" in the prompt implies trying something better, not random. Cost increase is logged as required. |
-
----
+```typescript
+export interface AgentMiddleware {
+  name: string;
+  execute(
+    context: AgentMiddlewareContext,
+    next: () => Promise<AgentResponse>
+  ): Promise<AgentResponse>;
+}
+```
 
 ## Requirements
 
-### Middleware Chain Infrastructure
+### 1. Pipeline Wiring
 
-**M0: Wire the `AgentMiddleware` chain into `processQuery`**
+**Location**: `packages/backend/src/services/UnifiedAgentOrchestrator.ts`
 
-The orchestrator already defines:
-```typescript
-interface AgentMiddleware {
-  name: string;
-  execute(context: AgentMiddlewareContext, next: () => Promise<AgentResponse>): Promise<AgentResponse>;
-}
-```
+- Add a private method `executeWithMiddleware(context: AgentMiddlewareContext, handler: () => Promise<AgentResponse>): Promise<AgentResponse>` that chains `this.middleware` in order, calling `next()` to proceed.
+- Call `executeWithMiddleware` in `processQuery()` (synchronous path, wrapping the agent invocation + integrity checks at ~line 1350) and in `executeStage()` (wrapping the `messageBroker.sendToAgent` call at ~line 2370).
+- The existing `IntegrityVetoMiddleware` continues to work as-is through the pipeline.
+- Middleware execution order: `AdversarialIOMiddleware` → `CheckpointMiddleware` → `HandoverMiddleware` → `IntegrityVetoMiddleware` → agent call.
 
-Changes needed:
-- Add a `executeMiddlewareChain(context, coreFn)` method that runs `this.middleware` in order, each calling `next()`.
-- Replace the direct `evaluateIntegrityVeto` calls in `processQuery` with the chain execution.
-- Migrate `IntegrityVetoMiddleware` to run through the chain (it already implements the interface).
-- New middleware registration order: **SemanticIntent → ReasoningLogger → [core execution] → AdaptiveRefinement → IntegrityVeto**.
-  - SemanticIntent runs *before* execution (pre-middleware).
-  - ReasoningLogger wraps execution to capture steps.
-  - AdaptiveRefinement and IntegrityVeto run *after* execution (post-middleware).
+### 2. CheckpointMiddleware (HITL)
 
-### Prompt 1: Semantic Intent Middleware
+**File**: `packages/backend/src/services/middleware/CheckpointMiddleware.ts`
 
-**M1.1: Intent Graph types**
+**Behavior**:
+- Before calling `next()`, inspect the `AgentMiddlewareContext` to determine if the action is high-risk.
+- High-risk determination is based on a configurable `RiskClassifier`:
+  - Action type matches a configurable list (e.g., `crm_write`, `financial_calculation`, `data_export`, `destructive_action`).
+  - The classifier checks `context.agentType`, `context.envelope.intent`, and `context.payload`.
+- If high-risk:
+  1. Generate a unique `checkpointId` (UUID).
+  2. Serialize the current `AgentMiddlewareContext` to `WorkspaceStateService` under key `checkpoint:{checkpointId}`.
+  3. Push a `human_intervention_required` notification via `RealtimeUpdateService.pushUpdate()` containing the `checkpointId`, action description, risk level, and requesting user.
+  4. Create a record in the `approval_requests` table (via the existing Supabase RPC or direct insert) with status `pending`.
+  5. Await resolution via a `Promise` stored in an in-memory `Map<string, { resolve, reject, timeout }>`.
+  6. **Timeout**: Configurable, default 30 minutes. On timeout, reject with a `CheckpointTimeoutError` and return a message-type `AgentResponse` indicating the action was aborted.
+- If not high-risk, call `next()` directly.
 
-New file: `packages/backend/src/services/middleware/types.ts`
+**Resume mechanism**:
+- New REST endpoint: `POST /api/checkpoints/:checkpointId/approve` and `POST /api/checkpoints/:checkpointId/reject`.
+- **File**: `packages/backend/src/api/checkpoints.ts`
+- The endpoint validates the checkpoint exists and is pending, then resolves/rejects the stored Promise.
+- On approval: the middleware calls `next()` and returns the result.
+- On rejection: returns a message-type `AgentResponse` with rejection reason.
+- The endpoint requires authentication (existing auth middleware).
 
-```typescript
-interface IntentNode {
-  id: string;
-  intent: string;                    // e.g., "analyze_roi"
-  confidence: number;                // 0-1
-  category: IntentCategory;          // from existing types/intent.ts
-  parameters: IntentParameter[];
-  children: IntentNode[];            // sub-intents
-}
-
-interface IntentParameter {
-  name: string;
-  type: 'string' | 'number' | 'enum' | 'entity';
-  required: boolean;
-  value?: unknown;                   // filled if resolved
-  description: string;
-  enumValues?: string[];             // for enum type
-}
-
-interface IntentGraph {
-  root: IntentNode;
-  ambiguityScore: number;            // 0-1, higher = more ambiguous
-  missingParameters: IntentParameter[];
-  resolvedAgent: AgentType | null;
-  historicalMatches: HistoricalIntentMatch[];
-}
-
-interface HistoricalIntentMatch {
-  intentId: string;
-  similarity: number;
-  previousAgent: string;
-  wasSuccessful: boolean;
-}
-```
-
-**M1.2: EmbeddingService**
-
-New file: `packages/backend/src/services/middleware/EmbeddingService.ts`
-
-- Wraps Together AI embedding generation (reuses config from `SemanticMemoryService`).
-- Single method: `generateEmbedding(text: string): Promise<number[]>`.
-- Caches recent embeddings (LRU, 100 entries, 5-min TTL).
-
-**M1.3: SemanticIntentMiddleware**
-
-New file: `packages/backend/src/services/middleware/SemanticIntentMiddleware.ts`
-
-Implements `AgentMiddleware`. Runs **before** core execution.
-
-Flow:
-1. Generate embedding for the user query via `EmbeddingService`.
-2. Query `VectorSearchService.searchByEmbedding()` for historical intent matches (type filter: `'intent_classification'`).
-3. If a high-confidence match exists (similarity ≥ 0.85), use its routing decision directly.
-4. Otherwise, classify the query into an `IntentGraph` using an LLM call via `LLMGateway` with a structured prompt that returns JSON.
-5. Compute `ambiguityScore` based on: top-2 intent confidence gap, number of missing required parameters.
-6. If `ambiguityScore > 0.4` OR any required parameters are missing → return a `clarification_needed` response (short-circuit, don't call `next()`).
-7. Otherwise, set `context.agentType` to the resolved agent and call `next()`.
-8. After successful execution, store the intent classification as a new vector in semantic memory for future lookups.
-
-**M1.4: Clarification response type**
-
-Extend `AgentResponse.type` union to include `'clarification_needed'`:
+**Types**:
 
 ```typescript
-interface ClarificationPayload {
-  message: string;
-  missingParameters: IntentParameter[];
-  suggestedIntent: string;
-  confidence: number;
-  originalQuery: string;
+interface CheckpointRecord {
+  checkpointId: string;
+  agentType: AgentType;
+  intent: string;
+  riskLevel: 'medium' | 'high' | 'critical';
+  riskReason: string;
+  serializedContext: string; // JSON of AgentMiddlewareContext
+  status: 'pending' | 'approved' | 'rejected' | 'timeout';
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  timeoutMs: number;
+}
+
+interface RiskClassification {
+  isHighRisk: boolean;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  reason: string;
+  requiresApproval: boolean;
 }
 ```
 
-The frontend should render this as a form. When the user fills in parameters and resubmits, the query is re-sent with a `clarification` context field containing the filled parameters, which the middleware uses to skip re-classification.
-
-**M1.5: Intent memory storage**
-
-After successful execution, store:
-- The query embedding
-- The resolved intent + agent type
-- Success/failure outcome
-- In the `semantic_memory` table with type `'intent_classification'`
-
-This enables the historical lookup in step 2.
-
-### Prompt 2: Reasoning Logger Middleware
-
-**M2.1: ReasoningLoggerMiddleware**
-
-New file: `packages/backend/src/services/middleware/ReasoningLoggerMiddleware.ts`
-
-Implements `AgentMiddleware`. Wraps core execution.
-
-Flow:
-1. Before calling `next()`: create a `ReasoningChain` object with status `'in_progress'`.
-2. Broadcast the chain start via WebSocket (`agent.reasoning.update` event type — matches what `AgentReasoningViewer` already listens for).
-3. Intercept agent execution by wrapping the `AgentAPI.invokeAgent` call to capture intermediate steps. This is done by:
-   - Injecting a `reasoningCallback` into the `AgentContext.metadata` that agents can call to report steps.
-   - Wrapping the agent response to extract any `reasoning_steps` or `thought_chain` fields from the response data.
-4. For each captured step, create a `ThoughtNode`, run it through the `PrivacyScrubber`, then broadcast via WebSocket.
-5. After `next()` completes: broadcast the final chain with status `'completed'` or `'failed'`.
-
-**M2.2: PrivacyScrubber**
-
-New file: `packages/backend/src/services/middleware/PrivacyScrubber.ts`
-
-Regex-based + field-name blocklist:
-
-**Patterns detected and masked:**
-- Email addresses → `[EMAIL]`
-- Phone numbers (US/international) → `[PHONE]`
-- SSN patterns → `[SSN]`
-- Credit card numbers (Luhn-valid 13-19 digit sequences) → `[CARD]`
-- API keys / tokens (patterns: `sk-`, `pk_`, `Bearer `, `ghp_`, `xoxb-`, etc.) → `[API_KEY]`
-- JWT tokens (3 base64 segments separated by dots) → `[JWT]`
-- IP addresses → `[IP]`
-
-**Field-name blocklist** (configurable):
-Any JSON field whose key matches these patterns has its value replaced with `[REDACTED]`:
-`password`, `secret`, `token`, `apiKey`, `api_key`, `authorization`, `credential`, `ssn`, `credit_card`, `private_key`.
-
-**M2.3: WebSocket broadcast integration**
-
-Use the existing `WebSocketServer` at `/ws/sdui`. Add a new message type handler:
+**Configuration**:
 
 ```typescript
-// Broadcast to all authenticated clients in the same tenant
-function broadcastReasoningUpdate(tenantId: string, chain: ReasoningChain): void
-```
-
-The event format matches what `AgentReasoningViewer` expects:
-```json
-{
-  "type": "agent.event",
-  "payload": {
-    "eventType": "agent.reasoning.update",
-    "data": { /* ReasoningChain */ }
-  }
+interface CheckpointConfig {
+  enabled: boolean;
+  defaultTimeoutMs: number; // default: 1_800_000 (30 min)
+  highRiskIntents: string[]; // e.g., ['crm_write', 'financial_calculation', 'data_export']
+  highRiskAgentTypes: AgentType[]; // e.g., ['financial-modeling']
+  bypassRoles?: string[]; // roles that skip checkpoint (e.g., 'admin')
 }
 ```
 
-No frontend changes needed — the viewer already handles this event type and merges nodes.
+### 3. HandoverMiddleware
 
-### Prompt 3: Adaptive Refinement Middleware
+**File**: `packages/backend/src/services/middleware/HandoverMiddleware.ts`
 
-**M3.1: AdaptiveRefinementMiddleware**
+**Behavior**:
+- After calling `next()`, inspect the `AgentResponse` for a `CapabilityRequest` signal in the payload.
+- A `CapabilityRequest` is a structured object embedded in the response payload indicating the current agent needs a sub-task performed by another agent or tool.
+- When detected:
+  1. Use `AgentRegistry` to find an agent with the requested capability (via `IAgent.getCapabilities()` / `AgentCapability` matching).
+  2. If no agent found, check `ToolRegistry` for an MCP tool matching the capability.
+  3. Use `AgentMessageBroker.sendToAgent()` to dispatch the sub-task to the target agent, passing the `CapabilityRequest.inputData` as payload.
+  4. Map the response data back using the `CapabilityRequest.outputMapping` (field name remapping).
+  5. Merge the sub-task result into the original `AgentResponse.payload` under the key specified by `CapabilityRequest.mergeKey`.
+  6. Return the enriched response.
+- If no `CapabilityRequest` in the response, return the response as-is.
+- If the target agent/tool is not found, log a warning and return the original response with a `warnings` field appended.
 
-New file: `packages/backend/src/services/middleware/AdaptiveRefinementMiddleware.ts`
+**Types**:
 
-Implements `AgentMiddleware`. Runs **after** core execution, **before** IntegrityVeto.
-
-Flow:
-1. Call `next()` to get the agent response.
-2. If the response is an error or `clarification_needed`, pass through unchanged.
-3. Invoke `ReflectionEngine.evaluate()` on the response payload with the original query as context.
-4. If `reflectionResult.passesThreshold` is true → return the response as-is.
-5. If below threshold:
-   a. Log the reflection score and refinement trigger.
-   b. Select an upgraded model via `CostAwareRouter` (force `priority: 'high'` to get a more capable model).
-   c. Re-invoke the agent with the upgraded model, appending the `ReflectionEngine`'s `refinementPlan` to the prompt.
-   d. Track the cost delta via `LLMCostTracker.trackUsage()` with a `caller: 'adaptive_refinement'` tag.
-   e. Re-evaluate the refined output. If it passes → return it. If not → return the better-scoring output of the two attempts with a warning annotation.
-6. Maximum 1 refinement retry (not a loop — the existing `performReRefine` handles deeper retries).
-
-**M3.2: Cost tracking for refinement**
-
-Each refinement call logs to `LLMCostTracker` with:
-- `endpoint: 'adaptive_refinement'`
-- `caller: 'AdaptiveRefinementMiddleware'`
-- The original model and the upgraded model
-- Token counts for both calls
-
-The response metadata includes:
 ```typescript
-interface RefinementMetadata {
-  wasRefined: boolean;
-  originalScore: number;
-  refinedScore?: number;
-  originalModel: string;
-  refinedModel?: string;
-  costIncrease?: number;       // USD delta
-  refinementPlan?: string[];
+interface CapabilityRequest {
+  capability: string; // e.g., 'financial_projection'
+  inputData: Record<string, unknown>;
+  outputMapping?: Record<string, string>; // { sourceField: targetField }
+  mergeKey: string; // where to place result in parent response
+  priority?: 'low' | 'normal' | 'high';
+  timeoutMs?: number; // default: 15_000
+}
+
+interface HandoverResult {
+  success: boolean;
+  targetAgent?: string;
+  targetTool?: string;
+  data?: Record<string, unknown>;
+  error?: string;
+  durationMs: number;
 }
 ```
 
-**M3.3: Integration with existing `performReRefine`**
+**Integration points**:
+- `AgentRegistry` — agent lookup by capability.
+- `AgentMessageBroker` — dispatch sub-task.
+- `ToolRegistry` — fallback tool lookup.
+- `AgentCollaborationService` — log the handover as a collaboration event for observability.
 
-The `AdaptiveRefinementMiddleware` replaces the inline `performReRefine` logic in `processQuery`. The existing `performReRefine` method remains available for direct use but `processQuery` delegates to the middleware chain instead.
+### 4. AdversarialIOMiddleware
 
----
+**File**: `packages/backend/src/services/middleware/AdversarialIOMiddleware.ts`
 
-## File Plan
+**Behavior**:
+- **Input screening** (before `next()`):
+  1. Run the query (`context.query`) through consolidated pattern checks:
+     - Jailbreak patterns from `SafetyGuard.blockedKeywords` (prompt injection).
+     - Injection patterns from `SafetyGuard.injectionPatterns` (XSS/script).
+     - Prompt injection patterns from `inputValidation.ts` PATTERNS.promptInjection.
+  2. If a violation is detected:
+     - Log a security event via `AuditLogService.logAudit()` with action `security:input_violation`, including the violation type and sanitized input excerpt.
+     - Return a safe fallback `AgentResponse` of type `message` with a generic safe message (no details about what was detected).
+     - Do NOT call `next()`.
 
-All new files go in `packages/backend/src/services/middleware/`:
+- **Output screening** (after `next()`):
+  1. Run the `AgentResponse.payload` (stringified) through `SafetyGuard.validateOutput()`.
+  2. Check for hallucination indicators against the Ground Truth database using `GroundtruthAPI.evaluate()` — but only if the GroundtruthAPI is configured (`isConfigured()` returns true). If not configured, skip this check.
+  3. If output violation detected:
+     - Log a security event via `AuditLogService.logAudit()` with action `security:output_violation`.
+     - Replace the response with a safe fallback message.
+  4. If hallucination detected (ground truth check fails):
+     - Log via `AuditLogService.logAudit()` with action `security:hallucination_detected`.
+     - Replace the response with a safe fallback message indicating the response could not be verified.
 
-| File | Purpose |
+- **No LLM calls** — all checks are regex/pattern-based for input, and GroundtruthAPI (external service, not LLM) for output.
+
+**Configuration**:
+
+```typescript
+interface AdversarialIOConfig {
+  enabled: boolean;
+  inputScreening: {
+    enabled: boolean;
+    blockedKeywords: string[];
+    injectionPatterns: RegExp[];
+    promptInjectionPatterns: RegExp[];
+    maxInputLength: number; // default: 2000
+  };
+  outputScreening: {
+    enabled: boolean;
+    blockedKeywords: string[];
+    enableGroundTruthCheck: boolean;
+  };
+  fallbackMessage: string; // default: "I'm unable to process this request. Please rephrase your query."
+  outputFallbackMessage: string; // default: "The response could not be verified for accuracy. Please try again."
+}
+```
+
+## File Structure
+
+```
+packages/backend/src/services/middleware/
+├── CheckpointMiddleware.ts
+├── HandoverMiddleware.ts
+├── AdversarialIOMiddleware.ts
+├── types.ts                          # Shared types (CapabilityRequest, CheckpointRecord, etc.)
+├── RiskClassifier.ts                 # Risk classification logic for CheckpointMiddleware
+└── __tests__/
+    ├── CheckpointMiddleware.test.ts
+    ├── HandoverMiddleware.test.ts
+    ├── AdversarialIOMiddleware.test.ts
+    └── RiskClassifier.test.ts
+
+packages/backend/src/api/
+└── checkpoints.ts                    # REST endpoints for checkpoint approve/reject
+```
+
+## Changes to Existing Files
+
+| File | Change |
 |---|---|
-| `types.ts` | Shared types: `IntentGraph`, `IntentNode`, `IntentParameter`, `ClarificationPayload`, `RefinementMetadata`, `ReasoningStep` |
-| `EmbeddingService.ts` | Embedding generation abstraction (Together AI default) |
-| `PrivacyScrubber.ts` | PII/credential masking |
-| `SemanticIntentMiddleware.ts` | Prompt 1 implementation |
-| `ReasoningLoggerMiddleware.ts` | Prompt 2 implementation |
-| `AdaptiveRefinementMiddleware.ts` | Prompt 3 implementation |
-| `index.ts` | Barrel exports |
-
-Modified files:
-
-| File | Changes |
-|---|---|
-| `UnifiedAgentOrchestrator.ts` | Add `executeMiddlewareChain()`, wire chain into `processQuery`, register new middleware, extend `AgentResponse.type` |
-| `server.ts` | Add `agent.reasoning.update` broadcast helper to WebSocket handler |
-| `types/intent.ts` | Add `IntentGraph`-related types if shared beyond middleware |
-
----
+| `packages/backend/src/services/UnifiedAgentOrchestrator.ts` | Add `executeWithMiddleware()` method. Wire into `processQuery()` and `executeStage()`. Register new middlewares in `initializeMiddleware()`. |
+| `packages/backend/src/api/index.ts` (or equivalent router mount) | Mount `/api/checkpoints` router. |
 
 ## Acceptance Criteria
 
-Each criterion is independently verifiable.
+### Pipeline Wiring
+- [ ] `executeWithMiddleware()` chains all registered middlewares in order.
+- [ ] `processQuery()` synchronous path invokes agent through the middleware pipeline.
+- [ ] `executeStage()` invokes agent through the middleware pipeline.
+- [ ] Existing `IntegrityVetoMiddleware` continues to function correctly through the pipeline.
 
-### Infrastructure (M0)
-- [ ] **AC-0.1**: `executeMiddlewareChain()` exists on `UnifiedAgentOrchestrator` and is called by `processQuery` (both sync and async paths).
-- [ ] **AC-0.2**: `IntegrityVetoMiddleware` runs through the chain, not via direct `evaluateIntegrityVeto` calls in `processQuery`.
-- [ ] **AC-0.3**: Middleware execution order is: SemanticIntent → ReasoningLogger → [core] → AdaptiveRefinement → IntegrityVeto.
+### CheckpointMiddleware
+- [ ] High-risk actions (matching configured intents/agent types) pause execution and await approval.
+- [ ] Context is serialized to `WorkspaceStateService`.
+- [ ] A `human_intervention_required` notification is pushed via `RealtimeUpdateService`.
+- [ ] `POST /api/checkpoints/:id/approve` resolves the pending checkpoint and execution continues.
+- [ ] `POST /api/checkpoints/:id/reject` aborts the action and returns a rejection response.
+- [ ] Unapproved checkpoints timeout after the configured duration (default 30 min) and return an abort response.
+- [ ] Non-high-risk actions pass through without pausing.
 
-### Semantic Intent Middleware (M1)
-- [ ] **AC-1.1**: `SemanticIntentMiddleware` implements `AgentMiddleware` and is registered in the chain.
-- [ ] **AC-1.2**: Given a query, the middleware generates an embedding and queries `VectorSearchService` for historical matches.
-- [ ] **AC-1.3**: If a high-confidence historical match exists (≥ 0.85), the middleware routes to that agent without an LLM call.
-- [ ] **AC-1.4**: If no match, the middleware classifies the query into an `IntentGraph` via LLM.
-- [ ] **AC-1.5**: If `ambiguityScore > 0.4` or required parameters are missing, a `clarification_needed` response is returned (execution short-circuited).
-- [ ] **AC-1.6**: After successful execution, the intent + embedding is stored in `semantic_memory` with type `'intent_classification'`.
-- [ ] **AC-1.7**: `EmbeddingService` generates embeddings via Together AI and caches results.
+### HandoverMiddleware
+- [ ] Responses containing a `CapabilityRequest` trigger a sub-task dispatch.
+- [ ] The middleware locates the target agent via `AgentRegistry` capability matching.
+- [ ] Falls back to `ToolRegistry` if no agent matches.
+- [ ] Sub-task results are mapped and merged into the original response.
+- [ ] Missing capabilities produce a warning, not an error.
+- [ ] Responses without `CapabilityRequest` pass through unchanged.
 
-### Reasoning Logger Middleware (M2)
-- [ ] **AC-2.1**: `ReasoningLoggerMiddleware` implements `AgentMiddleware` and is registered in the chain.
-- [ ] **AC-2.2**: A `ReasoningChain` is broadcast via WebSocket at start (`in_progress`) and end (`completed`/`failed`) of execution.
-- [ ] **AC-2.3**: The broadcast event format matches `{ type: 'agent.event', payload: { eventType: 'agent.reasoning.update', data: ReasoningChain } }`.
-- [ ] **AC-2.4**: `PrivacyScrubber` masks emails, phone numbers, SSNs, credit cards, API keys, JWTs, and IP addresses in reasoning content.
-- [ ] **AC-2.5**: `PrivacyScrubber` redacts values of JSON fields matching the blocklist (`password`, `secret`, `token`, etc.).
-- [ ] **AC-2.6**: No PII or credentials appear in WebSocket broadcasts (verified by unit tests with known PII patterns).
+### AdversarialIOMiddleware
+- [ ] Input containing jailbreak/injection patterns is blocked before reaching the agent.
+- [ ] Blocked inputs produce a safe fallback response (no violation details leaked).
+- [ ] All input violations are logged to `AuditLogService` with action `security:input_violation`.
+- [ ] Agent output is screened for blocked content.
+- [ ] If `GroundtruthAPI` is configured, output is checked for hallucination.
+- [ ] Output violations are logged to `AuditLogService` with action `security:output_violation` or `security:hallucination_detected`.
+- [ ] Violated outputs are replaced with a safe fallback message.
 
-### Adaptive Refinement Middleware (M3)
-- [ ] **AC-3.1**: `AdaptiveRefinementMiddleware` implements `AgentMiddleware` and is registered in the chain.
-- [ ] **AC-3.2**: After core execution, the middleware evaluates the response via `ReflectionEngine.evaluate()`.
-- [ ] **AC-3.3**: If the score passes threshold (default 7.0), the response is returned unchanged.
-- [ ] **AC-3.4**: If below threshold, the middleware re-invokes the agent with an upgraded model and the refinement plan.
-- [ ] **AC-3.5**: The cost of the refinement call is logged via `LLMCostTracker.trackUsage()` with `caller: 'AdaptiveRefinementMiddleware'`.
-- [ ] **AC-3.6**: The response includes `RefinementMetadata` indicating whether refinement occurred, scores, models used, and cost delta.
-- [ ] **AC-3.7**: Maximum 1 refinement retry per request (no infinite loops).
+### Tests
+- [ ] Unit tests for `CheckpointMiddleware` with mocked `WorkspaceStateService`, `RealtimeUpdateService`, and approval resolution.
+- [ ] Unit tests for `HandoverMiddleware` with mocked `AgentRegistry`, `AgentMessageBroker`, and `ToolRegistry`.
+- [ ] Unit tests for `AdversarialIOMiddleware` with mocked `AuditLogService`, `SafetyGuard`, and `GroundtruthAPI`.
+- [ ] Unit tests for `RiskClassifier`.
+- [ ] All tests use vitest with the project's existing mock patterns.
 
-### General
-- [ ] **AC-G.1**: All new files have unit tests (in `__tests__/` co-located or in the middleware directory).
-- [ ] **AC-G.2**: TypeScript compiles without errors (`pnpm typecheck` passes for the backend package).
-- [ ] **AC-G.3**: No new runtime dependencies added (uses existing `ws`, `zod`, `@supabase/supabase-js`).
-- [ ] **AC-G.4**: Existing `processQuery` behavior is preserved when all middleware is disabled (feature flag or empty chain).
+## Implementation Approach
 
----
-
-## Completion Criteria (Ralph Loop)
-
-The implementation is **done** when:
-
-1. All files in the File Plan exist with complete implementations (not stubs).
-2. All acceptance criteria (AC-0.x through AC-G.x) pass.
-3. `pnpm typecheck` passes for the backend package (or the specific files compile without errors if full typecheck has pre-existing failures).
-4. Unit tests exist and pass for: `PrivacyScrubber`, `EmbeddingService`, `SemanticIntentMiddleware`, `ReasoningLoggerMiddleware`, `AdaptiveRefinementMiddleware`, and `executeMiddlewareChain`.
-5. The middleware chain is wired into `processQuery` and the existing `IntegrityVetoMiddleware` runs through it.
-
----
+1. **Create shared types** (`middleware/types.ts`) — `CapabilityRequest`, `CheckpointRecord`, `RiskClassification`, `HandoverResult`, configs.
+2. **Create `RiskClassifier`** — standalone class, easy to test.
+3. **Create `AdversarialIOMiddleware`** — consolidates `SafetyGuard` patterns + `GroundtruthAPI` output check. Runs first in pipeline.
+4. **Create `CheckpointMiddleware`** — depends on `WorkspaceStateService`, `RealtimeUpdateService`. Includes in-memory pending map.
+5. **Create checkpoint API** (`api/checkpoints.ts`) — REST endpoints that resolve/reject pending checkpoints.
+6. **Create `HandoverMiddleware`** — depends on `AgentRegistry`, `AgentMessageBroker`, `ToolRegistry`.
+7. **Wire pipeline** — Add `executeWithMiddleware()` to orchestrator, update `processQuery()` and `executeStage()`, register middlewares in `initializeMiddleware()`.
+8. **Write unit tests** for each middleware and the risk classifier.
 
 ## Out of Scope
 
-- Frontend changes to `AgentReasoningViewer` (it already handles the event format).
-- Frontend clarification form UI (the response type is defined; frontend rendering is separate work).
-- Database migrations for new `semantic_memory` types (the existing table and `search_semantic_memory` RPC support arbitrary types).
-- NLP-based PII detection (regex + blocklist is the initial scope).
-- Changes to individual agent implementations to emit reasoning steps (the middleware captures what's available from responses).
+- Database migrations for a `checkpoints` table (use existing `approval_requests` table + `WorkspaceStateService` for state).
+- UI components for the approval flow (only the notification push and REST API).
+- LLM-based adversarial detection (regex/pattern only for input; GroundtruthAPI for output).
+- Changes to individual agent implementations to emit `CapabilityRequest` (the middleware handles it if present).
+- Performance benchmarking of the middleware pipeline.
+
+## Completion Criteria
+
+The implementation is done when:
+
+1. All four sections (pipeline wiring + 3 middlewares) are implemented.
+2. All acceptance criteria checkboxes above pass.
+3. All unit tests pass (`pnpm vitest run` for the new test files).
+4. TypeScript compiles without errors in the affected packages.
+5. Existing orchestrator tests continue to pass.
