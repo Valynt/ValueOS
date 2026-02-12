@@ -1,24 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: opportunity-agent
+  name: realization-agent
+  namespace: valynt-agents
   labels:
-    app: opportunity-agent
+    app: realization-agent
     component: agent
     tier: backend
   annotations:
-    valynt.io/llm-usage-limit: "200.00" # Monthly USD limit for this agent
-    valynt.io/cost-center: "agent-opportunity"
+    valynt.io/llm-usage-limit: "300.00" # Monthly USD limit — realization runs heavier models
+    valynt.io/cost-center: "agent-realization"
     valynt.io/cost-tracking: "enabled"
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: opportunity-agent
+      app: realization-agent
   template:
     metadata:
       labels:
-        app: opportunity-agent
+        app: realization-agent
         component: agent
         tier: backend
       annotations:
@@ -32,7 +33,10 @@ spec:
         runAsUser: 1000
         fsGroup: 1000
       # Prefer spot instances; tolerate preemption for cost savings.
-      # Safe for spot: Redis Streams XAUTOCLAIM reclaims orphaned messages.
+      # The agent is safe for spot because:
+      #   - Redis Streams guarantee at-least-once delivery
+      #   - XAUTOCLAIM reclaims orphaned messages from terminated pods
+      #   - DLQ catches anything that exceeds maxDeliveries
       tolerations:
         - key: "kubernetes.azure.com/scalesetpriority"
           operator: "Equal"
@@ -61,12 +65,11 @@ spec:
               podAffinityTerm:
                 labelSelector:
                   matchLabels:
-                    app: opportunity-agent
+                    app: realization-agent
                 topologyKey: "kubernetes.io/hostname"
       containers:
-
-        - name: opportunity-agent
-          image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
+        - name: realization-agent
+          image: ${ECR_REGISTRY}/valynt-realization:${IMAGE_TAG}
           imagePullPolicy: Always
           ports:
             - name: http
@@ -114,14 +117,14 @@ spec:
               value: "true"
             # Backpressure: limit in-flight concurrent requests per pod
             - name: MAX_CONCURRENT_REQUESTS
-              value: "10"
+              value: "8"
           resources:
             requests:
-              cpu: 500m
-              memory: 1Gi
+              cpu: 750m
+              memory: 1536Mi
             limits:
-              cpu: 1500m
-              memory: 2Gi
+              cpu: 2000m
+              memory: 3Gi
           livenessProbe:
             httpGet:
               path: /health
@@ -141,15 +144,17 @@ spec:
           lifecycle:
             preStop:
               exec:
+                # Allow in-flight requests to drain before SIGTERM
                 command: ["/bin/sh", "-c", "sleep 15"]
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 45
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: opportunity-agent
+  name: realization-agent
+  namespace: valynt-agents
   labels:
-    app: opportunity-agent
+    app: realization-agent
 spec:
   type: ClusterIP
   ports:
@@ -162,77 +167,16 @@ spec:
       targetPort: metrics
       protocol: TCP
   selector:
-    app: opportunity-agent
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: opportunity-agent
-  namespace: valynt-agents
-  labels:
-    app: opportunity-agent
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: opportunity-agent
-  minReplicas: 2
-  maxReplicas: 8
-  metrics:
-    # Primary: scale on Redis Stream pending message count (queue depth).
-    # Prometheus adapter exposes this from broker.pending.claimed histogram.
-    - type: External
-      external:
-        metric:
-          name: redis_stream_pending_messages
-          selector:
-            matchLabels:
-              stream: "valuecanvas.events"
-              consumer_group: "valuecanvas-workers"
-        target:
-          type: AverageValue
-          averageValue: "20"
-    # Secondary: CPU as a safety net for compute-bound LLM post-processing
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 65
-    # Tertiary: memory pressure from in-flight context windows
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 75
-  behavior:
-    scaleDown:
-      # 5-minute cooldown prevents flapping after burst subsides
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 25
-          periodSeconds: 120
-    scaleUp:
-      # Zero stabilization: react immediately to queue depth spikes
-      stabilizationWindowSeconds: 0
-      policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 30
-        - type: Pods
-          value: 4
-          periodSeconds: 30
-      selectPolicy: Max
+    app: realization-agent
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: opportunity-agent-pdb
+  name: realization-agent-pdb
   namespace: valynt-agents
 spec:
+  # Keep at least 1 pod running during voluntary disruptions (spot preemption, rollouts)
   minAvailable: 1
   selector:
     matchLabels:
-      app: opportunity-agent
+      app: realization-agent

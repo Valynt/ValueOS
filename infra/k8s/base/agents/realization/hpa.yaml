@@ -1,0 +1,60 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: realization-agent
+  namespace: valynt-agents
+  labels:
+    app: realization-agent
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: realization-agent
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    # Primary: scale on Redis Stream pending message count (queue depth).
+    # RealizationAgent is the heaviest consumer — higher maxReplicas than opportunity.
+    - type: External
+      external:
+        metric:
+          name: redis_stream_pending_messages
+          selector:
+            matchLabels:
+              stream: "valuecanvas.events"
+              consumer_group: "valuecanvas-workers"
+        target:
+          type: AverageValue
+          averageValue: "15"
+    # Secondary: CPU — realization does heavier model post-processing
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    # Tertiary: memory
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 120
+    scaleUp:
+      # Zero stabilization: react immediately to queue depth spikes
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max
