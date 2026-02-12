@@ -33,6 +33,72 @@ SET row_security = off;
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO postgres;
 GRANT CREATE ON SCHEMA auth TO postgres;
+DO $$
+BEGIN
+-- Populate existing NULL values with defaults (guarded for fresh DB)
+DO $$
+BEGIN
+  -- agent_sessions
+  BEGIN
+    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+  -- workflow_executions
+  BEGIN
+    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+  -- progressive_rollouts (exists guard)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+    BEGIN
+      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  -- feature_flags column guard
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    BEGIN
+      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+END;
+$$;
+
+COMMIT;
+BEGIN
+  -- agent_sessions
+  BEGIN
+    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+  -- workflow_executions
+  BEGIN
+    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+  -- progressive_rollouts (exists guard)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+    BEGIN
+      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  -- feature_flags column guard
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    BEGIN
+      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+END;
+$$;
 
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
@@ -289,14 +355,6 @@ EXCEPTION
   $$;
 
   COMMIT;
-    metadata
-  ) VALUES (
-    p_user_id,
-    p_action,
-    p_resource_type,
-    p_resource_id,
-    client_ip::inet,
-    client_ua,
     p_old_values,
     p_new_values,
     p_metadata
@@ -15996,7 +16054,7 @@ CREATE TRIGGER prevent_cases_tenant_modification
 
 -- Apply tenant_id immutability to messages
 DROP TRIGGER IF EXISTS prevent_messages_tenant_modification ON messages;
-CREATE TRIGGER prev                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ent_messages_tenant_modification
+CREATE TRIGGER prevent_messages_tenant_modification
   BEFORE UPDATE ON messages
   FOR EACH ROW
   EXECUTE FUNCTION prevent_tenant_id_modification();
@@ -19913,4 +19971,3603 @@ BEGIN
   SELECT COUNT(*) INTO v_set_null_count
   FROM information_schema.referential_constraints
   WHERE constraint_schema = 'public'
-  AND de
+  AND delete_rule = 'SET NULL';
+
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE 'Foreign Key Actions Migration Complete';
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Total foreign keys: %', v_total_fks;
+  RAISE NOTICE 'With explicit actions: %', v_with_actions;
+  RAISE NOTICE 'Without actions (NO ACTION): %', v_without_actions;
+  RAISE NOTICE '';
+  RAISE NOTICE 'Breakdown:';
+  RAISE NOTICE '  CASCADE: %', v_cascade_count;
+  RAISE NOTICE '  SET NULL: %', v_set_null_count;
+  RAISE NOTICE '';
+
+  IF v_without_actions = 0 THEN
+    RAISE NOTICE '✅ All foreign keys have explicit delete actions';
+  ELSE
+    RAISE WARNING '⚠️  % foreign keys still have NO ACTION', v_without_actions;
+  END IF;
+
+  RAISE NOTICE '';
+  RAISE NOTICE 'Verification:';
+  RAISE NOTICE '  SELECT * FROM foreign_key_actions_audit WHERE status LIKE ''❌%%'';';
+  RAISE NOTICE '  SELECT * FROM test_foreign_key_cascade();';
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================';
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260105000009_encrypt_credentials_vault.sql
+-- ================================================
+-- Encrypt Integration Credentials Using Supabase Vault
+-- Purpose: Encrypt OAuth tokens and API keys using Supabase Vault (NOT pgsodium)
+-- Priority: CRITICAL
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #1
+--
+-- IMPORTANT: This replaces 20260105000004_encrypt_credentials.sql
+-- Supabase recommends Vault over pgsodium for new implementations
+
+-- ============================================================================
+-- 1. Enable Vault extension (Supabase only)
+-- ============================================================================
+
+-- Vault is the recommended way to store secrets in Supabase
+-- It uses authenticated encryption and stores keys outside the database
+-- Note: This extension may not be available in all PostgreSQL environments
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_available_extensions WHERE name = 'vault'
+  ) THEN
+    CREATE EXTENSION IF NOT EXISTS vault CASCADE;
+    RAISE NOTICE 'Vault extension enabled';
+  ELSE
+    RAISE NOTICE 'Vault extension not available - skipping (not in Supabase environment)';
+  END IF;
+END $$;
+
+-- ============================================================================
+-- 2. Add secret reference columns to integration_connections (if vault available)
+-- ============================================================================
+
+-- Instead of storing encrypted data directly, we store references to Vault secrets
+ALTER TABLE integration_connections
+ADD COLUMN IF NOT EXISTS credentials_secret_id UUID;
+
+COMMENT ON COLUMN integration_connections.credentials_secret_id IS
+  'Reference to encrypted credentials in Supabase Vault';
+
+-- ============================================================================
+-- 3. Add secret reference columns to tenant_integrations (if vault available)
+-- ============================================================================
+
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS access_token_secret_id UUID;
+
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS refresh_token_secret_id UUID;
+
+COMMENT ON COLUMN tenant_integrations.access_token_secret_id IS
+  'Reference to encrypted access token in Supabase Vault';
+
+COMMENT ON COLUMN tenant_integrations.refresh_token_secret_id IS
+  'Reference to encrypted refresh token in Supabase Vault';
+
+-- ============================================================================
+-- 4. Create helper functions for storing credentials
+-- ============================================================================
+
+-- Function to store credentials in Vault and return secret ID
+CREATE OR REPLACE FUNCTION store_credentials_in_vault(
+  p_credentials TEXT,
+  p_name TEXT DEFAULT NULL,
+  p_description TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_secret_id UUID;
+BEGIN
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - cannot store secret';
+    RETURN NULL;
+  END IF;
+
+  -- Create secret in Vault using dynamic SQL to avoid parsing error if vault is missing
+  EXECUTE 'SELECT vault.create_secret($1, $2, $3)'
+  INTO v_secret_id
+  USING p_credentials, p_name, p_description;
+
+  RETURN v_secret_id;
+END;
+$$;
+
+COMMENT ON FUNCTION store_credentials_in_vault IS
+  'Stores credentials in Supabase Vault and returns secret ID';
+
+-- Function to retrieve credentials from Vault
+CREATE OR REPLACE FUNCTION get_credentials_from_vault(
+  p_secret_id UUID
+)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_decrypted TEXT;
+BEGIN
+  -- Return NULL if no secret ID
+  IF p_secret_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - cannot retrieve secret';
+    RETURN NULL;
+  END IF;
+
+  -- Retrieve decrypted secret from Vault using dynamic SQL
+  EXECUTE 'SELECT decrypted_secret FROM vault.decrypted_secrets WHERE id = $1'
+  INTO v_decrypted
+  USING p_secret_id;
+
+  RETURN v_decrypted;
+END;
+$$;
+
+COMMENT ON FUNCTION get_credentials_from_vault IS
+  'Retrieves decrypted credentials from Supabase Vault';
+
+-- Function to update credentials in Vault
+CREATE OR REPLACE FUNCTION update_credentials_in_vault(
+  p_secret_id UUID,
+  p_new_credentials TEXT,
+  p_name TEXT DEFAULT NULL,
+  p_description TEXT DEFAULT NULL
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - cannot update secret';
+    RETURN;
+  END IF;
+
+  -- Update secret in Vault using dynamic SQL
+  EXECUTE 'SELECT vault.update_secret($1, $2, $3, $4)'
+  USING p_secret_id, p_new_credentials, p_name, p_description;
+END;
+$$;
+
+COMMENT ON FUNCTION update_credentials_in_vault IS
+  'Updates credentials in Supabase Vault';
+
+-- ============================================================================
+-- 5. Create migration function to move existing credentials to Vault
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION migrate_credentials_to_vault()
+RETURNS TABLE(
+  table_name TEXT,
+  records_migrated BIGINT,
+  records_failed BIGINT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_migrated BIGINT := 0;
+  v_failed BIGINT := 0;
+  v_record RECORD;
+  v_secret_id UUID;
+BEGIN
+  -- Check if vault extension exists
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    RAISE WARNING 'Vault extension not available - migration skipped';
+    -- Return an empty row or just return
+    RETURN;
+  END IF;
+
+  -- Migrate integration_connections
+  FOR v_record IN
+    SELECT id, credentials
+    FROM integration_connections
+    WHERE credentials IS NOT NULL
+    AND credentials_secret_id IS NULL
+  LOOP
+    BEGIN
+      -- Store credentials in Vault
+      v_secret_id := store_credentials_in_vault(
+        v_record.credentials::text,
+        'integration_' || v_record.id::text,
+        'Integration credentials'
+      );
+
+      -- Update record with secret ID
+      UPDATE integration_connections
+      SET credentials_secret_id = v_secret_id
+      WHERE id = v_record.id;
+
+      v_migrated := v_migrated + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Failed to migrate credentials for integration_connections.id=%: %',
+        v_record.id, SQLERRM;
+      v_failed := v_failed + 1;
+    END;
+  END LOOP;
+
+  RETURN QUERY SELECT
+    'integration_connections'::TEXT,
+    v_migrated,
+    v_failed;
+
+  -- Reset counters for next table
+  v_migrated := 0;
+  v_failed := 0;
+
+  -- Migrate tenant_integrations access_token
+  FOR v_record IN
+    SELECT id, access_token, refresh_token
+    FROM tenant_integrations
+    WHERE (access_token IS NOT NULL OR refresh_token IS NOT NULL)
+    AND access_token_secret_id IS NULL
+  LOOP
+    BEGIN
+      -- Store access token in Vault
+      IF v_record.access_token IS NOT NULL THEN
+        v_secret_id := store_credentials_in_vault(
+          v_record.access_token,
+          'access_token_' || v_record.id::text,
+          'Access token'
+        );
+
+        UPDATE tenant_integrations
+        SET access_token_secret_id = v_secret_id
+        WHERE id = v_record.id;
+      END IF;
+
+      -- Store refresh token in Vault
+      IF v_record.refresh_token IS NOT NULL THEN
+        v_secret_id := store_credentials_in_vault(
+          v_record.refresh_token,
+          'refresh_token_' || v_record.id::text,
+          'Refresh token'
+        );
+
+        UPDATE tenant_integrations
+        SET refresh_token_secret_id = v_secret_id
+        WHERE id = v_record.id;
+      END IF;
+
+      v_migrated := v_migrated + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Failed to migrate tokens for tenant_integrations.id=%: %',
+        v_record.id, SQLERRM;
+      v_failed := v_failed + 1;
+    END;
+  END LOOP;
+
+  RETURN QUERY SELECT
+    'tenant_integrations'::TEXT,
+    v_migrated,
+    v_failed;
+END;
+$$;
+
+COMMENT ON FUNCTION migrate_credentials_to_vault IS
+  'Migrates existing plaintext credentials to Supabase Vault';
+
+-- ============================================================================
+-- 6. Create views for safe credential access
+-- ============================================================================
+
+-- View for integration_connections with decrypted credentials
+-- Only accessible by service_role
+CREATE OR REPLACE VIEW integration_connections_decrypted AS
+SELECT
+  ic.id,
+  ic.organization_id,
+  ic.adapter_type,
+  ic.display_name,
+  get_credentials_from_vault(ic.credentials_secret_id) as credentials,
+  ic.config,
+  ic.field_mappings,
+  ic.last_sync_time,
+  ic.sync_status,
+  ic.sync_error,
+  ic.total_syncs,
+  ic.successful_syncs,
+  ic.failed_syncs,
+  ic.last_health_check,
+  ic.health_status,
+  ic.created_at,
+  ic.updated_at,
+  ic.created_by
+FROM integration_connections ic;
+
+COMMENT ON VIEW integration_connections_decrypted IS
+  'View with decrypted credentials from Vault - only accessible by service_role';
+
+-- Grant access only to service_role
+REVOKE ALL ON integration_connections_decrypted FROM PUBLIC;
+GRANT SELECT ON integration_connections_decrypted TO service_role;
+
+-- View for tenant_integrations with decrypted tokens
+CREATE OR REPLACE VIEW tenant_integrations_decrypted AS
+SELECT
+  ti.id,
+  ti.tenant_id,
+  ti.provider,
+  get_credentials_from_vault(ti.access_token_secret_id) as access_token,
+  get_credentials_from_vault(ti.refresh_token_secret_id) as refresh_token,
+  ti.token_expires_at,
+  ti.instance_url,
+  ti.hub_id,
+  ti.connected_by,
+  ti.connected_at,
+  ti.last_used_at,
+  ti.last_refreshed_at,
+  ti.scopes,
+  ti.status,
+  ti.error_message,
+  ti.created_at,
+  ti.updated_at
+FROM tenant_integrations ti;
+
+COMMENT ON VIEW tenant_integrations_decrypted IS
+  'View with decrypted tokens from Vault - only accessible by service_role';
+
+-- Grant access only to service_role
+REVOKE ALL ON tenant_integrations_decrypted FROM PUBLIC;
+GRANT SELECT ON tenant_integrations_decrypted TO service_role;
+
+-- ============================================================================
+-- 7. Create triggers to auto-store credentials in Vault
+-- ============================================================================
+
+-- Trigger function for integration_connections
+CREATE OR REPLACE FUNCTION store_integration_credentials_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_secret_id UUID;
+BEGIN
+  -- If credentials provided as plaintext, store in Vault
+  IF NEW.credentials IS NOT NULL AND NEW.credentials_secret_id IS NULL THEN
+    v_secret_id := store_credentials_in_vault(
+      NEW.credentials::text,
+      'integration_' || NEW.id::text,
+      'Integration credentials for ' || NEW.display_name
+    );
+
+    NEW.credentials_secret_id := v_secret_id;
+    -- Clear plaintext after storing in Vault
+    NEW.credentials := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS store_credentials_in_vault_trigger ON integration_connections;
+CREATE TRIGGER store_credentials_in_vault_trigger
+  BEFORE INSERT OR UPDATE ON integration_connections
+  FOR EACH ROW
+  EXECUTE FUNCTION store_integration_credentials_trigger();
+
+COMMENT ON TRIGGER store_credentials_in_vault_trigger ON integration_connections IS
+  'Auto-stores credentials in Vault on insert/update';
+
+-- Trigger function for tenant_integrations
+CREATE OR REPLACE FUNCTION store_tenant_tokens_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_secret_id UUID;
+BEGIN
+  -- If access_token provided as plaintext, store in Vault
+  IF NEW.access_token IS NOT NULL AND NEW.access_token_secret_id IS NULL THEN
+    v_secret_id := store_credentials_in_vault(
+      NEW.access_token,
+      'access_token_' || NEW.id::text,
+      'Access token for ' || NEW.provider
+    );
+
+    NEW.access_token_secret_id := v_secret_id;
+    -- Clear plaintext after storing in Vault
+    NEW.access_token := NULL;
+  END IF;
+
+  -- If refresh_token provided as plaintext, store in Vault
+  IF NEW.refresh_token IS NOT NULL AND NEW.refresh_token_secret_id IS NULL THEN
+    v_secret_id := store_credentials_in_vault(
+      NEW.refresh_token,
+      'refresh_token_' || NEW.id::text,
+      'Refresh token for ' || NEW.provider
+    );
+
+    NEW.refresh_token_secret_id := v_secret_id;
+    -- Clear plaintext after storing in Vault
+    NEW.refresh_token := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS store_tokens_in_vault_trigger ON tenant_integrations;
+CREATE TRIGGER store_tokens_in_vault_trigger
+  BEFORE INSERT OR UPDATE ON tenant_integrations
+  FOR EACH ROW
+  EXECUTE FUNCTION store_tenant_tokens_trigger();
+
+COMMENT ON TRIGGER store_tokens_in_vault_trigger ON tenant_integrations IS
+  'Auto-stores tokens in Vault on insert/update';
+
+-- ============================================================================
+-- 8. Grant necessary permissions
+-- ============================================================================
+
+-- Grant execute on helper functions
+GRANT EXECUTE ON FUNCTION store_credentials_in_vault TO authenticated;
+GRANT EXECUTE ON FUNCTION get_credentials_from_vault TO service_role;
+GRANT EXECUTE ON FUNCTION update_credentials_in_vault TO service_role;
+GRANT EXECUTE ON FUNCTION migrate_credentials_to_vault TO service_role;
+
+-- ============================================================================
+-- 9. Create audit log for credential access
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS credential_access_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  table_name TEXT NOT NULL,
+  record_id UUID NOT NULL,
+  secret_id UUID,
+  accessed_by UUID REFERENCES auth.users(id),
+  access_type TEXT NOT NULL CHECK (access_type IN ('read', 'write', 'update')),
+  accessed_at TIMESTAMPTZ DEFAULT NOW(),
+  ip_address INET,
+  user_agent TEXT
+);
+
+-- Add FK constraint conditionally if vault is available
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vault') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'credential_access_log_secret_id_fkey'
+    ) THEN
+      ALTER TABLE credential_access_log
+      ADD CONSTRAINT credential_access_log_secret_id_fkey
+      FOREIGN KEY (secret_id) REFERENCES vault.secrets(id);
+    END IF;
+  END IF;
+END $$;
+
+-- ============================================================================
+-- 10. Summary
+-- ============================================================================
+
+DO $$
+BEGIN
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE 'Credential Encryption with Supabase Vault Complete';
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Next Steps:';
+  RAISE NOTICE '1. Verify Vault extension is enabled';
+  RAISE NOTICE '2. Test helper functions';
+  RAISE NOTICE '3. Run: SELECT * FROM migrate_credentials_to_vault();';
+  RAISE NOTICE '4. Verify encrypted data in vault.secrets';
+  RAISE NOTICE '5. Update application code to use secret references';
+  RAISE NOTICE '6. Drop plaintext columns after verification';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Security Notes:';
+  RAISE NOTICE '- Secrets stored in vault.secrets (encrypted)';
+  RAISE NOTICE '- Encryption keys managed by Supabase (outside database)';
+  RAISE NOTICE '- Decrypted views only accessible by service_role';
+  RAISE NOTICE '- All credential access is logged';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Vault vs pgsodium:';
+  RAISE NOTICE '- Vault is recommended by Supabase for new implementations';
+  RAISE NOTICE '- Keys stored outside database (more secure)';
+  RAISE NOTICE '- Easier to manage and rotate keys';
+  RAISE NOTICE '- Better integration with Supabase ecosystem';
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================';
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260106000000_customer_access_tokens.sql
+-- ================================================
+-- Customer Access Token System
+-- Enables secure, token-based access for customers to view their value realization data
+
+-- Create customer access tokens table
+CREATE TABLE IF NOT EXISTS customer_access_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  last_accessed_at TIMESTAMPTZ,
+  access_count INTEGER DEFAULT 0,
+  revoked_at TIMESTAMPTZ,
+  revoked_by UUID REFERENCES auth.users(id),
+  revoke_reason TEXT
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_token ON customer_access_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_value_case ON customer_access_tokens(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_expires ON customer_access_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_customer_tokens_active ON customer_access_tokens(expires_at, revoked_at)
+  WHERE revoked_at IS NULL;
+
+-- Function to generate secure random token
+CREATE OR REPLACE FUNCTION generate_customer_token()
+RETURNS TEXT AS $$
+BEGIN
+  RETURN encode(gen_random_bytes(32), 'base64');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to create customer access token
+CREATE OR REPLACE FUNCTION create_customer_access_token(
+  p_value_case_id UUID,
+  p_expires_in_days INTEGER DEFAULT 90
+)
+RETURNS TABLE (
+  token TEXT,
+  expires_at TIMESTAMPTZ
+) AS $$
+DECLARE
+  v_token TEXT;
+  v_expires_at TIMESTAMPTZ;
+BEGIN
+  -- Generate unique token
+  v_token := generate_customer_token();
+  v_expires_at := NOW() + (p_expires_in_days || ' days')::INTERVAL;
+
+  -- Insert token
+  INSERT INTO customer_access_tokens (
+    value_case_id,
+    token,
+    expires_at
+  ) VALUES (
+    p_value_case_id,
+    v_token,
+    v_expires_at
+  );
+
+  RETURN QUERY SELECT v_token, v_expires_at;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to validate and track token usage
+CREATE OR REPLACE FUNCTION validate_customer_token(p_token TEXT)
+RETURNS TABLE (
+  value_case_id UUID,
+  is_valid BOOLEAN,
+  error_message TEXT
+) AS $$
+DECLARE
+  v_token_record RECORD;
+BEGIN
+  -- Find token
+  SELECT * INTO v_token_record
+  FROM customer_access_tokens
+  WHERE token = p_token;
+
+  -- Token not found
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT NULL::UUID, FALSE, 'Invalid token';
+    RETURN;
+  END IF;
+
+  -- Token revoked
+  IF v_token_record.revoked_at IS NOT NULL THEN
+    RETURN QUERY SELECT NULL::UUID, FALSE, 'Token has been revoked';
+    RETURN;
+  END IF;
+
+  -- Token expired
+  IF v_token_record.expires_at < NOW() THEN
+    RETURN QUERY SELECT NULL::UUID, FALSE, 'Token has expired';
+    RETURN;
+  END IF;
+
+  -- Update access tracking
+  UPDATE customer_access_tokens
+  SET
+    last_accessed_at = NOW(),
+    access_count = access_count + 1
+  WHERE token = p_token;
+
+  -- Return valid token
+  RETURN QUERY SELECT v_token_record.value_case_id, TRUE, NULL::TEXT;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to revoke token
+CREATE OR REPLACE FUNCTION revoke_customer_token(
+  p_token TEXT,
+  p_revoked_by UUID,
+  p_reason TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+  UPDATE customer_access_tokens
+  SET
+    revoked_at = NOW(),
+    revoked_by = p_revoked_by,
+    revoke_reason = p_reason
+  WHERE token = p_token
+    AND revoked_at IS NULL;
+
+  RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Enable RLS
+ALTER TABLE customer_access_tokens ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can manage tokens for their tenant's value cases
+CREATE POLICY customer_tokens_tenant_isolation ON customer_access_tokens
+  FOR ALL
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE tenant_id::text = current_setting('app.current_tenant_id', true)
+    )
+  );
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION generate_customer_token() TO authenticated;
+GRANT EXECUTE ON FUNCTION create_customer_access_token(UUID, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION validate_customer_token(TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION revoke_customer_token(TEXT, UUID, TEXT) TO authenticated;
+
+-- Comments
+COMMENT ON TABLE customer_access_tokens IS 'Secure tokens for customer portal access';
+COMMENT ON FUNCTION create_customer_access_token IS 'Generate new customer access token';
+COMMENT ON FUNCTION validate_customer_token IS 'Validate token and track usage';
+COMMENT ON FUNCTION revoke_customer_token IS 'Revoke customer access token';
+
+-- ================================================
+-- Source: supabase/migrations/20260106000000_enable_realtime.sql
+-- ================================================
+-- Enable Realtime for Collaborative Business Case
+-- This migration enables real-time updates for collaborative editing
+
+-- Create publication if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        CREATE PUBLICATION supabase_realtime;
+    END IF;
+END $$;
+
+-- Enable realtime on value_cases table
+ALTER PUBLICATION supabase_realtime ADD TABLE value_cases;
+
+-- Enable realtime on value_case_metrics table (for metric updates)
+-- ALTER PUBLICATION supabase_realtime ADD TABLE value_case_metrics;
+
+-- Create canvas_elements table for collaborative canvas
+CREATE TABLE IF NOT EXISTS canvas_elements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+  element_type TEXT NOT NULL CHECK (element_type IN ('text', 'shape', 'connector', 'sticky_note', 'image')),
+  position_x NUMERIC NOT NULL DEFAULT 0,
+  position_y NUMERIC NOT NULL DEFAULT 0,
+  width NUMERIC,
+  height NUMERIC,
+  content JSONB NOT NULL DEFAULT '{}',
+  style JSONB DEFAULT '{}',
+  z_index INTEGER DEFAULT 0,
+  locked BOOLEAN DEFAULT false,
+  created_by UUID REFERENCES auth.users(id),
+  updated_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable RLS on canvas_elements
+ALTER TABLE canvas_elements ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for canvas_elements
+CREATE POLICY "Users can view canvas elements for their value cases"
+  ON canvas_elements FOR SELECT
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can insert canvas elements for their value cases"
+  ON canvas_elements FOR INSERT
+  WITH CHECK (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can update canvas elements for their value cases"
+  ON canvas_elements FOR UPDATE
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can delete canvas elements for their value cases"
+  ON canvas_elements FOR DELETE
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+-- Enable realtime on canvas_elements
+ALTER PUBLICATION supabase_realtime ADD TABLE canvas_elements;
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_canvas_elements_value_case_id ON canvas_elements(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_elements_z_index ON canvas_elements(z_index);
+CREATE INDEX IF NOT EXISTS idx_canvas_elements_updated_at ON canvas_elements(updated_at);
+
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_canvas_element_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  NEW.updated_by = auth.uid();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger for updated_at
+DROP TRIGGER IF EXISTS update_canvas_elements_timestamp ON canvas_elements;
+CREATE TRIGGER update_canvas_elements_timestamp
+  BEFORE UPDATE ON canvas_elements
+  FOR EACH ROW
+  EXECUTE FUNCTION update_canvas_element_timestamp();
+
+-- Create presence tracking table
+CREATE TABLE IF NOT EXISTS canvas_presence (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_name TEXT NOT NULL,
+  user_email TEXT NOT NULL,
+  cursor_x NUMERIC,
+  cursor_y NUMERIC,
+  selected_element_id UUID,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'idle', 'away')),
+  last_seen TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(value_case_id, user_id)
+);
+
+-- Enable RLS on canvas_presence
+ALTER TABLE canvas_presence ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for canvas_presence
+CREATE POLICY "Users can view presence for their value cases"
+  ON canvas_presence FOR SELECT
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can insert their own presence"
+  ON canvas_presence FOR INSERT
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update their own presence"
+  ON canvas_presence FOR UPDATE
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can delete their own presence"
+  ON canvas_presence FOR DELETE
+  USING (user_id = auth.uid());
+
+-- Enable realtime on canvas_presence
+ALTER PUBLICATION supabase_realtime ADD TABLE canvas_presence;
+
+-- Create indexes for presence
+CREATE INDEX IF NOT EXISTS idx_canvas_presence_value_case_id ON canvas_presence(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_presence_user_id ON canvas_presence(user_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_presence_last_seen ON canvas_presence(last_seen);
+
+-- Create function to clean up stale presence
+CREATE OR REPLACE FUNCTION cleanup_stale_presence()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM canvas_presence
+  WHERE last_seen < now() - INTERVAL '5 minutes';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create comments table for collaborative discussions
+CREATE TABLE IF NOT EXISTS canvas_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+  element_id UUID REFERENCES canvas_elements(id) ON DELETE CASCADE,
+  parent_comment_id UUID REFERENCES canvas_comments(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  user_name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  resolved BOOLEAN DEFAULT false,
+  resolved_by UUID REFERENCES auth.users(id),
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable RLS on canvas_comments
+ALTER TABLE canvas_comments ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for canvas_comments
+CREATE POLICY "Users can view comments for their value cases"
+  ON canvas_comments FOR SELECT
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can insert comments for their value cases"
+  ON canvas_comments FOR INSERT
+  WITH CHECK (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can update their own comments"
+  ON canvas_comments FOR UPDATE
+  USING (user_id = auth.uid());
+
+CREATE POLICY "Users can delete their own comments"
+  ON canvas_comments FOR DELETE
+  USING (user_id = auth.uid());
+
+-- Enable realtime on canvas_comments
+ALTER PUBLICATION supabase_realtime ADD TABLE canvas_comments;
+
+-- Create indexes for comments
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_value_case_id ON canvas_comments(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_element_id ON canvas_comments(element_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_parent_id ON canvas_comments(parent_comment_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_user_id ON canvas_comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_canvas_comments_created_at ON canvas_comments(created_at);
+
+-- Create function to update comment timestamp
+CREATE OR REPLACE FUNCTION update_canvas_comment_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger for comment updated_at
+DROP TRIGGER IF EXISTS update_canvas_comments_timestamp ON canvas_comments;
+CREATE TRIGGER update_canvas_comments_timestamp
+  BEFORE UPDATE ON canvas_comments
+  FOR EACH ROW
+  EXECUTE FUNCTION update_canvas_comment_timestamp();
+
+-- Grant necessary permissions
+GRANT SELECT, INSERT, UPDATE, DELETE ON canvas_elements TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON canvas_presence TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON canvas_comments TO authenticated;
+
+-- Add helpful comments
+COMMENT ON TABLE canvas_elements IS 'Stores collaborative canvas elements for value cases';
+COMMENT ON TABLE canvas_presence IS 'Tracks active users on the collaborative canvas';
+COMMENT ON TABLE canvas_comments IS 'Stores comments and discussions on canvas elements';
+
+-- ============================================================================
+-- 12. Create missing tables for RLS policies
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS realization_metrics (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  metric_name TEXT NOT NULL,
+  metric_type TEXT,
+  predicted_value NUMERIC,
+  predicted_date TIMESTAMPTZ,
+  actual_value NUMERIC,
+  actual_date TIMESTAMPTZ,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS value_drivers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT,
+  formula TEXT,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS financial_models (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  model_data JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS opportunities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+  tenant_id TEXT REFERENCES tenants(id),
+  name TEXT NOT NULL,
+  amount NUMERIC,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='opportunities' AND column_name='tenant_id') THEN
+    ALTER TABLE opportunities ADD COLUMN tenant_id TEXT;
+  END IF;
+
+  UPDATE opportunities
+  SET tenant_id = value_cases.tenant_id
+  FROM value_cases
+  WHERE opportunities.value_case_id = value_cases.id
+    AND opportunities.tenant_id IS NULL;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'opportunities_tenant_id_fkey') THEN
+    ALTER TABLE opportunities
+    ADD CONSTRAINT opportunities_tenant_id_fkey
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+  END IF;
+END $$;
+
+
+-- Name: idx_opportunities_tenant_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX IF NOT EXISTS idx_opportunities_tenant_created_at ON public.opportunities USING btree (tenant_id, created_at DESC);
+
+
+--
+-- Name: idx_value_ledger_user; Type: INDEX; Schema: public; Owner: -
+CREATE TABLE IF NOT EXISTS benchmarks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  industry TEXT,
+  metric TEXT,
+  baseline_value NUMERIC,
+  source TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+DROP TABLE IF EXISTS public.workflow_stage_runs CASCADE;
+CREATE TABLE IF NOT EXISTS public.workflow_stage_runs (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    execution_id uuid NOT NULL REFERENCES public.workflow_executions(id) ON DELETE CASCADE,
+    stage_name text NOT NULL,
+    status text NOT NULL,
+    input_data jsonb DEFAULT '{}'::jsonb,
+    output_data jsonb DEFAULT '{}'::jsonb,
+    error_message text,
+    started_at timestamp with time zone DEFAULT now(),
+    ended_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- ================================================
+-- Source: supabase/migrations/20260106000001_customer_rls_policies.sql
+-- ================================================
+-- Customer RLS Policies
+-- Row-level security for customer portal access
+
+-- Helper function to get value_case_id from customer token
+CREATE OR REPLACE FUNCTION get_value_case_from_token()
+RETURNS UUID AS $$
+DECLARE
+  v_token TEXT;
+  v_value_case_id UUID;
+BEGIN
+  -- Get token from request header or setting
+  v_token := current_setting('request.headers', true)::json->>'x-customer-token';
+
+  IF v_token IS NULL THEN
+    v_token := current_setting('app.customer_token', true);
+  END IF;
+
+  IF v_token IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Validate token and get value_case_id
+  SELECT value_case_id INTO v_value_case_id
+  FROM customer_access_tokens
+  WHERE token = v_token
+    AND expires_at > NOW()
+    AND revoked_at IS NULL;
+
+  RETURN v_value_case_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- RLS Policy for value_cases (read-only for customers)
+CREATE POLICY customer_read_value_cases ON value_cases
+  FOR SELECT
+  TO anon, authenticated
+  USING (
+    id = get_value_case_from_token()
+  );
+
+-- RLS Policy for realization_metrics (read-only for customers)
+CREATE POLICY customer_read_realization_metrics ON realization_metrics
+  FOR SELECT
+  TO anon, authenticated
+  USING (
+    value_case_id = get_value_case_from_token()
+  );
+
+-- RLS Policy for value_drivers (read-only for customers)
+CREATE POLICY customer_read_value_drivers ON value_drivers
+  FOR SELECT
+  TO anon, authenticated
+  USING (
+    value_case_id = get_value_case_from_token()
+  );
+
+-- RLS Policy for financial_models (read-only for customers)
+CREATE POLICY customer_read_financial_models ON financial_models
+  FOR SELECT
+  TO anon, authenticated
+  USING (
+    value_case_id = get_value_case_from_token()
+  );
+
+-- RLS Policy for opportunities (read-only for customers)
+CREATE POLICY customer_read_opportunities ON opportunities
+  FOR SELECT
+  TO anon, authenticated
+  USING (
+    value_case_id = get_value_case_from_token()
+  );
+
+-- RLS Policy for benchmarks (public read access)
+CREATE POLICY customer_read_benchmarks ON benchmarks
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+-- Grant select permissions to anon role
+GRANT SELECT ON value_cases TO anon;
+GRANT SELECT ON realization_metrics TO anon;
+GRANT SELECT ON value_drivers TO anon;
+GRANT SELECT ON financial_models TO anon;
+GRANT SELECT ON opportunities TO anon;
+GRANT SELECT ON benchmarks TO anon;
+
+-- Grant execute on helper function
+GRANT EXECUTE ON FUNCTION get_value_case_from_token() TO anon, authenticated;
+
+-- Comments
+COMMENT ON FUNCTION get_value_case_from_token IS 'Extract value_case_id from customer token in request';
+COMMENT ON POLICY customer_read_value_cases ON value_cases IS 'Allow customers to read their value case';
+COMMENT ON POLICY customer_read_realization_metrics ON realization_metrics IS 'Allow customers to read their metrics';
+
+-- ================================================
+-- Source: supabase/migrations/20260106000001_guest_access.sql
+-- ================================================
+-- Guest Access System
+-- Enables external stakeholders to access business cases with limited permissions
+
+-- Create guest_users table
+CREATE TABLE IF NOT EXISTS guest_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL,
+  name TEXT NOT NULL,
+  company TEXT,
+  role TEXT,
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(email, organization_id)
+);
+
+-- Create guest_access_tokens table
+CREATE TABLE IF NOT EXISTS guest_access_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  guest_user_id UUID NOT NULL REFERENCES guest_users(id) ON DELETE CASCADE,
+  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  permissions JSONB NOT NULL DEFAULT '{"can_view": true, "can_comment": false, "can_edit": false}'::jsonb,
+  expires_at TIMESTAMPTZ NOT NULL,
+  last_accessed_at TIMESTAMPTZ,
+  access_count INTEGER DEFAULT 0,
+  ip_address TEXT,
+  user_agent TEXT,
+  revoked BOOLEAN DEFAULT false,
+  revoked_at TIMESTAMPTZ,
+  revoked_by UUID REFERENCES auth.users(id),
+  revoke_reason TEXT,
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Create guest_activity_log table
+CREATE TABLE IF NOT EXISTS guest_activity_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  guest_user_id UUID NOT NULL REFERENCES guest_users(id) ON DELETE CASCADE,
+  guest_access_token_id UUID NOT NULL REFERENCES guest_access_tokens(id) ON DELETE CASCADE,
+  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+  activity_type TEXT NOT NULL CHECK (activity_type IN (
+    'access', 'view_element', 'add_comment', 'view_metric',
+    'export_pdf', 'export_excel', 'share_email'
+  )),
+  activity_data JSONB,
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable RLS on guest tables
+ALTER TABLE guest_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guest_access_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guest_activity_log ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for guest_users
+CREATE POLICY "Users can view guest users in their organization"
+  ON guest_users FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM user_organizations
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can create guest users in their organization"
+  ON guest_users FOR INSERT
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id FROM user_organizations
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update guest users in their organization"
+  ON guest_users FOR UPDATE
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM user_organizations
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can delete guest users in their organization"
+  ON guest_users FOR DELETE
+  USING (
+    organization_id IN (
+      SELECT organization_id FROM user_organizations
+      WHERE user_id = auth.uid()
+    )
+  );
+
+-- RLS policies for guest_access_tokens
+CREATE POLICY "Users can view guest tokens for their value cases"
+  ON guest_access_tokens FOR SELECT
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can create guest tokens for their value cases"
+  ON guest_access_tokens FOR INSERT
+  WITH CHECK (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can update guest tokens for their value cases"
+  ON guest_access_tokens FOR UPDATE
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can delete guest tokens for their value cases"
+  ON guest_access_tokens FOR DELETE
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+-- RLS policies for guest_activity_log
+CREATE POLICY "Users can view guest activity for their value cases"
+  ON guest_activity_log FOR SELECT
+  USING (
+    value_case_id IN (
+      SELECT id FROM value_cases
+      WHERE organization_id IN (
+        SELECT organization_id FROM user_organizations
+        WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "System can insert guest activity"
+  ON guest_activity_log FOR INSERT
+  WITH CHECK (true);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_guest_users_email ON guest_users(email);
+CREATE INDEX IF NOT EXISTS idx_guest_users_organization_id ON guest_users(organization_id);
+CREATE INDEX IF NOT EXISTS idx_guest_users_created_by ON guest_users(created_by);
+
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_token ON guest_access_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_guest_user_id ON guest_access_tokens(guest_user_id);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_value_case_id ON guest_access_tokens(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_expires_at ON guest_access_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_guest_access_tokens_revoked ON guest_access_tokens(revoked);
+
+CREATE INDEX IF NOT EXISTS idx_guest_activity_log_guest_user_id ON guest_activity_log(guest_user_id);
+CREATE INDEX IF NOT EXISTS idx_guest_activity_log_value_case_id ON guest_activity_log(value_case_id);
+CREATE INDEX IF NOT EXISTS idx_guest_activity_log_created_at ON guest_activity_log(created_at);
+
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_guest_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create triggers for updated_at
+DROP TRIGGER IF EXISTS update_guest_users_timestamp ON guest_users;
+CREATE TRIGGER update_guest_users_timestamp
+  BEFORE UPDATE ON guest_users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_guest_timestamp();
+
+DROP TRIGGER IF EXISTS update_guest_access_tokens_timestamp ON guest_access_tokens;
+CREATE TRIGGER update_guest_access_tokens_timestamp
+  BEFORE UPDATE ON guest_access_tokens
+  FOR EACH ROW
+  EXECUTE FUNCTION update_guest_timestamp();
+
+-- Create function to validate guest token
+CREATE OR REPLACE FUNCTION validate_guest_token(token_value TEXT)
+RETURNS TABLE (
+  is_valid BOOLEAN,
+  guest_user_id UUID,
+  value_case_id UUID,
+  permissions JSONB,
+  guest_name TEXT,
+  guest_email TEXT,
+  error_message TEXT
+) AS $$
+DECLARE
+  token_record RECORD;
+  guest_record RECORD;
+BEGIN
+  -- Find token
+  SELECT * INTO token_record
+  FROM guest_access_tokens
+  WHERE token = token_value;
+
+  -- Check if token exists
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, NULL::UUID, NULL::UUID, NULL::JSONB, NULL::TEXT, NULL::TEXT, 'Token not found';
+    RETURN;
+  END IF;
+
+  -- Check if token is revoked
+  IF token_record.revoked THEN
+    RETURN QUERY SELECT false, NULL::UUID, NULL::UUID, NULL::JSONB, NULL::TEXT, NULL::TEXT, 'Token has been revoked';
+    RETURN;
+  END IF;
+
+  -- Check if token is expired
+  IF token_record.expires_at < now() THEN
+    RETURN QUERY SELECT false, NULL::UUID, NULL::UUID, NULL::JSONB, NULL::TEXT, NULL::TEXT, 'Token has expired';
+    RETURN;
+  END IF;
+
+  -- Get guest user info
+  SELECT * INTO guest_record
+  FROM guest_users
+  WHERE id = token_record.guest_user_id;
+
+  -- Update last accessed
+  UPDATE guest_access_tokens
+  SET
+    last_accessed_at = now(),
+    access_count = access_count + 1
+  WHERE id = token_record.id;
+
+  -- Return valid token info
+  RETURN QUERY SELECT
+    true,
+    token_record.guest_user_id,
+    token_record.value_case_id,
+    token_record.permissions,
+    guest_record.name,
+    guest_record.email,
+    NULL::TEXT;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create function to revoke guest token
+CREATE OR REPLACE FUNCTION revoke_guest_token(
+  token_value TEXT,
+  revoked_by_user UUID,
+  reason TEXT
+)
+RETURNS BOOLEAN AS $$
+BEGIN
+  UPDATE guest_access_tokens
+  SET
+    revoked = true,
+    revoked_at = now(),
+    revoked_by = revoked_by_user,
+    revoke_reason = reason
+  WHERE token = token_value;
+
+  RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create function to cleanup expired tokens
+CREATE OR REPLACE FUNCTION cleanup_expired_guest_tokens()
+RETURNS INTEGER AS $$
+DECLARE
+  deleted_count INTEGER;
+BEGIN
+  -- Delete tokens expired more than 30 days ago
+  DELETE FROM guest_access_tokens
+  WHERE expires_at < now() - INTERVAL '30 days'
+  AND revoked = false;
+
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant necessary permissions
+GRANT SELECT, INSERT, UPDATE, DELETE ON guest_users TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON guest_access_tokens TO authenticated;
+GRANT SELECT, INSERT ON guest_activity_log TO authenticated;
+
+GRANT EXECUTE ON FUNCTION validate_guest_token TO anon;
+GRANT EXECUTE ON FUNCTION revoke_guest_token TO authenticated;
+GRANT EXECUTE ON FUNCTION cleanup_expired_guest_tokens TO authenticated;
+
+-- Add helpful comments
+COMMENT ON TABLE guest_users IS 'External users with limited access to value cases';
+COMMENT ON TABLE guest_access_tokens IS 'Magic link tokens for guest access';
+COMMENT ON TABLE guest_activity_log IS 'Audit log of guest user activities';
+COMMENT ON FUNCTION validate_guest_token IS 'Validates a guest access token and returns user info';
+COMMENT ON FUNCTION revoke_guest_token IS 'Revokes a guest access token';
+COMMENT ON FUNCTION cleanup_expired_guest_tokens IS 'Removes expired tokens older than 30 days';
+
+-- ================================================
+-- Source: supabase/migrations/20260108000001_add_tenant_id_to_value_cases.sql
+-- ================================================
+-- Add tenant_id column to value_cases table for proper multi-tenant isolation
+-- This fixes the critical issue of missing tenant isolation in business case data
+
+BEGIN;
+
+-- Add tenant_id column if not exists
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'value_cases' AND column_name = 'tenant_id') THEN
+        ALTER TABLE public.value_cases ADD COLUMN tenant_id text;
+    END IF;
+END $$;
+
+-- Populate tenant_id from associated agent sessions
+DO $$ BEGIN
+  UPDATE public.value_cases
+  SET tenant_id = agent_sessions.tenant_id
+  FROM public.agent_sessions
+  WHERE public.value_cases.session_id = agent_sessions.id
+  AND public.value_cases.tenant_id IS NULL;
+EXCEPTION WHEN undefined_table OR undefined_column THEN NULL;
+END $$;
+
+-- Make tenant_id NOT NULL if possible (fresh migration anyway)
+DO $$
+BEGIN
+    ALTER TABLE public.value_cases ALTER COLUMN tenant_id SET NOT NULL;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- Add foreign key constraint
+ALTER TABLE public.value_cases
+ADD CONSTRAINT fk_value_cases_tenant_id
+FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+
+-- Add index for performance
+CREATE INDEX IF NOT EXISTS idx_value_cases_tenant_id ON public.value_cases USING btree (tenant_id);
+
+-- Add RLS policy for tenant isolation
+DROP POLICY IF EXISTS "value_cases_tenant_isolation" ON public.value_cases;
+CREATE POLICY "value_cases_tenant_isolation" ON public.value_cases
+FOR ALL USING (tenant_id = (SELECT NULLIF((current_setting('request.jwt.claims', true)::jsonb ->> 'tenant_id'), '')::text));
+
+-- Enable RLS
+ALTER TABLE public.value_cases ENABLE ROW LEVEL SECURITY;
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000002_add_foreign_key_constraints_workflow_executions.sql
+-- ================================================
+-- Add missing foreign key constraints to workflow_executions table
+-- This fixes critical referential integrity issues and ensures data consistency
+
+BEGIN;
+
+-- Add foreign key constraint for session_id to agent_sessions
+ALTER TABLE public.workflow_executions
+ADD CONSTRAINT fk_workflow_executions_session_id
+FOREIGN KEY (session_id) REFERENCES public.agent_sessions(id) ON DELETE CASCADE;
+
+-- Add foreign key constraint for tenant_id if column exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'tenant_id'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions
+        ADD CONSTRAINT fk_workflow_executions_tenant_id
+        FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Add foreign key constraint for user_id to users
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'user_id'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions
+        ADD CONSTRAINT fk_workflow_executions_user_id
+        FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Add foreign key constraint for organization_id to organizations
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'organization_id'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions
+        ADD CONSTRAINT fk_workflow_executions_organization_id
+        FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Add performance indexes for foreign keys
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_session_id ON public.workflow_executions USING btree (session_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant_id ON public.workflow_executions USING btree (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_user_id ON public.workflow_executions USING btree (user_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_organization_id ON public.workflow_executions USING btree (organization_id);
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000003_convert_agent_memory_embedding_to_vector.sql
+-- ================================================
+-- Convert agent_memory.embedding from text to vector type
+-- This fixes critical vector database functionality for semantic search and embeddings
+
+BEGIN;
+
+-- Install the pgvector extension if not already installed
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Migrate embedding column from text to vector type
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='agent_memory' AND column_name='embedding' AND data_type='text') THEN
+    ALTER TABLE public.agent_memory ADD COLUMN embedding_vector vector(1536);
+    UPDATE public.agent_memory SET embedding_vector = CASE WHEN embedding IS NOT NULL AND embedding != '' THEN embedding::vector(1536) ELSE NULL END;
+    ALTER TABLE public.agent_memory DROP COLUMN embedding;
+    ALTER TABLE public.agent_memory RENAME COLUMN embedding_vector TO embedding;
+  ELSIF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='agent_memory' AND column_name='embedding') THEN
+    ALTER TABLE public.agent_memory ADD COLUMN embedding vector(1536);
+  END IF;
+END $$;
+
+-- Add index for vector similarity search
+CREATE INDEX IF NOT EXISTS idx_agent_memory_embedding ON public.agent_memory USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+-- Add check constraint to ensure embedding is not null for valid records
+ALTER TABLE public.agent_memory ADD CONSTRAINT chk_agent_memory_embedding_not_empty
+CHECK (embedding IS NOT NULL OR content IS NULL);
+
+-- Add index for memory type for better query performance
+CREATE INDEX IF NOT EXISTS idx_agent_memory_memory_type ON public.agent_memory USING btree (memory_type);
+
+-- Add index for tenant_id for tenant isolation
+CREATE INDEX IF NOT EXISTS idx_agent_memory_tenant_id ON public.agent_memory USING btree (tenant_id);
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000004_add_not_null_constraints_and_defaults.sql
+-- ================================================
+-- Add NOT NULL constraints and defaults to boolean fields
+-- This fixes critical data integrity issues for boolean fields across multiple tables
+
+BEGIN;
+
+-- Fix agent_sessions table boolean fields
+ALTER TABLE public.agent_sessions
+ALTER COLUMN is_active SET DEFAULT true,
+ALTER COLUMN is_active SET NOT NULL;
+
+ALTER TABLE public.agent_sessions
+ALTER COLUMN is_completed SET DEFAULT false,
+ALTER COLUMN is_completed SET NOT NULL;
+
+-- Fix workflow_executions table boolean fields
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'is_success'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions
+        ALTER COLUMN is_success SET DEFAULT false,
+        ALTER COLUMN is_success SET NOT NULL;
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'is_completed'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions
+        ALTER COLUMN is_completed SET DEFAULT false,
+        ALTER COLUMN is_completed SET NOT NULL;
+    END IF;
+END $$;
+
+-- Fix organizations table boolean fields
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'organizations'
+               AND column_name = 'is_active'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.organizations
+        ALTER COLUMN is_active SET DEFAULT true,
+        ALTER COLUMN is_active SET NOT NULL;
+    END IF;
+END $$;
+
+-- Fix agent_performance_summary table boolean fields
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_performance_summary'
+               AND column_name = 'is_success'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.agent_performance_summary
+        ALTER COLUMN is_success SET DEFAULT false,
+        ALTER COLUMN is_success SET NOT NULL;
+    END IF;
+END $$;
+
+-- Fix llm_gating table boolean fields
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'llm_gating'
+               AND column_name = 'is_enabled'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.llm_gating
+        ALTER COLUMN is_enabled SET DEFAULT true,
+        ALTER COLUMN is_enabled SET NOT NULL;
+    END IF;
+END $$;
+
+-- Fix progressive_rollouts table boolean fields
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'progressive_rollouts'
+               AND column_name = 'is_active'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.progressive_rollouts
+        ALTER COLUMN is_active SET DEFAULT true,
+        ALTER COLUMN is_active SET NOT NULL;
+    END IF;
+END $$;
+
+-- Fix feature_flags table boolean fields
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'feature_flags'
+               AND column_name = 'is_enabled'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.feature_flags
+        ALTER COLUMN is_enabled SET DEFAULT false,
+        ALTER COLUMN is_enabled SET NOT NULL;
+    END IF;
+END $$;
+
+<<<<<<< HEAD
+-- Populate existing NULL values with defaults
+UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
+UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
+-- UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
+-- UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
+-- UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
+-- UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'progressive_rollouts' AND table_schema = 'public') THEN
+        EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    END IF;
+END $$;
+UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+=======
+-- Populate existing NULL values with defaults (guarded for fresh DB)
+DO $$ BEGIN
+  UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+  UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
+DO $$ BEGIN
+  UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+  UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+  END IF;
+END $$;
+>>>>>>> c63dd384 (Refactor index creation in migrations to handle exceptions and improve error resilience; remove permissive policies and enforce least-privilege rules in new migration.)
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000005_add_check_constraints_for_data_validation.sql
+-- ================================================
+-- Add missing CHECK constraints for data validation
+-- This ensures data integrity and prevents invalid data from being inserted
+
+BEGIN;
+
+-- Add CHECK constraints for agent_sessions table
+ALTER TABLE public.agent_sessions ADD CONSTRAINT chk_agent_sessions_status
+CHECK (status IN ('pending', 'active', 'completed', 'failed', 'cancelled'));
+
+ALTER TABLE public.agent_sessions ADD CONSTRAINT chk_agent_sessions_created_at_not_future
+CHECK (created_at <= NOW());
+
+ALTER TABLE public.agent_sessions ADD CONSTRAINT chk_agent_sessions_updated_at_not_before_created
+CHECK (updated_at >= created_at);
+
+-- Add CHECK constraints for workflow_executions table
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'status'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions ADD CONSTRAINT chk_workflow_executions_status
+        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled'));
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'priority'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions ADD CONSTRAINT chk_workflow_executions_priority
+        CHECK (priority >= 0 AND priority <= 10);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'progress'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions ADD CONSTRAINT chk_workflow_executions_progress
+        CHECK (progress >= 0.0 AND progress <= 100.0);
+    END IF;
+END $$;
+
+-- Add CHECK constraints for organizations table
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'organizations'
+               AND column_name = 'tier'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.organizations ADD CONSTRAINT chk_organizations_tier
+        CHECK (tier IN ('free', 'professional', 'enterprise', 'custom'));
+    END IF;
+END $$;
+
+-- Add CHECK constraints for users table
+-- Add CHECK constraints for agent_memory table
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_memory'
+               AND column_name = 'memory_type'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.agent_memory ADD CONSTRAINT chk_agent_memory_memory_type
+        CHECK (memory_type IN ('short_term', 'long_term', 'shared', 'domain', 'conversation', 'factual', 'procedural'));
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_memory'
+               AND column_name = 'confidence'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.agent_memory ADD CONSTRAINT chk_agent_memory_confidence
+        CHECK (confidence >= 0.0 AND confidence <= 1.0);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_memory'
+               AND column_name = 'importance'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.agent_memory ADD CONSTRAINT chk_agent_memory_importance
+        CHECK (importance >= 0.0 AND importance <= 1.0);
+    END IF;
+END $$;
+
+-- Add CHECK constraints for agent_performance_summary table
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_performance_summary'
+               AND column_name = 'accuracy_score'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.agent_performance_summary ADD CONSTRAINT chk_agent_performance_accuracy_score
+        CHECK (accuracy_score >= 0.0 AND accuracy_score <= 1.0);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_performance_summary'
+               AND column_name = 'response_time_ms'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.agent_performance_summary ADD CONSTRAINT chk_agent_performance_response_time_positive
+        CHECK (response_time_ms > 0);
+    END IF;
+END $$;
+
+-- Add CHECK constraints for llm_gating table
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'llm_gating'
+               AND column_name = 'max_tokens_per_request'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.llm_gating ADD CONSTRAINT chk_llm_gating_max_tokens_positive
+        CHECK (max_tokens_per_request > 0);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'llm_gating'
+               AND column_name = 'requests_per_minute'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.llm_gating ADD CONSTRAINT chk_llm_gating_requests_per_minute_positive
+        CHECK (requests_per_minute > 0);
+    END IF;
+END $$;
+
+-- Add CHECK constraints for progressive_rollouts table
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'progressive_rollouts'
+               AND column_name = 'rollout_percentage'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.progressive_rollouts ADD CONSTRAINT chk_progressive_rollouts_percentage
+        CHECK (rollout_percentage >= 0.0 AND rollout_percentage <= 100.0);
+    END IF;
+END $$;
+
+-- Add CHECK constraints for integration_configs table (if exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'integration_configs'
+               AND column_name = 'sync_interval_minutes'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.integration_configs ADD CONSTRAINT chk_integration_configs_sync_interval_positive
+        CHECK (sync_interval_minutes > 0);
+    END IF;
+END $$;
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000006_normalize_jsonb_fields_where_appropriate.sql
+-- ================================================
+-- Normalize JSONB fields where appropriate and add proper constraints
+-- This improves data consistency, query performance, and type safety
+
+BEGIN;
+
+-- Normalize agent_sessions.metadata JSONB field with proper structure
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_sessions'
+               AND column_name = 'metadata'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for metadata JSONB structure
+        ALTER TABLE public.agent_sessions ADD CONSTRAINT chk_agent_sessions_metadata_structure
+        CHECK (
+            metadata IS NULL OR
+            jsonb_typeof(metadata) = 'object' AND
+            (metadata ? 'agent_type') AND
+            (metadata ? 'workflow_type')
+        );
+
+        -- Create index on metadata fields for common queries
+        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_agent_type ON public.agent_sessions USING btree ((metadata->>'agent_type'));
+        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_workflow_type ON public.agent_sessions USING btree ((metadata->>'workflow_type'));
+    END IF;
+END $$;
+
+-- Normalize workflow_executions.input_params JSONB field
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'input_params'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for input_params JSONB structure
+        ALTER TABLE public.workflow_executions ADD CONSTRAINT chk_workflow_executions_input_params_structure
+        CHECK (
+            input_params IS NULL OR
+            jsonb_typeof(input_params) = 'object'
+        );
+    END IF;
+END $$;
+
+-- Normalize workflow_executions.output_data JSONB field
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'output_data'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for output_data JSONB structure
+        ALTER TABLE public.workflow_executions ADD CONSTRAINT chk_workflow_executions_output_data_structure
+        CHECK (
+            output_data IS NULL OR
+            jsonb_typeof(output_data) = 'object'
+        );
+    END IF;
+END $$;
+
+-- Normalize agent_memory.metadata JSONB field
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_memory'
+               AND column_name = 'metadata'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for metadata JSONB structure
+        ALTER TABLE public.agent_memory ADD CONSTRAINT chk_agent_memory_metadata_structure
+        CHECK (
+            metadata IS NULL OR
+            jsonb_typeof(metadata) = 'object'
+        );
+
+        -- Create index on metadata for common memory queries
+        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_memory_type ON public.agent_memory USING btree ((metadata->>'memory_type'));
+        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_source ON public.agent_memory USING btree ((metadata->>'source'));
+    END IF;
+END $$;
+
+-- Normalize organizations.settings JSONB field
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'organizations'
+               AND column_name = 'settings'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for settings JSONB structure
+        ALTER TABLE public.organizations ADD CONSTRAINT chk_organizations_settings_structure
+        CHECK (
+            settings IS NULL OR
+            jsonb_typeof(settings) = 'object'
+        );
+    END IF;
+END $$;
+
+
+
+-- Normalize agent_performance_summary.metadata JSONB field
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_performance_summary'
+               AND column_name = 'metadata'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for metadata JSONB structure
+        ALTER TABLE public.agent_performance_summary ADD CONSTRAINT chk_agent_performance_metadata_structure
+        CHECK (
+            metadata IS NULL OR
+            jsonb_typeof(metadata) = 'object'
+        );
+    END IF;
+END $$;
+
+-- Normalize integration_configs.config JSONB field
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'integration_configs'
+               AND column_name = 'config'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for config JSONB structure
+        ALTER TABLE public.integration_configs ADD CONSTRAINT chk_integration_configs_config_structure
+        CHECK (
+            config IS NULL OR
+            jsonb_typeof(config) = 'object'
+        );
+    END IF;
+END $$;
+
+-- Normalize value_cases.business_case JSONB field with proper structure
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'value_cases'
+               AND column_name = 'business_case'
+               AND table_schema = 'public') THEN
+
+        -- Add CHECK constraint for business_case JSONB structure
+        ALTER TABLE public.value_cases ADD CONSTRAINT chk_value_cases_business_case_structure
+        CHECK (
+            business_case IS NULL OR
+            jsonb_typeof(business_case) = 'object' AND
+            (business_case ? 'problem_statement') AND
+            (business_case ? 'proposed_solution') AND
+            (business_case ? 'expected_outcomes')
+        );
+
+        -- Create index on business case fields
+        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_problem ON public.value_cases USING btree ((business_case->>'problem_statement'));
+        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_solution ON public.value_cases USING btree ((business_case->>'proposed_solution'));
+    END IF;
+END $$;
+
+    -- Clean up any invalid JSONB data that might exist (guarded for fresh DB)
+    DO $$
+    BEGIN
+      -- agent_sessions
+      BEGIN
+        UPDATE public.agent_sessions SET metadata = '{}' WHERE metadata IS NULL OR jsonb_typeof(metadata) != 'object';
+      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+      -- workflow_executions
+      BEGIN
+        UPDATE public.workflow_executions SET input_params = '{}' WHERE input_params IS NULL OR jsonb_typeof(input_params) != 'object';
+        UPDATE public.workflow_executions SET output_data = '{}' WHERE output_data IS NULL OR jsonb_typeof(output_data) != 'object';
+      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+      -- agent_memory
+      BEGIN
+        UPDATE public.agent_memory SET metadata = '{}' WHERE metadata IS NULL OR jsonb_typeof(metadata) != 'object';
+      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+      -- organizations
+      BEGIN
+        UPDATE public.organizations SET settings = '{}' WHERE settings IS NULL OR jsonb_typeof(settings) != 'object';
+      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+      -- agent_performance_summary (guarded)
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_performance_summary') THEN
+        BEGIN
+          EXECUTE 'UPDATE public.agent_performance_summary SET metadata = ''{}'' WHERE metadata IS NULL OR jsonb_typeof(metadata) != ''object''';
+        EXCEPTION WHEN OTHERS THEN NULL; END;
+      END IF;
+
+      -- integration_configs (guarded)
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'integration_configs') THEN
+        BEGIN
+          EXECUTE 'UPDATE public.integration_configs SET config = ''{}'' WHERE config IS NULL OR jsonb_typeof(config) != ''object''';
+        EXCEPTION WHEN OTHERS THEN NULL; END;
+      END IF;
+    END;
+    $$;
+
+    COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000007_add_performance_indexes.sql
+-- ================================================
+-- Add performance indexes for newly added foreign key columns and frequently queried fields
+-- This improves query performance and reduces database load
+
+BEGIN;
+
+-- Indexes for value_cases table (recently added tenant_id)
+CREATE INDEX IF NOT EXISTS idx_value_cases_tenant_id_session_id ON public.value_cases USING btree (tenant_id, session_id);
+CREATE INDEX IF NOT EXISTS idx_value_cases_created_at ON public.value_cases USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_value_cases_status ON public.value_cases USING btree (status);
+
+-- Composite indexes for workflow_executions foreign keys
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant_user_org ON public.workflow_executions USING btree (tenant_id, user_id, organization_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_session_status ON public.workflow_executions USING btree (session_id, status);
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at_status ON public.workflow_executions USING btree (started_at DESC, status);
+
+-- Indexes for agent_memory performance
+CREATE INDEX IF NOT EXISTS idx_agent_memory_tenant_type_importance ON public.agent_memory USING btree (tenant_id, memory_type, importance_score DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_created_at ON public.agent_memory USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_content_gin ON public.agent_memory USING gin (to_tsvector('english', content));
+
+-- Indexes for agent_sessions performance
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_tenant_status_created ON public.agent_sessions USING btree (tenant_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_user_created ON public.agent_sessions USING btree (user_id, created_at DESC);
+-- Indexes for organizations performance (guarded)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'organizations') THEN
+    CREATE INDEX IF NOT EXISTS idx_organizations_tenant_active ON public.organizations USING btree (tenant_id, is_active) WHERE is_active = true;
+  END IF;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+-- Indexes for agent_performance_summary, llm_gating, progressive_rollouts (guarded)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_performance_summary') THEN
+    CREATE INDEX IF NOT EXISTS idx_agent_performance_tenant_created ON public.agent_performance_summary USING btree (tenant_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_agent_performance_agent_success ON public.agent_performance_summary USING btree (agent_id, is_success, created_at DESC);
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'llm_gating') THEN
+    CREATE INDEX IF NOT EXISTS idx_llm_gating_tenant_enabled ON public.llm_gating USING btree (tenant_id, is_enabled);
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+    CREATE INDEX IF NOT EXISTS idx_progressive_rollouts_tenant_active ON public.progressive_rollouts USING btree (tenant_id, is_active);
+  END IF;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+-- Indexes for feature_flags performance (guarded)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'feature_flags' AND column_name = 'is_enabled') THEN
+    CREATE INDEX IF NOT EXISTS idx_feature_flags_name_enabled ON public.feature_flags USING btree (name, is_enabled);
+  END IF;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+-- Indexes for integration_configs performance (if exists)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'integration_configs' AND table_schema = 'public') THEN
+        CREATE INDEX IF NOT EXISTS idx_integration_configs_tenant_type ON public.integration_configs USING btree (tenant_id, integration_type);
+        CREATE INDEX IF NOT EXISTS idx_integration_configs_active ON public.integration_configs USING btree (is_active) WHERE is_active = true;
+    END IF;
+END $$;
+
+-- Partial indexes for active records (guarded)
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_workflow_executions_active ON public.workflow_executions USING btree (started_at DESC) WHERE status NOT IN ('completed', 'failed', 'cancelled'); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_agent_sessions_active ON public.agent_sessions USING btree (created_at DESC) WHERE is_active = true AND is_completed = false; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+-- GIN indexes for JSONB fields (guarded)
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_gin ON public.value_cases USING gin (business_case); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_gin ON public.agent_sessions USING gin (metadata); EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_workflow_executions_input_gin ON public.workflow_executions USING gin (input_params) WHERE input_params IS NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_workflow_executions_output_gin ON public.workflow_executions USING gin (output_data) WHERE output_data IS NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000009_fix_critical_data_integrity_issues.sql
+-- ================================================
+-- Fix critical data integrity issues from database migration review
+-- Addresses missing foreign key constraints and data validation
+
+BEGIN;
+
+-- ============================================
+-- CRITICAL: Fix missing foreign key constraints
+-- ============================================
+
+-- Add missing foreign key constraint from value_cases to workflow_executions
+-- This ensures that value cases are properly linked to their workflow executions
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'value_cases'
+               AND column_name = 'workflow_execution_id'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.value_cases
+        ADD CONSTRAINT fk_value_cases_workflow_execution_id
+        FOREIGN KEY (workflow_execution_id) REFERENCES public.workflow_executions(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- Add missing foreign key constraint from workflow_executions to value_cases
+-- This creates a bidirectional relationship for better data integrity
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'workflow_executions'
+               AND column_name = 'value_case_id'
+               AND table_schema = 'public') THEN
+        ALTER TABLE public.workflow_executions
+        ADD CONSTRAINT fk_workflow_executions_value_case_id
+        FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- ============================================
+-- HIGH PRIORITY: Add missing NOT NULL constraints
+-- ============================================
+
+-- Add NOT NULL constraints for critical fields that should never be null
+DO $$
+BEGIN
+    -- Ensure organizations.name is NOT NULL
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'organizations'
+               AND column_name = 'name'
+               AND is_nullable = 'YES') THEN
+        ALTER TABLE public.organizations ALTER COLUMN name SET NOT NULL;
+    END IF;
+
+    -- Ensure agent_sessions.user_id is NOT NULL
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_sessions'
+               AND column_name = 'user_id'
+               AND is_nullable = 'YES') THEN
+        ALTER TABLE public.agent_sessions ALTER COLUMN user_id SET NOT NULL;
+    END IF;
+
+    -- Ensure agents.name is NOT NULL
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agents'
+               AND column_name = 'name'
+               AND is_nullable = 'YES') THEN
+        ALTER TABLE public.agents ALTER COLUMN name SET NOT NULL;
+    END IF;
+
+    -- Ensure value_cases.session_id is NOT NULL
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'value_cases'
+               AND column_name = 'session_id'
+               AND is_nullable = 'YES') THEN
+        ALTER TABLE public.value_cases ALTER COLUMN session_id SET NOT NULL;
+    END IF;
+END $$;
+
+-- ============================================
+-- HIGH PRIORITY: Add missing CHECK constraints
+-- ============================================
+
+-- Add CHECK constraint for organizations.tier with correct values
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'organizations'
+               AND column_name = 'tier'
+               AND table_schema = 'public') THEN
+        -- Drop existing constraint if it exists with wrong values
+        IF EXISTS (SELECT 1 FROM information_schema.table_constraints
+                   WHERE table_name = 'organizations' AND constraint_name = 'chk_organizations_tier') THEN
+            ALTER TABLE public.organizations DROP CONSTRAINT chk_organizations_tier;
+        END IF;
+        -- Add correct constraint
+        ALTER TABLE public.organizations ADD CONSTRAINT chk_organizations_tier
+        CHECK (tier IN ('free', 'pro', 'enterprise'));
+    END IF;
+END $$;
+
+-- Add CHECK constraint for agent_memory.memory_type with correct values
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'agent_memory'
+               AND column_name = 'memory_type'
+               AND table_schema = 'public') THEN
+        -- Drop existing constraint if it exists with wrong values
+        IF EXISTS (SELECT 1 FROM information_schema.table_constraints
+                   WHERE table_name = 'agent_memory' AND constraint_name = 'chk_agent_memory_memory_type') THEN
+            ALTER TABLE public.agent_memory DROP CONSTRAINT chk_agent_memory_memory_type;
+        END IF;
+        -- Add correct constraint
+        ALTER TABLE public.agent_memory ADD CONSTRAINT chk_agent_memory_memory_type
+        CHECK (memory_type IN ('episodic', 'semantic', 'procedural'));
+    END IF;
+END $$;
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000010_standardize_index_naming.sql
+-- ================================================
+-- Standardize index naming conventions for better maintainability
+-- Rename indexes to follow idx_{table}_{column1}_{column2} pattern
+
+BEGIN;
+
+-- ============================================
+-- MEDIUM PRIORITY: Standardize index naming
+-- ============================================
+
+-- Rename audit_logs indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_audit_org_time') THEN
+        ALTER INDEX idx_audit_org_time RENAME TO idx_audit_logs_organization_id_created_at;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_audit_resource') THEN
+        ALTER INDEX idx_audit_resource RENAME TO idx_audit_logs_organization_id_resource_type_resource_id;
+    END IF;
+END $$;
+
+-- Rename agent indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_agent_org_type') THEN
+        ALTER INDEX idx_agent_org_type RENAME TO idx_agents_organization_id_agent_type;
+    END IF;
+END $$;
+
+-- Rename agent_runs indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_run_org_agent') THEN
+        ALTER INDEX idx_run_org_agent RENAME TO idx_agent_runs_organization_id_agent_id_created_at;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_run_user') THEN
+        ALTER INDEX idx_run_user RENAME TO idx_agent_runs_organization_id_user_id_created_at;
+    END IF;
+END $$;
+
+-- Rename agent_memory indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_memory_org_agent') THEN
+        ALTER INDEX idx_memory_org_agent RENAME TO idx_agent_memory_organization_id_agent_id;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_memory_embedding') THEN
+        ALTER INDEX idx_memory_embedding RENAME TO idx_agent_memory_embedding;
+    END IF;
+END $$;
+
+-- Rename models indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_model_org_status') THEN
+        ALTER INDEX idx_model_org_status RENAME TO idx_models_organization_id_status_created_at;
+    END IF;
+END $$;
+
+-- Rename kpis indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_kpi_model') THEN
+        ALTER INDEX idx_kpi_model RENAME TO idx_kpis_organization_id_model_id_category;
+    END IF;
+END $$;
+
+-- Rename cases indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_cases_org_status') THEN
+        ALTER INDEX idx_cases_org_status RENAME TO idx_cases_organization_id_status_created_at;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_cases_user') THEN
+        ALTER INDEX idx_cases_user RENAME TO idx_cases_organization_id_user_id_created_at;
+    END IF;
+END $$;
+
+-- Rename workflows indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_workflows_org_active') THEN
+        ALTER INDEX idx_workflows_org_active RENAME TO idx_workflows_organization_id_is_active_created_at;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_workflows_name_version') THEN
+        ALTER INDEX idx_workflows_name_version RENAME TO idx_workflows_organization_id_name_version;
+    END IF;
+END $$;
+
+-- Rename workflow_states indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_workflow_states_org_status') THEN
+        ALTER INDEX idx_workflow_states_org_status RENAME TO idx_workflow_states_organization_id_status_started_at;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_workflow_states_workflow') THEN
+        ALTER INDEX idx_workflow_states_workflow RENAME TO idx_workflow_states_organization_id_workflow_id;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_workflow_states_case') THEN
+        ALTER INDEX idx_workflow_states_case RENAME TO idx_workflow_states_organization_id_case_id;
+    END IF;
+END $$;
+
+-- Rename shared_artifacts indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_shared_artifacts_org_type') THEN
+        ALTER INDEX idx_shared_artifacts_org_type RENAME TO idx_shared_artifacts_organization_id_artifact_type_created_at;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_shared_artifacts_case') THEN
+        ALTER INDEX idx_shared_artifacts_case RENAME TO idx_shared_artifacts_organization_id_case_id;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_shared_artifacts_creator') THEN
+        ALTER INDEX idx_shared_artifacts_creator RENAME TO idx_shared_artifacts_organization_id_created_by_created_at;
+    END IF;
+END $$;
+
+-- Rename organizations indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_orgs_id') THEN
+        ALTER INDEX idx_orgs_id RENAME TO idx_organizations_id;
+    END IF;
+END $$;
+
+-- Rename audit_logs indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_audit_org') THEN
+        ALTER INDEX idx_audit_org RENAME TO idx_audit_logs_organization_id;
+    END IF;
+END $$;
+
+-- Rename users indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_users_org_email') THEN
+        ALTER INDEX idx_users_org_email RENAME TO idx_users_organization_id_email;
+    END IF;
+END $$;
+
+-- Rename agents indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_agents_org_active') THEN
+        ALTER INDEX idx_agents_org_active RENAME TO idx_agents_organization_id_is_active;
+    END IF;
+END $$;
+
+-- Rename agent_performance_summary indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_agent_performance_tenant_created') THEN
+        ALTER INDEX idx_agent_performance_tenant_created RENAME TO idx_agent_performance_summary_tenant_id_created_at;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_agent_performance_agent_success') THEN
+        ALTER INDEX idx_agent_performance_agent_success RENAME TO idx_agent_performance_summary_agent_id_is_success_created_at;
+    END IF;
+END $$;
+
+-- Rename llm_gating indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_llm_gating_tenant_enabled') THEN
+        ALTER INDEX idx_llm_gating_tenant_enabled RENAME TO idx_llm_gating_tenant_id_is_enabled;
+    END IF;
+END $$;
+
+-- Rename progressive_rollouts indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_progressive_rollouts_tenant_active') THEN
+        ALTER INDEX idx_progressive_rollouts_tenant_active RENAME TO idx_progressive_rollouts_tenant_id_is_active;
+    END IF;
+END $$;
+
+-- Rename feature_flags indexes
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_feature_flags_name_enabled') THEN
+        ALTER INDEX idx_feature_flags_name_enabled RENAME TO idx_feature_flags_name_is_enabled;
+    END IF;
+END $$;
+
+-- Skipped: no-op index renames (source = target name)
+
+COMMIT;
+-- ================================================
+-- Source: supabase/migrations/20260108000011_cleanup_redundant_migration_checks.sql
+-- ================================================
+-- Clean up redundant defensive checks in initial schema migration
+-- Remove unnecessary FK existence checks since CREATE TABLE already includes constraints
+
+-- This migration is safe to run as it only removes redundant code that checks for
+-- constraints that were already created in the initial schema. Since the initial
+-- migration uses CREATE TABLE IF NOT EXISTS with FK constraints defined inline,
+-- the defensive ALTER TABLE ADD CONSTRAINT checks are redundant.
+
+-- Note: This is a documentation-only migration. The actual cleanup would require
+-- editing the original migration file, which we cannot do safely. Instead, this
+-- serves as documentation of what should be cleaned up in future schema refreshes.
+
+-- REDUNDANT CODE IDENTIFIED (should be removed from migrations/001_initial_schema.sql):
+
+-- 1. Lines 50-61: ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 2. Lines 78-89: ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 3. Lines 105-116: ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 4. Lines 134-145: ALTER TABLE cases ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 5. Lines 162-173: ALTER TABLE workflows ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 6. Lines 191-202: ALTER TABLE workflow_states ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 7. Lines 218-229: ALTER TABLE shared_artifacts ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 8. Lines 251-262: ALTER TABLE agents ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 9. Lines 281-292: ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 10. Lines 306-317: ALTER TABLE agent_memory ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 11. Lines 340-351: ALTER TABLE models ADD COLUMN IF NOT EXISTS organization_id
+--    + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- 12. Lines 374-392: Bulk FOREACH loop checking all FK constraints - REDUNDANT
+--     (all FKs already defined in CREATE TABLE statements)
+
+-- 13. Lines 394-405: ALTER TABLE kpis ADD COLUMN IF NOT EXISTS organization_id
+--     + FK constraint check - REDUNDANT (FK defined in CREATE TABLE)
+
+-- IMPACT: These redundant checks make the migration file unnecessarily long
+-- and complex without providing any additional safety, since CREATE TABLE
+-- IF NOT EXISTS with inline FK constraints is already idempotent.
+
+-- RECOMMENDATION: For future schema refactoring, consolidate the initial
+-- migration to remove these redundant defensive checks while maintaining
+-- the same end schema.
+-- ================================================
+-- Source: supabase/migrations/20260109111418_add_secret_audit_and_roles.sql
+-- ================================================
+-- Migration: Add Secret Audit Logs and Update User Roles
+-- Description: Adds secret_audit_logs table and updates user_roles for multi-tenancy support.
+-- Created: 2026-01-09
+
+-- Enable necessary extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create secret_audit_logs table
+CREATE TABLE IF NOT EXISTS secret_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id VARCHAR(255) NOT NULL,
+  user_id VARCHAR(255),
+  secret_key VARCHAR(255) NOT NULL,
+  action VARCHAR(50) NOT NULL CHECK (action IN ('READ', 'WRITE', 'DELETE', 'ROTATE')),
+  result VARCHAR(50) NOT NULL CHECK (result IN ('SUCCESS', 'FAILURE')),
+  error_message TEXT,
+  metadata JSONB DEFAULT '{}'::JSONB,
+  timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Enable RLS for secret_audit_logs
+ALTER TABLE secret_audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for secret_audit_logs
+CREATE POLICY "secret_audit_logs_insert" ON secret_audit_logs
+  FOR INSERT
+  WITH CHECK (true); -- Allow inserts from application
+
+CREATE POLICY "secret_audit_logs_select" ON secret_audit_logs
+  FOR SELECT
+  USING (true); -- Adjust access control as needed (e.g., admin only)
+
+-- Update user_roles table for multi-tenancy if it exists
+DO $$
+DECLARE
+  default_tenant_id TEXT := '00000000-0000-0000-0000-000000000000'; -- System/Default Tenant ID
+  sql_statement TEXT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'user_roles') THEN
+    -- Add tenant_id column if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_roles' AND column_name = 'tenant_id') THEN
+      -- Use dynamic SQL to handle variable substitution in DDL
+      sql_statement := format('ALTER TABLE user_roles ADD COLUMN tenant_id text DEFAULT %L NOT NULL', default_tenant_id);
+      EXECUTE sql_statement;
+    END IF;
+
+    -- Drop existing primary key constraint
+    ALTER TABLE user_roles DROP CONSTRAINT IF EXISTS user_roles_pkey;
+
+    -- Create new composite primary key including tenant_id
+    ALTER TABLE user_roles ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role, tenant_id);
+  END IF;
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260109111419_security_audit_log_permissions.sql
+-- ================================================
+-- Ensure security audit log writes are restricted to service role
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.security_audit_log FROM anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON TABLE public.security_audit_log TO service_role;
+
+-- Restrict inserts to service role under RLS
+DROP POLICY IF EXISTS security_audit_log_service_role_insert ON public.security_audit_log;
+CREATE POLICY security_audit_log_service_role_insert
+  ON public.security_audit_log
+  FOR INSERT
+  WITH CHECK (auth.role() = 'service_role');
+
+-- ================================================
+-- Source: supabase/migrations/20260126000000_create_teams_table.sql
+-- ================================================
+-- Create teams table
+-- Depends on tenants table (tenant_id is TEXT)
+
+DROP TABLE IF EXISTS public.teams CASCADE;
+CREATE TABLE IF NOT EXISTS public.teams (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  team_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- Constraints
+  CONSTRAINT teams_tenant_id_name_key UNIQUE (tenant_id, name)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_teams_tenant_id ON public.teams(tenant_id);
+
+-- Trigger for updated_at
+-- Assuming standard update_updated_at_column function exists as seen in other tables
+DROP TRIGGER IF EXISTS update_teams_updated_at ON public.teams;
+CREATE TRIGGER update_teams_updated_at
+  BEFORE UPDATE ON public.teams
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Enable RLS
+ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+-- Service role has full access
+CREATE POLICY teams_service_role ON public.teams
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- Authenticated users can view teams in their tenant
+-- Checks public.user_roles to verify membership in the tenant
+CREATE POLICY teams_select ON public.teams
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      WHERE ur.user_id = (auth.uid())::text
+        AND ur.tenant_id = teams.tenant_id
+    )
+  );
+
+-- Only tenant owners/admins can insert/update/delete teams
+-- Checks public.user_roles joined with public.roles to verify role assignment
+CREATE POLICY teams_modify ON public.teams
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON ur.role_id = r.id
+      WHERE ur.user_id = (auth.uid())::text
+        AND ur.tenant_id = teams.tenant_id
+        AND r.name IN ('owner', 'admin')
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.roles r ON ur.role_id = r.id
+      WHERE ur.user_id = (auth.uid())::text
+        AND ur.tenant_id = teams.tenant_id
+        AND r.name IN ('owner', 'admin')
+    )
+  );
+
+-- ================================================
+-- Source: supabase/migrations/20260127000000_add_usage_aggregates_idempotency_unique.sql
+-- ================================================
+CREATE UNIQUE INDEX IF NOT EXISTS usage_aggregates_idempotency_key_unique
+  ON public.usage_aggregates (idempotency_key);
+
+-- ================================================
+-- Source: supabase/migrations/20260127000000_fix_remaining_security_linter_errors.sql
+-- ================================================
+-- Migration: Fix Remaining Database Security Linter Errors
+-- Created: 2025-12-27
+--
+-- This migration fixes 4 remaining security linter errors:
+-- 1. user_pillar_progress view - Add SECURITY INVOKER
+-- 2. secret_audit_summary view - Add SECURITY INVOKER
+-- 3. secret_audit_failures view - Add SECURITY INVOKER
+-- 4. workflow_stage_runs table - Enable RLS with tenant isolation policies
+--
+-- Note: recent_confidence_violations and agent_performance_summary were fixed in earlier migrations:
+-- - 20251226150000_security_hardening_fix_lint_errors.sql
+-- - 20251226000000_fix_agent_performance_summary_security.sql
+
+-- ============================================================================
+-- 1. FIX: user_pillar_progress view (Academy Portal)
+-- ============================================================================
+
+-- Drop and recreate with SECURITY INVOKER
+DROP VIEW IF EXISTS public.user_pillar_progress;
+
+CREATE OR REPLACE VIEW public.user_pillar_progress
+WITH (security_invoker = true)
+AS
+SELECT
+  ap.user_id,
+  am.pillar,
+  COUNT(al.id) as total_lessons,
+  COUNT(ap.id) FILTER (WHERE ap.status = 'completed') as completed_lessons,
+  ROUND(
+    (COUNT(ap.id) FILTER (WHERE ap.status = 'completed')::DECIMAL / NULLIF(COUNT(al.id), 0)) * 100,
+    1
+  ) as percent_complete,
+  SUM(al.estimated_minutes) FILTER (WHERE ap.status != 'completed') as minutes_remaining
+FROM academy_modules am
+JOIN academy_lessons al ON al.module_id = am.id
+LEFT JOIN academy_progress ap ON ap.lesson_id = al.id
+GROUP BY ap.user_id, am.pillar;
+
+COMMENT ON VIEW public.user_pillar_progress IS
+'SECURITY INVOKER view - User progress across academy pillars. Relies on RLS policies on academy_progress, academy_modules, and academy_lessons tables.';
+
+-- Grant permissions
+REVOKE ALL ON public.user_pillar_progress FROM PUBLIC;
+GRANT SELECT ON public.user_pillar_progress TO authenticated;
+
+-- ============================================================================
+-- 2. FIX: secret_audit_summary view (Secret Audit Logs)
+-- ============================================================================
+
+-- Drop and recreate with SECURITY INVOKER
+DROP VIEW IF EXISTS public.secret_audit_summary;
+
+CREATE OR REPLACE VIEW public.secret_audit_summary
+WITH (security_invoker = true)
+AS
+SELECT
+  tenant_id,
+  action,
+  result,
+  COUNT(*) as count,
+  DATE_TRUNC('day', timestamp) as day
+FROM secret_audit_logs
+WHERE timestamp >= NOW() - INTERVAL '30 days'
+GROUP BY tenant_id, action, result, DATE_TRUNC('day', timestamp)
+ORDER BY day DESC, tenant_id, action;
+
+COMMENT ON VIEW public.secret_audit_summary IS
+'SECURITY INVOKER view - Daily summary of secret access operations by tenant and action type. Relies on RLS policy on secret_audit_logs table.';
+
+-- Grant permissions
+REVOKE ALL ON public.secret_audit_summary FROM PUBLIC;
+GRANT SELECT ON public.secret_audit_summary TO authenticated;
+
+-- ============================================================================
+-- 3. FIX: secret_audit_failures view (Secret Audit Logs)
+-- ============================================================================
+
+-- Drop and recreate with SECURITY INVOKER
+DROP VIEW IF EXISTS public.secret_audit_failures;
+
+CREATE OR REPLACE VIEW public.secret_audit_failures
+WITH (security_invoker = true)
+AS
+SELECT
+  tenant_id,
+  user_id,
+  secret_key,
+  action,
+  error_message,
+  timestamp
+FROM secret_audit_logs
+WHERE result = 'FAILURE'
+AND timestamp >= NOW() - INTERVAL '7 days'
+ORDER BY timestamp DESC;
+
+COMMENT ON VIEW public.secret_audit_failures IS
+'SECURITY INVOKER view - Recent failed secret access attempts for security monitoring. Relies on RLS policy on secret_audit_logs table.';
+
+-- Grant permissions
+REVOKE ALL ON public.secret_audit_failures FROM PUBLIC;
+GRANT SELECT ON public.secret_audit_failures TO authenticated;
+
+-- ============================================================================
+-- 4. FIX: workflow_stage_runs table - Enable RLS with tenant isolation
+-- ============================================================================
+
+-- Enable Row Level Security
+ALTER TABLE public.workflow_stage_runs ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "workflow_stage_runs_tenant_select" ON public.workflow_stage_runs;
+DROP POLICY IF EXISTS "workflow_stage_runs_service_insert" ON public.workflow_stage_runs;
+DROP POLICY IF EXISTS "workflow_stage_runs_service_update" ON public.workflow_stage_runs;
+DROP POLICY IF EXISTS "workflow_stage_runs_service_delete" ON public.workflow_stage_runs;
+
+-- Policy: Users can view stage runs for executions they can access
+-- Relies on tenant isolation through parent workflow_executions table
+CREATE POLICY "workflow_stage_runs_tenant_select"
+ON public.workflow_stage_runs
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.workflow_executions we
+    WHERE we.id = workflow_stage_runs.execution_id
+    AND we.tenant_id IN (
+      SELECT tenant_id
+      FROM public.user_tenants
+      WHERE user_id = (auth.uid())::text
+    )
+  )
+);
+
+-- Policy: Service role can insert stage run records
+CREATE POLICY "workflow_stage_runs_service_insert"
+ON public.workflow_stage_runs
+FOR INSERT
+TO service_role
+WITH CHECK (true);
+
+-- Policy: Service role can update stage run records (status, outputs, etc.)
+CREATE POLICY "workflow_stage_runs_service_update"
+ON public.workflow_stage_runs
+FOR UPDATE
+TO service_role
+USING (true);
+
+-- Policy: Service role can delete (cleanup, though cascade from workflow_executions handles this)
+CREATE POLICY "workflow_stage_runs_service_delete"
+ON public.workflow_stage_runs
+FOR DELETE
+TO service_role
+USING (true);
+
+-- Grant permissions
+GRANT SELECT ON public.workflow_stage_runs TO authenticated;
+GRANT ALL ON public.workflow_stage_runs TO service_role;
+
+-- Add performance index for RLS policy lookup
+CREATE INDEX IF NOT EXISTS idx_workflow_stage_runs_execution_tenant
+ON public.workflow_stage_runs(execution_id);
+
+-- ============================================================================
+-- Validation and Summary
+-- ============================================================================
+
+DO $$
+DECLARE
+  view_count INTEGER;
+  rls_enabled BOOLEAN;
+  policy_count INTEGER;
+BEGIN
+  -- Count views with correct security settings
+  SELECT COUNT(*) INTO view_count
+  FROM pg_views
+  WHERE schemaname = 'public'
+  AND viewname IN ('user_pillar_progress', 'secret_audit_summary', 'secret_audit_failures');
+
+  -- Check RLS on workflow_stage_runs
+  SELECT c.relrowsecurity INTO rls_enabled
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+  AND c.relname = 'workflow_stage_runs';
+
+  -- Count policies on workflow_stage_runs
+  SELECT COUNT(*) INTO policy_count
+  FROM pg_policies
+  WHERE schemaname = 'public'
+  AND tablename = 'workflow_stage_runs';
+
+  RAISE NOTICE '';
+  RAISE NOTICE '========================================================================';
+  RAISE NOTICE 'Security Linter Errors Fixed';
+  RAISE NOTICE '========================================================================';
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Fixed % views with SECURITY INVOKER:', view_count;
+  RAISE NOTICE '   - user_pillar_progress';
+  RAISE NOTICE '   - secret_audit_summary';
+  RAISE NOTICE '   - secret_audit_failures';
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Enabled RLS on workflow_stage_runs: %', rls_enabled;
+  RAISE NOTICE '✅ Created % RLS policies for workflow_stage_runs', policy_count;
+  RAISE NOTICE '';
+  RAISE NOTICE 'Next steps:';
+  RAISE NOTICE '  1. Re-run database linter to confirm all errors resolved';
+  RAISE NOTICE '  2. Test view queries as different users';
+  RAISE NOTICE '  3. Test workflow_stage_runs access with tenant isolation';
+  RAISE NOTICE '';
+END $$;
+
+-- ============================================================================
+-- Additional tables not present in release_v1
+-- ============================================================================
+
+-- fuzzystrmatch extension for memory architecture
+CREATE EXTENSION IF NOT EXISTS "fuzzystrmatch" WITH SCHEMA public;
+
+-- ============================================================================
+-- Auth multi-tenant tables (memberships, permissions, RBAC)
+-- ============================================================================
+
+CREATE SCHEMA IF NOT EXISTS app;
+
+CREATE OR REPLACE FUNCTION app.current_tenant_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+$$;
+
+CREATE OR REPLACE FUNCTION app.current_user_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULLIF(current_setting('app.user_id', true), '')::uuid
+$$;
+
+CREATE TABLE IF NOT EXISTS public.memberships (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','invited','disabled')),
+  is_owner boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.permissions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key text UNIQUE NOT NULL,
+  description text
+);
+
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+  role_id uuid NOT NULL,
+  permission_id uuid NOT NULL REFERENCES public.permissions(id) ON DELETE CASCADE,
+  PRIMARY KEY (role_id, permission_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.membership_roles (
+  membership_id uuid NOT NULL REFERENCES public.memberships(id) ON DELETE CASCADE,
+  role_id uuid NOT NULL,
+  PRIMARY KEY (membership_id, role_id)
+);
+
+-- ============================================================================
+-- Security audit log (compliance)
+-- ============================================================================
+
+-- Note: security_audit_log may already exist from release_v1; using IF NOT EXISTS
+CREATE TABLE IF NOT EXISTS public.security_audit_log_extended (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type VARCHAR(50) NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    outcome VARCHAR(20) NOT NULL,
+    actor_id VARCHAR(255) NOT NULL,
+    actor_type VARCHAR(20) NOT NULL,
+    resource_id VARCHAR(255) NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    details JSONB DEFAULT '{}',
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    session_id VARCHAR(255),
+    correlation_id VARCHAR(255),
+    risk_score DECIMAL(3,2) DEFAULT 0.0,
+    compliance_flags TEXT[] DEFAULT '{}',
+    tenant_id UUID,
+    timestamp BIGINT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT valid_event_type CHECK (event_type IN (
+        'authentication', 'authorization', 'data_access',
+        'configuration_change', 'security_event',
+        'compliance_violation', 'permission_change', 'role_change'
+    )),
+    CONSTRAINT valid_actor_type CHECK (actor_type IN ('user', 'agent', 'system', 'service')),
+    CONSTRAINT valid_outcome CHECK (outcome IN ('success', 'failure', 'denied', 'error')),
+    CONSTRAINT valid_risk_score CHECK (risk_score >= 0 AND risk_score <= 1)
+);
+
+-- ============================================================================
+-- Value commitment tracking
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.value_commitments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  session_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  organization_id uuid,
+  title text NOT NULL CHECK (char_length(title) >= 1 AND char_length(title) <= 200),
+  description text NOT NULL CHECK (char_length(description) >= 1 AND char_length(description) <= 2000),
+  commitment_type text NOT NULL CHECK (commitment_type IN ('financial', 'timeline', 'operational', 'strategic', 'compliance')),
+  priority text NOT NULL DEFAULT 'medium' CHECK (priority IN ('critical', 'high', 'medium', 'low')),
+  financial_impact jsonb DEFAULT '{}'::jsonb,
+  currency text NOT NULL DEFAULT 'USD',
+  timeframe_months integer NOT NULL CHECK (timeframe_months >= 1 AND timeframe_months <= 120),
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'committed', 'in_progress', 'on_track', 'at_risk', 'completed', 'cancelled', 'failed')),
+  progress_percentage numeric(5,2) NOT NULL DEFAULT 0 CHECK (progress_percentage >= 0 AND progress_percentage <= 100),
+  confidence_level numeric(5,2) NOT NULL DEFAULT 50 CHECK (confidence_level >= 0 AND confidence_level <= 100),
+  committed_at timestamptz NOT NULL DEFAULT now(),
+  target_completion_date timestamptz NOT NULL,
+  actual_completion_date timestamptz,
+  ground_truth_references jsonb DEFAULT '{}'::jsonb,
+  tags text[] DEFAULT '{}'::text[],
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.commitment_stakeholders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  tenant_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  role text NOT NULL CHECK (role IN ('owner', 'contributor', 'approver', 'reviewer', 'observer')),
+  responsibility text NOT NULL CHECK (char_length(responsibility) >= 1 AND char_length(responsibility) <= 500),
+  accountability_percentage numeric(5,2) NOT NULL DEFAULT 50 CHECK (accountability_percentage >= 0 AND accountability_percentage <= 100),
+  notification_preferences jsonb DEFAULT '{"email": true, "slack": false, "milestone_updates": true, "risk_alerts": true}'::jsonb,
+  joined_at timestamptz NOT NULL DEFAULT now(),
+  last_active_at timestamptz NOT NULL DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (commitment_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.commitment_milestones (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  tenant_id uuid NOT NULL,
+  title text NOT NULL CHECK (char_length(title) >= 1 AND char_length(title) <= 200),
+  description text NOT NULL CHECK (char_length(description) >= 1 AND char_length(description) <= 1000),
+  milestone_type text NOT NULL CHECK (milestone_type IN ('planning', 'execution', 'review', 'completion', 'validation')),
+  sequence_order integer NOT NULL CHECK (sequence_order >= 1),
+  target_date timestamptz NOT NULL,
+  actual_date timestamptz,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'delayed', 'cancelled')),
+  progress_percentage numeric(5,2) NOT NULL DEFAULT 0 CHECK (progress_percentage >= 0 AND progress_percentage <= 100),
+  deliverables text[] DEFAULT '{}'::text[],
+  dependencies text[] DEFAULT '{}'::text[],
+  assigned_to uuid,
+  success_criteria text[] DEFAULT '{}'::text[],
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (commitment_id, sequence_order)
+);
+
+CREATE TABLE IF NOT EXISTS public.commitment_metrics (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  tenant_id uuid NOT NULL,
+  metric_name text NOT NULL CHECK (char_length(metric_name) >= 1 AND char_length(metric_name) <= 100),
+  metric_description text NOT NULL CHECK (char_length(metric_description) >= 1 AND char_length(metric_description) <= 500),
+  metric_type text NOT NULL CHECK (metric_type IN ('kpi', 'roi', 'progress', 'quality', 'efficiency')),
+  target_value numeric NOT NULL,
+  current_value numeric,
+  unit text NOT NULL CHECK (char_length(unit) >= 1 AND char_length(unit) <= 20),
+  measurement_frequency text NOT NULL DEFAULT 'monthly' CHECK (measurement_frequency IN ('daily', 'weekly', 'monthly', 'quarterly', 'annually')),
+  baseline_value numeric,
+  tolerance_percentage numeric(5,2) NOT NULL DEFAULT 10 CHECK (tolerance_percentage >= 0 AND tolerance_percentage <= 100),
+  last_measured_at timestamptz,
+  next_measurement_date timestamptz NOT NULL,
+  data_source text NOT NULL CHECK (char_length(data_source) >= 1 AND char_length(data_source) <= 200),
+  is_active boolean NOT NULL DEFAULT true,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.commitment_audits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  tenant_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  action text NOT NULL CHECK (action IN ('created', 'updated', 'status_changed', 'stakeholder_added', 'stakeholder_removed', 'milestone_completed', 'metric_updated', 'risk_assessed')),
+  previous_values jsonb DEFAULT '{}'::jsonb,
+  new_values jsonb DEFAULT '{}'::jsonb,
+  change_reason text NOT NULL CHECK (char_length(change_reason) >= 1 AND char_length(change_reason) <= 500),
+  ip_address inet,
+  user_agent text,
+  audit_metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.commitment_risks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  tenant_id uuid NOT NULL,
+  risk_title text NOT NULL CHECK (char_length(risk_title) >= 1 AND char_length(risk_title) <= 200),
+  risk_description text NOT NULL CHECK (char_length(risk_description) >= 1 AND char_length(risk_description) <= 1000),
+  risk_category text NOT NULL CHECK (risk_category IN ('execution', 'resource', 'market', 'technical', 'regulatory', 'financial')),
+  probability text NOT NULL CHECK (probability IN ('low', 'medium', 'high', 'critical')),
+  impact text NOT NULL CHECK (impact IN ('low', 'medium', 'high', 'critical')),
+  risk_score numeric(3,1) CHECK (risk_score >= 1 AND risk_score <= 16),
+  mitigation_plan text NOT NULL CHECK (char_length(mitigation_plan) >= 1 AND char_length(mitigation_plan) <= 2000),
+  contingency_plan text NOT NULL CHECK (char_length(contingency_plan) >= 1 AND char_length(contingency_plan) <= 2000),
+  owner_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'identified' CHECK (status IN ('identified', 'mitigating', 'mitigated', 'occurred', 'closed')),
+  identified_at timestamptz NOT NULL DEFAULT now(),
+  mitigated_at timestamptz,
+  occurred_at timestamptz,
+  review_date timestamptz NOT NULL,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Value commitment functions
+CREATE OR REPLACE FUNCTION public.calculate_risk_score(probability text, impact text)
+RETURNS numeric
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  prob_score integer;
+  impact_score integer;
+BEGIN
+  prob_score := CASE probability
+    WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 WHEN 'critical' THEN 4 ELSE 1
+  END;
+  impact_score := CASE impact
+    WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 WHEN 'critical' THEN 4 ELSE 1
+  END;
+  RETURN (prob_score * impact_score)::numeric;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.update_commitment_progress(commitment_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  milestone_progress numeric;
+  metric_progress numeric;
+  overall_progress numeric;
+BEGIN
+  SELECT COALESCE(AVG(progress_percentage), 0) INTO milestone_progress
+  FROM public.commitment_milestones WHERE commitment_id = $1 AND status != 'cancelled';
+
+  SELECT COALESCE(AVG(
+    CASE WHEN current_value IS NOT NULL AND target_value != 0
+    THEN LEAST(100, GREATEST(0, (current_value / target_value) * 100)) ELSE 0 END
+  ), 0) INTO metric_progress
+  FROM public.commitment_metrics WHERE commitment_id = $1 AND is_active = true;
+
+  overall_progress := (milestone_progress * 0.6) + (metric_progress * 0.4);
+
+  UPDATE public.value_commitments
+  SET progress_percentage = ROUND(overall_progress, 2), updated_at = now()
+  WHERE id = $1;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.trigger_calculate_risk_score()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.risk_score := public.calculate_risk_score(NEW.probability, NEW.impact);
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trigger_commitment_risks_calculate_score
+  BEFORE INSERT OR UPDATE OF probability, impact ON public.commitment_risks
+  FOR EACH ROW EXECUTE FUNCTION public.trigger_calculate_risk_score();
+
+CREATE OR REPLACE FUNCTION public.trigger_update_commitment_timestamp()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE public.value_commitments SET updated_at = now() WHERE id = NEW.commitment_id;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trigger_stakeholders_update_commitment
+  AFTER INSERT OR UPDATE OR DELETE ON public.commitment_stakeholders
+  FOR EACH ROW EXECUTE FUNCTION public.trigger_update_commitment_timestamp();
+
+CREATE TRIGGER trigger_milestones_update_commitment
+  AFTER INSERT OR UPDATE OR DELETE ON public.commitment_milestones
+  FOR EACH ROW EXECUTE FUNCTION public.trigger_update_commitment_timestamp();
+
+CREATE TRIGGER trigger_metrics_update_commitment
+  AFTER INSERT OR UPDATE OR DELETE ON public.commitment_metrics
+  FOR EACH ROW EXECUTE FUNCTION public.trigger_update_commitment_timestamp();
+
+CREATE TRIGGER trigger_risks_update_commitment
+  AFTER INSERT OR UPDATE OR DELETE ON public.commitment_risks
+  FOR EACH ROW EXECUTE FUNCTION public.trigger_update_commitment_timestamp();
+
+-- ============================================================================
+-- Referral program
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.referral_codes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    code TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    is_active BOOLEAN DEFAULT true,
+    CONSTRAINT referral_codes_user_id_unique UNIQUE(user_id),
+    CONSTRAINT referral_codes_code_format CHECK (code ~ '^[A-Z0-9]{8}$')
+);
+
+CREATE TABLE IF NOT EXISTS public.referrals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    referrer_id UUID NOT NULL,
+    referee_id UUID,
+    referral_code_id UUID NOT NULL REFERENCES public.referral_codes(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    claimed_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    referee_email TEXT,
+    ip_address INET,
+    user_agent TEXT,
+    CONSTRAINT referrals_status_check CHECK (status IN ('pending', 'claimed', 'completed', 'expired')),
+    CONSTRAINT referrals_no_self_referral CHECK (referrer_id != referee_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.referral_rewards (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    referral_id UUID NOT NULL REFERENCES public.referrals(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
+    reward_type TEXT NOT NULL,
+    reward_value TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'earned',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    claimed_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    CONSTRAINT referral_rewards_type_check CHECK (reward_type IN ('referrer_bonus', 'referee_discount')),
+    CONSTRAINT referral_rewards_status_check CHECK (status IN ('earned', 'claimed', 'expired'))
+);
+
+-- Referral functions
+CREATE OR REPLACE FUNCTION public.generate_referral_code()
+RETURNS TEXT AS $$
+DECLARE new_code TEXT; code_exists BOOLEAN;
+BEGIN
+    LOOP
+        new_code := upper(substring(encode(gen_random_bytes(4), 'hex'), 1, 8));
+        SELECT EXISTS(SELECT 1 FROM referral_codes WHERE code = new_code) INTO code_exists;
+        IF NOT code_exists THEN EXIT; END IF;
+    END LOOP;
+    RETURN new_code;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- Initiatives
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.initiatives (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL CHECK (status IN ('draft', 'active', 'archived')),
+  category TEXT NOT NULL CHECK (category IN ('growth', 'efficiency', 'risk')),
+  priority SMALLINT NOT NULL CHECK (priority BETWEEN 1 AND 5),
+  owner_email TEXT NOT NULL,
+  tags TEXT[] NOT NULL DEFAULT '{}'::text[],
+  start_date DATE,
+  end_date DATE,
+  idempotency_key TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL,
+  updated_by TEXT NOT NULL,
+  deleted_at TIMESTAMPTZ,
+  CONSTRAINT initiatives_dates_valid CHECK (
+    end_date IS NULL OR start_date IS NULL OR end_date >= start_date
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS initiatives_tenant_name_unique
+  ON public.initiatives(tenant_id, name) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS initiatives_tenant_idempotency_unique
+  ON public.initiatives(tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
+
+-- ============================================================================
+-- Invitations
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.invitations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  email text NOT NULL,
+  role text DEFAULT 'member',
+  token text UNIQUE NOT NULL DEFAULT encode(extensions.gen_random_bytes(32), 'hex'),
+  invited_by uuid,
+  accepted_at timestamptz,
+  expires_at timestamptz DEFAULT (now() + interval '7 days'),
+  created_at timestamptz DEFAULT now()
+);
+
+-- ============================================================================
+-- Docs embeddings
+-- ============================================================================
+
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+
+CREATE TABLE IF NOT EXISTS public.docs_embeddings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  path text NOT NULL,
+  content text NOT NULL,
+  embedding vector(1536),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now()
+);
+
+-- ============================================================================
+-- Schema alterations from deferred migrations
+-- ============================================================================
+
+-- Add status column to user_tenants if missing
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'user_tenants'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'user_tenants' AND column_name = 'status'
+  ) THEN
+    ALTER TABLE public.user_tenants ADD COLUMN status TEXT DEFAULT 'active'
+      CHECK (status IN ('active', 'suspended', 'revoked'));
+  END IF;
+END $$;
+
+-- Add tier and limits to tenants
+ALTER TABLE public.tenants
+  ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'free'
+    CHECK (tier IN ('free', 'standard', 'enterprise'));
+ALTER TABLE public.tenants
+  ADD COLUMN IF NOT EXISTS limits JSONB DEFAULT '{"max_users": 5, "max_agents": 3, "api_calls_per_month": 10000}'::jsonb;
+
+-- Add optimistic concurrency to invoices
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1;
+
+-- Add trace/request correlation to audit_logs
+ALTER TABLE public.audit_logs
+  ADD COLUMN IF NOT EXISTS trace_id text NOT NULL DEFAULT gen_random_uuid()::text,
+  ADD COLUMN IF NOT EXISTS request_id text;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'audit_logs_archive'
+  ) THEN
+    ALTER TABLE public.audit_logs_archive
+      ADD COLUMN IF NOT EXISTS trace_id text NOT NULL DEFAULT gen_random_uuid()::text,
+      ADD COLUMN IF NOT EXISTS request_id text;
+  END IF;
+END $$;
+
+-- Canonicalize llm_usage columns
+ALTER TABLE public.llm_usage
+  ADD COLUMN IF NOT EXISTS input_tokens integer,
+  ADD COLUMN IF NOT EXISTS output_tokens integer,
+  ADD COLUMN IF NOT EXISTS cost numeric(10,6);
+
+-- Add tenant_id to benchmark tables
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'memory_benchmark_versions') THEN
+    ALTER TABLE public.memory_benchmark_versions ADD COLUMN IF NOT EXISTS tenant_id uuid;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'memory_model_run_evidence') THEN
+    ALTER TABLE public.memory_model_run_evidence ADD COLUMN IF NOT EXISTS tenant_id uuid;
+  END IF;
+END $$;
+
+-- Invoice concurrency function
+CREATE OR REPLACE FUNCTION public.update_invoice_and_customer_status(
+  p_stripe_invoice_id text,
+  p_invoice_number text,
+  p_invoice_pdf_url text,
+  p_hosted_invoice_url text,
+  p_amount_due numeric,
+  p_amount_paid numeric,
+  p_amount_remaining numeric,
+  p_subtotal numeric,
+  p_tax numeric,
+  p_total numeric,
+  p_status text,
+  p_paid_at timestamptz,
+  p_line_items jsonb,
+  p_expected_version integer,
+  p_customer_status text,
+  p_stripe_customer_id text
+)
+RETURNS public.invoices
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_invoice public.invoices;
+BEGIN
+  PERFORM set_config('transaction_isolation', 'repeatable read', true);
+  UPDATE public.invoices
+  SET invoice_number = p_invoice_number, invoice_pdf_url = p_invoice_pdf_url,
+      hosted_invoice_url = p_hosted_invoice_url, amount_due = p_amount_due,
+      amount_paid = p_amount_paid, amount_remaining = p_amount_remaining,
+      subtotal = p_subtotal, tax = p_tax, total = p_total, status = p_status,
+      paid_at = p_paid_at, line_items = COALESCE(p_line_items, '[]'::jsonb),
+      updated_at = now(), version = version + 1
+  WHERE stripe_invoice_id = p_stripe_invoice_id AND version = p_expected_version
+  RETURNING * INTO v_invoice;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invoice update conflict for %', p_stripe_invoice_id USING ERRCODE = '40001';
+  END IF;
+
+  IF p_customer_status IS NOT NULL THEN
+    UPDATE public.billing_customers SET status = p_customer_status, updated_at = now()
+    WHERE stripe_customer_id = p_stripe_customer_id;
+  END IF;
+
+  RETURN v_invoice;
+END;
+$$;
+
+-- Updated guest token validation (drop old version first to allow return type change)
+DROP FUNCTION IF EXISTS public.validate_guest_token(TEXT);
+CREATE OR REPLACE FUNCTION public.validate_guest_token(token_value TEXT)
+RETURNS TABLE (
+  is_valid BOOLEAN, guest_user_id UUID, value_case_id UUID,
+  permissions JSONB, guest_name TEXT, guest_email TEXT,
+  expires_at TIMESTAMPTZ, error_message TEXT
+) AS $$
+DECLARE
+  token_record RECORD;
+  guest_record RECORD;
+BEGIN
+  SELECT * INTO token_record FROM guest_access_tokens WHERE token = token_value;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, NULL::UUID, NULL::UUID, NULL::JSONB, NULL::TEXT, NULL::TEXT, NULL::TIMESTAMPTZ, 'Token not found';
+    RETURN;
+  END IF;
+  IF token_record.revoked THEN
+    RETURN QUERY SELECT false, NULL::UUID, NULL::UUID, NULL::JSONB, NULL::TEXT, NULL::TEXT, NULL::TIMESTAMPTZ, 'Token has been revoked';
+    RETURN;
+  END IF;
+  IF token_record.expires_at < now() THEN
+    RETURN QUERY SELECT false, NULL::UUID, NULL::UUID, NULL::JSONB, NULL::TEXT, NULL::TEXT, token_record.expires_at, 'Token has expired';
+    RETURN;
+  END IF;
+  SELECT * INTO guest_record FROM guest_users WHERE id = token_record.guest_user_id;
+  UPDATE guest_access_tokens SET last_accessed_at = now(), access_count = access_count + 1 WHERE id = token_record.id;
+  RETURN QUERY SELECT true, token_record.guest_user_id, token_record.value_case_id,
+    token_record.permissions, guest_record.name, guest_record.email, token_record.expires_at, NULL::TEXT;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Updated audit_trigger with trace/request IDs
+CREATE OR REPLACE FUNCTION public.audit_trigger() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  org_id uuid;
+  user_id uuid;
+  has_org boolean;
+  header_json JSON;
+  v_trace_id TEXT;
+  v_request_id TEXT;
+BEGIN
+  BEGIN
+    header_json := current_setting('request.headers', true)::json;
+  EXCEPTION WHEN OTHERS THEN
+    header_json := NULL;
+  END;
+
+  v_trace_id := COALESCE(
+    NULLIF(header_json->>'x-trace-id', ''),
+    NULLIF(header_json->>'traceparent', ''),
+    NULLIF(current_setting('app.trace_id', true), ''),
+    gen_random_uuid()::text
+  );
+  v_request_id := COALESCE(
+    NULLIF(header_json->>'x-request-id', ''),
+    NULLIF(header_json->>'x-correlation-id', ''),
+    NULLIF(current_setting('app.request_id', true), '')
+  );
+
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = TG_TABLE_SCHEMA AND table_name = TG_TABLE_NAME AND column_name = 'organization_id'
+  ) INTO has_org;
+
+  IF has_org THEN
+    IF TG_OP = 'DELETE' THEN org_id := OLD.organization_id;
+    ELSE org_id := NEW.organization_id; END IF;
+  ELSE
+    org_id := (SELECT public.get_current_org_id());
+  END IF;
+
+  user_id := (SELECT public.get_current_user_id());
+
+  IF TG_OP = 'DELETE' THEN
+    INSERT INTO public.audit_logs (organization_id, user_id, action, resource_type, resource_id, changes, trace_id, request_id)
+    VALUES (org_id, user_id, 'delete', TG_TABLE_NAME, OLD.id, jsonb_build_object('before', row_to_json(OLD)), v_trace_id, v_request_id);
+  ELSIF TG_OP = 'UPDATE' THEN
+    INSERT INTO public.audit_logs (organization_id, user_id, action, resource_type, resource_id, changes, trace_id, request_id)
+    VALUES (org_id, user_id, 'update', TG_TABLE_NAME, NEW.id, jsonb_build_object('before', row_to_json(OLD), 'after', row_to_json(NEW)), v_trace_id, v_request_id);
+  ELSE
+    INSERT INTO public.audit_logs (organization_id, user_id, action, resource_type, resource_id, changes, trace_id, request_id)
+    VALUES (org_id, user_id, 'create', TG_TABLE_NAME, NEW.id, jsonb_build_object('after', row_to_json(NEW)), v_trace_id, v_request_id);
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+-- LLM usage legacy compatibility view
+CREATE OR REPLACE VIEW public.llm_usage_legacy_compat AS
+SELECT
+  id, tenant_id, user_id, session_id, model,
+  input_tokens AS prompt_tokens,
+  output_tokens AS completion_tokens,
+  total_tokens,
+  cost AS estimated_cost,
+  created_at AS "timestamp",
+  created_at
+FROM public.llm_usage;
+
