@@ -10,6 +10,8 @@
 -- ============================================================================
 
 CREATE SCHEMA IF NOT EXISTS security;
+GRANT USAGE ON SCHEMA security TO authenticated;
+GRANT USAGE ON SCHEMA security TO anon;
 
 -- Canonical tenant access check: verifies the authenticated user has an active
 -- membership in user_tenants for the given tenant_id.
@@ -176,55 +178,30 @@ BEGIN
 END $$;
 
 -- ============================================================================
--- 4. user_tenants: self-scoped policies
+-- 4. user_tenants: self-scoped policies (PERMISSIVE, no self-referencing subqueries)
+-- user_tenants is queried by security.user_has_tenant_access(), so its policies
+-- must NOT call that function or reference user_tenants in subqueries.
 -- ============================================================================
 
 DROP POLICY IF EXISTS tenant_isolation_select ON public.user_tenants;
 DROP POLICY IF EXISTS tenant_isolation_insert ON public.user_tenants;
 DROP POLICY IF EXISTS tenant_isolation_update ON public.user_tenants;
 DROP POLICY IF EXISTS tenant_isolation_delete ON public.user_tenants;
+DROP POLICY IF EXISTS user_tenants_select ON public.user_tenants;
+DROP POLICY IF EXISTS user_tenants_insert ON public.user_tenants;
 
-CREATE POLICY tenant_isolation_select ON public.user_tenants
-AS RESTRICTIVE FOR SELECT
-USING (
-  auth.uid() IS NOT NULL
-  AND user_id = (auth.uid())::text
-  AND tenant_id IS NOT NULL
-  AND status = 'active'
-);
+CREATE POLICY user_tenants_select ON public.user_tenants
+  FOR SELECT USING (user_id = (auth.uid())::text);
 
-CREATE POLICY tenant_isolation_insert ON public.user_tenants
-AS RESTRICTIVE FOR INSERT
-WITH CHECK (
-  auth.uid() IS NOT NULL
-  AND user_id = (auth.uid())::text
-  AND tenant_id IS NOT NULL
-  AND status = 'active'
-);
+CREATE POLICY user_tenants_insert ON public.user_tenants
+  FOR INSERT WITH CHECK (user_id = (auth.uid())::text);
 
-CREATE POLICY tenant_isolation_update ON public.user_tenants
-AS RESTRICTIVE FOR UPDATE
-USING (
-  auth.uid() IS NOT NULL
-  AND user_id = (auth.uid())::text
-  AND tenant_id IS NOT NULL
-  AND status = 'active'
-)
-WITH CHECK (
-  auth.uid() IS NOT NULL
-  AND user_id = (auth.uid())::text
-  AND tenant_id IS NOT NULL
-  AND status = 'active'
-);
+CREATE POLICY user_tenants_update ON public.user_tenants
+  FOR UPDATE USING (user_id = (auth.uid())::text)
+  WITH CHECK (user_id = (auth.uid())::text);
 
-CREATE POLICY tenant_isolation_delete ON public.user_tenants
-AS RESTRICTIVE FOR DELETE
-USING (
-  auth.uid() IS NOT NULL
-  AND user_id = (auth.uid())::text
-  AND tenant_id IS NOT NULL
-  AND status = 'active'
-);
+CREATE POLICY user_tenants_delete ON public.user_tenants
+  FOR DELETE USING (user_id = (auth.uid())::text);
 
 -- ============================================================================
 -- 5. Referral tables: user-scoped (no tenant_id)
@@ -347,3 +324,4 @@ AS $$
   FROM tenant_tables t
   ORDER BY t.table_name;
 $$;
+
