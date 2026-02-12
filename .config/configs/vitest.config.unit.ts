@@ -31,6 +31,9 @@ export default defineConfig({
       "@types": path.resolve(__dirname, "../../apps/ValyntApp/src/types"),
       "@shared": path.resolve(__dirname, "../../packages/shared/src"),
       "@mcp": path.resolve(__dirname, "../../packages/mcp"),
+      "@sdui": path.resolve(__dirname, "../../packages/sdui/src"),
+      "@backend": path.resolve(__dirname, "../../packages/backend/src"),
+      "@valueos/design-system": path.resolve(__dirname, "../../packages/components/design-system/src"),
     },
   },
 });

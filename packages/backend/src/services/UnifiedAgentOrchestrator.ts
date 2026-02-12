@@ -16,6 +16,8 @@
 
 import { logger } from "../lib/logger.js";
 import { v4 as uuidv4 } from "uuid";
+import { getTracer } from "../config/telemetry.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker.js";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js";
@@ -119,13 +121,6 @@ import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExe
 import { supabase } from "../lib/supabase.js";
 import { featureFlags } from "../config/featureFlags.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
-import { AdversarialIOMiddleware } from "./middleware/AdversarialIOMiddleware.js";
-import { CheckpointMiddleware } from "./middleware/CheckpointMiddleware.js";
-import { HandoverMiddleware } from "./middleware/HandoverMiddleware.js";
-import { auditLogService } from "./AuditLogService.js";
-import { workspaceStateService } from "./WorkspaceStateService.js";
-import { realtimeUpdateService } from "./RealtimeUpdateService.js";
-import { ToolRegistry } from "./ToolRegistry.js";
 import {
   AgentRequest,
   AgentResponse as RetryAgentResponse,
@@ -344,8 +339,6 @@ export class UnifiedAgentOrchestrator {
   private confidenceMonitor: ConfidenceMonitor;
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
-  private _checkpointMiddleware: CheckpointMiddleware | null = null;
-  private toolRegistry: ToolRegistry = new ToolRegistry();
 
   constructor(
     registry: AgentRegistry,
@@ -374,57 +367,7 @@ export class UnifiedAgentOrchestrator {
   }
 
   private initializeMiddleware(): void {
-    // Order: AdversarialIO → Checkpoint → Handover → IntegrityVeto → agent call
-    const groundtruthAPI = new GroundtruthAPI();
-
-    this.middleware.push(
-      new AdversarialIOMiddleware({
-        auditLogService,
-        groundtruthAPI,
-      }),
-    );
-
-    this._checkpointMiddleware = new CheckpointMiddleware({
-      workspaceStateService,
-      realtimeUpdateService,
-    });
-    this.middleware.push(this._checkpointMiddleware);
-
-    this.middleware.push(
-      new HandoverMiddleware({
-        agentRegistry: this.registry,
-        messageBroker: this.messageBroker,
-        toolRegistry: this.toolRegistry,
-      }),
-    );
-
     this.middleware.push(new IntegrityVetoMiddleware(this));
-  }
-
-  /**
-   * Expose the CheckpointMiddleware instance so the REST endpoint can
-   * resolve/reject pending checkpoints.
-   */
-  getCheckpointMiddleware(): CheckpointMiddleware | null {
-    return this._checkpointMiddleware;
-  }
-
-  /**
-   * Compose the registered middleware chain around a core handler.
-   */
-  private async executeWithMiddleware(
-    context: AgentMiddlewareContext,
-    handler: () => Promise<AgentResponse>,
-  ): Promise<AgentResponse> {
-    // Build the chain right-to-left so the first middleware in the array
-    // is the outermost wrapper.
-    let current = handler;
-    for (let i = this.middleware.length - 1; i >= 0; i--) {
-      const mw = this.middleware[i];
-      const next = current;
-      current = () => mw.execute(context, next);
-    }
-    return current();
   }
 
   private async ensureGroundTruthInitialized(): Promise<void> {
@@ -1365,6 +1308,21 @@ export class UnifiedAgentOrchestrator {
     }
 
     // Original synchronous execution path
+    const tracer = getTracer();
+
+    return tracer.startActiveSpan(
+      'agent.processQuery',
+      {
+        attributes: {
+          'agent.query': query,
+          'agent.user_id': userId,
+          'agent.session_id': sessionId,
+          'agent.trace_id': traceId,
+          'agent.organization_id': envelope.organizationId,
+        },
+      },
+      async (rootSpan: any) => {
+    const processQueryStart = Date.now();
 
     try {
       // Create immutable copy of state
@@ -1375,7 +1333,16 @@ export class UnifiedAgentOrchestrator {
       };
 
       // Determine which agent to use based on query and current stage
-      const agentType = this.selectAgent(query, currentState);
+      let agentType: AgentType;
+      tracer.startActiveSpan('agent.selectAgent', (selectSpan: any) => {
+        agentType = this.selectAgent(query, currentState);
+        selectSpan.setAttributes({
+          'agent.selected_type': agentType,
+          'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based',
+        });
+        selectSpan.setStatus({ code: SpanStatusCode.OK });
+        selectSpan.end();
+      });
 
       // Check inter-agent rate limit
       if (!this.checkAgentRateLimit(agentType)) {
@@ -1399,131 +1366,107 @@ export class UnifiedAgentOrchestrator {
         },
       };
 
-      // Build middleware context for the pipeline
-      const middlewareContext: AgentMiddlewareContext = {
-        envelope,
-        query,
-        currentState,
-        userId: envelope.actor.id || userId,
-        sessionId,
-        traceId,
-        agentType,
-        payload: undefined,
-      };
-
-      // Execute agent call through the middleware pipeline
-      const middlewareResponse = await this.executeWithMiddleware(
-        middlewareContext,
-        async (): Promise<AgentResponse> => {
-          // Core handler: call agent with circuit breaker protection
-          const circuitBreakerKey = `query-${agentType}`;
-          let agentResponse = await this.circuitBreakers.execute(
-            circuitBreakerKey,
-            () =>
-              this.agentAPI.invokeAgent({
-                agent: agentType,
-                query,
-                context: agentContext,
-              }),
-            { timeoutMs: this.config.defaultTimeoutMs }
-          );
-
-          if (agentResponse.success) {
-            const structuralCheck = await this.evaluateStructuralTruthVeto(
-              agentResponse.data,
-              {
-                traceId,
-                agentType,
-                query,
-                context: agentContext,
-              }
-            );
-            if (structuralCheck.vetoed) {
-              return {
-                type: "message",
-                payload: {
-                  message:
-                    "Output failed structural truth validation against expected schema.",
-                  error: true,
-                },
-                metadata: structuralCheck.metadata,
-              };
-            }
-
-            const integrityCheck = await this.evaluateIntegrityVeto(
-              agentResponse.data,
-              {
-                traceId,
-                agentType,
-                query,
-                context: agentContext,
-              }
-            );
-
-            if (integrityCheck.reRefine) {
-              logger.info("Triggering RE-REFINE loop due to low confidence", {
-                traceId,
-                agentType,
-                sessionId,
-              });
-
-              const re = await this.performReRefine(agentType, query, agentContext, traceId);
-              if (re.success && re.response) {
-                agentResponse = re.response;
-              } else {
-                return {
-                  type: "message",
-                  payload: {
-                    message:
-                      "Unable to auto-refine response. Please try again or request manual review.",
-                    error: true,
-                  },
-                };
-              }
-            }
-
-            if (integrityCheck.vetoed) {
-              return {
-                type: "message",
-                payload: {
-                  message:
-                    "Output failed integrity validation against ground truth benchmarks.",
-                  error: true,
-                },
-                metadata: integrityCheck.metadata,
-              };
-            }
-          }
-
-          return {
-            type: "message",
-            payload: agentResponse.success
-              ? {
-                  message:
-                    typeof agentResponse.data === "string"
-                      ? agentResponse.data
-                      : JSON.stringify(agentResponse.data),
-                }
-              : {
-                  message: agentResponse.error || "Agent request failed",
-                  error: true,
-                },
-          };
-        },
+      // Call agent with circuit breaker protection
+      const circuitBreakerKey = `query-${agentType}`;
+      let agentResponse = await this.circuitBreakers.execute(
+        circuitBreakerKey,
+        () =>
+          this.agentAPI.invokeAgent({
+            agent: agentType,
+            query,
+            context: agentContext,
+          }),
+        { timeoutMs: this.config.defaultTimeoutMs }
       );
 
-      // If the middleware pipeline returned an error response, return it directly
-      if (middlewareResponse.payload?.error) {
-        return {
-          response: middlewareResponse,
-          nextState: currentState,
-          traceId,
-        };
+      if (agentResponse.success) {
+        const structuralCheck = await this.evaluateStructuralTruthVeto(
+          agentResponse.data,
+          {
+            traceId,
+            agentType,
+            query,
+            context: agentContext,
+          }
+        );
+        if (structuralCheck.vetoed) {
+          const response: AgentResponse = {
+            type: "message",
+            payload: {
+              message:
+                "Output failed structural truth validation against expected schema.",
+              error: true,
+            },
+            metadata: structuralCheck.metadata,
+          };
+
+          return {
+            response,
+            nextState: currentState,
+            traceId,
+          };
+        }
+
+        const integrityCheck = await this.evaluateIntegrityVeto(
+          agentResponse.data,
+          {
+            traceId,
+            agentType,
+            query,
+            context: agentContext,
+          }
+        );
+
+        if (integrityCheck.reRefine) {
+          logger.info("Triggering RE-REFINE loop due to low confidence", {
+            traceId,
+            agentType,
+            sessionId,
+          });
+
+          const re = await this.performReRefine(agentType, query, agentContext, traceId);
+          if (re.success && re.response) {
+            // Replace agentResponse with refined result
+            agentResponse = re.response;
+          } else {
+            const response: AgentResponse = {
+              type: "message",
+              payload: {
+                message:
+                  "Unable to auto-refine response. Please try again or request manual review.",
+                error: true,
+              },
+            };
+
+            return {
+              response,
+              nextState: currentState,
+              traceId,
+            };
+          }
+        }
+
+        if (integrityCheck.vetoed) {
+          const response: AgentResponse = {
+            type: "message",
+            payload: {
+              message:
+                "Output failed integrity validation against ground truth benchmarks.",
+              error: true,
+            },
+            metadata: integrityCheck.metadata,
+          };
+
+          return {
+            response,
+            nextState: currentState,
+            traceId,
+          };
+        }
       }
 
       // Update state based on response
-      const agentResponseData = middlewareResponse.payload?.message;
-      if (agentResponseData) {
+      if (agentResponse.success && agentResponse.data) {
         nextState.context.conversationHistory = [
           ...(nextState.context.conversationHistory || []),
           {
@@ -1533,19 +1476,33 @@ export class UnifiedAgentOrchestrator {
           },
           {
             role: "assistant",
-            content: typeof agentResponseData === "string"
-              ? agentResponseData
-              : JSON.stringify(agentResponseData),
+            content:
+              typeof agentResponse.data === "string"
+                ? agentResponse.data
+                : JSON.stringify(agentResponse.data),
             timestamp: new Date().toISOString(),
           },
         ];
       }
 
-      // Update status
-      nextState.status = "in_progress";
+      // Update status based on response
+      nextState.status = agentResponse.success ? "in_progress" : "completed";
 
-      // Use the middleware pipeline response directly
-      const response = middlewareResponse;
+      // Build response
+      const response: AgentResponse = {
+        type: "message",
+        payload: agentResponse.success
+          ? {
+              message:
+                typeof agentResponse.data === "string"
+                  ? agentResponse.data
+                  : JSON.stringify(agentResponse.data),
+            }
+          : {
+              message: agentResponse.error || "Agent request failed",
+              error: true,
+            },
+      };
 
       logger.info("Query processed successfully", {
         traceId,
@@ -1553,6 +1510,10 @@ export class UnifiedAgentOrchestrator {
         nextStage: nextState.currentStage,
         responseType: response.type,
       });
+
+      rootSpan.setAttributes({ 'agent.latency_ms': Date.now() - processQueryStart });
+      rootSpan.setStatus({ code: SpanStatusCode.OK });
+      rootSpan.end();
 
       return {
         response,
@@ -1569,6 +1530,14 @@ export class UnifiedAgentOrchestrator {
           userId,
         }
       );
+
+      rootSpan.setAttributes({ 'agent.latency_ms': Date.now() - processQueryStart });
+      rootSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      if (error instanceof Error) rootSpan.recordException(error);
+      rootSpan.end();
 
       // Return error state
       const errorState: WorkflowState = {
@@ -1594,6 +1563,8 @@ export class UnifiedAgentOrchestrator {
         traceId,
       };
     }
+
+    }); // end startActiveSpan
   }
 
   // ==========================================================================
@@ -2290,6 +2261,19 @@ Provide a JSON response with:
     route: StageRoute,
     traceId: string
   ): Promise<{ status: "completed" | "failed"; output?: any; error?: string }> {
+    const stageTracer = getTracer();
+    return stageTracer.startActiveSpan(
+      'agent.executeStageWithRetry',
+      {
+        attributes: {
+          'agent.stage_id': stage.id,
+          'agent.stage_name': stage.name || stage.id,
+          'agent.agent_type': stage.agent_type,
+        },
+      },
+      async (stageSpan: any) => {
+    const stageStart = Date.now();
+
     const circuitBreakerKey = `${executionId}-${stage.id}`;
     const retryConfig = {
       max_attempts: stage.retry_config?.max_attempts ?? this.config.maxRetryAttempts,
@@ -2394,12 +2378,19 @@ Provide a JSON response with:
       retryOptions
     );
 
+    stageSpan.setAttributes({
+      'agent.retry_count': retryResult.attempts ?? 0,
+      'agent.latency_ms': Date.now() - stageStart,
+    });
+
     if (retryResult.success && retryResult.response?.data) {
       if (route.selected_agent) {
         this.registry.recordRelease(route.selected_agent.id);
         this.registry.markHealthy(route.selected_agent.id);
       }
 
+      stageSpan.setStatus({ code: SpanStatusCode.OK });
+      stageSpan.end();
       return { status: "completed", output: retryResult.response.data };
     }
 
@@ -2407,10 +2398,17 @@ Provide a JSON response with:
       this.registry.recordFailure(route.selected_agent.id);
     }
 
+    const errorMsg = retryResult.error?.message || "Unknown error";
+    stageSpan.setStatus({ code: SpanStatusCode.ERROR, message: errorMsg });
+    if (retryResult.error) stageSpan.recordException(retryResult.error);
+    stageSpan.end();
+
     return {
       status: "failed",
-      error: retryResult.error?.message || "Unknown error",
+      error: errorMsg,
     };
+
+    }); // end startActiveSpan for executeStageWithRetry
   }
 
   /**
@@ -2421,84 +2419,66 @@ Provide a JSON response with:
     context: Record<string, any>,
     route: StageRoute
   ): Promise<Record<string, any>> {
-    const agentType = stage.agent_type as AgentType;
-    const agentContext: AgentContext = {
-      userId: context.userId,
-      sessionId: context.sessionId,
-      currentStage: stage.id,
-    };
-
-    // Build middleware context for stage execution
-    const middlewareContext: AgentMiddlewareContext = {
-      envelope: {
-        intent: stage.description || stage.id,
-        actor: { id: context.userId || 'system' },
-        organizationId: context.organizationId || 'default',
-        entryPoint: 'executeStage',
-        reason: `Stage execution: ${stage.id}`,
-        timestamps: { requestedAt: new Date().toISOString() },
+    const execTracer = getTracer();
+    return execTracer.startActiveSpan(
+      'agent.executeStage',
+      {
+        attributes: {
+          'agent.stage_id': stage.id,
+          'agent.agent_type': stage.agent_type,
+        },
       },
-      query: stage.description || `Execute ${stage.id}`,
-      currentState: context.workflowState || { currentStage: stage.id, status: 'in_progress', completedStages: [], context: {} },
-      userId: context.userId || 'system',
-      sessionId: context.sessionId || '',
-      traceId: context.traceId || uuidv4(),
-      agentType,
-      payload: { stageId: stage.id, context: agentContext },
-    };
+      async (execSpan: any) => {
+        const execStart = Date.now();
+        const agentType = stage.agent_type as AgentType;
+        const agentContext: AgentContext = {
+          userId: context.userId,
+          sessionId: context.sessionId,
+          currentStage: stage.id,
+        };
 
-    // Execute through middleware pipeline
-    const middlewareResponse = await this.executeWithMiddleware(
-      middlewareContext,
-      async (): Promise<AgentResponse> => {
-        // Core handler: use SecureMessageBus for inter-agent communication
-        const messageResult = await this.messageBroker.sendToAgent(
-          "orchestrator",
-          agentType,
-          {
-            action: "execute",
-            description: stage.description || `Execute ${stage.id}`,
-            context: agentContext,
-          },
-          {
-            priority: "normal",
-            timeoutMs: stage.timeout_seconds * 1000,
-          }
-        );
-
-        if (!messageResult.success) {
-          return {
-            type: "message",
-            payload: {
-              message: `Agent communication failed: ${messageResult.error}`,
-              error: true,
+        try {
+          // Use SecureMessageBus for inter-agent communication
+          const messageResult = await this.messageBroker.sendToAgent(
+            "orchestrator", // From orchestrator
+            agentType, // To target agent
+            {
+              action: "execute",
+              description: stage.description || `Execute ${stage.id}`,
+              context: agentContext,
             },
-          };
-        }
+            {
+              priority: "normal",
+              timeoutMs: stage.timeout_seconds * 1000,
+            }
+          );
 
-        return {
-          type: "message",
-          payload: {
+          if (!messageResult.success) {
+            throw new Error(`Agent communication failed: ${messageResult.error}`);
+          }
+
+          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          execSpan.setStatus({ code: SpanStatusCode.OK });
+          execSpan.end();
+
+          return {
             stage_id: stage.id,
             agent_type: stage.agent_type,
             agent_id: route.selected_agent?.id,
             output: messageResult.data,
-          },
-        };
-      },
+          };
+        } catch (err) {
+          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          execSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          if (err instanceof Error) execSpan.recordException(err);
+          execSpan.end();
+          throw err;
+        }
+      }
     );
-
-    // If middleware returned an error, throw to preserve existing error handling
-    if (middlewareResponse.payload?.error && typeof middlewareResponse.payload?.message === 'string') {
-      throw new Error(middlewareResponse.payload.message);
-    }
-
-    return {
-      stage_id: stage.id,
-      agent_type: stage.agent_type,
-      agent_id: route.selected_agent?.id,
-      output: middlewareResponse.payload?.output ?? middlewareResponse.payload,
-    };
   }
 
   // ==========================================================================
