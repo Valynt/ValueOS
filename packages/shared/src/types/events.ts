@@ -119,12 +119,45 @@ export type SystemEvent =
   | {
       type: "system.rate.limited";
       payload: { tenantId: string; resource: string; limit: number };
+    }
+  | {
+      type: "system.dlq.enqueued";
+      payload: { taskId: string; agentType: string; error: string; tenantId: string; retryCount: number };
+    };
+
+/**
+ * Saga domain events for value case lifecycle
+ */
+export type SagaEvent =
+  | {
+      type: "saga.state.transitioned";
+      payload: { valueCaseId: string; fromState: string; toState: string; trigger: string; agentId?: string };
+    }
+  | {
+      type: "saga.compensation.executed";
+      payload: { valueCaseId: string; compensationName: string; success: boolean; error?: string };
+    }
+  | {
+      type: "saga.hypothesis.proposed";
+      payload: { valueCaseId: string; hypotheses: Array<{ id: string; description: string; confidence: number }> };
+    }
+  | {
+      type: "saga.integrity.vetoed";
+      payload: { valueCaseId: string; componentId: string; reason: string; confidenceScore: number };
+    }
+  | {
+      type: "saga.redteam.objection";
+      payload: { valueCaseId: string; objections: Array<{ id: string; severity: string; description: string }> };
+    }
+  | {
+      type: "saga.case.finalized";
+      payload: { valueCaseId: string; approvedBy: string; finalConfidence: number };
     };
 
 /**
  * All domain events union
  */
-export type DomainEvent = UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent;
+export type DomainEvent = UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent | SagaEvent;
 
 /**
  * Event with metadata wrapper
@@ -183,6 +216,7 @@ export function createEvent<T extends EventType>(
  */
 export const EVENT_TOPICS = {
   SAGA_COMMANDS: "saga.commands",
+  SAGA_EVENTS: "saga.events",
   WORKFLOW_EVENTS: "workflow.events",
   AGENT_REQUESTS: "agent.requests",
   AGENT_RESPONSES: "agent.responses",

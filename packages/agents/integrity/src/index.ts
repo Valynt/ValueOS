@@ -1,6 +1,8 @@
 /**
  * Integrity Agent
- * Analyzes system integrity, compliance, and security assessments
+ *
+ * Validates value claims against evidence, performs integrity checks,
+ * and produces confidence scores. Uses LLMGateway for analysis.
  */
 
 import express from "express";
@@ -10,7 +12,10 @@ import { logger } from "@valueos/agent-base";
 import { metrics } from "@valueos/agent-base";
 import { z } from "zod";
 
-// Agent-specific types
+// ============================================================================
+// Schemas
+// ============================================================================
+
 const QuerySchema = z.object({
   query: z.string(),
   context: z
@@ -21,135 +26,164 @@ const QuerySchema = z.object({
       metadata: z.record(z.any()).optional(),
     })
     .optional(),
+  idempotencyKey: z.string().uuid().optional(),
 });
 
 type QueryRequest = z.infer<typeof QuerySchema>;
 
+const IntegrityCheckSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  confidence: z.number().min(0).max(1),
+  category: z.string(),
+  priority: z.string(),
+  status: z.string(),
+});
+
 const ResponseSchema = z.object({
-  integrity_checks: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string(),
-      confidence: z.number().min(0).max(1),
-      category: z.string(),
-      priority: z.string(),
-      status: z.string(),
-    })
-  ),
+  integrity_checks: z.array(IntegrityCheckSchema),
   analysis: z.string(),
   timestamp: z.string(),
 });
 
 type QueryResponse = z.infer<typeof ResponseSchema>;
 
-/**
- * Mock LLM service for integrity analysis
- * In production, this would integrate with actual LLM APIs
- */
-class IntegrityAnalyzer {
-  async analyzeIntegrity(query: string, context?: QueryRequest["context"]): Promise<QueryResponse> {
+// ============================================================================
+// LLM Interface (dependency injection)
+// ============================================================================
+
+export interface IntegrityLLMGateway {
+  complete(request: {
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+    metadata: { tenantId: string; [key: string]: unknown };
+  }): Promise<{
+    content: string;
+    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  }>;
+}
+
+// ============================================================================
+// System Prompt
+// ============================================================================
+
+const INTEGRITY_SYSTEM_PROMPT = `You are an Integrity Validation agent for a Value Engineering platform. Your role is to validate value claims against evidence, check data integrity, and assess confidence levels.
+
+For each request, perform integrity checks covering data quality, source reliability, calculation accuracy, and compliance.
+
+You MUST respond with valid JSON matching this schema:
+{
+  "integrity_checks": [
+    {
+      "title": "<check title>",
+      "description": "<check description and findings>",
+      "confidence": <0.0-1.0>,
+      "category": "<Security|Compliance|Data|System|General>",
+      "priority": "<High|Medium|Low>",
+      "status": "<Pass|Fail|Warning>"
+    }
+  ],
+  "analysis": "<overall integrity assessment>"
+}
+
+Be rigorous. Flag any claims that lack evidence or have questionable data sources.`;
+
+// ============================================================================
+// IntegrityAnalyzer
+// ============================================================================
+
+export class IntegrityAnalyzer {
+  private llmGateway: IntegrityLLMGateway | null;
+
+  constructor(llmGateway?: IntegrityLLMGateway) {
+    this.llmGateway = llmGateway ?? null;
+  }
+
+  async analyzeIntegrity(
+    query: string,
+    context?: QueryRequest["context"],
+    idempotencyKey?: string
+  ): Promise<QueryResponse> {
+    const tenantId = context?.organizationId ?? 'system';
+
     logger.info("Analyzing integrity", { query, userId: context?.userId });
 
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 2000));
+    if (!this.llmGateway) {
+      logger.warn("No LLMGateway configured, using fallback response");
+      return this.fallbackResponse(query);
+    }
 
-    // Mock analysis based on query keywords
-    const integrity_checks = this.generateMockIntegrityChecks(query);
+    const response = await this.llmGateway.complete({
+      messages: [
+        { role: 'system', content: INTEGRITY_SYSTEM_PROMPT },
+        { role: 'user', content: `Perform integrity validation for: ${query}` },
+      ],
+      metadata: {
+        tenantId,
+        agentType: 'integrity',
+        userId: context?.userId ?? 'system',
+        sessionId: context?.sessionId,
+        idempotencyKey,
+      },
+    });
 
-    const analysis =
-      `Based on the query "${query}", performed ${integrity_checks.length} integrity checks. ` +
-      "These assessments ensure system reliability, compliance, and security standards are maintained.";
+    const parsed = this.parseResponse(response.content);
+
+    if (response.usage) {
+      metrics.agentQueryDuration.observe(
+        { agent_type: "integrity" },
+        response.usage.total_tokens
+      );
+    }
 
     return {
-      integrity_checks,
-      analysis,
+      ...parsed,
       timestamp: new Date().toISOString(),
     };
   }
 
-  private generateMockIntegrityChecks(query: string): QueryResponse["integrity_checks"] {
-    const keywords = query.toLowerCase();
-    const integrity_checks: QueryResponse["integrity_checks"] = [];
-
-    if (keywords.includes("security") || keywords.includes("audit")) {
-      integrity_checks.push({
-        title: "Security Audit Assessment",
-        description:
-          "Comprehensive security audit to identify vulnerabilities and ensure compliance with security standards.",
-        confidence: 0.92,
-        category: "Security",
-        priority: "High",
-        status: "Pass",
-      });
+  private parseResponse(content: string): Omit<QueryResponse, 'timestamp'> {
+    let jsonStr = content;
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1]!;
     }
 
-    if (keywords.includes("compliance") || keywords.includes("regulation")) {
-      integrity_checks.push({
-        title: "Regulatory Compliance Check",
-        description:
-          "Verification of compliance with relevant industry regulations and data protection standards.",
-        confidence: 0.88,
-        category: "Compliance",
-        priority: "High",
-        status: "Pass",
-      });
-    }
+    const raw = JSON.parse(jsonStr);
+    return ResponseSchema.omit({ timestamp: true }).parse(raw);
+  }
 
-    if (keywords.includes("data") || keywords.includes("integrity")) {
-      integrity_checks.push({
-        title: "Data Integrity Validation",
-        description:
-          "Validation of data consistency, accuracy, and protection against unauthorized modifications.",
-        confidence: 0.85,
-        category: "Data",
-        priority: "High",
-        status: "Pass",
-      });
-    }
-
-    if (keywords.includes("system") || keywords.includes("reliability")) {
-      integrity_checks.push({
-        title: "System Reliability Assessment",
-        description:
-          "Assessment of system uptime, performance stability, and fault tolerance capabilities.",
-        confidence: 0.78,
-        category: "System",
-        priority: "Medium",
-        status: "Pass",
-      });
-    }
-
-    // Always include at least one check
-    if (integrity_checks.length === 0) {
-      integrity_checks.push({
-        title: "General Integrity Verification",
-        description:
-          "Overall integrity verification including security, compliance, and operational checks.",
-        confidence: 0.7,
-        category: "General",
-        priority: "Medium",
-        status: "Pass",
-      });
-    }
-
-    return integrity_checks;
+  private fallbackResponse(query: string): QueryResponse {
+    return {
+      integrity_checks: [
+        {
+          title: "General Integrity Verification",
+          description: `Integrity check for: ${query}`,
+          confidence: 0.5,
+          category: "General",
+          priority: "Medium",
+          status: "Warning",
+        },
+      ],
+      analysis: `Fallback analysis for "${query}". LLMGateway not configured.`,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
 
-// Initialize analyzer
+// ============================================================================
+// Server Setup
+// ============================================================================
+
 const analyzer = new IntegrityAnalyzer();
 
-// Create custom middleware for agent-specific routes
 const agentRoutes = express.Router();
 
-// Query endpoint
 agentRoutes.post("/query", async (req: express.Request, res: express.Response) => {
   const startTime = Date.now();
 
   try {
     const validatedQuery = QuerySchema.parse(req.body);
 
-    // Record metrics
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query" });
     const queryTimer = metrics.httpRequestDuration.startTimer({ method: "POST", route: "/query" });
 
@@ -158,62 +192,48 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
       userId: validatedQuery.context?.userId,
     });
 
-    // Process the query
-    const result = await analyzer.analyzeIntegrity(validatedQuery.query, validatedQuery.context);
+    const result = await analyzer.analyzeIntegrity(
+      validatedQuery.query,
+      validatedQuery.context,
+      validatedQuery.idempotencyKey
+    );
 
-    // Record agent-specific metrics
     metrics.agentQueriesTotal.inc({ agent_type: "integrity", status: "success" });
     metrics.agentQueryDuration.observe({ agent_type: "integrity" }, Date.now() - startTime);
 
     queryTimer();
-
     res.json(result);
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logger.error("Query processing failed", error, {
-      duration,
-      body: req.body,
-    });
+    logger.error("Query processing failed", error, { duration, body: req.body });
 
-    // Record failure metrics
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query", status_code: "500" });
     metrics.agentQueriesTotal.inc({ agent_type: "integrity", status: "error" });
 
     if (error instanceof z.ZodError) {
-      res.status(400).json({
-        error: "Invalid request format",
-        details: error.errors,
-      });
+      res.status(400).json({ error: "Invalid request format", details: error.errors });
     } else {
-      res.status(500).json({
-        error: "Internal server error",
-      });
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 });
 
-// Health check with agent-specific checks
 const customHealthChecks = [
   {
     name: "integrity-analyzer",
     check: async () => {
-      // Check if analyzer is responsive
       try {
         await analyzer.analyzeIntegrity("health check");
         return { status: "pass" as const };
       } catch (error) {
-        return {
-          status: "fail" as const,
-          error: "Analyzer not responsive",
-        };
+        return { status: "fail" as const, error: "Analyzer not responsive" };
       }
     },
     critical: true,
   },
 ];
 
-// Create and start the server
 const config = getConfig();
 const app = createServer({
   agentType: "integrity",
@@ -222,10 +242,8 @@ const app = createServer({
   middleware: [agentRoutes],
 });
 
-// Add agent-specific metrics
 metrics.customMetrics.set("integrity_analyzer_health", metrics.healthStatus);
 
-// Start the server
 startServer(app, config.PORT).catch((error: any) => {
   logger.error("Failed to start integrity agent", error);
   process.exit(1);

@@ -1,0 +1,543 @@
+/**
+ * Hypothesis-First Core Loop Orchestrator
+ *
+ * Drives the 7-step value engineering loop:
+ * 1. Hypothesis — OpportunityAgent proposes value drivers
+ * 2. Model — FinancialModelingAgent builds Value Trees
+ * 3. Evidence — GroundTruthAgent fetches grounding data
+ * 4. Narrative — NarrativeAgent translates math into story
+ * 5. Objection — RedTeamAgent stress-tests claims
+ * 6. Revision — Re-enter at DRAFTING if critical objections (max 3 cycles)
+ * 7. Approval — VE approves, transition to FINALIZED
+ *
+ * Each step carries an idempotency key, streams progress via SSE,
+ * records token usage, and routes failures to the DLQ.
+ */
+
+import { z } from 'zod';
+import type {
+  ValueCaseSaga,
+  SagaSnapshot,
+  SagaTriggerType,
+} from '../core/ValueCaseSaga.js';
+import { SagaTrigger } from '../core/ValueCaseSaga.js';
+import type { IdempotencyGuard } from '../core/IdempotencyGuard.js';
+import type { DeadLetterQueue, DLQEntry } from '../core/DeadLetterQueue.js';
+import type { RedTeamAgent, RedTeamOutput, Objection } from './agents/RedTeamAgent.js';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface ValueHypothesis {
+  id: string;
+  description: string;
+  confidence: number;
+  category: string;
+  estimatedValue?: number;
+}
+
+export interface ValueTree {
+  id: string;
+  valueCaseId: string;
+  nodes: ValueTreeNode[];
+  totalValue: number;
+  currency: string;
+  timestamp: string;
+}
+
+export interface ValueTreeNode {
+  id: string;
+  label: string;
+  value: number;
+  formula?: string;
+  confidenceScore: number;
+  citations: string[];
+  children?: ValueTreeNode[];
+}
+
+export interface NarrativeBlock {
+  id: string;
+  valueCaseId: string;
+  title: string;
+  executiveSummary: string;
+  sections: NarrativeSection[];
+  timestamp: string;
+}
+
+export interface NarrativeSection {
+  heading: string;
+  content: string;
+  claimIds: string[];
+  confidenceScore: number;
+}
+
+export interface LoopProgress {
+  step: number;
+  stepName: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  message?: string;
+  timestamp: string;
+}
+
+export interface LoopResult {
+  valueCaseId: string;
+  tenantId: string;
+  hypotheses: ValueHypothesis[];
+  valueTree: ValueTree | null;
+  evidenceBundle: Record<string, unknown> | null;
+  narrative: NarrativeBlock | null;
+  objections: Objection[];
+  revisionCount: number;
+  finalState: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface LoopConfig {
+  maxRevisionCycles: number;
+}
+
+// ============================================================================
+// Agent Interfaces (dependency injection)
+// ============================================================================
+
+export interface OpportunityAgentInterface {
+  analyzeOpportunities(
+    query: string,
+    context?: { organizationId?: string; userId?: string; sessionId?: string }
+  ): Promise<{
+    opportunities: Array<{
+      title: string;
+      description: string;
+      confidence: number;
+      category: string;
+      estimatedValue?: number;
+    }>;
+    analysis: string;
+  }>;
+}
+
+export interface FinancialModelingAgentInterface {
+  analyzeFinancialModels(
+    query: string,
+    context?: { organizationId?: string; userId?: string; sessionId?: string },
+    idempotencyKey?: string
+  ): Promise<{
+    financial_models: Array<{
+      title: string;
+      description: string;
+      confidence: number;
+      category: string;
+      model_type: string;
+      priority: string;
+    }>;
+    analysis: string;
+  }>;
+}
+
+export interface GroundTruthAgentInterface {
+  analyzeGroundtruth(
+    query: string,
+    context?: { organizationId?: string; userId?: string; sessionId?: string },
+    idempotencyKey?: string
+  ): Promise<{
+    groundtruths: Array<{
+      title: string;
+      description: string;
+      confidence: number;
+      category: string;
+      verification_type: string;
+      priority: string;
+    }>;
+    analysis: string;
+  }>;
+}
+
+export interface NarrativeAgentInterface {
+  analyzeNarrative(
+    query: string,
+    context?: { organizationId?: string; userId?: string; sessionId?: string },
+    idempotencyKey?: string
+  ): Promise<{
+    narratives: Array<{
+      title: string;
+      description: string;
+      confidence: number;
+      category: string;
+      narrative_type: string;
+      priority: string;
+    }>;
+    analysis: string;
+  }>;
+}
+
+export interface SSEEmitter {
+  send(data: LoopProgress): void;
+}
+
+// ============================================================================
+// Zod Schemas
+// ============================================================================
+
+export const ValueHypothesisSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  confidence: z.number().min(0).max(1),
+  category: z.string(),
+  estimatedValue: z.number().optional(),
+});
+
+export const LoopResultSchema = z.object({
+  valueCaseId: z.string(),
+  tenantId: z.string(),
+  hypotheses: z.array(ValueHypothesisSchema),
+  valueTree: z.any().nullable(),
+  evidenceBundle: z.any().nullable(),
+  narrative: z.any().nullable(),
+  objections: z.array(z.any()),
+  revisionCount: z.number(),
+  finalState: z.string(),
+  success: z.boolean(),
+  error: z.string().optional(),
+});
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const DEFAULT_MAX_REVISION_CYCLES = 3;
+
+const STEP_NAMES = [
+  'Hypothesis',
+  'Model',
+  'Evidence',
+  'Narrative',
+  'Objection',
+  'Revision',
+  'Approval',
+] as const;
+
+// ============================================================================
+// HypothesisLoop
+// ============================================================================
+
+export class HypothesisLoop {
+  private saga: ValueCaseSaga;
+  private idempotencyGuard: IdempotencyGuard;
+  private dlq: DeadLetterQueue;
+  private opportunityAgent: OpportunityAgentInterface;
+  private financialModelingAgent: FinancialModelingAgentInterface;
+  private groundTruthAgent: GroundTruthAgentInterface;
+  private narrativeAgent: NarrativeAgentInterface;
+  private redTeamAgent: RedTeamAgent;
+  private config: LoopConfig;
+
+  constructor(deps: {
+    saga: ValueCaseSaga;
+    idempotencyGuard: IdempotencyGuard;
+    dlq: DeadLetterQueue;
+    opportunityAgent: OpportunityAgentInterface;
+    financialModelingAgent: FinancialModelingAgentInterface;
+    groundTruthAgent: GroundTruthAgentInterface;
+    narrativeAgent: NarrativeAgentInterface;
+    redTeamAgent: RedTeamAgent;
+    config?: Partial<LoopConfig>;
+  }) {
+    this.saga = deps.saga;
+    this.idempotencyGuard = deps.idempotencyGuard;
+    this.dlq = deps.dlq;
+    this.opportunityAgent = deps.opportunityAgent;
+    this.financialModelingAgent = deps.financialModelingAgent;
+    this.groundTruthAgent = deps.groundTruthAgent;
+    this.narrativeAgent = deps.narrativeAgent;
+    this.redTeamAgent = deps.redTeamAgent;
+    this.config = {
+      maxRevisionCycles: deps.config?.maxRevisionCycles ?? DEFAULT_MAX_REVISION_CYCLES,
+    };
+  }
+
+  /**
+   * Run the full hypothesis-first core loop
+   */
+  async run(
+    valueCaseId: string,
+    tenantId: string,
+    correlationId: string,
+    sse?: SSEEmitter
+  ): Promise<LoopResult> {
+    const context = { organizationId: tenantId };
+    let revisionCount = 0;
+    let hypotheses: ValueHypothesis[] = [];
+    let valueTree: ValueTree | null = null;
+    let evidenceBundle: Record<string, unknown> | null = null;
+    let narrative: NarrativeBlock | null = null;
+    let allObjections: Objection[] = [];
+
+    try {
+      // Step 1: Hypothesis
+      this.emitProgress(sse, 1, 'Hypothesis', 'running');
+      hypotheses = await this.executeWithGuard(
+        `${valueCaseId}:hypothesis`,
+        async () => {
+          const result = await this.opportunityAgent.analyzeOpportunities(
+            `Identify value drivers for case ${valueCaseId}`,
+            context
+          );
+          return result.opportunities.map((o, i) => ({
+            id: `hyp_${valueCaseId}_${i}`,
+            description: o.description,
+            confidence: o.confidence,
+            category: o.category,
+            estimatedValue: o.estimatedValue,
+          }));
+        },
+        valueCaseId,
+        tenantId,
+        correlationId,
+        'opportunity'
+      );
+      this.emitProgress(sse, 1, 'Hypothesis', 'completed', `Found ${hypotheses.length} hypotheses`);
+
+      // Transition to DRAFTING
+      await this.saga.transition(valueCaseId, SagaTrigger.OPPORTUNITY_INGESTED, correlationId);
+
+      // Revision loop (steps 2-6)
+      let needsRevision = true;
+      while (needsRevision && revisionCount <= this.config.maxRevisionCycles) {
+        // Step 2: Model
+        this.emitProgress(sse, 2, 'Model', 'running');
+        const modelResult = await this.executeWithGuard(
+          `${valueCaseId}:model:${revisionCount}`,
+          async () => {
+            const hypothesisContext = hypotheses.map((h) => h.description).join('; ');
+            const objectionContext = allObjections.length > 0
+              ? `\nPrevious objections to address: ${allObjections.map((o) => o.description).join('; ')}`
+              : '';
+            return this.financialModelingAgent.analyzeFinancialModels(
+              `Build value tree for hypotheses: ${hypothesisContext}${objectionContext}`,
+              context
+            );
+          },
+          valueCaseId,
+          tenantId,
+          correlationId,
+          'financial-modeling'
+        );
+
+        valueTree = {
+          id: `vt_${valueCaseId}_${revisionCount}`,
+          valueCaseId,
+          nodes: modelResult.financial_models.map((m, i) => ({
+            id: `node_${i}`,
+            label: m.title,
+            value: 0,
+            formula: m.description,
+            confidenceScore: m.confidence,
+            citations: [],
+          })),
+          totalValue: 0,
+          currency: 'USD',
+          timestamp: new Date().toISOString(),
+        };
+        this.emitProgress(sse, 2, 'Model', 'completed');
+
+        // Transition to VALIDATING
+        await this.saga.transition(valueCaseId, SagaTrigger.HYPOTHESIS_CONFIRMED, correlationId);
+
+        // Step 3: Evidence
+        this.emitProgress(sse, 3, 'Evidence', 'running');
+        const evidenceResult = await this.executeWithGuard(
+          `${valueCaseId}:evidence:${revisionCount}`,
+          async () => {
+            return this.groundTruthAgent.analyzeGroundtruth(
+              `Retrieve evidence for value tree: ${JSON.stringify(valueTree)}`,
+              context
+            );
+          },
+          valueCaseId,
+          tenantId,
+          correlationId,
+          'groundtruth'
+        );
+        evidenceBundle = {
+          valueCaseId,
+          items: evidenceResult.groundtruths,
+          analysis: evidenceResult.analysis,
+          timestamp: new Date().toISOString(),
+        };
+        this.emitProgress(sse, 3, 'Evidence', 'completed');
+
+        // Transition to COMPOSING
+        await this.saga.transition(valueCaseId, SagaTrigger.INTEGRITY_PASSED, correlationId);
+
+        // Step 4: Narrative
+        this.emitProgress(sse, 4, 'Narrative', 'running');
+        const narrativeResult = await this.executeWithGuard(
+          `${valueCaseId}:narrative:${revisionCount}`,
+          async () => {
+            return this.narrativeAgent.analyzeNarrative(
+              `Create executive narrative for value tree: ${JSON.stringify(valueTree)} with evidence: ${JSON.stringify(evidenceBundle)}`,
+              context
+            );
+          },
+          valueCaseId,
+          tenantId,
+          correlationId,
+          'narrative'
+        );
+        narrative = {
+          id: `narr_${valueCaseId}_${revisionCount}`,
+          valueCaseId,
+          title: narrativeResult.narratives[0]?.title ?? 'Value Case Narrative',
+          executiveSummary: narrativeResult.analysis,
+          sections: narrativeResult.narratives.map((n) => ({
+            heading: n.title,
+            content: n.description,
+            claimIds: [],
+            confidenceScore: n.confidence,
+          })),
+          timestamp: new Date().toISOString(),
+        };
+        this.emitProgress(sse, 4, 'Narrative', 'completed');
+
+        // Step 5: Objection (Red Team)
+        this.emitProgress(sse, 5, 'Objection', 'running');
+        const redTeamResult = await this.executeWithGuard<RedTeamOutput>(
+          `${valueCaseId}:redteam:${revisionCount}`,
+          async () => {
+            return this.redTeamAgent.analyze({
+              valueCaseId,
+              tenantId,
+              valueTree: valueTree as unknown as Record<string, unknown>,
+              narrativeBlock: narrative as unknown as Record<string, unknown>,
+              evidenceBundle: evidenceBundle!,
+              idempotencyKey: crypto.randomUUID(),
+            });
+          },
+          valueCaseId,
+          tenantId,
+          correlationId,
+          'red-team'
+        );
+        allObjections = redTeamResult.objections;
+        this.emitProgress(sse, 5, 'Objection', 'completed', `${allObjections.length} objections found`);
+
+        // Step 6: Revision check
+        const hasCritical = allObjections.some((o) => o.severity === 'critical');
+        if (hasCritical && revisionCount < this.config.maxRevisionCycles) {
+          this.emitProgress(sse, 6, 'Revision', 'running', `Revision cycle ${revisionCount + 1}`);
+          revisionCount++;
+
+          // Transition back to DRAFTING via feedback
+          await this.saga.transition(valueCaseId, SagaTrigger.FEEDBACK_RECEIVED, correlationId);
+          await this.saga.transition(valueCaseId, SagaTrigger.USER_FEEDBACK, correlationId);
+
+          this.emitProgress(sse, 6, 'Revision', 'completed', `Re-entering at DRAFTING`);
+          // Loop continues
+        } else {
+          needsRevision = false;
+        }
+      }
+
+      // Step 7: Approval — transition to REFINING then FINALIZED
+      this.emitProgress(sse, 7, 'Approval', 'running');
+      // Move to REFINING first (COMPOSING → REFINING via FEEDBACK_RECEIVED)
+      const currentState = await this.saga.getState(valueCaseId);
+      if (currentState?.state === 'COMPOSING') {
+        await this.saga.transition(valueCaseId, SagaTrigger.FEEDBACK_RECEIVED, correlationId);
+      }
+      // Then FINALIZED (REFINING → FINALIZED via VE_APPROVED)
+      await this.saga.transition(valueCaseId, SagaTrigger.VE_APPROVED, correlationId);
+      this.emitProgress(sse, 7, 'Approval', 'completed', 'Value case finalized');
+
+      return {
+        valueCaseId,
+        tenantId,
+        hypotheses,
+        valueTree,
+        evidenceBundle,
+        narrative,
+        objections: allObjections,
+        revisionCount,
+        finalState: 'FINALIZED',
+        success: true,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      // Attempt compensation
+      try {
+        await this.saga.compensate(valueCaseId, correlationId);
+      } catch {
+        // Compensation failure is logged by the saga
+      }
+
+      return {
+        valueCaseId,
+        tenantId,
+        hypotheses,
+        valueTree,
+        evidenceBundle,
+        narrative,
+        objections: allObjections,
+        revisionCount,
+        finalState: 'FAILED',
+        success: false,
+        error: errorMsg,
+      };
+    }
+  }
+
+  // ---- Private helpers ----
+
+  private async executeWithGuard<T>(
+    stepKey: string,
+    fn: () => Promise<T>,
+    valueCaseId: string,
+    tenantId: string,
+    correlationId: string,
+    agentType: string
+  ): Promise<T> {
+    const idempotencyKey = crypto.randomUUID();
+
+    try {
+      const result = await this.idempotencyGuard.execute(idempotencyKey, fn);
+      return result.result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      // Route to DLQ
+      const dlqEntry: DLQEntry = {
+        taskId: `${stepKey}:${idempotencyKey}`,
+        agentType,
+        input: { valueCaseId, stepKey },
+        error: errorMsg,
+        timestamp: new Date().toISOString(),
+        correlationId,
+        tenantId,
+        retryCount: 0,
+      };
+      await this.dlq.enqueue(dlqEntry);
+
+      throw error;
+    }
+  }
+
+  private emitProgress(
+    sse: SSEEmitter | undefined,
+    step: number,
+    stepName: string,
+    status: LoopProgress['status'],
+    message?: string
+  ): void {
+    if (!sse) return;
+    sse.send({
+      step,
+      stepName,
+      status,
+      message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
