@@ -46,9 +46,10 @@ let managedSecrets: Record<string, string> = {};
 // We use import.meta.env.SSR check if available (Vite), otherwise runtime check
 const isViteSsrBuild = import.meta.env?.SSR;
 
-// Async initialization for server-side secret hydration
-// Wrapped in IIFE to avoid top-level await which isn't supported in all build targets
-const initSecrets = async () => {
+// Async initialization for server-side secret hydration.
+// Must be awaited before the server starts accepting traffic in production
+// to avoid a race where requests arrive before secrets are loaded.
+export const initSecrets = async (): Promise<void> => {
   if ((isViteSsrBuild || isServer) && !runtimeEnv.isDevelopment) {
     try {
       // Use a variable to prevent Vite from analyzing this as a static import in client build
@@ -62,9 +63,6 @@ const initSecrets = async () => {
     }
   }
 };
-
-// Fire and forget - secrets will be available after initialization
-initSecrets();
 
 // We need to handle the case where the server might not have the VITE_ prefix.
 // This function helps merge the two possibilities.

@@ -1,8 +1,19 @@
 import express, { Router } from "express";
 import { createLogger } from "@shared/lib/logger";
+import { optionalAuth } from "../middleware/auth.js";
+import { createRateLimiter } from "../middleware/rateLimiter.js";
 
 const logger = createLogger("analytics-api");
 const analyticsRouter: Router = express.Router();
+
+// Rate limit analytics ingestion to prevent abuse from unauthenticated clients
+const analyticsLimiter = createRateLimiter("standard", {
+  message: "Too many analytics requests. Please slow down.",
+});
+
+// Attach optional auth so we can attribute metrics to a user/tenant when available
+analyticsRouter.use(optionalAuth);
+analyticsRouter.use(analyticsLimiter);
 
 /**
  * Web Vitals analytics endpoint

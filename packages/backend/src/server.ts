@@ -107,14 +107,16 @@ import { csrfProtectionMiddleware } from "./middleware/securityMiddleware.js";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
-import { settings } from "./config/settings.js";
+import { settings, initSecrets } from "./config/settings.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
 
 const app = express();
-app.set("trust proxy", true);
+// Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
+// Using `true` trusts ALL proxies, allowing clients to spoof X-Forwarded-For.
+app.set("trust proxy", 1);
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws/sdui" });
@@ -429,6 +431,11 @@ async function startServer(): Promise<void> {
   logger.info("[Instrumentation] Setting up global error handlers");
   setupGlobalErrorHandlers();
 
+  // 0.5. Hydrate managed secrets before any service initialization.
+  // This closes the race where the server could start before Vault/AWS secrets are loaded.
+  logger.info("[Instrumentation] Hydrating managed secrets");
+  await initSecrets();
+
   // 1. Validate all secrets before starting any services (production only)
   if (settings.NODE_ENV === "production") {
     logger.info("🔒 Validating secrets before server startup");
@@ -498,6 +505,50 @@ async function startServer(): Promise<void> {
       healthCheck: `http://localhost:${PORT}/health`,
     });
   });
+
+  // 6. Register graceful shutdown handlers
+  registerGracefulShutdown();
+}
+
+// ============================================================================
+// Graceful Shutdown
+// ============================================================================
+
+const SHUTDOWN_TIMEOUT_MS = 15_000;
+let isShuttingDown = false;
+
+function registerGracefulShutdown(): void {
+  const shutdown = (signal: string) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    logger.info(`Received ${signal}, starting graceful shutdown`);
+
+    // 1. Tell health check to return 503 so the load balancer stops sending traffic
+    markAsShuttingDown();
+
+    // 2. Close WebSocket connections
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.close(1001, "Server shutting down");
+      }
+    });
+
+    // 3. Stop accepting new HTTP connections and drain existing ones
+    server.close(() => {
+      logger.info("All connections drained, exiting");
+      process.exit(0);
+    });
+
+    // 4. Force exit if connections don't drain in time
+    setTimeout(() => {
+      logger.error(`Forcing exit after ${SHUTDOWN_TIMEOUT_MS}ms timeout`);
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS).unref();
+  };
+
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
 }
 
 const isMainModule =
