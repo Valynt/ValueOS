@@ -435,8 +435,8 @@ export class ActionRouter {
   /**
    * Register action handler
    */
-  registerHandler(actionType: string, handler: ActionHandler): void {
-    this.handlers.set(actionType, handler);
+  registerHandler(actionType: string, handler: ActionHandler | ((action: CanonicalAction, context: ActionContext) => Promise<ActionResult>)): void {
+    this.handlers.set(actionType, typeof handler === "function" ? { name: actionType, execute: handler } : handler);
     logger.debug("Registered action handler", { actionType });
   }
 
@@ -445,7 +445,7 @@ export class ActionRouter {
    */
   private registerDefaultHandlers(): void {
     // invokeAgent handler
-    this.registerHandler("invokeAgent", async (action, context) => {
+    this.registerHandler("invokeAgent", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "invokeAgent") {
         return { success: false, error: "Invalid action type" };
       }
@@ -490,7 +490,7 @@ export class ActionRouter {
     });
 
     // runWorkflowStep handler
-    this.registerHandler("runWorkflowStep", async (action, context) => {
+    this.registerHandler("runWorkflowStep", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "runWorkflowStep") {
         return { success: false, error: "Invalid action type" };
       }
@@ -525,7 +525,7 @@ export class ActionRouter {
     });
 
     // updateValueTree handler
-    this.registerHandler("updateValueTree", async (action, context) => {
+    this.registerHandler("updateValueTree", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "updateValueTree") {
         return { success: false, error: "Invalid action type" };
       }
@@ -580,7 +580,7 @@ export class ActionRouter {
     });
 
     // updateAssumption handler
-    this.registerHandler("updateAssumption", async (action, context) => {
+    this.registerHandler("updateAssumption", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "updateAssumption") {
         return { success: false, error: "Invalid action type" };
       }
@@ -604,7 +604,7 @@ export class ActionRouter {
     });
 
     // exportArtifact handler
-    this.registerHandler("exportArtifact", async (action, context) => {
+    this.registerHandler("exportArtifact", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "exportArtifact") {
         return { success: false, error: "Invalid action type" };
       }
@@ -680,7 +680,7 @@ export class ActionRouter {
     });
 
     // openAuditTrail handler
-    this.registerHandler("openAuditTrail", async (action, context) => {
+    this.registerHandler("openAuditTrail", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "openAuditTrail") {
         return { success: false, error: "Invalid action type" };
       }
@@ -709,7 +709,7 @@ export class ActionRouter {
     });
 
     // showExplanation handler
-    this.registerHandler("showExplanation", async (action, context) => {
+    this.registerHandler("showExplanation", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "showExplanation") {
         return { success: false, error: "Invalid action type" };
       }
@@ -776,7 +776,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // navigateToStage handler
-    this.registerHandler("navigateToStage", async (action, context) => {
+    this.registerHandler("navigateToStage", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "navigateToStage") {
         return { success: false, error: "Invalid action type" };
       }
@@ -789,7 +789,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // saveWorkspace handler
-    this.registerHandler("saveWorkspace", async (action, context) => {
+    this.registerHandler("saveWorkspace", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "saveWorkspace") {
         return { success: false, error: "Invalid action type" };
       }
@@ -810,7 +810,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // mutateComponent handler
-    this.registerHandler("mutateComponent", async (action, context) => {
+    this.registerHandler("mutateComponent", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "mutateComponent") {
         return { success: false, error: "Invalid action type" };
       }

@@ -34,6 +34,7 @@ export interface RetryConfig {
 export interface WorkflowStage {
   id: string;
   name: string;
+  description?: string;
   agent_type: LifecycleStage;
   timeout_seconds: number;
   retry_config?: RetryConfig;
@@ -41,6 +42,7 @@ export interface WorkflowStage {
   required_capabilities?: string[];
   dependencies?: string[];
   parallel?: boolean;
+  transitions?: WorkflowTransition[];
 }
 
 export interface WorkflowTransition {

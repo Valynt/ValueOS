@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.11.0",
-    "elkjs": "^0.9.3",
     "@monaco-editor/react": "^4.6.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -37,6 +36,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dompurify": "^3.3.1",
+    "elkjs": "^0.9.3",
     "hyperformula": "^3.1.0",
     "isomorphic-dompurify": "^2.30.0",
     "lucide-react": "^0.344.0",
@@ -58,6 +58,7 @@
     "@types/node": "^20.19.29",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
+    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.0.17",
     "autoprefixer": "^10.4.23",
