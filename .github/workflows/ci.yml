@@ -45,6 +45,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: TS any ratchet
+        run: bash scripts/ts-any-ratchet.sh
+
       - name: Build
         run: pnpm build
 

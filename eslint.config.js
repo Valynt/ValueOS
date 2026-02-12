@@ -126,7 +126,7 @@ const baseConfig = {
     "jsx-a11y/aria-props": "error",
     "jsx-a11y/aria-role": "error",
     "jsx-a11y/role-has-required-aria-props": "error",
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-unnecessary-type-assertion": "warn",
     "no-unused-vars": [
       "warn",
