@@ -117,7 +117,7 @@ const WS_POLICY_VIOLATION_CODE = 1008;
 
 const app = express();
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
-// Using `true` trusts ALL proxies, allowing clients to spoof X-Forwarded-For.
+// Using `true` trusts all X-Forwarded-* headers, allowing IP spoofing.
 app.set("trust proxy", 1);
 
 const server = createServer(app);

@@ -725,7 +725,7 @@ export class AuthService extends BaseService {
           exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
         };
 
-        const token = jwt.sign(payload, this.tctSecret);
+        const token = jwt.sign(payload, this.tctSecret, { algorithm: "HS256" });
 
         securityLogger.log({
           category: "authentication",

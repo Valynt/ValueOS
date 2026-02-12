@@ -136,7 +136,7 @@ function verifyTokenLocally(token: string) {
   }
 
   try {
-    const claims = jwt.verify(token, secret) as JwtPayload;
+    const claims = jwt.verify(token, secret, { algorithms: ["HS256"] }) as JwtPayload;
     if (!claims?.sub) {
       return null;
     }

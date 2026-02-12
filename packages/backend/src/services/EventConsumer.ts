@@ -242,7 +242,7 @@ export class EventConsumer {
 
       if (tctToken) {
         try {
-          const decoded = jwt.verify(tctToken, this.tctSecret) as TCTPayload;
+          const decoded = jwt.verify(tctToken, this.tctSecret, { algorithms: ["HS256"] }) as TCTPayload;
           await tenantContextStorage.run(decoded, async () => {
             await handler.handler(event, payload);
           });
