@@ -13,6 +13,7 @@ import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js';
 import { requireAuth } from '../middleware/auth.js';
 import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { rateLimiters } from '../middleware/rateLimiter.js';
+import { getResearchQueue } from '../workers/researchWorker.js';
 
 const logger = createLogger({ component: 'OnboardingAPI' });
 const router = Router();
@@ -120,9 +121,21 @@ router.post(
         return res.status(500).json({ error: 'Failed to create research job' });
       }
 
-      // In production, this would enqueue to BullMQ.
-      // The processResearchJob function from ResearchJobWorker.ts handles execution.
-      // For now, the job is created with status 'queued' and a worker picks it up.
+      // Enqueue to BullMQ so the research worker picks it up
+      try {
+        await getResearchQueue().add('research', {
+          jobId: job.id,
+          tenantId,
+          contextId,
+          website,
+          industry,
+          companySize,
+          salesMotion,
+        });
+      } catch (enqueueErr) {
+        logger.error('Failed to enqueue research job', enqueueErr instanceof Error ? enqueueErr : new Error(String(enqueueErr)));
+        // Job row exists with status 'queued' — worker can retry via polling fallback
+      }
 
       return res.status(201).json({ data: job });
     } catch (err) {
