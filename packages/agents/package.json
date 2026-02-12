@@ -16,15 +16,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@valueos/agent-base": "file:./base",
+    "@valueos/agent-base": "workspace:*",
     "zod": "^3.25.76"
   },
   "peerDependencies": {
-    "@valueos/infra": "file:../infra",
-    "@valueos/memory": "file:../memory"
+    "@valueos/infra": "workspace:*",
+    "@valueos/memory": "workspace:*"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
+    "@types/express": "^4.17.21",
     "@types/node": "^20.19.33",
     "typescript": "^5.9.3"
   }
