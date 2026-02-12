@@ -56,10 +56,15 @@ const CRM_OWNED_FIELDS = [
  * to enforce least-privilege data storage.
  */
 const ALLOWED_CRM_PROPERTIES = new Set([
+  // Salesforce
   'Id', 'Name', 'Amount', 'StageName', 'Probability', 'CloseDate',
   'CurrencyIsoCode', 'OwnerId', 'AccountId', 'LastModifiedDate',
   'SystemModstamp', 'CreatedDate', 'Type', 'LeadSource', 'ForecastCategory',
   'IsClosed', 'IsWon', 'FiscalYear', 'FiscalQuarter',
+  // HubSpot
+  'dealname', 'amount', 'dealstage', 'closedate', 'hubspot_owner_id',
+  'hs_lastmodifieddate', 'createdate', 'pipeline', 'deal_currency_code',
+  'hs_deal_stage_probability',
 ]);
 
 function stripCrmProperties(raw: Record<string, unknown>): Record<string, unknown> {
@@ -237,8 +242,10 @@ export class CrmSyncService {
     let internalId: string;
     const now = new Date().toISOString();
     const syncHash = computeSyncHash(opp);
+    // Salesforce uses SystemModstamp/LastModifiedDate, HubSpot uses hs_lastmodifieddate
     const externalModified = (opp.properties?.SystemModstamp as string)
       || (opp.properties?.LastModifiedDate as string)
+      || (opp.properties?.hs_lastmodifieddate as string)
       || null;
 
     if (existingMap) {

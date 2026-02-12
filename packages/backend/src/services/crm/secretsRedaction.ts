@@ -24,6 +24,7 @@ const SENSITIVE_KEYS = new Set([
   'authorization',
   'x-sfdc-signature',
   'x-hubspot-signature',
+  'x-hubspot-signature-v3',
   'token',
   'bearer',
 ]);

@@ -11,6 +11,7 @@ export { valueCaseScaffolder, ValueCaseScaffolder } from './ValueCaseScaffolder.
 export { agentPrefetchService, AgentPrefetchService } from './AgentPrefetchService.js';
 export { getCrmProvider, registerCrmProvider, getSupportedProviders } from './CrmProviderRegistry.js';
 export { SalesforceProvider } from './SalesforceProvider.js';
+export { HubSpotProvider } from './HubSpotProvider.js';
 export { encryptToken, decryptToken } from './tokenEncryption.js';
 
 export type {

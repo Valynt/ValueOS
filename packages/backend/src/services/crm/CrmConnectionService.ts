@@ -20,7 +20,7 @@ import type {
  */
 const REQUIRED_SCOPES: Record<CrmProvider, string[]> = {
   salesforce: ['api', 'refresh_token'],
-  hubspot: ['crm.objects.deals.read'],
+  hubspot: ['crm.objects.deals.read', 'crm.objects.companies.read'],
 };
 
 const logger = createLogger({ component: 'CrmConnectionService' });
