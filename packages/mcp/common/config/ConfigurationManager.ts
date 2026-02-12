@@ -442,7 +442,7 @@ export class ConfigurationManager {
    */
   cleanup(): void {
     for (const [cacheKey] of this.fileWatchers) {
-      const [serverType, environment] = cacheKey.split("-");
+      const [serverType = "", environment = ""] = cacheKey.split("-");
       const configPath = this.getConfigPath(serverType, environment);
       unwatchFile(configPath);
     }

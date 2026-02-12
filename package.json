@@ -3,15 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": {
-    "db:migrate": "npx supabase db push --db-url \"$DATABASE_URL\" --workdir infra/supabase/supabase",
-    "db:migrate:local": "npx supabase db push --local --workdir infra/supabase/supabase",
-    "db:reset": "npx supabase db reset --workdir infra/supabase/supabase",
-    "db:diff": "npx supabase db diff --workdir infra/supabase/supabase",
-    "db:status": "npx supabase migration list --workdir infra/supabase/supabase"
-    ,
-    "lint": "pnpm -r run lint --if-present"
-  },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
@@ -98,6 +89,8 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.2",
+    "@vitest/coverage-v8": "^4.0.17",
     "vitest": "^4.0.17"
   },
   "packageManager": "pnpm@9.15.0",

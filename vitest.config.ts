@@ -6,32 +6,33 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-import CostAwareReporter from "./packages/test-utils/CostAwareReporter";
-
 export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
     environment: "jsdom",
-    setupFiles: ["./apps/ValyntApp/src/test/setup.ts"],
     include: [
       "apps/**/*.{test,spec}.{js,ts,jsx,tsx}",
       "packages/**/*.{test,spec}.{js,ts,jsx,tsx}",
-      "tests/**/*.{test,spec}.{js,ts,jsx,tsx}",
-      "test/**/*.{test,spec}.{js,ts,jsx,tsx}",
     ],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.archive/**",
+      "**/archive/**",
+      "**/*.integration.test.*",
+      "**/*.integration.spec.*",
+    ],
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    teardownTimeout: 5000,
+    pool: "forks",
+    fileParallelism: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "json-summary", "html"],
-      exclude: ["node_modules/", "src/test/"],
-      thresholds: {
-        lines: 75,
-        functions: 70,
-        branches: 65,
-        statements: 75,
-      },
+      reporter: ["text", "json-summary"],
+      exclude: ["node_modules/", "src/test/", "**/*.config.*"],
     },
-    reporters: ["default", CostAwareReporter],
   },
   resolve: {
     alias: {

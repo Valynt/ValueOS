@@ -362,7 +362,6 @@ Looking ahead to fiscal 2024, we're guiding to 12-15% revenue growth, supported 
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
-                      className="bg-blue-500 h-2 rounded-full"
                       className={`bg-blue-500 h-2 rounded-full w-[${result.management_tone.transparency_score * 100}%]`}
                     />
                   </div>

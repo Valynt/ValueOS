@@ -47,7 +47,7 @@ export interface ParallelInitConfig {
 // Connection Pool
 // ============================================================================
 
-class ConnectionPool<T> {
+export class ConnectionPool<T> {
   private available: T[] = [];
   private inUse: Set<T> = new Set();
   private waiting: Array<{

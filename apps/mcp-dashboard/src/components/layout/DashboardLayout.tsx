@@ -17,7 +17,7 @@ import {
 import React, { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
-import { useAuth, useWebSocket } from "../index";
+import { useAuth, useWebSocket } from "../../contexts";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },

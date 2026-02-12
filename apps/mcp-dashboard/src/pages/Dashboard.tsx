@@ -14,7 +14,7 @@ import {
   FinancialLineChart,
   MetricCard,
   NotificationList,
-} from "../charts/FinancialCharts";
+} from "../components/charts/FinancialCharts";
 import { useWebSocket } from "../index";
 
 interface DashboardStats {

@@ -281,7 +281,7 @@ export class MCPRateLimiter extends EventEmitter {
     if (circuitBreaker) {
       const cbResult = circuitBreaker.check();
       if (!cbResult.allowed) {
-        this.updateStats(provider, { circuitBreakerOpen: true });
+        this.updateStats(provider, { circuitBreakerState: "open" });
         return {
           allowed: false,
           remaining: 0,
