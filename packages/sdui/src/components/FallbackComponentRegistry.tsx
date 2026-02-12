@@ -8,6 +8,7 @@
 import React, { ComponentType, ReactNode } from "react";
 import { logger } from "@shared/lib/logger";
 import { AlertTriangle, RefreshCw, Info, Loader2 } from "lucide-react";
+import { ComponentErrorBoundary } from "./ComponentErrorBoundary";
 
 /**
  * Fallback component configuration

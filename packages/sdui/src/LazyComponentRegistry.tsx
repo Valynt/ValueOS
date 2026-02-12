@@ -14,78 +14,78 @@ import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetr
 const lazyComponents = {
   // Layout components
   VerticalSplit: lazy(() =>
-    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.VerticalSplit }))
+    import("./components/SDUI/CanvasLayout").then((mod) => ({ default: mod.VerticalSplit }))
   ),
   HorizontalSplit: lazy(() =>
-    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.HorizontalSplit }))
+    import("./components/SDUI/CanvasLayout").then((mod) => ({ default: mod.HorizontalSplit }))
   ),
   Grid: lazy(() =>
-    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.Grid }))
+    import("./components/SDUI/CanvasLayout").then((mod) => ({ default: mod.Grid }))
   ),
   DashboardPanel: lazy(() =>
-    import("../components/SDUI/CanvasLayout").then((mod) => ({ default: mod.DashboardPanel }))
+    import("./components/SDUI/CanvasLayout").then((mod) => ({ default: mod.DashboardPanel }))
   ),
 
   // Core components
-  InfoBanner: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.InfoBanner }))),
+  InfoBanner: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.InfoBanner }))),
   DiscoveryCard: lazy(() =>
-    import("../components/SDUI/DiscoveryCard").then((mod) => ({ default: mod.DiscoveryCard }))
+    import("./components/SDUI/DiscoveryCard").then((mod) => ({ default: mod.DiscoveryCard }))
   ),
   ValueTreeCard: lazy(() =>
-    import("../components/SDUI/ValueTreeCard").then((mod) => ({ default: mod.ValueTreeCard }))
+    import("./components/SDUI/ValueTreeCard").then((mod) => ({ default: mod.ValueTreeCard }))
   ),
   ValueHypothesisCard: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ValueHypothesisCard }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ValueHypothesisCard }))
   ),
   ExpansionBlock: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ExpansionBlock }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ExpansionBlock }))
   ),
   InteractiveChart: lazy(() =>
-    import("../components/SDUI/InteractiveChart").then((mod) => ({ default: mod.InteractiveChart }))
+    import("./components/SDUI/InteractiveChart").then((mod) => ({ default: mod.InteractiveChart }))
   ),
 
   // Metrics and forms
   MetricBadge: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.MetricBadge }))
+    import("./components/SDUI").then((mod) => ({ default: mod.MetricBadge }))
   ),
   KPIForm: lazy(() =>
-    import("../components/SDUI/KPIForm").then((mod) => ({ default: mod.KPIForm }))
+    import("./components/SDUI/KPIForm").then((mod) => ({ default: mod.KPIForm }))
   ),
   ValueCommitForm: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ValueCommitForm }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ValueCommitForm }))
   ),
   RealizationDashboard: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.RealizationDashboard }))
+    import("./components/SDUI").then((mod) => ({ default: mod.RealizationDashboard }))
   ),
 
   // Navigation
   SideNavigation: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.SideNavigation }))
+    import("./components/SDUI").then((mod) => ({ default: mod.SideNavigation }))
   ),
-  TabBar: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.TabBar }))),
+  TabBar: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.TabBar }))),
   Breadcrumbs: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.Breadcrumbs }))
+    import("./components/SDUI").then((mod) => ({ default: mod.Breadcrumbs }))
   ),
 
   // Data display
-  DataTable: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.DataTable }))),
+  DataTable: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.DataTable }))),
   ConfidenceIndicator: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ConfidenceIndicator }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ConfidenceIndicator }))
   ),
 
   // Agent components
   AgentResponseCard: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.AgentResponseCard }))
+    import("./components/SDUI").then((mod) => ({ default: mod.AgentResponseCard }))
   ),
   AgentWorkflowPanel: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.AgentWorkflowPanel }))
+    import("./components/SDUI").then((mod) => ({ default: mod.AgentWorkflowPanel }))
   ),
   NarrativeBlock: lazy(() =>
-    import("../components/SDUI/NarrativeBlock").then((mod) => ({ default: mod.NarrativeBlock }))
+    import("./components/SDUI/NarrativeBlock").then((mod) => ({ default: mod.NarrativeBlock }))
   ),
-  SDUIForm: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.SDUIForm }))),
+  SDUIForm: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.SDUIForm }))),
   ScenarioSelector: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ScenarioSelector }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ScenarioSelector }))
   ),
 
   // Workflow components
@@ -106,21 +106,21 @@ const lazyComponents = {
   ),
 
   // Utility components
-  JsonViewer: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.JsonViewer }))),
-  TextBlock: lazy(() => import("../components/SDUI").then((mod) => ({ default: mod.TextBlock }))),
+  JsonViewer: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.JsonViewer }))),
+  TextBlock: lazy(() => import("./components/SDUI").then((mod) => ({ default: mod.TextBlock }))),
   ConfirmationDialog: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ConfirmationDialog }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ConfirmationDialog }))
   ),
   ProgressBar: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.ProgressBar }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ProgressBar }))
   ),
 
   // Panels and containers
   LifecyclePanel: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.LifecyclePanel }))
+    import("./components/SDUI").then((mod) => ({ default: mod.LifecyclePanel }))
   ),
   IntegrityReviewPanel: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.IntegrityReviewPanel }))
+    import("./components/SDUI").then((mod) => ({ default: mod.IntegrityReviewPanel }))
   ),
   IntegrityVetoPanel: lazy(() =>
     import("../components/Agent/IntegrityVetoPanel").then((mod) => ({
@@ -130,15 +130,15 @@ const lazyComponents = {
 
   // Development tools
   ComponentPreview: lazy(() =>
-    import("../components/SDUI/ComponentPreview").then((mod) => ({ default: mod.ComponentPreview }))
+    import("./components/SDUI/ComponentPreview").then((mod) => ({ default: mod.ComponentPreview }))
   ),
 
   // Fallback components (loaded immediately as they're essential)
   UnknownComponentFallback: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.UnknownComponentFallback }))
+    import("./components/SDUI").then((mod) => ({ default: mod.UnknownComponentFallback }))
   ),
   SectionErrorFallback: lazy(() =>
-    import("../components/SDUI").then((mod) => ({ default: mod.SectionErrorFallback }))
+    import("./components/SDUI").then((mod) => ({ default: mod.SectionErrorFallback }))
   ),
 };
 

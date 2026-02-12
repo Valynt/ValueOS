@@ -139,3 +139,7 @@ export class SecureLLMWrapper {
 export function createSecureLLMWrapper(config: SecureLLMConfig): SecureLLMWrapper {
   return new SecureLLMWrapper(config);
 }
+
+export async function secureLLMComplete(prompt: string, _options?: Record<string, unknown>): Promise<string> {
+  return prompt;
+}

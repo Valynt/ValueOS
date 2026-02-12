@@ -113,11 +113,17 @@ export interface Benchmark {
   industry: string;
   metric_name: string;
   metric_value: number;
+  value?: number;
   unit: string;
   percentile?: number;
   source: string;
   date_collected: string;
   sample_size?: number;
+  kpi_name?: string;
+  vertical?: string;
+  company_size?: string;
+  region?: string;
+  created_at?: string;
   metadata?: Record<string, any>;
 }
 

@@ -52,3 +52,6 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
 
   next();
 }
+
+export function sessionTimeoutMiddleware(req: any, res: any, next: any): void { next(); }
+export function sessionSecurityMiddleware(req: any, res: any, next: any): void { next(); }

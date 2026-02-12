@@ -4,8 +4,7 @@
  * Industry-specific templates for the self-service ROI calculator
  */
 
-import type { CalculatorTemplate } from '../types/calculatorTemplate';
-import { Industry, MetricCategory, InputFieldType } from '../types/calculatorTemplate';
+import { CalculatorTemplate, Industry, MetricCategory, InputFieldType } from '../types/calculatorTemplate';
 import { saasTemplate } from './templates/saas';
 
 // E-commerce Template

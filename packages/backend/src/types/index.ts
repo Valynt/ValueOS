@@ -8,6 +8,26 @@
  */
 
 // --- SDUI / Canvas ---
-export type { UIComponent as CanvasComponent } from "./sdui-integration";
+import type { UIComponent } from "./sdui-integration";
+export type { UIComponent };
+/** Canvas component with required spatial properties for layout operations */
+export type CanvasComponent = UIComponent & {
+  position: { x: number; y: number; z?: number };
+  size: { width: number; height: number };
+};
 
-// Add more exports below if/when those types exist and are needed.
+// --- Workflow ---
+export type {
+  WorkflowStatus,
+  StageStatus,
+  WorkflowStage,
+  WorkflowTransition,
+  WorkflowDAG,
+  CircuitBreakerState,
+} from "./workflow";
+
+// --- Billing ---
+export type { BillingCustomer, UsageAggregate } from "./billing";
+
+// --- VOS ---
+export type { Benchmark } from "./vos";

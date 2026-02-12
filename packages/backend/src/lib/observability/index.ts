@@ -12,11 +12,15 @@ type Labels = Record<string, string | number>;
 interface Counter {
   inc(labels?: Labels, value?: number): void;
   inc(value?: number): void;
+  /** OpenTelemetry-compatible alias for inc */
+  add(value: number, labels?: Labels): void;
 }
 
 interface Histogram {
   observe(labels: Labels, value: number): void;
   observe(value: number): void;
+  /** OpenTelemetry-compatible alias for observe */
+  record(value: number, labels?: Labels): void;
 }
 
 interface ObservableGauge {
@@ -28,15 +32,17 @@ interface ObservableGauge {
  */
 export function createCounter(name: string, help?: string): Counter {
   const existing = registry.getSingleMetric(name);
-  if (existing) return existing as unknown as Counter;
-
-  const counter = new client.Counter({
+  const base = existing ?? new client.Counter({
     name,
     help: help || name,
     labelNames: [] as string[],
     registers: [registry],
   });
-  return counter as unknown as Counter;
+  const counter = base as unknown as Counter;
+  if (!counter.add) {
+    counter.add = (value: number, labels?: Labels) => counter.inc(labels, value);
+  }
+  return counter;
 }
 
 /**
@@ -44,15 +50,17 @@ export function createCounter(name: string, help?: string): Counter {
  */
 export function createHistogram(name: string, help?: string, buckets?: number[]): Histogram {
   const existing = registry.getSingleMetric(name);
-  if (existing) return existing as unknown as Histogram;
-
-  const histogram = new client.Histogram({
+  const base = existing ?? new client.Histogram({
     name,
     help: help || name,
     buckets: buckets || [5, 10, 25, 50, 100, 200, 500, 1000, 2000, 5000],
     registers: [registry],
   });
-  return histogram as unknown as Histogram;
+  const histogram = base as unknown as Histogram;
+  if (!histogram.record) {
+    histogram.record = (value: number, labels?: Labels) => histogram.observe(labels ?? {}, value);
+  }
+  return histogram;
 }
 
 /**

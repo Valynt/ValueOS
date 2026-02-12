@@ -68,3 +68,5 @@ export interface ESOMetadata {
   attempt_number: number;
   timestamp: string;
 }
+
+export type ESOIndustry = string;

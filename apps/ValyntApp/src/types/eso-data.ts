@@ -54,3 +54,6 @@ export interface ESOSyncStatus {
   records_synced: number;
   errors: string[];
 }
+
+export const ALL_ESO_KPIS: string[] = [];
+export const EXTENDED_PERSONA_MAPS: Record<string, unknown[]> = {};

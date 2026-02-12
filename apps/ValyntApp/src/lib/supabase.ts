@@ -40,3 +40,6 @@ export const getSupabaseClient = () => {
   }
   return supabase;
 };
+
+export function createServerSupabaseClient() { return supabase; }
+export function createRequestSupabaseClient() { return supabase; }

@@ -7,7 +7,7 @@
 import React from 'react';
 import { Clock, Edit3, Eye, MessageSquare, UserCheck } from 'lucide-react';
 import { GuestPermissions } from '@/GuestAccessService';
-import { getGuestPermissionManager } from '../../lib/permissions/guestPermissions';
+import { getGuestPermissionManager } from '../guestPermissions';
 
 export interface GuestBadgeProps {
   guestName: string;

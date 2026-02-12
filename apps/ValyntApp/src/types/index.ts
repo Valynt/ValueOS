@@ -21,3 +21,17 @@ export {
   type WorkflowAuditLog,
   type CompensationContext,
 } from "./workflow";
+
+export interface CanvasComponent {
+  id: string;
+  type: string;
+  props: Record<string, unknown>;
+  children?: CanvasComponent[];
+  position: { x: number; y: number; z?: number };
+  size: { width: number; height: number };
+  style?: Record<string, unknown>;
+  className?: string;
+  visible?: boolean;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}

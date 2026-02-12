@@ -93,6 +93,10 @@ export const logger = {
 
     output(createEntry("error", message, { ...errorMeta, ...meta }));
   },
+
+  cache(operation: string, key: string, meta?: Record<string, unknown>): void {
+    output(createEntry("debug", `cache:${operation}`, { cacheKey: key, ...meta }));
+  },
 };
 
 /**

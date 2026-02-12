@@ -168,3 +168,32 @@ export function testClaimParsing() {
   const tct = { iss: "issuer", sub: "u1", tid: "t1", roles: ["admin"], tier: "pro", exp: Date.now() / 1000 };
   TctClaimsSchema.parse(tct);
 }
+
+interface AuthMocks {
+  mockSupabaseAuth: Record<string, (...args: unknown[]) => unknown>;
+  mockGetConfig: { mockReturnValue: (val: unknown) => void };
+  mockClientRateLimit: { checkLimit: { mockResolvedValue: (val: unknown) => void } };
+  [key: string]: unknown;
+}
+
+export function setupAuthMocks(): AuthMocks {
+  return {
+    mockSupabaseAuth: {
+      signInWithPassword: async () => ({ data: { user: TEST_USERS.member, session: {} }, error: null }),
+      signUp: async () => ({ data: { user: TEST_USERS.member, session: {} }, error: null }),
+      signOut: async () => ({ error: null }),
+    },
+    mockGetConfig: { mockReturnValue: () => {} },
+    mockClientRateLimit: { checkLimit: { mockResolvedValue: () => {} } },
+  };
+}
+
+export function resetAuthMocks(mocks: AuthMocks): void {
+  // Reset mock state for next test
+  Object.keys(mocks).forEach((key) => {
+    const mock = mocks[key];
+    if (mock && typeof mock === 'object' && 'mockReset' in mock) {
+      (mock as { mockReset: () => void }).mockReset();
+    }
+  });
+}

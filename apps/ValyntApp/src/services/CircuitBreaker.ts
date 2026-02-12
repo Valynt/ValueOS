@@ -239,6 +239,20 @@ export class CircuitBreaker {
     };
   }
 
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.canExecute()) {
+      throw new Error(`Circuit breaker ${this.key} is open`);
+    }
+    try {
+      const result = await fn();
+      this.recordSuccess();
+      return result;
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
+  }
+
   canExecute(): boolean {
     if (this.state.state === 'open' && this.state.opened_at) {
       const openedAt = new Date(this.state.opened_at).getTime();

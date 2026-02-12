@@ -7,6 +7,8 @@
 
 export interface ValidationResult {
   valid: boolean;
+  /** Alias for valid */
+  isValid?: boolean;
   errors: string[];
   warnings: string[];
 }
@@ -78,4 +80,13 @@ export function validateEnvOrThrow(): void {
     console.error("\nRun 'pnpm run dx:validate' for a full diagnostic.");
     throw new Error(`Environment validation failed: ${errors.join(", ")}`);
   }
+}
+
+export function validateLLMConfig(): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  if (!process.env.LLM_API_KEY && !process.env.OPENAI_API_KEY) {
+    warnings.push('No LLM API key configured');
+  }
+  return { valid: errors.length === 0, errors, warnings };
 }

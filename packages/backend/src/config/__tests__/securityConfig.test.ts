@@ -14,7 +14,7 @@ import {
   validateFileUpload,
   generateCSRFToken,
   validateSSRFUrl,
-} from "../config/securityConfig";
+} from "../securityConfig";
 
 // Mock crypto for consistent testing
 vi.mock("node:crypto", () => ({
@@ -325,7 +325,7 @@ describe("OWASP Security Hardening", () => {
 // Integration tests for middleware
 describe("Security Middleware Integration", () => {
   it("should integrate with Express middleware chain", async () => {
-    const { applySecurityHeaders } = await import("../config/securityConfig");
+    const { applySecurityHeaders } = await import("../securityConfig");
 
     const mockReq = {} as Request;
     const mockRes = {

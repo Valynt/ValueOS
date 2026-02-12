@@ -9,17 +9,17 @@ import { executeMCPTool, getAllTools, createToolExecutor } from "../MCPTools.js"
 import { mcpGroundTruthService } from "../MCPGroundTruthService.js"
 
 // Mock dependencies
-jest.mock("../MCPGroundTruthService");
-jest.mock("../../mcp-crm", () => ({
+vi.mock("../MCPGroundTruthService");
+vi.mock("../../mcp-crm", () => ({
   CRM_TOOLS: [],
-  getMCPCRMServer: jest.fn(),
+  getMCPCRMServer: vi.fn(),
 }));
 
 describe("MCP Tools - Load Testing", () => {
   const mockService = mcpGroundTruthService as jest.Mocked<typeof mcpGroundTruthService>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockService.isAvailable.mockReturnValue(true);
     mockService.getFinancialData.mockResolvedValue({
       entityName: "Test Corp",

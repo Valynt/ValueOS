@@ -8,13 +8,13 @@ import { Request, Response } from "express";
 import {
   csrfProtectionMiddleware,
   sessionSecurityMiddleware,
-} from "../middleware/securityMiddleware";
+} from "../securityMiddleware";
 import {
   fileUploadSecurityMiddleware,
   validateFileUpload,
   contentTypeValidationMiddleware,
-} from "../middleware/fileUploadSecurity";
-import { securityHeadersMiddleware } from "../middleware/securityHeaders";
+} from "../fileUploadSecurity";
+import { securityHeadersMiddleware } from "../securityHeaders";
 
 // Mock security logger
 vi.mock("../security/securityLogger", () => ({

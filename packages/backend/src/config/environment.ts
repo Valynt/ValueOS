@@ -12,12 +12,19 @@ export function isFeatureEnabled(feature: string): boolean {
 export function getConfig() {
   return {
     auth: { mfaEnabled: false },
-    features: { billing: false, usageTracking: false },
+    features: {
+      billing: false,
+      usageTracking: false,
+      agentFabric: process.env.AGENT_FABRIC_ENABLED !== "false",
+      workflow: process.env.WORKFLOW_ENABLED !== "false",
+      compliance: process.env.COMPLIANCE_ENABLED !== "false",
+    },
     email: { enabled: false },
     app: { url: process.env.APP_URL || "http://localhost:3001" },
     database: {
       url: process.env.DATABASE_URL || "",
       poolSize: Number(process.env.DB_POOL_SIZE) || 10,
+      anonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "",
     },
     agents: {
       enabled: process.env.AGENTS_ENABLED !== "false",
@@ -30,6 +37,11 @@ export function getConfig() {
     monitoring: {
       enabled: process.env.MONITORING_ENABLED !== "false",
       metricsEndpoint: process.env.METRICS_ENDPOINT || "/metrics",
+    },
+    security: {
+      csrfEnabled: process.env.CSRF_ENABLED !== "false",
+      rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== "false",
+      corsOrigins: process.env.CORS_ORIGINS || "*",
     },
   };
 }

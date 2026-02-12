@@ -89,6 +89,7 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.5.2",
     "@vitest/coverage-v8": "^4.0.17",
     "vitest": "^4.0.17"

@@ -661,6 +661,15 @@ export class AgentAPI {
   }
 
   /**
+   * Invoke an agent (alias for invokeAgent)
+   */
+  async invoke<T = any>(
+    request: AgentRequest
+  ): Promise<AgentResponse<T>> {
+    return this.invokeAgent<T>(request);
+  }
+
+  /**
    * Generic agent invocation
    */
   async invokeAgent<T = any>(

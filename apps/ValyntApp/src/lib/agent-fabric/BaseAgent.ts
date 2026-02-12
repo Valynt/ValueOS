@@ -63,6 +63,7 @@ export interface MARLInteraction {
   actions: MARLAction[];
   outcomes: Record<string, any>;
   timestamp: Date;
+  reward?: number;
 }
 
 /**
@@ -116,6 +117,14 @@ export abstract class BaseAgent implements IAgent {
   // Abstract methods that must be implemented by concrete agents
   abstract getAgentType(): AgentType;
   protected abstract processRequest(request: AgentRequest): Promise<AgentResponse>;
+
+  getAgentId(): string {
+    return this.config.id;
+  }
+
+  protected calculateMARLReward(interaction: MARLInteraction): number {
+    return interaction.reward ?? 0;
+  }
 
   // IAgent interface implementation
   async execute<T = unknown>(request: AgentRequest): Promise<AgentResponse<T>> {

@@ -45,6 +45,25 @@ import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
+import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+
+// ============================================================================
+// Local Types
+// ============================================================================
+
+interface StageLifecycleRecord {
+  stageId: string;
+  lifecycleStage: string;
+  status: string;
+  startedAt: string;
+  completedAt: string;
+  summary?: string;
+}
+
+// Stub for missing imports
+declare function getAutonomyConfig(): { maxAutonomousActions: number; requireApproval: boolean };
+declare const securityLogger: { warn: (msg: string, meta?: Record<string, unknown>) => void };
 
 // ============================================================================
 // Middleware Types
@@ -1168,7 +1187,7 @@ export class UnifiedAgentOrchestrator {
 
   /**
    * Process a user query with given workflow state
-   *
+   */
   async processQuery(
     envelope: ExecutionEnvelope,
     query: string,

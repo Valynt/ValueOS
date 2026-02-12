@@ -1,6 +1,17 @@
 import { logger } from '../lib/logger.js'
 import { CanvasComponent } from '../types';
 
+/** CanvasComponent with guaranteed position and size for spatial operations */
+type SpatialComponent = CanvasComponent & {
+  position: { x: number; y: number; z?: number };
+  size: { width: number; height: number };
+};
+
+/** Narrows to components with position and size defined */
+function hasSpatialProps(c: CanvasComponent): c is SpatialComponent {
+  return c.position != null && c.size != null && typeof c.size.width === 'number' && typeof c.size.height === 'number';
+}
+
 export interface BatchOperation {
   type: 'align' | 'distribute' | 'resize' | 'delete' | 'duplicate' | 'group';
   componentIds: string[];

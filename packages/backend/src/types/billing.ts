@@ -13,6 +13,7 @@ export interface BillingCustomer {
   id: string;
   stripe_customer_id: string;
   organization_id: string;
+  tenant_id?: string;
   email: string;
   name?: string;
   payment_method_id?: string;
@@ -141,6 +142,7 @@ export interface UsageRecord {
 }
 
 export interface UsageAggregate {
+  id?: string;
   organization_id: string;
   metric: string;
   period_start: string;

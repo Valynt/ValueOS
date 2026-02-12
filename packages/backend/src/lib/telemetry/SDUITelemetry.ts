@@ -13,6 +13,10 @@ export class SDUITelemetry {
   track(event: SDUITelemetryEvent): void {
     console.log('[SDUI Telemetry]', event);
   }
+
+  recordEvent(event: SDUITelemetryEvent): void {
+    this.track(event);
+  }
 }
 
 export const sduiTelemetry = new SDUITelemetry();

@@ -94,7 +94,9 @@ export interface ComponentEvent {
 
 export interface WorkspaceState {
   workspace_id: string;
+  workspaceId?: string;
   lifecycle_stage: string;
+  lifecycleStage?: string;
   current_view: string;
   data: WorkspaceData;
   ui_state: UIState;
@@ -188,9 +190,14 @@ export interface SyncStatus {
 
 export interface WorkspaceContext {
   workspace_id: string;
+  workspaceId?: string;
   organization_id: string;
   user_id: string;
+  userId?: string;
+  session_id?: string;
+  sessionId?: string;
   lifecycle_stage: string;
+  lifecycleStage?: string;
   permissions: WorkspacePermissions;
   metadata?: Record<string, any>;
 }
@@ -213,6 +220,8 @@ export interface CanonicalAction {
   context: ActionContext;
   payload: ActionPayload;
   metadata?: ActionMetadata;
+  workspaceId?: string;
+  stage?: string;
 }
 
 export type ActionType =
@@ -226,9 +235,14 @@ export type ActionType =
 
 export interface ActionContext {
   workspace_id: string;
+  workspaceId?: string;
   organization_id: string;
   user_id: string;
+  userId?: string;
+  session_id?: string;
+  sessionId?: string;
   lifecycle_stage?: string;
+  lifecycleStage?: string;
   correlation_id?: string;
 }
 
@@ -337,6 +351,8 @@ export interface ActionResult<T = unknown> {
   error?: string;
   code?: string;
   metadata?: Record<string, unknown>;
+  schemaUpdate?: unknown;
+  atomicActions?: unknown[];
 }
 
 export interface ActionHandler<TInput = unknown, TOutput = unknown> {

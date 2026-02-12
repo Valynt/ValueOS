@@ -127,3 +127,71 @@ export const TEST_AUTH_HEADERS = {
     'X-Tenant-ID': TEST_TENANTS.primary.id,
   },
 };
+
+export const TEST_EMAILS = {
+  valid: 'test@example.com',
+  admin: 'admin@example.com',
+  member: 'member@example.com',
+  invalid: 'not-an-email',
+  disposable: 'test@tempmail.com',
+};
+
+export const TEST_PASSWORDS = {
+  valid: 'SecureP@ssw0rd!',
+  weak: '123',
+  empty: '',
+  long: 'A'.repeat(200),
+};
+
+export const OAUTH_PROVIDERS = {
+  google: { name: 'google', clientId: 'test-google-client' },
+  github: { name: 'github', clientId: 'test-github-client' },
+};
+
+export function createLoginCredentials(email = TEST_EMAILS.valid, password = TEST_PASSWORDS.valid) {
+  return { email, password };
+}
+
+export function createSignupData(overrides: Record<string, unknown> = {}) {
+  return {
+    email: TEST_EMAILS.valid,
+    password: TEST_PASSWORDS.valid,
+    name: 'Test User',
+    ...overrides,
+  };
+}
+
+export function createSuccessfulLoginResponse(user = TEST_USERS.member) {
+  return {
+    data: { user, session: { access_token: TEST_TOKENS.member, expires_at: Date.now() + 3600000 } },
+    error: null,
+  };
+}
+
+export function createSuccessfulSignupResponse(user = TEST_USERS.member) {
+  return {
+    data: { user, session: { access_token: TEST_TOKENS.member } },
+    error: null,
+  };
+}
+
+export function createAuthErrorResponse(message = 'Auth error', status = 401) {
+  return {
+    data: { user: null, session: null },
+    error: { message, status },
+  };
+}
+
+export function createMockUser(overrides: Record<string, unknown> = {}) {
+  return { ...TEST_USERS.member, ...overrides };
+}
+
+export function createMockSession(overrides: Record<string, unknown> = {}) {
+  return {
+    access_token: TEST_TOKENS.member,
+    refresh_token: 'test-refresh-token',
+    expires_at: Date.now() + 3600000,
+    user: TEST_USERS.member,
+    ...overrides,
+  };
+}

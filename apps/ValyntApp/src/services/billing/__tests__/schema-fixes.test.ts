@@ -212,7 +212,7 @@ describe("SaaS Schema Architecture Fixes", () => {
         ),
       };
 
-      jest.doMock("../SubscriptionService.transaction", () => ({
+      vi.doMock("../SubscriptionService.transaction", () => ({
         default: vi.fn().mockImplementation(() => mockTransactionalService),
       }));
 

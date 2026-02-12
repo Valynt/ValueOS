@@ -173,7 +173,7 @@ if (isDevRoutesEnabled) {
 
   router.post("/clear-cache", async (_req: Request, res: Response) => {
     try {
-      const redisModule = (await import("../../lib/redis")) as Record<
+      const redisModule = (await import("../lib/redis")) as Record<
         string,
         unknown
       >;

@@ -228,6 +228,7 @@ export const EVENT_TOPICS = {
  */
 export interface AgentRequestEvent {
   type: "agent.request";
+  correlationId?: string;
   payload: {
     agentId: string;
     userId: string;
@@ -252,3 +253,15 @@ export function createBaseEvent<T extends EventType>(
 ): EnvelopedEvent<Extract<DomainEvent, { type: T }>> {
   return createEvent(type, payload, meta);
 }
+
+/** Base event interface for generic event handling */
+export interface BaseEvent {
+  type: string;
+  payload: Record<string, unknown>;
+  meta?: EventMeta;
+  correlationId?: string;
+  [key: string]: unknown;
+}
+
+/** Generic event type alias */
+export type Event = BaseEvent;

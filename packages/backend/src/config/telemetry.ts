@@ -12,7 +12,8 @@
 const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 // Browser imports - use dynamic imports to avoid bundling issues
-let trace, context, SpanStatusCode, Span;
+import type { Span as SpanType } from "@opentelemetry/api";
+let trace: any, context: any, SpanStatusCode: any, Span: any;
 
 async function initializeTelemetryImports() {
   if (isBrowser) {
@@ -51,12 +52,12 @@ const noopSpan = {
 
 const noopTracer = {
   startSpan: () => noopSpan,
-  startActiveSpan: (name: string, options: any, fn: (span: Span) => any) => fn(noopSpan)
+  startActiveSpan: (name: string, options: any, fn: (span: SpanType) => any) => fn(noopSpan)
 };
 
 // Exporter endpoints (Node.js only)
 // Default to otel-collector when running in Docker, localhost for local dev
-let OTLP_ENDPOINT, TRACES_ENDPOINT;
+let OTLP_ENDPOINT: string | undefined, TRACES_ENDPOINT: string | undefined;
 if (!isBrowser) {
   OTLP_ENDPOINT = process.env.OTLP_ENDPOINT || 'http://otel-collector:4318';
   TRACES_ENDPOINT = `${OTLP_ENDPOINT}/v1/traces`;
@@ -158,7 +159,7 @@ export async function traceLLMOperation<T>(
     userId?: string;
     promptLength?: number;
   },
-  operation: (span: Span) => Promise<T>
+  operation: (span: SpanType) => Promise<T>
 ): Promise<T> {
   const tracer = getTracer();
   
@@ -221,7 +222,7 @@ export async function traceDatabaseOperation<T>(
     table?: string;
     operation?: 'select' | 'insert' | 'update' | 'delete';
   },
-  operation: (span: Span) => Promise<T>
+  operation: (span: SpanType) => Promise<T>
 ): Promise<T> {
   const tracer = getTracer();
   
@@ -262,7 +263,7 @@ export async function traceCacheOperation<T>(
     cacheKey?: string;
     hit?: boolean;
   },
-  operation: (span: Span) => Promise<T>
+  operation: (span: SpanType) => Promise<T>
 ): Promise<T> {
   const tracer = getTracer();
   

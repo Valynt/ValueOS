@@ -7,3 +7,5 @@ export const logger = {
 };
 
 export const createLogger = () => logger;
+
+export const log = logger;

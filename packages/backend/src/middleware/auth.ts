@@ -8,6 +8,17 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 
 // Re-export requireRole from rbac for convenience
 export { requireRole } from './rbac.js'
+
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    email?: string;
+    roles?: string[];
+    tenant_id?: string;
+    [key: string]: unknown;
+  };
+  tenantId?: string;
+}
 import { authService } from '../services/AuthService.js'
 import { AuthenticationError } from '../services/errors.js'
 import { createLogger } from '@shared/lib/logger';
