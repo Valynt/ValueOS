@@ -9,6 +9,8 @@
     "db:reset": "npx supabase db reset --workdir infra/supabase/supabase",
     "db:diff": "npx supabase db diff --workdir infra/supabase/supabase",
     "db:status": "npx supabase migration list --workdir infra/supabase/supabase"
+    ,
+    "lint": "pnpm -r run lint --if-present"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
