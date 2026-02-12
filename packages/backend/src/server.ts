@@ -47,8 +47,10 @@ import analyticsRouter from "./api/analytics.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import teamsRouter from "./api/teams.js";
 import integrationsRouter from "./api/integrations.js";
+import crmRouter from "./api/crm.js";
 import onboardingRouter from "./api/onboarding.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
+import { initCrmWorkers } from "./workers/crmWorker.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
 import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
 import docsApiRouter from "./docs-api/index.js";
@@ -402,6 +404,7 @@ app.use("/api/referrals", referralsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/crm", crmRouter);
 app.use("/api/onboarding", onboardingRouter);
 
 // Mount checkpoint HITL endpoints
@@ -477,6 +480,14 @@ async function startServer(): Promise<void> {
   } catch (workerErr) {
     // Non-fatal — server can run without the worker (e.g. no Redis)
     console.warn("[Instrumentation] Research worker failed to start:", workerErr);
+  }
+
+  // 5. Start CRM integration BullMQ workers (in-process)
+  try {
+    initCrmWorkers();
+    console.log("[Instrumentation] CRM workers initialized");
+  } catch (workerErr) {
+    console.warn("[Instrumentation] CRM workers failed to start:", workerErr);
   }
 
   server.listen(PORT, () => {
