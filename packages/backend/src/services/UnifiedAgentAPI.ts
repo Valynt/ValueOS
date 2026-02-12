@@ -29,6 +29,9 @@ import GroundtruthAPI, {
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
 import { cacheService } from "./CacheService.js"
+import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
+import { hasService, getService, SERVICE_TOKENS } from "./DependencyInjectionContainer.js";
+import type { LifecycleContext } from "../types/agent.js";
 
 // ============================================================================
 // Types
@@ -125,6 +128,8 @@ export interface UnifiedAPIConfig {
   enableAuditLogging?: boolean;
   /** Groundtruth API configuration */
   groundtruth?: GroundtruthAPIConfig;
+  /** Agent factory for local fabric agent execution (resolved from DI if not provided) */
+  agentFactory?: AgentFactory;
 }
 
 const DEFAULT_CONFIG: UnifiedAPIConfig = {
@@ -204,6 +209,7 @@ export class UnifiedAgentAPI {
   private registry: AgentRegistry;
   private auditLogger: ReturnType<typeof getAuditLogger> | null = null;
   private groundtruthAPI: GroundtruthAPI | null = null;
+  private agentFactory: AgentFactory | null = null;
   private idempotencyCache: Map<string, UnifiedAgentResponse> = new Map();
 
   constructor(config: Partial<UnifiedAPIConfig> = {}) {
@@ -242,6 +248,20 @@ export class UnifiedAgentAPI {
     this.groundtruthAPI = groundtruthConfig.baseUrl
       ? new GroundtruthAPI(groundtruthConfig)
       : null;
+
+    // Resolve AgentFactory: prefer explicit config, then DI container
+    if (config.agentFactory) {
+      this.agentFactory = config.agentFactory;
+    } else {
+      try {
+        if (hasService(SERVICE_TOKENS.AGENT_FACTORY)) {
+          this.agentFactory = getService<AgentFactory>(SERVICE_TOKENS.AGENT_FACTORY);
+        }
+      } catch {
+        // DI container not yet initialized — agentFactory stays null,
+        // executeLocalAgent will fall back to mock
+      }
+    }
   }
 
   // ==========================================================================
@@ -607,7 +627,13 @@ export class UnifiedAgentAPI {
   }
 
   /**
-   * Determine how to route the request
+   * Determine how to route the request.
+   *
+   * Priority:
+   * 1. Groundtruth agent → dedicated groundtruth API
+   * 2. HTTP endpoint configured (env or registry) → HTTP
+   * 3. Fabric agent available via AgentFactory → local execution
+   * 4. Development/test → mock
    */
   private determineRouteType(
     agent: AgentType
@@ -627,17 +653,22 @@ export class UnifiedAgentAPI {
       return "http";
     }
 
-    // Check if agent is registered locally
+    // Check if agent is registered with an HTTP endpoint
     const agentRecord = this.registry.getAgent(agent);
     if (agentRecord?.endpoint) {
       return "http";
+    }
+
+    // Check if a fabric agent implementation exists
+    if (this.agentFactory?.hasFabricAgent(agent)) {
+      return "local";
     }
 
     if (env.isProduction) {
       throw new Error(PRODUCTION_ROUTING_ERROR);
     }
 
-    // For now, use mock for development/test
+    // Fallback to mock for development/test
     return "mock";
   }
 
@@ -676,15 +707,120 @@ export class UnifiedAgentAPI {
   }
 
   /**
-   * Execute request with local agent instance
+   * Execute request with a local fabric agent instance via AgentFactory.
+   *
+   * Constructs a LifecycleContext from the UnifiedAgentRequest and delegates
+   * to the fabric agent's execute() method. The agent has access to the
+   * shared LLMGateway, MemorySystem, and CircuitBreaker via the factory.
    */
   private async executeLocalAgent(
     request: UnifiedAgentRequest,
     traceId: string
   ): Promise<UnifiedAgentResponse> {
-    // This would invoke the actual agent class
-    // For now, fall back to mock
-    return this.executeMockAgent(request, traceId);
+    if (!this.agentFactory) {
+      logger.warn("AgentFactory not available, falling back to mock", {
+        agent: request.agent,
+        traceId,
+      });
+      return this.executeMockAgent(request, traceId);
+    }
+
+    const organizationId = request.context?.organizationId || request.context?.organization_id || "system";
+    const startTime = Date.now();
+
+    try {
+      const agent = this.agentFactory.create(request.agent, organizationId);
+
+      // Build a LifecycleContext from the unified request
+      const lifecycleContext: LifecycleContext = {
+        workspace_id: request.sessionId || traceId,
+        organization_id: organizationId,
+        user_id: request.userId || "system",
+        lifecycle_stage: agent.lifecycleStage as LifecycleContext["lifecycle_stage"],
+        workspace_data: {},
+        user_inputs: {
+          query: request.query,
+          ...(request.parameters || {}),
+        },
+        previous_stage_outputs: request.context?.previousStageOutputs,
+        metadata: {
+          traceId,
+          sessionId: request.sessionId,
+          idempotencyKey: request.idempotencyKey,
+          ...request.context,
+        },
+      };
+
+      const agentOutput = await agent.execute(lifecycleContext);
+      const duration = Date.now() - startTime;
+
+      logger.info("Local fabric agent executed", {
+        agent: request.agent,
+        status: agentOutput.status,
+        confidence: agentOutput.confidence,
+        duration_ms: duration,
+        traceId,
+      });
+
+      return {
+        success: agentOutput.status === "success" || agentOutput.status === "partial_success",
+        data: agentOutput.result,
+        content: agentOutput.reasoning || `Agent ${request.agent} completed`,
+        confidenceLevel: agentOutput.confidence,
+        confidenceScore: this.mapConfidenceToScore(agentOutput.confidence),
+        type: "message",
+        status: agentOutput.status,
+        warnings: agentOutput.warnings,
+        metadata: {
+          agent: request.agent,
+          duration,
+          timestamp: new Date().toISOString(),
+          traceId,
+          tokens: agentOutput.metadata?.token_usage
+            ? {
+                prompt: agentOutput.metadata.token_usage.prompt_tokens,
+                completion: agentOutput.metadata.token_usage.completion_tokens,
+                total: agentOutput.metadata.token_usage.total_tokens,
+              }
+            : undefined,
+        },
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const message = error instanceof Error ? error.message : String(error);
+
+      logger.error("Local fabric agent execution failed", {
+        agent: request.agent,
+        error: message,
+        duration_ms: duration,
+        traceId,
+      });
+
+      return {
+        success: false,
+        error: message,
+        metadata: {
+          agent: request.agent,
+          duration,
+          timestamp: new Date().toISOString(),
+          traceId,
+        },
+      };
+    }
+  }
+
+  /**
+   * Map confidence level string to a numeric score.
+   */
+  private mapConfidenceToScore(confidence: string): number {
+    const scores: Record<string, number> = {
+      very_low: 0.2,
+      low: 0.4,
+      medium: 0.6,
+      high: 0.8,
+      very_high: 0.95,
+    };
+    return scores[confidence] ?? 0.5;
   }
 
   /**

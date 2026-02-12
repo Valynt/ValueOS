@@ -1,7 +1,9 @@
 /**
  * Service Registration
  *
- * Registers all application services with the dependency injection container
+ * Registers all application services with the dependency injection container.
+ * This is the single place where shared infrastructure (LLMGateway,
+ * MemorySystem, CircuitBreaker) and the AgentFactory are wired together.
  */
 
 import {
@@ -19,8 +21,10 @@ import { supabase } from "../lib/supabase.js"
 import { getRedisClient } from "../lib/redis";
 import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator.js"
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { llmConfig } from "../config/llm.js"
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
+import { CircuitBreaker } from "../config/secrets/CircuitBreaker";
+import { AgentFactory } from "../lib/agent-fabric/AgentFactory";
+import { llmConfig } from "../config/llm.js"
 
 // Create and configure the service collection
 export function configureServices() {
@@ -42,17 +46,49 @@ export function configureServices() {
     getAgentMessageQueue()
   );
 
-  // Register business services with dependencies
+  // --- Shared agent infrastructure ---
+
+  // LLMGateway: centralized LLM access with circuit breaker, cost tracking, telemetry.
+  // The provider string ("together", "openai", etc.) triggers the backward-compat path
+  // in LLMGateway's constructor, which builds a default LLMGatewayConfig internally.
   services.addSingleton(
     SERVICE_TOKENS.LLM_GATEWAY,
-    () => new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled)
+    () => new LLMGateway(llmConfig.provider)
   );
 
+  // CircuitBreaker: shared instance for agent execution resilience.
+  // 5 failures within the monitoring window trips the breaker; 60s recovery timeout.
+  services.addSingleton(
+    SERVICE_TOKENS.CIRCUIT_BREAKER,
+    () =>
+      new CircuitBreaker({
+        failureThreshold: 5,
+        recoveryTimeout: 60_000,
+        monitoringPeriod: 120_000,
+        successThreshold: 2,
+      })
+  );
+
+  // MemorySystem: in-memory agent memory (semantic, episodic, procedural, working).
   services.addSingleton(
     SERVICE_TOKENS.MEMORY_SYSTEM,
-    (supabaseClient: any, llmGateway: any) =>
-      new MemorySystem(supabaseClient, llmGateway),
-    [SERVICE_TOKENS.DATABASE, SERVICE_TOKENS.LLM_GATEWAY]
+    () =>
+      new MemorySystem({
+        max_memories: 1000,
+        enable_persistence: false,
+        vector_search_enabled: false,
+      })
+  );
+
+  // AgentFactory: creates fabric agent instances with injected LLMGateway,
+  // MemorySystem, and CircuitBreaker. Used by UnifiedAgentAPI and the
+  // ValueLifecycleOrchestrator to construct agents consistently.
+  services.addFactory(
+    SERVICE_TOKENS.AGENT_FACTORY,
+    (llmGateway: LLMGateway, memorySystem: MemorySystem, circuitBreaker: CircuitBreaker) =>
+      new AgentFactory({ llmGateway, memorySystem, circuitBreaker }),
+    "Singleton",
+    [SERVICE_TOKENS.LLM_GATEWAY, SERVICE_TOKENS.MEMORY_SYSTEM, SERVICE_TOKENS.CIRCUIT_BREAKER]
   );
 
   services.addSingleton(

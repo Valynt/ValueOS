@@ -88,8 +88,14 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@opentelemetry/exporter-trace-otlp-http": "0.57.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.2.3",
+    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^4.5.2",
     "@vitest/coverage-v8": "^4.0.17",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.17"
   },
   "packageManager": "pnpm@9.15.0",
@@ -122,4 +128,3 @@
     }
   }
 }
-
