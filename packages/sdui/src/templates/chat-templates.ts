@@ -10,10 +10,10 @@
 import type { SDUIPageDefinition } from '../schema';
 import type { WorkflowState, LifecycleStage } from '@valueos/sdui-types';
 
-import { generateOpportunityPage, type OpportunityTemplateContext } from './chat-opportunity-template';
-import { generateTargetPage, type TargetTemplateContext } from './chat-target-template';
-import { generateRealizationPage, type RealizationTemplateContext } from './chat-realization-template';
-import { type ExpansionTemplateContext, generateExpansionPage } from './chat-expansion-template';
+import { generateOpportunityPage } from './chat-opportunity-template';
+import { generateTargetPage } from './chat-target-template';
+import { generateRealizationPage } from './chat-realization-template';
+import { generateExpansionPage } from './chat-expansion-template';
 
 /**
  * Common template context for all stages

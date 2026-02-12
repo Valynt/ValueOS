@@ -9,7 +9,6 @@ import { ManifestoCheckResult } from '../types/sdui-integration';
 import {
   AtomicUIAction,
   createAddAction,
-  createMutateAction,
 } from '../sdui/AtomicUIActions';
 
 /**

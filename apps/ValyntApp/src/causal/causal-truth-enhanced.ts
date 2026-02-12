@@ -23,7 +23,6 @@ import {
 import { 
   StructuralIndustry, 
   StructuralPersona,
-  StructuralKPINode
 } from '../types/structural-truth';
 
 export interface CausalTruthConfig {

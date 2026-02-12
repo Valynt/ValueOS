@@ -14,7 +14,6 @@ import {
   Building2,
   DollarSign,
   Calendar,
-  User,
   Loader2,
   AlertCircle,
   CheckCircle2,
@@ -40,7 +39,6 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import type { Deal } from './DealStatusCapsule';
 
 export interface DealImportModalProps {

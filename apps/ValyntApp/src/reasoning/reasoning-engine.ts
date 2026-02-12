@@ -16,7 +16,6 @@ import { BusinessAction } from '../causal/causal-truth';
 import { 
   StructuralPersona, 
   StructuralIndustry,
-  StructuralKPINode
 } from '../types/structural-truth';
 
 // ============================================================================
@@ -670,7 +669,7 @@ export class ReasoningEngine {
     const rankedCandidates = evaluationStep.outputs.rankedCandidates as Array<{action: BusinessAction, score: number, breakdown: any, impact: any}>;
 
     // Convert to recommended actions
-    const recommendedActions: RecommendedAction[] = rankedCandidates.slice(0, 3).map((candidate, index) => {
+    const recommendedActions: RecommendedAction[] = rankedCandidates.slice(0, 3).map((candidate, _index) => {
       const impact = candidate.impact;
       const isQuickWin = impact.timeCurve.timeToFirstImpact <= 30;
       

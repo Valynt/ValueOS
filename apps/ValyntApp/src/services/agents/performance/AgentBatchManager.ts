@@ -371,11 +371,11 @@ export class AgentBatchManager {
 
     return new Promise((resolve, reject) => {
       // Set up callbacks for individual requests
-      batchRequest.requests.forEach((req, index) => {
-        req.resolve = (response: AgentResponse) => {
+      batchRequest.requests.forEach((req, _index) => {
+        req.resolve = (_response: AgentResponse) => {
           // This will be called when the batch completes
         };
-        req.reject = (error: Error) => {
+        req.reject = (_error: Error) => {
           // This will be called when the batch fails
         };
       });

@@ -852,7 +852,7 @@ export function createParallelExecutionPlan(
       maxConcurrentAgents: Math.max(...groups.map((g) => g.tasks.length)),
       memoryRequirement: "medium",
       tokenRequirement: groups.reduce(
-        (sum, group) => sum + group.tasks.reduce((taskSum, task) => taskSum + 1000, 0),
+        (sum, group) => sum + group.tasks.reduce((taskSum, _task) => taskSum + 1000, 0),
         0
       ),
       securityLevel: "medium",

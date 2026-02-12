@@ -9,13 +9,12 @@
 
 import { NextFunction, Request, Response } from "express";
 import { getSecurityHeaders } from "../security/SecurityHeaders.js";
-import { getSecurityConfig } from "../security/SecurityConfig.js";
 export { sessionTimeoutMiddleware } from "./sessionTimeoutMiddleware.js";
 
 /**
  * Apply strong security headers to responses.
  */
-export function securityHeadersMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function securityHeadersMiddleware(_req: Request, res: Response, next: NextFunction): void {
   const headers = getSecurityHeaders();
   for (const [key, value] of Object.entries(headers)) {
     res.setHeader(key, value);
@@ -58,7 +57,7 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
 /**
  * Enhanced session security middleware - sets secure cookie attributes
  */
-export function sessionSecurityMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function sessionSecurityMiddleware(_req: Request, res: Response, next: NextFunction): void {
   // Set secure session cookie attributes
   const isProduction = process.env.NODE_ENV === "production";
   const secure = isProduction ? "; Secure" : "";

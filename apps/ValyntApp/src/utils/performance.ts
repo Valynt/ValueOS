@@ -393,7 +393,6 @@ class PerformanceMonitor {
 
       let frameCount = 0;
       const startTime = performance.now();
-      let lastTime = startTime;
 
       const countFrame = (currentTime: number) => {
         frameCount++;

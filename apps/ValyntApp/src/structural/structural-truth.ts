@@ -17,11 +17,8 @@ import {
   StructuralGraph,
   StructuralPersona,
   StructuralIndustry,
-  ImprovementDirection,
-  FormulaResult,
   FormulaStep,
   ValidationResult,
-  checkBenchmarkAlignment,
 } from "../types/structural-truth";
 import {
   ALL_STRUCTURAL_KPIS,

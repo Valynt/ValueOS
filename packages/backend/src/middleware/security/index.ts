@@ -5,7 +5,7 @@
  * Provides a single entry point for all security-related middleware.
  */
 
-import { Request, Response, NextFunction, Router } from 'express';
+import { Router } from 'express';
 
 // Re-export configuration
 export {

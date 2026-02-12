@@ -46,7 +46,7 @@
  */
 
 import logger from "../../shared/src/lib/logger.js";
-import { SDUIPageDefinition, SDUI_VERSION } from "./schema";
+import { SDUIPageDefinition } from "./schema";
 import { validateSDUISchema } from "./schema";
 import { createHash } from "crypto";
 

@@ -9,7 +9,6 @@
  * - Value Reality Check: "Committed Value ($2.1M) vs Deal Amount ($2.0M)"
  */
 
-import React from 'react';
 import {
   Building2,
   Calendar,

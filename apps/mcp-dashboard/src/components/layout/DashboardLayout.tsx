@@ -1,8 +1,6 @@
 import {
-  Activity,
   BarChart3,
   Bell,
-  Building2,
   Key,
   LogOut,
   Menu,
@@ -11,10 +9,8 @@ import {
   Settings,
   TrendingUp,
   User,
-  X,
-  Zap,
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth, useWebSocket } from "../../contexts";

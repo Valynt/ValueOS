@@ -369,7 +369,7 @@ export const safeJSONStringify = <T,>(data: T): string | null => {
     // Remove circular references
     const seen = new WeakSet();
     const safeData = JSON.parse(
-      JSON.stringify(data, (key, value) => {
+      JSON.stringify(data, (_key, value) => {
         if (typeof value === "object" && value !== null) {
           if (seen.has(value)) return "[Circular]";
           seen.add(value);

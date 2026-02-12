@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Book, Home, Search, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Book, Home, Search, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { announceToScreenReader } from '../utils/accessibility';
 import { SafeHtml } from '../components/security/SafeHtml';

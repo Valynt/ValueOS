@@ -9,7 +9,7 @@
  * 4. System establishes deal_id on the value_case record
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Building2, Calendar, DollarSign, Loader2, ExternalLink } from 'lucide-react';
 import {
   Dialog,

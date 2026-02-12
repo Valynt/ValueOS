@@ -15,7 +15,6 @@ import {
   AgentCapability,
   AgentTool,
   ToolExecutionContext,
-  ToolPermissions,
   ValueLifecycleStage,
   AgentClassification,
   AuthorityLevel,
@@ -189,7 +188,7 @@ export class IntegrityAgent extends BaseAgent {
           returns: z.number(),
           timePeriod: z.number().optional(),
         }),
-        execute: async (input: any, context: ToolExecutionContext) => {
+        execute: async (input: any, _context: ToolExecutionContext) => {
           const roi = ((input.returns - input.investment) / input.investment) * 100;
           return { roi, investment: input.investment, returns: input.returns };
         },
@@ -203,7 +202,7 @@ export class IntegrityAgent extends BaseAgent {
           cashFlows: z.array(z.number()),
           discountRate: z.number(),
         }),
-        execute: async (input: any, context: ToolExecutionContext) => {
+        execute: async (input: any, _context: ToolExecutionContext) => {
           const npv = input.cashFlows.reduce((sum: number, flow: number, index: number) => {
             return sum + flow / Math.pow(1 + input.discountRate, index);
           }, 0);

@@ -19,12 +19,10 @@ import {
   assertProvenance,
   GroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
-import { AgentConfig } from "../../../services/agent-types";
 import { v4 as uuidv4 } from "uuid";
-import { LLMGateway, LLMRequest, LLMResponse } from "../LLMGateway";
-import { MemorySystem, MemoryEntry, MemoryQuery } from "../MemorySystem";
-import { AuditLogger, AuditLevel } from "../AuditLogger";
-import { createClient } from "@supabase/supabase-js";
+import { LLMGateway, LLMResponse } from "../LLMGateway";
+import { MemorySystem, MemoryQuery } from "../MemorySystem";
+import { AuditLogger } from "../AuditLogger";
 import { z } from "zod";
 
 // Import types from the correct location

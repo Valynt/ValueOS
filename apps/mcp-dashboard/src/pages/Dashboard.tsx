@@ -4,11 +4,9 @@ import {
   Building2,
   CheckCircle,
   Clock,
-  DollarSign,
-  TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   FinancialLineChart,

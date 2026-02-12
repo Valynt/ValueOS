@@ -7,10 +7,6 @@
 import { useState } from "react";
 import {
   Upload,
-  Palette,
-  Type,
-  FileText,
-  Users,
   Eye,
   Download,
   Plus,
@@ -19,7 +15,7 @@ import {
   Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SimpleSelect } from "@/components/ui/select";
 import { UserAvatar } from "@/components/ui/avatar";

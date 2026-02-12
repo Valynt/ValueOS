@@ -4,9 +4,8 @@ import type {
   SecretMetadata,
   SecretValue,
 } from "../config/secrets/ISecretProvider.js";
-import { logger } from "../lib/logger.js";
 import { AuthorizationError } from "./errors.js";
-import { RbacService, RbacUser, SecretPermission, SecretPermissionType } from "./RbacService.js";
+import { RbacService, RbacUser, SecretPermission } from "./RbacService.js";
 
 // Re-export for backward compatibility
 export type { SecretPermissionType as SecretPermission } from "./RbacService.js";

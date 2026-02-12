@@ -18,7 +18,6 @@ import {
   ValidationError,
   InternalError,
   isAppError,
-  wrapError,
   getSafeErrorMessage,
   RateLimitError,
 } from '../lib/errors';

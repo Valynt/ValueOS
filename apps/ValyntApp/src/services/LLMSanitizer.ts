@@ -10,7 +10,6 @@
  * - Content policy enforcement
  */
 
-import { logger } from '../lib/logger';
 import DOMPurify from 'dompurify';
 import { BaseService } from './BaseService';
 

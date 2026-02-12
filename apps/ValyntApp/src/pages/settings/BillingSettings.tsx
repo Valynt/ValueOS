@@ -10,7 +10,6 @@ import { billingService } from "@/services/billing";
 import { useToast } from "@/components/common/Toast";
 import {
   Rocket,
-  TrendingUp,
   Users,
   Briefcase,
   CreditCard,
@@ -19,8 +18,6 @@ import {
   AlertTriangle,
   Check,
   Zap,
-  Shield,
-  Palette,
   ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

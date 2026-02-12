@@ -10,7 +10,6 @@
  * - Session refresh
  */
 
-import { logger } from '../lib/logger.js'
 import { BaseService } from './BaseService.js'
 import { authService } from './AuthService.js'
 

@@ -1,7 +1,6 @@
 
 import { logger } from '../lib/logger.js'
 import { createServerSupabaseClient } from '../lib/supabase.js'
-import { settingsService } from './SettingsService.js'
 
 export interface IntegrationState {
   enabled: boolean;

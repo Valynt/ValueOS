@@ -148,28 +148,28 @@ export type CompensationHandler = (
 ) => Promise<CompensationResult>;
 
 const DEFAULT_COMPENSATION_HANDLERS: Record<string, CompensationHandler> = {
-  DRAFTING: async (snapshot) => {
+  DRAFTING: async (_snapshot) => {
     // Revert value tree to previous version
     return {
       name: 'revert_value_tree',
       success: true,
     };
   },
-  VALIDATING: async (snapshot) => {
+  VALIDATING: async (_snapshot) => {
     // Clear confidence scores, re-queue for modeling
     return {
       name: 'clear_confidence_scores',
       success: true,
     };
   },
-  COMPOSING: async (snapshot) => {
+  COMPOSING: async (_snapshot) => {
     // Delete generated narrative, revert to VALIDATING
     return {
       name: 'delete_narrative',
       success: true,
     };
   },
-  REFINING: async (snapshot) => {
+  REFINING: async (_snapshot) => {
     // Restore pre-refinement snapshot
     return {
       name: 'restore_pre_refinement',

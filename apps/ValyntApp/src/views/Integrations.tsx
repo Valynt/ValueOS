@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, ExternalLink } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Integration {

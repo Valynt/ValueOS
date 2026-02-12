@@ -299,7 +299,7 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
 
             {/* Variables */}
             <div className="space-y-3 mb-4">
-              {formData.formula?.variables.map((variable, index) => (
+              {formData.formula?.variables.map((variable, _index) => (
                 <div key={variable.id} className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-3">
                     <Label className="text-xs">Variable Name</Label>

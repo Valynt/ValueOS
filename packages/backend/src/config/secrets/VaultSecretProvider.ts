@@ -9,7 +9,6 @@
  */
 
 import { logger } from "../../lib/logger.js"
-import { createServerSupabaseClient } from "../../lib/supabase.js"
 import type {
   AuditAction,
   AuditResult,

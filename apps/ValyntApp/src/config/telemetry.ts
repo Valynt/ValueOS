@@ -51,7 +51,7 @@ const noopSpan = {
 
 const noopTracer = {
   startSpan: () => noopSpan,
-  startActiveSpan: (name: string, options: any, fn: (span: Span) => any) => fn(noopSpan)
+  startActiveSpan: (_name: string, _options: any, fn: (span: Span) => any) => fn(noopSpan)
 };
 
 // Exporter endpoints (Node.js only)

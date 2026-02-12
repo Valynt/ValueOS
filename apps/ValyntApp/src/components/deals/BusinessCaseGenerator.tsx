@@ -5,7 +5,7 @@
  * Uses AI to analyze and produce financial projections, benchmarks, and insights.
  */
 
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Sparkles,
   Loader2,
@@ -19,7 +19,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { cn } from '@/lib/utils';
 import type { ValueCase } from '@/services/ValueCaseService';
 import type { BuyerPersona } from './PersonaSelector';
 

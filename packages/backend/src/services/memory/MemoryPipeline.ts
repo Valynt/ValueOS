@@ -2,10 +2,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import * as crypto from "crypto";
 import {
   UUID,
-  Artifact,
   ArtifactMetadata,
   FactStatus,
-  JSONB,
   Chunk,
   ExtractedKnowledge,
 } from "./types";

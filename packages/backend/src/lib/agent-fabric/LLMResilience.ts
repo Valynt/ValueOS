@@ -13,7 +13,7 @@ import {
   _test_resetResilienceState,
   getCircuitBreakerState as _getCircuitBreakerState,
 } from '../resilience.js';
-import type { LLMRequest, LLMResponse } from './LLMGateway.js';
+import type { LLMResponse } from './LLMGateway.js';
 
 // ---------------------------------------------------------------------------
 // Configuration

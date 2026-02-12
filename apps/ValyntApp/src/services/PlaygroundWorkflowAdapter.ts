@@ -7,7 +7,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
+import { UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
 import { PlaygroundSessionService } from './PlaygroundSessionService';
 import { getAutoSaveWorker, PlaygroundAutoSaveWorker } from './PlaygroundAutoSave';
 import { SDUIPageDefinition } from '../sdui/schema';

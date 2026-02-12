@@ -602,7 +602,7 @@ export class AgentSecurityMiddleware {
   /**
    * Check user permissions for agent access
    */
-  validatePermissions(userId: string, agentType: AgentType, permissions: string[]): boolean {
+  validatePermissions(_userId: string, agentType: AgentType, permissions: string[]): boolean {
     // Basic permission check - can be extended with RBAC
     const requiredPermissions = this.getRequiredPermissions(agentType);
 
@@ -647,7 +647,7 @@ export class AgentSecurityMiddleware {
   /**
    * Audit agent access
    */
-  auditAgentAccess(userId: string, agentType: AgentType, context: SecurityContext): void {
+  auditAgentAccess(_userId: string, agentType: AgentType, context: SecurityContext): void {
     const auditEntry: SecurityAuditEntry = {
       id: uuidv4(),
       timestamp: new Date(),

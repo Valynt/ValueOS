@@ -5,7 +5,7 @@
  * Provides RBAC checks and audit logging for all BFA operations.
  */
 
-import { AgentContext, AuthorizationError, AuthPolicy } from "./types";
+import { AgentContext, AuthorizationError } from "./types";
 import { toolRegistry } from "./registry";
 import { logger } from "../../lib/logger";
 

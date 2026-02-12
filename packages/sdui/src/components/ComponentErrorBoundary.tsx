@@ -1,6 +1,6 @@
 import { logger } from "@shared/lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { AlertTriangle, RefreshCw, AlertCircle, Shield, Zap, Clock, CheckCircle, XCircle } from "lucide-react";
+import { RefreshCw, Shield, Zap, Clock, CheckCircle, XCircle } from "lucide-react";
 import { captureException } from "../../lib/sentry";
 import { isDevelopment, isProduction } from "../../config/environment";
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
@@ -692,7 +692,7 @@ export class EnhancedComponentErrorBoundary extends Component<
                     <div className="mt-2 pt-2 border-t border-red-200">
                       <strong>Error History:</strong>
                       <div className="mt-1 space-y-1">
-                        {errorCorrelations.slice(-3).map((corr, idx) => (
+                        {errorCorrelations.slice(-3).map((corr, _idx) => (
                           <div key={corr.id} className="text-xs">
                             {new Date(corr.timestamp).toLocaleTimeString()} - {corr.errorType} ({corr.severity})
                           </div>

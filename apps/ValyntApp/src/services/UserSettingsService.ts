@@ -5,7 +5,6 @@
  * SEC-003: Migrated to TenantAwareService for tenant isolation
  */
 
-import { logger } from '../lib/logger';
 import { TenantAwareService } from './TenantAwareService';
 import { settingsService } from './SettingsService';
 import { NotFoundError, ValidationError } from './errors';

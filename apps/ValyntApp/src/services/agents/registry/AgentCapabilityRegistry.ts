@@ -9,7 +9,7 @@
  */
 
 import { AgentType } from "../../agent-types";
-import { IAgent, AgentCapability } from "../core/IAgent";
+import { AgentCapability } from "../core/IAgent";
 import { logger } from "../../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
 

@@ -12,11 +12,8 @@ import {
   AtomicUIAction,
   ComponentSelector,
   createAddAction,
-  createBatchAction,
-  createMutateAction,
   createPropertyUpdate,
   createRemoveAction,
-  PropertyMutation,
   validateAtomicAction,
 } from '../sdui/AtomicUIActions';
 import { logger } from '../lib/logger';

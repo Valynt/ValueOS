@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger';
 import { CanvasComponent } from '../types';
 
 export interface LayoutSuggestion {

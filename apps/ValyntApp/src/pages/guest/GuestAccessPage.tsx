@@ -5,7 +5,7 @@
  * Validates token and renders the appropriate view.
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { GuestValueCalculator } from './GuestValueCalculator';

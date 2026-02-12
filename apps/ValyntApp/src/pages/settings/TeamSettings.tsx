@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Search, UserPlus, Shield, Users, Eye, ChevronRight, RotateCw } from "lucide-react";
+import { UserPlus, ChevronRight, RotateCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import { SearchInput } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
 import { InviteModal } from "@/components/settings/InviteModal";
 import { supabase } from "@/lib/supabase";
-import { emailService } from "@/services/EmailService";
 import { rbacService } from "@/services/RbacService";
 import { useToast } from "@/components/common/Toast";
 import { useAuth } from "@/hooks/useAuth";

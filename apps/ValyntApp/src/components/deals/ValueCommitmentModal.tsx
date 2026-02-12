@@ -12,7 +12,7 @@
  *    Flags "Ready for CRM Sync".
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Lock, AlertTriangle, CheckCircle2, Link2, ArrowRight } from 'lucide-react';
 import {
   Dialog,

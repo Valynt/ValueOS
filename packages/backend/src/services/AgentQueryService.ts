@@ -27,7 +27,7 @@ import {
   ExecutionRequest,
   normalizeExecutionRequest,
 } from "../types/execution";
-import { CircuitBreakerError, TimeoutError } from "./errors.js"
+import { TimeoutError } from "./errors.js"
 
 export interface QueryResult {
   sessionId: string;

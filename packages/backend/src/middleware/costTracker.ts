@@ -83,7 +83,7 @@ export function calculateCost(usage: TokenUsage): CostEstimate {
  * Middleware to track and log LLM costs in development
  * Attaches a cost tracking function to the request object
  */
-export function costTrackerMiddleware(req: Request, res: Response, next: NextFunction) {
+export function costTrackerMiddleware(req: Request, _res: Response, next: NextFunction) {
   // Only enable detailed logging in development
   const isDevelopment = process.env.NODE_ENV === 'development';
   
@@ -167,7 +167,7 @@ export const sessionCostAccumulator = new SessionCostAccumulator();
 /**
  * Express middleware to track session-level costs
  */
-export function sessionCostTracker(req: Request, res: Response, next: NextFunction) {
+export function sessionCostTracker(req: Request, _res: Response, next: NextFunction) {
   const sessionId = (req as any).sessionId || req.headers['x-session-id'] as string;
   
   if (sessionId) {

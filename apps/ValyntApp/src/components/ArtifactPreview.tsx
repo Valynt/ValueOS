@@ -1,6 +1,6 @@
 // /workspaces/ValueOS/apps/ValyntApp/src/components/ArtifactPreview.tsx
 import React, { useEffect, useRef } from "react";
-import { Download, FileText } from "lucide-react";
+import { Download } from "lucide-react";
 
 interface ArtifactPreviewProps {
   content: string;

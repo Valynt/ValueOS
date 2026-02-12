@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger.js'
 import { WorkflowStage } from '../types/workflow';
 import { AgentRecord, RoutingContext } from './AgentRegistry.js'
 

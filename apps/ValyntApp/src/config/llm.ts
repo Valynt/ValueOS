@@ -1,6 +1,5 @@
 import type { LLMProvider } from "../lib/agent-fabric/llm-types";
 import type { LLMGatingConfig } from "../lib/llm-gating/types";
-import { DEFAULT_GATING_CONFIG } from "../lib/llm-gating/types";
 
 // Use a local helper to avoid relying on global ImportMeta typings
 const env = (import.meta as any)?.env ?? {};

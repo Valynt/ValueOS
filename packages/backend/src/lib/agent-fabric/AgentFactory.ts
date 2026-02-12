@@ -18,7 +18,6 @@ import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
 import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
-import type { AgentType } from "../../services/agent-types.js";
 
 // Maps agent type strings to lifecycle stages for config construction
 const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {

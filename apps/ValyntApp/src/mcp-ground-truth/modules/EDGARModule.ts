@@ -14,7 +14,6 @@ import {
   EDGARFiling,
   EDGARSearchParams,
   ErrorCodes,
-  FinancialMetric,
   GroundTruthError,
   ModuleRequest,
   ModuleResponse,

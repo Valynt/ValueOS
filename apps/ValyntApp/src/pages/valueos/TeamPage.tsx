@@ -4,7 +4,7 @@
  * List members, roles, invite new members.
  */
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Search,
   UserPlus,

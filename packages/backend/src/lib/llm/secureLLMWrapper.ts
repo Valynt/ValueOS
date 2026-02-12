@@ -5,7 +5,6 @@
  * PII detection, and content filtering.
  */
 
-import { logger } from '../logger.js';
 
 export interface SecureLLMConfig {
   enable_pii_detection: boolean;

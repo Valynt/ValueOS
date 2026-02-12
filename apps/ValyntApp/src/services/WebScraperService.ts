@@ -1,5 +1,4 @@
 import { logger } from "../lib/logger";
-import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 

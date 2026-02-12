@@ -3,7 +3,6 @@
  * Visual indicator of agent state with "breathing" animation
  */
 
-import React from "react";
 import { Loader2, Sparkles, AlertCircle, CheckCircle } from "lucide-react";
 import type { AgentState } from "@/hooks/useAgentOrchestrator";
 

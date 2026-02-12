@@ -12,8 +12,7 @@
  * This allows generated UIs to stay fresh without LLM regeneration.
  */
 
-import { z } from 'zod';
-import { DataBinding, EXAMPLE_BINDINGS } from './DataBindingSchema';
+import { EXAMPLE_BINDINGS } from './DataBindingSchema';
 
 export interface ComponentTool {
   name: string;

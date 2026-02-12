@@ -5,7 +5,7 @@
  * Creates a customer access token and provides a shareable URL.
  */
 
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Share2,
   Copy,

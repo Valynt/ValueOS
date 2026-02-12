@@ -12,7 +12,6 @@ import {
   ActionResult,
   CanonicalAction,
   SchemaCacheEntry,
-  TemplateSelectionCriteria,
   WorkspaceContext,
   WorkspaceState,
 } from '../types/sdui-integration';

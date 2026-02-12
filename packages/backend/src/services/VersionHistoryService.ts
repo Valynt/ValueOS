@@ -3,7 +3,6 @@
  * Tracks all configuration changes with rollback capabilities
  */
 
-import { logger } from '../lib/logger.js'
 import { BaseService } from './BaseService.js'
 import { NotFoundError } from './errors.js'
 

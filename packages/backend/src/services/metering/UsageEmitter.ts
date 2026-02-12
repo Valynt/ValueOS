@@ -31,7 +31,6 @@ interface FailedUsageEvent {
 }
 
 const MAX_RETRY_COUNT = 3;
-const RETRY_DELAY_MS = 5000;
 const failedEventsBuffer: FailedUsageEvent[] = [];
 
 class UsageEmitter {

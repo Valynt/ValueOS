@@ -8,13 +8,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
-  Search,
-  Filter,
   Grid,
   List,
   TrendingUp,
   MoreHorizontal,
-  Calendar,
   ArrowUpDown,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";

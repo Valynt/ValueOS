@@ -56,7 +56,6 @@ import {
 } from "../lib/shutdown/gracefulShutdown";
 
 const logger = new Logger({ component: "BillingServer" });
-const INTERNAL_ERROR_STATUS = 500;
 const WS_POLICY_VIOLATION_CODE = 1008;
 
 const app = express();

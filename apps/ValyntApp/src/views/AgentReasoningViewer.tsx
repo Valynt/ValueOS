@@ -6,22 +6,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   GitBranch,
-  GitMerge,
   ArrowRight,
-  ArrowDown,
   ChevronRight,
   ChevronDown,
   Lightbulb,
   Target,
-  CheckCircle2,
   XCircle,
   Search,
-  Filter,
   Clock,
   Activity,
 } from "lucide-react";
 import { AgentBadge } from "../components/Agents/AgentBadge";
-import { AuditTrailService } from "../services/AuditTrailService";
 import { auditLogService } from "../services/AuditLogService";
 import { webSocketManager } from "../services/WebSocketManager";
 import { ConfidenceDisplay } from "@valueos/sdui";

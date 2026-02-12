@@ -9,7 +9,7 @@
  * - Linked: "[ Negotiation ] Acme Q2 Expansion ▾ (ARR: $2.1M)"
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, Link2, Plus, Unlink, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {

@@ -12,7 +12,6 @@ import {
   LLMResilienceWrapper,
   type LLMResilienceConfig,
   type CircuitBreakerStateInfo,
-  CircuitOpenError,
 } from './LLMResilience.js';
 import { getTracer } from '../../config/telemetry.js';
 import { SpanStatusCode } from '@opentelemetry/api';

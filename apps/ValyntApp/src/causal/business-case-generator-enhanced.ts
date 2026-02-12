@@ -15,7 +15,6 @@ import { BusinessAction } from './causal-truth';
 import { 
   StructuralPersona, 
   StructuralIndustry,
-  StructuralKPINode
 } from '../types/structural-truth';
 
 // ============================================================================
@@ -550,7 +549,7 @@ export class EnhancedBusinessCaseGenerator {
         sources: ['structural-truth']
       };
 
-      for (const [kpiId, impact] of allImpacts) {
+      for (const [kpiId, _impact] of allImpacts) {
         // Find formulas that depend on this KPI
         const dependentFormulas = this.getDependentFormulas(kpiId);
         

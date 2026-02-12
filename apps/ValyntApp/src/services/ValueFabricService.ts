@@ -14,14 +14,11 @@
 
 import { logger } from "../lib/logger";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
 import { llmProxyClient } from "./LlmProxyClient";
 import type {
   Benchmark,
   Capability,
   UseCase,
-  UseCaseCapability,
-  ValueFabricQuery,
   ValueFabricSnapshot,
 } from "../types/vos";
 

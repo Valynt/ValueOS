@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import type { ChatMessage } from "../types";
 import { api } from "../../../api/client/unified-api-client";
 
-export function useChat(sessionId?: string) {
+export function useChat(_sessionId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -4,7 +4,7 @@
  * Implements the DynamicRenderer pattern for server-driven UI
  */
 
-import React, { Suspense, lazy, ComponentType } from "react";
+import React, { Suspense, ComponentType } from "react";
 import { Building2 } from "lucide-react";
 
 // Widget type registry - maps component_type to lazy-loaded components

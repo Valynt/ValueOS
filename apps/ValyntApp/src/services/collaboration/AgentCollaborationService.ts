@@ -11,7 +11,6 @@ import { v4 as uuidv4 } from "uuid";
 import { getAgentMessageBroker, AgentMessageBroker } from "../AgentMessageBroker";
 import {
   getAgentPerformanceMonitor,
-  AgentHealthScore,
 } from "../monitoring/AgentPerformanceMonitor";
 
 // ============================================================================

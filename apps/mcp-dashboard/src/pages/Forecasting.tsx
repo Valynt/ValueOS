@@ -5,10 +5,9 @@ import {
   Loader,
   TrendingUp,
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import {
-  FinancialBarChart,
   FinancialLineChart,
 } from "../components/charts/FinancialCharts";
 

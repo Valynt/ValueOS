@@ -59,7 +59,7 @@ export function addNonceToCsp(
 /**
  * Express middleware to inject CSP nonce
  */
-export function cspNonceMiddleware(req: any, res: any, next: any): void {
+export function cspNonceMiddleware(_req: any, res: any, next: any): void {
   const nonce = generateNonce();
   setRequestNonce(nonce);
 

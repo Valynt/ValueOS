@@ -12,9 +12,7 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  addEdge,
   Connection,
-  Edge,
   Node,
   ReactFlowProvider,
   Panel,
@@ -24,7 +22,7 @@ import '@xyflow/react/dist/style.css';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Save, Undo, Redo, Library, Settings } from 'lucide-react';
+import { Undo, Redo, Library, Settings } from 'lucide-react';
 
 import { nodeTypes } from './ValueCanvasNodes';
 import { ValueDriverLibrary } from './ValueDriverLibrary';
@@ -153,12 +151,12 @@ const ValueCanvasContent: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
   }, [storeOnConnect]);
 
   // Handle node selection
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
   }, [setSelectedNodeId]);
 
   // Handle node drag end (for updating positions)
-  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node) => {
+  const onNodeDragStop = useCallback((_event: React.MouseEvent, _node: Node) => {
     // Update node position in store if needed
     // This would be handled by the store's updateNode action
   }, []);

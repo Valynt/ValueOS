@@ -5,7 +5,6 @@
  * Shows how the customer's metrics compare to peers.
  */
 
-import React from 'react';
 import {
   TrendingUp,
   TrendingDown,

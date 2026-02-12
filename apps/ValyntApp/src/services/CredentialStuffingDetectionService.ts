@@ -11,7 +11,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { TenantAwareService } from './TenantAwareService';
 import { log } from '../lib/logger';
-import { SecurityEvent } from './AdvancedThreatDetectionService';
 import { RateLimitEscalationService } from './RateLimitEscalationService';
 
 export interface CredentialStuffingPattern {

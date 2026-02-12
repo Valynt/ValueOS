@@ -20,8 +20,6 @@ import type {
   Benchmark,
   Capability,
   UseCase,
-  UseCaseCapability,
-  ValueFabricQuery,
   ValueFabricSnapshot,
   VMRTTrace,
 } from "../types/vos";

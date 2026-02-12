@@ -1,6 +1,6 @@
 // /workspaces/ValueOS/apps/ValyntApp/src/components/DetailHeader.tsx
 import React from "react";
-import { Edit, MoreVertical } from "lucide-react";
+import { Edit } from "lucide-react";
 
 interface DetailHeaderProps {
   title: string;

@@ -80,7 +80,6 @@ function removeDangerousPatterns(content: string): { sanitized: string; changes:
   let sanitized = content;
 
   for (const pattern of DANGEROUS_PATTERNS) {
-    const original = sanitized;
     sanitized = sanitized.replace(pattern, (match) => {
       changes.push(`Removed: ${match.slice(0, 50)}${match.length > 50 ? '...' : ''}`);
       return '';

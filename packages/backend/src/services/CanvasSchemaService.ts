@@ -21,7 +21,6 @@ import {
   ActionResult,
   CanonicalAction,
   SchemaCacheEntry,
-  TemplateSelectionCriteria,
   WorkspaceContext,
   WorkspaceState,
 } from "../types/sdui-integration";
@@ -43,7 +42,6 @@ import { ManifestoValidationResult } from "../types/vos";
 import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from "../types/structural-data";
 import { OutcomeHypothesis } from "../types/sof";
 
-import { featureFlags } from "../config/featureFlags.js"
 
 /**
  * Schema head pointer - points to current schema hash
