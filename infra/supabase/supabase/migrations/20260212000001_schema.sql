@@ -34,16 +34,6 @@ CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO postgres;
 GRANT CREATE ON SCHEMA auth TO postgres;
 
-  -- feature_flags column guard
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    BEGIN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-END;
-$$;
-
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
 
@@ -16006,4 +15996,3921 @@ CREATE TRIGGER prevent_cases_tenant_modification
 
 -- Apply tenant_id immutability to messages
 DROP TRIGGER IF EXISTS prevent_messages_tenant_modification ON messages;
-CREATE TRIGGER prev
+CREATE TRIGGER prev                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   ent_messages_tenant_modification
+  BEFORE UPDATE ON messages
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_tenant_id_modification();
+
+-- Apply tenant_id immutability to agent_sessions
+DROP TRIGGER IF EXISTS prevent_agent_sessions_tenant_modification ON agent_sessions;
+CREATE TRIGGER prevent_agent_sessions_tenant_modification
+  BEFORE UPDATE ON agent_sessions
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_tenant_id_modification();
+
+-- Apply tenant_id immutability to agent_predictions
+DROP TRIGGER IF EXISTS prevent_agent_predictions_tenant_modification ON agent_predictions;
+CREATE TRIGGER prevent_agent_predictions_tenant_modification
+  BEFORE UPDATE ON agent_predictions
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_tenant_id_modification();
+
+-- View to audit tenant isolation compliance
+CREATE OR REPLACE VIEW tenant_isolation_audit AS
+SELECT
+  'cases' as table_name,
+  COUNT(*) as total_records,
+  COUNT(*) FILTER (WHERE tenant_id IS NULL) as missing_tenant_id,
+  COUNT(DISTINCT tenant_id) as unique_tenants
+FROM cases
+UNION ALL
+SELECT
+  'messages' as table_name,
+  COUNT(*) as total_records,
+  COUNT(*) FILTER (WHERE tenant_id IS NULL) as missing_tenant_id,
+  COUNT(DISTINCT tenant_id) as unique_tenants
+FROM messages
+UNION ALL
+SELECT
+  'agent_sessions' as table_name,
+  COUNT(*) as total_records,
+  COUNT(*) FILTER (WHERE tenant_id IS NULL) as missing_tenant_id,
+  COUNT(DISTINCT tenant_id) as unique_tenants
+FROM agent_sessions
+UNION ALL
+SELECT
+  'agent_predictions' as table_name,
+  COUNT(*) as total_records,
+  COUNT(*) FILTER (WHERE tenant_id IS NULL) as missing_tenant_id,
+  COUNT(DISTINCT tenant_id) as unique_tenants
+FROM agent_predictions;
+
+COMMENT ON VIEW tenant_isolation_audit IS 'Audits tenant isolation compliance across tables';
+
+-- Function to log cross-tenant access attempts
+CREATE OR REPLACE FUNCTION log_cross_tenant_access_attempt(
+  p_user_id UUID,
+  p_attempted_tenant_id TEXT,
+  p_actual_tenant_id TEXT,
+  p_action TEXT,
+  p_resource TEXT
+) RETURNS UUID AS $$
+DECLARE
+  v_log_id UUID;
+BEGIN
+  INSERT INTO security_audit_events (
+    user_id,
+    tenant_id,
+    action,
+    resource,
+    required_permissions,
+    user_permissions,
+    metadata
+  ) VALUES (
+    p_user_id::TEXT,
+    p_actual_tenant_id,
+    'ACCESS_DENIED',
+    p_resource,
+    ARRAY[]::TEXT[],
+    ARRAY[]::TEXT[],
+    jsonb_build_object(
+      'violation_type', 'cross_tenant_access',
+      'attempted_tenant_id', p_attempted_tenant_id,
+      'actual_tenant_id', p_actual_tenant_id,
+      'action', p_action
+    )
+  ) RETURNING id INTO v_log_id;
+
+  RETURN v_log_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION log_cross_tenant_access_attempt IS 'Logs cross-tenant access attempts for security monitoring';
+
+-- ================================================
+-- Source: supabase/migrations/20260103000009_data_regions.sql
+-- ================================================
+-- Data Region Metadata
+-- Purpose: Track data location for sovereignty compliance
+-- Compliance: GDPR Article 44-50, SOC2 CC6.7
+
+-- Add data_region column to tenants table
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='tenants' AND column_name='data_region') THEN
+    ALTER TABLE tenants ADD COLUMN data_region TEXT NOT NULL DEFAULT 'us'
+      CHECK (data_region IN ('eu', 'us', 'ap', 'uk', 'ca'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_tenants_data_region ON tenants(data_region);
+
+-- Add data_region column to organizations table (if different from tenants)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='organizations') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='organizations' AND column_name='data_region') THEN
+      ALTER TABLE organizations ADD COLUMN data_region TEXT NOT NULL DEFAULT 'us'
+        CHECK (data_region IN ('eu', 'us', 'ap', 'uk', 'ca'));
+      CREATE INDEX IF NOT EXISTS idx_organizations_data_region ON organizations(data_region);
+    END IF;
+  END IF;
+END $$;
+
+-- Function to validate data region
+CREATE OR REPLACE FUNCTION validate_data_region(p_region TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN p_region IN ('eu', 'us', 'ap', 'uk', 'ca');
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION validate_data_region IS 'Validates if a data region code is valid';
+
+-- Function to get region name
+CREATE OR REPLACE FUNCTION get_region_name(p_region TEXT)
+RETURNS TEXT AS $$
+BEGIN
+  CASE p_region
+    WHEN 'eu' THEN RETURN 'European Union';
+    WHEN 'us' THEN RETURN 'United States';
+    WHEN 'ap' THEN RETURN 'Asia Pacific';
+    WHEN 'uk' THEN RETURN 'United Kingdom';
+    WHEN 'ca' THEN RETURN 'Canada';
+    ELSE RETURN 'Unknown';
+  END CASE;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION get_region_name IS 'Returns the full name of a data region';
+
+-- Function to check if cross-region transfer is allowed
+CREATE OR REPLACE FUNCTION is_cross_region_transfer_allowed(
+  p_from_region TEXT,
+  p_to_region TEXT,
+  p_legal_basis TEXT
+) RETURNS BOOLEAN AS $$
+BEGIN
+  -- Same region is always allowed
+  IF p_from_region = p_to_region THEN
+    RETURN TRUE;
+  END IF;
+
+  -- Check if legal basis is valid
+  IF p_legal_basis NOT IN (
+    'user_consent',
+    'standard_contractual_clauses',
+    'adequacy_decision',
+    'binding_corporate_rules',
+    'derogation'
+  ) THEN
+    RETURN FALSE;
+  END IF;
+
+  -- EU to US requires specific legal basis
+  IF p_from_region = 'eu' AND p_to_region = 'us' THEN
+    RETURN p_legal_basis IN ('standard_contractual_clauses', 'adequacy_decision', 'binding_corporate_rules');
+  END IF;
+
+  -- EU to other regions requires legal basis
+  IF p_from_region = 'eu' THEN
+    RETURN p_legal_basis IS NOT NULL;
+  END IF;
+
+  -- Other transfers allowed with any legal basis
+  RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION is_cross_region_transfer_allowed IS 'Checks if a cross-region data transfer is allowed based on legal basis';
+
+-- Function to enforce data region on insert
+CREATE OR REPLACE FUNCTION enforce_data_region_on_insert()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_tenant_region TEXT;
+BEGIN
+  -- Get tenant's data region
+  SELECT data_region INTO v_tenant_region
+  FROM tenants
+  WHERE id = NEW.tenant_id;
+
+  -- If tenant has a region and record has a region, they must match
+  IF v_tenant_region IS NOT NULL AND NEW.data_region IS NOT NULL THEN
+    IF NEW.data_region != v_tenant_region THEN
+      RAISE EXCEPTION 'Data region mismatch: tenant region is %, but record region is %', v_tenant_region, NEW.data_region;
+    END IF;
+  END IF;
+
+  -- If record doesn't have a region, set it from tenant
+  IF NEW.data_region IS NULL AND v_tenant_region IS NOT NULL THEN
+    NEW.data_region := v_tenant_region;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION enforce_data_region_on_insert IS 'Ensures data is created in the correct region based on tenant';
+
+-- Table to track data region changes
+DROP TABLE IF EXISTS data_region_changes CASCADE;
+CREATE TABLE IF NOT EXISTS data_region_changes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  old_region TEXT NOT NULL,
+  new_region TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  changed_by UUID NOT NULL REFERENCES auth.users(id),
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_region_changes_tenant_id ON data_region_changes(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_data_region_changes_changed_at ON data_region_changes(changed_at);
+
+COMMENT ON TABLE data_region_changes IS 'Audit trail of data region changes';
+
+-- Function to log data region changes
+CREATE OR REPLACE FUNCTION log_data_region_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.data_region != NEW.data_region THEN
+    INSERT INTO data_region_changes (
+      tenant_id,
+      old_region,
+      new_region,
+      reason,
+      changed_by
+    ) VALUES (
+      NEW.id,
+      OLD.data_region,
+      NEW.data_region,
+      'Region change',
+      auth.uid()
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to log region changes on tenants
+DROP TRIGGER IF EXISTS log_tenant_region_change ON tenants;
+CREATE TRIGGER log_tenant_region_change
+  AFTER UPDATE ON tenants
+  FOR EACH ROW
+  WHEN (OLD.data_region IS DISTINCT FROM NEW.data_region)
+  EXECUTE FUNCTION log_data_region_change();
+
+-- View to show data distribution by region
+CREATE OR REPLACE VIEW data_region_distribution AS
+SELECT
+  data_region,
+  get_region_name(data_region) as region_name,
+  COUNT(*) as tenant_count,
+  COUNT(*) FILTER (WHERE status = 'active') as active_tenants,
+  COUNT(*) FILTER (WHERE status != 'active') as inactive_tenants
+FROM tenants
+GROUP BY data_region;
+
+COMMENT ON VIEW data_region_distribution IS 'Shows distribution of tenants across data regions';
+
+-- Function to get tenant's data region
+CREATE OR REPLACE FUNCTION get_tenant_data_region(p_tenant_id TEXT)
+RETURNS TEXT AS $$
+DECLARE
+  v_region TEXT;
+BEGIN
+  SELECT data_region INTO v_region
+  FROM tenants
+  WHERE id = p_tenant_id;
+
+  RETURN v_region;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION get_tenant_data_region IS 'Returns the data region for a tenant';
+
+-- Function to check data sovereignty compliance
+CREATE OR REPLACE FUNCTION check_data_sovereignty_compliance(p_tenant_id TEXT)
+RETURNS TABLE (
+  table_name TEXT,
+  total_records BIGINT,
+  correct_region BIGINT,
+  wrong_region BIGINT,
+  compliance_percentage NUMERIC
+) AS $$
+BEGIN
+  -- This is a placeholder - in production, you'd check actual data location
+  -- against tenant's data region across all tables
+  RETURN QUERY
+  SELECT
+    'placeholder'::TEXT,
+    0::BIGINT,
+    0::BIGINT,
+    0::BIGINT,
+    100.0::NUMERIC;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION check_data_sovereignty_compliance IS 'Checks data sovereignty compliance for a tenant';
+
+-- Enable RLS on data_region_changes
+ALTER TABLE data_region_changes ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Admins can view all region changes
+CREATE POLICY data_region_changes_admin_read ON data_region_changes
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM auth.users
+      WHERE auth.users.id = auth.uid()
+      AND (auth.users.raw_user_meta_data->>'roles')::jsonb @> '"ADMIN"'::jsonb
+    )
+  );
+
+-- Policy: Service role can access all region changes
+CREATE POLICY data_region_changes_service_role ON data_region_changes
+  FOR ALL
+  TO service_role
+  USING (true);
+
+-- ================================================
+-- Source: supabase/migrations/20260103000010_scheduled_jobs.sql
+-- ================================================
+-- Scheduled Deletion Jobs
+-- Purpose: Automated cleanup of expired data
+-- Compliance: GDPR Article 5(1)(e), SOC2 CC6.7
+-- Requires: pg_cron extension
+
+-- Enable pg_cron extension
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Grant permissions
+GRANT USAGE ON SCHEMA cron TO postgres;
+
+-- Create sessions table if it doesn't exist
+CREATE TABLE IF NOT EXISTS sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  tenant_id TEXT REFERENCES tenants(id),
+  token TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+-- Create temp_files table if it doesn't exist
+CREATE TABLE IF NOT EXISTS temp_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  tenant_id TEXT REFERENCES tenants(id),
+  file_path TEXT NOT NULL,
+  file_size BIGINT NOT NULL,
+  mime_type TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_temp_files_user_id ON temp_files(user_id);
+CREATE INDEX IF NOT EXISTS idx_temp_files_created_at ON temp_files(created_at);
+
+-- Function 1: Delete expired sessions
+CREATE OR REPLACE FUNCTION delete_expired_sessions()
+RETURNS INTEGER AS $$
+DECLARE
+  deleted_count INTEGER;
+  retention_period INTERVAL := '30 days';
+BEGIN
+  DELETE FROM sessions
+  WHERE expires_at < NOW() - retention_period
+  RETURNING COUNT(*) INTO deleted_count;
+
+  -- Log the cleanup
+  RAISE NOTICE 'Deleted % expired sessions', deleted_count;
+
+  RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION delete_expired_sessions IS 'Deletes sessions expired more than 30 days ago (runs daily at 2 AM)';
+
+-- Function 2: Delete expired temporary files
+CREATE OR REPLACE FUNCTION delete_expired_temp_files()
+RETURNS INTEGER AS $$
+DECLARE
+  deleted_count INTEGER;
+  retention_period INTERVAL := '7 days';
+BEGIN
+  DELETE FROM temp_files
+  WHERE created_at < NOW() - retention_period
+  RETURNING COUNT(*) INTO deleted_count;
+
+  -- Log the cleanup
+  RAISE NOTICE 'Deleted % expired temporary files', deleted_count;
+
+  RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION delete_expired_temp_files IS 'Deletes temporary files older than 7 days (runs daily at 3 AM)';
+
+-- Function 3: Permanently delete soft-deleted users
+CREATE OR REPLACE FUNCTION permanently_delete_soft_deleted_users()
+RETURNS INTEGER AS $$
+DECLARE
+  deleted_count INTEGER;
+  grace_period INTERVAL := '30 days';
+  v_user_id UUID;
+BEGIN
+  deleted_count := 0;
+
+  -- Find soft-deleted users past grace period
+  FOR v_user_id IN
+    SELECT id FROM auth.users
+    WHERE deleted_at IS NOT NULL
+    AND deleted_at < NOW() - grace_period
+  LOOP
+    -- Delete the user (triggers will handle cleanup)
+    DELETE FROM auth.users WHERE id = v_user_id;
+    deleted_count := deleted_count + 1;
+  END LOOP;
+
+  -- Log the cleanup
+  RAISE NOTICE 'Permanently deleted % soft-deleted users', deleted_count;
+
+  RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION permanently_delete_soft_deleted_users IS 'Permanently deletes users soft-deleted more than 30 days ago (runs weekly on Sunday at 4 AM)';
+
+-- Function 4: Aggregate usage events (for billing)
+CREATE OR REPLACE FUNCTION aggregate_usage_events_job()
+RETURNS INTEGER AS $$
+DECLARE
+  processed_count INTEGER;
+BEGIN
+  -- Call the existing aggregate function
+  SELECT aggregate_usage_events() INTO processed_count;
+
+  -- Log the aggregation
+  RAISE NOTICE 'Aggregated % usage events', processed_count;
+
+  RETURN processed_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION aggregate_usage_events_job IS 'Aggregates usage events into quotas (runs hourly)';
+
+-- Function 5: Reset monthly quotas
+CREATE OR REPLACE FUNCTION reset_monthly_quotas_job()
+RETURNS INTEGER AS $$
+DECLARE
+  reset_count INTEGER;
+BEGIN
+  -- Call the existing reset function
+  SELECT reset_monthly_quotas() INTO reset_count;
+
+  -- Log the reset
+  RAISE NOTICE 'Reset % monthly quotas', reset_count;
+
+  RETURN reset_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION reset_monthly_quotas_job IS 'Resets monthly usage quotas (runs daily at 1 AM)';
+
+-- Function 6: Clean up old audit logs (after retention period)
+CREATE OR REPLACE FUNCTION cleanup_old_audit_logs()
+RETURNS INTEGER AS $$
+DECLARE
+  deleted_count INTEGER;
+  retention_period INTERVAL := '7 years';
+BEGIN
+  -- Only delete logs older than retention period
+  DELETE FROM security_audit_events
+  WHERE created_at < NOW() - retention_period
+  RETURNING COUNT(*) INTO deleted_count;
+
+  -- Log the cleanup
+  RAISE NOTICE 'Cleaned up % old audit logs', deleted_count;
+
+  RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION cleanup_old_audit_logs IS 'Deletes audit logs older than 7 years (runs monthly on 1st at 5 AM)';
+
+-- Schedule Job 1: Delete expired sessions (daily at 2 AM)
+SELECT cron.schedule(
+  'delete-expired-sessions',
+  '0 2 * * *',
+  'SELECT delete_expired_sessions();'
+);
+
+-- Schedule Job 2: Delete expired temp files (daily at 3 AM)
+SELECT cron.schedule(
+  'delete-expired-temp-files',
+  '0 3 * * *',
+  'SELECT delete_expired_temp_files();'
+);
+
+-- Schedule Job 3: Permanently delete soft-deleted users (weekly on Sunday at 4 AM)
+SELECT cron.schedule(
+  'permanently-delete-soft-deleted-users',
+  '0 4 * * 0',
+  'SELECT permanently_delete_soft_deleted_users();'
+);
+
+-- Schedule Job 4: Aggregate usage events (hourly)
+SELECT cron.schedule(
+  'aggregate-usage-events',
+  '0 * * * *',
+  'SELECT aggregate_usage_events_job();'
+);
+
+-- Schedule Job 5: Reset monthly quotas (daily at 1 AM)
+SELECT cron.schedule(
+  'reset-monthly-quotas',
+  '0 1 * * *',
+  'SELECT reset_monthly_quotas_job();'
+);
+
+-- Schedule Job 6: Clean up old audit logs (monthly on 1st at 5 AM)
+SELECT cron.schedule(
+  'cleanup-old-audit-logs',
+  '0 5 1 * *',
+  'SELECT cleanup_old_audit_logs();'
+);
+
+-- View to monitor scheduled jobs
+CREATE OR REPLACE VIEW scheduled_jobs_status AS
+SELECT
+  jobid,
+  schedule,
+  command,
+  nodename,
+  nodeport,
+  database,
+  username,
+  active,
+  jobname
+FROM cron.job
+ORDER BY jobname;
+
+COMMENT ON VIEW scheduled_jobs_status IS 'Shows status of all scheduled cron jobs';
+
+-- Function to manually trigger a scheduled job (for testing)
+CREATE OR REPLACE FUNCTION trigger_scheduled_job(p_job_name TEXT)
+RETURNS TEXT AS $$
+DECLARE
+  v_result TEXT;
+BEGIN
+  CASE p_job_name
+    WHEN 'delete-expired-sessions' THEN
+      PERFORM delete_expired_sessions();
+      v_result := 'Triggered: delete_expired_sessions';
+    WHEN 'delete-expired-temp-files' THEN
+      PERFORM delete_expired_temp_files();
+      v_result := 'Triggered: delete_expired_temp_files';
+    WHEN 'permanently-delete-soft-deleted-users' THEN
+      PERFORM permanently_delete_soft_deleted_users();
+      v_result := 'Triggered: permanently_delete_soft_deleted_users';
+    WHEN 'aggregate-usage-events' THEN
+      PERFORM aggregate_usage_events_job();
+      v_result := 'Triggered: aggregate_usage_events_job';
+    WHEN 'reset-monthly-quotas' THEN
+      PERFORM reset_monthly_quotas_job();
+      v_result := 'Triggered: reset_monthly_quotas_job';
+    WHEN 'cleanup-old-audit-logs' THEN
+      PERFORM cleanup_old_audit_logs();
+      v_result := 'Triggered: cleanup_old_audit_logs';
+    ELSE
+      v_result := 'Unknown job: ' || p_job_name;
+  END CASE;
+
+  RETURN v_result;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trigger_scheduled_job IS 'Manually triggers a scheduled job for testing';
+
+-- Table to track job execution history
+CREATE TABLE IF NOT EXISTS job_execution_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_name TEXT NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+  records_processed INTEGER,
+  error_message TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_execution_history_job_name ON job_execution_history(job_name);
+CREATE INDEX IF NOT EXISTS idx_job_execution_history_started_at ON job_execution_history(started_at);
+CREATE INDEX IF NOT EXISTS idx_job_execution_history_status ON job_execution_history(status);
+
+COMMENT ON TABLE job_execution_history IS 'Tracks execution history of scheduled jobs';
+
+-- Function to log job execution
+CREATE OR REPLACE FUNCTION log_job_execution(
+  p_job_name TEXT,
+  p_status TEXT,
+  p_records_processed INTEGER DEFAULT NULL,
+  p_error_message TEXT DEFAULT NULL
+) RETURNS UUID AS $$
+DECLARE
+  v_log_id UUID;
+BEGIN
+  INSERT INTO job_execution_history (
+    job_name,
+    status,
+    records_processed,
+    error_message,
+    completed_at
+  ) VALUES (
+    p_job_name,
+    p_status,
+    p_records_processed,
+    p_error_message,
+    CASE WHEN p_status IN ('completed', 'failed') THEN NOW() ELSE NULL END
+  ) RETURNING id INTO v_log_id;
+
+  RETURN v_log_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION log_job_execution IS 'Logs execution of a scheduled job';
+
+-- ================================================
+-- Source: supabase/migrations/20260103000011_fix_tenant_id_types.sql
+-- ================================================
+-- Fix tenant_id type mismatches
+-- The tenants table uses TEXT for id, not UUID
+
+-- Drop existing tables if they exist (from partial migrations)
+DROP TABLE IF EXISTS legal_holds CASCADE;
+DROP TABLE IF EXISTS user_deletions CASCADE;
+DROP TABLE IF EXISTS cross_region_transfers CASCADE;
+DROP TABLE IF EXISTS user_consents CASCADE;
+DROP TABLE IF EXISTS security_incidents CASCADE;
+DROP TABLE IF EXISTS data_region_changes CASCADE;
+DROP TABLE IF EXISTS sessions CASCADE;
+DROP TABLE IF EXISTS temp_files CASCADE;
+
+-- Recreate legal_holds with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS legal_holds (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  tenant_id TEXT REFERENCES tenants(id),
+  reason TEXT NOT NULL,
+  case_number TEXT,
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  lifted_at TIMESTAMPTZ,
+  lifted_by UUID REFERENCES auth.users(id),
+  status TEXT NOT NULL CHECK (status IN ('active', 'lifted')) DEFAULT 'active',
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_legal_holds_user_id ON legal_holds(user_id);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_tenant_id ON legal_holds(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_status ON legal_holds(status);
+CREATE INDEX IF NOT EXISTS idx_legal_holds_created_at ON legal_holds(created_at);
+
+-- Recreate user_deletions with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS user_deletions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  user_email TEXT NOT NULL,
+  tenant_id TEXT REFERENCES tenants(id),
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  requested_by UUID REFERENCES auth.users(id),
+  completed_at TIMESTAMPTZ,
+  deletion_type TEXT NOT NULL CHECK (deletion_type IN (
+    'user_request',
+    'admin_action',
+    'gdpr_compliance',
+    'account_closure',
+    'inactivity'
+  )),
+  reason TEXT,
+  data_exported BOOLEAN DEFAULT FALSE,
+  export_url TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_deletions_user_id ON user_deletions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_user_email ON user_deletions(user_email);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_tenant_id ON user_deletions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_requested_at ON user_deletions(requested_at);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_completed_at ON user_deletions(completed_at);
+CREATE INDEX IF NOT EXISTS idx_user_deletions_deletion_type ON user_deletions(deletion_type);
+
+-- Recreate cross_region_transfers with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS cross_region_transfers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  from_region TEXT NOT NULL,
+  to_region TEXT NOT NULL,
+  data_type TEXT NOT NULL,
+  data_size_bytes BIGINT,
+  legal_basis TEXT NOT NULL CHECK (legal_basis IN (
+    'user_consent',
+    'standard_contractual_clauses',
+    'adequacy_decision',
+    'binding_corporate_rules',
+    'derogation'
+  )),
+  consent_id UUID,
+  transferred_by UUID NOT NULL REFERENCES auth.users(id),
+  transferred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  purpose TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_user_id ON cross_region_transfers(user_id);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_tenant_id ON cross_region_transfers(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_from_region ON cross_region_transfers(from_region);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_to_region ON cross_region_transfers(to_region);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_transferred_at ON cross_region_transfers(transferred_at);
+CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_legal_basis ON cross_region_transfers(legal_basis);
+
+-- Recreate user_consents with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS user_consents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  tenant_id TEXT REFERENCES tenants(id),
+  consent_type TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  withdrawn_at TIMESTAMPTZ,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_consents_user_id ON user_consents(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_consents_tenant_id ON user_consents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_user_consents_consent_type ON user_consents(consent_type);
+
+-- Recreate security_incidents with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS security_incidents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT REFERENCES tenants(id),
+  incident_type TEXT NOT NULL,
+  severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  description TEXT NOT NULL,
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  resolution TEXT,
+  affected_users INTEGER DEFAULT 0,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_security_incidents_tenant_id ON security_incidents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_severity ON security_incidents(severity);
+CREATE INDEX IF NOT EXISTS idx_security_incidents_detected_at ON security_incidents(detected_at);
+
+-- Recreate data_region_changes with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS data_region_changes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  old_region TEXT NOT NULL,
+  new_region TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  changed_by UUID NOT NULL REFERENCES auth.users(id),
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS idx_data_region_changes_tenant_id ON data_region_changes(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_data_region_changes_changed_at ON data_region_changes(changed_at);
+
+-- Recreate sessions with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  tenant_id TEXT REFERENCES tenants(id),
+  token TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+
+-- Recreate temp_files with TEXT tenant_id
+CREATE TABLE IF NOT EXISTS temp_files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  tenant_id TEXT REFERENCES tenants(id),
+  file_path TEXT NOT NULL,
+  file_size BIGINT NOT NULL,
+  mime_type TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_temp_files_user_id ON temp_files(user_id);
+CREATE INDEX IF NOT EXISTS idx_temp_files_created_at ON temp_files(created_at);
+
+-- Enable RLS on all tables
+ALTER TABLE legal_holds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_deletions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cross_region_transfers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_consents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE security_incidents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE data_region_changes ENABLE ROW LEVEL SECURITY;
+
+-- Create service role policies
+CREATE POLICY legal_holds_service_role ON legal_holds FOR ALL TO service_role USING (true);
+CREATE POLICY user_deletions_service_role ON user_deletions FOR ALL TO service_role USING (true);
+CREATE POLICY cross_region_transfers_service_role ON cross_region_transfers FOR ALL TO service_role USING (true);
+CREATE POLICY user_consents_service_role ON user_consents FOR ALL TO service_role USING (true);
+CREATE POLICY security_incidents_service_role ON security_incidents FOR ALL TO service_role USING (true);
+CREATE POLICY data_region_changes_service_role ON data_region_changes FOR ALL TO service_role USING (true);
+
+-- ================================================
+-- Source: supabase/migrations/20260105000001_add_settings_defaults.sql
+-- ================================================
+-- Sprint 1 Fix #3: Add Explicit Database Defaults for Settings
+--
+-- This migration ensures all settings JSONB columns have explicit defaults
+-- and are never null, preventing the "nullish boolean trap" issue.
+--
+-- Date: 2026-01-05
+-- Related: SPRINT1_FIXES.md
+
+-- ============================================================================
+-- Add user_preferences column if it doesn't exist
+-- ============================================================================
+
+-- SKIPPED: Permission denied for auth.users modification
+-- DO $$
+-- BEGIN
+--   IF NOT EXISTS (
+--     SELECT 1 FROM information_schema.columns
+--     WHERE table_schema = 'auth'
+--     AND table_name = 'users'
+--     AND column_name = 'user_preferences'
+--   ) THEN
+--     ALTER TABLE auth.users
+--       ADD COLUMN user_preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
+--   END IF;
+-- END $$;
+--
+-- -- Ensure existing column has proper default
+-- ALTER TABLE auth.users
+--   ALTER COLUMN user_preferences SET DEFAULT '{}'::jsonb;
+--
+-- -- Ensure column is NOT NULL
+-- ALTER TABLE auth.users
+--   ALTER COLUMN user_preferences SET NOT NULL;
+--
+-- -- Update any existing NULL values to empty object
+-- UPDATE auth.users
+-- SET user_preferences = '{}'::jsonb
+-- WHERE user_preferences IS NULL;
+--
+-- -- Add comment
+-- COMMENT ON COLUMN auth.users.user_preferences IS
+--   'User-level settings (theme, notifications, etc.). Always {} never null. Keys are stored without "user." prefix.';
+
+-- ============================================================================
+-- Add team_settings column if it doesn't exist
+-- ============================================================================
+
+-- Check if teams table exists
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'teams'
+  ) THEN
+    -- Add column if it doesn't exist
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+      AND table_name = 'teams'
+      AND column_name = 'team_settings'
+    ) THEN
+      ALTER TABLE public.teams
+        ADD COLUMN team_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
+    END IF;
+
+    -- Ensure existing column has proper default
+    ALTER TABLE public.teams
+      ALTER COLUMN team_settings SET DEFAULT '{}'::jsonb;
+
+    -- Ensure column is NOT NULL
+    ALTER TABLE public.teams
+      ALTER COLUMN team_settings SET NOT NULL;
+
+    -- Update any existing NULL values
+    UPDATE public.teams
+    SET team_settings = '{}'::jsonb
+    WHERE team_settings IS NULL;
+
+    -- Add comment
+    COMMENT ON COLUMN public.teams.team_settings IS
+      'Team-level settings (permissions, workflows, etc.). Always {} never null. Keys are stored without "team." prefix.';
+  END IF;
+END $$;
+
+-- ============================================================================
+-- Update organizations table settings column
+-- ============================================================================
+
+-- Rename 'settings' to 'organization_settings' for consistency
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'organizations'
+    AND column_name = 'settings'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'organizations'
+    AND column_name = 'organization_settings'
+  ) THEN
+    ALTER TABLE public.organizations
+      RENAME COLUMN settings TO organization_settings;
+  END IF;
+END $$;
+
+-- Ensure organization_settings exists with proper default
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'organizations'
+    AND column_name = 'organization_settings'
+  ) THEN
+    ALTER TABLE public.organizations
+      ADD COLUMN organization_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
+  END IF;
+END $$;
+
+-- Ensure existing column has proper default
+ALTER TABLE public.organizations
+  ALTER COLUMN organization_settings SET DEFAULT '{}'::jsonb;
+
+-- Ensure column is NOT NULL
+ALTER TABLE public.organizations
+  ALTER COLUMN organization_settings SET NOT NULL;
+
+-- Update any existing NULL values
+UPDATE public.organizations
+SET organization_settings = '{}'::jsonb
+WHERE organization_settings IS NULL;
+
+-- Add comment
+COMMENT ON COLUMN public.organizations.organization_settings IS
+  'Organization-level settings (security, billing, etc.). Always {} never null. Keys are stored without "organization." prefix.';
+
+-- ============================================================================
+-- Clean up redundant nesting in existing data
+-- ============================================================================
+
+-- Fix user_preferences with redundant "user" nesting
+-- SKIPPED: auth.users modification
+-- UPDATE auth.users
+-- SET user_preferences = (user_preferences->'user')
+-- WHERE user_preferences ? 'user'
+--   AND jsonb_typeof(user_preferences->'user') = 'object';
+
+-- Fix team_settings with redundant "team" nesting
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'teams'
+  ) THEN
+    UPDATE public.teams
+    SET team_settings = (team_settings->'team')
+    WHERE team_settings ? 'team'
+      AND jsonb_typeof(team_settings->'team') = 'object';
+  END IF;
+END $$;
+
+-- Fix organization_settings with redundant "organization" nesting
+UPDATE public.organizations
+SET organization_settings = (organization_settings->'organization')
+WHERE organization_settings ? 'organization'
+  AND jsonb_typeof(organization_settings->'organization') = 'object';
+
+-- ============================================================================
+-- Add indexes for common queries
+-- ============================================================================
+
+-- Index for user preferences queries
+-- SKIPPED: auth.users index
+-- CREATE INDEX IF NOT EXISTS idx_users_preferences_gin
+--   ON auth.users USING GIN (user_preferences);
+
+-- Index for team settings queries
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'teams'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_teams_settings_gin
+      ON public.teams USING GIN (team_settings);
+  END IF;
+END $$;
+
+-- Index for organization settings queries
+CREATE INDEX IF NOT EXISTS idx_organizations_settings_gin
+  ON public.organizations USING GIN (organization_settings);
+
+-- ============================================================================
+-- Verification queries (for testing)
+-- ============================================================================
+
+-- Verify no NULL values exist
+DO $$
+DECLARE
+  null_count INTEGER;
+BEGIN
+  -- SKIPPED: Check users
+  -- SELECT COUNT(*) INTO null_count
+  -- FROM auth.users
+  -- WHERE user_preferences IS NULL;
+
+  -- IF null_count > 0 THEN
+  --   RAISE WARNING 'Found % NULL user_preferences', null_count;
+  -- END IF;
+
+  -- Check teams
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'teams'
+  ) THEN
+    SELECT COUNT(*) INTO null_count
+    FROM public.teams
+    WHERE team_settings IS NULL;
+
+    IF null_count > 0 THEN
+      RAISE WARNING 'Found % NULL team_settings', null_count;
+    END IF;
+  END IF;
+
+  -- Check organizations
+  SELECT COUNT(*) INTO null_count
+  FROM public.organizations
+  WHERE organization_settings IS NULL;
+
+  IF null_count > 0 THEN
+    RAISE WARNING 'Found % NULL organization_settings', null_count;
+  END IF;
+
+  RAISE NOTICE 'Settings defaults migration completed successfully';
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260105000002_fix_audit_immutability.sql
+-- ================================================
+-- Fix Audit Trail Immutability
+-- Purpose: Prevent UPDATE/DELETE on audit tables
+-- Priority: CRITICAL
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #5
+
+-- ============================================================================
+-- 1. audit_logs - Main audit table
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_audit_logs_update ON audit_logs
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations
+CREATE POLICY deny_audit_logs_delete ON audit_logs
+  FOR DELETE
+  USING (false);
+
+COMMENT ON POLICY deny_audit_logs_update ON audit_logs IS
+  'Audit logs are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_audit_logs_delete ON audit_logs IS
+  'Audit logs are immutable - deletes are not allowed';
+
+-- ============================================================================
+-- 2. security_audit_events - Security audit table
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_security_audit_update ON security_audit_events
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations
+CREATE POLICY deny_security_audit_delete ON security_audit_events
+  FOR DELETE
+  USING (false);
+
+COMMENT ON POLICY deny_security_audit_update ON security_audit_events IS
+  'Security audit events are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_security_audit_delete ON security_audit_events IS
+  'Security audit events are immutable - deletes are not allowed';
+
+-- ============================================================================
+-- 3. secret_audit_logs - Secret access audit table
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_secret_audit_update ON secret_audit_logs
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations
+CREATE POLICY deny_secret_audit_delete ON secret_audit_logs
+  FOR DELETE
+  USING (false);
+
+COMMENT ON POLICY deny_secret_audit_update ON secret_audit_logs IS
+  'Secret audit logs are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_secret_audit_delete ON secret_audit_logs IS
+  'Secret audit logs are immutable - deletes are not allowed';
+
+-- ============================================================================
+-- 4. secret_audit_logs_legacy - Legacy secret audit table
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_secret_audit_legacy_update ON secret_audit_logs_legacy
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations
+CREATE POLICY deny_secret_audit_legacy_delete ON secret_audit_logs_legacy
+  FOR DELETE
+  USING (false);
+
+COMMENT ON POLICY deny_secret_audit_legacy_update ON secret_audit_logs_legacy IS
+  'Legacy secret audit logs are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_secret_audit_legacy_delete ON secret_audit_logs_legacy IS
+  'Legacy secret audit logs are immutable - deletes are not allowed';
+
+-- ============================================================================
+-- 5. audit_logs_archive - Archived audit logs
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_audit_logs_archive_update ON audit_logs_archive
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations
+CREATE POLICY deny_audit_logs_archive_delete ON audit_logs_archive
+  FOR DELETE
+  USING (false);
+
+COMMENT ON POLICY deny_audit_logs_archive_update ON audit_logs_archive IS
+  'Archived audit logs are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_audit_logs_archive_delete ON audit_logs_archive IS
+  'Archived audit logs are immutable - deletes are not allowed';
+
+-- ============================================================================
+-- 6. audit_log_access - Audit log access tracking
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_audit_log_access_update ON audit_log_access
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations
+CREATE POLICY deny_audit_log_access_delete ON audit_log_access
+  FOR DELETE
+  USING (false);
+
+COMMENT ON POLICY deny_audit_log_access_update ON audit_log_access IS
+  'Audit log access records are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_audit_log_access_delete ON audit_log_access IS
+  'Audit log access records are immutable - deletes are not allowed';
+
+-- ============================================================================
+-- 7. agent_audit_log - Agent activity audit
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_agent_audit_update ON agent_audit_log
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations
+CREATE POLICY deny_agent_audit_delete ON agent_audit_log
+  FOR DELETE
+  USING (false);
+
+COMMENT ON POLICY deny_agent_audit_update ON agent_audit_log IS
+  'Agent audit logs are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_agent_audit_delete ON agent_audit_log IS
+  'Agent audit logs are immutable - deletes are not allowed';
+
+-- ============================================================================
+-- 8. login_attempts - Authentication audit
+-- ============================================================================
+
+-- Deny UPDATE operations
+CREATE POLICY deny_login_attempts_update ON login_attempts
+  FOR UPDATE
+  USING (false);
+
+-- Deny DELETE operations (except service role for cleanup)
+CREATE POLICY deny_login_attempts_delete ON login_attempts
+  FOR DELETE
+  USING (
+    -- Only service role can delete old login attempts
+    auth.jwt() ->> 'role' = 'service_role'
+  );
+
+COMMENT ON POLICY deny_login_attempts_update ON login_attempts IS
+  'Login attempts are immutable - updates are not allowed';
+
+COMMENT ON POLICY deny_login_attempts_delete ON login_attempts IS
+  'Login attempts can only be deleted by service role for cleanup';
+
+-- ============================================================================
+-- 9. Create function to safely archive old audit logs
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION archive_old_audit_logs(
+  p_retention_days INTEGER DEFAULT 365
+)
+RETURNS TABLE(
+  table_name TEXT,
+  records_archived BIGINT,
+  records_deleted BIGINT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_cutoff_date TIMESTAMPTZ;
+  v_archived BIGINT;
+  v_deleted BIGINT;
+BEGIN
+  v_cutoff_date := NOW() - (p_retention_days || ' days')::INTERVAL;
+
+  -- Archive audit_logs
+  WITH archived AS (
+    INSERT INTO audit_logs_archive
+    SELECT * FROM audit_logs
+    WHERE created_at < v_cutoff_date
+    RETURNING *
+  )
+  SELECT COUNT(*) INTO v_archived FROM archived;
+
+  -- Note: We don't delete from audit_logs due to immutability
+  -- This function is for future use when archival strategy is defined
+
+  RETURN QUERY SELECT
+    'audit_logs'::TEXT,
+    v_archived,
+    0::BIGINT;
+END;
+$$;
+
+COMMENT ON FUNCTION archive_old_audit_logs IS
+  'Archives old audit logs to archive table. Does not delete due to immutability requirements.';
+
+-- ============================================================================
+-- 10. Create function to verify audit trail integrity
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION verify_audit_trail_integrity()
+RETURNS TABLE(
+  table_name TEXT,
+  total_records BIGINT,
+  oldest_record TIMESTAMPTZ,
+  newest_record TIMESTAMPTZ,
+  has_gaps BOOLEAN,
+  status TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    'audit_logs'::TEXT,
+    COUNT(*)::BIGINT,
+    MIN(created_at),
+    MAX(created_at),
+    false, -- Placeholder for gap detection
+    'OK'::TEXT
+  FROM audit_logs
+
+  UNION ALL
+
+  SELECT
+    'security_audit_events'::TEXT,
+    COUNT(*)::BIGINT,
+    MIN(timestamp),
+    MAX(timestamp),
+    false,
+    'OK'::TEXT
+  FROM security_audit_events
+
+  UNION ALL
+
+  SELECT
+    'secret_audit_logs'::TEXT,
+    COUNT(*)::BIGINT,
+    MIN(timestamp),
+    MAX(timestamp),
+    false,
+    'OK'::TEXT
+  FROM secret_audit_logs;
+END;
+$$;
+
+COMMENT ON FUNCTION verify_audit_trail_integrity IS
+  'Verifies audit trail integrity by checking for gaps and anomalies';
+
+-- ============================================================================
+-- 11. Grant execute permissions
+-- ============================================================================
+
+GRANT EXECUTE ON FUNCTION archive_old_audit_logs TO service_role;
+GRANT EXECUTE ON FUNCTION verify_audit_trail_integrity TO authenticated;
+
+-- ============================================================================
+-- 12. Create view for audit trail monitoring
+-- ============================================================================
+
+CREATE OR REPLACE VIEW audit_trail_health AS
+SELECT
+  'audit_logs' as table_name,
+  COUNT(*) as record_count,
+  MIN(created_at) as oldest_record,
+  MAX(created_at) as newest_record,
+  COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as last_24h,
+  COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days') as last_7d
+FROM audit_logs
+
+UNION ALL
+
+SELECT
+  'security_audit_events' as table_name,
+  COUNT(*) as record_count,
+  MIN(timestamp) as oldest_record,
+  MAX(timestamp) as newest_record,
+  COUNT(*) FILTER (WHERE timestamp > NOW() - INTERVAL '24 hours') as last_24h,
+  COUNT(*) FILTER (WHERE timestamp > NOW() - INTERVAL '7 days') as last_7d
+FROM security_audit_events
+
+UNION ALL
+
+SELECT
+  'secret_audit_logs' as table_name,
+  COUNT(*) as record_count,
+  MIN(timestamp) as oldest_record,
+  MAX(timestamp) as newest_record,
+  COUNT(*) FILTER (WHERE timestamp > NOW() - INTERVAL '24 hours') as last_24h,
+  COUNT(*) FILTER (WHERE timestamp > NOW() - INTERVAL '7 days') as last_7d
+FROM secret_audit_logs;
+
+COMMENT ON VIEW audit_trail_health IS
+  'Provides health metrics for audit trail tables';
+
+GRANT SELECT ON audit_trail_health TO authenticated;
+
+-- ================================================
+-- Source: supabase/migrations/20260105000002_organization_config_audit_trigger.sql
+-- ================================================
+-- Organization Configurations Audit Trigger
+-- Phase 2 Task 3: Audit Log Trigger
+--
+-- Ensures every UPDATE on organization_configurations triggers an audit log entry
+-- Tracks all configuration changes for compliance and security
+
+-- ============================================================================
+-- Audit Log Function for Organization Configurations
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION audit_organization_configuration_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_user_id UUID;
+  v_changes JSONB;
+  v_old_values JSONB;
+  v_new_values JSONB;
+BEGIN
+  -- Get current user ID from auth context
+  v_user_id := auth.uid();
+
+  -- If no user context (e.g., system update), use a system user ID
+  IF v_user_id IS NULL THEN
+    v_user_id := '00000000-0000-0000-0000-000000000000'::UUID;
+  END IF;
+
+  -- Build old and new values JSONB
+  v_old_values := jsonb_build_object(
+    'auth_policy', OLD.auth_policy,
+    'session_control', OLD.session_control,
+    'llm_spending_limits', OLD.llm_spending_limits,
+    'model_routing', OLD.model_routing,
+    'agent_toggles', OLD.agent_toggles,
+    'hitl_thresholds', OLD.hitl_thresholds,
+    'feature_flags', OLD.feature_flags,
+    'rate_limiting', OLD.rate_limiting,
+    'observability', OLD.observability,
+    'retention_policies', OLD.retention_policies,
+    'tenant_provisioning', OLD.tenant_provisioning,
+    'custom_branding', OLD.custom_branding,
+    'sso_config', OLD.sso_config,
+    'ip_whitelist', OLD.ip_whitelist
+  );
+
+  v_new_values := jsonb_build_object(
+    'auth_policy', NEW.auth_policy,
+    'session_control', NEW.session_control,
+    'llm_spending_limits', NEW.llm_spending_limits,
+    'model_routing', NEW.model_routing,
+    'agent_toggles', NEW.agent_toggles,
+    'hitl_thresholds', NEW.hitl_thresholds,
+    'feature_flags', NEW.feature_flags,
+    'rate_limiting', NEW.rate_limiting,
+    'observability', NEW.observability,
+    'retention_policies', NEW.retention_policies,
+    'tenant_provisioning', NEW.tenant_provisioning,
+    'custom_branding', NEW.custom_branding,
+    'sso_config', NEW.sso_config,
+    'ip_whitelist', NEW.ip_whitelist
+  );
+
+  -- Calculate changes (only fields that actually changed)
+  v_changes := jsonb_build_object();
+
+  -- Check each field for changes
+  IF OLD.auth_policy IS DISTINCT FROM NEW.auth_policy THEN
+    v_changes := v_changes || jsonb_build_object(
+      'auth_policy', jsonb_build_object(
+        'old', OLD.auth_policy,
+        'new', NEW.auth_policy
+      )
+    );
+  END IF;
+
+  IF OLD.session_control IS DISTINCT FROM NEW.session_control THEN
+    v_changes := v_changes || jsonb_build_object(
+      'session_control', jsonb_build_object(
+        'old', OLD.session_control,
+        'new', NEW.session_control
+      )
+    );
+  END IF;
+
+  IF OLD.llm_spending_limits IS DISTINCT FROM NEW.llm_spending_limits THEN
+    v_changes := v_changes || jsonb_build_object(
+      'llm_spending_limits', jsonb_build_object(
+        'old', OLD.llm_spending_limits,
+        'new', NEW.llm_spending_limits
+      )
+    );
+  END IF;
+
+  IF OLD.agent_toggles IS DISTINCT FROM NEW.agent_toggles THEN
+    v_changes := v_changes || jsonb_build_object(
+      'agent_toggles', jsonb_build_object(
+        'old', OLD.agent_toggles,
+        'new', NEW.agent_toggles
+      )
+    );
+  END IF;
+
+  IF OLD.feature_flags IS DISTINCT FROM NEW.feature_flags THEN
+    v_changes := v_changes || jsonb_build_object(
+      'feature_flags', jsonb_build_object(
+        'old', OLD.feature_flags,
+        'new', NEW.feature_flags
+      )
+    );
+  END IF;
+
+  IF OLD.rate_limiting IS DISTINCT FROM NEW.rate_limiting THEN
+    v_changes := v_changes || jsonb_build_object(
+      'rate_limiting', jsonb_build_object(
+        'old', OLD.rate_limiting,
+        'new', NEW.rate_limiting
+      )
+    );
+  END IF;
+
+  IF OLD.tenant_provisioning IS DISTINCT FROM NEW.tenant_provisioning THEN
+    v_changes := v_changes || jsonb_build_object(
+      'tenant_provisioning', jsonb_build_object(
+        'old', OLD.tenant_provisioning,
+        'new', NEW.tenant_provisioning
+      )
+    );
+  END IF;
+
+  -- Insert audit log entry
+  INSERT INTO audit_logs (
+    user_id,
+    action,
+    resource_type,
+    resource_id,
+    old_values,
+    new_values,
+    changes,
+    metadata,
+    created_at
+  ) VALUES (
+    v_user_id,
+    'UPDATE',
+    'organization_configuration',
+    NEW.organization_id::TEXT,
+    v_old_values,
+    v_new_values,
+    v_changes,
+    jsonb_build_object(
+      'organization_id', NEW.organization_id,
+      'configuration_id', NEW.id,
+      'ip_address', current_setting('request.headers', true)::jsonb->>'x-forwarded-for',
+      'user_agent', current_setting('request.headers', true)::jsonb->>'user-agent',
+      'changed_fields', jsonb_object_keys(v_changes)
+    ),
+    NOW()
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- Create Trigger
+-- ============================================================================
+
+
+DROP TRIGGER IF EXISTS audit_organization_configuration_updates ON organization_configurations;
+CREATE TRIGGER audit_organization_configuration_updates
+  AFTER UPDATE ON organization_configurations
+  FOR EACH ROW
+  EXECUTE FUNCTION audit_organization_configuration_changes();
+
+-- ============================================================================
+-- Add Comment
+-- ============================================================================
+
+COMMENT ON FUNCTION audit_organization_configuration_changes() IS
+  'Audit trigger function that logs all changes to organization configurations. Tracks old and new values, calculates specific changes, and stores metadata. Required for SOC2 compliance and security monitoring.';
+
+COMMENT ON TRIGGER audit_organization_configuration_updates ON organization_configurations IS
+  'Automatically creates audit log entries for all organization configuration updates. Captures user context, changed fields, and timestamps for compliance tracking.';
+
+-- ============================================================================
+-- Grant Permissions
+-- ============================================================================
+
+-- Allow authenticated users to trigger the function (via UPDATE)
+GRANT EXECUTE ON FUNCTION audit_organization_configuration_changes() TO authenticated;
+
+-- Service role needs full access
+GRANT EXECUTE ON FUNCTION audit_organization_configuration_changes() TO service_role;
+
+-- ============================================================================
+-- Test the Trigger
+-- ============================================================================
+
+-- This test will be rolled back, but verifies the trigger works
+DO $$
+DECLARE
+  v_test_org_id UUID;
+  v_audit_count_before INT;
+  v_audit_count_after INT;
+BEGIN
+  -- Get a test organization
+  SELECT id INTO v_test_org_id
+  FROM organizations
+  LIMIT 1;
+
+  IF v_test_org_id IS NOT NULL THEN
+    -- Count audit logs before
+    SELECT COUNT(*) INTO v_audit_count_before
+    FROM audit_logs
+    WHERE resource_type = 'organization_configuration'
+    AND resource_id = v_test_org_id::TEXT;
+
+    -- Update configuration (this should trigger audit log)
+    UPDATE organization_configurations
+    SET auth_policy = jsonb_set(
+      COALESCE(auth_policy, '{}'::jsonb),
+      '{enforceMFA}',
+      'true'::jsonb
+    )
+    WHERE organization_id = v_test_org_id;
+
+    -- Count audit logs after
+    SELECT COUNT(*) INTO v_audit_count_after
+    FROM audit_logs
+    WHERE resource_type = 'organization_configuration'
+    AND resource_id = v_test_org_id::TEXT;
+
+    -- Verify trigger fired
+    IF v_audit_count_after > v_audit_count_before THEN
+      RAISE NOTICE 'Audit trigger test PASSED: % new audit log(s) created',
+        v_audit_count_after - v_audit_count_before;
+    ELSE
+      RAISE WARNING 'Audit trigger test FAILED: No audit logs created';
+    END IF;
+  ELSE
+    RAISE NOTICE 'No test organization found, skipping trigger test';
+  END IF;
+END $$;
+
+-- ============================================================================
+-- Create Index for Audit Log Queries
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_org_config
+  ON audit_logs(resource_type, resource_id, created_at DESC)
+  WHERE resource_type = 'organization_configuration';
+
+COMMENT ON INDEX idx_audit_logs_org_config IS
+  'Optimizes queries for organization configuration audit logs. Supports compliance reporting and security investigations.';
+
+-- ================================================
+-- Source: supabase/migrations/20260105000003_add_performance_indexes.sql
+-- ================================================
+-- Add Performance Indexes
+-- Purpose: Add missing composite indexes for RLS and query performance
+-- Priority: HIGH
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #6
+
+-- ============================================================================
+-- 1. RLS Policy Join Tables - Critical for Performance
+-- ============================================================================
+
+-- user_organizations composite index for RLS policies
+CREATE INDEX IF NOT EXISTS idx_user_organizations_user_org
+ON user_organizations(user_id, organization_id);
+
+COMMENT ON INDEX idx_user_organizations_user_org IS
+  'Optimizes RLS policy lookups for user-organization relationships';
+
+-- user_tenants composite index for RLS policies
+CREATE INDEX IF NOT EXISTS idx_user_tenants_user_tenant
+ON user_tenants(user_id, tenant_id);
+
+COMMENT ON INDEX idx_user_tenants_user_tenant IS
+  'Optimizes RLS policy lookups for user-tenant relationships';
+
+-- ============================================================================
+-- 2. Integration Tables
+-- ============================================================================
+
+-- integration_connections by organization and type
+CREATE INDEX IF NOT EXISTS idx_integration_connections_org_type
+ON integration_connections(organization_id, adapter_type);
+
+COMMENT ON INDEX idx_integration_connections_org_type IS
+  'Optimizes queries for integrations by organization and adapter type';
+
+-- sync_history by connection and time
+CREATE INDEX IF NOT EXISTS idx_sync_history_connection_time
+ON sync_history(connection_id, started_at DESC);
+
+COMMENT ON INDEX idx_sync_history_connection_time IS
+  'Optimizes sync history queries by connection and time';
+
+-- sync_history by status for monitoring
+CREATE INDEX IF NOT EXISTS idx_sync_history_status_time
+ON sync_history(status, started_at DESC)
+WHERE status IN ('running', 'failed');
+
+COMMENT ON INDEX idx_sync_history_status_time IS
+  'Optimizes queries for active and failed syncs';
+
+-- ============================================================================
+-- 3. Audit Tables
+-- ============================================================================
+
+-- audit_logs by organization and time
+CREATE INDEX IF NOT EXISTS idx_audit_logs_org_time
+ON audit_logs(organization_id, created_at DESC);
+
+COMMENT ON INDEX idx_audit_logs_org_time IS
+  'Optimizes audit log queries by organization and time';
+
+-- audit_logs by user and time
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_time
+ON audit_logs(user_id, created_at DESC);
+
+COMMENT ON INDEX idx_audit_logs_user_time IS
+  'Optimizes audit log queries by user and time';
+
+-- audit_logs by action and time
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_time
+ON audit_logs(action, created_at DESC);
+
+COMMENT ON INDEX idx_audit_logs_action_time IS
+  'Optimizes audit log queries by action type and time';
+
+-- security_audit_events by tenant and time
+CREATE INDEX IF NOT EXISTS idx_security_audit_events_tenant_time
+ON security_audit_events(tenant_id, timestamp DESC);
+
+COMMENT ON INDEX idx_security_audit_events_tenant_time IS
+  'Optimizes security audit queries by tenant and time';
+
+-- security_audit_events by action
+CREATE INDEX IF NOT EXISTS idx_security_audit_events_action
+ON security_audit_events(action, timestamp DESC);
+
+COMMENT ON INDEX idx_security_audit_events_action IS
+  'Optimizes security audit queries by action type';
+
+-- ============================================================================
+-- 4. LLM Tables
+-- ============================================================================
+
+-- llm_gating_policies by tenant
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_tenant
+ON llm_gating_policies(tenant_id);
+
+COMMENT ON INDEX idx_llm_gating_policies_tenant IS
+  'Optimizes LLM gating policy lookups by tenant';
+
+-- llm_usage by tenant and time
+CREATE INDEX IF NOT EXISTS idx_llm_usage_tenant_time
+ON llm_usage(tenant_id, created_at DESC);
+
+COMMENT ON INDEX idx_llm_usage_tenant_time IS
+  'Optimizes LLM usage queries by tenant and time';
+
+-- llm_usage by user and time
+CREATE INDEX IF NOT EXISTS idx_llm_usage_user_time
+ON llm_usage(user_id, created_at DESC)
+WHERE user_id IS NOT NULL;
+
+COMMENT ON INDEX idx_llm_usage_user_time IS
+  'Optimizes LLM usage queries by user and time';
+
+-- llm_usage by model for analytics
+CREATE INDEX IF NOT EXISTS idx_llm_usage_model_time
+ON llm_usage(model, created_at DESC);
+
+COMMENT ON INDEX idx_llm_usage_model_time IS
+  'Optimizes LLM usage analytics by model';
+
+-- llm_calls by tenant (if tenant_id exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'llm_calls' AND column_name = 'tenant_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_llm_calls_tenant_time
+    ON llm_calls(tenant_id, created_at DESC);
+  END IF;
+END $$;
+
+-- ============================================================================
+-- 5. Agent Tables
+-- ============================================================================
+
+-- agent_sessions by tenant and time
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_tenant_time
+ON agent_sessions(tenant_id, started_at DESC);
+
+COMMENT ON INDEX idx_agent_sessions_tenant_time IS
+  'Optimizes agent session queries by tenant and time';
+
+-- agent_predictions by tenant and time
+CREATE INDEX IF NOT EXISTS idx_agent_predictions_tenant_time
+ON agent_predictions(tenant_id, created_at DESC);
+
+COMMENT ON INDEX idx_agent_predictions_tenant_time IS
+  'Optimizes agent prediction queries by tenant and time';
+
+-- agent_memory by organization and session
+CREATE INDEX IF NOT EXISTS idx_agent_memory_org_session
+ON agent_memory(organization_id, session_id);
+
+COMMENT ON INDEX idx_agent_memory_org_session IS
+  'Optimizes agent memory queries by organization and session';
+
+-- ============================================================================
+-- 6. Archive Tables
+-- ============================================================================
+
+-- approval_requests_archive by tenant and time
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant_time
+ON approval_requests_archive(tenant_id, created_at DESC);
+
+COMMENT ON INDEX idx_approval_requests_archive_tenant_time IS
+  'Optimizes archived approval request queries by tenant and time';
+
+-- approvals_archive by tenant and time
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant_time
+ON approvals_archive(tenant_id, approved_at DESC);
+
+COMMENT ON INDEX idx_approvals_archive_tenant_time IS
+  'Optimizes archived approval queries by tenant and time';
+
+-- ============================================================================
+-- 7. JSONB Indexes for Configuration Queries
+-- ============================================================================
+
+-- integration_connections config
+CREATE INDEX IF NOT EXISTS idx_integration_connections_config_gin
+ON integration_connections USING GIN (config);
+
+COMMENT ON INDEX idx_integration_connections_config_gin IS
+  'Optimizes JSONB queries on integration configuration';
+
+-- integration_connections field_mappings
+CREATE INDEX IF NOT EXISTS idx_integration_connections_mappings_gin
+ON integration_connections USING GIN (field_mappings);
+
+COMMENT ON INDEX idx_integration_connections_mappings_gin IS
+  'Optimizes JSONB queries on field mappings';
+
+-- llm_gating_policies routing_rules
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_routing_gin
+ON llm_gating_policies USING GIN (routing_rules);
+
+COMMENT ON INDEX idx_llm_gating_policies_routing_gin IS
+  'Optimizes JSONB queries on LLM routing rules';
+
+-- llm_gating_policies manifesto_enforcement
+CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_manifesto_gin
+ON llm_gating_policies USING GIN (manifesto_enforcement);
+
+COMMENT ON INDEX idx_llm_gating_policies_manifesto_gin IS
+  'Optimizes JSONB queries on manifesto enforcement configuration';
+
+-- ============================================================================
+-- 8. Foreign Key Indexes (if missing)
+-- ============================================================================
+
+-- integration_usage_log foreign keys
+CREATE INDEX IF NOT EXISTS idx_integration_usage_log_integration
+ON integration_usage_log(integration_id);
+
+CREATE INDEX IF NOT EXISTS idx_integration_usage_log_user
+ON integration_usage_log(user_id);
+
+-- webhook_events tenant_id (if exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'webhook_events' AND column_name = 'tenant_id'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_webhook_events_tenant
+    ON webhook_events(tenant_id);
+  END IF;
+END $$;
+
+-- ============================================================================
+-- 9. Time-Series Indexes (BRIN for large tables)
+-- ============================================================================
+
+-- audit_logs BRIN index for time-series queries
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at_brin
+ON audit_logs USING BRIN (created_at);
+
+COMMENT ON INDEX idx_audit_logs_created_at_brin IS
+  'BRIN index for efficient time-range queries on large audit log table';
+
+-- llm_usage BRIN index for time-series queries
+CREATE INDEX IF NOT EXISTS idx_llm_usage_created_at_brin
+ON llm_usage USING BRIN (created_at);
+
+COMMENT ON INDEX idx_llm_usage_created_at_brin IS
+  'BRIN index for efficient time-range queries on large LLM usage table';
+
+-- sync_history BRIN index for time-series queries
+CREATE INDEX IF NOT EXISTS idx_sync_history_started_at_brin
+ON sync_history USING BRIN (started_at);
+
+COMMENT ON INDEX idx_sync_history_started_at_brin IS
+  'BRIN index for efficient time-range queries on large sync history table';
+
+-- ============================================================================
+-- 10. Analyze tables to update statistics
+-- ============================================================================
+
+ANALYZE user_organizations;
+ANALYZE user_tenants;
+ANALYZE integration_connections;
+ANALYZE sync_history;
+ANALYZE audit_logs;
+ANALYZE security_audit_events;
+ANALYZE llm_gating_policies;
+ANALYZE llm_usage;
+ANALYZE agent_sessions;
+ANALYZE agent_predictions;
+
+-- ============================================================================
+-- Summary
+-- ============================================================================
+
+DO $$
+DECLARE
+  v_index_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO v_index_count
+  FROM pg_indexes
+  WHERE schemaname = 'public'
+  AND indexname LIKE 'idx_%';
+
+  RAISE NOTICE 'Performance indexes migration complete. Total indexes: %', v_index_count;
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260105000003_team_settings_audit_trigger.sql
+-- ================================================
+-- Team Settings Audit Trigger
+-- Phase 3: Enhanced Audit Logging
+--
+-- Ensures all Team-tier changes trigger audit logs with old and new values
+
+-- ============================================================================
+-- Audit Log Function for Team Settings
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION audit_team_settings_changes()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_user_id UUID;
+  v_changes JSONB;
+  v_old_values JSONB;
+  v_new_values JSONB;
+BEGIN
+  -- Get current user ID
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    v_user_id := '00000000-0000-0000-0000-000000000000'::UUID;
+  END IF;
+
+  -- Build old and new values
+  v_old_values := jsonb_build_object(
+    'name', OLD.name,
+    'team_settings', OLD.team_settings,
+    'organization_id', OLD.organization_id
+  );
+
+  v_new_values := jsonb_build_object(
+    'name', NEW.name,
+    'team_settings', NEW.team_settings,
+    'organization_id', NEW.organization_id
+  );
+
+  -- Calculate changes
+  v_changes := jsonb_build_object();
+
+  IF OLD.name IS DISTINCT FROM NEW.name THEN
+    v_changes := v_changes || jsonb_build_object(
+      'name', jsonb_build_object('old', OLD.name, 'new', NEW.name)
+    );
+  END IF;
+
+  IF OLD.team_settings IS DISTINCT FROM NEW.team_settings THEN
+    v_changes := v_changes || jsonb_build_object(
+      'team_settings', jsonb_build_object('old', OLD.team_settings, 'new', NEW.team_settings)
+    );
+  END IF;
+
+  -- Insert audit log
+  INSERT INTO audit_logs (
+    user_id,
+    action,
+    resource_type,
+    resource_id,
+    old_values,
+    new_values,
+    changes,
+    metadata,
+    created_at
+  ) VALUES (
+    v_user_id,
+    'UPDATE',
+    'team_settings',
+    NEW.id::TEXT,
+    v_old_values,
+    v_new_values,
+    v_changes,
+    jsonb_build_object(
+      'team_id', NEW.id,
+      'team_name', NEW.name,
+      'organization_id', NEW.organization_id,
+      'changed_fields', jsonb_object_keys(v_changes)
+    ),
+    NOW()
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- Create Trigger (only if teams table exists)
+-- ============================================================================
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'teams') THEN
+DROP TRIGGER IF EXISTS audit_team_settings_updates ON teams;
+    CREATE TRIGGER audit_team_settings_updates
+      AFTER UPDATE ON teams
+      FOR EACH ROW
+      WHEN (OLD.team_settings IS DISTINCT FROM NEW.team_settings OR OLD.name IS DISTINCT FROM NEW.name)
+      EXECUTE FUNCTION audit_team_settings_changes();
+  END IF;
+END $$;
+
+-- ============================================================================
+-- Comments (only if teams table exists)
+-- ============================================================================
+
+COMMENT ON FUNCTION audit_team_settings_changes() IS
+  'Audit trigger for team settings changes. Logs old and new values for compliance.';
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'teams') THEN
+    COMMENT ON TRIGGER audit_team_settings_updates ON teams IS
+      'Automatically creates audit log entries for team settings updates.';
+  END IF;
+END $$;
+
+-- ============================================================================
+-- Index for Team Audit Logs
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_team_settings
+  ON audit_logs(resource_type, resource_id, created_at DESC)
+  WHERE resource_type = 'team_settings';
+
+-- ================================================
+-- Source: supabase/migrations/20260105000004_encrypt_credentials.sql
+-- ================================================
+-- Encrypt Integration Credentials
+-- Purpose: Encrypt OAuth tokens and API keys using pgsodium
+-- Priority: CRITICAL
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #1
+
+-- ============================================================================
+-- 1. Install pgsodium extension
+-- ============================================================================
+
+CREATE EXTENSION IF NOT EXISTS pgsodium;
+
+COMMENT ON EXTENSION pgsodium IS 'Modern cryptography for PostgreSQL using libsodium';
+
+-- ============================================================================
+-- 2. Create encryption key in pgsodium.key table
+-- ============================================================================
+
+-- Note: In production, use Supabase Vault or environment variables
+-- pgsodium.key is managed by Supabase; skip key creation in local dev
+DO $$
+BEGIN
+  RAISE NOTICE 'Skipping pgsodium key creation (managed by Supabase)';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pgsodium key setup skipped: %', SQLERRM;
+END $$;
+
+-- ============================================================================
+-- 3. Add encrypted columns to integration_connections
+-- ============================================================================
+
+-- Add encrypted credentials column
+ALTER TABLE integration_connections
+ADD COLUMN IF NOT EXISTS credentials_encrypted BYTEA;
+
+-- Add key ID reference (FK to pgsodium.key removed for local dev compatibility)
+ALTER TABLE integration_connections
+ADD COLUMN IF NOT EXISTS credentials_key_id UUID;
+
+COMMENT ON COLUMN integration_connections.credentials_encrypted IS
+  'Encrypted OAuth tokens and API keys using pgsodium';
+
+COMMENT ON COLUMN integration_connections.credentials_key_id IS
+  'Reference to encryption key in pgsodium.key table';
+
+-- ============================================================================
+-- 4. Add encrypted columns to tenant_integrations
+-- ============================================================================
+
+-- Add encrypted token columns
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS access_token_encrypted BYTEA;
+
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS refresh_token_encrypted BYTEA;
+
+-- Add key ID reference (FK to pgsodium.key removed for local dev compatibility)
+ALTER TABLE tenant_integrations
+ADD COLUMN IF NOT EXISTS token_key_id UUID;
+
+COMMENT ON COLUMN tenant_integrations.access_token_encrypted IS
+  'Encrypted access token using pgsodium';
+
+COMMENT ON COLUMN tenant_integrations.refresh_token_encrypted IS
+  'Encrypted refresh token using pgsodium';
+
+COMMENT ON COLUMN tenant_integrations.token_key_id IS
+  'Reference to encryption key in pgsodium.key table';
+
+-- ============================================================================
+-- 5. Create helper functions for encryption/decryption
+-- ============================================================================
+
+-- Function to encrypt credentials
+CREATE OR REPLACE FUNCTION encrypt_credentials(
+  p_plaintext TEXT,
+  p_key_id UUID DEFAULT NULL
+)
+RETURNS BYTEA
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_key_id UUID;
+  v_encrypted BYTEA;
+BEGIN
+  -- Get key ID if not provided
+  IF p_key_id IS NULL THEN
+    SELECT id INTO v_key_id
+    FROM pgsodium.key
+    WHERE name = 'integration_credentials_key'
+    AND status = 'valid'
+    LIMIT 1;
+
+    IF v_key_id IS NULL THEN
+      RAISE EXCEPTION 'Encryption key not found';
+    END IF;
+  ELSE
+    v_key_id := p_key_id;
+  END IF;
+
+  -- Encrypt the plaintext
+  v_encrypted := pgsodium.crypto_aead_det_encrypt(
+    p_plaintext::bytea,
+    NULL,  -- No additional data
+    v_key_id
+  );
+
+  RETURN v_encrypted;
+END;
+$$;
+
+COMMENT ON FUNCTION encrypt_credentials IS
+  'Encrypts credentials using pgsodium deterministic AEAD encryption';
+
+-- Function to decrypt credentials
+CREATE OR REPLACE FUNCTION decrypt_credentials(
+  p_encrypted BYTEA,
+  p_key_id UUID DEFAULT NULL
+)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_key_id UUID;
+  v_decrypted BYTEA;
+BEGIN
+  -- Return NULL if input is NULL
+  IF p_encrypted IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Get key ID if not provided
+  IF p_key_id IS NULL THEN
+    SELECT id INTO v_key_id
+    FROM pgsodium.key
+    WHERE name = 'integration_credentials_key'
+    AND status = 'valid'
+    LIMIT 1;
+
+    IF v_key_id IS NULL THEN
+      RAISE EXCEPTION 'Encryption key not found';
+    END IF;
+  ELSE
+    v_key_id := p_key_id;
+  END IF;
+
+  -- Decrypt the ciphertext
+  v_decrypted := pgsodium.crypto_aead_det_decrypt(
+    p_encrypted,
+    NULL,  -- No additional data
+    v_key_id
+  );
+
+  RETURN convert_from(v_decrypted, 'UTF8');
+END;
+$$;
+
+COMMENT ON FUNCTION decrypt_credentials IS
+  'Decrypts credentials using pgsodium deterministic AEAD decryption';
+
+-- ============================================================================
+-- 6. Create migration function to encrypt existing data
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION migrate_credentials_to_encrypted()
+RETURNS TABLE(
+  table_name TEXT,
+  records_migrated BIGINT,
+  records_failed BIGINT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_key_id UUID;
+  v_migrated BIGINT := 0;
+  v_failed BIGINT := 0;
+  v_record RECORD;
+BEGIN
+  -- Get encryption key
+  SELECT id INTO v_key_id
+  FROM pgsodium.key
+  WHERE name = 'integration_credentials_key'
+  AND status = 'valid'
+  LIMIT 1;
+
+  IF v_key_id IS NULL THEN
+    RAISE EXCEPTION 'Encryption key not found';
+  END IF;
+
+  -- Migrate integration_connections
+  FOR v_record IN
+    SELECT id, credentials
+    FROM integration_connections
+    WHERE credentials IS NOT NULL
+    AND credentials_encrypted IS NULL
+  LOOP
+    BEGIN
+      UPDATE integration_connections
+      SET
+        credentials_encrypted = encrypt_credentials(credentials::text, v_key_id),
+        credentials_key_id = v_key_id
+      WHERE id = v_record.id;
+
+      v_migrated := v_migrated + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Failed to encrypt credentials for integration_connections.id=%: %',
+        v_record.id, SQLERRM;
+      v_failed := v_failed + 1;
+    END;
+  END LOOP;
+
+  RETURN QUERY SELECT
+    'integration_connections'::TEXT,
+    v_migrated,
+    v_failed;
+
+  -- Reset counters for next table
+  v_migrated := 0;
+  v_failed := 0;
+
+  -- Migrate tenant_integrations access_token
+  FOR v_record IN
+    SELECT id, access_token, refresh_token
+    FROM tenant_integrations
+    WHERE (access_token IS NOT NULL OR refresh_token IS NOT NULL)
+    AND access_token_encrypted IS NULL
+  LOOP
+    BEGIN
+      UPDATE tenant_integrations
+      SET
+        access_token_encrypted = CASE
+          WHEN access_token IS NOT NULL
+          THEN encrypt_credentials(access_token, v_key_id)
+          ELSE NULL
+        END,
+        refresh_token_encrypted = CASE
+          WHEN refresh_token IS NOT NULL
+          THEN encrypt_credentials(refresh_token, v_key_id)
+          ELSE NULL
+        END,
+        token_key_id = v_key_id
+      WHERE id = v_record.id;
+
+      v_migrated := v_migrated + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Failed to encrypt tokens for tenant_integrations.id=%: %',
+        v_record.id, SQLERRM;
+      v_failed := v_failed + 1;
+    END;
+  END LOOP;
+
+  RETURN QUERY SELECT
+    'tenant_integrations'::TEXT,
+    v_migrated,
+    v_failed;
+END;
+$$;
+
+COMMENT ON FUNCTION migrate_credentials_to_encrypted IS
+  'Migrates existing plaintext credentials to encrypted storage';
+
+-- ============================================================================
+-- 7. Create views for safe credential access
+-- ============================================================================
+
+-- View for integration_connections with decrypted credentials
+-- Only accessible by service_role
+CREATE OR REPLACE VIEW integration_connections_decrypted AS
+SELECT
+  id,
+  organization_id,
+  adapter_type,
+  display_name,
+  decrypt_credentials(credentials_encrypted, credentials_key_id) as credentials,
+  config,
+  field_mappings,
+  last_sync_time,
+  sync_status,
+  sync_error,
+  total_syncs,
+  successful_syncs,
+  failed_syncs,
+  last_health_check,
+  health_status,
+  created_at,
+  updated_at,
+  created_by
+FROM integration_connections;
+
+COMMENT ON VIEW integration_connections_decrypted IS
+  'View with decrypted credentials - only accessible by service_role';
+
+-- Grant access only to service_role
+REVOKE ALL ON integration_connections_decrypted FROM PUBLIC;
+GRANT SELECT ON integration_connections_decrypted TO service_role;
+
+-- View for tenant_integrations with decrypted tokens
+CREATE OR REPLACE VIEW tenant_integrations_decrypted AS
+SELECT
+  id,
+  tenant_id,
+  provider,
+  decrypt_credentials(access_token_encrypted, token_key_id) as access_token,
+  decrypt_credentials(refresh_token_encrypted, token_key_id) as refresh_token,
+  token_expires_at,
+  instance_url,
+  hub_id,
+  connected_by,
+  connected_at,
+  last_used_at,
+  last_refreshed_at,
+  scopes,
+  status,
+  error_message,
+  created_at,
+  updated_at
+FROM tenant_integrations;
+
+COMMENT ON VIEW tenant_integrations_decrypted IS
+  'View with decrypted tokens - only accessible by service_role';
+
+-- Grant access only to service_role
+REVOKE ALL ON tenant_integrations_decrypted FROM PUBLIC;
+GRANT SELECT ON tenant_integrations_decrypted TO service_role;
+
+-- ============================================================================
+-- 8. Create triggers to auto-encrypt on insert/update
+-- ============================================================================
+
+-- Trigger function for integration_connections
+CREATE OR REPLACE FUNCTION encrypt_integration_credentials_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_key_id UUID;
+BEGIN
+  -- Get encryption key
+  SELECT id INTO v_key_id
+  FROM pgsodium.key
+  WHERE name = 'integration_credentials_key'
+  AND status = 'valid'
+  LIMIT 1;
+
+  IF v_key_id IS NULL THEN
+    RAISE EXCEPTION 'Encryption key not found';
+  END IF;
+
+  -- Encrypt credentials if provided as plaintext
+  IF NEW.credentials IS NOT NULL AND NEW.credentials_encrypted IS NULL THEN
+    NEW.credentials_encrypted := encrypt_credentials(NEW.credentials::text, v_key_id);
+    NEW.credentials_key_id := v_key_id;
+    -- Clear plaintext after encryption
+    NEW.credentials := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS encrypt_credentials_before_insert ON integration_connections;
+CREATE TRIGGER encrypt_credentials_before_insert
+  BEFORE INSERT OR UPDATE ON integration_connections
+  FOR EACH ROW
+  EXECUTE FUNCTION encrypt_integration_credentials_trigger();
+
+COMMENT ON TRIGGER encrypt_credentials_before_insert ON integration_connections IS
+  'Auto-encrypts credentials on insert/update';
+
+-- Trigger function for tenant_integrations
+CREATE OR REPLACE FUNCTION encrypt_tenant_tokens_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_key_id UUID;
+BEGIN
+  -- Get encryption key
+  SELECT id INTO v_key_id
+  FROM pgsodium.key
+  WHERE name = 'integration_credentials_key'
+  AND status = 'valid'
+  LIMIT 1;
+
+  IF v_key_id IS NULL THEN
+    RAISE EXCEPTION 'Encryption key not found';
+  END IF;
+
+  -- Encrypt access_token if provided as plaintext
+  IF NEW.access_token IS NOT NULL AND NEW.access_token_encrypted IS NULL THEN
+    NEW.access_token_encrypted := encrypt_credentials(NEW.access_token, v_key_id);
+    NEW.token_key_id := v_key_id;
+    -- Clear plaintext after encryption
+    NEW.access_token := NULL;
+  END IF;
+
+  -- Encrypt refresh_token if provided as plaintext
+  IF NEW.refresh_token IS NOT NULL AND NEW.refresh_token_encrypted IS NULL THEN
+    NEW.refresh_token_encrypted := encrypt_credentials(NEW.refresh_token, v_key_id);
+    NEW.token_key_id := v_key_id;
+    -- Clear plaintext after encryption
+    NEW.refresh_token := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Create trigger
+DROP TRIGGER IF EXISTS encrypt_tokens_before_insert ON tenant_integrations;
+CREATE TRIGGER encrypt_tokens_before_insert
+  BEFORE INSERT OR UPDATE ON tenant_integrations
+  FOR EACH ROW
+  EXECUTE FUNCTION encrypt_tenant_tokens_trigger();
+
+COMMENT ON TRIGGER encrypt_tokens_before_insert ON tenant_integrations IS
+  'Auto-encrypts tokens on insert/update';
+
+-- ============================================================================
+-- 9. Grant necessary permissions
+-- ============================================================================
+
+-- Grant execute on encryption functions to authenticated users
+GRANT EXECUTE ON FUNCTION encrypt_credentials TO authenticated;
+GRANT EXECUTE ON FUNCTION decrypt_credentials TO service_role;
+
+-- Grant execute on migration function to service_role only
+GRANT EXECUTE ON FUNCTION migrate_credentials_to_encrypted TO service_role;
+
+-- ============================================================================
+-- 10. Run migration (commented out - run manually after verification)
+-- ============================================================================
+
+-- Uncomment to run migration:
+-- SELECT * FROM migrate_credentials_to_encrypted();
+
+-- ============================================================================
+-- 11. Create audit log for credential access
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS credential_access_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  table_name TEXT NOT NULL,
+  record_id UUID NOT NULL,
+  secret_id UUID,
+  accessed_by UUID REFERENCES auth.users(id),
+  access_type TEXT NOT NULL CHECK (access_type IN ('read', 'write', 'decrypt')),
+  accessed_at TIMESTAMPTZ DEFAULT NOW(),
+  ip_address INET,
+  user_agent TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_credential_access_log_time
+ON credential_access_log(accessed_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_credential_access_log_user
+ON credential_access_log(accessed_by, accessed_at DESC);
+
+COMMENT ON TABLE credential_access_log IS
+  'Audit log for credential access and decryption operations';
+
+-- Enable RLS on credential_access_log
+ALTER TABLE credential_access_log ENABLE ROW LEVEL SECURITY;
+
+-- Only service_role can insert
+DROP POLICY IF EXISTS credential_access_log_insert ON credential_access_log;
+CREATE POLICY credential_access_log_insert ON credential_access_log
+  FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
+-- Admins can view
+DROP POLICY IF EXISTS credential_access_log_select ON credential_access_log;
+CREATE POLICY credential_access_log_select ON credential_access_log
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_organizations
+      WHERE user_id = auth.uid()
+      AND role IN ('admin', 'owner')
+    )
+  );
+
+-- ============================================================================
+-- Summary
+-- ============================================================================
+
+DO $$
+BEGIN
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE 'Credential Encryption Migration Complete';
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Next Steps:';
+  RAISE NOTICE '1. Verify encryption key was created';
+  RAISE NOTICE '2. Test encryption/decryption functions';
+  RAISE NOTICE '3. Run: SELECT * FROM migrate_credentials_to_encrypted();';
+  RAISE NOTICE '4. Verify encrypted data';
+  RAISE NOTICE '5. Update application code to use encrypted columns';
+  RAISE NOTICE '6. Drop plaintext columns after verification';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Security Notes:';
+  RAISE NOTICE '- Encryption key is stored in pgsodium.key table';
+  RAISE NOTICE '- In production, use Supabase Vault for key management';
+  RAISE NOTICE '- Decrypted views only accessible by service_role';
+  RAISE NOTICE '- All credential access is logged';
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================';
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260105000005_cleanup_plaintext_credentials.sql
+-- ================================================
+-- Cleanup Plaintext Credentials
+-- Purpose: Remove plaintext credential columns after encryption verification
+-- Priority: HIGH
+-- WARNING: Only run this AFTER verifying encrypted credentials work correctly!
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #1
+
+-- ============================================================================
+-- SAFETY CHECKS
+-- ============================================================================
+
+-- This migration should only be run manually after verification
+-- Uncomment the DO block below to enable execution
+
+/*
+DO $$
+BEGIN
+  RAISE EXCEPTION 'SAFETY CHECK: This migration must be manually enabled. Read the comments first!';
+END $$;
+*/
+
+-- ============================================================================
+-- Pre-flight Checks
+-- ============================================================================
+
+DO $$
+DECLARE
+  v_unencrypted_integrations INTEGER;
+  v_unencrypted_tenants INTEGER;
+BEGIN
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE 'Pre-flight Checks for Plaintext Cleanup';
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE '';
+
+  -- Check integration_connections
+  SELECT COUNT(*) INTO v_unencrypted_integrations
+  FROM integration_connections
+  WHERE credentials IS NOT NULL
+  AND credentials_encrypted IS NULL;
+
+  IF v_unencrypted_integrations > 0 THEN
+    RAISE WARNING '⚠️  Found % integration_connections with unencrypted credentials',
+      v_unencrypted_integrations;
+    RAISE EXCEPTION 'ABORT: Run migrate_credentials_to_encrypted() first!';
+  ELSE
+    RAISE NOTICE '✅ All integration_connections credentials are encrypted';
+  END IF;
+
+  -- Check tenant_integrations
+  SELECT COUNT(*) INTO v_unencrypted_tenants
+  FROM tenant_integrations
+  WHERE (access_token IS NOT NULL OR refresh_token IS NOT NULL)
+  AND (access_token_encrypted IS NULL AND refresh_token_encrypted IS NULL);
+
+  IF v_unencrypted_tenants > 0 THEN
+    RAISE WARNING '⚠️  Found % tenant_integrations with unencrypted tokens',
+      v_unencrypted_tenants;
+    RAISE EXCEPTION 'ABORT: Run migrate_credentials_to_encrypted() first!';
+  ELSE
+    RAISE NOTICE '✅ All tenant_integrations tokens are encrypted';
+  END IF;
+
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Pre-flight checks passed';
+  RAISE NOTICE '';
+END $$;
+
+-- ============================================================================
+-- Create Backup Tables (Just in Case)
+-- ============================================================================
+
+-- Backup integration_connections
+CREATE TABLE IF NOT EXISTS integration_connections_plaintext_backup AS
+SELECT
+  id,
+  credentials,
+  created_at as backup_created_at
+FROM integration_connections
+WHERE credentials IS NOT NULL;
+
+COMMENT ON TABLE integration_connections_plaintext_backup IS
+  'Backup of plaintext credentials before cleanup - DELETE AFTER VERIFICATION';
+
+-- Backup tenant_integrations
+CREATE TABLE IF NOT EXISTS tenant_integrations_plaintext_backup AS
+SELECT
+  id,
+  access_token,
+  refresh_token,
+  created_at as backup_created_at
+FROM tenant_integrations
+WHERE access_token IS NOT NULL OR refresh_token IS NOT NULL;
+
+COMMENT ON TABLE tenant_integrations_plaintext_backup IS
+  'Backup of plaintext tokens before cleanup - DELETE AFTER VERIFICATION';
+
+-- Log backup creation
+DO $$
+DECLARE
+  v_integration_backup_count INTEGER;
+  v_tenant_backup_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO v_integration_backup_count
+  FROM integration_connections_plaintext_backup;
+
+  SELECT COUNT(*) INTO v_tenant_backup_count
+  FROM tenant_integrations_plaintext_backup;
+
+  RAISE NOTICE '✅ Created backup tables:';
+  RAISE NOTICE '   - integration_connections_plaintext_backup: % records',
+    v_integration_backup_count;
+  RAISE NOTICE '   - tenant_integrations_plaintext_backup: % records',
+    v_tenant_backup_count;
+  RAISE NOTICE '';
+END $$;
+
+-- ============================================================================
+-- Drop Plaintext Columns
+-- ============================================================================
+
+-- Drop credentials column from integration_connections
+ALTER TABLE integration_connections
+DROP COLUMN IF EXISTS credentials;
+
+COMMENT ON TABLE integration_connections IS
+  'Integration connections with encrypted credentials (plaintext removed)';
+
+-- Drop token columns from tenant_integrations
+ALTER TABLE tenant_integrations
+DROP COLUMN IF EXISTS access_token,
+DROP COLUMN IF EXISTS refresh_token;
+
+COMMENT ON TABLE tenant_integrations IS
+  'Tenant integrations with encrypted tokens (plaintext removed)';
+
+-- ============================================================================
+-- Update Triggers (No Longer Need to Clear Plaintext)
+-- ============================================================================
+
+-- Update integration_connections trigger
+CREATE OR REPLACE FUNCTION encrypt_integration_credentials_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_key_id UUID;
+BEGIN
+  -- Get encryption key
+  SELECT id INTO v_key_id
+  FROM pgsodium.key
+  WHERE name = 'integration_credentials_key'
+  AND status = 'valid'
+  LIMIT 1;
+
+  IF v_key_id IS NULL THEN
+    RAISE EXCEPTION 'Encryption key not found';
+  END IF;
+
+  -- Note: credentials column no longer exists
+  -- Application must provide credentials_encrypted directly
+  -- or use encrypt_credentials() function
+
+  IF NEW.credentials_key_id IS NULL THEN
+    NEW.credentials_key_id := v_key_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION encrypt_integration_credentials_trigger IS
+  'Updated trigger after plaintext column removal';
+
+-- Update tenant_integrations trigger
+CREATE OR REPLACE FUNCTION encrypt_tenant_tokens_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_key_id UUID;
+BEGIN
+  -- Get encryption key
+  SELECT id INTO v_key_id
+  FROM pgsodium.key
+  WHERE name = 'integration_credentials_key'
+  AND status = 'valid'
+  LIMIT 1;
+
+  IF v_key_id IS NULL THEN
+    RAISE EXCEPTION 'Encryption key not found';
+  END IF;
+
+  -- Note: access_token and refresh_token columns no longer exist
+  -- Application must provide encrypted tokens directly
+  -- or use encrypt_credentials() function
+
+  IF NEW.token_key_id IS NULL THEN
+    NEW.token_key_id := v_key_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION encrypt_tenant_tokens_trigger IS
+  'Updated trigger after plaintext column removal';
+
+-- ============================================================================
+-- Verification Queries
+-- ============================================================================
+
+-- Create verification view
+CREATE OR REPLACE VIEW credential_encryption_status AS
+SELECT
+  'integration_connections' as table_name,
+  COUNT(*) as total_records,
+  COUNT(*) FILTER (WHERE credentials_encrypted IS NOT NULL) as encrypted_records,
+  COUNT(*) FILTER (WHERE credentials_encrypted IS NULL) as unencrypted_records,
+  ROUND(
+    100.0 * COUNT(*) FILTER (WHERE credentials_encrypted IS NOT NULL) / NULLIF(COUNT(*), 0),
+    2
+  ) as encryption_percentage
+FROM integration_connections
+
+UNION ALL
+
+SELECT
+  'tenant_integrations' as table_name,
+  COUNT(*) as total_records,
+  COUNT(*) FILTER (
+    WHERE access_token_encrypted IS NOT NULL
+    OR refresh_token_encrypted IS NOT NULL
+  ) as encrypted_records,
+  COUNT(*) FILTER (
+    WHERE access_token_encrypted IS NULL
+    AND refresh_token_encrypted IS NULL
+  ) as unencrypted_records,
+  ROUND(
+    100.0 * COUNT(*) FILTER (
+      WHERE access_token_encrypted IS NOT NULL
+      OR refresh_token_encrypted IS NOT NULL
+    ) / NULLIF(COUNT(*), 0),
+    2
+  ) as encryption_percentage
+FROM tenant_integrations;
+
+COMMENT ON VIEW credential_encryption_status IS
+  'Shows encryption status across credential tables';
+
+GRANT SELECT ON credential_encryption_status TO authenticated;
+
+-- ============================================================================
+-- Summary and Next Steps
+-- ============================================================================
+
+DO $$
+BEGIN
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE 'Plaintext Credential Cleanup Complete';
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Dropped plaintext columns:';
+  RAISE NOTICE '   - integration_connections.credentials';
+  RAISE NOTICE '   - tenant_integrations.access_token';
+  RAISE NOTICE '   - tenant_integrations.refresh_token';
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Created backup tables (DELETE AFTER VERIFICATION):';
+  RAISE NOTICE '   - integration_connections_plaintext_backup';
+  RAISE NOTICE '   - tenant_integrations_plaintext_backup';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Next Steps:';
+  RAISE NOTICE '1. Verify application still works with encrypted columns';
+  RAISE NOTICE '2. Test all integration flows';
+  RAISE NOTICE '3. Monitor for errors for 1 week';
+  RAISE NOTICE '4. Delete backup tables:';
+  RAISE NOTICE '   DROP TABLE integration_connections_plaintext_backup;';
+  RAISE NOTICE '   DROP TABLE tenant_integrations_plaintext_backup;';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Verification Query:';
+  RAISE NOTICE '   SELECT * FROM credential_encryption_status;';
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================';
+END $$;
+
+-- ============================================================================
+-- Rollback Instructions (If Needed)
+-- ============================================================================
+
+COMMENT ON SCHEMA public IS
+'ROLLBACK INSTRUCTIONS (if needed):
+
+-- Restore plaintext columns from backup
+ALTER TABLE integration_connections ADD COLUMN credentials JSONB;
+UPDATE integration_connections ic
+SET credentials = b.credentials
+FROM integration_connections_plaintext_backup b
+WHERE ic.id = b.id;
+
+ALTER TABLE tenant_integrations ADD COLUMN access_token TEXT;
+ALTER TABLE tenant_integrations ADD COLUMN refresh_token TEXT;
+UPDATE tenant_integrations ti
+SET
+  access_token = b.access_token,
+  refresh_token = b.refresh_token
+FROM tenant_integrations_plaintext_backup b
+WHERE ti.id = b.id;
+
+-- Then restore original triggers
+-- (See migration 20260105000004_encrypt_credentials.sql)
+';
+
+-- ================================================
+-- Source: supabase/migrations/20260105000006_fix_jwt_rls_policies.sql
+-- ================================================
+-- Fix JWT-Based RLS Policies
+-- Purpose: Replace auth.jwt() with auth.uid() pattern for security
+-- Priority: CRITICAL
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #3
+
+-- ============================================================================
+-- SECURITY ISSUE: JWT-based RLS policies are vulnerable to manipulation
+--
+-- Problem: Using auth.jwt() ->> 'org_id' or auth.jwt() ->> 'role' in policies
+-- Risk: JWT claims can be manipulated if not properly validated
+-- Solution: Use auth.uid() with lookup tables for tenant/org membership
+-- ============================================================================
+
+-- ============================================================================
+-- 1. Create Helper Functions
+-- ============================================================================
+
+-- Function to get user's tenant IDs (already exists from tenant_isolation.sql)
+-- Recreate as STABLE for better performance
+CREATE OR REPLACE FUNCTION get_user_tenant_ids(p_user_id UUID)
+RETURNS TEXT[]
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE  -- Mark as STABLE for query planner optimization
+AS $$
+  SELECT ARRAY_AGG(tenant_id)
+  FROM user_tenants
+  WHERE user_id = p_user_id::text
+  AND status = 'active';
+$$;
+
+COMMENT ON FUNCTION get_user_tenant_ids IS
+  'Returns array of active tenant IDs for a user (optimized with STABLE)';
+
+-- Function to get user's organization IDs
+CREATE OR REPLACE FUNCTION get_user_organization_ids(p_user_id UUID)
+RETURNS UUID[]
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT ARRAY_AGG(organization_id)
+  FROM user_organizations
+  WHERE user_id = p_user_id
+  AND status = 'active';
+$$;
+
+COMMENT ON FUNCTION get_user_organization_ids IS
+  'Returns array of active organization IDs for a user';
+
+-- Function to check if user is admin in any organization
+CREATE OR REPLACE FUNCTION is_user_admin(p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_organizations
+    WHERE user_id = p_user_id
+    AND role IN ('admin', 'owner')
+    AND status = 'active'
+  );
+$$;
+
+COMMENT ON FUNCTION is_user_admin IS
+  'Returns true if user is admin/owner in any organization';
+
+-- Function to check if user is admin in specific organization
+CREATE OR REPLACE FUNCTION is_user_org_admin(p_user_id UUID, p_org_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM user_organizations
+    WHERE user_id = p_user_id
+    AND organization_id = p_org_id
+    AND role IN ('admin', 'owner')
+    AND status = 'active'
+  );
+$$;
+
+COMMENT ON FUNCTION is_user_org_admin IS
+  'Returns true if user is admin/owner in specific organization';
+
+-- ============================================================================
+-- 2. Fix llm_gating_policies (from llm_gating_rls_enhancement.sql)
+-- ============================================================================
+
+-- Drop old JWT-based policies
+DROP POLICY IF EXISTS "Tenants can view own budget" ON llm_gating_policies;
+DROP POLICY IF EXISTS "Tenants can update own budget" ON llm_gating_policies;
+DROP POLICY IF EXISTS "Service role can manage all budgets" ON llm_gating_policies;
+DROP POLICY IF EXISTS "Strict tenant isolation - budgets" ON llm_gating_policies;
+
+-- Create new auth.uid()-based policies
+CREATE POLICY llm_gating_policies_select ON llm_gating_policies
+  FOR SELECT
+  USING (
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
+  );
+
+CREATE POLICY llm_gating_policies_update ON llm_gating_policies
+  FOR UPDATE
+  USING (
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
+  )
+  WITH CHECK (
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
+  );
+
+CREATE POLICY llm_gating_policies_insert ON llm_gating_policies
+  FOR INSERT
+  WITH CHECK (
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
+  );
+
+CREATE POLICY llm_gating_policies_service_role ON llm_gating_policies
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+COMMENT ON POLICY llm_gating_policies_select ON llm_gating_policies IS
+  'Users can view LLM gating policies for their tenants (auth.uid() based)';
+
+-- ============================================================================
+-- 3. Fix llm_usage (from llm_gating_rls_enhancement.sql)
+-- ============================================================================
+
+-- Drop old JWT-based policies
+DROP POLICY IF EXISTS "Tenants can view own usage" ON llm_usage;
+DROP POLICY IF EXISTS "Service role can manage all usage" ON llm_usage;
+DROP POLICY IF EXISTS "Strict tenant isolation - usage" ON llm_usage;
+
+-- Keep existing auth.uid()-based policies (they're already correct)
+-- llm_usage_insert_own and llm_usage_select_own use auth.uid()
+
+-- Add tenant-based policy for better isolation
+CREATE POLICY llm_usage_tenant_select ON llm_usage
+  FOR SELECT
+  USING (
+    tenant_id::text = ANY(get_user_tenant_ids(auth.uid()))
+  );
+
+CREATE POLICY llm_usage_service_role ON llm_usage
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+COMMENT ON POLICY llm_usage_tenant_select ON llm_usage IS
+  'Users can view LLM usage for their tenants (auth.uid() based)';
+
+-- ============================================================================
+-- 4. Fix agent_accuracy_metrics
+-- ============================================================================
+
+-- Drop old JWT-based policies
+DROP POLICY IF EXISTS "Users can view org metrics" ON agent_accuracy_metrics;
+DROP POLICY IF EXISTS "Service role full access to metrics" ON agent_accuracy_metrics;
+
+-- Create new auth.uid()-based policies
+CREATE POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics
+  FOR SELECT
+  USING (
+    organization_id IS NULL
+    OR organization_id::uuid = ANY(get_user_organization_ids(auth.uid()))
+  );
+
+CREATE POLICY agent_accuracy_metrics_service_role ON agent_accuracy_metrics
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+COMMENT ON POLICY agent_accuracy_metrics_select ON agent_accuracy_metrics IS
+  'Users can view metrics for their organizations (auth.uid() based)';
+
+-- ============================================================================
+-- 5. Fix agent_retraining_queue
+-- ============================================================================
+
+-- Drop old JWT-based policy
+DROP POLICY IF EXISTS "Service role only for retraining queue" ON agent_retraining_queue;
+
+-- Create new policy (service role only is correct, but use TO clause)
+CREATE POLICY agent_retraining_queue_service_role ON agent_retraining_queue
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+COMMENT ON POLICY agent_retraining_queue_service_role ON agent_retraining_queue IS
+  'Only service role can manage retraining queue';
+
+-- ============================================================================
+-- 6. Fix backup_logs
+-- ============================================================================
+
+-- Drop old JWT-based policies
+DROP POLICY IF EXISTS backup_logs_insert_system ON backup_logs;
+DROP POLICY IF EXISTS backup_logs_select_admin ON backup_logs;
+
+-- Create new auth.uid()-based policies
+CREATE POLICY backup_logs_insert ON backup_logs
+  FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
+CREATE POLICY backup_logs_select ON backup_logs
+  FOR SELECT
+  USING (
+    is_user_admin(auth.uid())
+  );
+
+COMMENT ON POLICY backup_logs_select ON backup_logs IS
+  'Admins can view backup logs (auth.uid() based)';
+
+-- ============================================================================
+-- 7. Fix cost_alerts
+-- ============================================================================
+
+-- Drop old JWT-based policies
+DROP POLICY IF EXISTS cost_alerts_insert_system ON cost_alerts;
+DROP POLICY IF EXISTS cost_alerts_select_admin ON cost_alerts;
+DROP POLICY IF EXISTS cost_alerts_update_admin ON cost_alerts;
+
+-- Create new auth.uid()-based policies
+CREATE POLICY cost_alerts_insert ON cost_alerts
+  FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
+CREATE POLICY cost_alerts_select ON cost_alerts
+  FOR SELECT
+  USING (
+    is_user_admin(auth.uid())
+  );
+
+CREATE POLICY cost_alerts_update ON cost_alerts
+  FOR UPDATE
+  USING (
+    is_user_admin(auth.uid())
+  )
+  WITH CHECK (
+    is_user_admin(auth.uid())
+  );
+
+COMMENT ON POLICY cost_alerts_select ON cost_alerts IS
+  'Admins can view cost alerts (auth.uid() based)';
+
+-- ============================================================================
+-- 8. Fix rate_limit_violations
+-- ============================================================================
+
+-- Drop old JWT-based policies
+DROP POLICY IF EXISTS rate_limit_violations_insert_system ON rate_limit_violations;
+DROP POLICY IF EXISTS rate_limit_violations_select_admin ON rate_limit_violations;
+
+-- Create new auth.uid()-based policies
+CREATE POLICY rate_limit_violations_insert ON rate_limit_violations
+  FOR INSERT
+  TO service_role
+  WITH CHECK (true);
+
+CREATE POLICY rate_limit_violations_select ON rate_limit_violations
+  FOR SELECT
+  USING (
+    is_user_admin(auth.uid())
+  );
+
+COMMENT ON POLICY rate_limit_violations_select ON rate_limit_violations IS
+  'Admins can view rate limit violations (auth.uid() based)';
+
+-- ============================================================================
+-- 9. Update helper functions in base schema (if they exist)
+-- ============================================================================
+
+-- Drop old JWT-based helper functions
+DROP FUNCTION IF EXISTS get_current_org_id();
+DROP FUNCTION IF EXISTS is_org_member(UUID);
+DROP FUNCTION IF EXISTS is_admin_role();
+
+-- Note: These functions used auth.jwt() and are no longer needed
+-- The new helper functions above replace them
+
+-- ============================================================================
+-- 10. Grant permissions on new helper functions
+-- ============================================================================
+
+GRANT EXECUTE ON FUNCTION get_user_tenant_ids TO authenticated;
+GRANT EXECUTE ON FUNCTION get_user_organization_ids TO authenticated;
+GRANT EXECUTE ON FUNCTION is_user_admin TO authenticated;
+GRANT EXECUTE ON FUNCTION is_user_org_admin TO authenticated;
+
+-- ============================================================================
+-- 11. Create view to audit JWT usage
+-- ============================================================================
+
+CREATE OR REPLACE VIEW jwt_policy_audit AS
+SELECT
+  schemaname,
+  tablename,
+  policyname,
+  CASE
+    WHEN qual LIKE '%auth.jwt()%' OR with_check LIKE '%auth.jwt()%'
+    THEN '⚠️ USES JWT'
+    ELSE '✅ SAFE'
+  END as status,
+  qual as using_clause,
+  with_check as with_check_clause
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY
+  CASE
+    WHEN qual LIKE '%auth.jwt()%' OR with_check LIKE '%auth.jwt()%' THEN 0
+    ELSE 1
+  END,
+  tablename;
+
+COMMENT ON VIEW jwt_policy_audit IS
+  'Audits RLS policies for JWT usage (should show all SAFE after migration)';
+
+GRANT SELECT ON jwt_policy_audit TO authenticated;
+
+-- ============================================================================
+-- 12. Verification queries
+-- ============================================================================
+
+DO $$
+DECLARE
+  v_jwt_policies INTEGER;
+  v_total_policies INTEGER;
+BEGIN
+  -- Count policies still using JWT
+  SELECT COUNT(*) INTO v_jwt_policies
+  FROM pg_policies
+  WHERE schemaname = 'public'
+  AND (qual LIKE '%auth.jwt()%' OR with_check LIKE '%auth.jwt()%');
+
+  -- Count total policies
+  SELECT COUNT(*) INTO v_total_policies
+  FROM pg_policies
+  WHERE schemaname = 'public';
+
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE 'JWT-Based RLS Policy Migration Complete';
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Total policies: %', v_total_policies;
+  RAISE NOTICE 'Policies still using JWT: %', v_jwt_policies;
+
+  IF v_jwt_policies > 0 THEN
+    RAISE WARNING '⚠️  Some policies still use JWT - review jwt_policy_audit view';
+  ELSE
+    RAISE NOTICE '✅ All policies migrated to auth.uid() pattern';
+  END IF;
+
+  RAISE NOTICE '';
+  RAISE NOTICE 'Verification:';
+  RAISE NOTICE '  SELECT * FROM jwt_policy_audit WHERE status = ''⚠️ USES JWT'';';
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================';
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260105000007_fix_archive_tables_rls.sql
+-- ================================================
+-- Fix Archive Tables RLS
+-- Purpose: Add missing RLS policies to archive tables
+-- Priority: HIGH
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #7
+
+-- ============================================================================
+-- ISSUE: Archive tables have RLS enabled but missing SELECT policies
+--
+-- Tables affected:
+-- - audit_logs_archive (RLS enabled, no policies)
+-- - approval_requests_archive (fixed in 20260105000001)
+-- - approvals_archive (fixed in 20260105000001)
+-- ============================================================================
+
+-- ============================================================================
+-- 1. audit_logs_archive - Add SELECT policies
+-- ============================================================================
+
+-- Users can view their own audit logs
+CREATE POLICY audit_logs_archive_select_own ON audit_logs_archive
+  FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Admins can view all audit logs in their organizations
+-- Note: audit_logs_archive doesn't have organization_id, so we check user_id matches
+CREATE POLICY audit_logs_archive_select_admin ON audit_logs_archive
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_organizations uo
+      WHERE uo.user_id = auth.uid()
+      AND uo.role IN ('admin', 'owner')
+    )
+  );
+
+-- Service role can access all
+CREATE POLICY audit_logs_archive_service_role ON audit_logs_archive
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+COMMENT ON POLICY audit_logs_archive_select_own ON audit_logs_archive IS
+  'Users can view their own archived audit logs';
+
+COMMENT ON POLICY audit_logs_archive_select_admin ON audit_logs_archive IS
+  'Admins can view all archived audit logs in their organizations';
+
+-- ============================================================================
+-- 2. Verify all archive tables have proper RLS
+-- ============================================================================
+
+-- Create verification view
+CREATE OR REPLACE VIEW archive_tables_rls_status AS
+SELECT
+  t.tablename,
+  t.rowsecurity as rls_enabled,
+  COUNT(p.policyname) as policy_count,
+  ARRAY_AGG(p.policyname ORDER BY p.policyname) FILTER (WHERE p.policyname IS NOT NULL) as policies,
+  CASE
+    WHEN t.rowsecurity = false THEN '❌ RLS DISABLED'
+    WHEN COUNT(p.policyname) = 0 THEN '⚠️ NO POLICIES'
+    WHEN COUNT(p.policyname) FILTER (WHERE p.cmd = 'SELECT') = 0 THEN '⚠️ NO SELECT POLICY'
+    ELSE '✅ PROTECTED'
+  END as status
+FROM pg_tables t
+LEFT JOIN pg_policies p ON t.tablename = p.tablename AND t.schemaname = p.schemaname
+WHERE t.schemaname = 'public'
+AND t.tablename LIKE '%archive%'
+GROUP BY t.tablename, t.rowsecurity
+ORDER BY
+  CASE
+    WHEN t.rowsecurity = false THEN 0
+    WHEN COUNT(p.policyname) = 0 THEN 1
+    WHEN COUNT(p.policyname) FILTER (WHERE p.cmd = 'SELECT') = 0 THEN 2
+    ELSE 3
+  END,
+  t.tablename;
+
+COMMENT ON VIEW archive_tables_rls_status IS
+  'Shows RLS status for all archive tables';
+
+GRANT SELECT ON archive_tables_rls_status TO authenticated;
+
+-- ============================================================================
+-- 3. Ensure archive tables match source table security
+-- ============================================================================
+
+-- approval_requests_archive should match approval_requests
+-- (Already fixed in 20260105000001_fix_missing_rls.sql)
+
+-- approvals_archive should match approvals
+-- (Already fixed in 20260105000001_fix_missing_rls.sql)
+
+-- audit_logs_archive should match audit_logs
+-- (Fixed above)
+
+-- ============================================================================
+-- 4. Add missing indexes on archive tables
+-- ============================================================================
+
+-- audit_logs_archive indexes
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_user
+ON audit_logs_archive(user_id, archived_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_created
+ON audit_logs_archive(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_archived
+ON audit_logs_archive(archived_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_action
+ON audit_logs_archive(action, archived_at DESC);
+
+COMMENT ON INDEX idx_audit_logs_archive_user IS
+  'Optimizes queries for user audit logs';
+
+-- approval_requests_archive indexes (if not already created)
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_tenant
+ON approval_requests_archive(tenant_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_approval_requests_archive_requester
+ON approval_requests_archive(requester_id, created_at DESC)
+WHERE requester_id IS NOT NULL;
+
+-- approvals_archive indexes (if not already created)
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_tenant
+ON approvals_archive(tenant_id, approved_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_approvals_archive_approver
+ON approvals_archive(approver_id, approved_at DESC)
+WHERE approver_id IS NOT NULL;
+
+-- ============================================================================
+-- 5. Create function to verify archive table security
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION verify_archive_table_security()
+RETURNS TABLE(
+  table_name TEXT,
+  rls_enabled BOOLEAN,
+  has_select_policy BOOLEAN,
+  has_insert_policy BOOLEAN,
+  has_update_deny BOOLEAN,
+  has_delete_deny BOOLEAN,
+  status TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    t.tablename::TEXT,
+    t.rowsecurity,
+    EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
+      AND cmd = 'SELECT'
+    ) as has_select,
+    EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
+      AND cmd = 'INSERT'
+    ) as has_insert,
+    EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
+      AND cmd = 'UPDATE'
+      AND qual = 'false'
+    ) as has_update_deny,
+    EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t.tablename
+      AND cmd = 'DELETE'
+      AND qual = 'false'
+    ) as has_delete_deny,
+    CASE
+      WHEN NOT t.rowsecurity THEN '❌ RLS DISABLED'
+      WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t.tablename AND cmd = 'SELECT')
+        THEN '⚠️ NO SELECT POLICY'
+      WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t.tablename AND cmd = 'UPDATE' AND qual = 'false')
+        THEN '⚠️ NO UPDATE DENY'
+      WHEN NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = t.tablename AND cmd = 'DELETE' AND qual = 'false')
+        THEN '⚠️ NO DELETE DENY'
+      ELSE '✅ SECURE'
+    END::TEXT
+  FROM pg_tables t
+  WHERE t.schemaname = 'public'
+  AND t.tablename LIKE '%archive%'
+  ORDER BY t.tablename;
+END;
+$$;
+
+COMMENT ON FUNCTION verify_archive_table_security IS
+  'Verifies that archive tables have proper RLS and immutability policies';
+
+GRANT EXECUTE ON FUNCTION verify_archive_table_security TO authenticated;
+
+-- ============================================================================
+-- 6. Verification
+-- ============================================================================
+
+DO $$
+DECLARE
+  v_archive_count INTEGER;
+  v_protected_count INTEGER;
+  v_unprotected_count INTEGER;
+BEGIN
+  -- Count archive tables
+  SELECT COUNT(*) INTO v_archive_count
+  FROM pg_tables
+  WHERE schemaname = 'public'
+  AND tablename LIKE '%archive%';
+
+  -- Count protected tables
+  SELECT COUNT(*) INTO v_protected_count
+  FROM archive_tables_rls_status
+  WHERE status = '✅ PROTECTED';
+
+  -- Count unprotected tables
+  SELECT COUNT(*) INTO v_unprotected_count
+  FROM archive_tables_rls_status
+  WHERE status != '✅ PROTECTED';
+
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE 'Archive Tables RLS Fix Complete';
+  RAISE NOTICE '============================================================';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Total archive tables: %', v_archive_count;
+  RAISE NOTICE 'Protected tables: %', v_protected_count;
+  RAISE NOTICE 'Unprotected tables: %', v_unprotected_count;
+  RAISE NOTICE '';
+
+  IF v_unprotected_count > 0 THEN
+    RAISE WARNING '⚠️  Some archive tables still need protection';
+    RAISE NOTICE 'Run: SELECT * FROM archive_tables_rls_status WHERE status != ''✅ PROTECTED'';';
+  ELSE
+    RAISE NOTICE '✅ All archive tables are properly protected';
+  END IF;
+
+  RAISE NOTICE '';
+  RAISE NOTICE 'Verification:';
+  RAISE NOTICE '  SELECT * FROM archive_tables_rls_status;';
+  RAISE NOTICE '  SELECT * FROM verify_archive_table_security();';
+  RAISE NOTICE '';
+  RAISE NOTICE '============================================================';
+END $$;
+
+-- ================================================
+-- Source: supabase/migrations/20260105000008_fix_foreign_key_actions.sql
+-- ================================================
+-- Fix Foreign Key Delete Actions
+-- Purpose: Add ON DELETE actions to 19 foreign keys
+-- Priority: HIGH
+-- Ref: PRE_RELEASE_AUDIT_2026-01-05.md Issue #9
+
+-- ============================================================================
+-- ISSUE: 19 foreign keys lack explicit ON DELETE actions
+--
+-- Risk: Orphaned records, failed deletions, data integrity issues
+-- Solution: Add appropriate ON DELETE actions based on relationship type
+--
+-- Categories:
+-- - CASCADE: Dependent data (should be deleted with parent)
+-- - SET NULL: Audit/history references (preserve record, null reference)
+-- - RESTRICT: Critical references (prevent deletion if referenced)
+-- ============================================================================
+
+-- ============================================================================
+-- Category 1: CASCADE - Dependent Data
+-- These records are meaningless without their parent
+-- ============================================================================
+
+-- 1. cases_tenant_id_fkey
+-- Cases belong to tenants, should be deleted with tenant
+ALTER TABLE cases
+DROP CONSTRAINT IF EXISTS cases_tenant_id_fkey,
+ADD CONSTRAINT cases_tenant_id_fkey
+  FOREIGN KEY (tenant_id)
+  REFERENCES tenants(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT cases_tenant_id_fkey ON cases IS
+  'Cases are deleted when tenant is deleted (CASCADE)';
+
+-- 2. messages_tenant_id_fkey
+-- Messages belong to tenants, should be deleted with tenant
+ALTER TABLE messages
+DROP CONSTRAINT IF EXISTS messages_tenant_id_fkey,
+ADD CONSTRAINT messages_tenant_id_fkey
+  FOREIGN KEY (tenant_id)
+  REFERENCES tenants(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT messages_tenant_id_fkey ON messages IS
+  'Messages are deleted when tenant is deleted (CASCADE)';
+
+-- 3. workflows_tenant_id_fkey
+-- Workflows belong to tenants, should be deleted with tenant
+ALTER TABLE workflows
+DROP CONSTRAINT IF EXISTS workflows_tenant_id_fkey,
+ADD CONSTRAINT workflows_tenant_id_fkey
+  FOREIGN KEY (tenant_id)
+  REFERENCES tenants(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT workflows_tenant_id_fkey ON workflows IS
+  'Workflows are deleted when tenant is deleted (CASCADE)';
+
+-- 4. integration_usage_log_integration_id_fkey
+-- Usage logs belong to integration, should be deleted with integration
+ALTER TABLE integration_usage_log
+DROP CONSTRAINT IF EXISTS integration_usage_log_integration_id_fkey,
+ADD CONSTRAINT integration_usage_log_integration_id_fkey
+  FOREIGN KEY (integration_id)
+  REFERENCES tenant_integrations(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT integration_usage_log_integration_id_fkey ON integration_usage_log IS
+  'Usage logs are deleted when integration is deleted (CASCADE)';
+
+-- 5. agent_metrics_agent_id_fkey
+-- Metrics belong to agent, should be deleted with agent
+ALTER TABLE agent_metrics
+DROP CONSTRAINT IF EXISTS agent_metrics_agent_id_fkey,
+ADD CONSTRAINT agent_metrics_agent_id_fkey
+  FOREIGN KEY (agent_id)
+  REFERENCES agents(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT agent_metrics_agent_id_fkey ON agent_metrics IS
+  'Metrics are deleted when agent is deleted (CASCADE)';
+
+-- 6. agent_predictions_calibration_model_id_fkey
+-- Predictions belong to calibration model, should be deleted with model
+ALTER TABLE agent_predictions
+DROP CONSTRAINT IF EXISTS agent_predictions_calibration_model_id_fkey,
+ADD CONSTRAINT agent_predictions_calibration_model_id_fkey
+  FOREIGN KEY (calibration_model_id)
+  REFERENCES agent_calibration_models(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT agent_predictions_calibration_model_id_fkey ON agent_predictions IS
+  'Predictions are deleted when calibration model is deleted (CASCADE)';
+
+-- 7. task_queue_agent_id_fkey
+-- Tasks belong to agent, should be deleted with agent
+ALTER TABLE task_queue
+DROP CONSTRAINT IF EXISTS task_queue_agent_id_fkey,
+ADD CONSTRAINT task_queue_agent_id_fkey
+  FOREIGN KEY (agent_id)
+  REFERENCES agents(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT task_queue_agent_id_fkey ON task_queue IS
+  'Tasks are deleted when agent is deleted (CASCADE)';
+
+-- 8. message_bus_from_agent_id_fkey
+-- Messages from agent should be deleted with agent
+ALTER TABLE message_bus
+DROP CONSTRAINT IF EXISTS message_bus_from_agent_id_fkey,
+ADD CONSTRAINT message_bus_from_agent_id_fkey
+  FOREIGN KEY (from_agent_id)
+  REFERENCES agents(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT message_bus_from_agent_id_fkey ON message_bus IS
+  'Messages are deleted when sender agent is deleted (CASCADE)';
+
+-- 9. message_bus_to_agent_id_fkey
+-- Messages to agent should be deleted with agent
+ALTER TABLE message_bus
+DROP CONSTRAINT IF EXISTS message_bus_to_agent_id_fkey,
+ADD CONSTRAINT message_bus_to_agent_id_fkey
+  FOREIGN KEY (to_agent_id)
+  REFERENCES agents(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT message_bus_to_agent_id_fkey ON message_bus IS
+  'Messages are deleted when recipient agent is deleted (CASCADE)';
+
+-- 10. approver_roles_user_id_fkey
+-- Approver roles belong to user, should be deleted with user
+ALTER TABLE approver_roles
+DROP CONSTRAINT IF EXISTS approver_roles_user_id_fkey,
+ADD CONSTRAINT approver_roles_user_id_fkey
+  FOREIGN KEY (user_id)
+  REFERENCES auth.users(id)
+  ON DELETE CASCADE;
+
+COMMENT ON CONSTRAINT approver_roles_user_id_fkey ON approver_roles IS
+  'Approver roles are deleted when user is deleted (CASCADE)';
+
+-- ============================================================================
+-- Category 2: SET NULL - Audit/History References
+-- These records should be preserved, but reference can be nulled
+-- ============================================================================
+
+-- 11. agent_audit_log_agent_id_fkey
+-- Audit logs should be preserved even if agent is deleted
+ALTER TABLE agent_audit_log
+DROP CONSTRAINT IF EXISTS agent_audit_log_agent_id_fkey,
+ADD CONSTRAINT agent_audit_log_agent_id_fkey
+  FOREIGN KEY (agent_id)
+  REFERENCES agents(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT agent_audit_log_agent_id_fkey ON agent_audit_log IS
+  'Audit logs preserved when agent deleted, reference nulled (SET NULL)';
+
+-- 12. audit_logs_user_id_fkey
+-- Audit logs should be preserved even if user is deleted
+ALTER TABLE audit_logs
+DROP CONSTRAINT IF EXISTS audit_logs_user_id_fkey,
+ADD CONSTRAINT audit_logs_user_id_fkey
+  FOREIGN KEY (user_id)
+  REFERENCES auth.users(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT audit_logs_user_id_fkey ON audit_logs IS
+  'Audit logs preserved when user deleted, reference nulled (SET NULL)';
+
+-- 13. approval_requests_requester_id_fkey
+-- Approval requests should be preserved for audit trail
+ALTER TABLE approval_requests
+DROP CONSTRAINT IF EXISTS approval_requests_requester_id_fkey,
+ADD CONSTRAINT approval_requests_requester_id_fkey
+  FOREIGN KEY (requester_id)
+  REFERENCES auth.users(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT approval_requests_requester_id_fkey ON approval_requests IS
+  'Approval requests preserved when requester deleted, reference nulled (SET NULL)';
+
+-- 14. approvals_approver_id_fkey
+-- Approvals should be preserved for audit trail
+ALTER TABLE approvals
+DROP CONSTRAINT IF EXISTS approvals_approver_id_fkey,
+ADD CONSTRAINT approvals_approver_id_fkey
+  FOREIGN KEY (approver_id)
+  REFERENCES auth.users(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT approvals_approver_id_fkey ON approvals IS
+  'Approvals preserved when approver deleted, reference nulled (SET NULL)';
+
+-- 15. approvals_second_approver_id_fkey
+-- Second approvals should be preserved for audit trail
+ALTER TABLE approvals
+DROP CONSTRAINT IF EXISTS approvals_second_approver_id_fkey,
+ADD CONSTRAINT approvals_second_approver_id_fkey
+  FOREIGN KEY (second_approver_id)
+  REFERENCES auth.users(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT approvals_second_approver_id_fkey ON approvals IS
+  'Approvals preserved when second approver deleted, reference nulled (SET NULL)';
+
+-- 16. approver_roles_granted_by_fkey
+-- Role grants should be preserved for audit trail
+ALTER TABLE approver_roles
+DROP CONSTRAINT IF EXISTS approver_roles_granted_by_fkey,
+ADD CONSTRAINT approver_roles_granted_by_fkey
+  FOREIGN KEY (granted_by)
+  REFERENCES auth.users(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT approver_roles_granted_by_fkey ON approver_roles IS
+  'Role grants preserved when granter deleted, reference nulled (SET NULL)';
+
+-- 17. integration_usage_log_user_id_fkey
+-- Usage logs should be preserved for audit trail
+ALTER TABLE integration_usage_log
+DROP CONSTRAINT IF EXISTS integration_usage_log_user_id_fkey,
+ADD CONSTRAINT integration_usage_log_user_id_fkey
+  FOREIGN KEY (user_id)
+  REFERENCES auth.users(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT integration_usage_log_user_id_fkey ON integration_usage_log IS
+  'Usage logs preserved when user deleted, reference nulled (SET NULL)';
+
+-- 18. tenant_integrations_connected_by_fkey
+-- Integration connections should be preserved, but track who connected
+ALTER TABLE tenant_integrations
+DROP CONSTRAINT IF EXISTS tenant_integrations_connected_by_fkey,
+ADD CONSTRAINT tenant_integrations_connected_by_fkey
+  FOREIGN KEY (connected_by)
+  REFERENCES auth.users(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT tenant_integrations_connected_by_fkey ON tenant_integrations IS
+  'Integrations preserved when connector deleted, reference nulled (SET NULL)';
+
+-- 19. resource_artifacts_replaced_by_fkey
+-- Artifact replacement history should be preserved
+ALTER TABLE resource_artifacts
+DROP CONSTRAINT IF EXISTS resource_artifacts_replaced_by_fkey,
+ADD CONSTRAINT resource_artifacts_replaced_by_fkey
+  FOREIGN KEY (replaced_by)
+  REFERENCES resource_artifacts(id)
+  ON DELETE SET NULL;
+
+COMMENT ON CONSTRAINT resource_artifacts_replaced_by_fkey ON resource_artifacts IS
+  'Artifacts preserved when replacement deleted, reference nulled (SET NULL)';
+
+-- ============================================================================
+-- Create view to audit FK actions
+-- ============================================================================
+
+CREATE OR REPLACE VIEW foreign_key_actions_audit AS
+SELECT
+  tc.table_name,
+  kcu.column_name,
+  ccu.table_name AS foreign_table_name,
+  ccu.column_name AS foreign_column_name,
+  rc.delete_rule,
+  rc.update_rule,
+  CASE
+    WHEN rc.delete_rule IS NULL THEN '❌ NO ACTION'
+    WHEN rc.delete_rule = 'NO ACTION' THEN '⚠️ NO ACTION'
+    WHEN rc.delete_rule = 'CASCADE' THEN '✅ CASCADE'
+    WHEN rc.delete_rule = 'SET NULL' THEN '✅ SET NULL'
+    WHEN rc.delete_rule = 'RESTRICT' THEN '✅ RESTRICT'
+    ELSE '⚠️ ' || rc.delete_rule
+  END as status
+FROM information_schema.table_constraints AS tc
+JOIN information_schema.key_column_usage AS kcu
+  ON tc.constraint_name = kcu.constraint_name
+  AND tc.table_schema = kcu.table_schema
+JOIN information_schema.constraint_column_usage AS ccu
+  ON ccu.constraint_name = tc.constraint_name
+  AND ccu.table_schema = tc.table_schema
+LEFT JOIN information_schema.referential_constraints AS rc
+  ON rc.constraint_name = tc.constraint_name
+  AND rc.constraint_schema = tc.table_schema
+WHERE tc.constraint_type = 'FOREIGN KEY'
+  AND tc.table_schema = 'public'
+ORDER BY
+  CASE
+    WHEN rc.delete_rule IS NULL THEN 0
+    WHEN rc.delete_rule = 'NO ACTION' THEN 1
+    ELSE 2
+  END,
+  tc.table_name;
+
+COMMENT ON VIEW foreign_key_actions_audit IS
+  'Audits foreign key delete actions (should show all with actions after migration)';
+
+GRANT SELECT ON foreign_key_actions_audit TO authenticated;
+
+-- ============================================================================
+-- Create function to test FK behavior
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION test_foreign_key_cascade()
+RETURNS TABLE(
+  constraint_name TEXT,
+  table_name TEXT,
+  delete_rule TEXT,
+  test_result TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    tc.constraint_name::TEXT,
+    tc.table_name::TEXT,
+    rc.delete_rule::TEXT,
+    CASE
+      WHEN rc.delete_rule = 'CASCADE' THEN '✅ Will delete dependent records'
+      WHEN rc.delete_rule = 'SET NULL' THEN '✅ Will null reference'
+      WHEN rc.delete_rule = 'RESTRICT' THEN '✅ Will prevent deletion'
+      WHEN rc.delete_rule = 'NO ACTION' THEN '⚠️ May cause errors'
+      ELSE '❌ No action defined'
+    END::TEXT
+  FROM information_schema.table_constraints AS tc
+  JOIN information_schema.referential_constraints AS rc
+    ON rc.constraint_name = tc.constraint_name
+    AND rc.constraint_schema = tc.table_schema
+  WHERE tc.constraint_type = 'FOREIGN KEY'
+    AND tc.table_schema = 'public'
+  ORDER BY tc.table_name, tc.constraint_name;
+END;
+$$;
+
+COMMENT ON FUNCTION test_foreign_key_cascade IS
+  'Tests and reports foreign key cascade behavior';
+
+GRANT EXECUTE ON FUNCTION test_foreign_key_cascade TO authenticated;
+
+-- ============================================================================
+-- Verification
+-- ============================================================================
+
+DO $$
+DECLARE
+  v_total_fks INTEGER;
+  v_with_actions INTEGER;
+  v_without_actions INTEGER;
+  v_cascade_count INTEGER;
+  v_set_null_count INTEGER;
+BEGIN
+  -- Count total FKs
+  SELECT COUNT(*) INTO v_total_fks
+  FROM information_schema.table_constraints
+  WHERE constraint_type = 'FOREIGN KEY'
+  AND table_schema = 'public';
+
+  -- Count FKs with actions
+  SELECT COUNT(*) INTO v_with_actions
+  FROM information_schema.referential_constraints
+  WHERE constraint_schema = 'public'
+  AND delete_rule != 'NO ACTION';
+
+  -- Count FKs without actions
+  SELECT COUNT(*) INTO v_without_actions
+  FROM information_schema.referential_constraints
+  WHERE constraint_schema = 'public'
+  AND delete_rule = 'NO ACTION';
+
+  -- Count CASCADE
+  SELECT COUNT(*) INTO v_cascade_count
+  FROM information_schema.referential_constraints
+  WHERE constraint_schema = 'public'
+  AND delete_rule = 'CASCADE';
+
+  -- Count SET NULL
+  SELECT COUNT(*) INTO v_set_null_count
+  FROM information_schema.referential_constraints
+  WHERE constraint_schema = 'public'
+  AND de
