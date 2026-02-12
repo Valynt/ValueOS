@@ -1,2 +1,0 @@
-// Archived: migration_pid.txt
-// Original file moved for safe-keeping. Restore if needed.

@@ -4,6 +4,7 @@
  */
 
 import { loadConfig, getConfig } from "@/app/config/env";
+import { logger } from "../../lib/logger";
 
 export interface BootstrapResult {
   success: boolean;
@@ -30,14 +31,14 @@ export async function bootstrap(
 
   const { onProgress, onWarning, onError } = options;
 
-  console.log("🚀 Bootstrapping ValyntApp...");
+  logger.info("🚀 Bootstrapping ValyntApp...");
 
   // Step 1: Load environment configuration
   onProgress?.("Loading configuration...");
   try {
     loadConfig();
     const config = getConfig();
-    console.log("✅ Configuration loaded", {
+    logger.info("✅ Configuration loaded", {
       environment: config.env,
       apiUrl: config.apiBaseUrl,
     });
@@ -65,7 +66,7 @@ export async function bootstrap(
   if (import.meta.env.VITE_ANALYTICS_ENABLED === "true") {
     try {
       // Analytics initialization would go here
-      console.log("✅ Analytics initialized");
+      logger.info("✅ Analytics initialized");
     } catch (error) {
       const warningMsg = `Analytics initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(warningMsg);
@@ -78,7 +79,7 @@ export async function bootstrap(
   if (import.meta.env.VITE_SENTRY_DSN) {
     try {
       // Sentry initialization would go here
-      console.log("✅ Error tracking initialized");
+      logger.info("✅ Error tracking initialized");
     } catch (error) {
       const warningMsg = `Error tracking initialization failed: ${error instanceof Error ? error.message : "Unknown error"}`;
       warnings.push(warningMsg);
@@ -89,7 +90,7 @@ export async function bootstrap(
   const duration = Date.now() - startTime;
   const success = errors.length === 0;
 
-  console.log(`🎉 Bootstrap complete in ${duration}ms`, {
+  logger.info(`🎉 Bootstrap complete in ${duration}ms`, {
     success,
     errors: errors.length,
     warnings: warnings.length,
@@ -108,7 +109,7 @@ export async function bootstrap(
  */
 export async function bootstrapWithLogging(): Promise<BootstrapResult> {
   return bootstrap({
-    onProgress: (msg) => console.log(`⏳ ${msg}`),
+    onProgress: (msg) => logger.info(`⏳ ${msg}`),
     onWarning: (msg) => console.warn(`⚠️ ${msg}`),
     onError: (msg) => console.error(`❌ ${msg}`),
   });

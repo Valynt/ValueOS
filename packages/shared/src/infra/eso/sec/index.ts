@@ -1,6 +1,7 @@
 import { DataIngestionAdapter, IngestionConfig } from "../types.js";
 import { RateLimiter } from "../utils/rateLimiter.js";
 import { Cache } from "../utils/cache.js";
+import { logger } from "../../../lib/logger";
 
 export class SECAdapter implements DataIngestionAdapter {
   name = "SEC";
@@ -82,7 +83,7 @@ export class SECAdapter implements DataIngestionAdapter {
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
-      console.log("SEC WebSocket connected");
+      logger.info("SEC WebSocket connected");
       this.isStreaming = true;
 
       // Subscribe to specific symbols or general market data
@@ -104,7 +105,7 @@ export class SECAdapter implements DataIngestionAdapter {
     };
 
     this.ws.onclose = () => {
-      console.log("SEC WebSocket disconnected");
+      logger.info("SEC WebSocket disconnected");
       this.isStreaming = false;
       this.scheduleReconnect();
     };
@@ -146,7 +147,7 @@ export class SECAdapter implements DataIngestionAdapter {
     if (this.reconnectTimer) return;
 
     this.reconnectTimer = setTimeout(() => {
-      console.log("Attempting to reconnect SEC WebSocket...");
+      logger.info("Attempting to reconnect SEC WebSocket...");
       this.startStreaming();
     }, 5000); // Reconnect after 5 seconds
   }

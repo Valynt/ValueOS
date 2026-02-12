@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Structured JSON Logger
  *

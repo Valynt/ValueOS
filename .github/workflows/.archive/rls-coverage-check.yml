@@ -5,16 +5,22 @@ on:
     paths:
       - "infra/postgres/migrations/**"
       - "infra/migrations/**"
+      - "infra/supabase/supabase/migrations/**"
+      - "infra/supabase/supabase/tests/database/**"
       - "supabase/tests/database/rls_lint.test.sql"
       - "scripts/ci/check-rls-coverage.sh"
+      - "scripts/ci/check-permissive-rls.sh"
       - ".github/workflows/rls-coverage-check.yml"
   push:
     branches: [main]
     paths:
       - "infra/postgres/migrations/**"
       - "infra/migrations/**"
+      - "infra/supabase/supabase/migrations/**"
+      - "infra/supabase/supabase/tests/database/**"
       - "supabase/tests/database/rls_lint.test.sql"
       - "scripts/ci/check-rls-coverage.sh"
+      - "scripts/ci/check-permissive-rls.sh"
 
 jobs:
   rls-coverage:
@@ -62,6 +68,9 @@ jobs:
             echo "Use infra/postgres/migrations as the authoritative source for CI schema and RLS policies."
             exit 1
           fi
+
+      - name: Static check — no permissive authenticated USING (true) in migrations
+        run: bash scripts/ci/check-permissive-rls.sh
 
       - name: Run RLS coverage check
         env:

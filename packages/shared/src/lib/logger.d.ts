@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Structured Logging Utility with PII Protection
  *

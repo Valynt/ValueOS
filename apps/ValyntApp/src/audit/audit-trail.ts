@@ -12,6 +12,7 @@
  */
 
 import { createHash, randomUUID } from 'crypto';
+import { logger } from "../lib/logger";
 
 // ============================================================================
 // AUDIT TYPES
@@ -567,7 +568,7 @@ export class AuditTrailManager {
     // In a real implementation, this would emit events to listeners
     // For now, we'll just log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[AUDIT] ${entry.level} ${entry.category} ${entry.component}:${entry.operation} (conf: ${entry.confidence.toFixed(2)})`);
+      logger.info(`[AUDIT] ${entry.level} ${entry.category} ${entry.component}:${entry.operation} (conf: ${entry.confidence.toFixed(2)})`);
     }
   }
 

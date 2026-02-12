@@ -1,5 +1,0 @@
-packages:
-  - "packages/*"
-  - "packages/agents/base"
-  - "apps/*"
-  - "apps/*/packages/*"

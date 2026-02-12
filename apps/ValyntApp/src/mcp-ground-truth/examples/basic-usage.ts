@@ -5,12 +5,13 @@
  */
 
 import { createMCPServer, createDevServer } from '../index';
+import { logger } from "../../lib/logger";
 
 /**
  * Example 1: Get authoritative financials for a public company
  */
 async function example1_AuthoritativeFinancials() {
-  console.log('\n=== Example 1: Authoritative Financials ===\n');
+  logger.info('\n=== Example 1: Authoritative Financials ===\n');
 
   const server = await createDevServer();
 
@@ -21,15 +22,15 @@ async function example1_AuthoritativeFinancials() {
     period: 'FY2024',
   });
 
-  console.log('Apple Inc. Financials (FY2024):');
-  console.log(JSON.stringify(result, null, 2));
+  logger.info('Apple Inc. Financials (FY2024):');
+  logger.info(JSON.stringify(result, null, 2));
 }
 
 /**
  * Example 2: Estimate private company financials
  */
 async function example2_PrivateCompanyEstimates() {
-  console.log('\n=== Example 2: Private Company Estimates ===\n');
+  logger.info('\n=== Example 2: Private Company Estimates ===\n');
 
   const server = await createDevServer();
 
@@ -40,15 +41,15 @@ async function example2_PrivateCompanyEstimates() {
     industry_code: '541511', // Custom Computer Programming Services
   });
 
-  console.log('OpenAI Revenue Estimate:');
-  console.log(JSON.stringify(result, null, 2));
+  logger.info('OpenAI Revenue Estimate:');
+  logger.info(JSON.stringify(result, null, 2));
 }
 
 /**
  * Example 3: Verify a financial claim
  */
 async function example3_VerifyClaim() {
-  console.log('\n=== Example 3: Verify Financial Claim ===\n');
+  logger.info('\n=== Example 3: Verify Financial Claim ===\n');
 
   const server = await createDevServer();
 
@@ -59,15 +60,15 @@ async function example3_VerifyClaim() {
     strict_mode: true,
   });
 
-  console.log('Claim Verification Result:');
-  console.log(JSON.stringify(result, null, 2));
+  logger.info('Claim Verification Result:');
+  logger.info(JSON.stringify(result, null, 2));
 }
 
 /**
  * Example 4: Populate value driver tree
  */
 async function example4_ValueDriverTree() {
-  console.log('\n=== Example 4: Value Driver Tree Population ===\n');
+  logger.info('\n=== Example 4: Value Driver Tree Population ===\n');
 
   const server = await createDevServer();
 
@@ -79,29 +80,29 @@ async function example4_ValueDriverTree() {
     simulation_period: '2025-2027',
   });
 
-  console.log('Value Driver Tree Node:');
-  console.log(JSON.stringify(result, null, 2));
+  logger.info('Value Driver Tree Node:');
+  logger.info(JSON.stringify(result, null, 2));
 }
 
 /**
  * Example 5: Health check
  */
 async function example5_HealthCheck() {
-  console.log('\n=== Example 5: Health Check ===\n');
+  logger.info('\n=== Example 5: Health Check ===\n');
 
   const server = await createDevServer();
 
   const health = await server.healthCheck();
 
-  console.log('Server Health:');
-  console.log(JSON.stringify(health, null, 2));
+  logger.info('Server Health:');
+  logger.info(JSON.stringify(health, null, 2));
 }
 
 /**
  * Example 6: Custom configuration
  */
 async function example6_CustomConfiguration() {
-  console.log('\n=== Example 6: Custom Configuration ===\n');
+  logger.info('\n=== Example 6: Custom Configuration ===\n');
 
   const server = await createMCPServer({
     edgar: {
@@ -121,13 +122,13 @@ async function example6_CustomConfiguration() {
     },
   });
 
-  console.log('Server initialized with custom configuration');
+  logger.info('Server initialized with custom configuration');
 
   // Get available tools
   const tools = server.getTools();
-  console.log(`\nAvailable tools: ${tools.length}`);
+  logger.info(`\nAvailable tools: ${tools.length}`);
   tools.forEach(tool => {
-    console.log(`- ${tool.name}: ${tool.description}`);
+    logger.info(`- ${tool.name}: ${tool.description}`);
   });
 }
 
@@ -135,7 +136,7 @@ async function example6_CustomConfiguration() {
  * Example 7: Error handling
  */
 async function example7_ErrorHandling() {
-  console.log('\n=== Example 7: Error Handling ===\n');
+  logger.info('\n=== Example 7: Error Handling ===\n');
 
   const server = await createDevServer();
 
@@ -146,9 +147,9 @@ async function example7_ErrorHandling() {
       metrics: ['revenue_total'],
     });
 
-    console.log('Result:', result);
+    logger.info('Result:', result);
   } catch (error) {
-    console.log('Error caught:', error);
+    logger.info('Error caught:', error);
   }
 
   // The server returns errors in the result object
@@ -158,7 +159,7 @@ async function example7_ErrorHandling() {
   });
 
   if (result.isError) {
-    console.log('Error in result:', result.content[0].text);
+    logger.info('Error in result:', result.content[0].text);
   }
 }
 
@@ -166,7 +167,7 @@ async function example7_ErrorHandling() {
  * Example 8: Batch queries
  */
 async function example8_BatchQueries() {
-  console.log('\n=== Example 8: Batch Queries ===\n');
+  logger.info('\n=== Example 8: Batch Queries ===\n');
 
   const server = await createDevServer();
 
@@ -177,7 +178,7 @@ async function example8_BatchQueries() {
     { cik: '0001652044', name: 'Alphabet' },
   ];
 
-  console.log('Fetching revenue data for multiple companies...\n');
+  logger.info('Fetching revenue data for multiple companies...\n');
 
   for (const company of companies) {
     const result = await server.executeTool('get_authoritative_financials', {
@@ -186,7 +187,7 @@ async function example8_BatchQueries() {
       period: 'FY2024',
     });
 
-    console.log(`${company.name}:`, result.content[0].text);
+    logger.info(`${company.name}:`, result.content[0].text);
   }
 }
 
@@ -204,7 +205,7 @@ async function runAllExamples() {
     await example7_ErrorHandling();
     await example8_BatchQueries();
 
-    console.log('\n=== All examples completed successfully ===\n');
+    logger.info('\n=== All examples completed successfully ===\n');
   } catch (error) {
     console.error('Example failed:', error);
   }

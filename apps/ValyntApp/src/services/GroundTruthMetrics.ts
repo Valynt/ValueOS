@@ -9,6 +9,7 @@
 
 import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../types/eso-data";
 import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
+import { logger } from "../lib/logger";
 
 // ============================================================================
 // Types
@@ -160,8 +161,8 @@ export function exportJSONMetrics(): object {
 
 // Console summary for quick checks
 if (require.main === module) {
-  console.log("=== VOS Ground Truth Metrics ===");
-  console.log(exportPrometheusMetrics());
-  console.log("\n=== JSON Export ===");
-  console.log(JSON.stringify(exportJSONMetrics(), null, 2));
+  logger.info("=== VOS Ground Truth Metrics ===");
+  logger.info(exportPrometheusMetrics());
+  logger.info("\n=== JSON Export ===");
+  logger.info(JSON.stringify(exportJSONMetrics(), null, 2));
 }

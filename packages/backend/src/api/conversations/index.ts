@@ -20,6 +20,7 @@ import {
   ApiErrorResponse,
 } from './types';
 import { 
+import { logger } from "../../lib/logger.js";
   getConversationsRepository,
   NotFoundError,
   DatabaseError,
@@ -43,7 +44,7 @@ const router = Router();
 
 // Simple logger
 const logger = {
-  info: (msg: string, data?: Record<string, unknown>) => console.log(`[INFO] ${msg}`, data || ''),
+  info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, data || ''),
   error: (msg: string, data?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, data || ''),
 };
 

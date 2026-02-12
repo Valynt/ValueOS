@@ -4,6 +4,7 @@
 
 import express, { Request, Response, NextFunction } from "express";
 import {
+import { logger } from "../lib/logger";
   initializeTelemetry,
   getTracer,
   Metrics,
@@ -190,9 +191,9 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Metrics: http://localhost:${PORT}/metrics`);
-  console.log(`🔍 Grafana: http://localhost:3000`);
+  logger.info(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`📊 Metrics: http://localhost:${PORT}/metrics`);
+  logger.info(`🔍 Grafana: http://localhost:3000`);
 });
 
 export { app };

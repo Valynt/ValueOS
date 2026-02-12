@@ -1,3 +1,4 @@
+import { logger } from "../logger.js";
 /**
  * Graceful Shutdown Handler
  * 
@@ -22,12 +23,12 @@ export function registerShutdownHandler(handler: ShutdownHandler): void {
  */
 async function executeShutdown(signal: string): Promise<void> {
   if (isShuttingDown) {
-    console.log(`[shutdown] Already shutting down, ignoring ${signal}`);
+    logger.info(`[shutdown] Already shutting down, ignoring ${signal}`);
     return;
   }
 
   isShuttingDown = true;
-  console.log(`[shutdown] Received ${signal}, starting graceful shutdown...`);
+  logger.info(`[shutdown] Received ${signal}, starting graceful shutdown...`);
 
   const timeout = setTimeout(() => {
     console.error("[shutdown] Graceful shutdown timeout exceeded, forcing exit");
@@ -44,7 +45,7 @@ async function executeShutdown(signal: string): Promise<void> {
     }
 
     clearTimeout(timeout);
-    console.log("[shutdown] Graceful shutdown complete");
+    logger.info("[shutdown] Graceful shutdown complete");
     process.exit(0);
   } catch (error) {
     clearTimeout(timeout);

@@ -74,3 +74,29 @@ BEGIN
     RAISE EXCEPTION 'Tenant-scoped policies are required on all target tables. Missing: %', missing_tenant_policy_tables;
   END IF;
 END $$;
+
+-- Check 4: No permissive USING (true) policies targeting the authenticated role.
+-- service_role policies with USING (true) are acceptable since service_role
+-- bypasses RLS. Authenticated users must always go through tenant membership checks.
+DO $$
+DECLARE
+  permissive_policies text;
+BEGIN
+  SELECT string_agg(
+    format('%I.%I policy=%I', p.schemaname, p.tablename, p.policyname),
+    ', ' ORDER BY p.schemaname, p.tablename
+  )
+  INTO permissive_policies
+  FROM pg_policies p
+  WHERE p.schemaname IN ('public')
+    AND p.permissive = 'PERMISSIVE'
+    AND p.roles @> ARRAY['authenticated']
+    AND (
+      coalesce(p.qual, '') = '(true)'
+      OR coalesce(p.with_check, '') = '(true)'
+    );
+
+  IF permissive_policies IS NOT NULL THEN
+    RAISE EXCEPTION 'Permissive USING (true) policies on authenticated role detected (tenant isolation breach): %', permissive_policies;
+  END IF;
+END $$;

@@ -4,6 +4,7 @@
  */
 
 import { SecurityAuditEvent } from "../../types/security";
+import { logger } from "../../lib/logger.js";
 
 /**
  * Sends security events to the backend for SOC 2 Immutable Logging.
@@ -71,7 +72,7 @@ export const retryQueuedAuditEvents = async (): Promise<void> => {
     );
 
     if (queue.length > 0) {
-      console.log(`Retrying ${queue.length} queued security audit events`);
+      logger.info(`Retrying ${queue.length} queued security audit events`);
 
       for (const event of queue) {
         await logSecurityEvent(event);

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 type AnalyticsInitOptions = {
   betaCohort?: boolean;
 };

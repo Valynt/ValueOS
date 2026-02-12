@@ -9,6 +9,7 @@ import { Router, Request, Response } from "express";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { isDevRouteHostAllowed, shouldEnableDevRoutes } from "./devRoutes.js";
+import { logger } from "../lib/logger.js";
 
 const execAsync = promisify(exec);
 const router = Router();
@@ -166,7 +167,7 @@ if (isDevRoutesEnabled) {
     });
 
     setTimeout(() => {
-      console.log("[Dev] Restart requested via Dev HUD");
+      logger.info("[Dev] Restart requested via Dev HUD");
       process.exit(0);
     }, 500);
   });

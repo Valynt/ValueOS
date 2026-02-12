@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 export type ConsoleLogEntry = {
   level: 'log' | 'info' | 'warn' | 'error';
   message: string;

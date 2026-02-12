@@ -27,6 +27,7 @@ import {
   EXTENDED_STRUCTURAL_PERSONA_MAPS,
 } from "../types/structural-data";
 import { evaluateFormula } from "@/utils/formulas";
+import { logger } from "../lib/logger";
 
 export interface FormulaInput {
   kpiId: string;
@@ -110,7 +111,7 @@ export class StructuralTruth {
       formulas: INITIAL_FORMULA_REGISTRY,
     };
 
-    console.log(
+    logger.info(
       `[StructuralTruth] Initialized with ${this.kpiMap.size} KPIs, ${this.edgeMap.size} edges, ${this.formulaRegistry.size} formulas`
     );
   }

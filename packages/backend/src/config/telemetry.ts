@@ -69,7 +69,7 @@ if (!isBrowser) {
 export async function initializeTelemetry(): Promise<any> {
   if (isBrowser) {
     // Browser environment - no-op initialization
-    console.log('OpenTelemetry initialized for browser environment');
+    logger.info('OpenTelemetry initialized for browser environment');
     return null;
   }
 

@@ -11,6 +11,7 @@ import { computePermissions, UserClaims } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
+import { logger } from "../lib/logger";
 
 const logger = createLogger({ component: "AuthContext" });
 
@@ -216,7 +217,7 @@ const useAuthMethods = ({
   const login = async (credentials: LoginCredentials) => {
     const loginLogger = (msg: string, data?: Record<string, unknown>) => {
       const timestamp = new Date().toISOString();
-      console.log(`[Auth ${timestamp}] ${msg}`, data || "");
+      logger.info(`[Auth ${timestamp}] ${msg}`, data || "");
       logger.debug(msg, data);
     };
 

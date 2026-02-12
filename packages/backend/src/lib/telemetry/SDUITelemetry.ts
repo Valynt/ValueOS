@@ -1,3 +1,4 @@
+import { logger } from "../logger.js";
 /**
  * SDUI Telemetry
  */
@@ -11,7 +12,7 @@ export interface SDUITelemetryEvent {
 
 export class SDUITelemetry {
   track(event: SDUITelemetryEvent): void {
-    console.log('[SDUI Telemetry]', event);
+    logger.info('[SDUI Telemetry]', event);
   }
 
   recordEvent(event: SDUITelemetryEvent): void {

@@ -4,6 +4,7 @@ import { Calendar, Clock, Tag, ArrowLeft, Share2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { SafeHtml } from '../security/SafeHtml';
 import { SEO } from './SEO';
+import { logger } from "../../lib/logger";
 
 interface BlogPostData {
   id: string;
@@ -110,7 +111,7 @@ export default function BlogPost() {
           url: window.location.href,
         });
       } catch (error) {
-        console.log('Error sharing:', error);
+        logger.info('Error sharing:', error);
       }
     } else {
       navigator.clipboard.writeText(window.location.href);

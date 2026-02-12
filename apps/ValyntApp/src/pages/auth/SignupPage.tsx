@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/marketing/Logo";
+import { logger } from "../../lib/logger";
 
 export function SignupPage() {
   const [email, setEmail] = useState("");
@@ -36,7 +37,7 @@ export function SignupPage() {
     setError("");
 
     try {
-      console.log("Google sign in initiated");
+      logger.info("Google sign in initiated");
       await signInWithProvider("google");
       // Redirect happens automatically
     } catch (err: unknown) {

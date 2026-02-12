@@ -1,12 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { SetupWizard, type SetupData } from "@/features/onboarding";
+import { logger } from "../../lib/logger";
 
 export function SetupPage() {
   const navigate = useNavigate();
 
   const handleComplete = (data: SetupData) => {
     // Store setup data (would typically save to backend/localStorage)
-    console.log("Setup complete:", data);
+    logger.info("Setup complete:", data);
     
     // Navigate to main app
     navigate("/app");

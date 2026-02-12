@@ -5,13 +5,7 @@
  * Uses OAuth tokens stored at tenant level.
  */
 
-// import { logger } from "../../lib/logger";
-const logger = {
-  info: console.log,
-  error: console.error,
-  warn: console.warn,
-  debug: console.debug,
-};
+import { logger } from "../../lib/logger";
 import {
   CRMActivity,
   CRMCompany,

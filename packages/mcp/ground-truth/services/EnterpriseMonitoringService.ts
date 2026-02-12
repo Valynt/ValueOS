@@ -651,7 +651,7 @@ export class EnterpriseMonitoringService {
 
   private async sendEmailAlert(email: string, message: string): Promise<void> {
     // Implementation would integrate with email service
-    console.log(`Sending email alert to ${email}: ${message}`);
+    logger.info(`Sending email alert to ${email}: ${message}`);
   }
 
   private async sendSlackAlert(
@@ -659,7 +659,7 @@ export class EnterpriseMonitoringService {
     message: string
   ): Promise<void> {
     // Implementation would send to Slack webhook
-    console.log(`Sending Slack alert to ${webhookUrl}: ${message}`);
+    logger.info(`Sending Slack alert to ${webhookUrl}: ${message}`);
   }
 
   private async sendWebhookAlert(
@@ -678,7 +678,7 @@ export class EnterpriseMonitoringService {
     message: string
   ): Promise<void> {
     // Implementation would integrate with SMS service
-    console.log(`Sending SMS alert to ${phoneNumber}: ${message}`);
+    logger.info(`Sending SMS alert to ${phoneNumber}: ${message}`);
   }
 
   private async sendPagerDutyAlert(
@@ -686,7 +686,7 @@ export class EnterpriseMonitoringService {
     alert: AlertInstance
   ): Promise<void> {
     // Implementation would integrate with PagerDuty
-    console.log(`Sending PagerDuty alert: ${alert.description}`);
+    logger.info(`Sending PagerDuty alert: ${alert.description}`);
   }
 
   private async checkMetricAlerts(

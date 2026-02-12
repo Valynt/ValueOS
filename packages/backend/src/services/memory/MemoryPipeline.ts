@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import * as crypto from "crypto";
 import {
+import { logger } from "../../lib/logger.js";
   UUID,
   ArtifactMetadata,
   FactStatus,
@@ -155,7 +156,7 @@ export class MemoryPipeline {
       .maybeSingle();
 
     if (existing) {
-      console.log(`Artifact already processed: ${existing.id}`);
+      logger.info(`Artifact already processed: ${existing.id}`);
       return { artifactId: existing.id, status: "skipped_duplicate" };
     }
 

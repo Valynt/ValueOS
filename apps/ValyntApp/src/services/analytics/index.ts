@@ -1,3 +1,4 @@
+import { logger } from "../../lib/logger";
 type EventProperties = Record<string, string | number | boolean | undefined>;
 
 interface AnalyticsConfig {
@@ -13,7 +14,7 @@ const config: AnalyticsConfig = {
 export function trackEvent(eventName: string, properties?: EventProperties): void {
   if (!config.enabled) {
     if (config.debug) {
-      console.log("[Analytics] Event (disabled):", eventName, properties);
+      logger.info("[Analytics] Event (disabled):", eventName, properties);
     }
     return;
   }
@@ -28,7 +29,7 @@ export function trackEvent(eventName: string, properties?: EventProperties): voi
     }
 
     if (config.debug) {
-      console.log("[Analytics] Event:", eventName, properties);
+      logger.info("[Analytics] Event:", eventName, properties);
     }
   } catch (error) {
     console.error("[Analytics] Failed to track event:", error);
@@ -55,7 +56,7 @@ export function identifyUser(userId: string, traits?: EventProperties): void {
     }
 
     if (config.debug) {
-      console.log("[Analytics] Identify:", userId, traits);
+      logger.info("[Analytics] Identify:", userId, traits);
     }
   } catch (error) {
     console.error("[Analytics] Failed to identify user:", error);

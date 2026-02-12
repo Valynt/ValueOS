@@ -7,6 +7,7 @@ import { Progress } from "../../../components/ui/progress";
 import { CheckCircle2, XCircle, ArrowRight, ArrowLeft, BookCheck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useState } from "react";
+import { logger } from "../../../lib/logger";
 
 interface Question {
   id: number;
@@ -124,7 +125,7 @@ export default function AcademyQuiz() {
 
     setQuizResult(result);
     setQuizSubmitted(true);
-    console.log("Quiz completed!");
+    logger.info("Quiz completed!");
   };
 
   const handleRetakeQuiz = () => {

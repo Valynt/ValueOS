@@ -1,2 +1,0 @@
-// Archived: migration_log.txt
-// Original file moved for safe-keeping. Restore if needed.

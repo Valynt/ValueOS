@@ -20,6 +20,7 @@ import {
   ApiErrorResponse,
 } from './types';
 import { 
+import { logger } from "../../lib/logger.js";
   getArtifactsRepository,
   NotFoundError,
   DatabaseError,
@@ -29,7 +30,7 @@ const strictLimiter = (_req: Request, _res: Response, next: NextFunction) => nex
 
 // Simple logger for now
 const logger = {
-  info: (msg: string, data?: Record<string, unknown>) => console.log(`[INFO] ${msg}`, data || ''),
+  info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, data || ''),
   error: (msg: string, data?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, data || ''),
   warn: (msg: string, data?: Record<string, unknown>) => console.warn(`[WARN] ${msg}`, data || ''),
 };

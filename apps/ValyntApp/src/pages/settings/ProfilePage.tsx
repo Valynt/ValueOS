@@ -9,6 +9,7 @@ import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/avatar";
 import {
+import { logger } from "../../lib/logger";
   SettingsRow,
   SettingsSection,
   SettingsAlert,
@@ -40,7 +41,7 @@ export function ProfilePage() {
   };
 
   const handleVerifyEmail = () => {
-    console.log("Sending verification email...");
+    logger.info("Sending verification email...");
   };
 
   return (

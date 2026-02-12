@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { logger } from "../lib/logger";
 
 export interface GraphNode {
   id: string;
@@ -37,7 +38,7 @@ export class ValueGraphEngine {
 
         if (!nextValue.equals(node.value)) {
           node.value = nextValue;
-          console.log(`[GraphEngine] Incremental update: ${id} = ${node.value.toString()}`);
+          logger.info(`[GraphEngine] Incremental update: ${id} = ${node.value.toString()}`);
           this.propagateChanges(id); // Recursive propagation
         }
       }

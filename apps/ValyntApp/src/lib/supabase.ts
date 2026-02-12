@@ -1,13 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Robust logging for Supabase initialization
 const logPrefix = "[Supabase]";
-console.log(`${logPrefix} Initializing client...`);
-console.log(`${logPrefix} URL configured: ${supabaseUrl ? "YES (" + supabaseUrl + ")" : "NO"}`);
-console.log(
+logger.info(`${logPrefix} Initializing client...`);
+logger.info(`${logPrefix} URL configured: ${supabaseUrl ? "YES (" + supabaseUrl + ")" : "NO"}`);
+logger.info(
   `${logPrefix} Anon key configured: ${supabaseAnonKey ? "YES (length: " + supabaseAnonKey.length + ")" : "NO"}`
 );
 
@@ -29,7 +30,7 @@ export const supabase =
     : null;
 
 if (supabase) {
-  console.log(`${logPrefix} ✅ Client initialized successfully`);
+  logger.info(`${logPrefix} ✅ Client initialized successfully`);
 } else {
   console.error(`${logPrefix} ❌ Client NOT initialized - missing configuration`);
 }

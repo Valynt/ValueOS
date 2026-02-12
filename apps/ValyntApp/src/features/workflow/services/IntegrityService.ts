@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { logger } from "../../../lib/logger";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -69,7 +70,7 @@ export class IntegrityService {
       hash: Math.random().toString(36).substring(7), // Mock hash
     };
     this.logs.push(newLog);
-    console.log("[VMRT] Logged reasoning trace:", newLog);
+    logger.info("[VMRT] Logged reasoning trace:", newLog);
     return newLog;
   }
 

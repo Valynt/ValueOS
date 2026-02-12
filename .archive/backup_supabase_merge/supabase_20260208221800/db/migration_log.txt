@@ -1,4 +1,0 @@
-# Migrated from migration_log.txt
-# Use this file to track migration events for Supabase DB
-
-# ...existing log content from original file will be placed here...

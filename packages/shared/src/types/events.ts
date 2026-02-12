@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 /**
  * Typed Domain Events
  *
@@ -8,10 +9,10 @@
  * function handleEvent(event: DomainEvent) {
  *   switch (event.type) {
  *     case 'user.created':
- *       console.log(event.payload.userId);
+ *       logger.info(event.payload.userId);
  *       break;
  *     case 'agent.task.completed':
- *       console.log(event.payload.result);
+ *       logger.info(event.payload.result);
  *       break;
  *   }
  * }

@@ -270,6 +270,7 @@ const baseConfig = {
     // Error handling
 
     // Security: Prevent dangerous patterns in agent code
+    "no-console": ["error", { allow: ["warn", "error"] }],
     "no-alert": "error",
     "no-debugger": "error",
     "no-sequences": "error",
