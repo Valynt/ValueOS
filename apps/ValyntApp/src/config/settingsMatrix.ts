@@ -614,6 +614,21 @@ export interface OrganizationConfiguration {
 }
 
 /**
+ * Admin IA section that a setting belongs to.
+ * Maps to the top-level navigation in the admin control plane.
+ * See: docs/architecture/admin-settings-ia.md
+ */
+export type AdminIASection =
+  | 'governance'
+  | 'identity'
+  | 'security'
+  | 'agents'
+  | 'data'
+  | 'compliance'
+  | 'billing'
+  | 'platform';
+
+/**
  * Configuration access control
  */
 export interface ConfigurationAccess {
@@ -622,54 +637,56 @@ export interface ConfigurationAccess {
   tenantAdmin: AccessLevel;
   vendorAdmin: AccessLevel;
   description: string;
+  /** Admin IA section this setting maps to */
+  iaSection?: AdminIASection;
 }
 
 /**
  * Configuration access matrix
  */
 export const CONFIGURATION_ACCESS_MATRIX: ConfigurationAccess[] = [
-  // Multi-Tenant & Organization
-  { setting: 'tenantProvisioning', category: 'multi_tenant', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Create/Delete Orgs, manage lifecycle' },
-  { setting: 'customBranding', category: 'multi_tenant', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'SDUI theme config' },
-  { setting: 'dataResidency', category: 'multi_tenant', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Geographic pinning of data' },
-  { setting: 'domainManagement', category: 'multi_tenant', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Custom subdomains and SSL' },
-  { setting: 'namespaceIsolation', category: 'multi_tenant', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'DB Schema/Bucket prefix' },
+  // Multi-Tenant & Organization → Governance
+  { setting: 'tenantProvisioning', category: 'multi_tenant', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Create/Delete Orgs, manage lifecycle', iaSection: 'platform' },
+  { setting: 'customBranding', category: 'multi_tenant', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'SDUI theme config', iaSection: 'governance' },
+  { setting: 'dataResidency', category: 'multi_tenant', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Geographic pinning of data', iaSection: 'governance' },
+  { setting: 'domainManagement', category: 'multi_tenant', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Custom subdomains and SSL', iaSection: 'governance' },
+  { setting: 'namespaceIsolation', category: 'multi_tenant', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'DB Schema/Bucket prefix', iaSection: 'platform' },
   
-  // IAM
-  { setting: 'authPolicy', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Enforce MFA, WebAuthn' },
-  { setting: 'ssoConfig', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Configure OIDC or SAML' },
-  { setting: 'sessionControl', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Timeout durations' },
-  { setting: 'roleAssignment', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Assign Value Roles' },
-  { setting: 'customRoleMapping', category: 'iam', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Map platform permissions' },
-  { setting: 'ipWhitelist', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Restrict access to CIDR blocks' },
+  // IAM → Identity & Access / Security Posture
+  { setting: 'authPolicy', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Enforce MFA, WebAuthn', iaSection: 'security' },
+  { setting: 'ssoConfig', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Configure OIDC or SAML', iaSection: 'security' },
+  { setting: 'sessionControl', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Timeout durations', iaSection: 'security' },
+  { setting: 'roleAssignment', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Assign Value Roles', iaSection: 'identity' },
+  { setting: 'customRoleMapping', category: 'iam', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Map platform permissions', iaSection: 'identity' },
+  { setting: 'ipWhitelist', category: 'iam', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Restrict access to CIDR blocks', iaSection: 'security' },
   
-  // AI Orchestration
-  { setting: 'llmSpendingLimits', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Hard/Soft monthly caps' },
-  { setting: 'modelRouting', category: 'ai_orchestration', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Global model selection rules' },
-  { setting: 'agentToggles', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Enable/Disable agents' },
-  { setting: 'hitlThresholds', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Confidence scores for HITL' },
-  { setting: 'groundTruthSync', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'MCP data ingestion config' },
-  { setting: 'formulaVersioning', category: 'ai_orchestration', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Structural Truth versions' },
+  // AI Orchestration → Agent Governance
+  { setting: 'llmSpendingLimits', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Hard/Soft monthly caps', iaSection: 'agents' },
+  { setting: 'modelRouting', category: 'ai_orchestration', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Global model selection rules', iaSection: 'agents' },
+  { setting: 'agentToggles', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Enable/Disable agents', iaSection: 'agents' },
+  { setting: 'hitlThresholds', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Confidence scores for HITL', iaSection: 'agents' },
+  { setting: 'groundTruthSync', category: 'ai_orchestration', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'MCP data ingestion config', iaSection: 'data' },
+  { setting: 'formulaVersioning', category: 'ai_orchestration', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Structural Truth versions', iaSection: 'agents' },
   
-  // Operational
-  { setting: 'featureFlags', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Phased rollouts' },
-  { setting: 'rateLimiting', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'API throttles' },
-  { setting: 'observability', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Sampling rates and log verbosity' },
-  { setting: 'cacheManagement', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Manual flush of Redis keys' },
-  { setting: 'webhooks', category: 'operational', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Outbound event subscriptions' },
+  // Operational → Platform / Data
+  { setting: 'featureFlags', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Phased rollouts', iaSection: 'platform' },
+  { setting: 'rateLimiting', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'API throttles', iaSection: 'platform' },
+  { setting: 'observability', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Sampling rates and log verbosity', iaSection: 'platform' },
+  { setting: 'cacheManagement', category: 'operational', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Manual flush of Redis keys', iaSection: 'platform' },
+  { setting: 'webhooks', category: 'operational', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Outbound event subscriptions', iaSection: 'data' },
   
-  // Security & Governance
-  { setting: 'auditIntegrity', category: 'security', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Verify hash chains' },
-  { setting: 'retentionPolicies', category: 'security', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Data/Log lifecycle' },
-  { setting: 'manifestoStrictness', category: 'security', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Warning vs Hard Block' },
-  { setting: 'secretRotation', category: 'security', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Encryption key management' },
-  { setting: 'rlsMonitoring', category: 'security', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'RLS performance auditing' },
+  // Security & Governance → Compliance & Audit / Security Posture
+  { setting: 'auditIntegrity', category: 'security', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Verify hash chains', iaSection: 'compliance' },
+  { setting: 'retentionPolicies', category: 'security', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Data/Log lifecycle', iaSection: 'compliance' },
+  { setting: 'manifestoStrictness', category: 'security', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Warning vs Hard Block', iaSection: 'agents' },
+  { setting: 'secretRotation', category: 'security', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'Encryption key management', iaSection: 'security' },
+  { setting: 'rlsMonitoring', category: 'security', tenantAdmin: 'none', vendorAdmin: 'tenant_admin', description: 'RLS performance auditing', iaSection: 'platform' },
   
-  // Billing & Usage
-  { setting: 'tokenDashboard', category: 'billing', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Real-time LLM costs' },
-  { setting: 'valueMetering', category: 'billing', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Value Milestones tracking' },
-  { setting: 'subscriptionPlan', category: 'billing', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Tier management' },
-  { setting: 'invoicing', category: 'billing', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Payment methods and history' },
+  // Billing & Usage → Billing & Usage
+  { setting: 'tokenDashboard', category: 'billing', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Real-time LLM costs', iaSection: 'billing' },
+  { setting: 'valueMetering', category: 'billing', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Value Milestones tracking', iaSection: 'billing' },
+  { setting: 'subscriptionPlan', category: 'billing', tenantAdmin: 'view_only', vendorAdmin: 'tenant_admin', description: 'Tier management', iaSection: 'billing' },
+  { setting: 'invoicing', category: 'billing', tenantAdmin: 'tenant_admin', vendorAdmin: 'tenant_admin', description: 'Payment methods and history', iaSection: 'billing' },
 ];
 
 /**
@@ -722,3 +739,4 @@ export function getAccessibleSettings(
     return access !== 'none';
   });
 }
+
