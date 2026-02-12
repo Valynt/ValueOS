@@ -44,6 +44,7 @@ import securityMonitoringRouter from "./api/securityMonitoring.js";
 import referralsRouter from "./api/referrals.js";
 import projectsRouter from "./api/projects.js";
 import analyticsRouter from "./api/analytics.js";
+import dsrRouter from "./api/dataSubjectRequests.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import teamsRouter from "./api/teams.js";
 import integrationsRouter from "./api/integrations.js";
@@ -108,6 +109,7 @@ import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/au
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { settings, initSecrets } from "./config/settings.js";
+import { securityAuditService } from "./services/SecurityAuditService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
@@ -405,6 +407,7 @@ app.use(
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/dsr", dsrRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
@@ -510,7 +513,10 @@ async function startServer(): Promise<void> {
     });
   });
 
-  // 6. Register graceful shutdown handlers
+  // 6. Start audit log DLQ retry loop
+  securityAuditService.startRetryLoop();
+
+  // 7. Register graceful shutdown handlers
   registerGracefulShutdown();
 }
 
@@ -531,7 +537,10 @@ function registerGracefulShutdown(): void {
     // 1. Tell health check to return 503 so the load balancer stops sending traffic
     markAsShuttingDown();
 
-    // 2. Close WebSocket connections
+    // 2. Stop audit DLQ retry loop
+    securityAuditService.stopRetryLoop();
+
+    // 3. Close WebSocket connections
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.close(1001, "Server shutting down");
