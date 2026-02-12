@@ -1,4 +1,4 @@
-﻿# Normalize text files to LF in repo (important for scripts/CI)
+# Normalize text files to LF in repo
 * text=auto eol=lf
 
 # Windows scripts
