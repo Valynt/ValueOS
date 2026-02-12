@@ -1,7 +1,7 @@
 /**
  * @valueos/memory - Public API
  *
- * Memory layer for ValueOS - semantic, episodic, vector, provenance.
+ * Memory layer for ValueOS - semantic, episodic, vector, provenance, lifecycle.
  *
  * ALLOWED CONSUMERS:
  * - packages/agents
@@ -22,3 +22,6 @@ export * from "./vector/index.js";
 
 // Provenance tracking
 export * from "./provenance/index.js";
+
+// Memory lifecycle (TTL, consolidation, promotion)
+export * from "./lifecycle/index.js";
