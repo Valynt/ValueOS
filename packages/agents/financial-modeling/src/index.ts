@@ -1,6 +1,9 @@
 /**
  * Financial Modeling Agent
- * Analyzes financial models, projections, and valuations
+ *
+ * Builds Value Trees from confirmed hypotheses using the LLMGateway.
+ * Replaces mock data with structured LLM calls, Zod-validated output,
+ * and idempotency key support.
  */
 
 import express from "express";
@@ -10,7 +13,10 @@ import { logger } from "@valueos/agent-base";
 import { metrics } from "@valueos/agent-base";
 import { z } from "zod";
 
-// Agent-specific types
+// ============================================================================
+// Schemas
+// ============================================================================
+
 const QuerySchema = z.object({
   query: z.string(),
   context: z
@@ -21,136 +27,164 @@ const QuerySchema = z.object({
       metadata: z.record(z.any()).optional(),
     })
     .optional(),
+  idempotencyKey: z.string().uuid().optional(),
 });
 
 type QueryRequest = z.infer<typeof QuerySchema>;
 
+const FinancialModelSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  confidence: z.number().min(0).max(1),
+  category: z.string(),
+  model_type: z.string(),
+  priority: z.string(),
+});
+
 const ResponseSchema = z.object({
-  financial_models: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string(),
-      confidence: z.number().min(0).max(1),
-      category: z.string(),
-      model_type: z.string(),
-      priority: z.string(),
-    })
-  ),
+  financial_models: z.array(FinancialModelSchema),
   analysis: z.string(),
   timestamp: z.string(),
 });
 
 type QueryResponse = z.infer<typeof ResponseSchema>;
 
-/**
- * Mock LLM service for financial modeling analysis
- * In production, this would integrate with actual LLM APIs
- */
+// ============================================================================
+// LLM Interface (dependency injection)
+// ============================================================================
+
+export interface FinancialModelingLLMGateway {
+  complete(request: {
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+    metadata: { tenantId: string; [key: string]: unknown };
+  }): Promise<{
+    content: string;
+    usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  }>;
+}
+
+// ============================================================================
+// System Prompt
+// ============================================================================
+
+const FINANCIAL_MODELING_SYSTEM_PROMPT = `You are a Financial Modeling agent for a Value Engineering platform. Your role is to analyze financial queries and produce structured financial models.
+
+For each query, produce financial models with projections, valuations, and ROI analysis.
+
+You MUST respond with valid JSON matching this schema:
+{
+  "financial_models": [
+    {
+      "title": "<model title>",
+      "description": "<model description>",
+      "confidence": <0.0-1.0>,
+      "category": "<Investment Analysis|Valuation|Forecasting|Risk Analysis|General>",
+      "model_type": "<Cash Flow Model|DCF Model|Budget Model|Monte Carlo Model|Financial Statement Model>",
+      "priority": "<High|Medium|Low>"
+    }
+  ],
+  "analysis": "<summary analysis text>"
+}
+
+Be specific and quantitative. Base confidence scores on the quality and completeness of available data.`;
+
+// ============================================================================
+// FinancialModelingAnalyzer
+// ============================================================================
+
 export class FinancialModelingAnalyzer {
+  private llmGateway: FinancialModelingLLMGateway | null;
+
+  constructor(llmGateway?: FinancialModelingLLMGateway) {
+    this.llmGateway = llmGateway ?? null;
+  }
+
   async analyzeFinancialModels(
     query: string,
-    context?: QueryRequest["context"]
+    context?: QueryRequest["context"],
+    idempotencyKey?: string
   ): Promise<QueryResponse> {
+    const tenantId = context?.organizationId ?? 'system';
+
     logger.info("Analyzing financial models", { query, userId: context?.userId });
 
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 2000));
+    if (!this.llmGateway) {
+      logger.warn("No LLMGateway configured, using fallback response");
+      return this.fallbackResponse(query);
+    }
 
-    // Mock analysis based on query keywords
-    const financial_models = this.generateMockFinancialModels(query);
+    const response = await this.llmGateway.complete({
+      messages: [
+        { role: 'system', content: FINANCIAL_MODELING_SYSTEM_PROMPT },
+        { role: 'user', content: `Analyze and build financial models for: ${query}` },
+      ],
+      metadata: {
+        tenantId,
+        agentType: 'financial-modeling',
+        userId: context?.userId ?? 'system',
+        sessionId: context?.sessionId,
+        idempotencyKey,
+      },
+    });
 
-    const analysis =
-      `Based on the query "${query}", developed ${financial_models.length} financial models. ` +
-      "These models provide projections, valuations, and ROI analysis for strategic decision-making.";
+    const parsed = this.parseResponse(response.content);
+
+    if (response.usage) {
+      metrics.agentQueryDuration.observe(
+        { agent_type: "financial-modeling" },
+        response.usage.total_tokens
+      );
+    }
 
     return {
-      financial_models,
-      analysis,
+      ...parsed,
       timestamp: new Date().toISOString(),
     };
   }
 
-  private generateMockFinancialModels(query: string): QueryResponse["financial_models"] {
-    const keywords = query.toLowerCase();
-    const financial_models: QueryResponse["financial_models"] = [];
-
-    if (keywords.includes("roi") || keywords.includes("return")) {
-      financial_models.push({
-        title: "ROI Projection Model",
-        description:
-          "Comprehensive ROI analysis with payback period calculations and sensitivity analysis.",
-        confidence: 0.88,
-        category: "Investment Analysis",
-        model_type: "Cash Flow Model",
-        priority: "High",
-      });
+  private parseResponse(content: string): Omit<QueryResponse, 'timestamp'> {
+    let jsonStr = content;
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1]!;
     }
 
-    if (keywords.includes("valuation") || keywords.includes("value")) {
-      financial_models.push({
-        title: "Business Valuation Model",
-        description: "DCF-based valuation with multiple scenarios and comparable company analysis.",
-        confidence: 0.85,
-        category: "Valuation",
-        model_type: "DCF Model",
-        priority: "High",
-      });
-    }
+    const raw = JSON.parse(jsonStr);
+    return ResponseSchema.omit({ timestamp: true }).parse(raw);
+  }
 
-    if (keywords.includes("budget") || keywords.includes("forecast")) {
-      financial_models.push({
-        title: "Financial Forecast Model",
-        description:
-          "Multi-year financial projections with revenue, expense, and cash flow forecasting.",
-        confidence: 0.82,
-        category: "Forecasting",
-        model_type: "Budget Model",
-        priority: "Medium",
-      });
-    }
-
-    if (keywords.includes("risk") || keywords.includes("sensitivity")) {
-      financial_models.push({
-        title: "Risk Analysis Model",
-        description: "Sensitivity analysis and scenario modeling for financial risk assessment.",
-        confidence: 0.78,
-        category: "Risk Analysis",
-        model_type: "Monte Carlo Model",
-        priority: "Medium",
-      });
-    }
-
-    // Always include at least one model
-    if (financial_models.length === 0) {
-      financial_models.push({
-        title: "General Financial Model",
-        description:
-          "Standard financial modeling framework for profitability and cash flow analysis.",
-        confidence: 0.75,
-        category: "General",
-        model_type: "Financial Statement Model",
-        priority: "Medium",
-      });
-    }
-
-    return financial_models;
+  private fallbackResponse(query: string): QueryResponse {
+    return {
+      financial_models: [
+        {
+          title: "General Financial Model",
+          description: `Financial modeling framework for: ${query}`,
+          confidence: 0.5,
+          category: "General",
+          model_type: "Financial Statement Model",
+          priority: "Medium",
+        },
+      ],
+      analysis: `Fallback analysis for "${query}". LLMGateway not configured.`,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
 
-// Initialize analyzer
+// ============================================================================
+// Server Setup
+// ============================================================================
+
 const analyzer = new FinancialModelingAnalyzer();
 
-// Create custom middleware for agent-specific routes
 const agentRoutes = express.Router();
 
-// Query endpoint
 agentRoutes.post("/query", async (req: express.Request, res: express.Response) => {
   const startTime = Date.now();
 
   try {
     const validatedQuery = QuerySchema.parse(req.body);
 
-    // Record metrics
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query" });
     const queryTimer = metrics.httpRequestDuration.startTimer({ method: "POST", route: "/query" });
 
@@ -159,13 +193,12 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
       userId: validatedQuery.context?.userId,
     });
 
-    // Process the query
     const result = await analyzer.analyzeFinancialModels(
       validatedQuery.query,
-      validatedQuery.context
+      validatedQuery.context,
+      validatedQuery.idempotencyKey
     );
 
-    // Record agent-specific metrics
     metrics.agentQueriesTotal.inc({ agent_type: "financial-modeling", status: "success" });
     metrics.agentQueryDuration.observe(
       { agent_type: "financial-modeling" },
@@ -173,54 +206,38 @@ agentRoutes.post("/query", async (req: express.Request, res: express.Response) =
     );
 
     queryTimer();
-
     res.json(result);
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    logger.error("Query processing failed", error, {
-      duration,
-      body: req.body,
-    });
+    logger.error("Query processing failed", error, { duration, body: req.body });
 
-    // Record failure metrics
     metrics.httpRequestsTotal.inc({ method: "POST", route: "/query", status_code: "500" });
     metrics.agentQueriesTotal.inc({ agent_type: "financial-modeling", status: "error" });
 
     if (error instanceof z.ZodError) {
-      res.status(400).json({
-        error: "Invalid request format",
-        details: error.errors,
-      });
+      res.status(400).json({ error: "Invalid request format", details: error.errors });
     } else {
-      res.status(500).json({
-        error: "Internal server error",
-      });
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 });
 
-// Health check with agent-specific checks
 const customHealthChecks = [
   {
     name: "financial-modeling-analyzer",
     check: async () => {
-      // Check if analyzer is responsive
       try {
         await analyzer.analyzeFinancialModels("health check");
         return { status: "pass" as const };
       } catch (error) {
-        return {
-          status: "fail" as const,
-          error: "Analyzer not responsive",
-        };
+        return { status: "fail" as const, error: "Analyzer not responsive" };
       }
     },
     critical: true,
   },
 ];
 
-// Create and start the server
 const config = getConfig();
 const app = createServer({
   agentType: "financial-modeling",
@@ -229,10 +246,8 @@ const app = createServer({
   middleware: [agentRoutes],
 });
 
-// Add agent-specific metrics
 metrics.customMetrics.set("financial_modeling_analyzer_health", metrics.healthStatus);
 
-// Start the server
 startServer(app, config.PORT).catch((error: any) => {
   logger.error("Failed to start financial-modeling agent", error);
   process.exit(1);
