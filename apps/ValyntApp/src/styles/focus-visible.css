@@ -1,5 +1,56 @@
 @import "../../../../packages/shared/src/styles/motion-shadows.css";
 
+/*
+ * Focus-visible styles for keyboard navigation (A11y Principle 6).
+ * Only shows focus ring when navigating via keyboard, not mouse clicks.
+ */
+
 :focus-visible {
   transition: box-shadow var(--motion-duration-micro) var(--motion-ease-standard);
+}
+
+/*
+ * Skip-to-content link: hidden until focused via Tab key.
+ * Placed at the very top of the page for keyboard users.
+ */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  border-radius: 0 0 0.375rem 0;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/*
+ * Enhanced focus ring for interactive elements.
+ * Uses the design system's --ring token for consistency.
+ */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+}
+
+/*
+ * Reduced motion: disable focus ring transitions for users
+ * who prefer reduced motion.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :focus-visible {
+    transition: none;
+  }
 }

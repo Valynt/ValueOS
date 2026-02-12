@@ -1,6 +1,18 @@
+/**
+ * DiscoveryCard
+ *
+ * Displays a discovered opportunity/insight with status, confidence, and actions.
+ *
+ * UX Principles:
+ * - Immediate Feedback: skeleton loading state while data loads
+ * - Accessibility: focus ring, keyboard-accessible Explore/Dismiss, aria roles
+ * - Visual Hierarchy: status badge + confidence meter in F-pattern scan zone
+ */
+
 import React from "react";
 import { Search, X, Tag } from "lucide-react";
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
+import { cn } from "@/lib/utils";
 
 export interface DiscoveryCardProps {
   title: string;
@@ -9,6 +21,7 @@ export interface DiscoveryCardProps {
   tags?: string[];
   confidence?: number;
   status?: "new" | "in_progress" | "validated" | "rejected";
+  loading?: boolean;
   onExplore?: () => void;
   onDismiss?: () => void;
   className?: string;
@@ -18,11 +31,33 @@ const statusConfig: Record<
   NonNullable<DiscoveryCardProps["status"]>,
   { label: string; color: string }
 > = {
-  new: { label: "New", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-  in_progress: { label: "In Progress", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
-  validated: { label: "Validated", color: "bg-green-500/20 text-green-400 border-green-500/30" },
-  rejected: { label: "Rejected", color: "bg-red-500/20 text-red-400 border-red-500/30" },
+  new: { label: "New", color: "bg-primary/10 text-primary border-primary/20" },
+  in_progress: { label: "In Progress", color: "bg-warning/10 text-warning border-warning/20" },
+  validated: { label: "Validated", color: "bg-success/10 text-success border-success/20" },
+  rejected: { label: "Rejected", color: "bg-destructive/10 text-destructive border-destructive/20" },
 };
+
+export function DiscoveryCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("bg-card border border-border rounded-lg p-4 animate-pulse", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 space-y-2">
+          <div className="flex gap-2">
+            <div className="h-4 w-16 rounded bg-muted" />
+            <div className="h-4 w-20 rounded bg-muted" />
+          </div>
+          <div className="h-5 w-3/4 rounded bg-muted" />
+          <div className="h-4 w-full rounded bg-muted" />
+        </div>
+        <div className="h-6 w-12 rounded bg-muted" />
+      </div>
+      <div className="flex gap-1.5 mt-3">
+        <div className="h-5 w-14 rounded bg-muted" />
+        <div className="h-5 w-18 rounded bg-muted" />
+      </div>
+    </div>
+  );
+}
 
 export const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
   title,
@@ -31,14 +66,29 @@ export const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
   tags,
   confidence,
   status,
+  loading = false,
   onExplore,
   onDismiss,
   className = "",
 }) => {
+  if (loading) return <DiscoveryCardSkeleton className={className} />;
+
   const statusInfo = status ? statusConfig[status] : null;
+  const isInteractive = !!onExplore;
 
   return (
-    <div className={`bg-card border border-border rounded-lg p-4 ${className}`}>
+    <article
+      className={cn(
+        "bg-card border border-border rounded-lg p-4 transition-all duration-200",
+        isInteractive && "hover:border-primary/30 hover:shadow-sm",
+        className
+      )}
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onClick={isInteractive ? onExplore : undefined}
+      onKeyDown={isInteractive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onExplore?.(); } } : undefined}
+      aria-label={`${title}${status ? ` — ${statusConfig[status].label}` : ""}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -49,7 +99,7 @@ export const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
             )}
             {statusInfo && (
               <span
-                className={`text-xs px-2 py-0.5 rounded-full border ${statusInfo.color}`}
+                className={cn("text-[10px] font-medium px-2 py-0.5 rounded-full border", statusInfo.color)}
               >
                 {statusInfo.label}
               </span>
@@ -62,7 +112,7 @@ export const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
         </div>
         {confidence !== undefined && (
           <ConfidenceDisplay
-            data={{ score: confidence }}
+            value={confidence}
             size="sm"
             showLabel={false}
           />
@@ -87,8 +137,12 @@ export const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
         <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
           {onExplore && (
             <button
-              onClick={onExplore}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+              onClick={(e) => { e.stopPropagation(); onExplore(); }}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors",
+                "bg-primary text-primary-foreground hover:bg-primary/90",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              )}
             >
               <Search className="w-3.5 h-3.5" />
               Explore
@@ -96,8 +150,12 @@ export const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
           )}
           {onDismiss && (
             <button
-              onClick={onDismiss}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors",
+                "text-muted-foreground hover:text-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              )}
             >
               <X className="w-3.5 h-3.5" />
               Dismiss
@@ -105,7 +163,7 @@ export const DiscoveryCard: React.FC<DiscoveryCardProps> = ({
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 };
 DiscoveryCard.displayName = "DiscoveryCard";
