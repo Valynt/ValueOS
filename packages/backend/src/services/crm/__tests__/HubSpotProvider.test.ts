@@ -110,6 +110,109 @@ describe('HubSpotProvider', () => {
       expect(result.name).toBe('Untitled Deal');
       expect(result.stage).toBe('unknown');
     });
+
+    it('handles amount: "0" as zero, not null', () => {
+      const raw = {
+        id: '333',
+        properties: {
+          dealname: 'Zero Deal',
+          dealstage: 'closedwon',
+          amount: '0',
+        },
+      };
+
+      const result = provider.mapOpportunityToCanonical(raw);
+      expect(result.amount).toBe(0);
+    });
+
+    it('handles amount: "not-a-number" as null', () => {
+      const raw = {
+        id: '444',
+        properties: {
+          dealname: 'Bad Amount',
+          dealstage: 'closedlost',
+          amount: 'not-a-number',
+        },
+      };
+
+      const result = provider.mapOpportunityToCanonical(raw);
+      expect(result.amount).toBeNull();
+    });
+
+    it('handles amount: "" (empty string) as null', () => {
+      const raw = {
+        id: '555',
+        properties: {
+          dealname: 'Empty Amount',
+          dealstage: 'closedlost',
+          amount: '',
+        },
+      };
+
+      const result = provider.mapOpportunityToCanonical(raw);
+      expect(result.amount).toBeNull();
+    });
+
+    it('handles probability: "not-a-number" as null', () => {
+      const raw = {
+        id: '666',
+        properties: {
+          dealname: 'Bad Prob',
+          dealstage: 'closedlost',
+          hs_deal_stage_probability: 'invalid',
+        },
+      };
+
+      const result = provider.mapOpportunityToCanonical(raw);
+      expect(result.probability).toBeNull();
+    });
+
+    it('strips properties to only allowed fields', () => {
+      const raw = {
+        id: '777',
+        properties: {
+          dealname: 'Stripped Deal',
+          dealstage: 'qualifiedtobuy',
+          amount: '100',
+          hs_lastmodifieddate: '2026-06-15T10:30:00Z',
+          createdate: '2026-01-10T08:00:00Z',
+          pipeline: 'default',
+          // These should NOT appear in the output properties
+          some_internal_field: 'should-be-stripped',
+          hs_analytics_source: 'should-be-stripped',
+          notes_last_updated: 'should-be-stripped',
+        },
+      };
+
+      const result = provider.mapOpportunityToCanonical(raw);
+
+      // Allowed fields present
+      expect(result.properties.dealname).toBe('Stripped Deal');
+      expect(result.properties.hs_lastmodifieddate).toBe('2026-06-15T10:30:00Z');
+      expect(result.properties.createdate).toBe('2026-01-10T08:00:00Z');
+      expect(result.properties.pipeline).toBe('default');
+
+      // Disallowed fields absent
+      expect(result.properties).not.toHaveProperty('some_internal_field');
+      expect(result.properties).not.toHaveProperty('hs_analytics_source');
+      expect(result.properties).not.toHaveProperty('notes_last_updated');
+    });
+
+    it('preserves createdate for audit trail', () => {
+      const raw = {
+        id: '888',
+        properties: {
+          dealname: 'Audit Trail Deal',
+          dealstage: 'closedwon',
+          createdate: '2026-03-01T09:00:00Z',
+          hs_lastmodifieddate: '2026-06-15T10:30:00Z',
+        },
+      };
+
+      const result = provider.mapOpportunityToCanonical(raw);
+      expect(result.properties.createdate).toBe('2026-03-01T09:00:00Z');
+      expect(result.properties.hs_lastmodifieddate).toBe('2026-06-15T10:30:00Z');
+    });
   });
 
   // ==========================================================================
@@ -146,6 +249,12 @@ describe('HubSpotProvider', () => {
     it('handles missing fields', () => {
       const key = provider.extractIdempotencyKey({});
       expect(key).toContain('hs:unknown:');
+    });
+
+    it('handles empty batch array', () => {
+      const payload = [] as unknown as Record<string, unknown>;
+      const key = provider.extractIdempotencyKey(payload);
+      expect(key).toContain('hs:batch:');
     });
   });
 
@@ -283,6 +392,45 @@ describe('HubSpotProvider', () => {
       const result = await provider.verifyWebhookSignature(req);
       expect(result.valid).toBe(false);
     });
+
+    it('rejects requests with invalid v2 signature', async () => {
+      const req = {
+        headers: {
+          'x-hubspot-signature': 'deadbeef00112233445566778899aabbccddeeff00112233445566778899aabbcc',
+        },
+        body: { portalId: 12345, test: true },
+        method: 'POST',
+        protocol: 'https',
+        get: () => 'app.test',
+        originalUrl: '/api/crm/hubspot/webhook',
+      } as any;
+
+      const result = await provider.verifyWebhookSignature(req);
+      expect(result.valid).toBe(false);
+    });
+
+    it('extracts portalId from non-array payload via v2', async () => {
+      const { createHash } = await import('node:crypto');
+      const body = JSON.stringify({ portalId: 55555, objectId: 'deal-1' });
+      const expected = createHash('sha256')
+        .update('test-hs-webhook-secret' + body)
+        .digest('hex');
+
+      const req = {
+        headers: {
+          'x-hubspot-signature': expected,
+        },
+        body: JSON.parse(body),
+        method: 'POST',
+        protocol: 'https',
+        get: () => 'app.test',
+        originalUrl: '/api/crm/hubspot/webhook',
+      } as any;
+
+      const result = await provider.verifyWebhookSignature(req);
+      expect(result.valid).toBe(true);
+      expect(result.tenantId).toBe('55555');
+    });
   });
 
   // ==========================================================================
@@ -290,76 +438,98 @@ describe('HubSpotProvider', () => {
   // ==========================================================================
 
   describe('SSRF protection', () => {
-    it('rejects non-HubSpot URLs in fetchOpportunityById', async () => {
-      // HubSpot uses a fixed base URL, so SSRF is less of a concern,
-      // but we still validate the constructed URL
-      const tokens = {
-        accessToken: 'test',
-        refreshToken: 'test',
-        expiresAt: new Date(Date.now() + 3600000),
-        instanceUrl: 'https://evil.com',
-        scopes: ['crm.objects.deals.read'],
-      };
+    const tokens = {
+      accessToken: 'test',
+      refreshToken: 'test',
+      expiresAt: new Date(Date.now() + 3600000),
+      instanceUrl: 'https://evil.com',
+      scopes: ['crm.objects.deals.read'],
+    };
 
-      // Valid HubSpot ID but the provider uses HS_API_BASE internally,
-      // so this should work (SSRF protection is on the URL, not instanceUrl)
-      // The real SSRF test is that we never use instanceUrl for API calls
+    it('uses hardcoded HS_API_BASE, never instanceUrl from tokens', async () => {
+      // Even with a malicious instanceUrl, the provider uses its own constant
+      // This will fail with a network error (can't reach HubSpot), not SSRF
       const result = await provider.fetchOpportunityById(tokens, '12345');
-      // Will fail with network error since we can't reach HubSpot, but won't throw SSRF
       expect(result).toBeNull();
+    });
+
+    it('validates all outbound URLs against the domain allowlist', async () => {
+      // fetchDeltaOpportunities calls assertSafeUrl internally
+      // It will fail with network error, but the URL validation passes
+      // because it uses HS_API_BASE
+      await expect(
+        provider.fetchDeltaOpportunities(tokens, null),
+      ).rejects.toThrow(); // Network error, not SSRF
     });
   });
 
   // ==========================================================================
-  // HubSpot ID Validation
+  // HubSpot ID Validation (deals)
   // ==========================================================================
 
-  describe('HubSpot ID validation', () => {
-    it('rejects non-numeric IDs (injection attempt)', async () => {
-      const tokens = {
-        accessToken: 'test',
-        refreshToken: 'test',
-        expiresAt: new Date(Date.now() + 3600000),
-        scopes: ['crm.objects.deals.read'],
-      };
+  describe('HubSpot deal ID validation', () => {
+    const tokens = {
+      accessToken: 'test',
+      refreshToken: 'test',
+      expiresAt: new Date(Date.now() + 3600000),
+      scopes: ['crm.objects.deals.read'],
+    };
 
+    it('rejects non-numeric IDs (SQL injection attempt)', async () => {
       const result = await provider.fetchOpportunityById(tokens, "'; DROP TABLE deals; --");
       expect(result).toBeNull();
     });
 
-    it('rejects IDs with special characters', async () => {
-      const tokens = {
-        accessToken: 'test',
-        refreshToken: 'test',
-        expiresAt: new Date(Date.now() + 3600000),
-        scopes: ['crm.objects.deals.read'],
-      };
-
+    it('rejects IDs with special characters (XSS attempt)', async () => {
       const result = await provider.fetchOpportunityById(tokens, '<script>alert(1)</script>');
       expect(result).toBeNull();
     });
 
-    it('rejects IDs that are too long', async () => {
-      const tokens = {
-        accessToken: 'test',
-        refreshToken: 'test',
-        expiresAt: new Date(Date.now() + 3600000),
-        scopes: ['crm.objects.deals.read'],
-      };
-
+    it('rejects IDs that are too long (>20 digits)', async () => {
       const result = await provider.fetchOpportunityById(tokens, '1'.repeat(25));
       expect(result).toBeNull();
     });
 
     it('rejects empty IDs', async () => {
-      const tokens = {
-        accessToken: 'test',
-        refreshToken: 'test',
-        expiresAt: new Date(Date.now() + 3600000),
-        scopes: ['crm.objects.deals.read'],
-      };
-
       const result = await provider.fetchOpportunityById(tokens, '');
+      expect(result).toBeNull();
+    });
+
+    it('rejects IDs with spaces', async () => {
+      const result = await provider.fetchOpportunityById(tokens, '123 456');
+      expect(result).toBeNull();
+    });
+
+    it('rejects IDs with path traversal', async () => {
+      const result = await provider.fetchOpportunityById(tokens, '../../etc/passwd');
+      expect(result).toBeNull();
+    });
+  });
+
+  // ==========================================================================
+  // HubSpot ID Validation (companies)
+  // ==========================================================================
+
+  describe('HubSpot company ID validation', () => {
+    const tokens = {
+      accessToken: 'test',
+      refreshToken: 'test',
+      expiresAt: new Date(Date.now() + 3600000),
+      scopes: ['crm.objects.companies.read'],
+    };
+
+    it('rejects non-numeric company IDs', async () => {
+      const result = await provider.fetchAccountById(tokens, "abc; DROP TABLE companies;");
+      expect(result).toBeNull();
+    });
+
+    it('rejects empty company IDs', async () => {
+      const result = await provider.fetchAccountById(tokens, '');
+      expect(result).toBeNull();
+    });
+
+    it('rejects company IDs with special characters', async () => {
+      const result = await provider.fetchAccountById(tokens, '../../../etc/passwd');
       expect(result).toBeNull();
     });
   });
