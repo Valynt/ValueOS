@@ -1367,7 +1367,6 @@ SET default_table_access_method = heap;
 --
 
 DROP TABLE IF EXISTS public.prompt_versions CASCADE;
-DROP TABLE IF EXISTS public.prompt_versions CASCADE;
 CREATE TABLE IF NOT EXISTS public.prompt_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     prompt_key text NOT NULL,
@@ -2704,7 +2703,6 @@ $$;
 --
 
 DROP TABLE IF EXISTS public.academy_progress CASCADE;
-DROP TABLE IF EXISTS public.academy_progress CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_progress (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -2985,7 +2983,6 @@ $$;
 --
 
 DROP TABLE IF EXISTS public.ab_tests CASCADE;
-DROP TABLE IF EXISTS public.ab_tests CASCADE;
 CREATE TABLE IF NOT EXISTS public.ab_tests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -3012,7 +3009,6 @@ COMMENT ON TABLE public.ab_tests IS 'Manages A/B tests for prompt optimization';
 --
 
 DROP TABLE IF EXISTS public.academy_certifications CASCADE;
-DROP TABLE IF EXISTS public.academy_certifications CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_certifications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3036,7 +3032,6 @@ COMMENT ON TABLE public.academy_certifications IS 'User earned certifications';
 -- Name: academy_lessons; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.academy_lessons CASCADE;
 DROP TABLE IF EXISTS public.academy_lessons CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_lessons (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3068,7 +3063,6 @@ COMMENT ON TABLE public.academy_lessons IS 'Individual lessons within academy mo
 --
 
 DROP TABLE IF EXISTS public.academy_modules CASCADE;
-DROP TABLE IF EXISTS public.academy_modules CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_modules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     pillar public.academy_pillar NOT NULL,
@@ -3093,7 +3087,6 @@ COMMENT ON TABLE public.academy_modules IS 'Academy curriculum modules organized
 --
 
 DROP TABLE IF EXISTS public.agent_accuracy_metrics CASCADE;
-DROP TABLE IF EXISTS public.agent_accuracy_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_accuracy_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
@@ -3116,7 +3109,6 @@ COMMENT ON TABLE public.agent_accuracy_metrics IS 'Aggregated accuracy metrics p
 --
 
 DROP TABLE IF EXISTS public.agent_activities CASCADE;
-DROP TABLE IF EXISTS public.agent_activities CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_activities (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     case_id uuid NOT NULL,
@@ -3134,7 +3126,6 @@ CREATE TABLE IF NOT EXISTS public.agent_activities (
 -- Name: agent_audit_log; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.agent_audit_log CASCADE;
 DROP TABLE IF EXISTS public.agent_audit_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3157,7 +3148,6 @@ CREATE TABLE IF NOT EXISTS public.agent_audit_log (
 --
 
 DROP TABLE IF EXISTS public.agent_calibration_history CASCADE;
-DROP TABLE IF EXISTS public.agent_calibration_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_calibration_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
@@ -3176,7 +3166,6 @@ CREATE TABLE IF NOT EXISTS public.agent_calibration_history (
 -- Name: agent_calibration_models; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.agent_calibration_models CASCADE;
 DROP TABLE IF EXISTS public.agent_calibration_models CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_calibration_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3198,7 +3187,6 @@ CREATE TABLE IF NOT EXISTS public.agent_calibration_models (
 -- Name: agent_memory; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.agent_memory CASCADE;
 DROP TABLE IF EXISTS public.agent_memory CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3222,10 +3210,32 @@ CREATE TABLE IF NOT EXISTS public.agent_memory (
 
 
 --
+-- Name: tenants; Type: TABLE; Schema: public; Owner: -
+--
+
+DROP TABLE IF EXISTS public.tenants CASCADE;
+CREATE TABLE IF NOT EXISTS public.tenants (
+    id text NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    settings jsonb DEFAULT '{}'::jsonb,
+    status text DEFAULT 'active'::text,
+    CONSTRAINT tenants_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deleted'::text])))
+);
+
+
+--
+-- Name: TABLE tenants; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.tenants IS 'Multi-tenant organization table';
+
+
+--
 -- Name: agent_metrics; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.agent_metrics CASCADE;
 DROP TABLE IF EXISTS public.agent_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3249,7 +3259,6 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
 --
 
 DROP TABLE IF EXISTS public.agent_ontologies CASCADE;
-DROP TABLE IF EXISTS public.agent_ontologies CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_ontologies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id uuid,
@@ -3264,7 +3273,6 @@ CREATE TABLE IF NOT EXISTS public.agent_ontologies (
 -- Name: agent_predictions; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.agent_predictions CASCADE;
 DROP TABLE IF EXISTS public.agent_predictions CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_predictions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3336,7 +3344,6 @@ COMMENT ON VIEW public.agent_performance_summary IS 'Summary of agent performanc
 --
 
 DROP TABLE IF EXISTS public.agent_retraining_queue CASCADE;
-DROP TABLE IF EXISTS public.agent_retraining_queue CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_retraining_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_type text NOT NULL,
@@ -3365,7 +3372,6 @@ COMMENT ON TABLE public.agent_retraining_queue IS 'Tracks agents that need retra
 --
 
 DROP TABLE IF EXISTS public.agent_sessions CASCADE;
-DROP TABLE IF EXISTS public.agent_sessions CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid NOT NULL,
@@ -3389,7 +3395,6 @@ CREATE TABLE IF NOT EXISTS public.agent_sessions (
 --
 
 DROP TABLE IF EXISTS public.agent_tools CASCADE;
-DROP TABLE IF EXISTS public.agent_tools CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_tools (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id uuid,
@@ -3404,7 +3409,6 @@ CREATE TABLE IF NOT EXISTS public.agent_tools (
 -- Name: agents; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.agents CASCADE;
 DROP TABLE IF EXISTS public.agents CASCADE;
 CREATE TABLE IF NOT EXISTS public.agents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3425,7 +3429,6 @@ CREATE TABLE IF NOT EXISTS public.agents (
 -- Name: approval_requests; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.approval_requests CASCADE;
 DROP TABLE IF EXISTS public.approval_requests CASCADE;
 CREATE TABLE IF NOT EXISTS public.approval_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3460,7 +3463,6 @@ COMMENT ON TABLE public.approval_requests IS 'Phase 2: Stores requests for human
 -- Name: approval_requests_archive; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.approval_requests_archive CASCADE;
 DROP TABLE IF EXISTS public.approval_requests_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.approval_requests_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3498,7 +3500,6 @@ COMMENT ON TABLE public.approval_requests_archive IS 'Archive for approval reque
 --
 
 DROP TABLE IF EXISTS public.approvals CASCADE;
-DROP TABLE IF EXISTS public.approvals CASCADE;
 CREATE TABLE IF NOT EXISTS public.approvals (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     request_id uuid,
@@ -3525,7 +3526,6 @@ COMMENT ON TABLE public.approvals IS 'Phase 2: Records approval decisions (inclu
 -- Name: approvals_archive; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.approvals_archive CASCADE;
 DROP TABLE IF EXISTS public.approvals_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.approvals_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3556,7 +3556,6 @@ COMMENT ON TABLE public.approvals_archive IS 'Archive for approvals older than r
 --
 
 DROP TABLE IF EXISTS public.approver_roles CASCADE;
-DROP TABLE IF EXISTS public.approver_roles CASCADE;
 CREATE TABLE IF NOT EXISTS public.approver_roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
@@ -3584,7 +3583,6 @@ COMMENT ON TABLE public.approver_roles IS 'Phase 2: Defines who can approve what
 --
 
 DROP TABLE IF EXISTS public.assumptions CASCADE;
-DROP TABLE IF EXISTS public.assumptions CASCADE;
 CREATE TABLE IF NOT EXISTS public.assumptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -3607,7 +3605,6 @@ CREATE TABLE IF NOT EXISTS public.assumptions (
 --
 
 DROP TABLE IF EXISTS public.audit_log_access CASCADE;
-DROP TABLE IF EXISTS public.audit_log_access CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_log_access (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3624,7 +3621,6 @@ CREATE TABLE IF NOT EXISTS public.audit_log_access (
 -- Name: audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.audit_logs CASCADE;
 DROP TABLE IF EXISTS public.audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3655,7 +3651,6 @@ COMMENT ON TABLE public.audit_logs IS 'Phase 3: Immutable audit trail - append-o
 --
 
 DROP TABLE IF EXISTS public.audit_logs_archive CASCADE;
-DROP TABLE IF EXISTS public.audit_logs_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_logs_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
@@ -3685,7 +3680,6 @@ COMMENT ON TABLE public.audit_logs_archive IS 'Archive for audit logs older than
 --
 
 DROP TABLE IF EXISTS public.automated_check_results CASCADE;
-DROP TABLE IF EXISTS public.automated_check_results CASCADE;
 CREATE TABLE IF NOT EXISTS public.automated_check_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3701,7 +3695,6 @@ CREATE TABLE IF NOT EXISTS public.automated_check_results (
 -- Name: automated_responses; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.automated_responses CASCADE;
 DROP TABLE IF EXISTS public.automated_responses CASCADE;
 CREATE TABLE IF NOT EXISTS public.automated_responses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3725,7 +3718,6 @@ CREATE TABLE IF NOT EXISTS public.automated_responses (
 -- Name: backup_logs; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.backup_logs CASCADE;
 DROP TABLE IF EXISTS public.backup_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.backup_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3754,7 +3746,6 @@ COMMENT ON TABLE public.backup_logs IS 'Tracks database backup operations';
 -- Name: billing_customers; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.billing_customers CASCADE;
 DROP TABLE IF EXISTS public.billing_customers CASCADE;
 CREATE TABLE IF NOT EXISTS public.billing_customers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3786,7 +3777,6 @@ COMMENT ON TABLE public.billing_customers IS 'Maps tenants to Stripe customers f
 --
 
 DROP TABLE IF EXISTS public.business_cases CASCADE;
-DROP TABLE IF EXISTS public.business_cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.business_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -3804,7 +3794,6 @@ CREATE TABLE IF NOT EXISTS public.business_cases (
 -- Name: canvas_components; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.canvas_components CASCADE;
 DROP TABLE IF EXISTS public.canvas_components CASCADE;
 CREATE TABLE IF NOT EXISTS public.canvas_components (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3827,7 +3816,6 @@ CREATE TABLE IF NOT EXISTS public.canvas_components (
 -- Name: cases; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.cases CASCADE;
 DROP TABLE IF EXISTS public.cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3859,7 +3847,6 @@ COMMENT ON TABLE public.cases IS 'Cases with RLS enabled - users can only access
 --
 
 DROP TABLE IF EXISTS public.company_profiles CASCADE;
-DROP TABLE IF EXISTS public.company_profiles CASCADE;
 CREATE TABLE IF NOT EXISTS public.company_profiles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -3881,7 +3868,6 @@ CREATE TABLE IF NOT EXISTS public.company_profiles (
 -- Name: compliance_evidence; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.compliance_evidence CASCADE;
 DROP TABLE IF EXISTS public.compliance_evidence CASCADE;
 CREATE TABLE IF NOT EXISTS public.compliance_evidence (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3905,7 +3891,6 @@ CREATE TABLE IF NOT EXISTS public.compliance_evidence (
 --
 
 DROP TABLE IF EXISTS public.compliance_reports CASCADE;
-DROP TABLE IF EXISTS public.compliance_reports CASCADE;
 CREATE TABLE IF NOT EXISTS public.compliance_reports (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -3926,7 +3911,6 @@ CREATE TABLE IF NOT EXISTS public.compliance_reports (
 --
 
 DROP TABLE IF EXISTS public.component_history CASCADE;
-DROP TABLE IF EXISTS public.component_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.component_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     component_id uuid NOT NULL,
@@ -3943,7 +3927,6 @@ CREATE TABLE IF NOT EXISTS public.component_history (
 --
 
 DROP TABLE IF EXISTS public.component_relationships CASCADE;
-DROP TABLE IF EXISTS public.component_relationships CASCADE;
 CREATE TABLE IF NOT EXISTS public.component_relationships (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     source_component_id uuid NOT NULL,
@@ -3958,7 +3941,6 @@ CREATE TABLE IF NOT EXISTS public.component_relationships (
 -- Name: confidence_violations; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.confidence_violations CASCADE;
 DROP TABLE IF EXISTS public.confidence_violations CASCADE;
 CREATE TABLE IF NOT EXISTS public.confidence_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -3982,7 +3964,6 @@ COMMENT ON TABLE public.confidence_violations IS 'Tracks instances where agent c
 -- Name: contextual_triggers; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.contextual_triggers CASCADE;
 DROP TABLE IF EXISTS public.contextual_triggers CASCADE;
 CREATE TABLE IF NOT EXISTS public.contextual_triggers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4010,7 +3991,6 @@ COMMENT ON TABLE public.contextual_triggers IS 'Rules for in-app contextual help
 -- Name: cost_alerts; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.cost_alerts CASCADE;
 DROP TABLE IF EXISTS public.cost_alerts CASCADE;
 CREATE TABLE IF NOT EXISTS public.cost_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4040,7 +4020,6 @@ COMMENT ON TABLE public.cost_alerts IS 'Stores cost threshold violation alerts';
 --
 
 DROP TABLE IF EXISTS public.device_trust_history CASCADE;
-DROP TABLE IF EXISTS public.device_trust_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.device_trust_history (
     user_id text NOT NULL,
     tenant_id text NOT NULL,
@@ -4057,7 +4036,6 @@ CREATE TABLE IF NOT EXISTS public.device_trust_history (
 -- Name: evaluation_runs; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.evaluation_runs CASCADE;
 DROP TABLE IF EXISTS public.evaluation_runs CASCADE;
 CREATE TABLE IF NOT EXISTS public.evaluation_runs (
     id text NOT NULL,
@@ -4096,7 +4074,6 @@ COMMENT ON COLUMN public.evaluation_runs.summary IS 'Aggregate statistics: total
 --
 
 DROP TABLE IF EXISTS public.feature_flag_evaluations CASCADE;
-DROP TABLE IF EXISTS public.feature_flag_evaluations CASCADE;
 CREATE TABLE IF NOT EXISTS public.feature_flag_evaluations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     flag_key text NOT NULL,
@@ -4118,7 +4095,6 @@ COMMENT ON TABLE public.feature_flag_evaluations IS 'Tracks feature flag evaluat
 -- Name: feature_flags; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.feature_flags CASCADE;
 DROP TABLE IF EXISTS public.feature_flags CASCADE;
 CREATE TABLE IF NOT EXISTS public.feature_flags (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4169,7 +4145,6 @@ COMMENT ON COLUMN public.feature_flags.variants IS 'A/B test variants with weigh
 --
 
 DROP TABLE IF EXISTS public.financial_models CASCADE;
-DROP TABLE IF EXISTS public.financial_models CASCADE;
 CREATE TABLE IF NOT EXISTS public.financial_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -4192,7 +4167,6 @@ CREATE TABLE IF NOT EXISTS public.financial_models (
 -- Name: golden_examples; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.golden_examples CASCADE;
 DROP TABLE IF EXISTS public.golden_examples CASCADE;
 CREATE TABLE IF NOT EXISTS public.golden_examples (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4228,7 +4202,6 @@ COMMENT ON COLUMN public.golden_examples.evaluation_criteria IS 'Array of {metri
 --
 
 DROP TABLE IF EXISTS public.integration_usage_log CASCADE;
-DROP TABLE IF EXISTS public.integration_usage_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.integration_usage_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     integration_id uuid,
@@ -4245,7 +4218,6 @@ CREATE TABLE IF NOT EXISTS public.integration_usage_log (
 -- Name: invoices; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.invoices CASCADE;
 DROP TABLE IF EXISTS public.invoices CASCADE;
 CREATE TABLE IF NOT EXISTS public.invoices (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4289,7 +4261,6 @@ COMMENT ON TABLE public.invoices IS 'Stored Stripe invoices per tenant for histo
 --
 
 DROP TABLE IF EXISTS public.kpi_hypotheses CASCADE;
-DROP TABLE IF EXISTS public.kpi_hypotheses CASCADE;
 CREATE TABLE IF NOT EXISTS public.kpi_hypotheses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -4310,7 +4281,6 @@ CREATE TABLE IF NOT EXISTS public.kpi_hypotheses (
 -- Name: llm_calls; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.llm_calls CASCADE;
 DROP TABLE IF EXISTS public.llm_calls CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_calls (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4340,7 +4310,6 @@ COMMENT ON TABLE public.llm_calls IS 'Tracks all LLM API calls for cost and perf
 -- Name: llm_job_results; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.llm_job_results CASCADE;
 DROP TABLE IF EXISTS public.llm_job_results CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_job_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4419,7 +4388,6 @@ COMMENT ON MATERIALIZED VIEW public.llm_performance_metrics IS 'Aggregated LLM p
 --
 
 DROP TABLE IF EXISTS public.llm_usage CASCADE;
-DROP TABLE IF EXISTS public.llm_usage CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_usage (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid,
@@ -4456,7 +4424,6 @@ COMMENT ON TABLE public.llm_usage IS 'Tracks all LLM API calls with costs and pe
 --
 
 DROP TABLE IF EXISTS public.login_attempts CASCADE;
-DROP TABLE IF EXISTS public.login_attempts CASCADE;
 CREATE TABLE IF NOT EXISTS public.login_attempts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     email text NOT NULL,
@@ -4480,7 +4447,6 @@ COMMENT ON TABLE public.login_attempts IS 'Tracks all login attempts for securit
 --
 
 DROP TABLE IF EXISTS public.memory_provenance CASCADE;
-DROP TABLE IF EXISTS public.memory_provenance CASCADE;
 CREATE TABLE IF NOT EXISTS public.memory_provenance (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     memory_id uuid,
@@ -4495,7 +4461,6 @@ CREATE TABLE IF NOT EXISTS public.memory_provenance (
 -- Name: message_bus; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.message_bus CASCADE;
 DROP TABLE IF EXISTS public.message_bus CASCADE;
 CREATE TABLE IF NOT EXISTS public.message_bus (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4517,7 +4482,6 @@ CREATE TABLE IF NOT EXISTS public.message_bus (
 -- Name: messages; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.messages CASCADE;
 DROP TABLE IF EXISTS public.messages CASCADE;
 CREATE TABLE IF NOT EXISTS public.messages (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4545,7 +4509,6 @@ COMMENT ON TABLE public.messages IS 'Messages with RLS enabled - users can only 
 --
 
 DROP TABLE IF EXISTS public.policy_rules CASCADE;
-DROP TABLE IF EXISTS public.policy_rules CASCADE;
 CREATE TABLE IF NOT EXISTS public.policy_rules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     rule_name text NOT NULL,
@@ -4562,7 +4525,6 @@ CREATE TABLE IF NOT EXISTS public.policy_rules (
 -- Name: prompt_executions; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.prompt_executions CASCADE;
 DROP TABLE IF EXISTS public.prompt_executions CASCADE;
 CREATE TABLE IF NOT EXISTS public.prompt_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4593,7 +4555,6 @@ COMMENT ON TABLE public.prompt_executions IS 'Tracks individual prompt execution
 --
 
 DROP TABLE IF EXISTS public.rate_limit_violations CASCADE;
-DROP TABLE IF EXISTS public.rate_limit_violations CASCADE;
 CREATE TABLE IF NOT EXISTS public.rate_limit_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id uuid,
@@ -4618,7 +4579,6 @@ COMMENT ON TABLE public.rate_limit_violations IS 'Logs rate limit violations for
 -- Name: resource_artifacts; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.resource_artifacts CASCADE;
 DROP TABLE IF EXISTS public.resource_artifacts CASCADE;
 CREATE TABLE IF NOT EXISTS public.resource_artifacts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4652,7 +4612,6 @@ COMMENT ON TABLE public.resource_artifacts IS 'Downloadable templates and tools'
 --
 
 DROP TABLE IF EXISTS public.retention_policies CASCADE;
-DROP TABLE IF EXISTS public.retention_policies CASCADE;
 CREATE TABLE IF NOT EXISTS public.retention_policies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     table_name text NOT NULL,
@@ -4682,7 +4641,6 @@ COMMENT ON TABLE public.retention_policies IS 'Phase 3: Defines data retention p
 --
 
 DROP TABLE IF EXISTS public.roles CASCADE;
-DROP TABLE IF EXISTS public.roles CASCADE;
 CREATE TABLE IF NOT EXISTS public.roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -4696,7 +4654,6 @@ CREATE TABLE IF NOT EXISTS public.roles (
 -- Name: secret_audit_logs; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.secret_audit_logs CASCADE;
 DROP TABLE IF EXISTS public.secret_audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4744,7 +4701,6 @@ COMMENT ON VIEW public.secret_audit_failures IS 'SECURITY INVOKER view - Recent 
 --
 
 DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
-DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4766,7 +4722,6 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
 -- Name: secret_audit_logs_2025; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4790,7 +4745,6 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
 --
 
 DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
-DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4813,7 +4767,6 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
 --
 
 DROP TABLE IF EXISTS public.secret_audit_logs_default CASCADE;
-DROP TABLE IF EXISTS public.secret_audit_logs_default CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id character varying(255) NOT NULL,
@@ -4835,7 +4788,6 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
 -- Name: secret_audit_logs_legacy; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.secret_audit_logs_legacy CASCADE;
 DROP TABLE IF EXISTS public.secret_audit_logs_legacy CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_legacy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -4962,7 +4914,6 @@ COMMENT ON VIEW public.secret_audit_summary IS 'SECURITY INVOKER view - Daily su
 --
 
 DROP TABLE IF EXISTS public.security_audit_log CASCADE;
-DROP TABLE IF EXISTS public.security_audit_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     event_type text NOT NULL,
@@ -4986,7 +4937,6 @@ COMMENT ON TABLE public.security_audit_log IS 'Append-only log of security event
 --
 
 DROP TABLE IF EXISTS public.security_events CASCADE;
-DROP TABLE IF EXISTS public.security_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -5006,7 +4956,6 @@ CREATE TABLE IF NOT EXISTS public.security_events (
 -- Name: security_incidents; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.security_incidents CASCADE;
 DROP TABLE IF EXISTS public.security_incidents CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_incidents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5033,7 +4982,6 @@ CREATE TABLE IF NOT EXISTS public.security_incidents (
 --
 
 DROP TABLE IF EXISTS public.security_metrics CASCADE;
-DROP TABLE IF EXISTS public.security_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -5048,7 +4996,6 @@ CREATE TABLE IF NOT EXISTS public.security_metrics (
 -- Name: security_policies; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.security_policies CASCADE;
 DROP TABLE IF EXISTS public.security_policies CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_policies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5073,7 +5020,6 @@ CREATE TABLE IF NOT EXISTS public.security_policies (
 --
 
 DROP TABLE IF EXISTS public.semantic_memory CASCADE;
-DROP TABLE IF EXISTS public.semantic_memory CASCADE;
 CREATE TABLE IF NOT EXISTS public.semantic_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     type text NOT NULL,
@@ -5090,7 +5036,6 @@ CREATE TABLE IF NOT EXISTS public.semantic_memory (
 -- Name: subscription_items; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.subscription_items CASCADE;
 DROP TABLE IF EXISTS public.subscription_items CASCADE;
 CREATE TABLE IF NOT EXISTS public.subscription_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5124,7 +5069,6 @@ COMMENT ON TABLE public.subscription_items IS 'Metered line items per subscripti
 -- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.subscriptions CASCADE;
 DROP TABLE IF EXISTS public.subscriptions CASCADE;
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5164,7 +5108,6 @@ COMMENT ON TABLE public.subscriptions IS 'Active subscriptions per tenant with b
 --
 
 DROP TABLE IF EXISTS public.system_metrics CASCADE;
-DROP TABLE IF EXISTS public.system_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.system_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id text NOT NULL,
@@ -5180,7 +5123,6 @@ CREATE TABLE IF NOT EXISTS public.system_metrics (
 -- Name: task_queue; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.task_queue CASCADE;
 DROP TABLE IF EXISTS public.task_queue CASCADE;
 CREATE TABLE IF NOT EXISTS public.task_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5207,7 +5149,6 @@ CREATE TABLE IF NOT EXISTS public.task_queue (
 --
 
 DROP TABLE IF EXISTS public.tenant_integrations CASCADE;
-DROP TABLE IF EXISTS public.tenant_integrations CASCADE;
 CREATE TABLE IF NOT EXISTS public.tenant_integrations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -5232,34 +5173,9 @@ CREATE TABLE IF NOT EXISTS public.tenant_integrations (
 
 
 --
--- Name: tenants; Type: TABLE; Schema: public; Owner: -
---
-
-DROP TABLE IF EXISTS public.tenants CASCADE;
-DROP TABLE IF EXISTS public.tenants CASCADE;
-CREATE TABLE IF NOT EXISTS public.tenants (
-    id text NOT NULL,
-    name text NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    settings jsonb DEFAULT '{}'::jsonb,
-    status text DEFAULT 'active'::text,
-    CONSTRAINT tenants_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deleted'::text])))
-);
-
-
---
--- Name: TABLE tenants; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.tenants IS 'Multi-tenant organization table';
-
-
---
 -- Name: usage_aggregates; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.usage_aggregates CASCADE;
 DROP TABLE IF EXISTS public.usage_aggregates CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_aggregates (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5291,7 +5207,6 @@ COMMENT ON TABLE public.usage_aggregates IS 'Aggregated usage ready for Stripe s
 -- Name: usage_alerts; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.usage_alerts CASCADE;
 DROP TABLE IF EXISTS public.usage_alerts CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5325,7 +5240,6 @@ COMMENT ON TABLE public.usage_alerts IS 'Usage alert history (80%/100%/120% thre
 --
 
 DROP TABLE IF EXISTS public.usage_events CASCADE;
-DROP TABLE IF EXISTS public.usage_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     tenant_id uuid NOT NULL,
@@ -5353,7 +5267,6 @@ COMMENT ON TABLE public.usage_events IS 'Raw usage events emitted from services 
 -- Name: usage_quotas; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.usage_quotas CASCADE;
 DROP TABLE IF EXISTS public.usage_quotas CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_quotas (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5383,7 +5296,6 @@ COMMENT ON TABLE public.usage_quotas IS 'Plan quotas and current usage per tenan
 -- Name: user_behavior_analysis; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.user_behavior_analysis CASCADE;
 DROP TABLE IF EXISTS public.user_behavior_analysis CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_behavior_analysis (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5426,7 +5338,6 @@ COMMENT ON VIEW public.user_pillar_progress IS 'SECURITY INVOKER view - User pro
 --
 
 DROP TABLE IF EXISTS public.user_roles CASCADE;
-DROP TABLE IF EXISTS public.user_roles CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_roles (
     user_id text NOT NULL,
     role_id uuid NOT NULL,
@@ -5440,7 +5351,6 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 -- Name: user_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.user_sessions CASCADE;
 DROP TABLE IF EXISTS public.user_sessions CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5464,7 +5374,6 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
 --
 
 DROP TABLE IF EXISTS public.user_tenants CASCADE;
-DROP TABLE IF EXISTS public.user_tenants CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_tenants (
     tenant_id text NOT NULL,
     user_id text NOT NULL,
@@ -5487,7 +5396,6 @@ COMMENT ON TABLE public.user_tenants IS 'Maps users to tenants with roles - requ
 --
 
 DROP TABLE IF EXISTS public.value_cases CASCADE;
-DROP TABLE IF EXISTS public.value_cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     organization_id uuid,
@@ -5509,7 +5417,6 @@ CREATE TABLE IF NOT EXISTS public.value_cases (
 -- Name: value_ledger; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.value_ledger CASCADE;
 DROP TABLE IF EXISTS public.value_ledger CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_ledger (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5536,7 +5443,6 @@ COMMENT ON TABLE public.value_ledger IS 'Tracks realized value for gamification 
 --
 
 DROP TABLE IF EXISTS public.value_maps CASCADE;
-DROP TABLE IF EXISTS public.value_maps CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_maps (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     value_case_id uuid,
@@ -5555,7 +5461,6 @@ CREATE TABLE IF NOT EXISTS public.value_maps (
 -- Name: value_prediction_accuracy; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.value_prediction_accuracy CASCADE;
 DROP TABLE IF EXISTS public.value_prediction_accuracy CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_prediction_accuracy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5611,7 +5516,6 @@ COMMENT ON MATERIALIZED VIEW public.value_prediction_accuracy_metrics IS 'Aggreg
 --
 
 DROP TABLE IF EXISTS public.webhook_events CASCADE;
-DROP TABLE IF EXISTS public.webhook_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.webhook_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     stripe_event_id text NOT NULL,
@@ -5636,7 +5540,6 @@ COMMENT ON TABLE public.webhook_events IS 'Stripe webhook event log for idempote
 -- Name: workflow_executions; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.workflow_executions CASCADE;
 DROP TABLE IF EXISTS public.workflow_executions CASCADE;
 CREATE TABLE IF NOT EXISTS public.workflow_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -5665,7 +5568,6 @@ CREATE TABLE IF NOT EXISTS public.workflow_executions (
 -- Name: workflows; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.workflows CASCADE;
 DROP TABLE IF EXISTS public.workflows CASCADE;
 CREATE TABLE IF NOT EXISTS public.workflows (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -8175,14 +8077,6 @@ CREATE INDEX IF NOT EXISTS idx_user_tenants_user ON public.user_tenants USING bt
 CREATE INDEX IF NOT EXISTS idx_value_cases_session ON public.value_cases USING btree (session_id);
 
 --
--- Name: idx_opportunities_tenant_created_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX IF NOT EXISTS idx_opportunities_tenant_created_at ON public.opportunities USING btree (tenant_id, created_at DESC);
-
-
---
--- Name: idx_value_ledger_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX IF NOT EXISTS idx_value_ledger_user ON public.value_ledger USING btree (user_id);
@@ -11993,7 +11887,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES 
 
 -- Create HITL Requests table
 DROP TABLE IF EXISTS public.hitl_requests CASCADE;
-DROP TABLE IF EXISTS public.hitl_requests CASCADE;
 CREATE TABLE IF NOT EXISTS public.hitl_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     gate_id TEXT NOT NULL,
@@ -15065,18 +14958,6 @@ END $$;
 UPDATE organizations
 SET slug = 'test-org-' || SUBSTRING(id::TEXT FROM 1 FOR 8)
 WHERE slug = '' OR slug IS NULL;
-
--- Create tenants table as alias for organizations (for compatibility)
-CREATE TABLE IF NOT EXISTS tenants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  slug TEXT NOT NULL DEFAULT '',
-  metadata JSONB DEFAULT '{}'::jsonb,
-  plan_tier TEXT DEFAULT 'free',
-  status TEXT DEFAULT 'active',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- Add tenant_id column to user_tenants if it doesn't exist
 DO $$
@@ -21201,6 +21082,15 @@ BEGIN
   END IF;
 END $$;
 
+
+-- Name: idx_opportunities_tenant_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX IF NOT EXISTS idx_opportunities_tenant_created_at ON public.opportunities USING btree (tenant_id, created_at DESC);
+
+
+--
+-- Name: idx_value_ledger_user; Type: INDEX; Schema: public; Owner: -
 CREATE TABLE IF NOT EXISTS benchmarks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   industry TEXT,
@@ -21210,7 +21100,6 @@ CREATE TABLE IF NOT EXISTS benchmarks (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-DROP TABLE IF EXISTS public.workflow_stage_runs CASCADE;
 DROP TABLE IF EXISTS public.workflow_stage_runs CASCADE;
 CREATE TABLE IF NOT EXISTS public.workflow_stage_runs (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -21903,9 +21792,15 @@ UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL
 UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
 UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
 -- UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
--- -- UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
+-- UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
 -- UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
-UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
+-- UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'progressive_rollouts' AND table_schema = 'public') THEN
+        EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    END IF;
+END $$;
 UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
 
 COMMIT;
@@ -22248,8 +22143,15 @@ UPDATE public.workflow_executions SET input_params = '{}' WHERE input_params IS 
 UPDATE public.workflow_executions SET output_data = '{}' WHERE output_data IS NULL OR jsonb_typeof(output_data) != 'object';
 UPDATE public.agent_memory SET metadata = '{}' WHERE metadata IS NULL OR jsonb_typeof(metadata) != 'object';
 UPDATE public.organizations SET settings = '{}' WHERE settings IS NULL OR jsonb_typeof(settings) != 'object';
-UPDATE public.agent_performance_summary SET metadata = '{}' WHERE metadata IS NULL OR jsonb_typeof(metadata) != 'object';
-UPDATE public.integration_configs SET config = '{}' WHERE config IS NULL OR jsonb_typeof(config) != 'object';
+DO $guard$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_performance_summary' AND table_schema = 'public' AND table_type = 'BASE TABLE') THEN
+        EXECUTE 'UPDATE public.agent_performance_summary SET metadata = ''{}'' WHERE metadata IS NULL OR jsonb_typeof(metadata) != ''object''';
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'integration_configs' AND table_schema = 'public') THEN
+        EXECUTE 'UPDATE public.integration_configs SET config = ''{}'' WHERE config IS NULL OR jsonb_typeof(config) != ''object''';
+    END IF;
+END $guard$;
 
 COMMIT;
 -- ================================================
@@ -22282,15 +22184,21 @@ CREATE INDEX IF NOT EXISTS idx_agent_sessions_user_created ON public.agent_sessi
 -- Indexes for organizations performance
 CREATE INDEX IF NOT EXISTS idx_organizations_tenant_active ON public.organizations USING btree (tenant_id, is_active) WHERE is_active = true;
 
--- Indexes for agent_performance_summary performance
-CREATE INDEX IF NOT EXISTS idx_agent_performance_tenant_created ON public.agent_performance_summary USING btree (tenant_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_agent_performance_agent_success ON public.agent_performance_summary USING btree (agent_id, is_success, created_at DESC);
-
--- Indexes for llm_gating performance
-CREATE INDEX IF NOT EXISTS idx_llm_gating_tenant_enabled ON public.llm_gating USING btree (tenant_id, is_enabled);
-
--- Indexes for progressive_rollouts performance
-CREATE INDEX IF NOT EXISTS idx_progressive_rollouts_tenant_active ON public.progressive_rollouts USING btree (tenant_id, is_active);
+-- Indexes for agent_performance_summary, llm_gating, progressive_rollouts
+-- Guarded: these objects may not exist in all environments
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_performance_summary' AND table_schema = 'public') THEN
+        CREATE INDEX IF NOT EXISTS idx_agent_performance_tenant_created ON public.agent_performance_summary (tenant_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_agent_performance_agent_success ON public.agent_performance_summary (agent_id, is_success, created_at DESC);
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'llm_gating' AND table_schema = 'public') THEN
+        CREATE INDEX IF NOT EXISTS idx_llm_gating_tenant_enabled ON public.llm_gating (tenant_id, is_enabled);
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'progressive_rollouts' AND table_schema = 'public') THEN
+        CREATE INDEX IF NOT EXISTS idx_progressive_rollouts_tenant_active ON public.progressive_rollouts (tenant_id, is_active);
+    END IF;
+END $$;
 
 -- Indexes for feature_flags performance
 CREATE INDEX IF NOT EXISTS idx_feature_flags_name_enabled ON public.feature_flags USING btree (name, is_enabled);
@@ -22790,7 +22698,6 @@ CREATE POLICY security_audit_log_service_role_insert
 -- Create teams table
 -- Depends on tenants table (tenant_id is TEXT)
 
-DROP TABLE IF EXISTS public.teams CASCADE;
 DROP TABLE IF EXISTS public.teams CASCADE;
 CREATE TABLE IF NOT EXISTS public.teams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
