@@ -10,7 +10,6 @@ import {
   Referral,
   ReferralReward,
   ReferralStats,
-  GenerateReferralCodeRequest,
   GenerateReferralCodeResponse,
   ClaimReferralRequest,
   ClaimReferralResponse,

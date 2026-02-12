@@ -8,7 +8,6 @@ import { TenantAwareService } from './TenantAwareService';
 import { AuthorizationError, NotFoundError, ValidationError } from './errors';
 import { tenantCache } from './cache/TenantCache';
 import { z } from 'zod';
-import { securityEvents } from '../security/securityLogger';
 
 // Schema definitions for secure deserialization
 const SecureSettingsSchemas = {

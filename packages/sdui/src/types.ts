@@ -2,7 +2,7 @@
  * Type definitions for the SDUI runtime engine
  */
 
-import { ComponentType, ReactElement } from 'react';
+import { ComponentType } from 'react';
 import { SDUIComponentSection, SDUIPageDefinition } from './schema';
 
 /**

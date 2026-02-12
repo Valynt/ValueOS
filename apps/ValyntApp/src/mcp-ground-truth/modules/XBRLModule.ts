@@ -17,7 +17,6 @@ import {
   ModuleRequest,
   ModuleResponse,
   XBRLFact,
-  XBRLFactRequest,
   XBRLTrendData,
 } from '../types';
 import { logger } from '../../lib/logger';

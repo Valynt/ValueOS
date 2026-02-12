@@ -90,18 +90,18 @@ const pgErrorCodeMap: Record<string, (message: string, cause?: Error) => AppErro
   '23514': (msg, cause) => new ValidationError(msg || 'Check violation', [], cause),
 
   // Connection errors
-  '08000': (msg, cause) => new ServiceUnavailableError('Database', cause),
-  '08003': (msg, cause) => new ServiceUnavailableError('Database', cause),
-  '08006': (msg, cause) => new ServiceUnavailableError('Database', cause),
+  '08000': (_msg, cause) => new ServiceUnavailableError('Database', cause),
+  '08003': (_msg, cause) => new ServiceUnavailableError('Database', cause),
+  '08006': (_msg, cause) => new ServiceUnavailableError('Database', cause),
 
   // Insufficient resources
-  '53000': (msg, cause) => new ServiceUnavailableError('Database', cause),
-  '53100': (msg, cause) => new ServiceUnavailableError('Database', cause),
-  '53200': (msg, cause) => new ServiceUnavailableError('Database', cause),
-  '53300': (msg, cause) => new ServiceUnavailableError('Database', cause),
+  '53000': (_msg, cause) => new ServiceUnavailableError('Database', cause),
+  '53100': (_msg, cause) => new ServiceUnavailableError('Database', cause),
+  '53200': (_msg, cause) => new ServiceUnavailableError('Database', cause),
+  '53300': (_msg, cause) => new ServiceUnavailableError('Database', cause),
 
   // Query canceled (timeout)
-  '57014': (msg, cause) => new GatewayTimeoutError('Database', cause),
+  '57014': (_msg, cause) => new GatewayTimeoutError('Database', cause),
 };
 
 /**

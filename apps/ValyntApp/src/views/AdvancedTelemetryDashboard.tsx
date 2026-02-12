@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, CheckCircle, Clock, TrendingUp, Activity, AlertCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import {
   LineChart,
   LineChartArea,
@@ -12,7 +12,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { agentTelemetryService } from "../services/agents/telemetry/AgentTelemetryService";
-import { AgentType } from "../services/agent-types";
 
 interface TelemetryData {
   systemHealth: any;

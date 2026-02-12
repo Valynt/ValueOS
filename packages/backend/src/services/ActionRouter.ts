@@ -12,10 +12,9 @@ import {
   ActionResult,
   CanonicalAction,
   ManifestoCheckResult,
-  ManifestoViolation,
   ValidationResult,
 } from "@valueos/shared/types/actions";
-import { ExecutionRequest, normalizeExecutionRequest } from "../types/execution";
+import { normalizeExecutionRequest } from "../types/execution";
 import { AuditLogService } from "./AuditLogService.js";
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from "./UnifiedAgentOrchestrator.js";
 import { AgentAPI, getAgentAPI } from "./AgentAPI.js";
@@ -41,8 +40,6 @@ import {
   validateCanonicalAction,
   validateActionContext,
   ActionValidationError,
-  CanonicalActionSchema,
-  ActionContextSchema,
 } from "../schemas/actions.schema.js";
 import { randomUUID } from "crypto";
 
@@ -580,7 +577,7 @@ export class ActionRouter {
     });
 
     // updateAssumption handler
-    this.registerHandler("updateAssumption", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
+    this.registerHandler("updateAssumption", async (action: CanonicalAction, _context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "updateAssumption") {
         return { success: false, error: "Invalid action type" };
       }
@@ -680,7 +677,7 @@ export class ActionRouter {
     });
 
     // openAuditTrail handler
-    this.registerHandler("openAuditTrail", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
+    this.registerHandler("openAuditTrail", async (action: CanonicalAction, _context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "openAuditTrail") {
         return { success: false, error: "Invalid action type" };
       }
@@ -776,7 +773,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // navigateToStage handler
-    this.registerHandler("navigateToStage", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
+    this.registerHandler("navigateToStage", async (action: CanonicalAction, _context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "navigateToStage") {
         return { success: false, error: "Invalid action type" };
       }
@@ -789,7 +786,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // saveWorkspace handler
-    this.registerHandler("saveWorkspace", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
+    this.registerHandler("saveWorkspace", async (action: CanonicalAction, _context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "saveWorkspace") {
         return { success: false, error: "Invalid action type" };
       }

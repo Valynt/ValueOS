@@ -3,6 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @valueos/agent-base build && pnpm -r --filter '!@valueos/agent-base' build",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "dev": "pnpm --filter valynt-app dev"
+  },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",

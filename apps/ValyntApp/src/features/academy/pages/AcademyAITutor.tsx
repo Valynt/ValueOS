@@ -8,10 +8,7 @@ import {
   Bot,
   User,
   Sparkles,
-  BookOpen,
-  Target,
   Lightbulb,
-  MessageCircle,
   Brain,
   ArrowLeft
 } from "lucide-react";

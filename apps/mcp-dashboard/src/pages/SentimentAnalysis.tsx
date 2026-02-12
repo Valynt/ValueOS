@@ -1,12 +1,8 @@
 import {
-  FileText,
   Loader,
   MessageSquare,
-  Send,
-  TrendingDown,
-  TrendingUp,
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { SentimentGauge } from "../components/charts/FinancialCharts";
 

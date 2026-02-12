@@ -27,10 +27,10 @@ import { createRedisRateLimiter } from "../security/redisRateLimiter.js";
 import { clientRateLimit } from "./ClientRateLimit.js"
 import { mfaService } from "./MFAService.js"
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
-import { assertTenantMember, assertCapability, isPrivilegedAction, deny, toAuthError } from "./AuthPolicy.js";
-import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
+import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
+import { SessionClaimsSchema } from "../types/auth.js";
 import { getSessionStore, RedisSessionStore, DeviceFingerprint } from "../security/RedisSessionStore.js";
-import { getTokenRotationService, SecurityEventType } from "./TokenRotationService.js";
+import { getTokenRotationService } from "./TokenRotationService.js";
 import { getDeviceFingerprintService, DeviceFingerprintService } from "./DeviceFingerprintService.js";
 import { getRedisClient } from "@shared/lib/redisClient";
 

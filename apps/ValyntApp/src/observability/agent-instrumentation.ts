@@ -9,7 +9,7 @@
  * - Context handling across turns
  */
 
-import { Metrics, logger, withSpan, getTraceContext } from "./instrumentation";
+import { Metrics, logger, withSpan } from "./instrumentation";
 import type { Span } from "@opentelemetry/api";
 
 // ============================================================================

@@ -13,7 +13,6 @@
  * - Timeout protection
  */
 
-import { logger } from '../../lib/logger.js'
 import { LifecycleStage, RetryConfig, WorkflowDAG, WorkflowStage } from '../../types/workflow';
 
 // ============================================================================

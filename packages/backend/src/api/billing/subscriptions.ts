@@ -5,7 +5,6 @@
 
 import express, { Request, Response } from "express";
 import SubscriptionService from "../../services/billing/SubscriptionService.js";
-import CustomerService from "../../services/billing/CustomerService.js";
 import { PlanTier } from "../../config/billing.js";
 import { createLogger } from "@shared/lib/logger";
 

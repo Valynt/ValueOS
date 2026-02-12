@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
 import { api } from "../../../api/client/unified-api-client";
-import type { Workflow, WorkflowStep, WorkflowStatus } from "../types";
+import type { Workflow, WorkflowStep } from "../types";
 
-export function useWorkflow(workflowId?: string) {
+export function useWorkflow(_workflowId?: string) {
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

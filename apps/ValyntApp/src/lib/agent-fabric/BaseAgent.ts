@@ -25,7 +25,6 @@ import {
   AgentConfiguration,
   AgentPerformanceMetrics,
   AgentExecutionMetadata,
-  AgentError,
   ReasoningTrace,
 } from "../../services/agents/core/IAgent";
 
@@ -635,7 +634,7 @@ export abstract class BaseAgent implements IAgent {
   protected initializeMARL(): void {
     // Default implementations - subclasses should override
     this.marlPolicy = {
-      selectAction: (state: MARLState, agentId: string) => ({
+      selectAction: (_state: MARLState, agentId: string) => ({
         agentId,
         actionType: "default",
         parameters: {},

@@ -1,10 +1,11 @@
 /**
  * Calculator Templates
- * 
+ *
  * Industry-specific templates for the self-service ROI calculator
  */
 
-import { CalculatorTemplate, Industry, MetricCategory, InputFieldType } from '../types/calculatorTemplate';
+import type { CalculatorTemplate } from '../types/calculatorTemplate';
+import { Industry, MetricCategory, InputFieldType } from '../types/calculatorTemplate';
 import { saasTemplate } from './templates/saas';
 
 // E-commerce Template
@@ -15,7 +16,7 @@ export const ecommerceTemplate: CalculatorTemplate = {
   description: 'Calculate ROI for e-commerce businesses focusing on conversion, cart abandonment, and customer retention',
   version: '1.0.0',
   estimatedTimeMinutes: 10,
-  
+
   painPoints: [
     {
       id: 'low-conversion',
@@ -50,7 +51,7 @@ export const ecommerceTemplate: CalculatorTemplate = {
       commonSolutions: ['Better product descriptions', 'Size guides', 'Customer reviews'],
     },
   ],
-  
+
   metrics: [
     {
       id: 'monthly-visitors',
@@ -107,7 +108,7 @@ export const ecommerceTemplate: CalculatorTemplate = {
       defaultValue: 10,
     },
   ],
-  
+
   benchmarks: [
     {
       metricId: 'conversion-rate',
@@ -128,7 +129,7 @@ export const ecommerceTemplate: CalculatorTemplate = {
       lastUpdated: '2026-01-01',
     },
   ],
-  
+
   roiFormulas: [
     {
       id: 'monthly-revenue',
@@ -139,7 +140,7 @@ export const ecommerceTemplate: CalculatorTemplate = {
       outputUnit: 'USD',
     },
   ],
-  
+
   validationRules: [
     {
       field: 'monthly-visitors',
@@ -153,7 +154,7 @@ export const ecommerceTemplate: CalculatorTemplate = {
       message: 'Conversion rate must be between 0 and 100',
     },
   ],
-  
+
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
@@ -166,7 +167,7 @@ export const manufacturingTemplate: CalculatorTemplate = {
   description: 'Calculate ROI for manufacturing operations focusing on efficiency, quality, and downtime reduction',
   version: '1.0.0',
   estimatedTimeMinutes: 12,
-  
+
   painPoints: [
     {
       id: 'equipment-downtime',
@@ -201,7 +202,7 @@ export const manufacturingTemplate: CalculatorTemplate = {
       commonSolutions: ['OEE monitoring', 'Process optimization', 'Operator training'],
     },
   ],
-  
+
   metrics: [
     {
       id: 'production-units',
@@ -269,7 +270,7 @@ export const manufacturingTemplate: CalculatorTemplate = {
       defaultValue: 60,
     },
   ],
-  
+
   benchmarks: [
     {
       metricId: 'oee',
@@ -290,7 +291,7 @@ export const manufacturingTemplate: CalculatorTemplate = {
       lastUpdated: '2026-01-01',
     },
   ],
-  
+
   roiFormulas: [
     {
       id: 'downtime-cost',
@@ -301,7 +302,7 @@ export const manufacturingTemplate: CalculatorTemplate = {
       outputUnit: 'USD',
     },
   ],
-  
+
   validationRules: [
     {
       field: 'production-units',
@@ -315,7 +316,7 @@ export const manufacturingTemplate: CalculatorTemplate = {
       message: 'Defect rate cannot exceed 100%',
     },
   ],
-  
+
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
@@ -328,7 +329,7 @@ export const healthcareTemplate: CalculatorTemplate = {
   description: 'Calculate ROI for healthcare organizations focusing on patient care, efficiency, and compliance',
   version: '1.0.0',
   estimatedTimeMinutes: 12,
-  
+
   painPoints: [
     {
       id: 'long-wait-times',
@@ -355,7 +356,7 @@ export const healthcareTemplate: CalculatorTemplate = {
       commonSolutions: ['EHR optimization', 'Automation', 'Voice recognition'],
     },
   ],
-  
+
   metrics: [
     {
       id: 'monthly-patients',
@@ -400,7 +401,7 @@ export const healthcareTemplate: CalculatorTemplate = {
       max: 24,
     },
   ],
-  
+
   benchmarks: [
     {
       metricId: 'avg-wait-time',
@@ -421,7 +422,7 @@ export const healthcareTemplate: CalculatorTemplate = {
       lastUpdated: '2026-01-01',
     },
   ],
-  
+
   roiFormulas: [],
   validationRules: [
     {
@@ -430,7 +431,7 @@ export const healthcareTemplate: CalculatorTemplate = {
       message: 'Monthly patient visits is required',
     },
   ],
-  
+
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
@@ -443,7 +444,7 @@ export const financialServicesTemplate: CalculatorTemplate = {
   description: 'Calculate ROI for financial services focusing on compliance, fraud prevention, and customer experience',
   version: '1.0.0',
   estimatedTimeMinutes: 10,
-  
+
   painPoints: [
     {
       id: 'fraud-losses',
@@ -470,7 +471,7 @@ export const financialServicesTemplate: CalculatorTemplate = {
       commonSolutions: ['Digital onboarding', 'KYC automation', 'Document verification'],
     },
   ],
-  
+
   metrics: [
     {
       id: 'monthly-transactions',
@@ -514,7 +515,7 @@ export const financialServicesTemplate: CalculatorTemplate = {
       min: 0,
     },
   ],
-  
+
   benchmarks: [
     {
       metricId: 'fraud-rate',
@@ -526,7 +527,7 @@ export const financialServicesTemplate: CalculatorTemplate = {
       lastUpdated: '2026-01-01',
     },
   ],
-  
+
   roiFormulas: [
     {
       id: 'fraud-losses',
@@ -537,7 +538,7 @@ export const financialServicesTemplate: CalculatorTemplate = {
       outputUnit: 'USD',
     },
   ],
-  
+
   validationRules: [
     {
       field: 'monthly-transactions',
@@ -545,7 +546,7 @@ export const financialServicesTemplate: CalculatorTemplate = {
       message: 'Monthly transactions is required',
     },
   ],
-  
+
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };

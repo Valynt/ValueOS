@@ -57,11 +57,10 @@ import { ShareModal } from "@/features/workspace/components/ShareModal";
 import { exportToPdf } from "@/features/workspace/services/exportPdf";
 
 // Agent Chat
-import { AgentChat } from "@/components/AgentChat";
 
 // Value Drivers
 import { ValueDriverSelector } from "@/components/value-drivers";
-import { ValueDriver, MOCK_VALUE_DRIVERS } from "@/types/valueDriver";
+import { ValueDriver } from "@/types/valueDriver";
 
 export function CaseWorkspace() {
   const { caseId } = useParams();

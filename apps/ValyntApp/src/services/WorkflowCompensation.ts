@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import {
   CompensationContext,

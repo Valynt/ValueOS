@@ -11,7 +11,7 @@
 
 import React, { useMemo } from "react";
 import { SettingsSection } from "../../components/settings";
-import { useSettings, useSettingsGroup } from "../../lib/settingsRegistry";
+import { useSettingsGroup } from "../../lib/settingsRegistry";
 import {
   Calendar,
   Clock,

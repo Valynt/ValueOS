@@ -228,7 +228,6 @@ export class TelemetryGuardrailsService {
   private async updateSecurityMetrics(event: SecurityEvent): Promise<void> {
     // Update organization security metrics (could be cached or stored in DB)
     // This is a simplified implementation
-    const metricKey = `${event.organizationId}_${event.type}`;
     
     // In real implementation, you'd update a metrics table or cache
     logger.info('Security metric updated', {

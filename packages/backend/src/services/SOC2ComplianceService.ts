@@ -1,7 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { TenantAwareService } from './TenantAwareService.js'
 import { log } from '../lib/logger.js'
-import { auditLogService } from './AuditLogService.js'
 
 export interface SOC2Control {
   id: string;

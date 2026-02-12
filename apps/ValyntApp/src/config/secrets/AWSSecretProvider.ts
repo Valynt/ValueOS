@@ -16,10 +16,8 @@ import {
   PutSecretValueCommand,
   RotateSecretCommand,
   SecretsManagerClient,
-  UpdateSecretCommand
 } from '@aws-sdk/client-secrets-manager';
 import { logger } from '../../lib/logger';
-import { createServerSupabaseClient } from '../../lib/supabase';
 import type {
   AuditAction,
   AuditResult,

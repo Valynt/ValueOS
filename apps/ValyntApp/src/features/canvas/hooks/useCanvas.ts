@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { apiClient } from "../../../api/client/unified-api-client";
 import type { Canvas, CanvasNode, CanvasEdge, CanvasViewport } from "../types";
 
-export function useCanvas(canvasId?: string) {
+export function useCanvas(_canvasId?: string) {
   const [canvas, setCanvas] = useState<Canvas | null>(null);
   const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);

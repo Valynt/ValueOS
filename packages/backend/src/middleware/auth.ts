@@ -236,7 +236,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
  * Optional authentication middleware
  * Adds user/session to request if authenticated, but doesn't fail if not
  */
-export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
     const bearerToken = parseBearerToken(req.headers.authorization);
     let session = null;

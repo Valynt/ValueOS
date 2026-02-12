@@ -6,9 +6,8 @@
  * Compatible with both browser and server environments.
  */
 
-import { logger } from "../lib/logger.js"
 import { BaseService } from "./BaseService.js"
-import { AuthenticationError, ValidationError } from "./errors.js"
+import { ValidationError } from "./errors.js"
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";

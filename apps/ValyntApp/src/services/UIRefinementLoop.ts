@@ -19,8 +19,6 @@ import { AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
 import {
   AtomicUIAction,
-  createMutateAction,
-  createPropertyUpdate,
   validateAtomicAction,
 } from '../sdui/AtomicUIActions';
 import type { SDUIPageDefinition } from '../sdui/types';

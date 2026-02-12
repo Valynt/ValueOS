@@ -8,7 +8,6 @@
 import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
 import {
-  getRedisClient,
   isRedisConnected,
   setCache,
   getCache,

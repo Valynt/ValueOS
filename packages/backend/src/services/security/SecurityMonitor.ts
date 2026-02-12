@@ -8,7 +8,6 @@
 import { logger } from "../../lib/logger.js"
 import { getAuditLogger, AgentAuditLog } from "../AgentAuditLogger.js"
 import { getSecureSharedContext } from "../SecureSharedContext.js"
-import { secureMessageBus } from "../../lib/agent-fabric/SecureMessageBus";
 
 // ============================================================================
 // Types

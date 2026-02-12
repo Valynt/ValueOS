@@ -27,7 +27,7 @@ router.use(requireRole("admin"));
  * GET /api/admin/security/metrics
  * Get current security metrics
  */
-router.get("/metrics", async (req: Request, res: Response) => {
+router.get("/metrics", async (_req: Request, res: Response) => {
   try {
     const metrics = metricsCollector.getMetrics();
 
@@ -94,7 +94,7 @@ router.get("/events", async (req: Request, res: Response) => {
  * GET /api/admin/security/alerts
  * Get active security alerts
  */
-router.get("/alerts", async (req: Request, res: Response) => {
+router.get("/alerts", async (_req: Request, res: Response) => {
   try {
     const events = metricsCollector.getRecentEvents(100);
 
@@ -176,7 +176,7 @@ router.get("/alerts", async (req: Request, res: Response) => {
  * GET /api/admin/security/dashboard
  * Get comprehensive dashboard data
  */
-router.get("/dashboard", async (req: Request, res: Response) => {
+router.get("/dashboard", async (_req: Request, res: Response) => {
   try {
     const metrics = metricsCollector.getMetrics();
     const recentEvents = metricsCollector.getRecentEvents(20);

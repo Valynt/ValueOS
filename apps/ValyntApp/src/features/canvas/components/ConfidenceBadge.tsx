@@ -6,7 +6,6 @@ export interface ConfidenceBadgeProps {
 }
 
 export const ConfidenceBadge: React.FC<ConfidenceBadgeProps> = ({ confidence }) => {
-  let color = "#9AA6B2";
   let label = "Low";
   let badgeClass = "inline-block rounded-full px-2 py-0.5 text-xs font-semibold ml-2";
   if (confidence > 0.8) {

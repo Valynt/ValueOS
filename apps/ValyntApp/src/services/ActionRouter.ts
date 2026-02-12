@@ -12,10 +12,9 @@ import {
   ActionResult,
   CanonicalAction,
   ManifestoCheckResult,
-  ManifestoViolation,
   ValidationResult,
 } from '../types/sdui-integration';
-import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
+import { normalizeExecutionRequest } from '../types/execution';
 import { AuditLogService } from './AuditLogService';
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
 import { AgentAPI, getAgentAPI } from './AgentAPI';
@@ -582,7 +581,7 @@ export class ActionRouter {
     });
 
     // updateAssumption handler
-    this.registerHandler('updateAssumption', async (action, context) => {
+    this.registerHandler('updateAssumption', async (action, _context) => {
       if (action.type !== 'updateAssumption') {
         return { success: false, error: 'Invalid action type' };
       }
@@ -682,7 +681,7 @@ export class ActionRouter {
     });
 
     // openAuditTrail handler
-    this.registerHandler('openAuditTrail', async (action, context) => {
+    this.registerHandler('openAuditTrail', async (action, _context) => {
       if (action.type !== 'openAuditTrail') {
         return { success: false, error: 'Invalid action type' };
       }
@@ -779,7 +778,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // navigateToStage handler
-    this.registerHandler('navigateToStage', async (action, context) => {
+    this.registerHandler('navigateToStage', async (action, _context) => {
       if (action.type !== 'navigateToStage') {
         return { success: false, error: 'Invalid action type' };
       }
@@ -792,7 +791,7 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // saveWorkspace handler
-    this.registerHandler('saveWorkspace', async (action, context) => {
+    this.registerHandler('saveWorkspace', async (action, _context) => {
       if (action.type !== 'saveWorkspace') {
         return { success: false, error: 'Invalid action type' };
       }

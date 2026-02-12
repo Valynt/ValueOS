@@ -5,7 +5,7 @@
  * Replaces generic chat interface with deal-centric workflow.
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { DealImportModal } from "@/components/deals/DealImportModal";
 import { DealSelector } from "@/components/deals/DealSelector";

@@ -10,7 +10,6 @@ import { createClient } from "@supabase/supabase-js";
 import { EventEmitter } from "events";
 
 import {
-  Artifact,
   ArtifactStorageMetadata,
   RetentionPolicy,
   ArtifactFormat,

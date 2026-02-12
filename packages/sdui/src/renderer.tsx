@@ -6,12 +6,11 @@ import {
   VerticalSplit,
 } from "./components/SDUI/CanvasLayout/index";
 import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
-import { SectionErrorFallback, UnknownComponentFallback } from "./components/SDUI";
+import { SectionErrorFallback } from "./components/SDUI";
 import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
 import { RegistryPlaceholderComponent, resolveComponentWithVersion } from "./registry";
 import {
   resolveComponentLazy,
-  LazyComponentRegistry,
   preloadCriticalComponents,
 } from "./LazyComponentRegistry";
 import { DataBindingResolver } from "./DataBindingResolver";

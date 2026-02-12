@@ -11,7 +11,6 @@ import {
   FileText,
   Boxes,
   BarChart3,
-  Clock,
   ArrowRight,
   Bot,
 } from "lucide-react";

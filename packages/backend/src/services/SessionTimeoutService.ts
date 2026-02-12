@@ -15,7 +15,6 @@
 import { logger } from "../lib/logger.js"
 import {
   getSessionTimeoutForRole,
-  RoleSessionConfig,
 } from "../security/SecurityConfig";
 
 export interface SessionInfo {

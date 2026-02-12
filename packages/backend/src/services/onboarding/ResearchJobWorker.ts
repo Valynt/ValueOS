@@ -5,7 +5,7 @@
  * Updates job status and per-entity progress throughout.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
 import { logger } from '../../lib/logger.js';
 import { crawlWebsite, type CrawlResult } from './WebCrawler.js';

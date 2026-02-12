@@ -3,7 +3,6 @@
  * Provides secure, encrypted persistence for authentication state
  */
 
-import { secureTokenStorage } from "./secureStorage";
 import { sessionManager } from "./sessionManager";
 
 interface PersistedAuthState extends Record<string, unknown> {

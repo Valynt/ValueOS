@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import useDataBinding from "@/sdui/useDataBinding";
-import { Tree, TreeNode } from "recharts";
+import { Tree } from "recharts";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react";

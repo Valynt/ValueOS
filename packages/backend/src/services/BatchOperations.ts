@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger.js'
 import { CanvasComponent } from '../types';
 
 /** CanvasComponent with guaranteed position and size for spatial operations */

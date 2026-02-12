@@ -18,7 +18,7 @@ import { logger } from "../lib/logger";
 import { v4 as uuidv4 } from "uuid";
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry";
-import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
+import { SDUIPageDefinition } from "../sdui/schema";
 import { logAgentResponse } from "./AgentAuditLogger";
 import { AgentType } from "./agent-types";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
@@ -48,7 +48,6 @@ import { ESOModule } from "../mcp-ground-truth/modules/StructuralTruthModule";
 import { getEnhancedParallelExecutor, EnhancedParallelExecutor } from "./EnhancedParallelExecutor"; // NEW: Import for parallel execution
 import {
   validateGroundTruthMetadata,
-  assertHighConfidence,
   assertProvenance,
 } from "../lib/agent-fabric/ground-truth/GroundTruthValidator";
 import { ConfidenceMonitor } from "./ConfidenceMonitor";

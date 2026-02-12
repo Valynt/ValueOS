@@ -3,7 +3,7 @@
  * Provides authentication state and methods throughout the app
  */
 
-import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { createLogger } from "../lib/logger";

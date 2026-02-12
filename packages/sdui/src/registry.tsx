@@ -1,30 +1,11 @@
 import React from "react";
 import { SDUIComponentSection } from "./schema";
 import {
-  AgentResponseCard,
-  AgentWorkflowPanel,
-  Breadcrumbs,
-  ConfidenceIndicator,
   DataTable,
-  ExpansionBlock,
   InfoBanner,
-  IntegrityReviewPanel,
-  LifecyclePanel,
-  MetricBadge,
-  RealizationDashboard,
-  ScenarioSelector,
-  SDUIForm,
   SectionErrorFallback,
-  SideNavigation,
-  TabBar,
   UnknownComponentFallback,
-  ValueCommitForm,
   // Fallbacks
-  JsonViewer,
-  TextBlock,
-  ConfirmationDialog,
-  ValueHypothesisCard,
-  ProgressBar,
 } from "./components/SDUI";
 import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
 import { KPIForm } from "./components/SDUI/KPIForm";

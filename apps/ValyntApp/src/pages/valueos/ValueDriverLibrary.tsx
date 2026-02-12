@@ -7,23 +7,15 @@
 import { useState } from "react";
 import {
   Plus,
-  Search,
-  Filter,
-  MoreHorizontal,
   Eye,
-  EyeOff,
-  Copy,
-  Trash2,
   TrendingUp,
-  Users,
   Target,
   Sparkles,
-  ArrowUpDown,
   BarChart3,
   Edit,
   Archive,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/input";
@@ -36,7 +28,6 @@ import {
   MOCK_VALUE_DRIVERS,
   VALUE_DRIVER_TYPE_LABELS,
   PERSONA_TAG_LABELS,
-  SALES_MOTION_LABELS,
 } from "@/types/valueDriver";
 import { ValueDriverEditor } from "@/components/value-drivers/ValueDriverEditor";
 

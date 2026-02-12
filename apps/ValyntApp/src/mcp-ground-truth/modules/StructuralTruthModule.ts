@@ -22,7 +22,6 @@ import type {
   ESOPersonaValueMap,
   ESOIndustry,
 } from "../../types/eso";
-import type { VMRT } from "../../types/vmrt";
 
 // ============================================================================
 // Types

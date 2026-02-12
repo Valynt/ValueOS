@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger.js'
 import { CanvasComponent } from '../types';
 
 export interface CalculationDependency {

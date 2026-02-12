@@ -5,7 +5,6 @@
  * Supports markdown, JSON, tables, and charts.
  */
 
-import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';

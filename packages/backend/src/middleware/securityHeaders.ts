@@ -105,7 +105,7 @@ function buildCSPString(config: CSPConfig): string {
  * Modern security headers middleware for production environments.
  * Implements CSP, HSTS, X-Frame-Options, NoSniff, and other protections.
  */
-export function securityHeadersMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function securityHeadersMiddleware(_req: Request, res: Response, next: NextFunction): void {
   // Select CSP based on environment
   const isDevelopment = process.env.NODE_ENV === "development";
   const baseCSP = isDevelopment ? developmentCSP : productionCSP;

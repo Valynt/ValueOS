@@ -1,5 +1,5 @@
 
-import { describe, it, vi, beforeEach, afterEach, expect } from 'vitest';
+import { describe, it, vi, expect } from 'vitest';
 
 // Mock logger
 vi.mock('../../lib/logger', () => ({

@@ -21,7 +21,7 @@ import { SpanStatusCode } from "@opentelemetry/api";
 import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker.js";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js";
-import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
+import { SDUIPageDefinition } from "@sdui/schema";
 import { logAgentResponse } from "./AgentAuditLogger.js";
 import { AgentType } from "./agent-types.js";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
@@ -38,8 +38,8 @@ import GroundtruthAPI, {
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
-import { getAgentMessageBroker, AgentMessageBroker } from "./AgentMessageBroker";
-import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue.js";
+import { AgentMessageBroker } from "./AgentMessageBroker";
+import { AgentMessageQueue } from "./AgentMessageQueue.js";
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
@@ -138,7 +138,6 @@ import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
 import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExecutor.js";
 import { supabase } from "../lib/supabase.js";
-import { featureFlags } from "../config/featureFlags.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
 import {
   AgentRequest,

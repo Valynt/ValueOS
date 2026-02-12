@@ -1083,7 +1083,7 @@ ${
 
     // Reward function for expansion analysis
     const rewardFunction: MARLRewardFunction = {
-      calculateReward: (state, action, nextState, agentId) => {
+      calculateReward: (_state, _action, nextState, _agentId) => {
         // Reward based on opportunity quality and revenue potential
         const opportunities = nextState.sharedContext?.opportunities || [];
         const totalRevenue = opportunities.reduce(

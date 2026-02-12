@@ -193,3 +193,11 @@ supabase/.temp
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
+
+# Allow example secret files for safe commits (do not commit real secrets)
+# Re-include specific example files inside nested 'secrets' directories
+!apps/ValyntApp/src/config/secrets/
+!apps/ValyntApp/src/config/secrets/.env.example
+!packages/backend/src/config/secrets/
+!packages/backend/src/config/secrets/.env.example
+

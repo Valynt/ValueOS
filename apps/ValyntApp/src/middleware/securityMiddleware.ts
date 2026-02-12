@@ -9,7 +9,6 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { getSecurityHeaders } from '../security/SecurityHeaders';
-import { getSecurityConfig } from '../security/SecurityConfig';
 
 /**
  * Apply strong security headers to responses.

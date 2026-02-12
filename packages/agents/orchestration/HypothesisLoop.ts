@@ -17,8 +17,6 @@
 import { z } from 'zod';
 import type {
   ValueCaseSaga,
-  SagaSnapshot,
-  SagaTriggerType,
 } from '../core/ValueCaseSaga.js';
 import { SagaTrigger } from '../core/ValueCaseSaga.js';
 import type { IdempotencyGuard } from '../core/IdempotencyGuard.js';
@@ -207,16 +205,6 @@ export const LoopResultSchema = z.object({
 // ============================================================================
 
 const DEFAULT_MAX_REVISION_CYCLES = 3;
-
-const STEP_NAMES = [
-  'Hypothesis',
-  'Model',
-  'Evidence',
-  'Narrative',
-  'Objection',
-  'Revision',
-  'Approval',
-] as const;
 
 // ============================================================================
 // HypothesisLoop

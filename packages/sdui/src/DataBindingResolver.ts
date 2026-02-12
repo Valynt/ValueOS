@@ -277,7 +277,7 @@ export class DataBindingResolver {
     });
 
     // Semantic Memory resolver
-    this.resolvers.set("semantic_memory", async (binding, context) => {
+    this.resolvers.set("semantic_memory", async (binding, _context) => {
       if (!this.semanticMemory) {
         throw new Error("SemanticMemoryService not configured");
       }

@@ -1,8 +1,7 @@
-import { Building2, DollarSign, Search, TrendingUp, Users } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { Building2, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { MetricCard } from "../components/charts/FinancialCharts";
 
 interface Company {
   cik: string;

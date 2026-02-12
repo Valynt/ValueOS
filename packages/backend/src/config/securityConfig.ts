@@ -234,7 +234,7 @@ export function getSecurityConfig(): SecurityHeadersConfig {
 /**
  * Apply comprehensive security headers to response
  */
-export function applySecurityHeaders(req: Request, res: Response): void {
+export function applySecurityHeaders(_req: Request, res: Response): void {
   const config = getSecurityConfig();
 
   // Content Security Policy

@@ -9,7 +9,6 @@
 import {
   createServiceCollection,
   SERVICE_TOKENS,
-  Lifetime,
 } from "./DependencyInjectionContainer";
 import { logger } from "../lib/logger.js"
 import { getAuditLogger } from "./AgentAuditLogger.js"

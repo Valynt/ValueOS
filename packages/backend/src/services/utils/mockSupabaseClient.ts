@@ -16,7 +16,7 @@ export function createBoltClientMock(initialData: Record<string, any[]> = {}) {
       let updateData: any = null;
 
       const builder = {
-        select: (columns: string = '*') => {
+        select: (_columns: string = '*') => {
           operation = 'select';
           return builder;
         },

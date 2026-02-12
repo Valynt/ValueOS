@@ -14,7 +14,7 @@
 import { Request, Response, NextFunction } from "express";
 import { logger } from "@shared/lib/logger";
 import { RateLimitKeyService } from "../services/RateLimitKeyService.js"
-import { RedisRateLimitStore, RateLimitEntry } from "./redisRateLimitStore.js"
+import { RedisRateLimitStore } from "./redisRateLimitStore.js"
 
 /**
  * Rate limit tier

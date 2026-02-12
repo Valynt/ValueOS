@@ -5,7 +5,7 @@
  * Maintains a registry of fallback components with priority-based selection.
  */
 
-import React, { ComponentType, ReactNode } from "react";
+import React, { ComponentType } from "react";
 import { logger } from "@shared/lib/logger";
 import { AlertTriangle, RefreshCw, Info, Loader2 } from "lucide-react";
 import { ComponentErrorBoundary } from "./ComponentErrorBoundary";

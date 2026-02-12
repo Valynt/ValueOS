@@ -15,7 +15,7 @@ interface ValueSummaryData {
   stakeholders?: number;
 }
 
-export function ValueSummaryCard({ data, onAction }: WidgetProps) {
+export function ValueSummaryCard({ data, _onAction }: WidgetProps) {
   const {
     title = "Value Summary",
     status = "In Progress",

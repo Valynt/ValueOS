@@ -7,7 +7,7 @@
  * degraded service operation when agents are under stress or experiencing issues.
  */
 
-import { IAgent, AgentRequest, AgentResponse, AgentCapability } from "../core/IAgent";
+import { IAgent, AgentRequest, AgentResponse } from "../core/IAgent";
 import { AgentType } from "../../agent-types";
 import { logger } from "../../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
@@ -542,7 +542,7 @@ export class AgentDegradationManager {
     ).length;
 
     const agentsByLevel: Record<string, number> = {};
-    this.degradationStates.forEach((state, agentType) => {
+    this.degradationStates.forEach((state, _agentType) => {
       agentsByLevel[state.currentLevel] = (agentsByLevel[state.currentLevel] || 0) + 1;
     });
 

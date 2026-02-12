@@ -11,9 +11,8 @@
  * - Support multiple benchmark providers
  */
 
-import { logger } from '../lib/logger.js'
 import { SupabaseClient } from '@supabase/supabase-js';
-import type { Benchmark, ConfidenceLevel } from '../types/vos';
+import type { Benchmark } from '../types/vos';
 
 export interface BenchmarkComparison {
   kpi_name: string;

@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger';
 import { AgentFabric, AgentFabricResult } from '../lib/agent-fabric';
 import { CanvasComponent } from '../types';
 import { supabase } from '../lib/supabase';

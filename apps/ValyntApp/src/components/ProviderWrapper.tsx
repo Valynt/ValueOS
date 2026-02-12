@@ -10,7 +10,7 @@ interface ProviderWrapperProps {
  * Provides different error handling strategies for different provider types
  */
 const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
-  const handleAuthError = (error: Error, errorInfo: ErrorInfo) => {
+  const handleAuthError = (error: Error, _errorInfo: ErrorInfo) => {
     // Log authentication errors with appropriate severity
     console.warn("Authentication provider error:", error.name);
 
@@ -20,12 +20,12 @@ const ProviderWrapper: React.FC<ProviderWrapperProps> = ({ children }) => {
     }
   };
 
-  const handleNetworkError = (error: Error, errorInfo: ErrorInfo) => {
+  const handleNetworkError = (error: Error, _errorInfo: ErrorInfo) => {
     // Log network-related errors
     console.warn("Network provider error:", error.name);
   };
 
-  const handleCriticalError = (error: Error, errorInfo: ErrorInfo) => {
+  const handleCriticalError = (error: Error, _errorInfo: ErrorInfo) => {
     // Log critical errors that might affect the entire app
     console.error("Critical provider error:", error.name);
   };

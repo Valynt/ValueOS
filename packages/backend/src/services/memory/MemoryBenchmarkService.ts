@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  UUID,
   BenchmarkSlice,
   BenchmarkTier,
   BenchmarkFilter,

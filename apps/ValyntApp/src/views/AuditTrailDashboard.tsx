@@ -12,7 +12,6 @@ import {
   AlertTriangle, 
   CheckCircle2,
   XCircle,
-  Clock,
   Activity,
   Search,
   ChevronDown,
@@ -22,7 +21,7 @@ import {
   Database
 } from 'lucide-react';
 import { useAuditTrail } from '../hooks/useAuditTrail';
-import { AuditFilter, ExportFormat } from '../types/audit';
+import { AuditFilter } from '../types/audit';
 import { PermissionMiddleware } from '../lib/auth/PermissionMiddleware';
 
 // Sub-components
@@ -315,7 +314,7 @@ const AuditLogTable: React.FC<{
             </tr>
           </thead>
           <tbody>
-            {events.map((event, index) => (
+            {events.map((event, _index) => (
               <tr 
                 key={event.id}
                 className="border-b border-border hover:bg-secondary/30 cursor-pointer transition-colors"
@@ -456,7 +455,7 @@ const ExportTools: React.FC<{
   onExport: (format: 'csv' | 'json', includeMetadata?: boolean) => void;
   onVerifyIntegrity: () => void;
   integrity: any;
-}> = ({ onExport, onVerifyIntegrity, integrity }) => {
+}> = ({ onExport, onVerifyIntegrity, _integrity }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   return (

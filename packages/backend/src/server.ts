@@ -47,6 +47,8 @@ import analyticsRouter from "./api/analytics.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import teamsRouter from "./api/teams.js";
 import integrationsRouter from "./api/integrations.js";
+import onboardingRouter from "./api/onboarding.js";
+import { initResearchWorker } from "./workers/researchWorker.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
 import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
 import docsApiRouter from "./docs-api/index.js";
@@ -408,6 +410,7 @@ app.use("/api/referrals", referralsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/onboarding", onboardingRouter);
 
 // Mount checkpoint HITL endpoints
 const orchestrator = getUnifiedOrchestrator();
@@ -473,6 +476,15 @@ async function startServer(): Promise<void> {
         process.exit(1);
       }, SHUTDOWN_TIMEOUT);
     });
+  }
+
+  // 4. Start the onboarding research BullMQ worker (in-process)
+  try {
+    initResearchWorker();
+    console.log("[Instrumentation] Research worker initialized");
+  } catch (workerErr) {
+    // Non-fatal — server can run without the worker (e.g. no Redis)
+    console.warn("[Instrumentation] Research worker failed to start:", workerErr);
   }
 
   server.listen(PORT, () => {

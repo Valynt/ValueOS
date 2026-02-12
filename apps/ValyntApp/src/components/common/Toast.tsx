@@ -1,5 +1,5 @@
 // Stub ToastProvider for development
-import React, { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
 
 interface ToastContextType {
   showToast: (message: string, type?: "success" | "error" | "info") => void;

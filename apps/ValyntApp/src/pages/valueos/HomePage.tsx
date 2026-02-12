@@ -4,7 +4,6 @@
  * Greeting, continue where you left off, quick actions, recent cases.
  */
 
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,

@@ -20,8 +20,6 @@ import { promises as fs, FSWatcher, watch } from "fs";
 import { join } from "path";
 import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
-import { promisify } from "util";
-import { config } from "./SecretConfig.js"
 
 /**
  * Secret file change event
@@ -485,7 +483,7 @@ export class SecretVolumeWatcher extends EventEmitter {
 
     this.emit("restart-initiated", { reason, timestamp: new Date() });
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       const timeout = setTimeout(() => {
         logger.error("Graceful restart timeout - forcing exit");
         process.exit(1);

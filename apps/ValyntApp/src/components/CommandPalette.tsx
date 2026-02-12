@@ -1,5 +1,5 @@
 // Stub CommandPaletteProvider for development
-import React, { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
 
 interface CommandPaletteContextType {
   openCommandPalette: () => void;

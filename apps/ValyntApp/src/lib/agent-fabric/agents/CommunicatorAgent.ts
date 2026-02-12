@@ -470,7 +470,7 @@ ValueOS Communicator Agent`;
   protected initializeMARL(): void {
     // Initialize MARL components
     const rewardFunction: MARLRewardFunction = {
-      calculateReward: (state, action, nextState, agentId) => {
+      calculateReward: (state, action, _nextState, _agentId) => {
         // Reward based on communication effectiveness and stakeholder feedback
         const baseReward = action.confidence * 0.5;
         const contextReward = state.sharedContext.context?.urgency === "high" ? 0.2 : 0.1;

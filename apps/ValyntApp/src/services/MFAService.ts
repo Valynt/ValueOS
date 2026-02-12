@@ -6,9 +6,8 @@
  * Compatible with both browser and server environments.
  */
 
-import { logger } from "../lib/logger";
 import { BaseService } from "./BaseService";
-import { AuthenticationError, ValidationError } from "./errors";
+import { ValidationError } from "./errors";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
 

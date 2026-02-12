@@ -15,7 +15,6 @@ import { logger } from '../lib/logger.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm.js'
 import { SDUIPageDefinition } from '@sdui/schema';
-import { v4 as uuidv4 } from 'uuid';
 
 // ============================================================================
 // Types

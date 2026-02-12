@@ -5,7 +5,7 @@
  */
 
 import { useState } from "react";
-import { Search, Plus, Check, ChevronRight, TrendingUp, Calculator, Sparkles } from "lucide-react";
+import { Check, ChevronRight, TrendingUp, Calculator, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, SearchInput } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
   ValueDriver,
-  FormulaVariable,
   MOCK_VALUE_DRIVERS,
   VALUE_DRIVER_TYPE_LABELS,
   PERSONA_TAG_LABELS,

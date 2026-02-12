@@ -1,9 +1,9 @@
 /**
  * OpenTelemetry Configuration
- * 
+ *
  * Provides distributed tracing and metrics for LLM calls,
  * database queries, and API requests.
- * 
+ *
  * Automatically detects browser vs Node.js environment and provides
  * appropriate implementations.
  */
@@ -52,7 +52,7 @@ const noopSpan = {
 
 const noopTracer = {
   startSpan: () => noopSpan,
-  startActiveSpan: (name: string, options: any, fn: (span: SpanType) => any) => fn(noopSpan)
+  startActiveSpan: (_name: string, _options: any, fn: (span: SpanType) => any) => fn(noopSpan)
 };
 
 // Exporter endpoints (Node.js only)
@@ -155,7 +155,7 @@ export function getTracer() {
   if (isBrowser || !trace) {
     return noopTracer;
   }
-  
+
   return trace.getTracer(SERVICE_NAME, SERVICE_VERSION);
 }
 
@@ -173,7 +173,7 @@ export async function traceLLMOperation<T>(
   operation: (span: SpanType) => Promise<T>
 ): Promise<T> {
   const tracer = getTracer();
-  
+
   return tracer.startActiveSpan(
     `llm.${operationName}`,
     {
@@ -186,36 +186,36 @@ export async function traceLLMOperation<T>(
     },
     async (span) => {
       const startTime = Date.now();
-      
+
       try {
         const result = await operation(span);
-        
+
         const duration = Date.now() - startTime;
-        
+
         span.setAttributes({
           'llm.duration_ms': duration,
           'llm.success': true
         });
-        
+
         span.setStatus({ code: SpanStatusCode.OK });
-        
+
         return result;
       } catch (error) {
         const duration = Date.now() - startTime;
-        
+
         span.setAttributes({
           'llm.duration_ms': duration,
           'llm.success': false,
           'llm.error': error instanceof Error ? error.message : 'Unknown error'
         });
-        
+
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: error instanceof Error ? error.message : 'Unknown error'
         });
-        
+
         span.recordException(error as Error);
-        
+
         throw error;
       } finally {
         span.end();
@@ -236,7 +236,7 @@ export async function traceDatabaseOperation<T>(
   operation: (span: SpanType) => Promise<T>
 ): Promise<T> {
   const tracer = getTracer();
-  
+
   return tracer.startActiveSpan(
     `db.${operationName}`,
     {
@@ -277,7 +277,7 @@ export async function traceCacheOperation<T>(
   operation: (span: SpanType) => Promise<T>
 ): Promise<T> {
   const tracer = getTracer();
-  
+
   return tracer.startActiveSpan(
     `cache.${operationName}`,
     {
@@ -380,7 +380,7 @@ export async function createCounter(name: string, description: string) {
       record: () => {}
     };
   }
-  
+
   const { metrics } = await import('@opentelemetry/api');
   const meter = metrics.getMeter(SERVICE_NAME);
   return meter.createCounter(name, { description });
@@ -395,7 +395,7 @@ export async function createHistogram(name: string, description: string) {
       record: () => {}
     };
   }
-  
+
   const { metrics } = await import('@opentelemetry/api');
   const meter = metrics.getMeter(SERVICE_NAME);
   return meter.createHistogram(name, { description });
@@ -414,7 +414,7 @@ export async function createObservableGauge(
       observe: () => {}
     };
   }
-  
+
   const { metrics } = await import('@opentelemetry/api');
   const meter = metrics.getMeter(SERVICE_NAME);
   return meter.createObservableGauge(name, {
@@ -432,12 +432,12 @@ export const metrics = {
   get llmTokensTotal() { return createCounter('llm.tokens.total', 'Total number of tokens processed'); },
   get cacheHitsTotal() { return createCounter('cache.hits.total', 'Total number of cache hits'); },
   get cacheMissesTotal() { return createCounter('cache.misses.total', 'Total number of cache misses'); },
-  get circuitBreakerState() { 
+  get circuitBreakerState() {
     return createObservableGauge(
       'circuit_breaker.state',
       'Circuit breaker state (0=closed, 1=open, 2=half-open)',
       () => 0
-    ); 
+    );
   }
 };
 

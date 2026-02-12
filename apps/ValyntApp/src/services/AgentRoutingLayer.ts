@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger';
 import { LifecycleStage, WorkflowDAG, WorkflowStage } from '../types/workflow';
 import { AgentRecord, AgentRegistry, RoutingContext } from './AgentRegistry';
 import { AgentRoutingScorer, AgentScoreBreakdown } from './AgentRoutingScorer';

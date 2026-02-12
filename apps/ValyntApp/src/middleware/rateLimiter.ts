@@ -323,7 +323,7 @@ export function resetRateLimit(userId: string, tenantId = "global"): void {
 /**
  * Get rate limit status for a user
  */
-export function getRateLimitStatus(userId: string): {
+export function getRateLimitStatus(_userId: string): {
   count: number;
   limit: number;
   resetTime: Date;

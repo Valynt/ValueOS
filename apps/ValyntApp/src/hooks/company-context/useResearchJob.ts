@@ -1,8 +1,10 @@
 /**
  * Research Job Hooks
  *
- * React Query hooks for the onboarding research job lifecycle:
- * creating jobs, polling status, listing suggestions, and accepting/rejecting.
+ * React Query hooks for the onboarding research job lifecycle.
+ * All mutations go through the backend API (POST /api/onboarding/...)
+ * so the BullMQ worker pipeline is triggered. Read queries still use
+ * Supabase directly for real-time polling efficiency.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,12 +14,48 @@ import type { ResearchJob, ResearchSuggestion, SuggestionEntityType } from "./ty
 const RESEARCH_KEY = "research-job";
 const SUGGESTIONS_KEY = "research-suggestions";
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function getClient() {
   if (!supabase) throw new Error("Supabase client not initialized");
   return supabase;
 }
 
-// ---- Create Research Job ----
+/** Get the current session's access token for backend API calls. */
+async function getAccessToken(): Promise<string> {
+  const sb = getClient();
+  const { data } = await sb.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Not authenticated");
+  return token;
+}
+
+/** Typed fetch wrapper that hits the backend API with auth. */
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getAccessToken();
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error ?? `API error ${res.status}`);
+  }
+
+  const json = await res.json();
+  return json.data as T;
+}
+
+// ---------------------------------------------------------------------------
+// Create Research Job — goes through the backend API so BullMQ picks it up
+// ---------------------------------------------------------------------------
 
 export function useCreateResearchJob(tenantId: string) {
   const qc = useQueryClient();
@@ -30,32 +68,10 @@ export function useCreateResearchJob(tenantId: string) {
       companySize?: string;
       salesMotion?: string;
     }) => {
-      const sb = getClient();
-
-      const { data, error } = await sb
-        .from("company_research_jobs")
-        .insert({
-          tenant_id: tenantId,
-          context_id: input.contextId,
-          input_website: input.website,
-          input_industry: input.industry ?? null,
-          input_company_size: input.companySize ?? null,
-          input_sales_motion: input.salesMotion ?? null,
-          status: "queued",
-          entity_status: {
-            product: "pending",
-            competitor: "pending",
-            persona: "pending",
-            claim: "pending",
-            capability: "pending",
-            value_pattern: "pending",
-          },
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as ResearchJob;
+      return apiFetch<ResearchJob>("/api/onboarding/research", {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [RESEARCH_KEY] });
@@ -63,7 +79,9 @@ export function useCreateResearchJob(tenantId: string) {
   });
 }
 
-// ---- Poll Job Status ----
+// ---------------------------------------------------------------------------
+// Poll Job Status — reads directly from Supabase for low-latency polling
+// ---------------------------------------------------------------------------
 
 export function useResearchJobStatus(jobId: string | null) {
   return useQuery<ResearchJob | null>({
@@ -71,11 +89,10 @@ export function useResearchJobStatus(jobId: string | null) {
     enabled: !!jobId,
     refetchInterval: (query) => {
       const data = query.state.data;
-      // Stop polling when job is completed or failed
       if (data && (data.status === "completed" || data.status === "failed")) {
         return false;
       }
-      return 2000; // Poll every 2 seconds
+      return 2000;
     },
     queryFn: async () => {
       const sb = getClient();
@@ -92,7 +109,9 @@ export function useResearchJobStatus(jobId: string | null) {
   });
 }
 
-// ---- List Suggestions ----
+// ---------------------------------------------------------------------------
+// List Suggestions
+// ---------------------------------------------------------------------------
 
 export function useResearchSuggestions(
   jobId: string | null,
@@ -121,51 +140,27 @@ export function useResearchSuggestions(
   });
 }
 
-// ---- Accept Suggestion ----
+// ---------------------------------------------------------------------------
+// Accept Suggestion — goes through backend API for transactional writes
+// ---------------------------------------------------------------------------
 
-export function useAcceptSuggestion(tenantId: string) {
+export function useAcceptSuggestion(_tenantId: string) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { suggestionId: string; contextId: string; entityType: string; payload: Record<string, unknown> }) => {
-      const sb = getClient();
-
-      // Write to canonical table
-      const tableMap: Record<string, string> = {
-        product: "company_products",
-        competitor: "company_competitors",
-        persona: "company_personas",
-        claim: "company_claim_governance",
-        capability: "company_capabilities",
-        value_pattern: "company_value_patterns",
-      };
-
-      const targetTable = tableMap[input.entityType];
-      if (targetTable) {
-        const { error: insertErr } = await sb
-          .from(targetTable)
-          .insert({
-            ...input.payload,
-            tenant_id: tenantId,
-            context_id: input.contextId,
-          });
-
-        if (insertErr) throw insertErr;
-      }
-
-      // Mark suggestion as accepted
-      const { data, error } = await sb
-        .from("company_research_suggestions")
-        .update({
-          status: "accepted",
-          accepted_at: new Date().toISOString(),
-        })
-        .eq("id", input.suggestionId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as ResearchSuggestion;
+    mutationFn: async (input: {
+      suggestionId: string;
+      contextId: string;
+      entityType: string;
+      payload: Record<string, unknown>;
+    }) => {
+      return apiFetch<ResearchSuggestion>(
+        `/api/onboarding/suggestions/${input.suggestionId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: "accepted" }),
+        },
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [SUGGESTIONS_KEY] });
@@ -174,24 +169,22 @@ export function useAcceptSuggestion(tenantId: string) {
   });
 }
 
-// ---- Reject Suggestion ----
+// ---------------------------------------------------------------------------
+// Reject Suggestion
+// ---------------------------------------------------------------------------
 
 export function useRejectSuggestion(_tenantId: string) {
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async (suggestionId: string) => {
-      const sb = getClient();
-
-      const { data, error } = await sb
-        .from("company_research_suggestions")
-        .update({ status: "rejected" })
-        .eq("id", suggestionId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as ResearchSuggestion;
+      return apiFetch<ResearchSuggestion>(
+        `/api/onboarding/suggestions/${suggestionId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: "rejected" }),
+        },
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [SUGGESTIONS_KEY] });
@@ -199,27 +192,30 @@ export function useRejectSuggestion(_tenantId: string) {
   });
 }
 
-// ---- Bulk Accept ----
+// ---------------------------------------------------------------------------
+// Bulk Accept
+// ---------------------------------------------------------------------------
 
-export function useBulkAcceptSuggestions(tenantId: string) {
+export function useBulkAcceptSuggestions(_tenantId: string) {
   const qc = useQueryClient();
-  const acceptMutation = useAcceptSuggestion(tenantId);
 
   return useMutation({
-    mutationFn: async (suggestions: Array<{ id: string; contextId: string; entityType: string; payload: Record<string, unknown> }>) => {
-      const results = await Promise.allSettled(
-        suggestions.map((s) =>
-          acceptMutation.mutateAsync({
-            suggestionId: s.id,
-            contextId: s.contextId,
-            entityType: s.entityType,
-            payload: s.payload,
-          })
-        )
+    mutationFn: async (
+      suggestions: Array<{
+        id: string;
+        contextId: string;
+        entityType: string;
+        payload: Record<string, unknown>;
+      }>,
+    ) => {
+      const ids = suggestions.map((s) => s.id);
+      return apiFetch<{ results: Array<{ id: string; success: boolean }>; accepted: number; total: number }>(
+        "/api/onboarding/suggestions/bulk-accept",
+        {
+          method: "POST",
+          body: JSON.stringify({ ids }),
+        },
       );
-
-      const accepted = results.filter((r) => r.status === "fulfilled").length;
-      return { accepted, total: suggestions.length };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [SUGGESTIONS_KEY] });

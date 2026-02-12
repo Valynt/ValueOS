@@ -2,7 +2,7 @@ import { KpiTarget } from '../dto';
 import { KpiTargetSchema } from '../schemas/kpiTarget.schema';
 
 // Derive KPIs from RoiModel and ValueTree (no persistence)
-export function deriveKpis(model: any, tree: any): KpiTarget[] {
+export function deriveKpis(model: any, _tree: any): KpiTarget[] {
   // Example: derive from model.outputs
   const kpis: KpiTarget[] = Object.entries(model.outputs ?? {}).map(([metric, value]) => {
     const kpi: KpiTarget = {

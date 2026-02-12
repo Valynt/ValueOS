@@ -62,7 +62,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'clarity',
     description: 'Uses clear, unambiguous language appropriate for the audience',
     weight: 1.0,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       const text = JSON.stringify(output).toLowerCase();
       let score = 10;
       const suggestions: string[] = [];
@@ -94,7 +94,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'clarity',
     description: 'Information is organized in a logical, easy-to-follow structure',
     weight: 1.0,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -123,7 +123,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'clarity',
     description: 'Uses formatting (lists, tables, emphasis) effectively',
     weight: 0.8,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -149,7 +149,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'accuracy',
     description: 'All data points and calculations are accurate',
     weight: 1.5,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -178,7 +178,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'accuracy',
     description: 'Assumptions are reasonable and clearly stated',
     weight: 1.2,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -207,7 +207,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'accuracy',
     description: 'No contradictions or inconsistencies within the output',
     weight: 1.0,
-    evaluator: async (output, context) => {
+    evaluator: async (_output, _context) => {
       const score = 10;
       const suggestions: string[] = [];
 
@@ -256,7 +256,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'completeness',
     description: 'Provides adequate detail and depth',
     weight: 1.0,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -279,7 +279,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'completeness',
     description: 'Includes necessary context and background',
     weight: 0.8,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -303,7 +303,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'relevance',
     description: 'Content is appropriate for the target audience',
     weight: 1.2,
-    evaluator: async (output, context) => {
+    evaluator: async (_output, context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -326,7 +326,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'relevance',
     description: 'Stays focused on the main topic without unnecessary tangents',
     weight: 1.0,
-    evaluator: async (output, context) => {
+    evaluator: async (_output, _context) => {
       const score = 10;
       const suggestions: string[] = [];
 
@@ -346,7 +346,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'relevance',
     description: 'Information is current and up-to-date',
     weight: 0.8,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -371,7 +371,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'actionability',
     description: 'Provides clear, actionable recommendations',
     weight: 1.3,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -393,7 +393,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'actionability',
     description: 'Breaks down actions into concrete, executable steps',
     weight: 1.0,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -415,7 +415,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'actionability',
     description: 'Includes timeline and prioritization',
     weight: 0.9,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -439,7 +439,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'compliance',
     description: 'Aligns with VOS Manifesto principles',
     weight: 1.5,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -470,7 +470,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'compliance',
     description: 'All claims have documented sources',
     weight: 1.2,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 
@@ -492,7 +492,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
     category: 'compliance',
     description: 'Data integrity controls are in place',
     weight: 1.0,
-    evaluator: async (output, context) => {
+    evaluator: async (output, _context) => {
       let score = 10;
       const suggestions: string[] = [];
 

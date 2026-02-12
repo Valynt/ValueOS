@@ -10,7 +10,6 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { ConfirmDialog } from "@/components/ui";
 import {
   AlertCircle,
   CheckCircle,
@@ -24,7 +23,6 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { SafeHtml } from "../../components/security/SafeHtml";
 
 interface DocPage {
   id: string;

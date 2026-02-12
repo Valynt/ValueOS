@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Header from '../components/Layout/Header';
-import { AlertTriangle, Bell, ChevronRight, FileText, Globe, Package, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, Bell, ChevronRight, FileText, Globe, Package, X } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
 
 const kpiCards = [
@@ -38,7 +38,7 @@ const expansionOpportunities = [
 ];
 
 export default function AgentDashboard() {
-  const [dismissedNotifications, setDismissedNotifications] = useState<number[]>([]);
+  const [dismissedNotifications, _setDismissedNotifications] = useState<number[]>([]);
   const [showExpansionPanel, setShowExpansionPanel] = useState(true);
 
   const activeNotifications = expansionOpportunities.filter(
