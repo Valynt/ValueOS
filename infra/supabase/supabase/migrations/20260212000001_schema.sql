@@ -5,7 +5,6 @@
 -- ============================================================================
 
 -- language: postgresql
-\set ON_ERROR_STOP on
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN CREATE PUBLICATION supabase_realtime; END IF; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 -- ================================================
 -- Source: supabase/migrations/20241227000000_squashed_schema.sql
@@ -3232,7 +3231,7 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     agent_id uuid,
-    tenant_id text REFERENCES public.tenants(id),
+    tenant_id text,
     metric_type text NOT NULL,
     metric_value double precision NOT NULL,
     unit text,
@@ -3241,34 +3240,8 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
     metadata jsonb DEFAULT '{}'::jsonb
 );
 
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                   WHERE table_name='agent_metrics' AND column_name='tenant_id') THEN
-        ALTER TABLE agent_metrics ADD COLUMN tenant_id text;
-    END IF;
-
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                   WHERE table_name='agent_metrics' AND column_name='created_at') THEN
-        ALTER TABLE agent_metrics ADD COLUMN created_at timestamp with time zone DEFAULT now();
-    END IF;
-
-    UPDATE agent_metrics
-    SET created_at = "timestamp"
-    WHERE created_at IS NULL;
-
-    UPDATE agent_metrics
-    SET tenant_id = agent_sessions.tenant_id
-    FROM agent_sessions
-    WHERE agent_metrics.session_id = agent_sessions.id
-      AND agent_metrics.tenant_id IS NULL;
-
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_metrics_tenant_id_fkey') THEN
-        ALTER TABLE agent_metrics
-        ADD CONSTRAINT agent_metrics_tenant_id_fkey
-        FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-    END IF;
-END $$;
+-- Skipped: data migration DO block referencing agent_sessions (not yet created).
+-- Columns tenant_id and created_at already defined in CREATE TABLE above.
 
 
 --

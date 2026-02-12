@@ -11,7 +11,6 @@ import { computePermissions, UserClaims } from "../types/security";
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
-import { logger } from "../lib/logger";
 
 const logger = createLogger({ component: "AuthContext" });
 
