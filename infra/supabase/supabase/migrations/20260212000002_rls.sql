@@ -95,7 +95,7 @@ $$;
 -- 2. Enable RLS on ALL tenant-scoped tables
 -- ============================================================================
 
--- Dynamic: enable RLS + FORCE on every public table with a tenant_id column
+-- Dynamic: enable RLS + FORCE on every public BASE TABLE with a tenant_id column
 DO $$
 DECLARE
   r RECORD;
@@ -103,8 +103,10 @@ BEGIN
   FOR r IN
     SELECT DISTINCT c.table_name
     FROM information_schema.columns c
+    JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
     WHERE c.table_schema = 'public'
       AND c.column_name = 'tenant_id'
+      AND t.table_type = 'BASE TABLE'
       AND c.table_name NOT IN ('user_tenants')
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', r.table_name);
@@ -143,18 +145,12 @@ BEGIN
   FOR r IN
     SELECT DISTINCT c.table_name
     FROM information_schema.columns c
+    JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
     WHERE c.table_schema = 'public'
       AND c.column_name = 'tenant_id'
+      AND t.table_type = 'BASE TABLE'
       AND c.table_name NOT IN ('user_tenants')
   LOOP
-    -- Drop all existing policies on this table to avoid conflicts
-    FOR r IN (
-      SELECT policyname FROM pg_policies
-      WHERE schemaname = 'public' AND tablename = r.table_name
-    ) LOOP
-      -- handled below
-    END LOOP;
-
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation_select ON public.%I;', r.table_name);
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation_insert ON public.%I;', r.table_name);
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation_update ON public.%I;', r.table_name);
