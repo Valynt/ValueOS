@@ -3,7 +3,7 @@ tasks:
     name: Install dependencies
     description: Enable corepack and install pnpm workspace dependencies.
     command: |
-      sudo corepack enable
+      sudo corepack enable --install-directory /usr/local/bin 2>/dev/null || true
       corepack prepare pnpm@9.15.0 --activate
       if [ -f pnpm-lock.yaml ]; then
         pnpm install --frozen-lockfile || pnpm install
