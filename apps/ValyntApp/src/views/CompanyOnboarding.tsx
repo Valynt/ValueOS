@@ -11,6 +11,11 @@ import {
   useAddClaimGovernance,
   useCompleteOnboarding,
 } from "@/hooks/company-context";
+import {
+  useCreateResearchJob,
+  useResearchJobStatus,
+  useResearchSuggestions,
+} from "@/hooks/company-context/useResearchJob";
 import type {
   OnboardingPhase1Input,
   OnboardingPhase2Input,
@@ -41,6 +46,7 @@ export default function CompanyOnboarding() {
   const [phase, setPhase] = useState(1);
   const [contextId, setContextId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [researchJobId, setResearchJobId] = useState<string | null>(null);
 
   // Collected data
   const [phase1Data, setPhase1Data] = useState<OnboardingPhase1Input | null>(null);
@@ -54,6 +60,54 @@ export default function CompanyOnboarding() {
   const addPersonas = useAddPersonas(tenantId, contextId ?? "");
   const addClaimGovernance = useAddClaimGovernance(tenantId, contextId ?? "");
   const completeOnboarding = useCompleteOnboarding(tenantId, contextId ?? "");
+
+  // Research job state
+  const createResearchJob = useCreateResearchJob(tenantId);
+  const { data: researchJob } = useResearchJobStatus(researchJobId);
+  const { data: researchSuggestions } = useResearchSuggestions(researchJobId);
+
+  const handleStartResearch = async (website: string, industry: string, companySize: string | null, salesMotion: string | null) => {
+    if (!contextId) {
+      // Create context first if not yet created
+      try {
+        const ctx = await createContext.mutateAsync({
+          company_name: "Pending",
+          website_url: website,
+          industry,
+          company_size: companySize as OnboardingPhase1Input["company_size"],
+          sales_motion: salesMotion as OnboardingPhase1Input["sales_motion"],
+          products: [],
+        });
+        setContextId(ctx.id);
+
+        const jobInput: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string } = {
+          contextId: ctx.id,
+          website,
+        };
+        if (industry) jobInput.industry = industry;
+        if (companySize) jobInput.companySize = companySize;
+        if (salesMotion) jobInput.salesMotion = salesMotion;
+        const job = await createResearchJob.mutateAsync(jobInput);
+        setResearchJobId(job.id);
+      } catch {
+        // Silently fail — user can continue manually
+      }
+    } else {
+      try {
+        const jobInput2: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string } = {
+          contextId,
+          website,
+        };
+        if (industry) jobInput2.industry = industry;
+        if (companySize) jobInput2.companySize = companySize;
+        if (salesMotion) jobInput2.salesMotion = salesMotion;
+        const job = await createResearchJob.mutateAsync(jobInput2);
+        setResearchJobId(job.id);
+      } catch {
+        // Silently fail
+      }
+    }
+  };
 
   const handleSkip = async () => {
     try {
@@ -94,14 +148,44 @@ export default function CompanyOnboarding() {
     navigate("/dashboard");
   };
 
-  const handlePhase1 = async (data: OnboardingPhase1Input) => {
+  const handlePhase1 = async (data: OnboardingPhase1Input, jobId?: string) => {
     setPhase1Data(data);
+    if (jobId) setResearchJobId(jobId);
     try {
-      const ctx = await createContext.mutateAsync(data);
-      setContextId(ctx.id);
-      setPhase(2);
+      if (contextId) {
+        // Context already created during research — update it
+        if (supabase) {
+          await supabase
+            .from("company_contexts")
+            .update({
+              company_name: data.company_name,
+              website_url: data.website_url,
+              industry: data.industry,
+              company_size: data.company_size,
+              sales_motion: data.sales_motion,
+            })
+            .eq("id", contextId);
+
+          // Insert products
+          if (data.products.length > 0) {
+            await supabase.from("company_products").insert(
+              data.products.map((p) => ({
+                tenant_id: tenantId,
+                context_id: contextId,
+                name: p.name,
+                description: p.description,
+                product_type: p.product_type,
+              }))
+            );
+          }
+        }
+        setPhase(2);
+      } else {
+        const ctx = await createContext.mutateAsync(data);
+        setContextId(ctx.id);
+        setPhase(2);
+      }
     } catch {
-      // If Supabase isn't connected, still allow navigation for demo
       setPhase(2);
     }
   };
@@ -194,11 +278,36 @@ export default function CompanyOnboarding() {
       {/* Right: phase content */}
       <div className="flex-1 flex justify-center py-10 px-8 overflow-y-auto">
         <div className="w-full max-w-2xl">
-          {phase === 1 && <Phase1Company onNext={handlePhase1} />}
-          {phase === 2 && <Phase2Competitors onNext={handlePhase2} onBack={() => setPhase(1)} />}
-          {phase === 3 && <Phase3Personas onNext={handlePhase3} onBack={() => setPhase(2)} />}
+          {phase === 1 && (
+            <Phase1Company
+              onNext={handlePhase1}
+              researchJob={researchJob ?? null}
+              researchSuggestions={researchSuggestions ?? []}
+              onStartResearch={handleStartResearch}
+              isResearching={createResearchJob.isPending}
+            />
+          )}
+          {phase === 2 && (
+            <Phase2Competitors
+              onNext={handlePhase2}
+              onBack={() => setPhase(1)}
+              researchJobId={researchJobId}
+            />
+          )}
+          {phase === 3 && (
+            <Phase3Personas
+              onNext={handlePhase3}
+              onBack={() => setPhase(2)}
+              researchJobId={researchJobId}
+            />
+          )}
           {phase === 4 && phase1Data && (
-            <Phase4Claims companyName={phase1Data.company_name} onNext={handlePhase4} onBack={() => setPhase(3)} />
+            <Phase4Claims
+              companyName={phase1Data.company_name}
+              onNext={handlePhase4}
+              onBack={() => setPhase(3)}
+              researchJobId={researchJobId}
+            />
           )}
           {phase === 5 && phase1Data && (
             <Phase5Review
@@ -209,6 +318,8 @@ export default function CompanyOnboarding() {
               onConfirm={handleConfirm}
               onBack={() => setPhase(4)}
               isSubmitting={isSubmitting}
+              researchJobId={researchJobId}
+              researchSuggestions={researchSuggestions ?? []}
             />
           )}
         </div>

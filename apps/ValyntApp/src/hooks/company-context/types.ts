@@ -149,3 +149,52 @@ export interface OnboardingPhase4Input {
     rationale?: string;
   }>;
 }
+
+// ---- Research Job & Suggestion Types ----
+
+export interface ResearchJob {
+  id: string;
+  tenant_id: string;
+  context_id: string;
+  input_website: string;
+  input_industry: string | null;
+  input_company_size: string | null;
+  input_sales_motion: string | null;
+  status: "queued" | "running" | "completed" | "failed";
+  progress: Record<string, "pending" | "running" | "done" | "failed">;
+  entity_status: Record<string, "pending" | "running" | "completed" | "failed">;
+  pages_crawled: number;
+  tokens_used: number;
+  crawl_duration_ms: number;
+  llm_model: string | null;
+  prompt_version: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SuggestionEntityType =
+  | "product"
+  | "competitor"
+  | "persona"
+  | "claim"
+  | "capability"
+  | "value_pattern";
+
+export interface ResearchSuggestion {
+  id: string;
+  tenant_id: string;
+  job_id: string;
+  context_id: string;
+  entity_type: SuggestionEntityType;
+  payload: Record<string, unknown>;
+  confidence_score: number;
+  source_urls: string[];
+  source_page_url: string | null;
+  entity_hash: string | null;
+  status: "suggested" | "accepted" | "rejected" | "edited";
+  accepted_at: string | null;
+  created_at: string;
+}

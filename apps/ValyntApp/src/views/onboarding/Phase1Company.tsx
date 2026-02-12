@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { Building2, Plus, X, Globe, Package } from "lucide-react";
+import { Building2, Plus, X, Globe, Package, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OnboardingPhase1Input } from "@/hooks/company-context/types";
+import type { ResearchJob, ResearchSuggestion } from "@/hooks/company-context/types";
 
 interface Props {
-  onNext: (data: OnboardingPhase1Input) => void;
+  onNext: (data: OnboardingPhase1Input, researchJobId?: string) => void;
+  researchJob?: ResearchJob | null;
+  researchSuggestions?: ResearchSuggestion[];
+  onStartResearch?: (website: string, industry: string, companySize: string | null, salesMotion: string | null) => void;
+  isResearching?: boolean;
 }
 
-export function Phase1Company({ onNext }: Props) {
+export function Phase1Company({ onNext, researchJob, researchSuggestions, onStartResearch, isResearching }: Props) {
   const [companyName, setCompanyName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [industry, setIndustry] = useState("");
@@ -17,6 +22,27 @@ export function Phase1Company({ onNext }: Props) {
     { name: "", description: "", product_type: "platform" },
   ]);
 
+  // Pre-populate products from suggestions when research completes
+  const productSuggestions = researchSuggestions?.filter(
+    (s) => s.entity_type === "product" && s.status === "suggested"
+  ) ?? [];
+
+  const hasResearchCompleted = researchJob?.status === "completed";
+  const hasResearchFailed = researchJob?.status === "failed";
+  const isResearchRunning = researchJob?.status === "running" || researchJob?.status === "queued";
+
+  const [hasPrePopulated, setHasPrePopulated] = useState(false);
+  if (hasResearchCompleted && productSuggestions.length > 0 && !hasPrePopulated) {
+    const suggestedProducts = productSuggestions.map((s) => ({
+      name: (s.payload as Record<string, string>).name ?? "",
+      description: (s.payload as Record<string, string>).description ?? "",
+      product_type: ((s.payload as Record<string, string>).product_type ?? "platform") as OnboardingPhase1Input["products"][0]["product_type"],
+    }));
+    const existingFilled = products.filter((p) => p.name.trim().length > 0);
+    setProducts([...existingFilled, ...suggestedProducts]);
+    setHasPrePopulated(true);
+  }
+
   const addProduct = () => setProducts([...products, { name: "", description: "", product_type: "module" }]);
   const removeProduct = (i: number) => setProducts(products.filter((_, idx) => idx !== i));
   const updateProduct = (i: number, field: string, value: string) => {
@@ -24,16 +50,26 @@ export function Phase1Company({ onNext }: Props) {
   };
 
   const canProceed = companyName.trim().length > 0 && products.some((p) => p.name.trim().length > 0);
+  const canAutoFill = websiteUrl.trim().length > 0 && websiteUrl.includes(".") && !isResearching && !isResearchRunning;
 
   const handleSubmit = () => {
-    onNext({
-      company_name: companyName.trim(),
-      website_url: websiteUrl.trim(),
-      industry: industry.trim(),
-      company_size: companySize,
-      sales_motion: salesMotion,
-      products: products.filter((p) => p.name.trim().length > 0),
-    });
+    onNext(
+      {
+        company_name: companyName.trim(),
+        website_url: websiteUrl.trim(),
+        industry: industry.trim(),
+        company_size: companySize,
+        sales_motion: salesMotion,
+        products: products.filter((p) => p.name.trim().length > 0),
+      },
+      researchJob?.id,
+    );
+  };
+
+  const handleAutoFill = () => {
+    if (onStartResearch && canAutoFill) {
+      onStartResearch(websiteUrl.trim(), industry.trim(), companySize, salesMotion);
+    }
   };
 
   const sizeOptions: Array<{ value: OnboardingPhase1Input["company_size"]; label: string }> = [
@@ -48,6 +84,9 @@ export function Phase1Company({ onNext }: Props) {
     { value: "land_and_expand", label: "Land & Expand" },
     { value: "renewal", label: "Renewal" },
   ];
+
+  const entityStatus = researchJob?.entity_status ?? {};
+  const entityTypes = ["product", "competitor", "persona", "claim", "capability", "value_pattern"];
 
   return (
     <div className="space-y-6">
@@ -149,6 +188,79 @@ export function Phase1Company({ onNext }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Auto-fill from website */}
+      {onStartResearch && (
+        <div className="space-y-3">
+          {!researchJob && (
+            <button
+              onClick={handleAutoFill}
+              disabled={!canAutoFill}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-[12px] font-medium transition-colors",
+                canAutoFill
+                  ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-400 cursor-not-allowed"
+              )}
+            >
+              <Sparkles className="w-4 h-4" />
+              Auto-fill from website
+            </button>
+          )}
+
+          {(isResearchRunning || isResearching) && (
+            <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/50 space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                <span className="text-[12px] font-medium text-blue-700">Analyzing website...</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {entityTypes.map((et) => {
+                  const status = entityStatus[et] ?? "pending";
+                  const statusColors: Record<string, string> = {
+                    pending: "bg-zinc-100 text-zinc-400",
+                    running: "bg-blue-100 text-blue-600",
+                    completed: "bg-emerald-100 text-emerald-700",
+                    done: "bg-emerald-100 text-emerald-700",
+                    failed: "bg-red-100 text-red-600",
+                  };
+                  return (
+                    <div
+                      key={et}
+                      className={cn(
+                        "px-2 py-1.5 rounded-lg text-[10px] font-medium text-center capitalize",
+                        statusColors[status] ?? "bg-zinc-100 text-zinc-400"
+                      )}
+                    >
+                      {et.replace("_", " ")}
+                      {status === "running" && (
+                        <Loader2 className="w-3 h-3 inline ml-1 animate-spin" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {hasResearchCompleted && (
+            <div className="p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span className="text-[12px] text-emerald-700 font-medium">
+                Research complete — products pre-populated below. Suggestions for competitors, personas, and claims will appear in the next steps.
+              </span>
+            </div>
+          )}
+
+          {hasResearchFailed && (
+            <div className="p-3 rounded-xl border border-red-100 bg-red-50/50">
+              <span className="text-[12px] text-red-700">
+                Research failed: {researchJob?.error_message ?? "Unknown error"}. You can continue manually.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Products */}
       <div>

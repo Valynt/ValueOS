@@ -2,15 +2,25 @@ import { useState } from "react";
 import { Swords, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OnboardingPhase2Input, CompanyCompetitor } from "@/hooks/company-context/types";
+import { useResearchSuggestions, useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
+import { SuggestionSection } from "@/components/onboarding/SuggestionCard";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface Props {
   onNext: (data: OnboardingPhase2Input) => void;
   onBack: () => void;
+  researchJobId?: string | null;
 }
 
 type Relationship = NonNullable<CompanyCompetitor["relationship"]>;
 
-export function Phase2Competitors({ onNext, onBack }: Props) {
+export function Phase2Competitors({ onNext, onBack, researchJobId }: Props) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? "default";
+  const { data: suggestions } = useResearchSuggestions(researchJobId ?? null, "competitor");
+  const acceptMutation = useAcceptSuggestion(tenantId);
+  const rejectMutation = useRejectSuggestion(tenantId);
+
   const [competitors, setCompetitors] = useState<
     Array<{ name: string; website_url: string; relationship: Relationship }>
   >([{ name: "", website_url: "", relationship: "direct" }]);
@@ -41,6 +51,51 @@ export function Phase2Competitors({ onNext, onBack }: Props) {
           <p className="text-[12px] text-zinc-400">Name your competitors so the system knows what to lean into and what to avoid</p>
         </div>
       </div>
+
+      {/* AI Suggestions */}
+      {suggestions && suggestions.length > 0 && (
+        <SuggestionSection
+          suggestions={suggestions}
+          onAccept={(s) => {
+            acceptMutation.mutate({
+              suggestionId: s.id,
+              contextId: s.context_id,
+              entityType: s.entity_type,
+              payload: s.payload as Record<string, unknown>,
+            });
+            // Also add to local list
+            const p = s.payload as Record<string, string>;
+            setCompetitors((prev) => [
+              ...prev.filter((c) => c.name.trim().length > 0),
+              { name: p.name ?? "", website_url: p.website_url ?? "", relationship: (p.relationship ?? "direct") as Relationship },
+            ]);
+          }}
+          onReject={(s) => rejectMutation.mutate(s.id)}
+          onEdit={(s, payload) => {
+            acceptMutation.mutate({
+              suggestionId: s.id,
+              contextId: s.context_id,
+              entityType: s.entity_type,
+              payload,
+            });
+          }}
+          renderPayload={(payload, _isEditing, _onChange) => {
+            const p = payload as Record<string, string>;
+            return (
+              <div className="space-y-1">
+                <p className="text-[13px] font-medium text-zinc-900">{p.name}</p>
+                {p.website_url && <p className="text-[11px] text-zinc-400">{p.website_url}</p>}
+                {p.relationship && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-100 capitalize">
+                    {p.relationship}
+                  </span>
+                )}
+              </div>
+            );
+          }}
+          isProcessing={acceptMutation.isPending || rejectMutation.isPending}
+        />
+      )}
 
       <div className="space-y-3">
         {competitors.map((c, i) => (

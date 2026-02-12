@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   CheckCircle2,
   Building2,
@@ -6,6 +7,8 @@ import {
   Shield,
   Package,
   Sparkles,
+  ExternalLink,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -13,6 +16,7 @@ import type {
   OnboardingPhase2Input,
   OnboardingPhase3Input,
   OnboardingPhase4Input,
+  ResearchSuggestion,
 } from "@/hooks/company-context/types";
 
 interface Props {
@@ -23,6 +27,8 @@ interface Props {
   onConfirm: () => void;
   onBack: () => void;
   isSubmitting: boolean;
+  researchJobId?: string | null;
+  researchSuggestions?: ResearchSuggestion[];
 }
 
 function SectionCard({
@@ -52,7 +58,47 @@ function SectionCard({
   );
 }
 
-export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack, isSubmitting }: Props) {
+function ProvenanceBadge({ suggestion }: { suggestion?: ResearchSuggestion | undefined }) {
+  const [showSources, setShowSources] = useState(false);
+
+  if (!suggestion || suggestion.status !== "accepted") return null;
+
+  return (
+    <div className="inline-flex items-center gap-1 ml-2">
+      <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 font-medium">
+        <Bot className="w-2.5 h-2.5" />
+        AI · {Math.round(suggestion.confidence_score * 100)}%
+      </span>
+      {suggestion.source_urls.length > 0 && (
+        <button
+          onClick={() => setShowSources(!showSources)}
+          className="text-[9px] text-zinc-400 hover:text-zinc-600"
+        >
+          {suggestion.source_urls.length} source{suggestion.source_urls.length !== 1 ? "s" : ""}
+        </button>
+      )}
+      {showSources && (
+        <div className="absolute mt-6 p-2 bg-white border border-zinc-200 rounded-lg shadow-lg z-10 space-y-1">
+          {suggestion.source_urls.map((url, i) => (
+            <a
+              key={i}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[10px] text-blue-500 hover:text-blue-700"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {url}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack, isSubmitting, researchJobId, researchSuggestions }: Props) {
+  const acceptedSuggestions = researchSuggestions?.filter((s) => s.status === "accepted") ?? [];
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
@@ -66,6 +112,25 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
           </p>
         </div>
       </div>
+
+      {/* Research provenance summary */}
+      {acceptedSuggestions.length > 0 && (
+        <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/30 space-y-2">
+          <div className="flex items-center gap-2">
+            <Bot className="w-4 h-4 text-blue-500" />
+            <span className="text-[12px] font-semibold text-blue-700">
+              AI-Assisted Onboarding
+            </span>
+          </div>
+          <p className="text-[11px] text-blue-600">
+            {acceptedSuggestions.length} item{acceptedSuggestions.length !== 1 ? "s" : ""} were
+            suggested by AI and accepted during this onboarding.
+            {researchJobId && (
+              <span className="text-blue-400 ml-1">Job: {researchJobId.substring(0, 8)}...</span>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Company summary */}
       <SectionCard icon={Building2} title="Company" count={1} color="text-blue-600">
@@ -96,12 +161,18 @@ export function Phase5Review({ phase1, phase2, phase3, phase4, onConfirm, onBack
       {/* Products */}
       <SectionCard icon={Package} title="Products" count={phase1.products.length} color="text-blue-600">
         <div className="space-y-2">
-          {phase1.products.map((p, i) => (
-            <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-50">
-              <span className="text-[13px] font-medium text-zinc-900 flex-1">{p.name}</span>
-              <span className="text-[11px] text-zinc-400 capitalize">{p.product_type?.replace("_", " ")}</span>
-            </div>
-          ))}
+          {phase1.products.map((p, i) => {
+            const matchingSuggestion = acceptedSuggestions.find(
+              (s) => s.entity_type === "product" && (s.payload as Record<string, string>).name === p.name
+            );
+            return (
+              <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-50 relative">
+                <span className="text-[13px] font-medium text-zinc-900 flex-1">{p.name}</span>
+                <span className="text-[11px] text-zinc-400 capitalize">{p.product_type?.replace("_", " ")}</span>
+                <ProvenanceBadge suggestion={matchingSuggestion} />
+              </div>
+            );
+          })}
         </div>
       </SectionCard>
 

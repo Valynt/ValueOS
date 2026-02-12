@@ -2,10 +2,14 @@ import { useState } from "react";
 import { Users, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OnboardingPhase3Input, CompanyPersona } from "@/hooks/company-context/types";
+import { useResearchSuggestions, useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
+import { SuggestionSection } from "@/components/onboarding/SuggestionCard";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface Props {
   onNext: (data: OnboardingPhase3Input) => void;
   onBack: () => void;
+  researchJobId?: string | null;
 }
 
 type PersonaType = NonNullable<CompanyPersona["persona_type"]>;
@@ -19,7 +23,13 @@ interface PersonaDraft {
   pains: string;
 }
 
-export function Phase3Personas({ onNext, onBack }: Props) {
+export function Phase3Personas({ onNext, onBack, researchJobId }: Props) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? "default";
+  const { data: suggestions } = useResearchSuggestions(researchJobId ?? null, "persona");
+  const acceptMutation = useAcceptSuggestion(tenantId);
+  const rejectMutation = useRejectSuggestion(tenantId);
+
   const [personas, setPersonas] = useState<PersonaDraft[]>([
     { title: "", persona_type: "decision_maker", seniority: "vp", kpis: "", pains: "" },
   ]);
@@ -78,6 +88,68 @@ export function Phase3Personas({ onNext, onBack }: Props) {
           <p className="text-[12px] text-zinc-400">Who buys from you? This shapes how value narratives are framed</p>
         </div>
       </div>
+
+      {/* AI Suggestions */}
+      {suggestions && suggestions.length > 0 && (
+        <SuggestionSection
+          suggestions={suggestions}
+          onAccept={(s) => {
+            acceptMutation.mutate({
+              suggestionId: s.id,
+              contextId: s.context_id,
+              entityType: s.entity_type,
+              payload: s.payload as Record<string, unknown>,
+            });
+            const p = s.payload as Record<string, any>;
+            setPersonas((prev) => [
+              ...prev.filter((x) => x.title.trim().length > 0),
+              {
+                title: p.title ?? "",
+                persona_type: p.persona_type ?? "champion",
+                seniority: p.seniority ?? "director",
+                kpis: Array.isArray(p.typical_kpis) ? p.typical_kpis.join(", ") : "",
+                pains: Array.isArray(p.pain_points) ? p.pain_points.join(", ") : "",
+              },
+            ]);
+          }}
+          onReject={(s) => rejectMutation.mutate(s.id)}
+          onEdit={(s, payload) => {
+            acceptMutation.mutate({
+              suggestionId: s.id,
+              contextId: s.context_id,
+              entityType: s.entity_type,
+              payload,
+            });
+          }}
+          renderPayload={(payload, _isEditing, _onChange) => {
+            const p = payload as Record<string, any>;
+            return (
+              <div className="space-y-1">
+                <p className="text-[13px] font-medium text-zinc-900">{p.title}</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {p.persona_type && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 capitalize">
+                      {String(p.persona_type).replace("_", " ")}
+                    </span>
+                  )}
+                  {p.seniority && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 capitalize">
+                      {String(p.seniority).replace("_", " ")}
+                    </span>
+                  )}
+                </div>
+                {Array.isArray(p.typical_kpis) && p.typical_kpis.length > 0 && (
+                  <p className="text-[11px] text-zinc-500">KPIs: {p.typical_kpis.join(", ")}</p>
+                )}
+                {Array.isArray(p.pain_points) && p.pain_points.length > 0 && (
+                  <p className="text-[11px] text-zinc-500">Pains: {p.pain_points.join(", ")}</p>
+                )}
+              </div>
+            );
+          }}
+          isProcessing={acceptMutation.isPending || rejectMutation.isPending}
+        />
+      )}
 
       <div className="space-y-4">
         {personas.map((p, i) => (

@@ -2,11 +2,15 @@ import { useState } from "react";
 import { Shield, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OnboardingPhase4Input, CompanyClaimGovernance } from "@/hooks/company-context/types";
+import { useResearchSuggestions, useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
+import { SuggestionSection } from "@/components/onboarding/SuggestionCard";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface Props {
   companyName: string;
   onNext: (data: OnboardingPhase4Input) => void;
   onBack: () => void;
+  researchJobId?: string | null;
 }
 
 type RiskLevel = CompanyClaimGovernance["risk_level"];
@@ -19,7 +23,13 @@ interface ClaimDraft {
   rationale: string;
 }
 
-export function Phase4Claims({ companyName, onNext, onBack }: Props) {
+export function Phase4Claims({ companyName, onNext, onBack, researchJobId }: Props) {
+  const { currentTenant } = useTenant();
+  const tenantId = currentTenant?.id ?? "default";
+  const { data: suggestions } = useResearchSuggestions(researchJobId ?? null, "claim");
+  const acceptMutation = useAcceptSuggestion(tenantId);
+  const rejectMutation = useRejectSuggestion(tenantId);
+
   const [claims, setClaims] = useState<ClaimDraft[]>([
     { claim_text: "", risk_level: "safe", category: "revenue", rationale: "" },
   ]);
@@ -66,6 +76,84 @@ export function Phase4Claims({ companyName, onNext, onBack }: Props) {
           and which should be flagged automatically. This prevents embarrassing overstatements in front of CFOs.
         </p>
       </div>
+
+      {/* AI Suggestions */}
+      {suggestions && suggestions.length > 0 && (
+        <SuggestionSection
+          suggestions={suggestions.map((s) => {
+            // Claims with confidence < 0.5 default to "conditional"
+            if (s.confidence_score < 0.5) {
+              return {
+                ...s,
+                payload: { ...s.payload, risk_level: "conditional" },
+              };
+            }
+            return s;
+          })}
+          onAccept={(s) => {
+            const payload = s.payload as Record<string, unknown>;
+            // Enforce confidence-based risk defaulting
+            if (s.confidence_score < 0.5) {
+              payload.risk_level = "conditional";
+            }
+            acceptMutation.mutate({
+              suggestionId: s.id,
+              contextId: s.context_id,
+              entityType: s.entity_type,
+              payload,
+            });
+            const p = payload as Record<string, string>;
+            setClaims((prev) => [
+              ...prev.filter((c) => c.claim_text.trim().length > 0),
+              {
+                claim_text: p.claim_text ?? "",
+                risk_level: (p.risk_level ?? "conditional") as RiskLevel,
+                category: (p.category ?? "revenue") as Category,
+                rationale: p.rationale ?? "",
+              },
+            ]);
+          }}
+          onReject={(s) => rejectMutation.mutate(s.id)}
+          onEdit={(s, payload) => {
+            if (s.confidence_score < 0.5) {
+              payload.risk_level = "conditional";
+            }
+            acceptMutation.mutate({
+              suggestionId: s.id,
+              contextId: s.context_id,
+              entityType: s.entity_type,
+              payload,
+            });
+          }}
+          renderPayload={(payload, _isEditing, _onChange) => {
+            const p = payload as Record<string, string>;
+            const riskColors: Record<string, string> = {
+              safe: "bg-emerald-50 text-emerald-700 border-emerald-200",
+              conditional: "bg-amber-50 text-amber-700 border-amber-200",
+              high_risk: "bg-red-50 text-red-700 border-red-200",
+            };
+            return (
+              <div className="space-y-1.5">
+                <p className="text-[12px] text-zinc-700">{p.claim_text}</p>
+                <div className="flex items-center gap-2">
+                  {p.risk_level && (
+                    <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold border capitalize", riskColors[p.risk_level] ?? "bg-zinc-100 text-zinc-500")}>
+                      {p.risk_level.replace("_", " ")}
+                    </span>
+                  )}
+                  {p.category && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 capitalize">
+                      {p.category}
+                    </span>
+                  )}
+                </div>
+                {p.rationale && <p className="text-[11px] text-zinc-400">{p.rationale}</p>}
+              </div>
+            );
+          }}
+          isProcessing={acceptMutation.isPending || rejectMutation.isPending}
+        />
+      )}
 
       <div className="space-y-4">
         {claims.map((c, i) => (
