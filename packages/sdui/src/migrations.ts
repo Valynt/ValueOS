@@ -42,9 +42,6 @@
  *      instead of deleting the key. Serialization (JSON.stringify)
  *      drops it, but in-memory the key persists. Minor.
  *
- * 4. Duplicate function:
- *    `migrateV1ToV2Duplicate` is dead code — not referenced anywhere.
- *    Should be removed in a cleanup pass.
  * ──────────────────────────────────────────────────────────────────
  */
 
@@ -321,20 +318,6 @@ export function migrateSchema(
   }
 
   return migratedSchema;
-}
-
-/**
- * Migrate schema from v1 to v2
- *
- * Changes:
- * - Add data binding support
- * - Rename 'title' prop to 'heading' in InfoBanner
- * - Add 'variant' prop to components
- * - Convert old action format to new format
- */
-function migrateV1ToV2Duplicate(schema: SDUIPageDefinition): SDUIPageDefinition {
-  // This is a duplicate function that needs to be removed
-  return schema;
 }
 
 /**

@@ -17,8 +17,13 @@ import {
 } from "./DataBindingSchema";
 import { hasPermission, TenantContext } from "./TenantContext";
 import { ToolRegistry } from "../services/ToolRegistry";
-import { SemanticMemoryService } from "../services/SemanticMemory";
 import { createClient } from "@supabase/supabase-js";
+
+/** Minimal interface for semantic memory integration */
+interface SemanticMemoryService {
+  getMemoriesByType(type: string, limit: number): Promise<unknown>;
+  searchSimilar(query: string, opts: { limit: number }): Promise<unknown>;
+}
 import PQueue from "p-queue";
 import { incrementSecurityMetric } from "./security/metrics";
 

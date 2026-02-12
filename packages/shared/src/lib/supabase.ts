@@ -1,24 +1,37 @@
 import { createClient, type SupabaseClientOptions } from "@supabase/supabase-js";
 import { getEnvVar, getSupabaseConfig } from "./env";
-import { withRetry, retryPredicates } from "./retry";
 
-// Custom fetch with retry logic for network stability
+// Simple fetch wrapper with retry for transient network/server errors
+const MAX_RETRY_ATTEMPTS = 3;
+const BASE_DELAY_MS = 500;
+
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof TypeError) return true; // network errors
+  if (error instanceof Response && error.status >= 500) return true;
+  return false;
+}
+
 const fetchWithRetry = async (
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> => {
-  const result = await withRetry(() => fetch(input, init), {
-    retryOn: (error) =>
-      retryPredicates.networkErrors(error) ||
-      retryPredicates.serverErrors(error),
-    maxAttempts: 3,
-    baseDelayMs: 500,
-  });
-
-  if (result.ok) {
-    return result.value;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(input, init);
+      if (response.status >= 500 && attempt < MAX_RETRY_ATTEMPTS - 1) {
+        lastError = response;
+        await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
+        continue;
+      }
+      return response;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableError(error) || attempt >= MAX_RETRY_ATTEMPTS - 1) throw error;
+      await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
+    }
   }
-  throw result.error;
+  throw lastError;
 };
 
 // Client-side configuration - only uses anon key
