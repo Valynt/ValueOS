@@ -6,10 +6,11 @@ Memory layer for ValueOS - first-class system for LLM and system memory.
 
 ```
 memory/
-├── semantic/    # Semantic memory (facts, knowledge)
-├── episodic/    # Episodic memory (events, interactions)
-├── vector/      # Vector store adapters (embeddings)
-└── provenance/  # Memory provenance tracking
+├── semantic/    # Facts & knowledge graph with contradiction detection
+├── episodic/    # Immutable interaction history, importance-weighted retrieval
+├── vector/      # Hybrid search (vector + BM25) with provenance attachment
+├── provenance/  # Data lineage tracking ("CFO Defence")
+└── lifecycle/   # TTL enforcement, consolidation, promotion rules
 ```
 
 ## Import Rules
@@ -23,3 +24,4 @@ memory/
 ## Dependencies
 
 - `@valueos/infra` - for storage/database access
+- `zod` - input validation at the edge

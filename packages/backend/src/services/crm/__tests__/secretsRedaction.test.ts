@@ -92,4 +92,19 @@ describe('redactSecrets', () => {
     redactSecrets(input);
     expect(input.access_token).toBe('secret');
   });
+
+  it('redacts HubSpot v3 signature header', () => {
+    const input = {
+      'x-hubspot-signature-v3': 'base64-hmac-value',
+      'x-hubspot-signature': 'hex-hash-value',
+      'x-sfdc-signature': 'sfdc-sig',
+      eventType: 'deal.creation',
+    };
+
+    const result = redactSecrets(input) as any;
+    expect(result['x-hubspot-signature-v3']).toBe('[REDACTED]');
+    expect(result['x-hubspot-signature']).toBe('[REDACTED]');
+    expect(result['x-sfdc-signature']).toBe('[REDACTED]');
+    expect(result.eventType).toBe('deal.creation');
+  });
 });
