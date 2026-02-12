@@ -1,15 +1,20 @@
 /**
  * Server-side security middleware:
  * - Security headers enforcement
- * - CSRF double-submit protection
+ * - CSRF double-submit cookie generation + validation
  * - Session idle/absolute timeout enforcement
  *
  * These middlewares are designed for Express-style handlers.
  */
 
+import crypto from "node:crypto";
 import { NextFunction, Request, Response } from "express";
 import { getSecurityHeaders } from "../security/SecurityHeaders.js";
 export { sessionTimeoutMiddleware } from "./sessionTimeoutMiddleware.js";
+
+const CSRF_COOKIE_NAME = "csrf_token";
+const CSRF_HEADER_NAME = "x-csrf-token";
+const CSRF_TOKEN_BYTES = 32;
 
 /**
  * Apply strong security headers to responses.
@@ -38,14 +43,47 @@ function getCookie(req: Request, name: string): string | undefined {
   return undefined;
 }
 
+function buildCookieAttributes(): string {
+  const isProduction = process.env.NODE_ENV === "production";
+  const parts = [
+    "Path=/",
+    "SameSite=" + (isProduction ? "Strict" : "Lax"),
+    "Max-Age=86400",
+  ];
+  if (isProduction) {
+    parts.push("Secure");
+  }
+  // The CSRF cookie must be readable by JavaScript so the client can send
+  // it back in the X-CSRF-Token header. Do NOT set HttpOnly.
+  return parts.join("; ");
+}
+
+/**
+ * Generate and set a CSRF double-submit cookie if one is not already present.
+ * Must be applied before csrfProtectionMiddleware in the middleware chain.
+ *
+ * The cookie is NOT HttpOnly so the client-side JS can read it and attach
+ * it as the X-CSRF-Token header on state-changing requests.
+ */
+export function csrfTokenMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const existing = getCookie(req, CSRF_COOKIE_NAME);
+  if (!existing) {
+    const token = crypto.randomBytes(CSRF_TOKEN_BYTES).toString("hex");
+    res.setHeader("Set-Cookie", `${CSRF_COOKIE_NAME}=${token}; ${buildCookieAttributes()}`);
+  }
+  next();
+}
+
 /**
  * CSRF protection using a double-submit cookie + header with SameSite protection.
- * Rejects requests without a valid X-CSRF-Token header matching the csrf_token cookie.
- * Also sets secure cookie attributes for session protection.
+ * Rejects state-changing requests without a valid X-CSRF-Token header matching
+ * the csrf_token cookie.
+ *
+ * Requires csrfTokenMiddleware to have set the cookie on a prior response.
  */
 export function csrfProtectionMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const headerToken = req.header("x-csrf-token");
-  const cookieToken = getCookie(req, "csrf_token");
+  const headerToken = req.header(CSRF_HEADER_NAME);
+  const cookieToken = getCookie(req, CSRF_COOKIE_NAME);
 
   if (!headerToken || !cookieToken || headerToken !== cookieToken) {
     return res.status(403).json({ error: "CSRF validation failed" });
@@ -58,18 +96,14 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
  * Enhanced session security middleware - sets secure cookie attributes
  */
 export function sessionSecurityMiddleware(_req: Request, res: Response, next: NextFunction): void {
-  // Set secure session cookie attributes
   const isProduction = process.env.NODE_ENV === "production";
   const secure = isProduction ? "; Secure" : "";
   const sameSite = isProduction ? "; SameSite=Strict" : "; SameSite=Lax";
   const httpOnly = "; HttpOnly";
-  const maxAge = "; Max-Age=86400"; // 24 hours
+  const maxAge = "; Max-Age=86400";
 
-  // Note: This assumes you're using express-session or similar
-  // If using custom session handling, adjust accordingly
   res.setHeader("Set-Cookie", [
-    `session_id=; Path=/; ${httpOnly}${secure}${sameSite}${maxAge}`,
-    `csrf_token=; Path=/; ${httpOnly}${secure}${sameSite}${maxAge}`,
+    `session_id=; Path=/${httpOnly}${secure}${sameSite}${maxAge}`,
   ]);
 
   next();

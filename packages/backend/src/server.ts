@@ -103,7 +103,7 @@ import {
 import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js";
 import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
-import { csrfProtectionMiddleware } from "./middleware/securityMiddleware.js";
+import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
@@ -308,6 +308,7 @@ app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
+app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)
 app.use((req, res, next) => {
   const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
   if (stateChangingMethods.has(req.method)) {
@@ -480,21 +481,24 @@ async function startServer(): Promise<void> {
     });
   }
 
-  // 4. Start the onboarding research BullMQ worker (in-process)
-  try {
-    initResearchWorker();
-    console.log("[Instrumentation] Research worker initialized");
-  } catch (workerErr) {
-    // Non-fatal — server can run without the worker (e.g. no Redis)
-    console.warn("[Instrumentation] Research worker failed to start:", workerErr);
-  }
+  // 4. Workers run as a separate process (see workers/workerMain.ts).
+  // In development, optionally start them in-process for convenience.
+  if (settings.NODE_ENV === "development") {
+    try {
+      initResearchWorker();
+      logger.info("[Instrumentation] Research worker initialized (in-process, dev only)");
+    } catch (workerErr) {
+      logger.warn("[Instrumentation] Research worker failed to start:", { error: workerErr });
+    }
 
-  // 5. Start CRM integration BullMQ workers (in-process)
-  try {
-    initCrmWorkers();
-    console.log("[Instrumentation] CRM workers initialized");
-  } catch (workerErr) {
-    console.warn("[Instrumentation] CRM workers failed to start:", workerErr);
+    try {
+      initCrmWorkers();
+      logger.info("[Instrumentation] CRM workers initialized (in-process, dev only)");
+    } catch (workerErr) {
+      logger.warn("[Instrumentation] CRM workers failed to start:", { error: workerErr });
+    }
+  } else {
+    logger.info("[Instrumentation] Workers run as separate process; skipping in-process init");
   }
 
   server.listen(PORT, () => {

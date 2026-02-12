@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   csrfProtectionMiddleware,
+  csrfTokenMiddleware,
   securityHeadersMiddleware,
 } from './securityMiddleware';
 import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware.js'
@@ -19,6 +20,7 @@ export function createSecureRouter(
   router.use(requestAuditMiddleware());
   router.use(securityHeadersMiddleware);
   router.use(serviceIdentityMiddleware);
+  router.use(csrfTokenMiddleware);
   router.use(csrfProtectionMiddleware);
   router.use(sessionTimeoutMiddleware);
   router.use(rateLimiters[tier]);

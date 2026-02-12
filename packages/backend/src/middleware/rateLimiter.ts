@@ -49,6 +49,14 @@ export interface RateLimitConfig {
 
   /** Custom key generator */
   keyGenerator?: (req: Request) => string;
+
+  /**
+   * When true, reject requests if the rate limit store is unavailable
+   * (e.g. Redis down and memory fallback also fails).
+   * Use for security-sensitive endpoints like auth/admin.
+   * Default: false (fail-open).
+   */
+  failClosed?: boolean;
 }
 
 /**
@@ -314,9 +322,17 @@ export function createRateLimiter(
         key,
         tier,
         path: req.path,
+        failClosed: config.failClosed ?? false,
       });
 
-      // On rate limit failure, allow request to proceed to prevent blocking
+      if (config.failClosed) {
+        return res.status(503).json({
+          error: "Service Unavailable",
+          message: "Rate limiting service is temporarily unavailable. Please try again later.",
+        });
+      }
+
+      // Fail-open: allow request to proceed
       next();
     }
   };
@@ -328,9 +344,9 @@ export function createRateLimiter(
 export const rateLimiters = {
   /**
    * Strict rate limiter for expensive operations
-   * 5 requests per minute
+   * 5 requests per minute — fail-closed for security-sensitive routes
    */
-  strict: createRateLimiter("strict"),
+  strict: createRateLimiter("strict", { failClosed: true }),
 
   /**
    * Standard rate limiter for regular API calls
