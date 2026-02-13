@@ -57,6 +57,8 @@ jobs:
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
+      - name: Debt policy ratchet
+        run: node scripts/debt/inventory.mjs
       - name: Enforce Valynt service freeze
         run: pnpm check:valynt-services-freeze
 
@@ -68,6 +70,9 @@ jobs:
 
       - name: Typecheck
         run: npx turbo run typecheck
+
+      - name: Docs integrity
+        run: node scripts/ci/docs-integrity.mjs
 
       - name: Build
         run: npx turbo run build

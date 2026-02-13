@@ -29,7 +29,7 @@ export function PageShell({
   return (
     <SidebarLayout>
       <div className={`min-h-screen bg-background flex flex-col ${className ?? ""}`}>
-        <main className={`flex-1 py-8 ${mainClassName ?? ""}`}>{content}</main>
+        <div className={`flex-1 py-8 ${mainClassName ?? ""}`}>{content}</div>
       </div>
     </SidebarLayout>
   );

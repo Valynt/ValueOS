@@ -1,6 +1,6 @@
 /**
  * Agent Fabric Stub
- * TODO: Import from packages/agents when available
+ * TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Import from packages/agents when available
  */
 
 export interface AgentConfig {
