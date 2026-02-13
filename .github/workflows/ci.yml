@@ -54,6 +54,9 @@ jobs:
       - name: Typecheck
         run: npx turbo run typecheck
 
+      - name: Docs integrity
+        run: node scripts/ci/docs-integrity.mjs
+
       - name: Build
         run: npx turbo run build
 
