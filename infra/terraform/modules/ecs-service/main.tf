@@ -1,5 +1,5 @@
 # ECS service module stub — implement ECS service + ALB target group
-# TODO: Replace with real resources before production deployment
+# TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Replace with real resources before production deployment
 
 variable "name_prefix" { type = string }
 variable "cluster_id" { type = string }

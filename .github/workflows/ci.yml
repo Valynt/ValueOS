@@ -48,6 +48,9 @@ jobs:
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
+      - name: Debt policy ratchet
+        run: node scripts/debt/inventory.mjs
+
       - name: Lint
         run: npx turbo run lint
 

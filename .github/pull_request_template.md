@@ -95,6 +95,7 @@ Closes #
 <!-- Ensure all items are completed before requesting review -->
 
 ### Code Quality
+- [ ] Strict-zone TODO/FIXME comments (if any) include metadata: `TODO(ticket:<id> owner:<team|user> date:YYYY-MM-DD)`
 - [ ] Code follows project coding standards
 - [ ] Self-review completed
 - [ ] Comments added for complex logic

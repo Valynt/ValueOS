@@ -213,15 +213,15 @@ export interface ValueFabricSnapshot {
   use_cases: UseCase[];
   value_trees: ValueTree[];
   roi_models: ROIModel[];
-  value_commits: any[]; // TODO: define ValueCommit
+  value_commits: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define ValueCommit
   telemetry_summary?: {
     total_events: number;
     kpis_tracked: number;
     last_event_timestamp?: string;
     coverage_percentage: number;
   };
-  realization_reports?: any[]; // TODO: define RealizationReport
-  expansion_models?: any[]; // TODO: define ExpansionModel
+  realization_reports?: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define RealizationReport
+  expansion_models?: any[]; // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): define ExpansionModel
 }
 
 // ============================================================================
