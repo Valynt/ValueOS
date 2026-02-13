@@ -10,6 +10,7 @@
 -- ============================================================================
 
 CREATE SCHEMA IF NOT EXISTS security;
+CREATE SCHEMA IF NOT EXISTS app;
 GRANT USAGE ON SCHEMA security TO authenticated;
 GRANT USAGE ON SCHEMA security TO anon;
 
@@ -82,7 +83,7 @@ GRANT EXECUTE ON FUNCTION security.user_has_tenant_access(TEXT) TO anon, authent
 GRANT EXECUTE ON FUNCTION security.user_has_tenant_access(UUID) TO anon, authenticated;
 
 -- app schema helpers (used by value_commitment_tracking RLS)
-CREATE OR REPLACE FUNCTION app.is_active_member(_tenant_id uuid, _user_id uuid)
+CREATE OR REPLACE FUNCTION app.is_active_member(_tenant_id text, _user_id uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE

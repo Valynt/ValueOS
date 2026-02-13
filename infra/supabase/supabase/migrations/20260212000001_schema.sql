@@ -34,6 +34,8 @@ SET row_security = off;
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO postgres;
 GRANT CREATE ON SCHEMA auth TO postgres;
+DO $$
+BEGIN
 -- Populate existing NULL values with defaults (guarded for fresh DB)
 DO $$
 BEGIN
@@ -67,6 +69,37 @@ BEGIN
 END;
 $$;
 
+COMMIT;
+BEGIN
+  -- agent_sessions
+  DO $$ BEGIN
+    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table THEN NULL;
+  END $$;
+  DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+    END IF;
+  END $$;
+  -- progressive_rollouts (exists guard)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+    BEGIN
+      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  -- feature_flags column guard
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    BEGIN
+      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+END;
+$$;
+
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
 
@@ -81,19 +114,114 @@ COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access met
 -- Name: academy_pillar; Type: TYPE; Schema: public; Owner: -
 --
 
+-- Populate existing NULL values with defaults (guarded for fresh DB)
+DO $$
+BEGIN
+  -- agent_sessions
+  BEGIN
+    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
+  -- workflow_executions
+  BEGIN
+    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+  -- progressive_rollouts (exists guard)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+    BEGIN
+      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  -- feature_flags column guard
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    BEGIN
+      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+END;
+$$;
 --
 
+-- Populate existing NULL values with defaults (guarded for fresh DB)
+DO $$
+BEGIN
+  -- agent_sessions
+  BEGIN
+    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
+  -- workflow_executions
+  BEGIN
+    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
+  -- progressive_rollouts (exists guard)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+    BEGIN
+      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  -- feature_flags column guard
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    BEGIN
+      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+END;
+$$;
+            END;
+            $$;
+$$;
 
 
 --
--- Name: role_track; Type: TYPE; Schema: public; Owner: -
+-- Name: progress_status; Type: TYPE; Schema: public; Owner: -
 --
 
 DO $$
+-- Populate existing NULL values with defaults (guarded for fresh DB)
+DO $$
+BEGIN
+  -- agent_sessions
+  BEGIN
+    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
+  -- workflow_executions
+  BEGIN
+    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+  -- progressive_rollouts (exists guard)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+    BEGIN
+      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  -- feature_flags column guard
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    BEGIN
+      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+END;
+$$;
                 BEGIN
                   EXECUTE 'UPDATE public.agent_performance_summary SET metadata = ''{}'' WHERE metadata IS NULL OR jsonb_typeof(metadata) != ''object''';
                 EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -110,31 +238,26 @@ DO $$
   v_plan_tier TEXT;
   v_membership_id UUID;
 BEGIN
-  -- Start transaction with row locking
-  -- Lock the subscriptions table to prevent concurrent seat allocations
   SELECT plan_tier INTO v_plan_tier
   FROM subscriptions
   WHERE tenant_id = p_tenant_id
     AND status = 'active'
-  FOR UPDATE; -- Lock the row
+  FOR UPDATE;
 
-  -- Get current active user count with locking
   SELECT COUNT(*) INTO v_current_users
   FROM user_tenants
   WHERE tenant_id = p_tenant_id
     AND status = 'active'
-  FOR UPDATE; -- Lock user_tenants for this tenant
+  FOR UPDATE;
 
-  -- Determine max users based on plan
   CASE v_plan_tier
     WHEN 'free' THEN v_max_users := 3;
     WHEN 'starter' THEN v_max_users := 10;
     WHEN 'professional' THEN v_max_users := 50;
-    WHEN 'enterprise' THEN v_max_users := 1000; -- Large number for unlimited
-    ELSE v_max_users := 3; -- Default to free tier
+    WHEN 'enterprise' THEN v_max_users := 1000;
+    ELSE v_max_users := 3;
   END CASE;
 
-  -- Check if adding this user would exceed limits
   IF v_current_users >= v_max_users THEN
     RETURN json_build_object(
       'success', false,
@@ -142,6 +265,40 @@ BEGIN
       'current_users', v_current_users,
       'max_users', v_max_users
     );
+    -- Populate existing NULL values with defaults (guarded for fresh DB)
+    DO $$
+    BEGIN
+      -- agent_sessions
+      BEGIN
+        UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+        UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+      -- workflow_executions
+      BEGIN
+        UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+        UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+      -- progressive_rollouts (exists guard)
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+        BEGIN
+          EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+        EXCEPTION WHEN OTHERS THEN NULL;
+        END;
+      END IF;
+
+      -- feature_flags column guard
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+        BEGIN
+          UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+        EXCEPTION WHEN OTHERS THEN NULL;
+        END;
+      END IF;
+    END;
+    $$;
+
+    COMMIT;
       'membership_id', v_membership_id,
       'seats_before', v_current_users,
       'seats_after', v_current_users + 1,
@@ -149,7 +306,6 @@ BEGIN
     )
   );
 
-  -- Return success
   RETURN json_build_object(
     'success', true,
     'membership_id', v_membership_id,
@@ -159,6 +315,38 @@ BEGIN
 
 EXCEPTION
   WHEN OTHERS THEN
+  -- Populate existing NULL values with defaults (guarded for fresh DB)
+  DO $$
+  BEGIN
+    -- agent_sessions
+    BEGIN
+      UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+      UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+    EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+    -- workflow_executions
+    BEGIN
+      UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
+      UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
+    EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
+
+    -- progressive_rollouts (exists guard)
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
+      BEGIN
+        EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END;
+    END IF;
+
+    -- feature_flags column guard
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+      BEGIN
+        UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END;
+    END IF;
+  END;
+  $$;
 
   COMMIT;
     p_old_values,
@@ -171,12 +359,7 @@ EXCEPTION
 END;
 $$;
 
-
---
--- Name: FUNCTION append_audit_log(p_user_id uuid, p_action text, p_resource_type text, p_resource_id text, p_old_values jsonb, p_new_values jsonb, p_metadata jsonb); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.append_audit_log(p_user_id uuid, p_action text, p_resource_type text, p_resource_id text, p_old_values jsonb, p_new_values jsonb, p_metadata jsonb) IS 'Phase 3: Securely append audit log entry - only method to write audit logs';
+COMMENT ON FUNCTION public.append_audit_log(p_user_id uuid, p_action text, p_resource_type text, p_resource_id text, p_old_values jsonb, p_new_values jsonb, p_metadata jsonb) IS 'Securely append audit log entry - only method to write audit logs';
 
 
 --
@@ -1261,7 +1444,7 @@ $$;
 -- Name: get_current_usage(uuid, text, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE OR REPLACE FUNCTION public.get_current_usage(p_tenant_id uuid, p_metric text, p_period_start timestamp with time zone DEFAULT date_trunc('month'::text, now()), p_period_end timestamp with time zone DEFAULT (date_trunc('month'::text, now()) + '1 mon'::interval)) RETURNS numeric
+CREATE OR REPLACE FUNCTION public.get_current_usage(p_tenant_id text, p_metric text, p_period_start timestamp with time zone DEFAULT date_trunc('month'::text, now()), p_period_end timestamp with time zone DEFAULT (date_trunc('month'::text, now()) + '1 mon'::interval)) RETURNS numeric
     LANGUAGE plpgsql STABLE
     AS $$
 DECLARE
@@ -1628,7 +1811,7 @@ $$;
 -- Name: get_tenant_integration(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE OR REPLACE FUNCTION public.get_tenant_integration(p_tenant_id uuid, p_provider text) RETURNS TABLE(id uuid, access_token text, refresh_token text, token_expires_at timestamp with time zone, instance_url text, hub_id text, scopes text[])
+CREATE OR REPLACE FUNCTION public.get_tenant_integration(p_tenant_id text, p_provider text) RETURNS TABLE(id uuid, access_token text, refresh_token text, token_expires_at timestamp with time zone, instance_url text, hub_id text, scopes text[])
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 BEGIN
@@ -1653,7 +1836,7 @@ $$;
 -- Name: get_usage_percentage(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE OR REPLACE FUNCTION public.get_usage_percentage(p_tenant_id uuid, p_metric text) RETURNS integer
+CREATE OR REPLACE FUNCTION public.get_usage_percentage(p_tenant_id text, p_metric text) RETURNS integer
     LANGUAGE plpgsql STABLE
     AS $$
 DECLARE
@@ -1799,7 +1982,7 @@ COMMENT ON FUNCTION public.get_user_org_id() IS 'Get current user organization I
 -- Name: is_over_quota(uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE OR REPLACE FUNCTION public.is_over_quota(p_tenant_id uuid, p_metric text) RETURNS boolean
+CREATE OR REPLACE FUNCTION public.is_over_quota(p_tenant_id text, p_metric text) RETURNS boolean
     LANGUAGE plpgsql STABLE
     AS $$
 DECLARE
@@ -2937,7 +3120,7 @@ DROP TABLE IF EXISTS public.agent_memory CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
-    tenant_id UUID,
+    tenant_id text,
     agent_id uuid,
     memory_type text NOT NULL,
     content text NOT NULL,
@@ -2961,16 +3144,13 @@ CREATE TABLE IF NOT EXISTS public.agent_memory (
 
 DROP TABLE IF EXISTS public.tenants CASCADE;
 CREATE TABLE IF NOT EXISTS public.tenants (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    slug TEXT NOT NULL DEFAULT '',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    settings JSONB DEFAULT '{}'::jsonb,
-    metadata JSONB DEFAULT '{}'::jsonb,
-    plan_tier TEXT DEFAULT 'free',
-    status TEXT DEFAULT 'active',
-    CONSTRAINT tenants_status_check CHECK (status IN ('active', 'suspended', 'deleted'))
+    id text NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    settings jsonb DEFAULT '{}'::jsonb,
+    status text DEFAULT 'active'::text,
+    CONSTRAINT tenants_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deleted'::text])))
 );
 
 
@@ -2990,7 +3170,7 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     agent_id uuid,
-    tenant_id UUID,
+    tenant_id text,
     metric_type text NOT NULL,
     metric_value double precision NOT NULL,
     unit text,
@@ -3029,7 +3209,7 @@ CREATE TABLE IF NOT EXISTS public.agent_predictions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id text NOT NULL,
     user_id uuid,
-    tenant_id UUID,
+    tenant_id text,
     agent_id text NOT NULL,
     agent_type text NOT NULL,
     input_hash text NOT NULL,
@@ -3106,7 +3286,7 @@ CREATE TABLE IF NOT EXISTS public.agent_retraining_queue (
     error_message text,
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
-    tenant_id UUID,
+    tenant_id text,
     CONSTRAINT agent_retraining_queue_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'completed'::text, 'failed'::text])))
 );
 
@@ -3516,7 +3696,7 @@ COMMENT ON TABLE public.backup_logs IS 'Tracks database backup operations';
 DROP TABLE IF EXISTS public.billing_customers CASCADE;
 CREATE TABLE IF NOT EXISTS public.billing_customers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     organization_name text NOT NULL,
     stripe_customer_id text NOT NULL,
     stripe_customer_email text,
@@ -4017,7 +4197,7 @@ DROP TABLE IF EXISTS public.invoices CASCADE;
 CREATE TABLE IF NOT EXISTS public.invoices (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     billing_customer_id uuid,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     subscription_id uuid,
     stripe_invoice_id text NOT NULL,
     stripe_customer_id text NOT NULL,
@@ -4188,6 +4368,29 @@ COMMENT ON MATERIALIZED VIEW public.llm_performance_metrics IS 'Aggregated LLM p
 -- Name: llm_usage; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.llm_usage CASCADE;
+CREATE TABLE IF NOT EXISTS public.llm_usage (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid,
+    user_id uuid NOT NULL,
+    session_id uuid,
+    provider text NOT NULL,
+    model text NOT NULL,
+    prompt_tokens integer NOT NULL,
+    completion_tokens integer NOT NULL,
+    total_tokens integer GENERATED ALWAYS AS ((prompt_tokens + completion_tokens)) STORED,
+    estimated_cost numeric(10,6) NOT NULL,
+    endpoint text NOT NULL,
+    success boolean DEFAULT true NOT NULL,
+    error_message text,
+    latency_ms integer,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT llm_usage_completion_tokens_check CHECK ((completion_tokens >= 0)),
+    CONSTRAINT llm_usage_estimated_cost_check CHECK ((estimated_cost >= (0)::numeric)),
+    CONSTRAINT llm_usage_latency_ms_check CHECK ((latency_ms >= 0)),
+    CONSTRAINT llm_usage_prompt_tokens_check CHECK ((prompt_tokens >= 0)),
+    CONSTRAINT llm_usage_provider_check CHECK ((provider = ANY (ARRAY['together_ai'::text, 'openai'::text])))
+);
 
 
 --
@@ -4447,7 +4650,7 @@ CREATE TABLE IF NOT EXISTS public.roles (
 DROP TABLE IF EXISTS public.secret_audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id UUID(255) NOT NULL,
+    tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4493,7 +4696,7 @@ COMMENT ON VIEW public.secret_audit_failures IS 'SECURITY INVOKER view - Recent 
 DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id UUID(255) NOT NULL,
+    tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4514,7 +4717,7 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
 
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id UUID(255) NOT NULL,
+    tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4535,7 +4738,7 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
 
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id UUID(255) NOT NULL,
+    tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4557,7 +4760,7 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
 DROP TABLE IF EXISTS public.secret_audit_logs_default CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id UUID(255) NOT NULL,
+    tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4579,7 +4782,7 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
 DROP TABLE IF EXISTS public.secret_audit_logs_legacy CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_legacy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id UUID(255) NOT NULL,
+    tenant_id character varying(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4865,7 +5068,7 @@ DROP TABLE IF EXISTS public.subscriptions CASCADE;
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     billing_customer_id uuid,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     stripe_subscription_id text NOT NULL,
     stripe_customer_id text NOT NULL,
     plan_tier text NOT NULL,
@@ -4945,7 +5148,7 @@ CREATE TABLE IF NOT EXISTS public.task_queue (
 DROP TABLE IF EXISTS public.tenant_integrations CASCADE;
 CREATE TABLE IF NOT EXISTS public.tenant_integrations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     provider text NOT NULL,
     access_token text,
     refresh_token text,
@@ -4973,7 +5176,7 @@ CREATE TABLE IF NOT EXISTS public.tenant_integrations (
 DROP TABLE IF EXISTS public.usage_aggregates CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_aggregates (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     subscription_item_id uuid,
     metric text NOT NULL,
     total_amount numeric(15,4) NOT NULL,
@@ -5004,7 +5207,7 @@ COMMENT ON TABLE public.usage_aggregates IS 'Aggregated usage ready for Stripe s
 DROP TABLE IF EXISTS public.usage_alerts CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     metric text NOT NULL,
     threshold_percentage integer,
     current_usage numeric(15,4),
@@ -5033,6 +5236,21 @@ COMMENT ON TABLE public.usage_alerts IS 'Usage alert history (80%/100%/120% thre
 -- Name: usage_events; Type: TABLE; Schema: public; Owner: -
 --
 
+DROP TABLE IF EXISTS public.usage_events CASCADE;
+CREATE TABLE IF NOT EXISTS public.usage_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    metric text NOT NULL,
+    amount numeric(15,4) NOT NULL,
+    request_id text NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    processed boolean DEFAULT false,
+    processed_at timestamp with time zone,
+    "timestamp" timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT usage_events_amount_check CHECK ((amount >= (0)::numeric)),
+    CONSTRAINT usage_events_metric_check CHECK ((metric = ANY (ARRAY['llm_tokens'::text, 'agent_executions'::text, 'api_calls'::text, 'storage_gb'::text, 'user_seats'::text])))
+);
 
 
 --
@@ -5049,7 +5267,7 @@ COMMENT ON TABLE public.usage_events IS 'Raw usage events emitted from services 
 DROP TABLE IF EXISTS public.usage_quotas CASCADE;
 CREATE TABLE IF NOT EXISTS public.usage_quotas (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
+    tenant_id text NOT NULL,
     subscription_id uuid,
     metric text NOT NULL,
     quota_amount numeric(15,4) NOT NULL,
@@ -5121,7 +5339,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
     user_id text NOT NULL,
     role_id uuid NOT NULL,
     role text,
-    tenant_id UUID,
+    tenant_id text,
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -5154,14 +5372,12 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
 
 DROP TABLE IF EXISTS public.user_tenants CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_tenants (
-    tenant_id UUID NOT NULL,
-    user_id TEXT NOT NULL,
-    role TEXT DEFAULT 'member',
-    status TEXT DEFAULT 'active',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT user_tenants_role_check CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
-    CONSTRAINT user_tenants_status_check CHECK (status IN ('active', 'inactive', 'suspended'))
+    tenant_id text NOT NULL,
+    user_id text NOT NULL,
+    role text DEFAULT 'member'::text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT user_tenants_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'member'::text, 'viewer'::text])))
 );
 
 
@@ -5180,7 +5396,7 @@ DROP TABLE IF EXISTS public.value_cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     organization_id uuid,
-    tenant_id UUID,
+    tenant_id text,
     session_id uuid,
     name text NOT NULL,
     description text,
@@ -10675,51 +10891,10 @@ GRANT USAGE ON SCHEMA public TO view_reader;
 
 
 --
--- Name: add_user_to_tenant_transaction; Type: FUNCTION; Schema: public; Owner: -
+-- Name: FUNCTION add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
-CREATE OR REPLACE FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid) RETURNS json
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  v_current_users INTEGER;
-  v_max_users INTEGER;
-  v_plan_tier TEXT;
-  v_membership_id UUID;
-BEGIN
-  BEGIN
-    SELECT plan_tier INTO v_plan_tier FROM subscriptions
-    WHERE tenant_id = p_tenant_id AND status = 'active' FOR UPDATE;
-  EXCEPTION WHEN OTHERS THEN v_plan_tier := 'free';
-  END;
-
-  SELECT COUNT(*) INTO v_current_users FROM user_tenants
-  WHERE tenant_id = p_tenant_id AND status = 'active';
-
-  CASE v_plan_tier
-    WHEN 'free' THEN v_max_users := 3;
-    WHEN 'starter' THEN v_max_users := 10;
-    WHEN 'professional' THEN v_max_users := 50;
-    WHEN 'enterprise' THEN v_max_users := 1000;
-    ELSE v_max_users := 3;
-  END CASE;
-
-  IF v_current_users >= v_max_users THEN
-    RETURN json_build_object('success', false, 'error', 'Seat limit exceeded',
-      'current_users', v_current_users, 'max_users', v_max_users);
-  END IF;
-
-  INSERT INTO user_tenants (user_id, tenant_id, status, role, created_at, updated_at)
-  VALUES (p_target_user_id::text, p_tenant_id, 'active', 'member', NOW(), NOW())
-  RETURNING id INTO v_membership_id;
-
-  RETURN json_build_object('success', true, 'membership_id', v_membership_id,
-    'current_users', v_current_users + 1, 'max_users', v_max_users);
-EXCEPTION WHEN OTHERS THEN RAISE;
-END;
-$$;
-
-GRANT ALL ON FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid) TO authenticated;
+GRANT ALL ON FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id text) TO authenticated;
 
 
 --
@@ -12713,6 +12888,15 @@ END $$;
 -- ============================================================================
 
 -- Create security audit log table if it doesn't exist
+CREATE TABLE IF NOT EXISTS security_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  user_id UUID REFERENCES auth.users(id),
+  tenant_id UUID,
+  details JSONB,
+  severity TEXT CHECK (severity IN ('info', 'warning', 'error', 'critical')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Enable RLS on audit log
 ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
@@ -13453,7 +13637,7 @@ COMMENT ON FUNCTION create_health_check_table() IS 'Creates health check table i
 
 CREATE TABLE IF NOT EXISTS llm_gating_policies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL,
+  tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
   -- Budget configuration
   monthly_budget_limit DECIMAL(10, 2) NOT NULL CHECK (monthly_budget_limit > 0),
@@ -13485,7 +13669,11 @@ CREATE TABLE IF NOT EXISTS llm_gating_policies (
   UNIQUE(tenant_id)
 );
 
-ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+-- Column guard for idempotency (no-op if table was just created above)
+DO $$ BEGIN
+  ALTER TABLE llm_gating_policies ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_llm_gating_policies_tenant ON llm_gating_policies(tenant_id);
@@ -13506,7 +13694,7 @@ CREATE TABLE IF NOT EXISTS llm_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Tenant and user context
-  tenant_id UUID NOT NULL,
+  tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
 
   -- Model and tokens
@@ -13538,7 +13726,7 @@ CREATE TABLE IF NOT EXISTS llm_usage (
 );
 
 -- Ensure columns exist if table was already created
-ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS tenant_id TEXT;
 ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS model VARCHAR(100);
 ALTER TABLE llm_usage ADD COLUMN IF NOT EXISTS input_tokens INTEGER;
@@ -13622,9 +13810,9 @@ COMMENT ON VIEW llm_usage_stats IS 'Daily aggregated usage statistics by tenant,
 -- ============================================================================
 
 -- Function to get current budget status for a tenant
-CREATE OR REPLACE FUNCTION get_budget_status(p_tenant_id UUID)
+CREATE OR REPLACE FUNCTION get_budget_status(p_tenant_id TEXT)
 RETURNS TABLE (
-  tenant_id UUID,
+  tenant_id TEXT,
   budget_limit DECIMAL(10, 2),
   used_amount DECIMAL(10, 6),
   remaining_budget DECIMAL(10, 6),
@@ -13654,7 +13842,7 @@ COMMENT ON FUNCTION get_budget_status IS 'Get current budget status for a tenant
 
 -- Function to check if request should be blocked
 CREATE OR REPLACE FUNCTION should_block_request(
-  p_tenant_id UUID,
+  p_tenant_id TEXT,
   p_estimated_cost DECIMAL(10, 6)
 )
 RETURNS TABLE (
@@ -13945,7 +14133,7 @@ CREATE INDEX IF NOT EXISTS idx_llm_usage_org_created ON llm_usage(tenant_id, cre
 
 -- Function to get current budget status with RLS context
 -- This function is designed to be called by the Gating Service with service_role
-CREATE OR REPLACE FUNCTION get_tenant_budget_status(p_tenant_id UUID)
+CREATE OR REPLACE FUNCTION get_tenant_budget_status(p_tenant_id TEXT)
 RETURNS TABLE (
   monthly_budget_limit DECIMAL(10, 2),
   used_amount DECIMAL(10, 2),
@@ -14016,7 +14204,7 @@ $$ LANGUAGE plpgsql;
 -- Function to update budget spend atomically
 -- This should be called by the Gating Service after each LLM call
 CREATE OR REPLACE FUNCTION update_tenant_spend(
-  p_tenant_id UUID,
+  p_tenant_id TEXT,
   p_cost DECIMAL(10, 6)
 )
 RETURNS BOOLEAN AS $$
@@ -21410,21 +21598,40 @@ BEGIN
 END $$;
 
 <<<<<<< HEAD
--- Populate existing NULL values with defaults (guarded)
-DO $pop$ BEGIN
+-- Populate existing NULL values with defaults
+UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
+UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
+UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
+UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
+-- UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
+-- UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
+-- UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
+-- UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'progressive_rollouts' AND table_schema = 'public') THEN
+        EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
+    END IF;
+END $$;
+UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+=======
+-- Populate existing NULL values with defaults (guarded for fresh DB)
+DO $$ BEGIN
   UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
   UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-EXCEPTION WHEN OTHERS THEN NULL; END $pop$;
-DO $pop2$ BEGIN
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
+DO $$ BEGIN
   UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
   UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-EXCEPTION WHEN OTHERS THEN NULL; END $pop2$;
-DO $pop3$ BEGIN
-  UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
-EXCEPTION WHEN OTHERS THEN NULL; END $pop3$;
-DO $pop4$ BEGIN
-  UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-EXCEPTION WHEN OTHERS THEN NULL; END $pop4$;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
+    UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+  END IF;
+END $$;
+>>>>>>> c63dd384 (Refactor index creation in migrations to handle exceptions and improve error resilience; remove permissive policies and enforce least-privilege rules in new migration.)
 
 
 -- ================================================
@@ -22693,7 +22900,7 @@ $$;
 
 CREATE TABLE IF NOT EXISTS public.memberships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
+  tenant_id text NOT NULL,
   user_id uuid NOT NULL,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','invited','disabled')),
   is_owner boolean NOT NULL DEFAULT false,
@@ -22741,7 +22948,7 @@ CREATE TABLE IF NOT EXISTS public.security_audit_log_extended (
     correlation_id VARCHAR(255),
     risk_score DECIMAL(3,2) DEFAULT 0.0,
     compliance_flags TEXT[] DEFAULT '{}',
-    tenant_id UUID,
+    tenant_id TEXT,
     timestamp BIGINT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT valid_event_type CHECK (event_type IN (
@@ -22760,7 +22967,7 @@ CREATE TABLE IF NOT EXISTS public.security_audit_log_extended (
 
 CREATE TABLE IF NOT EXISTS public.value_commitments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
+  tenant_id text NOT NULL,
   session_id uuid NOT NULL,
   user_id uuid NOT NULL,
   organization_id uuid,
@@ -22786,7 +22993,7 @@ CREATE TABLE IF NOT EXISTS public.value_commitments (
 
 CREATE TABLE IF NOT EXISTS public.commitment_stakeholders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL,
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
   tenant_id uuid NOT NULL,
   user_id uuid NOT NULL,
   role text NOT NULL CHECK (role IN ('owner', 'contributor', 'approver', 'reviewer', 'observer')),
@@ -22803,7 +23010,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_stakeholders (
 
 CREATE TABLE IF NOT EXISTS public.commitment_milestones (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL,
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
   tenant_id uuid NOT NULL,
   title text NOT NULL CHECK (char_length(title) >= 1 AND char_length(title) <= 200),
   description text NOT NULL CHECK (char_length(description) >= 1 AND char_length(description) <= 1000),
@@ -22825,7 +23032,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_milestones (
 
 CREATE TABLE IF NOT EXISTS public.commitment_metrics (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL,
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
   tenant_id uuid NOT NULL,
   metric_name text NOT NULL CHECK (char_length(metric_name) >= 1 AND char_length(metric_name) <= 100),
   metric_description text NOT NULL CHECK (char_length(metric_description) >= 1 AND char_length(metric_description) <= 500),
@@ -22847,7 +23054,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_metrics (
 
 CREATE TABLE IF NOT EXISTS public.commitment_audits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL,
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
   tenant_id uuid NOT NULL,
   user_id uuid NOT NULL,
   action text NOT NULL CHECK (action IN ('created', 'updated', 'status_changed', 'stakeholder_added', 'stakeholder_removed', 'milestone_completed', 'metric_updated', 'risk_assessed')),
@@ -22862,7 +23069,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_audits (
 
 CREATE TABLE IF NOT EXISTS public.commitment_risks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL,
+  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
   tenant_id uuid NOT NULL,
   risk_title text NOT NULL CHECK (char_length(risk_title) >= 1 AND char_length(risk_title) <= 200),
   risk_description text NOT NULL CHECK (char_length(risk_description) >= 1 AND char_length(risk_description) <= 1000),
@@ -23065,7 +23272,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS initiatives_tenant_idempotency_unique
 
 CREATE TABLE IF NOT EXISTS public.invitations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id uuid NOT NULL,
+  tenant_id text NOT NULL,
   email text NOT NULL,
   role text DEFAULT 'member',
   token text UNIQUE NOT NULL DEFAULT encode(extensions.extensions.gen_random_bytes(32), 'hex'),
@@ -23149,10 +23356,10 @@ ALTER TABLE public.llm_usage
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'memory_benchmark_versions') THEN
-    ALTER TABLE public.memory_benchmark_versions ADD COLUMN IF NOT EXISTS tenant_id uuid;
+    ALTER TABLE public.memory_benchmark_versions ADD COLUMN IF NOT EXISTS tenant_id text;
   END IF;
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'memory_model_run_evidence') THEN
-    ALTER TABLE public.memory_model_run_evidence ADD COLUMN IF NOT EXISTS tenant_id uuid;
+    ALTER TABLE public.memory_model_run_evidence ADD COLUMN IF NOT EXISTS tenant_id text;
   END IF;
 END $$;
 
