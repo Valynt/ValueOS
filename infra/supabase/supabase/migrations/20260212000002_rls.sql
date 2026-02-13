@@ -44,8 +44,8 @@ AS $$
   SELECT security.current_tenant_id_uuid();
 $$;
 
--- TEXT overload: primary tenant access check
-CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id TEXT)
+-- UUID overload: primary tenant access check (tenant_id is UUID everywhere)
+CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
@@ -64,15 +64,15 @@ AS $$
     );
 $$;
 
--- UUID overload: delegates to TEXT version
-CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id UUID)
+-- TEXT overload: casts to UUID and delegates
+CREATE OR REPLACE FUNCTION security.user_has_tenant_access(target_tenant_id TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $$
-  SELECT security.user_has_tenant_access(target_tenant_id::text);
+  SELECT security.user_has_tenant_access(target_tenant_id::uuid);
 $$;
 
 -- Lock down access to the helper functions

@@ -10,7 +10,7 @@
 
 CREATE TABLE IF NOT EXISTS public.company_contexts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     company_name TEXT NOT NULL,
     website_url TEXT,
     industry TEXT,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS public.company_contexts (
 
 CREATE TABLE IF NOT EXISTS public.company_products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     context_id UUID NOT NULL REFERENCES public.company_contexts(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.company_products (
 
 CREATE TABLE IF NOT EXISTS public.company_capabilities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     product_id UUID NOT NULL REFERENCES public.company_products(id) ON DELETE CASCADE,
     capability TEXT NOT NULL,
     operational_change TEXT,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.company_capabilities (
 
 CREATE TABLE IF NOT EXISTS public.company_competitors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     context_id UUID NOT NULL REFERENCES public.company_contexts(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     website_url TEXT,
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS public.company_competitors (
 
 CREATE TABLE IF NOT EXISTS public.company_personas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     context_id UUID NOT NULL REFERENCES public.company_contexts(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     persona_type TEXT CHECK (persona_type IN ('decision_maker', 'champion', 'influencer', 'end_user', 'blocker')),
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS public.company_personas (
 
 CREATE TABLE IF NOT EXISTS public.company_value_patterns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     context_id UUID NOT NULL REFERENCES public.company_contexts(id) ON DELETE CASCADE,
     pattern_name TEXT NOT NULL,
     industry TEXT,
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS public.company_value_patterns (
 
 CREATE TABLE IF NOT EXISTS public.company_claim_governance (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     context_id UUID NOT NULL REFERENCES public.company_contexts(id) ON DELETE CASCADE,
     claim_text TEXT NOT NULL,
     risk_level TEXT NOT NULL CHECK (risk_level IN ('safe', 'conditional', 'high_risk')),
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS public.company_claim_governance (
 CREATE TABLE IF NOT EXISTS public.company_context_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     context_id UUID NOT NULL REFERENCES public.company_contexts(id) ON DELETE CASCADE,
-    tenant_id TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     version INTEGER NOT NULL,
     snapshot JSONB NOT NULL,
     changed_by UUID,

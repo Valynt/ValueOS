@@ -5,6 +5,7 @@
 -- ============================================================================
 
 -- language: postgresql
+SET search_path TO public, extensions;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN CREATE PUBLICATION supabase_realtime; END IF; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 -- ================================================
 -- Source: supabase/migrations/20241227000000_squashed_schema.sql
@@ -33,42 +34,8 @@ SET row_security = off;
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO postgres;
 GRANT CREATE ON SCHEMA auth TO postgres;
-DO $$
-BEGIN
 -- Populate existing NULL values with defaults (guarded for fresh DB)
 DO $$
-BEGIN
-  -- agent_sessions
-  BEGIN
-    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-  -- workflow_executions
-  BEGIN
-    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-  -- progressive_rollouts (exists guard)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-    BEGIN
-      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-
-  -- feature_flags column guard
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    BEGIN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-END;
-$$;
-
-COMMIT;
 BEGIN
   -- agent_sessions
   BEGIN
@@ -114,75 +81,11 @@ COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access met
 -- Name: academy_pillar; Type: TYPE; Schema: public; Owner: -
 --
 
--- Populate existing NULL values with defaults (guarded for fresh DB)
-DO $$
-BEGIN
-  -- agent_sessions
-  BEGIN
-    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
-  -- workflow_executions
-  BEGIN
-    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-  -- progressive_rollouts (exists guard)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-    BEGIN
-      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-
-  -- feature_flags column guard
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    BEGIN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-END;
-$$;
 --
 
--- Populate existing NULL values with defaults (guarded for fresh DB)
-DO $$
-BEGIN
-  -- agent_sessions
-  BEGIN
-    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
-  -- workflow_executions
-  BEGIN
-    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
-  -- progressive_rollouts (exists guard)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-    BEGIN
-      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-
-  -- feature_flags column guard
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    BEGIN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-END;
-$$;
-            END;
-            $$;
-$$;
 
 
 --
@@ -190,38 +93,7 @@ $$;
 --
 
 DO $$
--- Populate existing NULL values with defaults (guarded for fresh DB)
-DO $$
-BEGIN
-  -- agent_sessions
-  BEGIN
-    UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-    UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
 
-  -- workflow_executions
-  BEGIN
-    UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-    UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-  EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-  -- progressive_rollouts (exists guard)
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-    BEGIN
-      EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-
-  -- feature_flags column guard
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    BEGIN
-      UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-    EXCEPTION WHEN OTHERS THEN NULL;
-    END;
-  END IF;
-END;
-$$;
                 BEGIN
                   EXECUTE 'UPDATE public.agent_performance_summary SET metadata = ''{}'' WHERE metadata IS NULL OR jsonb_typeof(metadata) != ''object''';
                 EXCEPTION WHEN OTHERS THEN NULL; END;
@@ -270,40 +142,6 @@ BEGIN
       'current_users', v_current_users,
       'max_users', v_max_users
     );
-    -- Populate existing NULL values with defaults (guarded for fresh DB)
-    DO $$
-    BEGIN
-      -- agent_sessions
-      BEGIN
-        UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-        UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-      -- workflow_executions
-      BEGIN
-        UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-        UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-      EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-      -- progressive_rollouts (exists guard)
-      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-        BEGIN
-          EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-        EXCEPTION WHEN OTHERS THEN NULL;
-        END;
-      END IF;
-
-      -- feature_flags column guard
-      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-        BEGIN
-          UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-        EXCEPTION WHEN OTHERS THEN NULL;
-        END;
-      END IF;
-    END;
-    $$;
-
-    COMMIT;
       'membership_id', v_membership_id,
       'seats_before', v_current_users,
       'seats_after', v_current_users + 1,
@@ -321,38 +159,6 @@ BEGIN
 
 EXCEPTION
   WHEN OTHERS THEN
-  -- Populate existing NULL values with defaults (guarded for fresh DB)
-  DO $$
-  BEGIN
-    -- agent_sessions
-    BEGIN
-      UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-      UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-    EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-    -- workflow_executions
-    BEGIN
-      UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
-      UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-    EXCEPTION WHEN undefined_table OR undefined_column THEN NULL; END;
-
-    -- progressive_rollouts (exists guard)
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-      BEGIN
-        EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-      EXCEPTION WHEN OTHERS THEN NULL;
-      END;
-    END IF;
-
-    -- feature_flags column guard
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-      BEGIN
-        UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-      EXCEPTION WHEN OTHERS THEN NULL;
-      END;
-    END IF;
-  END;
-  $$;
 
   COMMIT;
     p_old_values,
@@ -1295,6 +1101,8 @@ SET default_table_access_method = heap;
 DROP TABLE IF EXISTS public.prompt_versions CASCADE;
 CREATE TABLE IF NOT EXISTS public.prompt_versions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     prompt_key text NOT NULL,
     version integer NOT NULL,
     template text NOT NULL,
@@ -2631,6 +2439,8 @@ $$;
 DROP TABLE IF EXISTS public.academy_progress CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_progress (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     user_id uuid NOT NULL,
     lesson_id uuid NOT NULL,
     status public.progress_status DEFAULT 'not_started'::public.progress_status NOT NULL,
@@ -2911,6 +2721,8 @@ $$;
 DROP TABLE IF EXISTS public.ab_tests CASCADE;
 CREATE TABLE IF NOT EXISTS public.ab_tests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     name text NOT NULL,
     prompt_key text NOT NULL,
     variants jsonb NOT NULL,
@@ -2937,6 +2749,8 @@ COMMENT ON TABLE public.ab_tests IS 'Manages A/B tests for prompt optimization';
 DROP TABLE IF EXISTS public.academy_certifications CASCADE;
 CREATE TABLE IF NOT EXISTS public.academy_certifications (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     user_id uuid NOT NULL,
     level public.certification_level NOT NULL,
     track public.role_track,
@@ -3015,6 +2829,8 @@ COMMENT ON TABLE public.academy_modules IS 'Academy curriculum modules organized
 DROP TABLE IF EXISTS public.agent_accuracy_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_accuracy_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     agent_type text NOT NULL,
     variance_percentage numeric(5,2) NOT NULL,
     variance_absolute numeric(15,2) NOT NULL,
@@ -3037,6 +2853,8 @@ COMMENT ON TABLE public.agent_accuracy_metrics IS 'Aggregated accuracy metrics p
 DROP TABLE IF EXISTS public.agent_activities CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_activities (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     case_id uuid NOT NULL,
     agent_name text NOT NULL,
     activity_type text NOT NULL,
@@ -3055,6 +2873,8 @@ CREATE TABLE IF NOT EXISTS public.agent_activities (
 DROP TABLE IF EXISTS public.agent_audit_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     session_id uuid,
     agent_id uuid,
     action text NOT NULL,
@@ -3077,7 +2897,7 @@ DROP TABLE IF EXISTS public.agent_calibration_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_calibration_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     parameter_a numeric(10,6) NOT NULL,
     parameter_b numeric(10,6) NOT NULL,
     calibration_error numeric(5,4) NOT NULL,
@@ -3097,7 +2917,7 @@ CREATE TABLE IF NOT EXISTS public.agent_calibration_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     agent_id text NOT NULL,
     agent_type text NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     parameter_a numeric(10,6) NOT NULL,
     parameter_b numeric(10,6) NOT NULL,
     sample_size integer NOT NULL,
@@ -3117,7 +2937,7 @@ DROP TABLE IF EXISTS public.agent_memory CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
-    tenant_id text,
+    tenant_id UUID,
     agent_id uuid,
     memory_type text NOT NULL,
     content text NOT NULL,
@@ -3141,13 +2961,16 @@ CREATE TABLE IF NOT EXISTS public.agent_memory (
 
 DROP TABLE IF EXISTS public.tenants CASCADE;
 CREATE TABLE IF NOT EXISTS public.tenants (
-    id text NOT NULL,
-    name text NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    settings jsonb DEFAULT '{}'::jsonb,
-    status text DEFAULT 'active'::text,
-    CONSTRAINT tenants_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deleted'::text])))
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    settings JSONB DEFAULT '{}'::jsonb,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    plan_tier TEXT DEFAULT 'free',
+    status TEXT DEFAULT 'active',
+    CONSTRAINT tenants_status_check CHECK (status IN ('active', 'suspended', 'deleted'))
 );
 
 
@@ -3167,7 +2990,7 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id uuid,
     agent_id uuid,
-    tenant_id text,
+    tenant_id UUID,
     metric_type text NOT NULL,
     metric_value double precision NOT NULL,
     unit text,
@@ -3187,6 +3010,8 @@ CREATE TABLE IF NOT EXISTS public.agent_metrics (
 DROP TABLE IF EXISTS public.agent_ontologies CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_ontologies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     agent_id uuid,
     domain text NOT NULL,
     knowledge jsonb NOT NULL,
@@ -3204,7 +3029,7 @@ CREATE TABLE IF NOT EXISTS public.agent_predictions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     session_id text NOT NULL,
     user_id uuid,
-    tenant_id text,
+    tenant_id UUID,
     agent_id text NOT NULL,
     agent_type text NOT NULL,
     input_hash text NOT NULL,
@@ -3281,7 +3106,7 @@ CREATE TABLE IF NOT EXISTS public.agent_retraining_queue (
     error_message text,
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
-    tenant_id text,
+    tenant_id UUID,
     CONSTRAINT agent_retraining_queue_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'completed'::text, 'failed'::text])))
 );
 
@@ -3311,7 +3136,7 @@ CREATE TABLE IF NOT EXISTS public.agent_sessions (
     is_active boolean DEFAULT true,
     is_completed boolean DEFAULT false,
     metadata jsonb DEFAULT '{}'::jsonb,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     CONSTRAINT agent_sessions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))
 );
 
@@ -3323,6 +3148,8 @@ CREATE TABLE IF NOT EXISTS public.agent_sessions (
 DROP TABLE IF EXISTS public.agent_tools CASCADE;
 CREATE TABLE IF NOT EXISTS public.agent_tools (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     agent_id uuid,
     tool_name text NOT NULL,
     tool_schema jsonb NOT NULL,
@@ -3338,6 +3165,8 @@ CREATE TABLE IF NOT EXISTS public.agent_tools (
 DROP TABLE IF EXISTS public.agents CASCADE;
 CREATE TABLE IF NOT EXISTS public.agents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     name text NOT NULL,
     type text NOT NULL,
     description text,
@@ -3358,6 +3187,8 @@ CREATE TABLE IF NOT EXISTS public.agents (
 DROP TABLE IF EXISTS public.approval_requests CASCADE;
 CREATE TABLE IF NOT EXISTS public.approval_requests (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     agent_id text NOT NULL,
     agent_name text NOT NULL,
     task_id text,
@@ -3392,7 +3223,7 @@ COMMENT ON TABLE public.approval_requests IS 'Phase 2: Stores requests for human
 DROP TABLE IF EXISTS public.approval_requests_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.approval_requests_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     agent_id text NOT NULL,
     agent_name text NOT NULL,
     task_id text,
@@ -3428,6 +3259,8 @@ COMMENT ON TABLE public.approval_requests_archive IS 'Archive for approval reque
 DROP TABLE IF EXISTS public.approvals CASCADE;
 CREATE TABLE IF NOT EXISTS public.approvals (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     request_id uuid,
     approver_id uuid,
     approver_email text,
@@ -3455,7 +3288,7 @@ COMMENT ON TABLE public.approvals IS 'Phase 2: Records approval decisions (inclu
 DROP TABLE IF EXISTS public.approvals_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.approvals_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     request_id uuid,
     approver_id uuid,
     approver_email text,
@@ -3484,6 +3317,8 @@ COMMENT ON TABLE public.approvals_archive IS 'Archive for approvals older than r
 DROP TABLE IF EXISTS public.approver_roles CASCADE;
 CREATE TABLE IF NOT EXISTS public.approver_roles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     user_id uuid,
     role text NOT NULL,
     can_approve_high_cost boolean DEFAULT false,
@@ -3511,6 +3346,8 @@ COMMENT ON TABLE public.approver_roles IS 'Phase 2: Defines who can approve what
 DROP TABLE IF EXISTS public.assumptions CASCADE;
 CREATE TABLE IF NOT EXISTS public.assumptions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     value_case_id uuid,
     related_table text NOT NULL,
     related_id uuid NOT NULL,
@@ -3533,7 +3370,7 @@ CREATE TABLE IF NOT EXISTS public.assumptions (
 DROP TABLE IF EXISTS public.audit_log_access CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_log_access (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     user_id text NOT NULL,
     accessed_at timestamp with time zone DEFAULT now(),
     access_type text,
@@ -3550,6 +3387,8 @@ CREATE TABLE IF NOT EXISTS public.audit_log_access (
 DROP TABLE IF EXISTS public.audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     user_id uuid,
     action text NOT NULL,
     resource_type text NOT NULL,
@@ -3579,6 +3418,8 @@ COMMENT ON TABLE public.audit_logs IS 'Phase 3: Immutable audit trail - append-o
 DROP TABLE IF EXISTS public.audit_logs_archive CASCADE;
 CREATE TABLE IF NOT EXISTS public.audit_logs_archive (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     user_id uuid,
     action text NOT NULL,
     resource_type text NOT NULL,
@@ -3608,7 +3449,7 @@ COMMENT ON TABLE public.audit_logs_archive IS 'Archive for audit logs older than
 DROP TABLE IF EXISTS public.automated_check_results CASCADE;
 CREATE TABLE IF NOT EXISTS public.automated_check_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     control_id text NOT NULL,
     status text,
     details text NOT NULL,
@@ -3625,7 +3466,7 @@ DROP TABLE IF EXISTS public.automated_responses CASCADE;
 CREATE TABLE IF NOT EXISTS public.automated_responses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     incident_id uuid NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     action_type text,
     description text NOT NULL,
     status text,
@@ -3705,6 +3546,8 @@ COMMENT ON TABLE public.billing_customers IS 'Maps tenants to Stripe customers f
 DROP TABLE IF EXISTS public.business_cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.business_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     name text NOT NULL,
     client text NOT NULL,
     status text DEFAULT 'draft'::text,
@@ -3723,6 +3566,8 @@ CREATE TABLE IF NOT EXISTS public.business_cases (
 DROP TABLE IF EXISTS public.canvas_components CASCADE;
 CREATE TABLE IF NOT EXISTS public.canvas_components (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     case_id uuid NOT NULL,
     type text NOT NULL,
     position_x integer DEFAULT 0 NOT NULL,
@@ -3755,7 +3600,7 @@ CREATE TABLE IF NOT EXISTS public.cases (
     closed_at timestamp with time zone,
     metadata jsonb DEFAULT '{}'::jsonb,
     organization_id uuid,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     CONSTRAINT cases_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text]))),
     CONSTRAINT cases_status_check CHECK ((status = ANY (ARRAY['open'::text, 'in_progress'::text, 'closed'::text, 'archived'::text])))
 );
@@ -3775,6 +3620,8 @@ COMMENT ON TABLE public.cases IS 'Cases with RLS enabled - users can only access
 DROP TABLE IF EXISTS public.company_profiles CASCADE;
 CREATE TABLE IF NOT EXISTS public.company_profiles (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     value_case_id uuid,
     company_name text NOT NULL,
     industry text,
@@ -3798,7 +3645,7 @@ DROP TABLE IF EXISTS public.compliance_evidence CASCADE;
 CREATE TABLE IF NOT EXISTS public.compliance_evidence (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     control_id text NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     evidence_type text,
     description text NOT NULL,
     data jsonb NOT NULL,
@@ -3819,7 +3666,7 @@ CREATE TABLE IF NOT EXISTS public.compliance_evidence (
 DROP TABLE IF EXISTS public.compliance_reports CASCADE;
 CREATE TABLE IF NOT EXISTS public.compliance_reports (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     report_period_start timestamp with time zone NOT NULL,
     report_period_end timestamp with time zone NOT NULL,
     overall_compliance numeric(5,2) NOT NULL,
@@ -3839,6 +3686,8 @@ CREATE TABLE IF NOT EXISTS public.compliance_reports (
 DROP TABLE IF EXISTS public.component_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.component_history (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     component_id uuid NOT NULL,
     action_type text NOT NULL,
     actor text NOT NULL,
@@ -3855,6 +3704,8 @@ CREATE TABLE IF NOT EXISTS public.component_history (
 DROP TABLE IF EXISTS public.component_relationships CASCADE;
 CREATE TABLE IF NOT EXISTS public.component_relationships (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     source_component_id uuid NOT NULL,
     target_component_id uuid NOT NULL,
     relationship_type text NOT NULL,
@@ -3870,6 +3721,8 @@ CREATE TABLE IF NOT EXISTS public.component_relationships (
 DROP TABLE IF EXISTS public.confidence_violations CASCADE;
 CREATE TABLE IF NOT EXISTS public.confidence_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     agent_type text NOT NULL,
     prediction_id uuid,
     violation_type text NOT NULL,
@@ -3893,6 +3746,8 @@ COMMENT ON TABLE public.confidence_violations IS 'Tracks instances where agent c
 DROP TABLE IF EXISTS public.contextual_triggers CASCADE;
 CREATE TABLE IF NOT EXISTS public.contextual_triggers (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     element_selector text NOT NULL,
     trigger_type text NOT NULL,
     dwell_time_ms integer,
@@ -3920,6 +3775,8 @@ COMMENT ON TABLE public.contextual_triggers IS 'Rules for in-app contextual help
 DROP TABLE IF EXISTS public.cost_alerts CASCADE;
 CREATE TABLE IF NOT EXISTS public.cost_alerts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     level text NOT NULL,
     period text NOT NULL,
     threshold numeric(10,2) NOT NULL,
@@ -3948,7 +3805,7 @@ COMMENT ON TABLE public.cost_alerts IS 'Stores cost threshold violation alerts';
 DROP TABLE IF EXISTS public.device_trust_history CASCADE;
 CREATE TABLE IF NOT EXISTS public.device_trust_history (
     user_id text NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     device_id text NOT NULL,
     last_seen timestamp with time zone DEFAULT now(),
     fingerprint jsonb NOT NULL,
@@ -3965,6 +3822,8 @@ CREATE TABLE IF NOT EXISTS public.device_trust_history (
 DROP TABLE IF EXISTS public.evaluation_runs CASCADE;
 CREATE TABLE IF NOT EXISTS public.evaluation_runs (
     id text NOT NULL,
+    tenant_id UUID NOT NULL,
+
     name text NOT NULL,
     agent_type text,
     prompt_version text,
@@ -4002,6 +3861,8 @@ COMMENT ON COLUMN public.evaluation_runs.summary IS 'Aggregate statistics: total
 DROP TABLE IF EXISTS public.feature_flag_evaluations CASCADE;
 CREATE TABLE IF NOT EXISTS public.feature_flag_evaluations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     flag_key text NOT NULL,
     user_id uuid,
     enabled boolean NOT NULL,
@@ -4024,6 +3885,8 @@ COMMENT ON TABLE public.feature_flag_evaluations IS 'Tracks feature flag evaluat
 DROP TABLE IF EXISTS public.feature_flags CASCADE;
 CREATE TABLE IF NOT EXISTS public.feature_flags (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     key text NOT NULL,
     name text NOT NULL,
     description text NOT NULL,
@@ -4073,6 +3936,8 @@ COMMENT ON COLUMN public.feature_flags.variants IS 'A/B test variants with weigh
 DROP TABLE IF EXISTS public.financial_models CASCADE;
 CREATE TABLE IF NOT EXISTS public.financial_models (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     value_case_id uuid,
     roi_percentage double precision,
     npv_amount double precision,
@@ -4096,6 +3961,8 @@ CREATE TABLE IF NOT EXISTS public.financial_models (
 DROP TABLE IF EXISTS public.golden_examples CASCADE;
 CREATE TABLE IF NOT EXISTS public.golden_examples (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     name text NOT NULL,
     description text NOT NULL,
     agent_type text NOT NULL,
@@ -4130,6 +3997,8 @@ COMMENT ON COLUMN public.golden_examples.evaluation_criteria IS 'Array of {metri
 DROP TABLE IF EXISTS public.integration_usage_log CASCADE;
 CREATE TABLE IF NOT EXISTS public.integration_usage_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     integration_id uuid,
     user_id uuid,
     action text NOT NULL,
@@ -4189,6 +4058,8 @@ COMMENT ON TABLE public.invoices IS 'Stored Stripe invoices per tenant for histo
 DROP TABLE IF EXISTS public.kpi_hypotheses CASCADE;
 CREATE TABLE IF NOT EXISTS public.kpi_hypotheses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     value_case_id uuid,
     kpi_name text NOT NULL,
     baseline_value double precision,
@@ -4210,6 +4081,8 @@ CREATE TABLE IF NOT EXISTS public.kpi_hypotheses (
 DROP TABLE IF EXISTS public.llm_calls CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_calls (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     session_id uuid,
     agent_id text NOT NULL,
     provider text NOT NULL,
@@ -4239,6 +4112,8 @@ COMMENT ON TABLE public.llm_calls IS 'Tracks all LLM API calls for cost and perf
 DROP TABLE IF EXISTS public.llm_job_results CASCADE;
 CREATE TABLE IF NOT EXISTS public.llm_job_results (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     job_id text NOT NULL,
     user_id uuid,
     type text NOT NULL,
@@ -4313,29 +4188,6 @@ COMMENT ON MATERIALIZED VIEW public.llm_performance_metrics IS 'Aggregated LLM p
 -- Name: llm_usage; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.llm_usage CASCADE;
-CREATE TABLE IF NOT EXISTS public.llm_usage (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid,
-    user_id uuid NOT NULL,
-    session_id uuid,
-    provider text NOT NULL,
-    model text NOT NULL,
-    prompt_tokens integer NOT NULL,
-    completion_tokens integer NOT NULL,
-    total_tokens integer GENERATED ALWAYS AS ((prompt_tokens + completion_tokens)) STORED,
-    estimated_cost numeric(10,6) NOT NULL,
-    endpoint text NOT NULL,
-    success boolean DEFAULT true NOT NULL,
-    error_message text,
-    latency_ms integer,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT llm_usage_completion_tokens_check CHECK ((completion_tokens >= 0)),
-    CONSTRAINT llm_usage_estimated_cost_check CHECK ((estimated_cost >= (0)::numeric)),
-    CONSTRAINT llm_usage_latency_ms_check CHECK ((latency_ms >= 0)),
-    CONSTRAINT llm_usage_prompt_tokens_check CHECK ((prompt_tokens >= 0)),
-    CONSTRAINT llm_usage_provider_check CHECK ((provider = ANY (ARRAY['together_ai'::text, 'openai'::text])))
-);
 
 
 --
@@ -4375,6 +4227,8 @@ COMMENT ON TABLE public.login_attempts IS 'Tracks all login attempts for securit
 DROP TABLE IF EXISTS public.memory_provenance CASCADE;
 CREATE TABLE IF NOT EXISTS public.memory_provenance (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     memory_id uuid,
     source_table text NOT NULL,
     source_id uuid,
@@ -4390,6 +4244,8 @@ CREATE TABLE IF NOT EXISTS public.memory_provenance (
 DROP TABLE IF EXISTS public.message_bus CASCADE;
 CREATE TABLE IF NOT EXISTS public.message_bus (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     session_id uuid,
     from_agent_id uuid,
     to_agent_id uuid,
@@ -4418,7 +4274,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
     role text NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     CONSTRAINT messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text])))
 );
 
@@ -4437,6 +4293,8 @@ COMMENT ON TABLE public.messages IS 'Messages with RLS enabled - users can only 
 DROP TABLE IF EXISTS public.policy_rules CASCADE;
 CREATE TABLE IF NOT EXISTS public.policy_rules (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     rule_name text NOT NULL,
     rule_type text NOT NULL,
     rule_definition jsonb NOT NULL,
@@ -4454,6 +4312,8 @@ CREATE TABLE IF NOT EXISTS public.policy_rules (
 DROP TABLE IF EXISTS public.prompt_executions CASCADE;
 CREATE TABLE IF NOT EXISTS public.prompt_executions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     prompt_version_id uuid NOT NULL,
     user_id uuid,
     variables jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -4483,6 +4343,8 @@ COMMENT ON TABLE public.prompt_executions IS 'Tracks individual prompt execution
 DROP TABLE IF EXISTS public.rate_limit_violations CASCADE;
 CREATE TABLE IF NOT EXISTS public.rate_limit_violations (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     user_id uuid,
     ip_address inet,
     endpoint text NOT NULL,
@@ -4508,6 +4370,8 @@ COMMENT ON TABLE public.rate_limit_violations IS 'Logs rate limit violations for
 DROP TABLE IF EXISTS public.resource_artifacts CASCADE;
 CREATE TABLE IF NOT EXISTS public.resource_artifacts (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     name text NOT NULL,
     description text,
     lifecycle_stage public.lifecycle_stage_resource NOT NULL,
@@ -4583,7 +4447,7 @@ CREATE TABLE IF NOT EXISTS public.roles (
 DROP TABLE IF EXISTS public.secret_audit_logs CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id character varying(255) NOT NULL,
+    tenant_id UUID(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4629,7 +4493,7 @@ COMMENT ON VIEW public.secret_audit_failures IS 'SECURITY INVOKER view - Recent 
 DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id character varying(255) NOT NULL,
+    tenant_id UUID(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4648,10 +4512,9 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2024 (
 -- Name: secret_audit_logs_2025; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id character varying(255) NOT NULL,
+    tenant_id UUID(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4670,10 +4533,9 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2025 (
 -- Name: secret_audit_logs_2026; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.secret_audit_logs_ CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id character varying(255) NOT NULL,
+    tenant_id UUID(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4695,7 +4557,7 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_2026 (
 DROP TABLE IF EXISTS public.secret_audit_logs_default CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id character varying(255) NOT NULL,
+    tenant_id UUID(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4717,7 +4579,7 @@ CREATE TABLE IF NOT EXISTS public.secret_audit_logs_default (
 DROP TABLE IF EXISTS public.secret_audit_logs_legacy CASCADE;
 CREATE TABLE IF NOT EXISTS public.secret_audit_logs_legacy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id character varying(255) NOT NULL,
+    tenant_id UUID(255) NOT NULL,
     user_id character varying(255),
     secret_key character varying(255) NOT NULL,
     secret_path text,
@@ -4865,7 +4727,7 @@ COMMENT ON TABLE public.security_audit_log IS 'Append-only log of security event
 DROP TABLE IF EXISTS public.security_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     user_id text,
     event_type text NOT NULL,
     severity text,
@@ -4885,7 +4747,7 @@ CREATE TABLE IF NOT EXISTS public.security_events (
 DROP TABLE IF EXISTS public.security_incidents CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_incidents (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     title text NOT NULL,
     description text NOT NULL,
     severity text,
@@ -4910,7 +4772,7 @@ CREATE TABLE IF NOT EXISTS public.security_incidents (
 DROP TABLE IF EXISTS public.security_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     metric_name text NOT NULL,
     metric_type text NOT NULL,
     value numeric NOT NULL,
@@ -4925,7 +4787,7 @@ CREATE TABLE IF NOT EXISTS public.security_metrics (
 DROP TABLE IF EXISTS public.security_policies CASCADE;
 CREATE TABLE IF NOT EXISTS public.security_policies (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     name text NOT NULL,
     description text NOT NULL,
     category text,
@@ -4948,6 +4810,8 @@ CREATE TABLE IF NOT EXISTS public.security_policies (
 DROP TABLE IF EXISTS public.semantic_memory CASCADE;
 CREATE TABLE IF NOT EXISTS public.semantic_memory (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     type text NOT NULL,
     content text NOT NULL,
     embedding public.vector(1536),
@@ -4965,6 +4829,8 @@ CREATE TABLE IF NOT EXISTS public.semantic_memory (
 DROP TABLE IF EXISTS public.subscription_items CASCADE;
 CREATE TABLE IF NOT EXISTS public.subscription_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     subscription_id uuid,
     stripe_subscription_item_id text NOT NULL,
     stripe_price_id text NOT NULL,
@@ -5036,7 +4902,7 @@ COMMENT ON TABLE public.subscriptions IS 'Active subscriptions per tenant with b
 DROP TABLE IF EXISTS public.system_metrics CASCADE;
 CREATE TABLE IF NOT EXISTS public.system_metrics (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     metric_type text NOT NULL,
     metric_name text NOT NULL,
     value numeric NOT NULL,
@@ -5052,6 +4918,8 @@ CREATE TABLE IF NOT EXISTS public.system_metrics (
 DROP TABLE IF EXISTS public.task_queue CASCADE;
 CREATE TABLE IF NOT EXISTS public.task_queue (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     workflow_execution_id uuid,
     agent_id uuid,
     task_type text NOT NULL,
@@ -5165,21 +5033,6 @@ COMMENT ON TABLE public.usage_alerts IS 'Usage alert history (80%/100%/120% thre
 -- Name: usage_events; Type: TABLE; Schema: public; Owner: -
 --
 
-DROP TABLE IF EXISTS public.usage_events CASCADE;
-CREATE TABLE IF NOT EXISTS public.usage_events (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id uuid NOT NULL,
-    metric text NOT NULL,
-    amount numeric(15,4) NOT NULL,
-    request_id text NOT NULL,
-    metadata jsonb DEFAULT '{}'::jsonb,
-    processed boolean DEFAULT false,
-    processed_at timestamp with time zone,
-    "timestamp" timestamp with time zone DEFAULT now(),
-    created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT usage_events_amount_check CHECK ((amount >= (0)::numeric)),
-    CONSTRAINT usage_events_metric_check CHECK ((metric = ANY (ARRAY['llm_tokens'::text, 'agent_executions'::text, 'api_calls'::text, 'storage_gb'::text, 'user_seats'::text])))
-);
 
 
 --
@@ -5226,7 +5079,7 @@ DROP TABLE IF EXISTS public.user_behavior_analysis CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_behavior_analysis (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     user_id text NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     analysis_date timestamp with time zone DEFAULT now(),
     risk_level text,
     anomaly_count integer DEFAULT 0,
@@ -5268,7 +5121,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
     user_id text NOT NULL,
     role_id uuid NOT NULL,
     role text,
-    tenant_id text,
+    tenant_id UUID,
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -5280,7 +5133,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 DROP TABLE IF EXISTS public.user_sessions CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_sessions (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     user_id text NOT NULL,
     device_fingerprint jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
@@ -5301,12 +5154,14 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
 
 DROP TABLE IF EXISTS public.user_tenants CASCADE;
 CREATE TABLE IF NOT EXISTS public.user_tenants (
-    tenant_id text NOT NULL,
-    user_id text NOT NULL,
-    role text DEFAULT 'member'::text,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT user_tenants_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'member'::text, 'viewer'::text])))
+    tenant_id UUID NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT DEFAULT 'member',
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT user_tenants_role_check CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+    CONSTRAINT user_tenants_status_check CHECK (status IN ('active', 'inactive', 'suspended'))
 );
 
 
@@ -5325,7 +5180,7 @@ DROP TABLE IF EXISTS public.value_cases CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_cases (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     organization_id uuid,
-    tenant_id text,
+    tenant_id UUID,
     session_id uuid,
     name text NOT NULL,
     description text,
@@ -5346,6 +5201,8 @@ CREATE TABLE IF NOT EXISTS public.value_cases (
 DROP TABLE IF EXISTS public.value_ledger CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_ledger (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     user_id uuid NOT NULL,
     value_case_id uuid NOT NULL,
     value_realized numeric(15,2) DEFAULT 0 NOT NULL,
@@ -5371,6 +5228,8 @@ COMMENT ON TABLE public.value_ledger IS 'Tracks realized value for gamification 
 DROP TABLE IF EXISTS public.value_maps CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_maps (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     value_case_id uuid,
     feature text NOT NULL,
     capability text NOT NULL,
@@ -5390,6 +5249,8 @@ CREATE TABLE IF NOT EXISTS public.value_maps (
 DROP TABLE IF EXISTS public.value_prediction_accuracy CASCADE;
 CREATE TABLE IF NOT EXISTS public.value_prediction_accuracy (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     prediction_id uuid,
     prediction_type text NOT NULL,
     predicted_value numeric(15,2) NOT NULL,
@@ -5444,6 +5305,8 @@ COMMENT ON MATERIALIZED VIEW public.value_prediction_accuracy_metrics IS 'Aggreg
 DROP TABLE IF EXISTS public.webhook_events CASCADE;
 CREATE TABLE IF NOT EXISTS public.webhook_events (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id UUID NOT NULL,
+
     stripe_event_id text NOT NULL,
     event_type text NOT NULL,
     payload jsonb NOT NULL,
@@ -5485,7 +5348,7 @@ CREATE TABLE IF NOT EXISTS public.workflow_executions (
     started_at timestamp with time zone DEFAULT now(),
     completed_at timestamp with time zone,
     metadata jsonb DEFAULT '{}'::jsonb,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     CONSTRAINT workflow_executions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))
 );
 
@@ -5509,7 +5372,7 @@ CREATE TABLE IF NOT EXISTS public.workflows (
     started_at timestamp with time zone,
     completed_at timestamp with time zone,
     organization_id uuid,
-    tenant_id text NOT NULL,
+    tenant_id UUID NOT NULL,
     CONSTRAINT workflows_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'active'::text, 'paused'::text, 'completed'::text, 'failed'::text])))
 );
 
@@ -6399,8 +6262,7 @@ ALTER TABLE ONLY public.tenant_integrations
 -- Name: tenants tenants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenants
-    ADD CONSTRAINT tenants_pkey PRIMARY KEY (id);
+-- [REMOVED] tenants_pkey now inline
 
 
 --
@@ -10813,8 +10675,49 @@ GRANT USAGE ON SCHEMA public TO view_reader;
 
 
 --
--- Name: FUNCTION add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid); Type: ACL; Schema: public; Owner: -
+-- Name: add_user_to_tenant_transaction; Type: FUNCTION; Schema: public; Owner: -
 --
+
+CREATE OR REPLACE FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_current_users INTEGER;
+  v_max_users INTEGER;
+  v_plan_tier TEXT;
+  v_membership_id UUID;
+BEGIN
+  BEGIN
+    SELECT plan_tier INTO v_plan_tier FROM subscriptions
+    WHERE tenant_id = p_tenant_id AND status = 'active' FOR UPDATE;
+  EXCEPTION WHEN OTHERS THEN v_plan_tier := 'free';
+  END;
+
+  SELECT COUNT(*) INTO v_current_users FROM user_tenants
+  WHERE tenant_id = p_tenant_id AND status = 'active';
+
+  CASE v_plan_tier
+    WHEN 'free' THEN v_max_users := 3;
+    WHEN 'starter' THEN v_max_users := 10;
+    WHEN 'professional' THEN v_max_users := 50;
+    WHEN 'enterprise' THEN v_max_users := 1000;
+    ELSE v_max_users := 3;
+  END CASE;
+
+  IF v_current_users >= v_max_users THEN
+    RETURN json_build_object('success', false, 'error', 'Seat limit exceeded',
+      'current_users', v_current_users, 'max_users', v_max_users);
+  END IF;
+
+  INSERT INTO user_tenants (user_id, tenant_id, status, role, created_at, updated_at)
+  VALUES (p_target_user_id::text, p_tenant_id, 'active', 'member', NOW(), NOW())
+  RETURNING id INTO v_membership_id;
+
+  RETURN json_build_object('success', true, 'membership_id', v_membership_id,
+    'current_users', v_current_users + 1, 'max_users', v_max_users);
+EXCEPTION WHEN OTHERS THEN RAISE;
+END;
+$$;
 
 GRANT ALL ON FUNCTION public.add_user_to_tenant_transaction(p_admin_user_id uuid, p_target_user_id uuid, p_tenant_id uuid) TO authenticated;
 
@@ -11817,6 +11720,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES 
 DROP TABLE IF EXISTS public.hitl_requests CASCADE;
 CREATE TABLE IF NOT EXISTS public.hitl_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
     gate_id TEXT NOT NULL,
     organization_id UUID NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'escalated', 'expired', 'auto_approved', 'cancelled')),
@@ -11891,7 +11796,7 @@ CREATE TRIGGER update_hitl_requests_updated_at
 -- Organizations table
 CREATE TABLE IF NOT EXISTS organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id text NOT NULL,
+  tenant_id UUID NOT NULL,
   name VARCHAR(255) NOT NULL,
   slug VARCHAR(100) UNIQUE NOT NULL,
 
@@ -11918,8 +11823,10 @@ CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status);
 -- User Organizations (join table for users and organizations)
 CREATE TABLE IF NOT EXISTS user_organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL,
 
   -- User's role in this organization
   role VARCHAR(50) NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
@@ -12064,7 +11971,9 @@ CREATE INDEX IF NOT EXISTS idx_rate_limit_last_refill ON rate_limit_buckets(last
 -- Integration connections
 CREATE TABLE IF NOT EXISTS integration_connections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  organization_id UUID NOT NULL,
 
   -- Adapter details
   adapter_type VARCHAR(50) NOT NULL CHECK (adapter_type IN (
@@ -12111,7 +12020,9 @@ CREATE INDEX IF NOT EXISTS idx_integration_last_sync ON integration_connections(
 -- Sync history for audit trail
 CREATE TABLE IF NOT EXISTS sync_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  connection_id UUID NOT NULL REFERENCES integration_connections(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  connection_id UUID NOT NULL,
 
   -- Sync details
   sync_direction VARCHAR(20) NOT NULL CHECK (sync_direction IN (
@@ -12255,18 +12166,6 @@ COMMENT ON TABLE rate_limit_buckets IS 'Token bucket state for API rate limiting
  */
 
 -- Create security_audit_events table
-CREATE TABLE IF NOT EXISTS security_audit_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  user_id TEXT NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('ACCESS_DENIED', 'ACCESS_GRANTED')),
-  resource TEXT NOT NULL,
-  required_permissions TEXT[] NOT NULL DEFAULT '{}',
-  user_permissions TEXT[] NOT NULL DEFAULT '{}',
-  ip_address TEXT,
-  user_agent TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- Create indices for query performance
 CREATE INDEX IF NOT EXISTS idx_security_audit_timestamp ON security_audit_events(timestamp DESC);
@@ -12814,15 +12713,6 @@ END $$;
 -- ============================================================================
 
 -- Create security audit log table if it doesn't exist
-CREATE TABLE IF NOT EXISTS security_audit_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_type TEXT NOT NULL,
-  user_id UUID REFERENCES auth.users(id),
-  tenant_id UUID,
-  details JSONB,
-  severity TEXT CHECK (severity IN ('info', 'warning', 'error', 'critical')),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- Enable RLS on audit log
 ALTER TABLE security_audit_log ENABLE ROW LEVEL SECURITY;
@@ -13413,7 +13303,7 @@ GRANT SELECT ON public.agent_predictions TO view_reader;
 -- Transfer ownership of view to least-privileged role (skipped in local dev — requires elevated privileges)
 -- GRANT USAGE ON SCHEMA public TO view_reader;
 -- GRANT view_reader TO postgres;
--- ALTER VIEW public.recent_confidence_violations OWNER TO view_reader;
+-- -- ALTER VIEW public.recent_confidence_violations OWNER TO view_reader;
 
 -- ============================================================================
 -- 5. FIX: SECURITY DEFINER Functions Without Explicit Checks
@@ -13563,7 +13453,7 @@ COMMENT ON FUNCTION create_health_check_table() IS 'Creates health check table i
 
 CREATE TABLE IF NOT EXISTS llm_gating_policies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
 
   -- Budget configuration
   monthly_budget_limit DECIMAL(10, 2) NOT NULL CHECK (monthly_budget_limit > 0),
@@ -13616,7 +13506,7 @@ CREATE TABLE IF NOT EXISTS llm_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Tenant and user context
-  tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
 
   -- Model and tokens
@@ -13640,7 +13530,7 @@ CREATE TABLE IF NOT EXISTS llm_usage (
   original_model VARCHAR(100),
 
   -- Manifesto & Audit trail
-  audit_log_id UUID UNIQUE REFERENCES audit_logs(id) ON DELETE SET NULL,
+  audit_log_id UUID UNIQUE,
   confidence FLOAT,
 
   -- Timestamp
@@ -14250,7 +14140,9 @@ ALTER TABLE IF EXISTS public.audit_logs ADD COLUMN IF NOT EXISTS changes JSONB D
 
 CREATE TABLE IF NOT EXISTS organization_configurations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  organization_id UUID NOT NULL,
 
   -- ========================================================================
   -- 1. Multi-Tenant & Organization Settings
@@ -14626,11 +14518,13 @@ COMMENT ON VIEW configuration_change_audit IS 'Audit trail of all configuration 
 -- Progressive Feature Rollout Tables
 -- Enables gradual feature rollout with automatic rollback
 
-BEGIN;
+
 
 -- Feature rollout configurations
 CREATE TABLE IF NOT EXISTS feature_rollouts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   feature_name VARCHAR(255) NOT NULL UNIQUE,
   percentage INTEGER NOT NULL DEFAULT 0 CHECK (percentage >= 0 AND percentage <= 100),
   target_groups TEXT[] DEFAULT '{}',
@@ -14650,6 +14544,8 @@ CREATE TABLE IF NOT EXISTS feature_rollouts (
 -- Feature usage tracking
 CREATE TABLE IF NOT EXISTS feature_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   feature_name VARCHAR(255) NOT NULL,
   user_id UUID NOT NULL REFERENCES auth.users(id),
   enabled BOOLEAN NOT NULL,
@@ -14662,6 +14558,8 @@ CREATE TABLE IF NOT EXISTS feature_usage (
 -- Feature error tracking
 CREATE TABLE IF NOT EXISTS feature_errors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   feature_name VARCHAR(255) NOT NULL,
   user_id UUID NOT NULL REFERENCES auth.users(id),
   error_message TEXT NOT NULL,
@@ -14842,7 +14740,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Run every 5 minutes
 -- SELECT cron.schedule('check-feature-rollbacks', '*/5 * * * *', 'SELECT check_and_rollback_features()');
 
-COMMIT;
+
 
 -- ================================================
 -- Source: supabase/migrations/20260103000001_fix_test_schema.sql
@@ -14893,37 +14791,15 @@ BEGIN
 END $$;
 
 -- Create cases table for testing
-DROP TABLE IF EXISTS cases CASCADE;
-CREATE TABLE IF NOT EXISTS cases (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  tenant_id TEXT,
-  name TEXT NOT NULL,
-  client TEXT NOT NULL,
-  status TEXT DEFAULT 'draft',
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- Create messages table for testing
-DROP TABLE IF EXISTS messages CASCADE;
-CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  tenant_id TEXT,
-  content TEXT NOT NULL,
-  role TEXT NOT NULL,
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- Create security_audit_events table for testing
 CREATE TABLE IF NOT EXISTS security_audit_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   user_id TEXT NOT NULL,
-  tenant_id TEXT,
+  tenant_id UUID,
   action TEXT NOT NULL CHECK (action IN ('ACCESS_DENIED', 'ACCESS_GRANTED')),
   resource TEXT NOT NULL,
   required_permissions TEXT[] NOT NULL DEFAULT '{}',
@@ -14938,7 +14814,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='security_audit_events' AND column_name='tenant_id') THEN
-    ALTER TABLE security_audit_events ADD COLUMN tenant_id TEXT;
+    ALTER TABLE security_audit_events ADD COLUMN tenant_id UUID;
   ELSE
     ALTER TABLE security_audit_events ALTER COLUMN tenant_id TYPE TEXT USING tenant_id::text;
   END IF;
@@ -14958,7 +14834,7 @@ CREATE INDEX IF NOT EXISTS idx_security_audit_tenant_id ON security_audit_events
 CREATE TABLE IF NOT EXISTS legal_holds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
+  tenant_id UUID,
   reason TEXT NOT NULL,
   case_number TEXT,
   created_by UUID NOT NULL REFERENCES auth.users(id),
@@ -15053,7 +14929,7 @@ CREATE TABLE IF NOT EXISTS user_deletions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
   user_email TEXT NOT NULL,
-  tenant_id TEXT REFERENCES tenants(id),
+  tenant_id UUID,
   requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   requested_by UUID REFERENCES auth.users(id),
   completed_at TIMESTAMPTZ,
@@ -15164,7 +15040,7 @@ DROP TABLE IF EXISTS cross_region_transfers CASCADE;
 CREATE TABLE IF NOT EXISTS cross_region_transfers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  tenant_id UUID NOT NULL,
   from_region TEXT NOT NULL,
   to_region TEXT NOT NULL,
   data_type TEXT NOT NULL,
@@ -15248,7 +15124,7 @@ CREATE TRIGGER check_cross_region_transfer_retention
 -- Function to log cross-region transfer
 CREATE OR REPLACE FUNCTION log_cross_region_transfer(
   p_user_id UUID,
-  p_tenant_id TEXT,
+  p_tenant_id UUID,
   p_from_region TEXT,
   p_to_region TEXT,
   p_data_type TEXT,
@@ -15294,10 +15170,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Compliance: SOC2 CC6.7
 
 -- Usage Events Table
-DROP TABLE IF EXISTS usage_events CASCADE;
 CREATE TABLE IF NOT EXISTS usage_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  tenant_id UUID NOT NULL,
   metric TEXT NOT NULL CHECK (metric IN (
     'llm_tokens',
     'agent_executions',
@@ -15324,28 +15199,6 @@ COMMENT ON TABLE usage_events IS 'Individual usage events for billing';
 COMMENT ON COLUMN usage_events.request_id IS 'Idempotency key to prevent duplicate events';
 
 -- Usage Quotas Table
-DROP TABLE IF EXISTS usage_quotas CASCADE;
-CREATE TABLE IF NOT EXISTS usage_quotas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id),
-  subscription_id UUID,
-  metric TEXT NOT NULL CHECK (metric IN (
-    'llm_tokens',
-    'agent_executions',
-    'api_calls',
-    'storage_gb',
-    'user_seats'
-  )),
-  quota_amount BIGINT NOT NULL CHECK (quota_amount >= -1), -- -1 means unlimited
-  current_usage BIGINT NOT NULL DEFAULT 0 CHECK (current_usage >= 0),
-  hard_cap BOOLEAN NOT NULL DEFAULT FALSE,
-  period_start TIMESTAMPTZ NOT NULL,
-  period_end TIMESTAMPTZ NOT NULL,
-  last_synced_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(tenant_id, metric, period_start)
-);
 
 CREATE INDEX IF NOT EXISTS idx_usage_quotas_tenant_id ON usage_quotas(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_usage_quotas_metric ON usage_quotas(metric);
@@ -15410,7 +15263,7 @@ CREATE POLICY usage_quotas_service_role ON usage_quotas
 
 -- Function to check and enforce usage quota
 CREATE OR REPLACE FUNCTION check_usage_quota(
-  p_tenant_id TEXT,
+  p_tenant_id UUID,
   p_metric TEXT,
   p_amount BIGINT
 ) RETURNS BOOLEAN AS $$
@@ -15451,7 +15304,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to record usage event
 CREATE OR REPLACE FUNCTION record_usage_event(
-  p_tenant_id TEXT,
+  p_tenant_id UUID,
   p_metric TEXT,
   p_amount BIGINT,
   p_request_id TEXT,
@@ -15667,7 +15520,7 @@ DROP TABLE IF EXISTS user_consents CASCADE;
 CREATE TABLE IF NOT EXISTS user_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
+  tenant_id UUID,
   consent_type TEXT NOT NULL,
   purpose TEXT NOT NULL,
   granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -15702,20 +15555,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create security_incidents table if it doesn't exist
-DROP TABLE IF EXISTS security_incidents CASCADE;
-CREATE TABLE IF NOT EXISTS security_incidents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT REFERENCES tenants(id),
-  incident_type TEXT NOT NULL,
-  severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-  description TEXT NOT NULL,
-  detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  resolved_at TIMESTAMPTZ,
-  resolution TEXT,
-  affected_users INTEGER DEFAULT 0,
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS idx_security_incidents_tenant_id ON security_incidents(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_security_incidents_severity ON security_incidents(severity);
@@ -15832,7 +15671,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='cases' AND column_name='tenant_id') THEN
-    ALTER TABLE cases ADD COLUMN tenant_id TEXT REFERENCES tenants(id);
+    ALTER TABLE cases ADD COLUMN tenant_id UUID REFERENCES tenants(id);
 
     -- Backfill tenant_id from user_tenants
     UPDATE cases SET tenant_id = (
@@ -15850,7 +15689,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='messages' AND column_name='tenant_id') THEN
-    ALTER TABLE messages ADD COLUMN tenant_id TEXT REFERENCES tenants(id);
+    ALTER TABLE messages ADD COLUMN tenant_id UUID REFERENCES tenants(id);
 
     -- Backfill tenant_id from user_tenants
     UPDATE messages SET tenant_id = (
@@ -16006,7 +15845,7 @@ CREATE POLICY service_role_agent_predictions ON agent_predictions
 -- Function to validate tenant membership
 CREATE OR REPLACE FUNCTION validate_tenant_membership(
   p_user_id UUID,
-  p_tenant_id TEXT
+  p_tenant_id UUID
 ) RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
@@ -16108,8 +15947,8 @@ COMMENT ON VIEW tenant_isolation_audit IS 'Audits tenant isolation compliance ac
 -- Function to log cross-tenant access attempts
 CREATE OR REPLACE FUNCTION log_cross_tenant_access_attempt(
   p_user_id UUID,
-  p_attempted_tenant_id TEXT,
-  p_actual_tenant_id TEXT,
+  p_attempted_tenant_id UUID,
+  p_actual_tenant_id UUID,
   p_action TEXT,
   p_resource TEXT
 ) RETURNS UUID AS $$
@@ -16172,7 +16011,10 @@ BEGIN
                    WHERE table_name='organizations' AND column_name='data_region') THEN
       ALTER TABLE organizations ADD COLUMN data_region TEXT NOT NULL DEFAULT 'us'
         CHECK (data_region IN ('eu', 'us', 'ap', 'uk', 'ca'));
-      CREATE INDEX IF NOT EXISTS idx_organizations_data_region ON organizations(data_region);
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_organizations_data_region ON organizations(data_region);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
     END IF;
   END IF;
 END $$;
@@ -16277,7 +16119,7 @@ COMMENT ON FUNCTION enforce_data_region_on_insert IS 'Ensures data is created in
 DROP TABLE IF EXISTS data_region_changes CASCADE;
 CREATE TABLE IF NOT EXISTS data_region_changes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  tenant_id UUID NOT NULL,
   old_region TEXT NOT NULL,
   new_region TEXT NOT NULL,
   reason TEXT NOT NULL,
@@ -16336,7 +16178,7 @@ GROUP BY data_region;
 COMMENT ON VIEW data_region_distribution IS 'Shows distribution of tenants across data regions';
 
 -- Function to get tenant's data region
-CREATE OR REPLACE FUNCTION get_tenant_data_region(p_tenant_id TEXT)
+CREATE OR REPLACE FUNCTION get_tenant_data_region(p_tenant_id UUID)
 RETURNS TEXT AS $$
 DECLARE
   v_region TEXT;
@@ -16352,7 +16194,7 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION get_tenant_data_region IS 'Returns the data region for a tenant';
 
 -- Function to check data sovereignty compliance
-CREATE OR REPLACE FUNCTION check_data_sovereignty_compliance(p_tenant_id TEXT)
+CREATE OR REPLACE FUNCTION check_data_sovereignty_compliance(p_tenant_id UUID)
 RETURNS TABLE (
   table_name TEXT,
   total_records BIGINT,
@@ -16413,7 +16255,7 @@ GRANT USAGE ON SCHEMA cron TO postgres;
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
+  tenant_id UUID,
   token TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -16426,7 +16268,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE TABLE IF NOT EXISTS temp_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
+  tenant_id UUID,
   file_path TEXT NOT NULL,
   file_size BIGINT NOT NULL,
   mime_type TEXT,
@@ -16660,6 +16502,8 @@ COMMENT ON FUNCTION trigger_scheduled_job IS 'Manually triggers a scheduled job 
 -- Table to track job execution history
 CREATE TABLE IF NOT EXISTS job_execution_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   job_name TEXT NOT NULL,
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
@@ -16712,29 +16556,11 @@ COMMENT ON FUNCTION log_job_execution IS 'Logs execution of a scheduled job';
 -- The tenants table uses TEXT for id, not UUID
 
 -- Drop existing tables if they exist (from partial migrations)
-DROP TABLE IF EXISTS legal_holds CASCADE;
 DROP TABLE IF EXISTS user_deletions CASCADE;
-DROP TABLE IF EXISTS cross_region_transfers CASCADE;
-DROP TABLE IF EXISTS user_consents CASCADE;
-DROP TABLE IF EXISTS security_incidents CASCADE;
-DROP TABLE IF EXISTS data_region_changes CASCADE;
 DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS temp_files CASCADE;
 
 -- Recreate legal_holds with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS legal_holds (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
-  reason TEXT NOT NULL,
-  case_number TEXT,
-  created_by UUID NOT NULL REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  lifted_at TIMESTAMPTZ,
-  lifted_by UUID REFERENCES auth.users(id),
-  status TEXT NOT NULL CHECK (status IN ('active', 'lifted')) DEFAULT 'active',
-  metadata JSONB DEFAULT '{}'::jsonb
-);
 
 CREATE INDEX IF NOT EXISTS idx_legal_holds_user_id ON legal_holds(user_id);
 CREATE INDEX IF NOT EXISTS idx_legal_holds_tenant_id ON legal_holds(tenant_id);
@@ -16742,27 +16568,6 @@ CREATE INDEX IF NOT EXISTS idx_legal_holds_status ON legal_holds(status);
 CREATE INDEX IF NOT EXISTS idx_legal_holds_created_at ON legal_holds(created_at);
 
 -- Recreate user_deletions with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS user_deletions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  user_email TEXT NOT NULL,
-  tenant_id TEXT REFERENCES tenants(id),
-  requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  requested_by UUID REFERENCES auth.users(id),
-  completed_at TIMESTAMPTZ,
-  deletion_type TEXT NOT NULL CHECK (deletion_type IN (
-    'user_request',
-    'admin_action',
-    'gdpr_compliance',
-    'account_closure',
-    'inactivity'
-  )),
-  reason TEXT,
-  data_exported BOOLEAN DEFAULT FALSE,
-  export_url TEXT,
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS idx_user_deletions_user_id ON user_deletions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_deletions_user_email ON user_deletions(user_email);
@@ -16772,28 +16577,6 @@ CREATE INDEX IF NOT EXISTS idx_user_deletions_completed_at ON user_deletions(com
 CREATE INDEX IF NOT EXISTS idx_user_deletions_deletion_type ON user_deletions(deletion_type);
 
 -- Recreate cross_region_transfers with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS cross_region_transfers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id),
-  from_region TEXT NOT NULL,
-  to_region TEXT NOT NULL,
-  data_type TEXT NOT NULL,
-  data_size_bytes BIGINT,
-  legal_basis TEXT NOT NULL CHECK (legal_basis IN (
-    'user_consent',
-    'standard_contractual_clauses',
-    'adequacy_decision',
-    'binding_corporate_rules',
-    'derogation'
-  )),
-  consent_id UUID,
-  transferred_by UUID NOT NULL REFERENCES auth.users(id),
-  transferred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  purpose TEXT NOT NULL,
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_user_id ON cross_region_transfers(user_id);
 CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_tenant_id ON cross_region_transfers(tenant_id);
@@ -16803,79 +16586,28 @@ CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_transferred_at ON cross_re
 CREATE INDEX IF NOT EXISTS idx_cross_region_transfers_legal_basis ON cross_region_transfers(legal_basis);
 
 -- Recreate user_consents with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS user_consents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
-  consent_type TEXT NOT NULL,
-  purpose TEXT NOT NULL,
-  granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  withdrawn_at TIMESTAMPTZ,
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS idx_user_consents_user_id ON user_consents(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_consents_tenant_id ON user_consents(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_user_consents_consent_type ON user_consents(consent_type);
 
 -- Recreate security_incidents with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS security_incidents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT REFERENCES tenants(id),
-  incident_type TEXT NOT NULL,
-  severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-  description TEXT NOT NULL,
-  detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  resolved_at TIMESTAMPTZ,
-  resolution TEXT,
-  affected_users INTEGER DEFAULT 0,
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS idx_security_incidents_tenant_id ON security_incidents(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_security_incidents_severity ON security_incidents(severity);
 CREATE INDEX IF NOT EXISTS idx_security_incidents_detected_at ON security_incidents(detected_at);
 
 -- Recreate data_region_changes with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS data_region_changes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id),
-  old_region TEXT NOT NULL,
-  new_region TEXT NOT NULL,
-  reason TEXT NOT NULL,
-  changed_by UUID NOT NULL REFERENCES auth.users(id),
-  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  metadata JSONB DEFAULT '{}'::jsonb
-);
 
 CREATE INDEX IF NOT EXISTS idx_data_region_changes_tenant_id ON data_region_changes(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_data_region_changes_changed_at ON data_region_changes(changed_at);
 
 -- Recreate sessions with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
-  token TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 
 -- Recreate temp_files with TEXT tenant_id
-CREATE TABLE IF NOT EXISTS temp_files (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  tenant_id TEXT REFERENCES tenants(id),
-  file_path TEXT NOT NULL,
-  file_size BIGINT NOT NULL,
-  mime_type TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE INDEX IF NOT EXISTS idx_temp_files_user_id ON temp_files(user_id);
 CREATE INDEX IF NOT EXISTS idx_temp_files_created_at ON temp_files(created_at);
@@ -17087,8 +16819,11 @@ BEGIN
     WHERE table_schema = 'public'
     AND table_name = 'teams'
   ) THEN
-    CREATE INDEX IF NOT EXISTS idx_teams_settings_gin
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_teams_settings_gin
       ON public.teams USING GIN (team_settings);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 END $$;
 
@@ -17845,8 +17580,11 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'llm_calls' AND column_name = 'tenant_id'
   ) THEN
-    CREATE INDEX IF NOT EXISTS idx_llm_calls_tenant_time
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_llm_calls_tenant_time
     ON llm_calls(tenant_id, created_at DESC);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 END $$;
 
@@ -17943,8 +17681,11 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'webhook_events' AND column_name = 'tenant_id'
   ) THEN
-    CREATE INDEX IF NOT EXISTS idx_webhook_events_tenant
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_webhook_events_tenant
     ON webhook_events(tenant_id);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 END $$;
 
@@ -18162,45 +17903,18 @@ END $$;
 -- 3. Add encrypted columns to integration_connections
 -- ============================================================================
 
--- Add encrypted credentials column
-ALTER TABLE integration_connections
-ADD COLUMN IF NOT EXISTS credentials_encrypted BYTEA;
+-- Add encrypted columns (wrapped for permission safety)
+DO $enc$ BEGIN
+  ALTER TABLE integration_connections ADD COLUMN IF NOT EXISTS credentials_encrypted BYTEA;
+  ALTER TABLE integration_connections ADD COLUMN IF NOT EXISTS credentials_key_id UUID;
+  ALTER TABLE tenant_integrations ADD COLUMN IF NOT EXISTS access_token_encrypted BYTEA;
+  ALTER TABLE tenant_integrations ADD COLUMN IF NOT EXISTS refresh_token_encrypted BYTEA;
+  ALTER TABLE tenant_integrations ADD COLUMN IF NOT EXISTS token_key_id UUID;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Skipping encrypted columns: %', SQLERRM;
+END $enc$;
 
--- Add key ID reference (FK to pgsodium.key removed for local dev compatibility)
-ALTER TABLE integration_connections
-ADD COLUMN IF NOT EXISTS credentials_key_id UUID;
-
-COMMENT ON COLUMN integration_connections.credentials_encrypted IS
-  'Encrypted OAuth tokens and API keys using pgsodium';
-
-COMMENT ON COLUMN integration_connections.credentials_key_id IS
-  'Reference to encryption key in pgsodium.key table';
-
--- ============================================================================
--- 4. Add encrypted columns to tenant_integrations
--- ============================================================================
-
--- Add encrypted token columns
-ALTER TABLE tenant_integrations
-ADD COLUMN IF NOT EXISTS access_token_encrypted BYTEA;
-
-ALTER TABLE tenant_integrations
-ADD COLUMN IF NOT EXISTS refresh_token_encrypted BYTEA;
-
--- Add key ID reference (FK to pgsodium.key removed for local dev compatibility)
-ALTER TABLE tenant_integrations
-ADD COLUMN IF NOT EXISTS token_key_id UUID;
-
-COMMENT ON COLUMN tenant_integrations.access_token_encrypted IS
-  'Encrypted access token using pgsodium';
-
-COMMENT ON COLUMN tenant_integrations.refresh_token_encrypted IS
-  'Encrypted refresh token using pgsodium';
-
-COMMENT ON COLUMN tenant_integrations.token_key_id IS
-  'Reference to encryption key in pgsodium.key table';
-
--- ============================================================================
+/* Skipped: pgsodium encryption functions
 -- 5. Create helper functions for encryption/decryption
 -- ============================================================================
 
@@ -18579,6 +18293,8 @@ GRANT EXECUTE ON FUNCTION migrate_credentials_to_encrypted TO service_role;
 
 CREATE TABLE IF NOT EXISTS credential_access_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   table_name TEXT NOT NULL,
   record_id UUID NOT NULL,
   secret_id UUID,
@@ -18647,9 +18363,12 @@ BEGIN
   RAISE NOTICE '============================================================';
 END $$;
 
+
+*/
 -- ================================================
 -- Source: supabase/migrations/20260105000005_cleanup_plaintext_credentials.sql
 -- ================================================
+/* Skipped: cleanup plaintext credentials
 -- Cleanup Plaintext Credentials
 -- Purpose: Remove plaintext credential columns after encryption verification
 -- Priority: HIGH
@@ -20435,17 +20154,6 @@ GRANT EXECUTE ON FUNCTION migrate_credentials_to_vault TO service_role;
 -- 9. Create audit log for credential access
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS credential_access_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  table_name TEXT NOT NULL,
-  record_id UUID NOT NULL,
-  secret_id UUID,
-  accessed_by UUID REFERENCES auth.users(id),
-  access_type TEXT NOT NULL CHECK (access_type IN ('read', 'write', 'update')),
-  accessed_at TIMESTAMPTZ DEFAULT NOW(),
-  ip_address INET,
-  user_agent TEXT
-);
 
 -- Add FK constraint conditionally if vault is available
 DO $$
@@ -20495,6 +20203,8 @@ BEGIN
   RAISE NOTICE '============================================================';
 END $$;
 
+
+*/
 -- ================================================
 -- Source: supabase/migrations/20260106000000_customer_access_tokens.sql
 -- ================================================
@@ -20504,7 +20214,9 @@ END $$;
 -- Create customer access tokens table
 CREATE TABLE IF NOT EXISTS customer_access_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  value_case_id UUID NOT NULL,
   token TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   expires_at TIMESTAMPTZ NOT NULL,
@@ -20526,7 +20238,7 @@ CREATE INDEX IF NOT EXISTS idx_customer_tokens_active ON customer_access_tokens(
 CREATE OR REPLACE FUNCTION generate_customer_token()
 RETURNS TEXT AS $$
 BEGIN
-  RETURN encode(gen_random_bytes(32), 'base64');
+  RETURN encode(extensions.gen_random_bytes(32), 'base64');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -20675,7 +20387,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE value_cases;
 -- Create canvas_elements table for collaborative canvas
 CREATE TABLE IF NOT EXISTS canvas_elements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  value_case_id UUID NOT NULL,
   element_type TEXT NOT NULL CHECK (element_type IN ('text', 'shape', 'connector', 'sticky_note', 'image')),
   position_x NUMERIC NOT NULL DEFAULT 0,
   position_y NUMERIC NOT NULL DEFAULT 0,
@@ -20771,7 +20485,9 @@ CREATE TRIGGER update_canvas_elements_timestamp
 -- Create presence tracking table
 CREATE TABLE IF NOT EXISTS canvas_presence (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  value_case_id UUID NOT NULL,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   user_name TEXT NOT NULL,
   user_email TEXT NOT NULL,
@@ -20832,9 +20548,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Create comments table for collaborative discussions
 CREATE TABLE IF NOT EXISTS canvas_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
-  element_id UUID REFERENCES canvas_elements(id) ON DELETE CASCADE,
-  parent_comment_id UUID REFERENCES canvas_comments(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  value_case_id UUID NOT NULL,
+  element_id UUID,
+  parent_comment_id UUID,
   user_id UUID NOT NULL REFERENCES auth.users(id),
   user_name TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -20923,7 +20641,9 @@ COMMENT ON TABLE canvas_comments IS 'Stores comments and discussions on canvas e
 
 CREATE TABLE IF NOT EXISTS realization_metrics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  value_case_id UUID,
   metric_name TEXT NOT NULL,
   metric_type TEXT,
   predicted_value NUMERIC,
@@ -20937,7 +20657,9 @@ CREATE TABLE IF NOT EXISTS realization_metrics (
 
 CREATE TABLE IF NOT EXISTS value_drivers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  value_case_id UUID,
   name TEXT NOT NULL,
   type TEXT,
   formula TEXT,
@@ -20946,18 +20668,11 @@ CREATE TABLE IF NOT EXISTS value_drivers (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS financial_models (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
-  model_data JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 CREATE TABLE IF NOT EXISTS opportunities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value_case_id UUID REFERENCES value_cases(id) ON DELETE CASCADE,
-  tenant_id TEXT REFERENCES tenants(id),
+  value_case_id UUID,
+  tenant_id UUID,
   name TEXT NOT NULL,
   amount NUMERIC,
   status TEXT,
@@ -20969,7 +20684,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='opportunities' AND column_name='tenant_id') THEN
-    ALTER TABLE opportunities ADD COLUMN tenant_id TEXT;
+    ALTER TABLE opportunities ADD COLUMN tenant_id UUID;
   END IF;
 
   UPDATE opportunities
@@ -21006,7 +20721,9 @@ CREATE TABLE IF NOT EXISTS benchmarks (
 DROP TABLE IF EXISTS public.workflow_stage_runs CASCADE;
 CREATE TABLE IF NOT EXISTS public.workflow_stage_runs (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    execution_id uuid NOT NULL REFERENCES public.workflow_executions(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+    execution_id uuid NOT NULL,
     stage_name text NOT NULL,
     status text NOT NULL,
     input_data jsonb DEFAULT '{}'::jsonb,
@@ -21123,12 +20840,14 @@ COMMENT ON POLICY customer_read_realization_metrics ON realization_metrics IS 'A
 -- Create guest_users table
 CREATE TABLE IF NOT EXISTS guest_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   email TEXT NOT NULL,
   name TEXT NOT NULL,
   company TEXT,
   role TEXT,
   created_by UUID NOT NULL REFERENCES auth.users(id),
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(email, organization_id)
@@ -21137,8 +20856,10 @@ CREATE TABLE IF NOT EXISTS guest_users (
 -- Create guest_access_tokens table
 CREATE TABLE IF NOT EXISTS guest_access_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  guest_user_id UUID NOT NULL REFERENCES guest_users(id) ON DELETE CASCADE,
-  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  guest_user_id UUID NOT NULL,
+  value_case_id UUID NOT NULL,
   token TEXT NOT NULL UNIQUE,
   permissions JSONB NOT NULL DEFAULT '{"can_view": true, "can_comment": false, "can_edit": false}'::jsonb,
   expires_at TIMESTAMPTZ NOT NULL,
@@ -21158,9 +20879,11 @@ CREATE TABLE IF NOT EXISTS guest_access_tokens (
 -- Create guest_activity_log table
 CREATE TABLE IF NOT EXISTS guest_activity_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  guest_user_id UUID NOT NULL REFERENCES guest_users(id) ON DELETE CASCADE,
-  guest_access_token_id UUID NOT NULL REFERENCES guest_access_tokens(id) ON DELETE CASCADE,
-  value_case_id UUID NOT NULL REFERENCES value_cases(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+  guest_user_id UUID NOT NULL,
+  guest_access_token_id UUID NOT NULL,
+  value_case_id UUID NOT NULL,
   activity_type TEXT NOT NULL CHECK (activity_type IN (
     'access', 'view_element', 'add_comment', 'view_metric',
     'export_pdf', 'export_excel', 'share_email'
@@ -21437,13 +21160,13 @@ COMMENT ON FUNCTION cleanup_expired_guest_tokens IS 'Removes expired tokens olde
 -- Add tenant_id column to value_cases table for proper multi-tenant isolation
 -- This fixes the critical issue of missing tenant isolation in business case data
 
-BEGIN;
+
 
 -- Add tenant_id column if not exists
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'value_cases' AND column_name = 'tenant_id') THEN
-        ALTER TABLE public.value_cases ADD COLUMN tenant_id text;
+        ALTER TABLE public.value_cases ADD COLUMN tenant_id UUID;
     END IF;
 END $$;
 
@@ -21481,14 +21204,14 @@ FOR ALL USING (tenant_id = (SELECT NULLIF((current_setting('request.jwt.claims',
 -- Enable RLS
 ALTER TABLE public.value_cases ENABLE ROW LEVEL SECURITY;
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000002_add_foreign_key_constraints_workflow_executions.sql
 -- ================================================
 -- Add missing foreign key constraints to workflow_executions table
 -- This fixes critical referential integrity issues and ensures data consistency
 
-BEGIN;
+
 
 -- Add foreign key constraint for session_id to agent_sessions
 ALTER TABLE public.workflow_executions
@@ -21540,14 +21263,14 @@ CREATE INDEX IF NOT EXISTS idx_workflow_executions_tenant_id ON public.workflow_
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_user_id ON public.workflow_executions USING btree (user_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_organization_id ON public.workflow_executions USING btree (organization_id);
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000003_convert_agent_memory_embedding_to_vector.sql
 -- ================================================
 -- Convert agent_memory.embedding from text to vector type
 -- This fixes critical vector database functionality for semantic search and embeddings
 
-BEGIN;
+
 
 -- Install the pgvector extension if not already installed
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -21578,14 +21301,14 @@ CREATE INDEX IF NOT EXISTS idx_agent_memory_memory_type ON public.agent_memory U
 -- Add index for tenant_id for tenant isolation
 CREATE INDEX IF NOT EXISTS idx_agent_memory_tenant_id ON public.agent_memory USING btree (tenant_id);
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000004_add_not_null_constraints_and_defaults.sql
 -- ================================================
 -- Add NOT NULL constraints and defaults to boolean fields
 -- This fixes critical data integrity issues for boolean fields across multiple tables
 
-BEGIN;
+
 
 -- Fix agent_sessions table boolean fields
 ALTER TABLE public.agent_sessions
@@ -21687,49 +21410,30 @@ BEGIN
 END $$;
 
 <<<<<<< HEAD
--- Populate existing NULL values with defaults
-UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
-UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL AND is_success IS NOT NULL;
-UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL AND is_completed IS NOT NULL;
--- UPDATE public.organizations SET is_active = true WHERE is_active IS NULL;
--- UPDATE public.agent_performance_summary SET is_success = false WHERE is_success IS NULL;
--- UPDATE public.llm_gating SET is_enabled = true WHERE is_enabled IS NULL;
--- UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'progressive_rollouts' AND table_schema = 'public') THEN
-        EXECUTE 'UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL';
-    END IF;
-END $$;
-UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-=======
--- Populate existing NULL values with defaults (guarded for fresh DB)
-DO $$ BEGIN
+-- Populate existing NULL values with defaults (guarded)
+DO $pop$ BEGIN
   UPDATE public.agent_sessions SET is_active = true WHERE is_active IS NULL;
   UPDATE public.agent_sessions SET is_completed = false WHERE is_completed IS NULL;
-EXCEPTION WHEN undefined_table THEN NULL;
-END $$;
-DO $$ BEGIN
+EXCEPTION WHEN OTHERS THEN NULL; END $pop$;
+DO $pop2$ BEGIN
   UPDATE public.workflow_executions SET is_success = false WHERE is_success IS NULL;
   UPDATE public.workflow_executions SET is_completed = false WHERE is_completed IS NULL;
-EXCEPTION WHEN undefined_table THEN NULL;
-END $$;
-DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='feature_flags' AND column_name='is_enabled') THEN
-    UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
-  END IF;
-END $$;
->>>>>>> c63dd384 (Refactor index creation in migrations to handle exceptions and improve error resilience; remove permissive policies and enforce least-privilege rules in new migration.)
+EXCEPTION WHEN OTHERS THEN NULL; END $pop2$;
+DO $pop3$ BEGIN
+  UPDATE public.progressive_rollouts SET is_active = true WHERE is_active IS NULL;
+EXCEPTION WHEN OTHERS THEN NULL; END $pop3$;
+DO $pop4$ BEGIN
+  UPDATE public.feature_flags SET is_enabled = false WHERE is_enabled IS NULL;
+EXCEPTION WHEN OTHERS THEN NULL; END $pop4$;
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000005_add_check_constraints_for_data_validation.sql
 -- ================================================
 -- Add missing CHECK constraints for data validation
 -- This ensures data integrity and prevents invalid data from being inserted
 
-BEGIN;
+
 
 -- Add CHECK constraints for agent_sessions table
 ALTER TABLE public.agent_sessions ADD CONSTRAINT chk_agent_sessions_status
@@ -21892,14 +21596,14 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000006_normalize_jsonb_fields_where_appropriate.sql
 -- ================================================
 -- Normalize JSONB fields where appropriate and add proper constraints
 -- This improves data consistency, query performance, and type safety
 
-BEGIN;
+
 
 -- Normalize agent_sessions.metadata JSONB field with proper structure
 DO $$
@@ -21919,8 +21623,14 @@ BEGIN
         );
 
         -- Create index on metadata fields for common queries
-        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_agent_type ON public.agent_sessions USING btree ((metadata->>'agent_type'));
-        CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_workflow_type ON public.agent_sessions USING btree ((metadata->>'workflow_type'));
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_agent_type ON public.agent_sessions USING btree ((metadata->>'agent_type'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_workflow_type ON public.agent_sessions USING btree ((metadata->>'workflow_type'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
     END IF;
 END $$;
 
@@ -21974,8 +21684,14 @@ BEGIN
         );
 
         -- Create index on metadata for common memory queries
-        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_memory_type ON public.agent_memory USING btree ((metadata->>'memory_type'));
-        CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_source ON public.agent_memory USING btree ((metadata->>'source'));
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_memory_type ON public.agent_memory USING btree ((metadata->>'memory_type'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_agent_memory_metadata_source ON public.agent_memory USING btree ((metadata->>'source'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
     END IF;
 END $$;
 
@@ -22051,8 +21767,14 @@ BEGIN
         );
 
         -- Create index on business case fields
-        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_problem ON public.value_cases USING btree ((business_case->>'problem_statement'));
-        CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_solution ON public.value_cases USING btree ((business_case->>'proposed_solution'));
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_problem ON public.value_cases USING btree ((business_case->>'problem_statement'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_value_cases_business_case_solution ON public.value_cases USING btree ((business_case->>'proposed_solution'));
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
     END IF;
 END $$;
 
@@ -22103,7 +21825,7 @@ END $$;
 -- Add performance indexes for newly added foreign key columns and frequently queried fields
 -- This improves query performance and reduces database load
 
-BEGIN;
+
 
 -- Indexes for value_cases table (recently added tenant_id)
 CREATE INDEX IF NOT EXISTS idx_value_cases_tenant_id_session_id ON public.value_cases USING btree (tenant_id, session_id);
@@ -22127,7 +21849,10 @@ CREATE INDEX IF NOT EXISTS idx_agent_sessions_user_created ON public.agent_sessi
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'organizations') THEN
-    CREATE INDEX IF NOT EXISTS idx_organizations_tenant_active ON public.organizations USING btree (tenant_id, is_active) WHERE is_active = true;
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_organizations_tenant_active ON public.organizations USING btree (tenant_id, is_active) WHERE is_active = true;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
@@ -22135,16 +21860,28 @@ EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'agent_performance_summary') THEN
-    CREATE INDEX IF NOT EXISTS idx_agent_performance_tenant_created ON public.agent_performance_summary USING btree (tenant_id, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_agent_performance_agent_success ON public.agent_performance_summary USING btree (agent_id, is_success, created_at DESC);
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_agent_performance_tenant_created ON public.agent_performance_summary USING btree (tenant_id, created_at DESC);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_agent_performance_agent_success ON public.agent_performance_summary USING btree (agent_id, is_success, created_at DESC);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'llm_gating') THEN
-    CREATE INDEX IF NOT EXISTS idx_llm_gating_tenant_enabled ON public.llm_gating USING btree (tenant_id, is_enabled);
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_llm_gating_tenant_enabled ON public.llm_gating USING btree (tenant_id, is_enabled);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'progressive_rollouts') THEN
-    CREATE INDEX IF NOT EXISTS idx_progressive_rollouts_tenant_active ON public.progressive_rollouts USING btree (tenant_id, is_active);
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_progressive_rollouts_tenant_active ON public.progressive_rollouts USING btree (tenant_id, is_active);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
@@ -22152,7 +21889,10 @@ EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'feature_flags' AND column_name = 'is_enabled') THEN
-    CREATE INDEX IF NOT EXISTS idx_feature_flags_name_enabled ON public.feature_flags USING btree (name, is_enabled);
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_feature_flags_name_enabled ON public.feature_flags USING btree (name, is_enabled);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
   END IF;
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
@@ -22160,8 +21900,14 @@ EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'integration_configs' AND table_schema = 'public') THEN
-        CREATE INDEX IF NOT EXISTS idx_integration_configs_tenant_type ON public.integration_configs USING btree (tenant_id, integration_type);
-        CREATE INDEX IF NOT EXISTS idx_integration_configs_active ON public.integration_configs USING btree (is_active) WHERE is_active = true;
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_integration_configs_tenant_type ON public.integration_configs USING btree (tenant_id, integration_type);
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
+DO $idx$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_integration_configs_active ON public.integration_configs USING btree (is_active) WHERE is_active = true;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $idx$;
     END IF;
 END $$;
 
@@ -22175,14 +21921,14 @@ DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_agent_sessions_metadata_gin ON public
 DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_workflow_executions_input_gin ON public.workflow_executions USING gin (input_params) WHERE input_params IS NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_workflow_executions_output_gin ON public.workflow_executions USING gin (output_data) WHERE output_data IS NOT NULL; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000009_fix_critical_data_integrity_issues.sql
 -- ================================================
 -- Fix critical data integrity issues from database migration review
 -- Addresses missing foreign key constraints and data validation
 
-BEGIN;
+
 
 -- ============================================
 -- CRITICAL: Fix missing foreign key constraints
@@ -22296,14 +22042,14 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000010_standardize_index_naming.sql
 -- ================================================
 -- Standardize index naming conventions for better maintainability
 -- Rename indexes to follow idx_{table}_{column1}_{column2} pattern
 
-BEGIN;
+
 
 -- ============================================
 -- MEDIUM PRIORITY: Standardize index naming
@@ -22495,7 +22241,7 @@ END $$;
 
 -- Skipped: no-op index renames (source = target name)
 
-COMMIT;
+
 -- ================================================
 -- Source: supabase/migrations/20260108000011_cleanup_redundant_migration_checks.sql
 -- ================================================
@@ -22570,18 +22316,6 @@ COMMIT;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create secret_audit_logs table
-CREATE TABLE IF NOT EXISTS secret_audit_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id VARCHAR(255) NOT NULL,
-  user_id VARCHAR(255),
-  secret_key VARCHAR(255) NOT NULL,
-  action VARCHAR(50) NOT NULL CHECK (action IN ('READ', 'WRITE', 'DELETE', 'ROTATE')),
-  result VARCHAR(50) NOT NULL CHECK (result IN ('SUCCESS', 'FAILURE')),
-  error_message TEXT,
-  metadata JSONB DEFAULT '{}'::JSONB,
-  timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
 
 -- Enable RLS for secret_audit_logs
 ALTER TABLE secret_audit_logs ENABLE ROW LEVEL SECURITY;
@@ -22598,14 +22332,14 @@ CREATE POLICY "secret_audit_logs_select" ON secret_audit_logs
 -- Update user_roles table for multi-tenancy if it exists
 DO $$
 DECLARE
-  default_tenant_id TEXT := '00000000-0000-0000-0000-000000000000'; -- System/Default Tenant ID
+  default_tenant_id UUID := '00000000-0000-0000-0000-000000000000'; -- System/Default Tenant ID
   sql_statement TEXT;
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'user_roles') THEN
     -- Add tenant_id column if it doesn't exist
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_roles' AND column_name = 'tenant_id') THEN
       -- Use dynamic SQL to handle variable substitution in DDL
-      sql_statement := format('ALTER TABLE user_roles ADD COLUMN tenant_id text DEFAULT %L NOT NULL', default_tenant_id);
+      sql_statement := format('ALTER TABLE user_roles ADD COLUMN tenant_id UUID DEFAULT %L NOT NULL', default_tenant_id);
       EXECUTE sql_statement;
     END IF;
 
@@ -22640,7 +22374,7 @@ CREATE POLICY security_audit_log_service_role_insert
 DROP TABLE IF EXISTS public.teams CASCADE;
 CREATE TABLE IF NOT EXISTS public.teams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
   team_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -22976,12 +22710,12 @@ CREATE TABLE IF NOT EXISTS public.permissions (
 
 CREATE TABLE IF NOT EXISTS public.role_permissions (
   role_id uuid NOT NULL,
-  permission_id uuid NOT NULL REFERENCES public.permissions(id) ON DELETE CASCADE,
+  permission_id uuid NOT NULL,
   PRIMARY KEY (role_id, permission_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.membership_roles (
-  membership_id uuid NOT NULL REFERENCES public.memberships(id) ON DELETE CASCADE,
+  membership_id uuid NOT NULL,
   role_id uuid NOT NULL,
   PRIMARY KEY (membership_id, role_id)
 );
@@ -23052,7 +22786,7 @@ CREATE TABLE IF NOT EXISTS public.value_commitments (
 
 CREATE TABLE IF NOT EXISTS public.commitment_stakeholders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  commitment_id uuid NOT NULL,
   tenant_id uuid NOT NULL,
   user_id uuid NOT NULL,
   role text NOT NULL CHECK (role IN ('owner', 'contributor', 'approver', 'reviewer', 'observer')),
@@ -23069,7 +22803,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_stakeholders (
 
 CREATE TABLE IF NOT EXISTS public.commitment_milestones (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  commitment_id uuid NOT NULL,
   tenant_id uuid NOT NULL,
   title text NOT NULL CHECK (char_length(title) >= 1 AND char_length(title) <= 200),
   description text NOT NULL CHECK (char_length(description) >= 1 AND char_length(description) <= 1000),
@@ -23091,7 +22825,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_milestones (
 
 CREATE TABLE IF NOT EXISTS public.commitment_metrics (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  commitment_id uuid NOT NULL,
   tenant_id uuid NOT NULL,
   metric_name text NOT NULL CHECK (char_length(metric_name) >= 1 AND char_length(metric_name) <= 100),
   metric_description text NOT NULL CHECK (char_length(metric_description) >= 1 AND char_length(metric_description) <= 500),
@@ -23113,7 +22847,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_metrics (
 
 CREATE TABLE IF NOT EXISTS public.commitment_audits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  commitment_id uuid NOT NULL,
   tenant_id uuid NOT NULL,
   user_id uuid NOT NULL,
   action text NOT NULL CHECK (action IN ('created', 'updated', 'status_changed', 'stakeholder_added', 'stakeholder_removed', 'milestone_completed', 'metric_updated', 'risk_assessed')),
@@ -23128,7 +22862,7 @@ CREATE TABLE IF NOT EXISTS public.commitment_audits (
 
 CREATE TABLE IF NOT EXISTS public.commitment_risks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  commitment_id uuid NOT NULL REFERENCES public.value_commitments(id) ON DELETE CASCADE,
+  commitment_id uuid NOT NULL,
   tenant_id uuid NOT NULL,
   risk_title text NOT NULL CHECK (char_length(risk_title) >= 1 AND char_length(risk_title) <= 200),
   risk_description text NOT NULL CHECK (char_length(risk_description) >= 1 AND char_length(risk_description) <= 1000),
@@ -23247,9 +22981,11 @@ CREATE TABLE IF NOT EXISTS public.referral_codes (
 
 CREATE TABLE IF NOT EXISTS public.referrals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
     referrer_id UUID NOT NULL,
     referee_id UUID,
-    referral_code_id UUID NOT NULL REFERENCES public.referral_codes(id) ON DELETE CASCADE,
+    referral_code_id UUID NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     claimed_at TIMESTAMPTZ,
@@ -23263,7 +22999,9 @@ CREATE TABLE IF NOT EXISTS public.referrals (
 
 CREATE TABLE IF NOT EXISTS public.referral_rewards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    referral_id UUID NOT NULL REFERENCES public.referrals(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL,
+
+    referral_id UUID NOT NULL,
     user_id UUID NOT NULL,
     reward_type TEXT NOT NULL,
     reward_value TEXT NOT NULL,
@@ -23281,7 +23019,7 @@ RETURNS TEXT AS $$
 DECLARE new_code TEXT; code_exists BOOLEAN;
 BEGIN
     LOOP
-        new_code := upper(substring(encode(gen_random_bytes(4), 'hex'), 1, 8));
+        new_code := upper(substring(encode(extensions.gen_random_bytes(4), 'hex'), 1, 8));
         SELECT EXISTS(SELECT 1 FROM referral_codes WHERE code = new_code) INTO code_exists;
         IF NOT code_exists THEN EXIT; END IF;
     END LOOP;
@@ -23295,7 +23033,7 @@ $$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS public.initiatives (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL,
+  tenant_id UUID NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
   status TEXT NOT NULL CHECK (status IN ('draft', 'active', 'archived')),
@@ -23330,7 +23068,7 @@ CREATE TABLE IF NOT EXISTS public.invitations (
   tenant_id uuid NOT NULL,
   email text NOT NULL,
   role text DEFAULT 'member',
-  token text UNIQUE NOT NULL DEFAULT encode(extensions.gen_random_bytes(32), 'hex'),
+  token text UNIQUE NOT NULL DEFAULT encode(extensions.extensions.gen_random_bytes(32), 'hex'),
   invited_by uuid,
   accepted_at timestamptz,
   expires_at timestamptz DEFAULT (now() + interval '7 days'),
@@ -23345,6 +23083,8 @@ CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
 
 CREATE TABLE IF NOT EXISTS public.docs_embeddings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL,
+
   path text NOT NULL,
   content text NOT NULL,
   embedding vector(1536),
@@ -23571,3 +23311,871 @@ SELECT
   created_at
 FROM public.llm_usage;
 
+
+
+
+-- ============================================================================
+-- Deferred FK constraints (moved from inline to avoid forward-reference errors)
+-- ============================================================================
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_organizations ADD CONSTRAINT fk_user_organizations_organization_id_organizations
+    FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.integration_connections ADD CONSTRAINT fk_integration_connections_organization_id_organizations
+    FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.sync_history ADD CONSTRAINT fk_sync_history_connection_id_integration_connections
+    FOREIGN KEY (connection_id) REFERENCES public.integration_connections(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.llm_gating_policies ADD CONSTRAINT fk_llm_gating_policies_tenant_id_organizations
+    FOREIGN KEY (tenant_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.llm_usage ADD CONSTRAINT fk_llm_usage_tenant_id_organizations
+    FOREIGN KEY (tenant_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.llm_usage ADD CONSTRAINT fk_llm_usage_UUID_audit_logs
+    FOREIGN KEY (UUID) REFERENCES public.audit_logs(id) ON DELETE SET;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.organization_configurations ADD CONSTRAINT fk_organization_configurations_organization_id_organizations
+    FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.legal_holds ADD CONSTRAINT fk_legal_holds_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_deletions ADD CONSTRAINT fk_user_deletions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.cross_region_transfers ADD CONSTRAINT fk_cross_region_transfers_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.usage_events ADD CONSTRAINT fk_usage_events_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.usage_quotas ADD CONSTRAINT fk_usage_quotas_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_consents ADD CONSTRAINT fk_user_consents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.security_incidents ADD CONSTRAINT fk_security_incidents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.data_region_changes ADD CONSTRAINT fk_data_region_changes_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.sessions ADD CONSTRAINT fk_sessions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.temp_files ADD CONSTRAINT fk_temp_files_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.legal_holds ADD CONSTRAINT fk_legal_holds_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_deletions ADD CONSTRAINT fk_user_deletions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.cross_region_transfers ADD CONSTRAINT fk_cross_region_transfers_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_consents ADD CONSTRAINT fk_user_consents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.security_incidents ADD CONSTRAINT fk_security_incidents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.data_region_changes ADD CONSTRAINT fk_data_region_changes_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.sessions ADD CONSTRAINT fk_sessions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.temp_files ADD CONSTRAINT fk_temp_files_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.customer_access_tokens ADD CONSTRAINT fk_customer_access_tokens_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_elements ADD CONSTRAINT fk_canvas_elements_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_presence ADD CONSTRAINT fk_canvas_presence_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_comments ADD CONSTRAINT fk_canvas_comments_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_comments ADD CONSTRAINT fk_canvas_comments_element_id_canvas_elements
+    FOREIGN KEY (element_id) REFERENCES public.canvas_elements(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_comments ADD CONSTRAINT fk_canvas_comments_parent_comment_id_canvas_comments
+    FOREIGN KEY (parent_comment_id) REFERENCES public.canvas_comments(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.realization_metrics ADD CONSTRAINT fk_realization_metrics_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.value_drivers ADD CONSTRAINT fk_value_drivers_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.financial_models ADD CONSTRAINT fk_financial_models_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.opportunities ADD CONSTRAINT fk_opportunities_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.opportunities ADD CONSTRAINT fk_opportunities_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.workflow_stage_runs ADD CONSTRAINT fk_workflow_stage_runs_execution_id_workflow_executions
+    FOREIGN KEY (execution_id) REFERENCES public.workflow_executions(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_users ADD CONSTRAINT fk_guest_users_organization_id_organizations
+    FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_access_tokens ADD CONSTRAINT fk_guest_access_tokens_guest_user_id_guest_users
+    FOREIGN KEY (guest_user_id) REFERENCES public.guest_users(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_access_tokens ADD CONSTRAINT fk_guest_access_tokens_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_activity_log ADD CONSTRAINT fk_guest_activity_log_guest_user_id_guest_users
+    FOREIGN KEY (guest_user_id) REFERENCES public.guest_users(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_activity_log ADD CONSTRAINT fk_guest_activity_log_guest_access_token_id_guest_access_tokens
+    FOREIGN KEY (guest_access_token_id) REFERENCES public.guest_access_tokens(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_activity_log ADD CONSTRAINT fk_guest_activity_log_value_case_id_value_cases
+    FOREIGN KEY (value_case_id) REFERENCES public.value_cases(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.teams ADD CONSTRAINT fk_teams_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.role_permissions ADD CONSTRAINT fk_role_permissions_permission_id_permissions
+    FOREIGN KEY (permission_id) REFERENCES public.permissions(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.membership_roles ADD CONSTRAINT fk_membership_roles_membership_id_memberships
+    FOREIGN KEY (membership_id) REFERENCES public.memberships(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.commitment_stakeholders ADD CONSTRAINT fk_commitment_stakeholders_commitment_id_value_commitments
+    FOREIGN KEY (commitment_id) REFERENCES public.value_commitments(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.commitment_milestones ADD CONSTRAINT fk_commitment_milestones_commitment_id_value_commitments
+    FOREIGN KEY (commitment_id) REFERENCES public.value_commitments(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.commitment_metrics ADD CONSTRAINT fk_commitment_metrics_commitment_id_value_commitments
+    FOREIGN KEY (commitment_id) REFERENCES public.value_commitments(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.commitment_audits ADD CONSTRAINT fk_commitment_audits_commitment_id_value_commitments
+    FOREIGN KEY (commitment_id) REFERENCES public.value_commitments(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.commitment_risks ADD CONSTRAINT fk_commitment_risks_commitment_id_value_commitments
+    FOREIGN KEY (commitment_id) REFERENCES public.value_commitments(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.referrals ADD CONSTRAINT fk_referrals_referral_code_id_referral_codes
+    FOREIGN KEY (referral_code_id) REFERENCES public.referral_codes(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.referral_rewards ADD CONSTRAINT fk_referral_rewards_referral_id_referrals
+    FOREIGN KEY (referral_id) REFERENCES public.referrals(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+
+-- ============================================================================
+-- Table relationship comments
+-- ============================================================================
+COMMENT ON TABLE public.tenants IS 'Top-level isolation boundary for multi-tenancy. All business data is scoped to a tenant via tenant_id FK.';
+DO $c$ BEGIN
+  COMMENT ON TABLE public.organizations IS 'Organizations belong to a tenant. A tenant may have multiple organizations.';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $c$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.legal_holds ADD CONSTRAINT fk_legal_holds_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_deletions ADD CONSTRAINT fk_user_deletions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.cross_region_transfers ADD CONSTRAINT fk_cross_region_transfers_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.usage_events ADD CONSTRAINT fk_usage_events_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.usage_quotas ADD CONSTRAINT fk_usage_quotas_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_consents ADD CONSTRAINT fk_user_consents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.security_incidents ADD CONSTRAINT fk_security_incidents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.data_region_changes ADD CONSTRAINT fk_data_region_changes_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.sessions ADD CONSTRAINT fk_sessions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.temp_files ADD CONSTRAINT fk_temp_files_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.legal_holds ADD CONSTRAINT fk_legal_holds_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_deletions ADD CONSTRAINT fk_user_deletions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.cross_region_transfers ADD CONSTRAINT fk_cross_region_transfers_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_consents ADD CONSTRAINT fk_user_consents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.security_incidents ADD CONSTRAINT fk_security_incidents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.data_region_changes ADD CONSTRAINT fk_data_region_changes_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.sessions ADD CONSTRAINT fk_sessions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.temp_files ADD CONSTRAINT fk_temp_files_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.opportunities ADD CONSTRAINT fk_opportunities_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.teams ADD CONSTRAINT fk_teams_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.prompt_versions ADD CONSTRAINT fk_prompt_versions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.academy_progress ADD CONSTRAINT fk_academy_progress_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.ab_tests ADD CONSTRAINT fk_ab_tests_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.academy_certifications ADD CONSTRAINT fk_academy_certifications_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.agent_accuracy_metrics ADD CONSTRAINT fk_agent_accuracy_metrics_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.agent_activities ADD CONSTRAINT fk_agent_activities_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.agent_audit_log ADD CONSTRAINT fk_agent_audit_log_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.agent_ontologies ADD CONSTRAINT fk_agent_ontologies_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.agent_tools ADD CONSTRAINT fk_agent_tools_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.agents ADD CONSTRAINT fk_agents_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.approval_requests ADD CONSTRAINT fk_approval_requests_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.approvals ADD CONSTRAINT fk_approvals_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.approver_roles ADD CONSTRAINT fk_approver_roles_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.assumptions ADD CONSTRAINT fk_assumptions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.audit_logs ADD CONSTRAINT fk_audit_logs_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.audit_logs_archive ADD CONSTRAINT fk_audit_logs_archive_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.business_cases ADD CONSTRAINT fk_business_cases_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_components ADD CONSTRAINT fk_canvas_components_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.company_profiles ADD CONSTRAINT fk_company_profiles_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.component_history ADD CONSTRAINT fk_component_history_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.component_relationships ADD CONSTRAINT fk_component_relationships_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.confidence_violations ADD CONSTRAINT fk_confidence_violations_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.contextual_triggers ADD CONSTRAINT fk_contextual_triggers_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.cost_alerts ADD CONSTRAINT fk_cost_alerts_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.evaluation_runs ADD CONSTRAINT fk_evaluation_runs_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.feature_flag_evaluations ADD CONSTRAINT fk_feature_flag_evaluations_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.feature_flags ADD CONSTRAINT fk_feature_flags_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.financial_models ADD CONSTRAINT fk_financial_models_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.golden_examples ADD CONSTRAINT fk_golden_examples_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.integration_usage_log ADD CONSTRAINT fk_integration_usage_log_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.kpi_hypotheses ADD CONSTRAINT fk_kpi_hypotheses_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.llm_calls ADD CONSTRAINT fk_llm_calls_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.llm_job_results ADD CONSTRAINT fk_llm_job_results_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.memory_provenance ADD CONSTRAINT fk_memory_provenance_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.message_bus ADD CONSTRAINT fk_message_bus_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.policy_rules ADD CONSTRAINT fk_policy_rules_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.prompt_executions ADD CONSTRAINT fk_prompt_executions_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.rate_limit_violations ADD CONSTRAINT fk_rate_limit_violations_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.resource_artifacts ADD CONSTRAINT fk_resource_artifacts_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.semantic_memory ADD CONSTRAINT fk_semantic_memory_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.subscription_items ADD CONSTRAINT fk_subscription_items_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.task_queue ADD CONSTRAINT fk_task_queue_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.value_ledger ADD CONSTRAINT fk_value_ledger_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.value_maps ADD CONSTRAINT fk_value_maps_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.value_prediction_accuracy ADD CONSTRAINT fk_value_prediction_accuracy_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.webhook_events ADD CONSTRAINT fk_webhook_events_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.hitl_requests ADD CONSTRAINT fk_hitl_requests_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.user_organizations ADD CONSTRAINT fk_user_organizations_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.integration_connections ADD CONSTRAINT fk_integration_connections_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.sync_history ADD CONSTRAINT fk_sync_history_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.organization_configurations ADD CONSTRAINT fk_organization_configurations_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.feature_rollouts ADD CONSTRAINT fk_feature_rollouts_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.feature_usage ADD CONSTRAINT fk_feature_usage_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.feature_errors ADD CONSTRAINT fk_feature_errors_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.job_execution_history ADD CONSTRAINT fk_job_execution_history_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.credential_access_log ADD CONSTRAINT fk_credential_access_log_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.customer_access_tokens ADD CONSTRAINT fk_customer_access_tokens_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_elements ADD CONSTRAINT fk_canvas_elements_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_presence ADD CONSTRAINT fk_canvas_presence_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.canvas_comments ADD CONSTRAINT fk_canvas_comments_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.realization_metrics ADD CONSTRAINT fk_realization_metrics_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.value_drivers ADD CONSTRAINT fk_value_drivers_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.workflow_stage_runs ADD CONSTRAINT fk_workflow_stage_runs_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_users ADD CONSTRAINT fk_guest_users_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_access_tokens ADD CONSTRAINT fk_guest_access_tokens_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.guest_activity_log ADD CONSTRAINT fk_guest_activity_log_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.referrals ADD CONSTRAINT fk_referrals_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.referral_rewards ADD CONSTRAINT fk_referral_rewards_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;
+
+DO $fk$ BEGIN
+  ALTER TABLE public.docs_embeddings ADD CONSTRAINT fk_docs_embeddings_tenant_id_tenants
+    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $fk$;

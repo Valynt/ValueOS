@@ -10,7 +10,7 @@
 
 CREATE TABLE IF NOT EXISTS public.crm_connections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES public.tenants(id),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     provider TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'disconnected',
     access_token_enc TEXT,          -- encrypted at application layer
@@ -44,7 +44,7 @@ COMMENT ON TABLE public.crm_connections IS 'CRM OAuth connections per tenant. To
 
 CREATE TABLE IF NOT EXISTS public.crm_object_maps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES public.tenants(id),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     provider TEXT NOT NULL,
     object_type TEXT NOT NULL,       -- 'account', 'opportunity', 'contact'
     external_id TEXT NOT NULL,
@@ -68,7 +68,7 @@ COMMENT ON TABLE public.crm_object_maps IS 'Maps CRM external IDs to internal Va
 
 CREATE TABLE IF NOT EXISTS public.crm_webhook_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES public.tenants(id),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     provider TEXT NOT NULL,
     idempotency_key TEXT NOT NULL,
     event_type TEXT NOT NULL,
@@ -94,7 +94,7 @@ COMMENT ON TABLE public.crm_webhook_events IS 'Stores CRM webhook events for ide
 
 CREATE TABLE IF NOT EXISTS public.crm_stage_triggers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES public.tenants(id),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     provider TEXT NOT NULL,
     stage_name TEXT NOT NULL,        -- CRM stage name that triggers scaffolding
     action TEXT NOT NULL DEFAULT 'scaffold_value_case',
@@ -116,7 +116,7 @@ COMMENT ON TABLE public.crm_stage_triggers IS 'Tenant-configurable CRM stage tri
 
 CREATE TABLE IF NOT EXISTS public.provenance_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES public.tenants(id),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     source_type TEXT NOT NULL,       -- 'crm', 'agent', 'user', 'benchmark'
     source_provider TEXT,            -- 'salesforce', 'hubspot', etc.
     external_object_type TEXT,       -- 'opportunity', 'account', etc.
@@ -142,7 +142,7 @@ COMMENT ON TABLE public.provenance_records IS 'Tracks data lineage for CRM-impor
 
 CREATE TABLE IF NOT EXISTS public.value_case_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES public.tenants(id),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT,
     template_data JSONB NOT NULL DEFAULT '{}',
@@ -159,7 +159,7 @@ COMMENT ON TABLE public.value_case_templates IS 'Templates for scaffolding new v
 
 CREATE TABLE IF NOT EXISTS public.value_case_sagas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES public.tenants(id),
+    tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     value_case_id UUID NOT NULL REFERENCES public.value_cases(id) ON DELETE CASCADE,
     state TEXT NOT NULL DEFAULT 'INITIATED',
     previous_state TEXT,

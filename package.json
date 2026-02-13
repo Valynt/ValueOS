@@ -99,6 +99,9 @@
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-storybook": "^10.2.8",
     "globals": "^16.5.0",
+    "supabase": "^2.76.8",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript-eslint": "^8.55.0",
     "vitest": "^4.0.17"
   },
