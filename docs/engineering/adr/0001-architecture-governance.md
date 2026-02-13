@@ -7,7 +7,7 @@
   - We lacked a single source of truth for recording decisions, keeping diagrams current, and aligning runbooks with system behavior.
 
 - **Decision:**
-  - Establish `/docs/adr` as the canonical home for architecture decision records. Use numbered markdown files with status, context, decision, and consequences.
+  - Establish `/docs/engineering/adr` as the canonical home for architecture decision records. Use numbered markdown files with status, context, decision, and consequences.
   - Store diagrams-as-code in `/docs/diagrams` (Mermaid by default) and require updates in the same change set as the behavior they depict.
   - Tie operational runbooks to architecture changes: deployment, rollback, and on-call runbooks in `/docs/runbooks` must be updated when components, dependencies, or release processes change.
   - Reference relevant ADR IDs and diagrams in PR descriptions and link runbook updates when operational impact exists.
@@ -16,4 +16,4 @@
   - Contributors must create or amend ADRs for changes that affect system boundaries, data flows, reliability posture, or external contracts.
   - Diagrams are diffable and reviewed with code, preventing drift between design and implementation.
   - Runbooks stay aligned with the current architecture, reducing deployment and incident risk.
-  - CODEOWNERS coverage on `/docs/adr`, `/docs/diagrams`, and `/docs/runbooks` enforces reviews from the appropriate subject-matter owners.
+  - CODEOWNERS coverage on `/docs/engineering/adr`, `/docs/diagrams`, and `/docs/runbooks` enforces reviews from the appropriate subject-matter owners.

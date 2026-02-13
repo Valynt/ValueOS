@@ -6,7 +6,7 @@ An interactive education platform for Value Operating System (VOS) training that
 
 ## Governance, ADRs, and diagrams-as-code
 
-- Architecture decisions are recorded in `/docs/adr` using numbered markdown files. See `ADR 0001` for governance expectations.
+- Architecture decisions are recorded in `/docs/engineering/adr` using numbered markdown files. See `ADR 0001` for governance expectations.
 - Diagrams-as-code live in `/docs/diagrams`; the current system view is maintained in `vos-education-hub-architecture.mmd` (Mermaid).
 - Operational runbooks for deploy, rollback, and on-call live in `/docs/runbooks` and must be updated alongside architecture-impacting changes.
 
@@ -339,7 +339,7 @@ API Server (Backend - Node.js/Python)
 - **Operational Readiness**: Maintain incident response playbooks (triage, containment, comms), quarterly access reviews for cloud/CI/CD secrets, tested DR/backup procedures (RPO 24h, RTO 4h targets), and automated key rotation runbooks for API keys and database credentials.
 
 ### Documentation and Governance
-- **ADRs and Diagrams-as-Code**: Record architecture decisions in `/docs/adr` using markdown templates; keep architecture diagrams in version control (e.g., Mermaid/Structurizr) with reviews alongside code changes.
+- **ADRs and Diagrams-as-Code**: Record architecture decisions in `/docs/engineering/adr` using markdown templates; keep architecture diagrams in version control (e.g., Mermaid/Structurizr) with reviews alongside code changes.
 - **Runbooks**: Store deploy, rollback, on-call, and incident runbooks in `/docs/runbooks`; require updates as part of change approvals.
 - **Contribution and Ownership**: Enforce contribution guidelines at the repository root, require CODEOWNERS approvals for scoped areas (frontend, backend, docs, security), and auto-assign reviewers.
 
