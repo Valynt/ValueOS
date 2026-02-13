@@ -23,6 +23,33 @@ interface ProxyEmbeddingRequest {
 }
 
 class LlmProxyClient {
+  private static readonly MAX_RESPONSE_LENGTH = 4000;
+
+  private sanitizeOutput(
+    content: string,
+    provider: LLMProvider | undefined,
+    action: 'response-sanitized' | 'response-tools-sanitized'
+  ): string {
+    const legacySanitized = sanitizeLLMContent(content || '');
+    const result = llmSanitizer.sanitizeResponse(legacySanitized, { allowHtml: false });
+    const boundedContent = result.content.slice(0, LlmProxyClient.MAX_RESPONSE_LENGTH);
+
+    if (result.wasModified || result.violations.length > 0 || boundedContent.length < result.content.length) {
+      securityLogger.log({
+        category: 'llm',
+        action,
+        severity: result.violations.length > 0 ? 'warn' : 'info',
+        metadata: {
+          provider,
+          violations: result.violations,
+          truncated: boundedContent.length < result.content.length,
+        },
+      });
+    }
+
+    return boundedContent;
+  }
+
   async complete({ messages, config, provider }: ProxyChatRequest): Promise<LLMResponse> {
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
       return {
@@ -65,22 +92,7 @@ class LlmProxyClient {
       throw new Error(`LLM proxy failed: ${error.message}`);
     }
 
-    const legacySanitized = sanitizeLLMContent(data.content);
-    const result = llmSanitizer.sanitizeResponse(legacySanitized, { allowHtml: false });
-    const boundedContent = result.content.slice(0, 4000);
-
-    if (result.wasModified || result.violations.length > 0 || boundedContent.length < result.content.length) {
-      securityLogger.log({
-        category: 'llm',
-        action: 'response-sanitized',
-        severity: result.violations.length > 0 ? 'warn' : 'info',
-        metadata: {
-          provider: data.provider,
-          violations: result.violations,
-          truncated: boundedContent.length < result.content.length,
-        },
-      });
-    }
+    const boundedContent = this.sanitizeOutput(data.content, data.provider, 'response-sanitized');
 
     return {
       content: boundedContent,
@@ -100,10 +112,18 @@ class LlmProxyClient {
       };
     }
 
-    const sanitizedMessages = messages.map(msg => ({
-      ...msg,
-      content: msg.content ? llmSanitizer.sanitizePrompt(msg.content).content : '',
-    }));
+    const sanitizedMessages = messages.map(msg => {
+      const result = llmSanitizer.sanitizePrompt(msg.content);
+      if (result.violations.length > 0) {
+        securityLogger.log({
+          category: 'llm',
+          action: 'prompt-sanitized',
+          severity: 'warn',
+          metadata: { violations: result.violations },
+        });
+      }
+      return { ...msg, content: result.content };
+    });
 
     const { data, error } = await supabase.functions.invoke('llm-proxy', {
       body: {
@@ -125,7 +145,7 @@ class LlmProxyClient {
       throw new Error(`LLM proxy with tools failed: ${error.message}`);
     }
 
-    const sanitizedContent = data.content ? sanitizeLLMContent(data.content) : '';
+    const sanitizedContent = this.sanitizeOutput(data.content || '', data.provider, 'response-tools-sanitized');
 
     return {
       content: sanitizedContent,
