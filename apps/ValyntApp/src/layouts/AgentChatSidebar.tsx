@@ -37,7 +37,7 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
       {/* Panel */}
       <aside
         className={cn(
-          "fixed right-0 top-0 h-full w-[450px] bg-white z-50 flex flex-col transition-transform duration-300 ease-out",
+          "fixed right-0 top-0 h-full w-screen max-w-[450px] overflow-x-hidden bg-white z-50 flex flex-col transition-transform duration-300 ease-out",
           "shadow-[-60px_0_60px_-15px_rgba(0,0,0,0.08)]",
           open ? "translate-x-0" : "translate-x-full"
         )}
@@ -53,7 +53,10 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
               <p className="text-[11px] text-emerald-600 font-medium">Online</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100">
+          <button
+            onClick={onClose}
+            className="min-h-11 min-w-11 p-2 rounded-lg hover:bg-zinc-100 flex items-center justify-center"
+          >
             <X className="w-5 h-5 text-zinc-400" />
           </button>
         </div>

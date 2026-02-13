@@ -10,7 +10,7 @@ export function MainLayout() {
   const [agentOpen, setAgentOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-[#fafafa] text-zinc-900">
+    <div className="flex h-screen bg-[#fafafa] text-zinc-900 overflow-x-hidden">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -22,7 +22,7 @@ export function MainLayout() {
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-out lg:translate-x-0 lg:static lg:inset-0",
+          "fixed inset-y-0 left-0 z-50 max-w-full transform transition-transform duration-200 ease-out lg:translate-x-0 lg:static lg:inset-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
