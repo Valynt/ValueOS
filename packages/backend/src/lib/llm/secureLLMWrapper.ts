@@ -5,7 +5,6 @@
  * PII detection, and content filtering.
  */
 
-import { logger } from '../logger.js';
 
 export interface SecureLLMConfig {
   enable_pii_detection: boolean;
@@ -138,4 +137,8 @@ export class SecureLLMWrapper {
 
 export function createSecureLLMWrapper(config: SecureLLMConfig): SecureLLMWrapper {
   return new SecureLLMWrapper(config);
+}
+
+export async function secureLLMComplete(prompt: string, _options?: Record<string, unknown>): Promise<string> {
+  return prompt;
 }

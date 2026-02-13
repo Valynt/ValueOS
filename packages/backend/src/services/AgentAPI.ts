@@ -12,7 +12,7 @@ import type { AgentContext, AgentType } from './agent-types.js'
 import { logger } from '../lib/logger.js'
 import { CircuitBreaker } from './CircuitBreaker.js'
 import { SDUIPageDefinition, validateSDUISchema } from '@sdui/schema';
-import { getAuditLogger, logAgentResponse } from './AgentAuditLogger.js'
+import { logAgentResponse } from './AgentAuditLogger.js'
 import { getConfig } from '../config/environment.js'
 import { llmSanitizer } from './LLMSanitizer.js'
 import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security/index.js'
@@ -658,6 +658,15 @@ export class AgentAPI {
       ...options,
       context,
     });
+  }
+
+  /**
+   * Invoke an agent (alias for invokeAgent)
+   */
+  async invoke<T = any>(
+    request: AgentRequest
+  ): Promise<AgentResponse<T>> {
+    return this.invokeAgent<T>(request);
   }
 
   /**

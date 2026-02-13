@@ -1,3 +1,4 @@
+// Only export the component for fast refresh compatibility
 import React, { useState } from "react";
 import {
   Dialog,

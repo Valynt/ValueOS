@@ -1,10 +1,8 @@
 import { Queue, Worker, Job } from "bullmq";
 import { logger } from "../lib/logger.js"
 import { getAgentAPI } from "./AgentAPI.js"
-import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator.js"
 import { AgentType } from "./agent-types.js"
 import {
-  getServiceConfigManager,
   getAgentMessageQueueConfig,
 } from "../config/ServiceConfigManager";
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"

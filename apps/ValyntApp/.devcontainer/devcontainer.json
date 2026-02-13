@@ -1,0 +1,15 @@
+{
+  "name": "ValyntApp",
+  "dockerComposeFile": [
+    "../../../ops/compose/compose.yml",
+    "../../../ops/compose/profiles/supabase.yml",
+    "../../../ops/compose/profiles/observability.yml",
+    "../../../ops/compose/devcontainer.yml"
+  ],
+  "service": "dev",
+  "workspaceFolder": "/workspaces/ValueOS/apps/ValyntApp",
+  "shutdownAction": "stopCompose",
+  "runServices": [
+    "dev"
+  ]
+}

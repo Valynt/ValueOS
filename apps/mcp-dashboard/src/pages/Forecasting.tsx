@@ -5,10 +5,9 @@ import {
   Loader,
   TrendingUp,
 } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import {
-  FinancialBarChart,
   FinancialLineChart,
 } from "../components/charts/FinancialCharts";
 
@@ -430,8 +429,7 @@ FY2023,1520875`}
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                     <div
-                      className="bg-green-500 h-2 rounded-full"
-                      style={{ width: "85%" }}
+                      className="bg-green-500 h-2 rounded-full w-5/6"
                     />
                   </div>
                 </div>

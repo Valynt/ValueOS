@@ -6,7 +6,7 @@
 import { NextFunction, Request, Response } from 'express';
 import UsageCache from '../services/metering/UsageCache';
 import GracePeriodService from '../services/metering/GracePeriodService';
-import { BillingMetric, GRACE_PERIOD_MS, isHardCap, PlanTier } from '../config/billing';
+import { BillingMetric, isHardCap, PlanTier } from '../config/billing';
 import { Logger } from '../utils/logger';
 import SubscriptionService from '../services/billing/SubscriptionService';
 import { createServerSupabaseClient } from '../lib/supabase';

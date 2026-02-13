@@ -7,20 +7,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Activity, 
   Clock, 
-  AlertTriangle, 
   CheckCircle, 
   XCircle, 
   TrendingUp,
-  Filter,
   RefreshCw,
   Play,
   Pause,
   Search
 } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
-import { secureMessageBus } from '../lib/agent-fabric/SecureMessageBus';
-import { auditLogService } from '../services/AuditLogService';
-import { AgentIdentity } from '../lib/auth/AgentIdentity';
+import { auditLogService } from '@backend/services/AuditLogService';
 
 // ============================================================================
 // Types

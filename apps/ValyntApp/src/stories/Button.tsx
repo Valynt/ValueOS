@@ -1,4 +1,3 @@
-import React from 'react';
 
 import './button.css';
 
@@ -24,11 +23,13 @@ export const Button = ({
   ...props
 }: ButtonProps) => {
   const mode = primary ? 'storybook-button--primary' : 'storybook-button--secondary';
+  // Use a CSS variable for background color if provided, else rely on className
+  const style = backgroundColor ? { '--storybook-bg': backgroundColor } : undefined;
   return (
     <button
       type="button"
       className={['storybook-button', `storybook-button--${size}`, mode].join(' ')}
-      style={{ backgroundColor }}
+      style={style}
       {...props}
     >
       {label}

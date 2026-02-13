@@ -17,11 +17,8 @@ import {
   StructuralGraph,
   StructuralPersona,
   StructuralIndustry,
-  ImprovementDirection,
-  FormulaResult,
   FormulaStep,
   ValidationResult,
-  checkBenchmarkAlignment,
 } from "../types/structural-truth";
 import {
   ALL_STRUCTURAL_KPIS,
@@ -30,6 +27,7 @@ import {
   EXTENDED_STRUCTURAL_PERSONA_MAPS,
 } from "../types/structural-data";
 import { evaluateFormula } from "@/utils/formulas";
+import { logger } from "../lib/logger";
 
 export interface FormulaInput {
   kpiId: string;
@@ -96,7 +94,7 @@ export class StructuralTruth {
       if (!this.edgeMap.has(edge.sourceId)) {
         this.edgeMap.set(edge.sourceId, []);
       }
-      this.edgeMap.get(edge.sourceId)!.push(edge);
+          this.edgeMap.get(edge.sourceId)?.push(edge);
     });
 
     // Build formula registry
@@ -113,7 +111,7 @@ export class StructuralTruth {
       formulas: INITIAL_FORMULA_REGISTRY,
     };
 
-    console.log(
+    logger.info(
       `[StructuralTruth] Initialized with ${this.kpiMap.size} KPIs, ${this.edgeMap.size} edges, ${this.formulaRegistry.size} formulas`
     );
   }

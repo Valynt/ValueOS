@@ -6,6 +6,10 @@ import { logger } from "@shared/lib/logger";
 import { SDUIComponentSection, SDUIPageDefinition } from "../schema";
 import { ComponentMetadata, RenderPerformanceMetrics } from "../types";
 
+function isComponentSection(section: { type: string }): section is SDUIComponentSection {
+  return section.type === "component";
+}
+
 /**
  * Generate a unique key for a component section
  */
@@ -24,7 +28,7 @@ export function requiresHydration(section: SDUIComponentSection): boolean {
  * Count components that require hydration in a page
  */
 export function countHydratableComponents(page: SDUIPageDefinition): number {
-  return page.sections.filter(requiresHydration).length;
+  return page.sections.filter(isComponentSection).filter(requiresHydration).length;
 }
 
 /**
@@ -33,9 +37,9 @@ export function countHydratableComponents(page: SDUIPageDefinition): number {
 export function extractEndpoints(page: SDUIPageDefinition): string[] {
   const endpoints = new Set<string>();
 
-  page.sections.forEach((section) => {
+  page.sections.filter(isComponentSection).forEach((section) => {
     if (section.hydrateWith) {
-      section.hydrateWith.forEach((endpoint) => endpoints.add(endpoint));
+      section.hydrateWith.forEach((endpoint: string) => endpoints.add(endpoint));
     }
   });
 
@@ -85,7 +89,7 @@ export function calculatePerformanceMetrics(
  * Merge multiple data objects, with later objects taking precedence
  */
 export function mergeData(...sources: Array<Record<string, any> | null>): Record<string, any> {
-  return sources.reduce((acc, source) => {
+  return sources.reduce<Record<string, any>>((acc, source) => {
     if (source && typeof source === "object") {
       return { ...acc, ...source };
     }

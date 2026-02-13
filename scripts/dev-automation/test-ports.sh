@@ -32,7 +32,7 @@ API_PORT="${API_PORT:-3001}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 PROMETHEUS_PORT="${PROMETHEUS_PORT:-9090}"
-JAEGER_PORT="${JAEGER_PORT:-16686}"
+GRAFANA_PORT="${GRAFANA_PORT:-3000}"
 
 test_port() {
     local port=$1
@@ -59,7 +59,7 @@ test_port "$API_PORT" "Backend API" && PASSED=$((PASSED + 1)) || FAILED=$((FAILE
 test_port "$POSTGRES_PORT" "PostgreSQL" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 test_port "$REDIS_PORT" "Redis" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 test_port "$PROMETHEUS_PORT" "Prometheus" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
-test_port "$JAEGER_PORT" "Jaeger UI" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
+test_port "$GRAFANA_PORT" "Grafana" && PASSED=$((PASSED + 1)) || FAILED=$((FAILED + 1))
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

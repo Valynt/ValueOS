@@ -1,6 +1,6 @@
 /**
  * Realtime Update Service
- * 
+ *
  * Manages real-time SDUI updates via WebSocket.
  * Handles push notifications, conflict resolution, and state synchronization.
  */
@@ -20,7 +20,7 @@ class BrowserEventEmitter {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event)!.push(listener);
+    this.listeners.get(event)?.push(listener);
   }
 
   off(event: string, listener: Function): void {
@@ -196,7 +196,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
       this.subscriptions.set(workspaceId, new Set());
     }
 
-    this.subscriptions.get(workspaceId)!.add(callback);
+    this.subscriptions.get(workspaceId)?.add(callback);
 
     logger.debug('Subscribed to updates', { workspaceId });
 

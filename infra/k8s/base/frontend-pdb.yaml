@@ -1,0 +1,16 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: valynt
+  labels:
+    app: frontend
+    component: web
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: valynt
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: frontend

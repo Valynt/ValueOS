@@ -42,7 +42,7 @@ echo -e "${BLUE}Step 2: Generate Server Certificates${NC}"
 echo "------------------------------------"
 
 # Server names
-SERVERS=("app" "postgres" "redis" "jaeger" "prometheus" "grafana")
+SERVERS=("app" "postgres" "redis" "tempo" "prometheus" "grafana")
 
 for SERVER in "${SERVERS[@]}"; do
   echo "  → Generating certificate for ${SERVER}..."

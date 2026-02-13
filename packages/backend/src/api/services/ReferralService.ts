@@ -10,7 +10,6 @@ import {
   Referral,
   ReferralReward,
   ReferralStats,
-  GenerateReferralCodeRequest,
   GenerateReferralCodeResponse,
   ClaimReferralRequest,
   ClaimReferralResponse,
@@ -20,7 +19,14 @@ import {
 const logger = createLogger({ component: 'ReferralService' });
 
 export class ReferralService {
-  private supabase = createServerSupabaseClient();
+  private _supabase: ReturnType<typeof createServerSupabaseClient> | null = null;
+
+  private get supabase() {
+    if (!this._supabase) {
+      this._supabase = createServerSupabaseClient();
+    }
+    return this._supabase;
+  }
 
   /**
    * Generate or retrieve referral code for a user

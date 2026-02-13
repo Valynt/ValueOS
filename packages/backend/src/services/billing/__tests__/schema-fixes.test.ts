@@ -322,6 +322,6 @@ describe("SaaS Schema Architecture Fixes", () => {
 });
 
 afterEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   jest.resetModules();
 });

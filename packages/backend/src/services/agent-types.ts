@@ -41,6 +41,28 @@ export type AgentType =
   | 'narrative'
   | 'groundtruth';
 
+/** Runtime array of all valid AgentType values. */
+export const AgentType = [
+  'opportunity',
+  'target',
+  'realization',
+  'expansion',
+  'integrity',
+  'company-intelligence',
+  'financial-modeling',
+  'value-mapping',
+  'system-mapper',
+  'intervention-designer',
+  'outcome-engineer',
+  'coordinator',
+  'value-eval',
+  'communicator',
+  'research',
+  'benchmark',
+  'narrative',
+  'groundtruth',
+] as const;
+
 /**
  * Agent request context
  */

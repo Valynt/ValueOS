@@ -29,3 +29,30 @@ export class CryptoUtils {
     return signature.startsWith('signature_');
   }
 }
+
+// Named function exports for consumers that import { encrypt, decrypt, ... }
+export const encrypt = CryptoUtils.encrypt.bind(CryptoUtils);
+export const decrypt = CryptoUtils.decrypt.bind(CryptoUtils);
+export const hash = CryptoUtils.hash.bind(CryptoUtils);
+export const sign = CryptoUtils.sign.bind(CryptoUtils);
+export const verify = CryptoUtils.verify.bind(CryptoUtils);
+export const generateRandomBytes = CryptoUtils.generateRandomBytes.bind(CryptoUtils);
+
+export function generateEncryptionKey(): string {
+  return CryptoUtils.generateRandomBytes(32);
+}
+
+/**
+ * Constant-time comparison of two objects (serialized to JSON).
+ * Prevents timing attacks when comparing sensitive data.
+ */
+export function constantTimeCompareObjects(a: unknown, b: unknown): boolean {
+  const strA = JSON.stringify(a);
+  const strB = JSON.stringify(b);
+  if (strA.length !== strB.length) return false;
+  let result = 0;
+  for (let i = 0; i < strA.length; i++) {
+    result |= strA.charCodeAt(i) ^ strB.charCodeAt(i);
+  }
+  return result === 0;
+}

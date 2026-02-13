@@ -24,6 +24,7 @@ import type {
   ObservableGauge,
 } from "@opentelemetry/api";
 import * as winston from "winston";
+import { logger } from "../lib/logger";
 
 // Environment configuration with defaults
 const config = {
@@ -69,7 +70,7 @@ const metricsExporter = new PrometheusExporter(
     endpoint: config.prometheusEndpoint,
   },
   () => {
-    console.log(
+    logger.info(
       `📊 Prometheus metrics available at http://localhost:${config.prometheusPort}${config.prometheusEndpoint}`
     );
   }
@@ -116,7 +117,7 @@ export async function initializeTelemetry(): Promise<void> {
   });
 
   await sdk.start();
-  console.log("✅ OpenTelemetry initialized");
+  logger.info("✅ OpenTelemetry initialized");
 
   // Graceful shutdown
   process.on("SIGTERM", async () => {
@@ -135,7 +136,7 @@ export async function shutdownTelemetry(): Promise<void> {
   }
 
   await sdk.shutdown();
-  console.log("🛑 OpenTelemetry shut down");
+  logger.info("🛑 OpenTelemetry shut down");
   sdk = null;
 }
 

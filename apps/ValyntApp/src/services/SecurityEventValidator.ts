@@ -315,7 +315,7 @@ export class SecurityEventValidator {
           value.forEach((item, index) => {
             this.validateFieldTypes(
               { item },
-              { item: { ...rules.items!, type: rules.items!.type } },
+              { item: { ...rules.items, type: rules.items?.type } },
               `${currentPath}[${index}]`,
               errors,
               warnings
@@ -397,7 +397,7 @@ export class SecurityEventValidator {
         sanitized[field] = this.sanitizeData(value, rules.properties);
       } else if (rules.type === 'array' && rules.items) {
         sanitized[field] = Array.isArray(value)
-          ? value.map(item => this.sanitizeData({ item }, { item: { ...rules.items!, type: rules.items!.type } }).item)
+          ? value.map(item => this.sanitizeData({ item }, { item: { ...rules.items, type: rules.items?.type } }).item)
           : value;
       } else {
         sanitized[field] = value;

@@ -1,16 +1,21 @@
-import registry, { httpRequestDuration } from "../lib/metrics/httpMetrics";
+import registry, { httpRequestDuration, httpRequestsTotal } from "../lib/metrics/httpMetrics.js";
 
 /**
- * Express middleware factory to record request durations using prom-client histogram.
+ * Express middleware factory to record request durations and counts.
+ * Metrics use the valuecanvas_http_* naming convention to match SLO alert rules.
  */
 export function metricsMiddleware() {
   return (req: any, res: any, next: any) => {
-    const end = httpRequestDuration.startTimer({
-      handler: req.path || "unknown",
-      method: req.method,
-    });
+    const startMs = performance.now();
     res.on("finish", () => {
-      end({ status: String(res.statusCode) });
+      const durationMs = performance.now() - startMs;
+      const labels = {
+        method: req.method,
+        route: req.route?.path || req.path || "unknown",
+        status_code: String(res.statusCode),
+      };
+      httpRequestDuration.observe(labels, durationMs);
+      httpRequestsTotal.inc(labels);
     });
     next();
   };

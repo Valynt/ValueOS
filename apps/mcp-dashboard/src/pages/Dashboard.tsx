@@ -4,18 +4,16 @@ import {
   Building2,
   CheckCircle,
   Clock,
-  DollarSign,
-  TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { useWebSocket } from "../../contexts/WebSocketContext";
 import {
   FinancialLineChart,
   MetricCard,
   NotificationList,
-} from "../charts/FinancialCharts";
+} from "../components/charts/FinancialCharts";
+import { useWebSocket } from "../index";
 
 interface DashboardStats {
   totalRequests: number;

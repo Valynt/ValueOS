@@ -1,4 +1,3 @@
-import { logger } from '../lib/logger.js'
 import { CanvasComponent } from '../types';
 import { Suggestion } from '../components/Agent/SuggestionCard';
 

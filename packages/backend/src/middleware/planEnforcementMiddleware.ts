@@ -6,13 +6,12 @@
 import { NextFunction, Request, Response } from 'express';
 import UsageCache from '../services/metering/UsageCache';
 import GracePeriodService from '../services/metering/GracePeriodService';
-import { BillingMetric, GRACE_PERIOD_MS, isHardCap, PlanTier } from '../config/billing';
+import { BillingMetric, isHardCap, PlanTier } from '../config/billing';
 import { createLogger } from '@shared/lib/logger';
 import SubscriptionService from '../services/billing/SubscriptionService';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { llmCostTracker } from '../services/LLMCostTracker.js';
 import { getAuditTrailService } from '../services/security/AuditTrailService.js';
-import { WebSocketManager } from '../services/WebSocketManager.js';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];

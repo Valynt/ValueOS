@@ -1,19 +1,19 @@
-# ValueCanvas Infrastructure - Variables
+# ValueOS Terraform Variables
 
 # General
-variable "environment" {
-  description = "Environment name (development, staging, production)"
+variable "project_name" {
+  description = "Project name"
   type        = string
-  validation {
-    condition     = contains(["development", "staging", "production"], var.environment)
-    error_message = "Environment must be development, staging, or production."
-  }
+  default     = "valueos"
 }
 
-variable "additional_tags" {
-  description = "Additional tags to apply to all resources"
-  type        = map(string)
-  default     = {}
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  validation {
+    condition     = contains(["staging", "production"], var.environment)
+    error_message = "Environment must be staging or production"
+  }
 }
 
 variable "aws_region" {
@@ -22,187 +22,130 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# VPC
+variable "domain_name" {
+  description = "Domain name for the application"
+  type        = string
+}
+
+# Networking
 variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+  description = "VPC CIDR block"
   type        = string
   default     = "10.0.0.0/16"
 }
 
+variable "availability_zones" {
+  description = "Availability zones"
+  type        = list(string)
+  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
+}
+
 variable "public_subnet_cidrs" {
-  description = "CIDR blocks for public subnets"
+  description = "Public subnet CIDR blocks"
   type        = list(string)
   default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 }
 
 variable "private_subnet_cidrs" {
-  description = "CIDR blocks for private subnets"
+  description = "Private subnet CIDR blocks"
   type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.11.0/24", "10.0.12.0/24"]
-}
-
-variable "database_subnet_cidrs" {
-  description = "CIDR blocks for database subnets"
-  type        = list(string)
-  default     = ["10.0.20.0/24", "10.0.21.0/24", "10.0.22.0/24"]
-}
-
-# EKS
-variable "kubernetes_version" {
-  description = "Kubernetes version"
-  type        = string
-  default     = "1.28"
-}
-
-variable "eks_node_instance_types" {
-  description = "EC2 instance types for EKS nodes"
-  type        = list(string)
-  default     = ["t3.medium"]
-}
-
-variable "eks_node_desired_size" {
-  description = "Desired number of EKS nodes"
-  type        = number
-  default     = 3
-}
-
-variable "eks_node_min_size" {
-  description = "Minimum number of EKS nodes"
-  type        = number
-  default     = 2
-}
-
-variable "eks_node_max_size" {
-  description = "Maximum number of EKS nodes"
-  type        = number
-  default     = 10
+  default     = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
 }
 
 # Database
-variable "use_supabase" {
-  description = "Use Supabase instead of self-hosted RDS"
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.small"
+}
+
+variable "db_allocated_storage" {
+  description = "RDS allocated storage (GB)"
+  type        = number
+  default     = 20
+}
+
+variable "db_multi_az" {
+  description = "Enable Multi-AZ for RDS"
   type        = bool
   default     = true
 }
 
-variable "db_instance_class" {
-  description = "RDS instance class"
-  type        = string
-  default     = "db.t3.medium"
-}
-
-variable "db_allocated_storage" {
-  description = "Allocated storage for RDS (GB)"
+variable "db_backup_retention_days" {
+  description = "RDS backup retention period (days)"
   type        = number
-  default     = 100
+  default     = 7
 }
 
-variable "db_max_allocated_storage" {
-  description = "Maximum allocated storage for RDS (GB)"
-  type        = number
-  default     = 500
-}
-
-variable "db_username" {
-  description = "Database username"
-  type        = string
-  default     = "valuecanvas"
-  sensitive   = true
-}
-
-variable "db_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
-}
-
-# Redis
-variable "redis_node_type" {
+# Cache
+variable "cache_node_type" {
   description = "ElastiCache node type"
   type        = string
   default     = "cache.t3.micro"
 }
 
-# Application
-variable "agent_replicas" {
-  description = "Number of replicas for each agent service"
+variable "cache_num_nodes" {
+  description = "Number of cache nodes"
   type        = number
   default     = 2
 }
 
-variable "orchestrator_replicas" {
-  description = "Number of replicas for orchestrator"
+# Frontend
+variable "frontend_image" {
+  description = "Frontend Docker image"
+  type        = string
+}
+
+variable "frontend_desired_count" {
+  description = "Desired number of frontend tasks"
   type        = number
-  default     = 3
+  default     = 2
 }
 
-variable "api_gateway_replicas" {
-  description = "Number of replicas for API gateway"
+variable "frontend_cpu" {
+  description = "Frontend task CPU units"
   type        = number
-  default     = 3
+  default     = 256
 }
 
-# Supabase
-variable "supabase_url" {
-  description = "Supabase project URL"
-  type        = string
-  sensitive   = true
+variable "frontend_memory" {
+  description = "Frontend task memory (MB)"
+  type        = number
+  default     = 512
 }
 
-variable "supabase_anon_key" {
-  description = "Supabase anonymous key"
+# Backend
+variable "backend_image" {
+  description = "Backend Docker image"
   type        = string
-  sensitive   = true
 }
 
-variable "supabase_service_key" {
-  description = "Supabase service role key"
-  type        = string
-  sensitive   = true
+variable "backend_desired_count" {
+  description = "Desired number of backend tasks"
+  type        = number
+  default     = 2
 }
 
-# LLM Providers
-variable "together_api_key" {
-  description = "Together.ai API key"
-  type        = string
-  sensitive   = true
+variable "backend_cpu" {
+  description = "Backend task CPU units"
+  type        = number
+  default     = 512
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key (fallback)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-# Security
-variable "jwt_secret" {
-  description = "JWT secret for authentication"
-  type        = string
-  sensitive   = true
-}
-
-variable "acm_certificate_arn" {
-  description = "ACM certificate ARN for HTTPS"
-  type        = string
+variable "backend_memory" {
+  description = "Backend task memory (MB)"
+  type        = number
+  default     = 1024
 }
 
 # Monitoring
-variable "enable_monitoring" {
-  description = "Enable CloudWatch monitoring"
-  type        = bool
-  default     = true
+variable "alert_email" {
+  description = "Email for alerts"
+  type        = string
 }
 
-variable "enable_datadog" {
-  description = "Enable DataDog integration"
-  type        = bool
-  default     = false
-}
-
-variable "datadog_api_key" {
-  description = "DataDog API key"
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for alerts"
   type        = string
   sensitive   = true
-  default     = ""
 }

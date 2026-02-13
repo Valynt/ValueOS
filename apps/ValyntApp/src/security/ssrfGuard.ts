@@ -1,5 +1,4 @@
 import dns from "dns/promises";
-import net from "net";
 
 const ALLOWED_HOST_SUFFIXES = [
   ".supabase.co",

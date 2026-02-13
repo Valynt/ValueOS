@@ -8,7 +8,7 @@ const getDependenciesStatus = () => ({
   redis: { status: "healthy", lastChecked: new Date().toISOString() }
 });
 
-healthRouter.get("/health", (req, res) => {
+healthRouter.get("/health", (_req, res) => {
   res.status(200).json({
     status: "healthy",
     timestamp: new Date().toISOString(),
@@ -18,11 +18,11 @@ healthRouter.get("/health", (req, res) => {
 
 let shuttingDown = false;
 
-healthRouter.get("/health/live", (req, res) => {
+healthRouter.get("/health/live", (_req, res) => {
   res.status(200).json({ status: "alive" });
 });
 
-healthRouter.get("/health/ready", (req, res) => {
+healthRouter.get("/health/ready", (_req, res) => {
   if (shuttingDown) {
     res.status(503).json({ status: "shutting_down" });
     return;
@@ -33,11 +33,11 @@ healthRouter.get("/health/ready", (req, res) => {
   });
 });
 
-healthRouter.get("/health/startup", (req, res) => {
+healthRouter.get("/health/startup", (_req, res) => {
   res.status(200).json({ status: "ready" });
 });
 
-healthRouter.get("/health/dependencies", (req, res) => {
+healthRouter.get("/health/dependencies", (_req, res) => {
   res.status(200).json({
     status: "ok",
     dependencies: getDependenciesStatus()

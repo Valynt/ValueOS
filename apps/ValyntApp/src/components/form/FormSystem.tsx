@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useState, useEffect, useId } from "react";
+import { ReactNode, useId } from "react";
 import {
   useForm,
   UseFormReturn,
@@ -7,13 +7,11 @@ import {
   Path,
   SubmitHandler,
   FieldError,
-  useWatch,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ZodType } from "zod";
-import { AlertCircle, Check, Loader2, CheckCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Check, Loader2, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 export interface FormOptions<T extends FieldValues> {
   schema?: ZodType<T>;

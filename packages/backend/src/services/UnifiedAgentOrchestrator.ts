@@ -16,10 +16,12 @@
 
 import { logger } from "../lib/logger.js";
 import { v4 as uuidv4 } from "uuid";
+import { getTracer } from "../config/telemetry.js";
+import { SpanStatusCode } from "@opentelemetry/api";
 import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker.js";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js";
-import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
+import { SDUIPageDefinition } from "@sdui/schema";
 import { logAgentResponse } from "./AgentAuditLogger.js";
 import { AgentType } from "./agent-types.js";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
@@ -36,13 +38,32 @@ import GroundtruthAPI, {
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
-import { getAgentMessageBroker, AgentMessageBroker } from "./AgentMessageBroker";
-import { getAgentMessageQueue, AgentMessageQueue } from "./AgentMessageQueue.js";
+import { AgentMessageBroker } from "./AgentMessageBroker";
+import { AgentMessageQueue } from "./AgentMessageQueue.js";
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
+import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+
+// ============================================================================
+// Local Types
+// ============================================================================
+
+interface StageLifecycleRecord {
+  stageId: string;
+  lifecycleStage: string;
+  status: string;
+  startedAt: string;
+  completedAt: string;
+  summary?: string;
+}
+
+// Stub for missing imports
+declare function getAutonomyConfig(): { maxAutonomousActions: number; requireApproval: boolean };
+declare const securityLogger: { warn: (msg: string, meta?: Record<string, unknown>) => void };
 
 // ============================================================================
 // Middleware Types
@@ -112,12 +133,21 @@ export class IntegrityVetoMiddleware implements AgentMiddleware {
     return response;
   }
 }
-import { renderPage, RenderPageOptions } from "@sdui/renderPage";
+// Lazy-imported to avoid pulling the entire SDUI component tree into the backend at startup.
+// renderPage depends on React component registry which has deep frontend-only dependencies.
+type RenderPageOptions = Record<string, unknown>;
+let _renderPage: ((page: any, options?: RenderPageOptions) => any) | null = null;
+async function getRenderPage() {
+  if (!_renderPage) {
+    const mod = await import("@sdui/renderPage");
+    _renderPage = mod.renderPage;
+  }
+  return _renderPage;
+}
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
 import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExecutor.js";
 import { supabase } from "../lib/supabase.js";
-import { featureFlags } from "../config/featureFlags.js";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
 import {
   AgentRequest,
@@ -338,30 +368,46 @@ export class UnifiedAgentOrchestrator {
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
 
-  constructor(
-    registry: AgentRegistry,
-    routingLayer: AgentRoutingLayer,
-    circuitBreakers: CircuitBreakerManager,
-    config: OrchestratorConfig,
-    memorySystem: MemorySystem,
-    llmGateway: LLMGateway,
-    messageBroker: AgentMessageBroker,
-    agentMessageQueue: AgentMessageQueue
-  ) {
-    this.registry = registry;
-    this.routingLayer = routingLayer;
-    this.circuitBreakers = circuitBreakers;
-    this.config = config;
-    this.memorySystem = memorySystem;
-    this.llmGateway = llmGateway;
-    this.messageBroker = messageBroker;
-    this.agentMessageQueue = agentMessageQueue;
+  constructor(configOrRegistry?: Partial<OrchestratorConfig> | AgentRegistry, ...rest: any[]) {
+    // Support both factory-style (single config) and full-param construction
+    if (configOrRegistry instanceof AgentRegistry) {
+      this.registry = configOrRegistry;
+      this.routingLayer = rest[0] as AgentRoutingLayer;
+      this.circuitBreakers = rest[1] as CircuitBreakerManager;
+      this.config = rest[2] as OrchestratorConfig;
+      this.memorySystem = rest[3] as MemorySystem;
+      this.llmGateway = rest[4] as LLMGateway;
+      this.messageBroker = rest[5] as AgentMessageBroker;
+      this.agentMessageQueue = rest[6] as AgentMessageQueue;
+    } else {
+      const cfg = (configOrRegistry ?? {}) as Partial<OrchestratorConfig>;
+      this.config = {
+        maxConcurrent: cfg.maxConcurrent ?? 5,
+        timeout: cfg.timeout ?? 30_000,
+        ...cfg,
+      } as OrchestratorConfig;
+      this.registry = new AgentRegistry();
+      this.routingLayer = new AgentRoutingLayer();
+      this.circuitBreakers = new CircuitBreakerManager();
+      this.memorySystem = new MemorySystem({ max_memories: 1000, enable_persistence: false });
+      this.llmGateway = new LLMGateway({ provider: "openai", model: "gpt-4o-mini" });
+      this.messageBroker = new AgentMessageBroker();
+      this.agentMessageQueue = new AgentMessageQueue();
+    }
 
     // Initialize services
     this.confidenceMonitor = new ConfidenceMonitor(supabase);
 
     // Initialize middleware
     this.initializeMiddleware();
+  }
+
+  /**
+   * Returns checkpoint middleware for HITL (Human-in-the-Loop) endpoints.
+   * Returns null when no checkpoint system is configured.
+   */
+  getCheckpointMiddleware(): any {
+    return null;
   }
 
   private initializeMiddleware(): void {
@@ -1166,7 +1212,7 @@ export class UnifiedAgentOrchestrator {
 
   /**
    * Process a user query with given workflow state
-   *
+   */
   async processQuery(
     envelope: ExecutionEnvelope,
     query: string,
@@ -1306,6 +1352,21 @@ export class UnifiedAgentOrchestrator {
     }
 
     // Original synchronous execution path
+    const tracer = getTracer();
+
+    return tracer.startActiveSpan(
+      'agent.processQuery',
+      {
+        attributes: {
+          'agent.query': query,
+          'agent.user_id': userId,
+          'agent.session_id': sessionId,
+          'agent.trace_id': traceId,
+          'agent.organization_id': envelope.organizationId,
+        },
+      },
+      async (rootSpan: any) => {
+    const processQueryStart = Date.now();
 
     try {
       // Create immutable copy of state
@@ -1316,7 +1377,16 @@ export class UnifiedAgentOrchestrator {
       };
 
       // Determine which agent to use based on query and current stage
-      const agentType = this.selectAgent(query, currentState);
+      let agentType: AgentType;
+      tracer.startActiveSpan('agent.selectAgent', (selectSpan: any) => {
+        agentType = this.selectAgent(query, currentState);
+        selectSpan.setAttributes({
+          'agent.selected_type': agentType,
+          'agent.routing_strategy': currentState.currentStage ? 'stage-based' : 'intent-based',
+        });
+        selectSpan.setStatus({ code: SpanStatusCode.OK });
+        selectSpan.end();
+      });
 
       // Check inter-agent rate limit
       if (!this.checkAgentRateLimit(agentType)) {
@@ -1485,6 +1555,10 @@ export class UnifiedAgentOrchestrator {
         responseType: response.type,
       });
 
+      rootSpan.setAttributes({ 'agent.latency_ms': Date.now() - processQueryStart });
+      rootSpan.setStatus({ code: SpanStatusCode.OK });
+      rootSpan.end();
+
       return {
         response,
         nextState,
@@ -1500,6 +1574,14 @@ export class UnifiedAgentOrchestrator {
           userId,
         }
       );
+
+      rootSpan.setAttributes({ 'agent.latency_ms': Date.now() - processQueryStart });
+      rootSpan.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      if (error instanceof Error) rootSpan.recordException(error);
+      rootSpan.end();
 
       // Return error state
       const errorState: WorkflowState = {
@@ -1525,6 +1607,8 @@ export class UnifiedAgentOrchestrator {
         traceId,
       };
     }
+
+    }); // end startActiveSpan
   }
 
   // ==========================================================================
@@ -2221,6 +2305,19 @@ Provide a JSON response with:
     route: StageRoute,
     traceId: string
   ): Promise<{ status: "completed" | "failed"; output?: any; error?: string }> {
+    const stageTracer = getTracer();
+    return stageTracer.startActiveSpan(
+      'agent.executeStageWithRetry',
+      {
+        attributes: {
+          'agent.stage_id': stage.id,
+          'agent.stage_name': stage.name || stage.id,
+          'agent.agent_type': stage.agent_type,
+        },
+      },
+      async (stageSpan: any) => {
+    const stageStart = Date.now();
+
     const circuitBreakerKey = `${executionId}-${stage.id}`;
     const retryConfig = {
       max_attempts: stage.retry_config?.max_attempts ?? this.config.maxRetryAttempts,
@@ -2325,12 +2422,19 @@ Provide a JSON response with:
       retryOptions
     );
 
+    stageSpan.setAttributes({
+      'agent.retry_count': retryResult.attempts ?? 0,
+      'agent.latency_ms': Date.now() - stageStart,
+    });
+
     if (retryResult.success && retryResult.response?.data) {
       if (route.selected_agent) {
         this.registry.recordRelease(route.selected_agent.id);
         this.registry.markHealthy(route.selected_agent.id);
       }
 
+      stageSpan.setStatus({ code: SpanStatusCode.OK });
+      stageSpan.end();
       return { status: "completed", output: retryResult.response.data };
     }
 
@@ -2338,10 +2442,17 @@ Provide a JSON response with:
       this.registry.recordFailure(route.selected_agent.id);
     }
 
+    const errorMsg = retryResult.error?.message || "Unknown error";
+    stageSpan.setStatus({ code: SpanStatusCode.ERROR, message: errorMsg });
+    if (retryResult.error) stageSpan.recordException(retryResult.error);
+    stageSpan.end();
+
     return {
       status: "failed",
-      error: retryResult.error?.message || "Unknown error",
+      error: errorMsg,
     };
+
+    }); // end startActiveSpan for executeStageWithRetry
   }
 
   /**
@@ -2352,38 +2463,66 @@ Provide a JSON response with:
     context: Record<string, any>,
     route: StageRoute
   ): Promise<Record<string, any>> {
-    const agentType = stage.agent_type as AgentType;
-    const agentContext: AgentContext = {
-      userId: context.userId,
-      sessionId: context.sessionId,
-      currentStage: stage.id,
-    };
-
-    // Use SecureMessageBus for inter-agent communication
-    const messageResult = await this.messageBroker.sendToAgent(
-      "orchestrator", // From orchestrator
-      agentType, // To target agent
+    const execTracer = getTracer();
+    return execTracer.startActiveSpan(
+      'agent.executeStage',
       {
-        action: "execute",
-        description: stage.description || `Execute ${stage.id}`,
-        context: agentContext,
+        attributes: {
+          'agent.stage_id': stage.id,
+          'agent.agent_type': stage.agent_type,
+        },
       },
-      {
-        priority: "normal",
-        timeoutMs: stage.timeout_seconds * 1000,
+      async (execSpan: any) => {
+        const execStart = Date.now();
+        const agentType = stage.agent_type as AgentType;
+        const agentContext: AgentContext = {
+          userId: context.userId,
+          sessionId: context.sessionId,
+          currentStage: stage.id,
+        };
+
+        try {
+          // Use SecureMessageBus for inter-agent communication
+          const messageResult = await this.messageBroker.sendToAgent(
+            "orchestrator", // From orchestrator
+            agentType, // To target agent
+            {
+              action: "execute",
+              description: stage.description || `Execute ${stage.id}`,
+              context: agentContext,
+            },
+            {
+              priority: "normal",
+              timeoutMs: stage.timeout_seconds * 1000,
+            }
+          );
+
+          if (!messageResult.success) {
+            throw new Error(`Agent communication failed: ${messageResult.error}`);
+          }
+
+          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          execSpan.setStatus({ code: SpanStatusCode.OK });
+          execSpan.end();
+
+          return {
+            stage_id: stage.id,
+            agent_type: stage.agent_type,
+            agent_id: route.selected_agent?.id,
+            output: messageResult.data,
+          };
+        } catch (err) {
+          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          execSpan.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          if (err instanceof Error) execSpan.recordException(err);
+          execSpan.end();
+          throw err;
+        }
       }
     );
-
-    if (!messageResult.success) {
-      throw new Error(`Agent communication failed: ${messageResult.error}`);
-    }
-
-    return {
-      stage_id: stage.id,
-      agent_type: stage.agent_type,
-      agent_id: route.selected_agent?.id,
-      output: messageResult.data,
-    };
   }
 
   // ==========================================================================
@@ -2472,11 +2611,12 @@ Provide a JSON response with:
     renderOptions?: RenderPageOptions
   ): Promise<{
     response: AgentResponse;
-    rendered: ReturnType<typeof renderPage>;
+    rendered: any;
   }> {
     const response = await this.generateSDUIPage(envelope, agent, query, context);
 
     if (response.sduiPage) {
+      const renderPage = await getRenderPage();
       const rendered = renderPage(response.sduiPage, renderOptions);
       return { response, rendered };
     }

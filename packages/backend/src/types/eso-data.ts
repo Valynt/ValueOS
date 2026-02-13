@@ -4,6 +4,25 @@
  * Data structures for external service orchestration payloads
  */
 
+import type { ESOKPINode, ESOEdge, ESOPersonaValueMap } from "./eso";
+
+// ============================================================================
+// Ground Truth Seed Data
+// ============================================================================
+
+/** All ESO KPI definitions. Populated at build time or from seed files. */
+export const ALL_ESO_KPIS: ESOKPINode[] = [];
+
+/** Persona-to-KPI mappings for stakeholder-driven analysis. */
+export const EXTENDED_PERSONA_MAPS: ESOPersonaValueMap[] = [];
+
+/** Causal edges between KPIs in the value graph. */
+export const EXTENDED_ESO_EDGES: ESOEdge[] = [];
+
+// ============================================================================
+// Data Mapping Types
+// ============================================================================
+
 export interface ESODataMapping {
   id: string;
   source_service: string;

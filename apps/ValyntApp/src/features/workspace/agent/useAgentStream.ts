@@ -2,7 +2,6 @@ import { useCallback, useRef } from 'react';
 import { useAgentStore } from './store';
 import { generateMockAgentStream } from './mock-stream';
 import { createErrorEvent } from './api-adapter';
-import type { AgentEvent } from './types';
 import { AgentOrchestratorAdapter } from '@/services/AgentOrchestratorAdapter';
 
 // Configuration

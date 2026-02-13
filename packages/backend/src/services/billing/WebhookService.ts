@@ -1,6 +1,7 @@
 /**
  * Webhook Service
- * Handles Stripe webhook signature verification and event processing
+ * Handles Stripe webhook signature verification and event processing.
+ * Emits billing domain events for downstream consumers.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -14,6 +15,7 @@ import {
   recordInvoiceEvent,
   recordStripeWebhook,
 } from "../../metrics/billingMetrics";
+import type { BillingEvent } from "@shared/types/billing-events";
 
 const logger = createLogger({ component: "WebhookService" });
 
@@ -33,6 +35,12 @@ if (supabaseUrl && supabaseServiceRoleKey) {
 class WebhookService {
   private stripe: any;
 
+  /**
+   * Listeners for billing domain events emitted during webhook processing.
+   * Wire these to Kafka/EventProducer in service registration.
+   */
+  private eventListeners: Array<(event: BillingEvent) => void> = [];
+
   constructor() {
     // Initialize Stripe service only if billing is configured
     try {
@@ -40,6 +48,23 @@ class WebhookService {
     } catch (_error) {
       logger.warn("Stripe service not available, billing features disabled");
       this.stripe = null;
+    }
+  }
+
+  /**
+   * Register a listener for billing domain events.
+   */
+  onBillingEvent(listener: (event: BillingEvent) => void): void {
+    this.eventListeners.push(listener);
+  }
+
+  private emitBillingEvent(event: BillingEvent): void {
+    for (const listener of this.eventListeners) {
+      try {
+        listener(event);
+      } catch (err) {
+        logger.error("Billing event listener error", err as Error);
+      }
     }
   }
 
@@ -226,6 +251,23 @@ class WebhookService {
     // Update invoice status
     await InvoiceService.updateInvoiceWithCustomerStatus(invoice, "active");
 
+    // Resolve tenant_id from customer
+    const tenantId = await this.resolveTenantId(invoice.customer);
+
+    if (tenantId) {
+      this.emitBillingEvent({
+        type: "billing.payment.status_updated",
+        payload: {
+          tenantId,
+          externalInvoiceId: invoice.id,
+          externalPaymentIntentId: invoice.payment_intent ?? undefined,
+          status: "succeeded",
+          occurredAt: new Date().toISOString(),
+          idempotencyKey: event.id,
+        },
+      });
+    }
+
     logger.info("Payment succeeded processed", { invoiceId: invoice.id });
     recordInvoiceEvent(event.type);
   }
@@ -259,6 +301,18 @@ class WebhookService {
         notification_sent: false,
       });
 
+      this.emitBillingEvent({
+        type: "billing.payment.status_updated",
+        payload: {
+          tenantId: customer.tenant_id,
+          externalInvoiceId: invoice.id,
+          externalPaymentIntentId: invoice.payment_intent ?? undefined,
+          status: "failed",
+          occurredAt: new Date().toISOString(),
+          idempotencyKey: event.id,
+        },
+      });
+
       logger.warn("Payment failed", {
         tenantId: customer.tenant_id,
         invoiceId: invoice.id,
@@ -272,6 +326,13 @@ class WebhookService {
    */
   private async handleSubscriptionUpdated(event: any): Promise<void> {
     const subscription = event.data.object;
+
+    // Fetch previous state before updating
+    const { data: prevSub } = await supabase
+      .from("subscriptions")
+      .select("status, plan_tier, price_version_id, tenant_id")
+      .eq("stripe_subscription_id", subscription.id)
+      .single();
 
     // Update subscription in database
     await supabase
@@ -290,6 +351,27 @@ class WebhookService {
         updated_at: new Date().toISOString(),
       })
       .eq("stripe_subscription_id", subscription.id);
+
+    if (prevSub && prevSub.status !== subscription.status) {
+      this.emitBillingEvent({
+        type: "billing.subscription.changed",
+        payload: {
+          tenantId: prevSub.tenant_id,
+          before: {
+            status: prevSub.status,
+            priceVersionId: prevSub.price_version_id ?? "",
+            planTier: prevSub.plan_tier,
+          },
+          after: {
+            status: subscription.status,
+            priceVersionId: prevSub.price_version_id ?? "",
+            planTier: subscription.metadata?.plan_tier ?? prevSub.plan_tier,
+          },
+          effectiveAt: new Date().toISOString(),
+          reason: `stripe_webhook:${event.type}`,
+        },
+      });
+    }
 
     logger.info("Subscription updated", { subscriptionId: subscription.id });
   }
@@ -339,6 +421,19 @@ class WebhookService {
    */
   private async handleChargeFailed(event: any): Promise<void> {
     logger.warn("Charge failed", { chargeId: event.data.object.id });
+  }
+
+  /**
+   * Resolve tenant_id from a Stripe customer ID.
+   */
+  private async resolveTenantId(stripeCustomerId: string): Promise<string | null> {
+    if (!supabase) return null;
+    const { data } = await supabase
+      .from("billing_customers")
+      .select("tenant_id")
+      .eq("stripe_customer_id", stripeCustomerId)
+      .single();
+    return data?.tenant_id ?? null;
   }
 }
 

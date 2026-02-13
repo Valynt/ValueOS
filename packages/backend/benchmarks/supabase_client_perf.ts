@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 
 import { performance } from 'perf_hooks';
 

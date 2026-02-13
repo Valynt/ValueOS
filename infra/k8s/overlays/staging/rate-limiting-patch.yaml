@@ -1,0 +1,14 @@
+# Rate limiting configuration for staging — mirrors production limits.
+# Applied via Istio EnvoyFilter or application-level middleware.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rate-limiting-config
+  namespace: valynt-staging
+data:
+  # Same rate limits as production to catch limit-related bugs before deploy
+  api-rate-limit: "100"          # requests per minute per tenant
+  agent-rate-limit: "30"         # agent invocations per minute per tenant
+  auth-rate-limit: "20"          # auth attempts per minute per IP
+  sse-connection-limit: "10"     # concurrent SSE connections per tenant
+  burst-multiplier: "2"          # burst allowance (2x sustained rate)

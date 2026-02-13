@@ -1,30 +1,13 @@
 services:
-  backend:
-    env_file: []
-  frontend:
-    env_file: []
-  postgres:
-    env_file: []
-  redis:
-    env_file: []
-  supabase:
-    env_file: []
-  edge:
-    env_file: []
-  observability:
-    env_file: []
-  app:
-    env_file: []
+  devcontainer:
     build:
-      context: .
-      dockerfile: .devcontainer/Dockerfile.dev
-      args:
-        USER_ID: "65532"
-        USER_GID: "65532"
-    image: valueos-app:devcontainer
-    healthcheck:
-      test: ["CMD-SHELL", "node -v && pnpm -v && bash scripts/check-env.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
+      context: ..
+      dockerfile: Dockerfile.dev
+    command: sleep infinity
+    volumes:
+      - ..:/workspaces/ValueOS:cached
+    environment:
+      NODE_ENV: development
+    # optional: if you need docker from inside the container
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock

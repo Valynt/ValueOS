@@ -192,3 +192,7 @@ export type ConsentAuditEventType =
   | 'data_processed'
   | 'data_shared'
   | 'policy_updated';
+
+export interface ConsentRegistry {
+  hasConsent: (tenantId: string, scope: string) => Promise<boolean>;
+}

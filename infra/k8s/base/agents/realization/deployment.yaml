@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realization-agent
+  namespace: valynt-agents
+  labels:
+    app: realization-agent
+    component: agent
+    tier: backend
+  annotations:
+    valynt.io/llm-usage-limit: "300.00" # Monthly USD limit — realization runs heavier models
+    valynt.io/cost-center: "agent-realization"
+    valynt.io/cost-tracking: "enabled"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: realization-agent
+  template:
+    metadata:
+      labels:
+        app: realization-agent
+        component: agent
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: valynt-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      # Prefer spot instances; tolerate preemption for cost savings.
+      # The agent is safe for spot because:
+      #   - Redis Streams guarantee at-least-once delivery
+      #   - XAUTOCLAIM reclaims orphaned messages from terminated pods
+      #   - DLQ catches anything that exceeds maxDeliveries
+      tolerations:
+        - key: "kubernetes.azure.com/scalesetpriority"
+          operator: "Equal"
+          value: "spot"
+          effect: "NoSchedule"
+        - key: "cloud.google.com/gke-spot"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+        - key: "eks.amazonaws.com/capacityType"
+          operator: "Equal"
+          value: "SPOT"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: "node.kubernetes.io/capacity-type"
+                    operator: In
+                    values: ["spot"]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: realization-agent
+                topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: realization-agent
+          image: ${ECR_REGISTRY}/valynt-realization:${IMAGE_TAG}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: environment
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: database_url
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: supabase_url
+            - name: SUPABASE_SERVICE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: supabase_service_key
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis_url
+            - name: LLM_PROXY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: llm_proxy_url
+            - name: LOG_LEVEL
+              value: "info"
+            - name: METRICS_ENABLED
+              value: "true"
+            # Backpressure: limit in-flight concurrent requests per pod
+            - name: MAX_CONCURRENT_REQUESTS
+              value: "8"
+          resources:
+            requests:
+              cpu: 750m
+              memory: 1536Mi
+            limits:
+              cpu: 2000m
+              memory: 3Gi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                # Allow in-flight requests to drain before SIGTERM
+                command: ["/bin/sh", "-c", "sleep 15"]
+      terminationGracePeriodSeconds: 45
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: realization-agent
+  namespace: valynt-agents
+  labels:
+    app: realization-agent
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app: realization-agent
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: realization-agent-pdb
+  namespace: valynt-agents
+spec:
+  # Keep at least 1 pod running during voluntary disruptions (spot preemption, rollouts)
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: realization-agent

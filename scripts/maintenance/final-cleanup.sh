@@ -3,9 +3,23 @@
 # Final cleanup to remove the 5 consolidated source files and 1 redundant file
 # These files' content has been merged into:
 # - TESTING_STRATEGY.md, TEST_COVERAGE_PLAN.md, TEST_COVERAGE_PROGRESS.md → TESTING.md
-# - DATABASE_SETUP.md → QUICKSTART.md  
+# - DATABASE_SETUP.md → QUICKSTART.md
 # - GO_LIVE_READINESS_AUDIT.md → GO_LIVE_EXECUTIVE_SUMMARY.md
 # - DOC_CONSOLIDATION_COMPLETE.md (redundant summary)
+
+echo "[Zero-Downtime] Starting database legacy cleanup..."
+
+# Remove legacy columns, triggers, and indexes (example for users table)
+DB_URL=${1:-}
+if [[ -n "$DB_URL" ]]; then
+  psql "$DB_URL" <<'SQL'
+    -- Remove legacy columns and triggers
+    ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS email;
+    DROP TRIGGER IF EXISTS users_email_sync ON users;
+    DROP FUNCTION IF EXISTS sync_email_columns();
+SQL
+  echo "[Zero-Downtime] Legacy columns and triggers removed."
+fi
 
 echo "Removing consolidated source files and redundant files..."
 

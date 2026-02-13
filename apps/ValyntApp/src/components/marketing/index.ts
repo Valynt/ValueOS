@@ -1,3 +1,4 @@
+// Only export React components for fast refresh compatibility
 export { Logo } from './Logo';
 export { SkipNav } from './SkipNav';
 export { ScrollToTop } from './ScrollToTop';

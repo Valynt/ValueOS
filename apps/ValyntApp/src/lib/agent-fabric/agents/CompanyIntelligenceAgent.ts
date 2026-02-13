@@ -7,6 +7,7 @@
 import { BaseAgent, AgentConfig } from "../BaseAgent";
 import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
 import { AgentType } from "../../../types/agents";
+import { z } from "zod";
 
 import {
   validateGroundTruthMetadata,

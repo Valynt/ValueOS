@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
-import { Check, Edit2, Lock, Plus, Shield, Trash2, Users, X } from 'lucide-react';
-import { OrganizationRole } from '../../types';
+import { SettingsSection } from '../../components/settings';
+import { Check, Edit2, Plus, Shield, Trash2, Users, X } from 'lucide-react';
+
+interface OrganizationRole {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  isCustom: boolean;
+  permissions: string[];
+  userCount: number;
+  createdAt: string;
+}
 
 const MOCK_ROLES: OrganizationRole[] = [
   {
@@ -51,7 +61,7 @@ const AVAILABLE_PERMISSIONS = [
 export const OrganizationRoles: React.FC = () => {
   const [roles, setRoles] = useState<OrganizationRole[]>(MOCK_ROLES);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingRole, setEditingRole] = useState<OrganizationRole | null>(null);
+  const [editingRole, _setEditingRole] = useState<OrganizationRole | null>(null);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDesc, setNewRoleDesc] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());

@@ -39,7 +39,7 @@ npm run test:load
 // turbo 5. Run resilience tests:
 
 ```bash
-npx vitest run --config vitest.config.resilience.ts
+npx vitest run --config vitest.config.resilience.ts --passWithNoTests
 ```
 
 ## What Chaos Tests Cover

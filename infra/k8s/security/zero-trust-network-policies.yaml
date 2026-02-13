@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: zero-trust-default-deny
-  namespace: valueos
+  namespace: valynt
 spec:
   podSelector: {}
   policyTypes:
@@ -13,7 +13,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-ingress-from-gateway
-  namespace: valueos
+  namespace: valynt
 spec:
   podSelector:
     matchLabels:
@@ -33,12 +33,21 @@ spec:
       port: 80
     - protocol: TCP
       port: 443
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: tenant-isolation-policy
-  namespace: valueos
+  namespace: valynt
 spec:
   podSelector:
     matchLabels:
@@ -89,7 +98,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: service-mesh-isolation
-  namespace: valueos
+  namespace: valynt
 spec:
   podSelector:
     matchLabels:
@@ -123,7 +132,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-dns-resolution
-  namespace: valueos
+  namespace: valynt
 spec:
   podSelector: {}
   policyTypes:
@@ -141,7 +150,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-monitoring-traffic
-  namespace: valueos
+  namespace: valynt
 spec:
   podSelector: {}
   policyTypes:
@@ -169,3 +178,51 @@ spec:
       port: 3100  # Loki
     - protocol: TCP
       port: 3000  # Grafana
+---
+# Allow ingress controller to reach active backend service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-backend-active
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 8000
+---
+# Allow ingress controller to reach active frontend service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-frontend-active
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 80

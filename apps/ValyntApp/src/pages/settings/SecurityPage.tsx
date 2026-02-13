@@ -9,6 +9,7 @@ import { Shield, Monitor, Smartphone, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+import { logger } from "../../lib/logger";
   SettingsRow,
   SettingsSection,
   SettingsAlert,
@@ -47,7 +48,7 @@ export function SecurityPage() {
   ];
 
   const handleChangePassword = () => {
-    console.log("Opening password change modal...");
+    logger.info("Opening password change modal...");
   };
 
   const handleToggle2FA = () => {
@@ -55,11 +56,11 @@ export function SecurityPage() {
   };
 
   const handleLogoutSession = (sessionId: string) => {
-    console.log("Logging out session:", sessionId);
+    logger.info("Logging out session:", sessionId);
   };
 
   const handleLogoutAll = () => {
-    console.log("Logging out all other sessions...");
+    logger.info("Logging out all other sessions...");
   };
 
   return (

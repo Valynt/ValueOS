@@ -1,0 +1,109 @@
+# Dockerfile for Opportunity Agent (Discovery Phase)
+# Inherits from base agent Dockerfile with specific configurations
+
+FROM node:20.19.0-alpine AS base
+
+# Build arguments
+ARG AGENT_NAME=opportunity
+ARG NODE_VERSION=20.19.0
+ARG PNPM_VERSION=9.15.0
+ARG EXPOSE_PORT=8081
+
+# =============================================================================
+# Stage 1: Dependencies
+# =============================================================================
+FROM base AS deps
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    python3-dev \
+    build-base \
+    git \
+    make \
+    g++ && \
+    ln -sf /usr/bin/python3 /usr/bin/python
+
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+
+# Copy package files
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY packages/agents/${AGENT_NAME}/package.json ./packages/agents/${AGENT_NAME}/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile --prod=false
+
+# =============================================================================
+# Stage 2: Builder
+# =============================================================================
+FROM base AS builder
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
+
+# Copy source code
+COPY packages/agents/${AGENT_NAME} ./packages/agents/${AGENT_NAME}
+COPY packages/shared ./packages/shared
+COPY tsconfig.json ./
+
+# Build the agent
+WORKDIR /app/packages/agents/${AGENT_NAME}
+RUN corepack enable && \
+    corepack prepare pnpm@${PNPM_VERSION} --activate && \
+    pnpm run build
+
+# =============================================================================
+# Stage 3: Runtime
+# =============================================================================
+FROM base AS runtime
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    AGENT_NAME=${AGENT_NAME} \
+    PORT=${EXPOSE_PORT} \
+    LIFECYCLE_STAGE=discovery \
+    RISK_CATEGORY=discovery
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    curl \
+    wget \
+    tini \
+    ca-certificates && \
+    update-ca-certificates
+
+# Create non-root user
+RUN addgroup -g 1001 -S agent && \
+    adduser -S agent -u 1001 -G agent && \
+    mkdir -p /app/logs /app/data /tmp && \
+    chown -R agent:agent /app /tmp
+
+# Copy production dependencies
+COPY --from=deps --chown=agent:agent /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=builder --chown=agent:agent /app/packages/agents/${AGENT_NAME}/dist ./dist
+COPY --from=builder --chown=agent:agent /app/packages/agents/${AGENT_NAME}/package.json ./
+
+# Switch to non-root user
+USER agent
+
+# Expose port
+EXPOSE ${EXPOSE_PORT}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+  CMD curl --fail http://localhost:${EXPOSE_PORT}/health || exit 1
+
+# Use tini for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Start the agent
+CMD ["node", "dist/index.js"]

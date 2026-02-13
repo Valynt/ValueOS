@@ -10,10 +10,13 @@ Docs Reorg Runner
 
 Usage: node scripts/docs-reorg/run.js [--once] [--daemon]
 */
-const fs = require('fs').promises;
-const path = require('path');
-const {execSync, spawnSync} = require('child_process');
-const os = require('os');
+import fs from 'fs/promises';
+import path from 'path';
+import { execSync, spawnSync } from 'child_process';
+import os from 'os';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const CONFIG_PATH = path.join(__dirname, '..', '..', 'config', 'docs-reorg.config.json');
 const PROPOSED_DIR = path.join(process.cwd(), 'tmp', 'proposed_merges');
@@ -212,13 +215,6 @@ async function syncToSupabase(rows, cfg){
 }
 
 
-async function detectStale(it, deprecatedTerms){
-  const txt = it.text.toLowerCase();
-  return deprecatedTerms.some(t=>txt.includes(t.toLowerCase()));
-}
-
-async function ensureDir(d){ try { await fs.mkdir(d,{recursive:true}); } catch(e){} }
-
 async function gitRun(cmd){
   return execSync(cmd,{cwd:process.cwd()}).toString().trim();
 }
@@ -275,7 +271,7 @@ async function runOnce(config) {
   // copy proposed files into repo under tmp/proposed_merges (already there)
   // add changes
   try {
-    gitRun('git add tmp/proposed_merges');
+    gitRun('git add -f tmp/proposed_merges');
     gitRun(`git commit -m "chore(docs): proposed merges and stale report by docs-reorg"`);
   } catch(e){ console.warn('No changes to commit or commit failed:',e.message); }
 

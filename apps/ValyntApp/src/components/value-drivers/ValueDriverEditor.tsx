@@ -109,21 +109,21 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
     };
     handleChange("formula", {
       ...formData.formula!,
-      variables: [...formData.formula!.variables, newVar],
+      variables: [...(formData.formula?.variables ?? []), newVar],
     });
   };
 
   const updateVariable = (id: string, updates: Partial<FormulaVariable>) => {
     handleChange("formula", {
       ...formData.formula!,
-      variables: formData.formula!.variables.map((v) => (v.id === id ? { ...v, ...updates } : v)),
+      variables: formData.formula?.variables?.map((v) => (v.id === id ? { ...v, ...updates } : v)) ?? [],
     });
   };
 
   const removeVariable = (id: string) => {
     handleChange("formula", {
       ...formData.formula!,
-      variables: formData.formula!.variables.filter((v) => v.id !== id),
+      variables: formData.formula?.variables?.filter((v) => v.id !== id) ?? [],
     });
   };
 
@@ -299,7 +299,7 @@ export function ValueDriverEditor({ driver, onSave, onClose }: ValueDriverEditor
 
             {/* Variables */}
             <div className="space-y-3 mb-4">
-              {formData.formula?.variables.map((variable, index) => (
+              {formData.formula?.variables.map((variable, _index) => (
                 <div key={variable.id} className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-3">
                     <Label className="text-xs">Variable Name</Label>

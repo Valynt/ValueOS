@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Loader2, X, Wrench, CheckCircle, AlertCircle } from "lucide-react";
+import { Send, Loader2, X, Wrench, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAgentStream, type ChatMessage, type AgentChatContext } from "@/hooks/useAgentStream";
+import { logger } from "../lib/logger";
 
 interface AgentChatProps {
   isOpen: boolean;
@@ -23,13 +24,13 @@ export function AgentChat({ isOpen, onClose, context, onApplySuggestion }: Agent
       context,
       onMessage: (message) => {
         // Handle new messages
-        console.log("New message:", message);
+        logger.info("New message:", message);
       },
       onError: (error) => {
         console.error("Agent chat error:", error);
       },
       onToolExecuted: (toolCall, result) => {
-        console.log("Tool executed:", toolCall, result);
+        logger.info("Tool executed:", toolCall, result);
       },
     });
 

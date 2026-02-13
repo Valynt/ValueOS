@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger.js";
 /**
  * Problem Monitor Service
  *
@@ -38,7 +39,7 @@ class ProblemMonitorService {
       return;
     }
 
-    console.log("🔍 Starting problem monitor (checking every 5 minutes)...");
+    logger.info("🔍 Starting problem monitor (checking every 5 minutes)...");
     this.isRunning = true;
 
     // Run immediately on start
@@ -59,7 +60,7 @@ class ProblemMonitorService {
       this.intervalId = null;
     }
     this.isRunning = false;
-    console.log("🛑 Problem monitor stopped");
+    logger.info("🛑 Problem monitor stopped");
   }
 
   /**
@@ -155,20 +156,20 @@ class ProblemMonitorService {
   private logProblems(stats: ProblemStats): void {
     const timestamp = stats.timestamp.toISOString();
 
-    console.log("\n" + "=".repeat(80));
-    console.log(`🔍 Problem Monitor Report - ${timestamp}`);
-    console.log("=".repeat(80));
+    logger.info("\n" + "=".repeat(80));
+    logger.info(`🔍 Problem Monitor Report - ${timestamp}`);
+    logger.info("=".repeat(80));
 
     if (stats.totalProblems === 0) {
-      console.log("✅ No problems found!");
+      logger.info("✅ No problems found!");
     } else {
-      console.log(`📊 Total Problems: ${stats.totalProblems}`);
-      console.log(`   ❌ Errors: ${stats.errors}`);
-      console.log(`   ⚠️  Warnings: ${stats.warnings}`);
-      console.log(`   ℹ️  Info: ${stats.infos}`);
+      logger.info(`📊 Total Problems: ${stats.totalProblems}`);
+      logger.info(`   ❌ Errors: ${stats.errors}`);
+      logger.info(`   ⚠️  Warnings: ${stats.warnings}`);
+      logger.info(`   ℹ️  Info: ${stats.infos}`);
 
       if (stats.byFile.size > 0) {
-        console.log("\n📁 Problems by file:");
+        logger.info("\n📁 Problems by file:");
 
         // Sort files by problem count (descending)
         const sortedFiles = Array.from(stats.byFile.entries())
@@ -176,11 +177,11 @@ class ProblemMonitorService {
           .slice(0, 10); // Show top 10 files
 
         sortedFiles.forEach(([file, count]) => {
-          console.log(`   ${count.toString().padStart(3)} - ${file}`);
+          logger.info(`   ${count.toString().padStart(3)} - ${file}`);
         });
 
         if (stats.byFile.size > 10) {
-          console.log(`   ... and ${stats.byFile.size - 10} more files`);
+          logger.info(`   ... and ${stats.byFile.size - 10} more files`);
         }
       }
 
@@ -189,20 +190,20 @@ class ProblemMonitorService {
         (p) => p.severity === "error"
       );
       if (criticalErrors.length > 0) {
-        console.log("\n❌ Critical Errors:");
+        logger.info("\n❌ Critical Errors:");
         criticalErrors.slice(0, 5).forEach((error) => {
           const location = error.startLine ? `:${error.startLine}` : "";
-          console.log(`   ${error.path}${location}`);
-          console.log(`      ${error.message}`);
+          logger.info(`   ${error.path}${location}`);
+          logger.info(`      ${error.message}`);
         });
 
         if (criticalErrors.length > 5) {
-          console.log(`   ... and ${criticalErrors.length - 5} more errors`);
+          logger.info(`   ... and ${criticalErrors.length - 5} more errors`);
         }
       }
     }
 
-    console.log("=".repeat(80) + "\n");
+    logger.info("=".repeat(80) + "\n");
   }
 
   /**

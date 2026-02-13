@@ -1,0 +1,30 @@
+tasks:
+  installDeps:
+    name: Install dependencies
+    description: Enable corepack and install pnpm workspace dependencies.
+    command: |
+      sudo corepack enable --install-directory /usr/local/bin 2>/dev/null || true
+      corepack prepare pnpm@9.15.0 --activate
+      if [ -f pnpm-lock.yaml ]; then
+        pnpm install --frozen-lockfile || pnpm install
+      else
+        pnpm install
+      fi
+    triggeredBy:
+      - postDevcontainerStart
+
+  setupTools:
+    name: Setup dev tools
+    description: Install tsx and other global dev tools.
+    command: |
+      export PNPM_HOME="${PNPM_HOME:-/home/node/.local/share/pnpm}"
+      mkdir -p "$PNPM_HOME"
+      export PATH="$PNPM_HOME:$PATH"
+      pnpm config set global-bin-dir "$PNPM_HOME"
+      if ! command -v tsx &> /dev/null; then
+        pnpm add -g tsx
+      fi
+    triggeredBy:
+      - postDevcontainerStart
+    dependsOn:
+      - installDeps

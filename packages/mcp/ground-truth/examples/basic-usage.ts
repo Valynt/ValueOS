@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * MCP Financial Ground Truth Server - Basic Usage Examples
  * 

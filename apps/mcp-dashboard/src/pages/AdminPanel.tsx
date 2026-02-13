@@ -14,7 +14,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { MetricCard } from "../components/charts/FinancialCharts";
 
@@ -292,8 +292,7 @@ export default function AdminPanel() {
           <div className="mt-2">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-green-500 h-2 rounded-full"
-                style={{ width: `${metrics.memoryUsage}%` }}
+                className={`bg-green-500 h-2 rounded-full w-[${metrics.memoryUsage}%]`}
               />
             </div>
           </div>
@@ -312,8 +311,7 @@ export default function AdminPanel() {
           <div className="mt-2">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-orange-500 h-2 rounded-full"
-                style={{ width: `${metrics.cpuUsage}%` }}
+                className={`bg-orange-500 h-2 rounded-full w-[${metrics.cpuUsage}%]`}
               />
             </div>
           </div>

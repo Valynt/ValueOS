@@ -8,14 +8,11 @@
  */
 
 import {
-  IAgent,
   AgentRequest,
   AgentResponse,
-  AgentExecutionMetadata,
   AgentHealthStatus,
 } from "../core/IAgent";
 import { AgentType } from "../../agent-types";
-import { ConfidenceLevel } from "../../../types/vos";
 import { logger } from "../../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
 import { metrics, Counter, Histogram } from "@opentelemetry/api";

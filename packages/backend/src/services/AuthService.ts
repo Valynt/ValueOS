@@ -1,11 +1,18 @@
 /**
  * Authentication Service
  * Handles session management and authentication operations
+ *
+ * HARDENED FEATURES:
+ * - Redis-backed session store with automatic failover
+ * - Token rotation on security events
+ * - Device fingerprinting and anomaly detection
+ * - Distributed rate limiting
  */
 
 import { BaseService } from "./BaseService.js"
 import { AuthenticationError, RateLimitError, ValidationError } from "./errors.js"
 import { Session, User } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
 import { sanitizeErrorMessage, validatePassword } from "../utils/security.js"
 import { securityLogger } from "./SecurityLogger.js"
 import { getConfig } from "../config/environment.js"
@@ -15,12 +22,18 @@ import {
   consumeAuthRateLimit,
   RateLimitExceededError,
   resetRateLimit,
+  setAuthRateLimiter,
 } from "../security";
+import { createRedisRateLimiter } from "../security/redisRateLimiter.js";
 import { clientRateLimit } from "./ClientRateLimit.js"
 import { mfaService } from "./MFAService.js"
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
-import { assertTenantMember, assertCapability, isPrivilegedAction, deny, toAuthError } from "./AuthPolicy.js";
-import { SessionClaimsSchema, TctClaimsSchema, UserMetaSchema } from "../types/auth.js";
+import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
+import { SessionClaimsSchema } from "../types/auth.js";
+import { getSessionStore, RedisSessionStore, DeviceFingerprint } from "../security/RedisSessionStore.js";
+import { getTokenRotationService } from "./TokenRotationService.js";
+import { getDeviceFingerprintService, DeviceFingerprintService } from "./DeviceFingerprintService.js";
+import { getRedisClient } from "@shared/lib/redisClient";
 
 export interface LoginCredentials {
   email: string;
@@ -49,21 +62,79 @@ export interface TCTPayload {
   exp: number;
 }
 
+export interface LoginOptions {
+  deviceId?: string;
+  deviceFingerprint?: DeviceFingerprint;
+  ipAddress?: string;
+}
+
 export class AuthService extends BaseService {
   private readonly tctSecret: string;
+  private sessionStore: RedisSessionStore;
+  private tokenRotationService: ReturnType<typeof getTokenRotationService>;
+  private deviceFingerprintService: DeviceFingerprintService;
+  private redisInitialized = false;
+
+  /**
+   * TCT secret startup policy:
+   * - `TCT_SECRET` is required for all environments.
+   * - For sanctioned local test mode only, callers may set
+   *   `TCT_ALLOW_EPHEMERAL_SECRET=true` and run with NODE_ENV=test
+   *   (or `LOCAL_TEST_MODE=true`) to generate an in-memory secret.
+   * - Outside that mode, service startup fails fast if `TCT_SECRET` is missing.
+   */
+  private resolveTctSecret(): string {
+    if (process.env.TCT_SECRET) {
+      return process.env.TCT_SECRET;
+    }
+
+    const isLocalTestMode = process.env.NODE_ENV === "test" || process.env.LOCAL_TEST_MODE === "true";
+    const allowEphemeralSecret = process.env.TCT_ALLOW_EPHEMERAL_SECRET === "true";
+
+    if (isLocalTestMode && allowEphemeralSecret) {
+      const ephemeralSecret = randomBytes(64).toString("hex");
+      this.log("warn", "TCT_SECRET missing; generated ephemeral secret for sanctioned local test mode", {
+        nodeEnv: process.env.NODE_ENV,
+      });
+      return ephemeralSecret;
+    }
+
+    throw new Error(
+      "TCT_SECRET must be set. For local test mode only, set TCT_ALLOW_EPHEMERAL_SECRET=true and run with NODE_ENV=test or LOCAL_TEST_MODE=true."
+    );
+  }
 
   constructor() {
     super("AuthService");
-    if (!process.env.TCT_SECRET) {
-      if (process.env.NODE_ENV === "production") {
-        throw new Error("TCT_SECRET must be set in production");
-      }
-      // In development, we can log a warning but still need a value to function
-      // Ideally this should come from .env.local
-      console.warn("WARN: TCT_SECRET not set, using insecure default for development only.");
-      this.tctSecret = "default-tct-secret-change-me";
-    } else {
-      this.tctSecret = process.env.TCT_SECRET;
+    this.tctSecret = this.resolveTctSecret();
+
+    // Initialize hardened services
+    this.sessionStore = getSessionStore();
+    this.tokenRotationService = getTokenRotationService();
+    this.deviceFingerprintService = getDeviceFingerprintService();
+
+    // Initialize Redis rate limiter asynchronously
+    this.initializeRedisRateLimiter();
+  }
+
+  /**
+   * Initialize Redis-backed rate limiter for distributed deployments
+   */
+  private async initializeRedisRateLimiter(): Promise<void> {
+    if (this.redisInitialized) return;
+
+    try {
+      const redis = await getRedisClient();
+      setAuthRateLimiter(createRedisRateLimiter(redis, {
+        windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+        maxAttempts: Number(process.env.AUTH_RATE_LIMIT_MAX) || 5,
+        prefix: 'auth:',
+      }));
+      this.redisInitialized = true;
+      this.log('info', 'Redis rate limiter initialized');
+    } catch (error) {
+      this.log('warn', 'Redis unavailable, using in-memory rate limiter', { error: String(error) });
+      // Falls back to default in-memory rate limiter
     }
   }
 
@@ -674,7 +745,7 @@ export class AuthService extends BaseService {
           exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
         };
 
-        const token = jwt.sign(payload, this.tctSecret);
+        const token = jwt.sign(payload, this.tctSecret, { algorithm: "HS256" });
 
         securityLogger.log({
           category: "authentication",

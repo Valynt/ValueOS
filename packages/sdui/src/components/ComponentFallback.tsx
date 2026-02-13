@@ -4,7 +4,6 @@
  * Provides graceful degradation when SDUI components fail to load
  */
 
-import React from 'react';
 import { SDUIComponentSection } from '../schema';
 
 interface ComponentFallbackProps {

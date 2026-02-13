@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Badge } from "../components/ui/badge";
+import { Card } from "../components/ui/card";
+import { Label } from "../components/ui/label";
 
 export const VEAnalyticsDashboard: React.FC = () => {
   const [stats] = useState([
@@ -17,7 +17,7 @@ export const VEAnalyticsDashboard: React.FC = () => {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-6">VE Performance & Audit Dashboard</h1>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card className="p-4">
           <Label className="text-xs text-muted-foreground uppercase">Total Models Built</Label>

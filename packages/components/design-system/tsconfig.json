@@ -2,9 +2,12 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
     "declaration": true,
     "declarationDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "types": ["vitest/globals"]
   },
   "include": ["src"]
 }

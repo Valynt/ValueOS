@@ -274,11 +274,13 @@ export const SERVICE_TOKENS = {
   // Agent services
   AGENT_REGISTRY: Symbol("AgentRegistry"),
   AGENT_API: Symbol("AgentAPI"),
+  AGENT_FACTORY: Symbol("AgentFactory"),
   MESSAGE_QUEUE: Symbol("MessageQueue"),
 
   // Infrastructure
   DATABASE: Symbol("Database"),
   REDIS: Symbol("Redis"),
+  CIRCUIT_BREAKER: Symbol("CircuitBreaker"),
 
   // Business services
   UNIFIED_ORCHESTRATOR: Symbol("UnifiedOrchestrator"),

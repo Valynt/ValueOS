@@ -1,11 +1,12 @@
+import { vi } from "vitest";
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AgentReasoningViewer } from '../AgentReasoningViewer';
 
-jest.mock('../../services/AuditTrailService', () => ({
+vi.mock('../../services/AuditTrailService', () => ({
   auditTrailService: {
-    queryReasoningChains: jest.fn().mockResolvedValue([
+    queryReasoningChains: vi.fn().mockResolvedValue([
       {
         id: 'chain-test',
         agentId: 'agent-target-1',
@@ -23,9 +24,9 @@ jest.mock('../../services/AuditTrailService', () => ({
   },
 }));
 
-jest.mock('../api/client/unified-api-client', () => ({
+vi.mock('../api/client/unified-api-client', () => ({
   api: {
-    executeAgent: jest.fn().mockResolvedValue({ success: true }),
+    executeAgent: vi.fn().mockResolvedValue({ success: true }),
   },
 }));
 

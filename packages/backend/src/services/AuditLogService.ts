@@ -126,8 +126,8 @@ export class AuditLogService extends BaseService {
   }): Promise<AuditLogEntry> {
     return this.logAudit({
       userId: input.user_id,
-      userName: "Unknown", // TODO: Get from user context
-      userEmail: "unknown@valueos.com", // TODO: Get from user context
+      userName: "Unknown", // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Get from user context
+      userEmail: "unknown@valueos.com", // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Get from user context
       action: `action_router:${input.action_type}`,
       resourceType: "action",
       resourceId: input.trace_id || "unknown",

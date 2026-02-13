@@ -1,35 +1,17 @@
 import React from "react";
 import { SDUIComponentSection } from "./schema";
 import {
-  AgentResponseCard,
-  AgentWorkflowPanel,
-  Breadcrumbs,
-  ConfidenceIndicator,
   DataTable,
-  DiscoveryCard,
-  ExpansionBlock,
   InfoBanner,
-  IntegrityReviewPanel,
-  KPIForm,
-  LifecyclePanel,
-  MetricBadge,
-  NarrativeBlock,
-  RealizationDashboard,
-  ScenarioSelector,
-  SDUIForm,
   SectionErrorFallback,
-  SideNavigation,
-  TabBar,
   UnknownComponentFallback,
-  ValueCommitForm,
-  ValueTreeCard,
   // Fallbacks
-  JsonViewer,
-  TextBlock,
-  ConfirmationDialog,
-  ValueHypothesisCard,
-  ProgressBar,
 } from "./components/SDUI";
+import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
+import { KPIForm } from "./components/SDUI/KPIForm";
+import { InteractiveChart } from "./components/SDUI/InteractiveChart";
+import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
+import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
 import {
   DashboardPanel,
   Grid,
@@ -39,6 +21,7 @@ import {
 import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
 import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
 import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
+import { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
 import { ComponentPreview } from "./components/SDUI";
 import { logger } from "@shared/lib/logger";
 
@@ -414,6 +397,50 @@ versionedRegistry.register({
   tags: ["ui", "data", "table"],
 });
 
+versionedRegistry.register({
+  component: KPIForm,
+  version: 1,
+  description: "Form for entering/editing KPI values",
+  requiredProps: ["kpis"],
+  optionalProps: ["values", "onChange", "onSubmit", "readOnly"],
+  tags: ["ui", "form", "kpi"],
+});
+
+versionedRegistry.register({
+  component: InteractiveChart,
+  version: 1,
+  description: "Recharts-based chart supporting bar, line, area, and pie types",
+  requiredProps: ["type", "data"],
+  optionalProps: ["title", "xAxisLabel", "yAxisLabel", "colors", "height", "showLegend", "showTooltip"],
+  tags: ["ui", "chart", "visualization"],
+});
+
+versionedRegistry.register({
+  component: NarrativeBlock,
+  version: 1,
+  description: "Typed narrative text block with metadata and sources",
+  requiredProps: ["content"],
+  optionalProps: ["author", "timestamp", "type", "confidence", "sources"],
+  tags: ["ui", "narrative", "text"],
+});
+
+versionedRegistry.register({
+  component: IntegrityVetoPanel,
+  version: 1,
+  description: "Integrity review panel with issue list, severity colors, and resolve modal",
+  requiredProps: ["issues", "onResolve", "onDismiss"],
+  tags: ["ui", "integrity", "agent"],
+});
+
+versionedRegistry.register({
+  component: WorkflowStatusBar,
+  version: 1,
+  description: "Horizontal progress bar showing workflow stages",
+  requiredProps: ["stages", "currentStageId"],
+  optionalProps: ["agentName", "confidence", "startedAt"],
+  tags: ["ui", "workflow", "status"],
+});
+
 // Register fallback components
 versionedRegistry.registerFallback({
   component: UnknownComponentFallback,
@@ -459,7 +486,7 @@ export const baseRegistry: Record<string, RegistryEntry> = {
   WorkflowStatusBar: {
     component: WorkflowStatusBar,
     versions: [1],
-    requiredProps: [],
+    requiredProps: ["stages", "currentStageId"],
     description: "Real-time workflow progress bar showing current stage, agent, and confidence.",
   },
   HumanCheckpoint: {
@@ -480,6 +507,42 @@ export const baseRegistry: Record<string, RegistryEntry> = {
     versions: [1],
     requiredProps: ["intentType", "componentName", "registryEntry", "organizationId"],
     description: "Developer preview tool for ui-registry.json entries with validation.",
+  },
+  DiscoveryCard: {
+    component: DiscoveryCard,
+    versions: [1],
+    requiredProps: ["title"],
+    description: "Card showing a discovered value opportunity with status and confidence.",
+  },
+  KPIForm: {
+    component: KPIForm,
+    versions: [1],
+    requiredProps: ["kpis"],
+    description: "Form for entering/editing KPI values with type-appropriate inputs.",
+  },
+  InteractiveChart: {
+    component: InteractiveChart,
+    versions: [1],
+    requiredProps: ["type", "data"],
+    description: "Recharts-based chart supporting bar, line, area, and pie types.",
+  },
+  ValueTreeCard: {
+    component: ValueTreeCard,
+    versions: [1],
+    requiredProps: ["nodes"],
+    description: "Hierarchical tree visualization of value decomposition.",
+  },
+  NarrativeBlock: {
+    component: NarrativeBlock,
+    versions: [1],
+    requiredProps: ["content"],
+    description: "Typed narrative text block with metadata and sources.",
+  },
+  IntegrityVetoPanel: {
+    component: IntegrityVetoPanel,
+    versions: [1],
+    requiredProps: ["issues", "onResolve", "onDismiss"],
+    description: "Integrity review panel with issue list, severity colors, and resolve modal.",
   },
 };
 

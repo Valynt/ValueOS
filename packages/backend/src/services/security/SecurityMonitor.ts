@@ -8,7 +8,6 @@
 import { logger } from "../../lib/logger.js"
 import { getAuditLogger, AgentAuditLog } from "../AgentAuditLogger.js"
 import { getSecureSharedContext } from "../SecureSharedContext.js"
-import { secureMessageBus } from "../../lib/agent-fabric/SecureMessageBus";
 
 // ============================================================================
 // Types
@@ -466,7 +465,7 @@ export class SecurityMonitor {
    */
   private sendEmailAlert(alert: SecurityAlert): void {
     logger.info("Email alert sent", { alertId: alert.id, message: alert.message });
-    // TODO: Integrate with email service
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with email service
   }
 
   /**
@@ -474,7 +473,7 @@ export class SecurityMonitor {
    */
   private sendSlackAlert(alert: SecurityAlert): void {
     logger.info("Slack alert sent", { alertId: alert.id, message: alert.message });
-    // TODO: Integrate with Slack API
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with Slack API
   }
 
   /**
@@ -482,7 +481,7 @@ export class SecurityMonitor {
    */
   private sendPagerDutyAlert(alert: SecurityAlert): void {
     logger.info("PagerDuty alert sent", { alertId: alert.id, message: alert.message });
-    // TODO: Integrate with PagerDuty API
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with PagerDuty API
   }
 
   /**
@@ -490,7 +489,7 @@ export class SecurityMonitor {
    */
   private escalateToSecurityTeam(alert: SecurityAlert): void {
     logger.warn("Security team escalation", { alertId: alert.id, message: alert.message });
-    // TODO: Integrate with security team notification system
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with security team notification system
   }
 
   /**
@@ -498,7 +497,7 @@ export class SecurityMonitor {
    */
   private escalateToManagement(alert: SecurityAlert): void {
     logger.error("Management escalation", { alertId: alert.id, message: alert.message });
-    // TODO: Integrate with management notification system
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with management notification system
   }
 
   /**
@@ -506,7 +505,7 @@ export class SecurityMonitor {
    */
   private sendImmediateNotification(alert: SecurityAlert): void {
     logger.warn("Immediate notification sent", { alertId: alert.id, message: alert.message });
-    // TODO: Integrate with real-time notification system
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with real-time notification system
   }
 
   /**

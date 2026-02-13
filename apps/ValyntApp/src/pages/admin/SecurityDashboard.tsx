@@ -3,7 +3,7 @@
  * Real-time security metrics and event monitoring for administrators
  */
 
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,12 +14,7 @@ import {
   AlertTriangle,
   Activity,
   TrendingUp,
-  Eye,
   RefreshCw,
-  Clock,
-  User,
-  Globe,
-  Zap,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -78,7 +73,7 @@ interface DashboardData {
 }
 
 export function SecurityDashboard() {
-  const [selectedTimeframe, setSelectedTimeframe] = useState<"1h" | "24h" | "7d">("24h");
+  const [selectedTimeframe, _setSelectedTimeframe] = useState<"1h" | "24h" | "7d">("24h");
   const queryClient = useQueryClient();
 
   // Fetch dashboard data

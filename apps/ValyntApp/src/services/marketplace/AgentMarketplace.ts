@@ -539,7 +539,7 @@ export class AgentMarketplace extends EventEmitter {
 
     if (criteria.tags && criteria.tags.length > 0) {
       agents = agents.filter((agent) =>
-        criteria.tags!.some((tag) => agent.capabilities.some((cap) => cap.tags.includes(tag)))
+        criteria.tags?.some((tag) => agent.capabilities.some((cap) => cap.tags.includes(tag)))
       );
     }
 
@@ -649,7 +649,7 @@ export class AgentMarketplace extends EventEmitter {
     if (!this.reviews.has(review.agentId)) {
       this.reviews.set(review.agentId, []);
     }
-    this.reviews.get(review.agentId)!.push(fullReview);
+    this.reviews.get(review.agentId)?.push(fullReview);
 
     // Update agent rating
     await this.updateAgentRating(review.agentId);

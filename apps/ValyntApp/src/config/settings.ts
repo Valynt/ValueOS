@@ -2,6 +2,7 @@
  * Centralized, environment-aware, and schema-validated configuration.
  */
 import { z } from "zod";
+import fs from "fs";
 import { getEnvVar, env as runtimeEnv } from "../lib/env";
 
 const DEFAULT_API_PORT = 3000;
@@ -23,6 +24,8 @@ const SettingsSchema = z.object({
     .default("development"),
   API_PORT: z.string().optional().default("3000"),
   SUPABASE_SERVICE_KEY: z.string().optional(), // Only available on the server
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(), // Only available on the server
+  SUPABASE_JWT_SECRET: z.string().optional(), // Only available on the server
   REDIS_URL: z.string().url().optional(),
   CORS_ALLOWED_ORIGINS: z.string().optional(),
   ALERT_WEBHOOK_URL: z.string().url().optional(),
@@ -65,6 +68,20 @@ const readEnv = (key: string, fallback?: string) => {
     return managedSecrets[key];
   }
 
+  // Check for _FILE environment variables (Docker secret injection)
+  if (isServer) {
+    const fileKey = `${key}_FILE`;
+    const filePath = getEnvVar(fileKey);
+    if (filePath) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        return content.trim();
+      } catch (error) {
+        console.warn(`Failed to read secret from file ${filePath} for ${key}:`, error);
+      }
+    }
+  }
+
   return getEnvVar(key, { defaultValue: fallback });
 };
 
@@ -77,6 +94,8 @@ const resolvedEnv = {
   NODE_ENV: readEnv("NODE_ENV"),
   API_PORT: readEnv("API_PORT", "3000"),
   SUPABASE_SERVICE_KEY: readEnv("SUPABASE_SERVICE_KEY"),
+  SUPABASE_SERVICE_ROLE_KEY: readEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  SUPABASE_JWT_SECRET: readEnv("SUPABASE_JWT_SECRET"),
   REDIS_URL: readEnv("REDIS_URL"),
   CORS_ALLOWED_ORIGINS: readEnv("CORS_ALLOWED_ORIGINS"),
   ALERT_WEBHOOK_URL: readEnv("ALERT_WEBHOOK_URL"),

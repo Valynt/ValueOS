@@ -1,24 +1,24 @@
 /**
  * Phase 3.5: Integration Adapter
- * 
+ *
  * Bridges the Ground Truth Engine (Phase 3) with the Template Library (Phase 4)
  * This is the critical "glue code" that makes templates display real, proven data
- * 
+ *
  * The Adapter Pattern: Converts BusinessCaseResult → TemplateDataSource
  */
 
-import { BusinessCaseResult } from '../causal/business-case-generator-enhanced';
-import { 
+import { BusinessCaseResult } from '@valueos/business-case';
+import {
   TemplateDataSource,
   FinancialMetrics,
   KPIImpact,
   CausalChain,
-  AuditEvidence 
-} from '../components/templates/types';
+  AuditEvidence
+} from '@valueos/templates';
 
 /**
  * Main Adapter Function
- * 
+ *
  * Transforms the raw output from Phase 3 into the structured data format
  * expected by Phase 4 templates. This ensures every template displays
  * mathematically proven, audit-backed numbers.
@@ -30,19 +30,19 @@ export function adaptBusinessCaseToTemplate(
     // 1. Structural Truth → KPI Grid & Metrics
     // Maps the 200+ KPIs to visual metrics
     metrics: extractMetrics(businessCase),
-    
+
     // 2. Business Case → Financial Dashboard
     // ROI, NPV, Cash Flow for Trinity Dashboard
     financials: extractFinancials(businessCase),
-    
+
     // 3. Causal Truth → Impact Cascade
     // Shows how actions lead to outcomes
     outcomes: extractCausalChain(businessCase),
-    
+
     // 4. Audit Trail → Trust Badge Data
     // Cryptographic proof for every number
     evidence: extractAuditEvidence(businessCase),
-    
+
     // 5. Reasoning Engine → Context & Recommendations
     // Persona-aware insights
     context: extractContext(businessCase)
@@ -65,10 +65,10 @@ function extractMetrics(businessCase: BusinessCaseResult): KPIImpact[] {
     benchmark: impact.benchmarkAlignment,
     timeToImpact: impact.timeToImpact,
     contributingActions: impact.contributingActions,
-    
+
     // Add formula dependency info for advanced users
     formulaDependencies: impact.formulaDependencies,
-    
+
     // Visual cues for templates
     trend: impact.relativeChange > 0 ? 'up' : 'down',
     severity: getSeverity(impact.relativeChange, impact.confidence)
@@ -81,30 +81,30 @@ function extractMetrics(businessCase: BusinessCaseResult): KPIImpact[] {
  */
 function extractFinancials(businessCase: BusinessCaseResult): FinancialMetrics {
   const fi = businessCase.financialImpact;
-  
+
   return {
     // Core metrics
     roi: fi.netPresentValue / fi.totalCosts,
     netPresentValue: fi.netPresentValue,
     internalRateOfReturn: fi.internalRateOfReturn,
     benefitCostRatio: fi.benefitCostRatio,
-    
+
     // Cash flow breakdown
     incrementalRevenue: fi.incrementalRevenue,
     costSavings: fi.costSavings,
     totalBenefits: fi.totalBenefits,
     totalCosts: fi.totalCosts,
-    
+
     // Payback period
     paybackPeriod: businessCase.summary.paybackPeriod,
-    
+
     // Sensitivity analysis (for Trinity Dashboard)
     sensitivity: {
       downside: fi.sensitivity.downside,
       baseCase: fi.sensitivity.baseCase,
       upside: fi.sensitivity.upside
     },
-    
+
     // Yearly cash flow projection (for trend visualization)
     yearlyCashFlow: generateCashFlowProjection(businessCase)
   };
@@ -117,11 +117,11 @@ function extractFinancials(businessCase: BusinessCaseResult): FinancialMetrics {
 function extractCausalChain(businessCase: BusinessCaseResult): CausalChain[] {
   // Map timeline events to causal chain
   const chainMap = new Map<string, CausalChain>();
-  
+
   businessCase.timeline.forEach(event => {
     event.kpiImpacts.forEach(kpiImpact => {
       const key = `${event.action}-${kpiImpact.kpiId}`;
-      
+
       if (!chainMap.has(key)) {
         chainMap.set(key, {
           driver: event.action,
@@ -135,7 +135,7 @@ function extractCausalChain(businessCase: BusinessCaseResult): CausalChain[] {
       }
     });
   });
-  
+
   return Array.from(chainMap.values());
 }
 
@@ -153,10 +153,10 @@ function extractAuditEvidence(businessCase: BusinessCaseResult): AuditEvidence[]
       reasoning: step.reasoning,
       sources: step.sources,
       hash: step.hash || 'N/A',
-      
+
       // For tooltip display
       validation: step.validation,
-      
+
       // Visual indicator
       status: step.validation?.valid ? 'verified' : 'warning'
     }));
@@ -173,16 +173,16 @@ function extractContext(businessCase: BusinessCaseResult) {
     companySize: businessCase.metadata.companySize,
     timeframe: businessCase.metadata.timeframe,
     confidenceScore: businessCase.metadata.confidenceScore,
-    
+
     // Key insights for summary cards
     keyInsights: businessCase.summary.keyInsights,
-    
+
     // Recommendations for action cards
     recommendations: businessCase.recommendations,
-    
+
     // Risk level for warning indicators
     riskLevel: businessCase.summary.riskLevel,
-    
+
     // Data sources for transparency
     dataSources: businessCase.metadata.dataSources
   };
@@ -196,32 +196,32 @@ export function selectTemplateByContext(
   context: ReturnType<typeof extractContext>
 ): string {
   const { persona, riskLevel, confidenceScore } = context;
-  
+
   // CFO: Always wants Trinity Dashboard (Risk/Cash Flow/ROI)
   if (persona === 'cfo' || persona === 'director_finance') {
     return 'TrinityDashboard';
   }
-  
+
   // Product Manager: Wants Impact Cascade (Features → Outcomes)
   if (persona === 'vp_product' || persona === 'cto') {
     return 'ImpactCascadeTemplate';
   }
-  
+
   // VP Sales: Wants Scenario Matrix (Compare strategies)
   if (persona === 'vp_sales') {
     return 'ScenarioMatrix';
   }
-  
+
   // High risk: Show Story Arc (Narrative of risks)
   if (riskLevel === 'high') {
     return 'StoryArcCanvas';
   }
-  
+
   // Low confidence: Show Quantum View (Multiple perspectives)
   if (confidenceScore < 0.7) {
     return 'QuantumView';
   }
-  
+
   // Default: Trinity Dashboard
   return 'TrinityDashboard';
 }
@@ -237,13 +237,13 @@ export function generateTrustBadge(
   const relevantSteps = businessCase.auditTrail.filter(step =>
     JSON.stringify(step.outputs).toLowerCase().includes(metricName.toLowerCase())
   );
-  
+
   if (relevantSteps.length === 0) {
     return null;
   }
-  
+
   const latestStep = relevantSteps[relevantSteps.length - 1];
-  
+
   return {
     metric: metricName,
     value: latestStep.outputs[metricName]?.value || 'Derived',
@@ -272,13 +272,13 @@ function generateCashFlowProjection(businessCase: BusinessCaseResult): number[] 
   // Simplified projection based on timeline
   const projection: number[] = [];
   const yearlyTotal = businessCase.financialImpact.totalBenefits / 3; // 3 year projection
-  
+
   for (let i = 1; i <= 3; i++) {
     // Ramp up over time
     const ramp = i === 1 ? 0.3 : i === 2 ? 0.6 : 1.0;
     projection.push(yearlyTotal * ramp);
   }
-  
+
   return projection;
 }
 
@@ -289,7 +289,7 @@ function getEvidenceForAction(action: string, kpi: string, businessCase: Busines
   const evidence = businessCase.evidence.find(e =>
     e.description.includes(action) && e.description.includes(kpi)
   );
-  
+
   return evidence ? [evidence.source] : [];
 }
 
@@ -301,29 +301,29 @@ export class IntegrationManager {
   private adapter: typeof adaptBusinessCaseToTemplate;
   private templateSelector: typeof selectTemplateByContext;
   private trustBadgeGenerator: typeof generateTrustBadge;
-  
+
   constructor() {
     this.adapter = adaptBusinessCaseToTemplate;
     this.templateSelector = selectTemplateByContext;
     this.trustBadgeGenerator = generateTrustBadge;
   }
-  
+
   /**
    * Complete pipeline: Business Case → Template Data
    */
   async processBusinessCase(businessCase: BusinessCaseResult) {
     // 1. Adapt data
     const templateData = this.adapter(businessCase);
-    
+
     // 2. Select appropriate template
     const templateName = this.templateSelector(templateData.context);
-    
+
     // 3. Generate trust badges for all metrics
     const trustBadges = templateData.metrics.map(metric => ({
       metric: metric.name,
       badge: this.trustBadgeGenerator(metric.name, businessCase)
     }));
-    
+
     return {
       templateName,
       templateData,
@@ -336,7 +336,7 @@ export class IntegrationManager {
       }
     };
   }
-  
+
   /**
    * Real-time template switching based on persona changes
    */
@@ -347,7 +347,7 @@ export class IntegrationManager {
     const context = { ...currentData.context, persona: newPersona as any };
     return this.templateSelector(context);
   }
-  
+
   /**
    * Add trust overlay to existing template data
    */
@@ -360,25 +360,25 @@ export class IntegrationManager {
       value: metric.value,
       trust: this.trustBadgeGenerator(metric.name, businessCase)
     }));
-    
+
     return { ...templateData, trustOverlay };
   }
 }
 
 /**
  * USAGE EXAMPLE:
- * 
+ *
  * const manager = new IntegrationManager();
- * 
+ *
  * // Generate business case
  * const businessCase = await businessCaseGenerator.generateBusinessCase(request);
- * 
+ *
  * // Process for templates
  * const result = await manager.processBusinessCase(businessCase);
- * 
+ *
  * // Render template
  * renderTemplate(result.templateName, result.templateData);
- * 
+ *
  * // Show trust badges on hover
  * showTrustBadges(result.trustBadges);
  */

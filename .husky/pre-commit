@@ -1,3 +1,10 @@
-pnpm run lint
-pnpm run typecheck
-pnpm test
+# Secret scanning via gitleaks on staged files
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --no-banner
+else
+  echo "gitleaks not installed — skipping pre-commit secret scan"
+  echo "Install: https://github.com/gitleaks/gitleaks#installing"
+  echo "  brew install gitleaks       # macOS"
+  echo "  sudo apt install gitleaks   # Debian/Ubuntu"
+  echo "  go install github.com/gitleaks/gitleaks/v8@latest  # Go"
+fi

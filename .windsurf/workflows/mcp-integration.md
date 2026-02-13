@@ -57,7 +57,7 @@ npx @modelcontextprotocol/inspector services/mcp-<name>/index.ts
 8. Run unit tests:
 
 ```bash
-npx vitest run services/mcp-<name>/
+npx vitest run services/mcp-<name>/ --passWithNoTests
 ```
 
 ## Integration

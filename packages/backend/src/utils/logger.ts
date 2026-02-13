@@ -5,3 +5,4 @@
  */
 
 export { logger, createLogger } from "@shared/lib/logger";
+export type { Logger } from "@shared/lib/logger";

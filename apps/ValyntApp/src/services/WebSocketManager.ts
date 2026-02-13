@@ -1,9 +1,9 @@
 /**
  * WebSocket Manager
- * 
+ *
  * Manages WebSocket connections for real-time SDUI updates.
  * Handles connection lifecycle, reconnection, and message routing.
- * 
+ *
  * Features:
  * - Exponential backoff reconnection
  * - Multiple fallback URLs
@@ -25,7 +25,7 @@ class BrowserEventEmitter {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
-    this.listeners.get(event)!.push(listener);
+      this.listeners.get(event)?.push(listener);
   }
 
   off(event: string, listener: Function): void {
@@ -145,7 +145,7 @@ export class WebSocketManager extends BrowserEventEmitter {
         error: error instanceof Error ? error.message : String(error),
       });
       this.setState('error');
-      
+
       if (this.options.reconnect) {
         this.scheduleReconnect();
       }
@@ -217,7 +217,7 @@ export class WebSocketManager extends BrowserEventEmitter {
   } {
     const now = Date.now();
     const timeSinceLastHeartbeat = now - this.lastHeartbeat;
-    const isHealthy = this.state === 'connected' && 
+    const isHealthy = this.state === 'connected' &&
                      timeSinceLastHeartbeat < (this.options?.heartbeatInterval || 30000) * 2;
 
     return {
@@ -239,21 +239,21 @@ export class WebSocketManager extends BrowserEventEmitter {
 
     return new Promise((resolve, reject) => {
       try {
-        const urls = [this.options!.url, ...this.options!.fallbackUrls!];
+        const urls = [this.options?.url, ...(this.options?.fallbackUrls ?? [])];
         const url = urls[urlIndex] || urls[0];
-        
+
         this.connectionStartTime = Date.now();
-        logger.info('Attempting WebSocket connection', { 
-          url, 
+        logger.info('Attempting WebSocket connection', {
+          url,
           attempt: this.reconnectAttempts + 1,
-          urlIndex 
+          urlIndex
         });
 
         this.ws = new WebSocket(url);
 
         // Set connection timeout
         this.connectionTimer = window.setTimeout(() => {
-          logger.warn('WebSocket connection timeout', { url, timeout: this.options!.connectionTimeout });
+          logger.warn('WebSocket connection timeout', { url, timeout: this.options?.connectionTimeout });
           if (this.ws) {
             this.ws.close();
           }
@@ -261,9 +261,9 @@ export class WebSocketManager extends BrowserEventEmitter {
         }, this.options.connectionTimeout);
 
         this.ws.onopen = () => {
-          logger.info('WebSocket connected', { 
-            url, 
-            connectionTime: Date.now() - this.connectionStartTime 
+          logger.info('WebSocket connected', {
+            url,
+            connectionTime: Date.now() - this.connectionStartTime
           });
           this.clearConnectionTimer();
           this.setState('connected');
@@ -286,10 +286,10 @@ export class WebSocketManager extends BrowserEventEmitter {
         };
 
         this.ws.onclose = (event) => {
-          logger.info('WebSocket closed', { 
-            code: event.code, 
+          logger.info('WebSocket closed', {
+            code: event.code,
             reason: event.reason,
-            url 
+            url
           });
           this.clearConnectionTimer();
           this.setState('disconnected');
@@ -319,14 +319,14 @@ export class WebSocketManager extends BrowserEventEmitter {
   private handleMessage(event: MessageEvent): void {
     try {
       const message: WebSocketMessage = JSON.parse(event.data);
-      
+
       // Handle heartbeat responses
       if (message.type === 'heartbeat_response') {
         this.lastHeartbeat = Date.now();
         logger.debug('Heartbeat response received');
         return;
       }
-      
+
       logger.debug('Message received', {
         type: message.type,
         messageId: message.messageId,
@@ -357,7 +357,7 @@ export class WebSocketManager extends BrowserEventEmitter {
     this.setState('reconnecting');
 
     let interval = this.options.reconnectInterval!;
-    
+
     if (this.options.exponentialBackoff) {
       interval = Math.min(
         this.options.reconnectInterval! * Math.pow(this.options.backoffMultiplier!, this.reconnectAttempts - 1),
@@ -404,22 +404,22 @@ export class WebSocketManager extends BrowserEventEmitter {
       if (this.state === 'connected') {
         const now = Date.now();
         const timeSinceLastHeartbeat = now - this.lastHeartbeat;
-        
+
         // If we haven't received a heartbeat response in 2x the interval, consider unhealthy
-        if (timeSinceLastHeartbeat > this.options!.heartbeatInterval! * 2) {
+        if (timeSinceLastHeartbeat > (this.options?.heartbeatInterval ?? 0) * 2) {
           logger.warn('WebSocket health check failed - no heartbeat response', {
             timeSinceLastHeartbeat,
-            threshold: this.options!.heartbeatInterval! * 2
+            threshold: (this.options?.heartbeatInterval ?? 0) * 2
           });
           this.emit('health_check_failed');
-          
+
           // Force reconnection if unhealthy
           if (this.ws) {
             this.ws.close(1000, 'Health check failed');
           }
         }
       }
-    }, this.options!.heartbeatInterval! / 2); // Check twice per heartbeat interval
+    }, (this.options?.heartbeatInterval ?? 0) / 2); // Check twice per heartbeat interval
   }
 
   /**

@@ -2,7 +2,6 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import {
   ApprovalDecision,
   ApprovalRecord,
-  VersionStatus,
   ApprovalContext,
   UUID,
   FactStatus,

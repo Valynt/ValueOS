@@ -30,13 +30,11 @@ import {
   getRelevantExamples,
 } from "../data/valueModelExamples";
 import { createToolExecutor, getAllTools } from "./MCPTools.js"
-import { mcpGroundTruthService } from "./MCPGroundTruthService.js"
 import { checkStageTransition } from "../config/chatWorkflowConfig.js"
 import {
   generateChatSDUIPage,
   hasTemplateForStage,
 } from "@sdui/templates/chat-templates";
-import { sanitizeAgentInput } from "../utils/security.js"
 import { contextFabric } from "../lib/agent-fabric/ContextFabric";
 import { detectIndustry } from "../data/industryTemplates";
 import { geminiProxyService } from "./GeminiProxyService.js"
@@ -402,7 +400,7 @@ export class AgentChatService {
           type: "layout",
           layout: "Grid",
           props: { columns: 2, gap: 4, className: "mb-6" },
-          children: data.keyMetrics.map((m: any, i: number) => ({
+          children: data.keyMetrics.map((m: any, _i: number) => ({
             type: "component",
             component: "MetricBadge", // Using MetricBadge mapping
             version: 1,

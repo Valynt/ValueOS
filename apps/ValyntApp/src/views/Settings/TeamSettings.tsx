@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { SettingsSection } from "../../components/Settings/SettingsSection";
+import { SettingsSection } from "../../components/settings";
 import { logger } from "@lib/logger";
 import { useDebouncedState } from "../../hooks/useDebounce";
 import {
@@ -7,7 +7,6 @@ import {
   Archive,
   Bell,
   Check,
-  Clock,
   Download,
   FileText,
   Loader2,

@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 /**
  * Value Drivers API Tests
  * 
@@ -15,17 +16,17 @@ import {
 } from '../../../lib/db/errors';
 
 // Mock the repository
-jest.mock('../repository');
+vi.mock('../repository');
 
 // Mock auth middleware
-jest.mock('../../../middleware/auth', () => ({
-  requireAuth: jest.fn((req, _res, next) => {
+vi.mock('../../../middleware/auth', () => ({
+  requireAuth: vi.fn((req, _res, next) => {
     req.user = { id: 'user-123', email: 'admin@example.com', roles: ['admin'] };
     req.tenantId = 'tenant-123';
     req.correlationId = 'test-correlation-id';
     next();
   }),
-  requireRole: jest.fn((roles: string[]) => (req: any, res: any, next: any) => {
+  requireRole: vi.fn((roles: string[]) => (req: any, res: any, next: any) => {
     const userRoles = req.user?.roles || [];
     const hasRole = roles.some(r => userRoles.includes(r));
     if (!hasRole) {
@@ -35,7 +36,7 @@ jest.mock('../../../middleware/auth', () => ({
   }),
 }));
 
-jest.mock('../../../middleware/tenantContext', () => ({
+vi.mock('../../../middleware/tenantContext', () => ({
   tenantContextMiddleware: () => (req: any, _res: any, next: any) => {
     req.tenantId = req.tenantId || 'tenant-123';
     next();
@@ -43,18 +44,18 @@ jest.mock('../../../middleware/tenantContext', () => ({
 }));
 
 // Mock rate limiter
-jest.mock('../../../middleware/rateLimiter', () => ({
-  createRateLimiter: jest.fn(() => (_req: any, _res: any, next: any) => next()),
+vi.mock('../../../middleware/rateLimiter', () => ({
+  createRateLimiter: vi.fn(() => (_req: any, _res: any, next: any) => next()),
   RateLimitTier: { STANDARD: 'standard', STRICT: 'strict' },
 }));
 
 // Mock logger
-jest.mock('../../../lib/logger', () => ({
+vi.mock('../../../lib/logger', () => ({
   logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
@@ -86,19 +87,19 @@ describe('Value Drivers API', () => {
     app.use('/api/v1/drivers', valueDriversRouter);
 
     mockRepository = {
-      create: jest.fn(),
-      getById: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      list: jest.fn(),
-      incrementUsage: jest.fn(),
+      create: vi.fn(),
+      getById: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      list: vi.fn(),
+      incrementUsage: vi.fn(),
     } as any;
 
     (getValueDriversRepository as jest.Mock).mockReturnValue(mockRepository);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // =========================================================================

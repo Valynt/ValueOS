@@ -5,7 +5,6 @@
 
 import express, { Request, Response } from 'express';
 import SubscriptionService from '../../services/billing/SubscriptionService';
-import CustomerService from '../../services/billing/CustomerService';
 import { PlanTier } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';

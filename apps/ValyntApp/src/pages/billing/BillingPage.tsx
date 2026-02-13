@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoadingSkeleton } from "@valueos/components/ui/loading-skeleton";
 import { cn } from "@/lib/utils";
 import { useSubscription } from "@/features/billing";
-import { billingService } from "@/services/billing/billingService";
 
 type Tab = "usage" | "plans" | "invoices";
 type PlanTier = "free" | "pro" | "enterprise";

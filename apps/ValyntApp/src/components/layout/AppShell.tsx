@@ -20,7 +20,6 @@ import {
   ChevronRight,
   FileText,
   Target,
-  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/avatar";

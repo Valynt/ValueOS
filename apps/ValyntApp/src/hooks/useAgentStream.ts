@@ -3,6 +3,7 @@ import { AgentOrchestratorAdapter } from "@/services/AgentOrchestratorAdapter";
 import { RedisStreamBroker } from "@/services/messaging/RedisStreamBroker";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { v4 as uuidv4 } from "uuid";
+import { logger } from "../lib/logger";
 
 export interface ChatMessage {
   id: string;
@@ -220,7 +221,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
 
       if (suggestion) {
         // Apply to Value Case - this would integrate with the store
-        console.log("Applying suggestion:", suggestion);
+        logger.info("Applying suggestion:", suggestion);
         // TODO: Integrate with Value Case store
       }
     },

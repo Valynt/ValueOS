@@ -1,0 +1,1308 @@
+ValueOS Architecture Audit
+A) Executive Map
+What This Platform Is
+ValueOS is a multi-tenant, agent-orchestrated B2B value-selling platform. It guides enterprise sales teams through a structured "value lifecycle" (Opportunity → Target → Realization → Expansion) where specialized AI agents analyze companies, build financial models, map value trees, and generate narratives — all rendered through a Server-Driven UI (SDUI) system that agents can dynamically compose and mutate. The platform sits on Supabase/Postgres with Kafka eventing, integrates with CRMs (Salesforce, HubSpot), uses MCP for LLM tool access, and bills via Stripe.
+
+Primary User Outcomes
+Discover and qualify opportunities — AI-assisted company research, 10-K analysis, competitive intelligence
+Build value cases — Financial modeling with KPIs, assumptions, scenarios, ROI calculations
+Map value architectures — System mapping, causal loops, intervention design
+Track realization — Monitor actual vs. predicted value delivery with feedback loops
+Expand accounts — Identify expansion opportunities within existing customers
+Maintain integrity — Zero-hallucination guarantees via tiered ground truth resolution (EDGAR/XBRL → Market Data → Benchmarks)
+System Spine
+┌─────────────────────────────────────────────────────────────────────┐
+│ UI LAYER                                                            │
+│  ValyntApp (Vite/React) ──→ SDUI Renderer ──→ Component Registry    │
+│  VOSAcademy (training)      MCP Dashboard (ops)                     │
+├─────────────────────────────────────────────────────────────────────┤
+│ MIDDLEWARE                                                          │
+│  Kong Gateway → Express Backend                                     │
+│  Auth (Supabase JWT) → RBAC → Tenant Isolation → Rate Limiting      │
+│  → Plan Enforcement → Audit Hooks → Cost Throttling                 │
+├─────────────────────────────────────────────────────────────────────┤
+│ ORCHESTRATION                                                       │
+│  ValueLifecycleOrchestrator (saga pattern)                          │
+│  WorkflowStateMachine → SagaCoordinator → AgentExecutorService      │
+│  Kafka (agent.requests → agent.responses, saga.commands, DLQ)       │
+├─────────────────────────────────────────────────────────────────────┤
+│ DATA TRUTH                                                          │
+│  Supabase/Postgres (13 core tables, RLS per org)                    │
+│  pgvector (agent_memory embeddings)                                 │
+│  UnifiedTruthLayer (EDGAR → Market → Benchmarks)                    │
+│  audit_logs (trigger-based, every CUD on 7 tables)                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ AGENT LAYER                                                         │
+│  5 lifecycle agents: Opportunity, Target, Realization, Expansion,   │
+│    Integrity                                                        │
+│  Support agents: Coordinator, Research, Narrative, Financial-       │
+│    Modeling, Company-Intelligence, Value-Mapping, System-Mapper,    │
+│    Intervention-Designer, Outcome-Engineer, Value-Eval              │
+│  Base: Express servers, SafetyGuard, ContextManager                 │
+│  Tools: MCP ToolRegistry, MCPCRMServer, MCPFinancialGroundTruth     │
+├─────────────────────────────────────────────────────────────────────┤
+│ INTEGRATIONS                                                        │
+│  CRM: Salesforce, HubSpot (EnterpriseAdapter pattern)               │
+│  Comms: Slack, ServiceNow, SharePoint                               │
+│  Billing: Stripe (subscriptions, usage metering, webhooks)          │
+│  LLM: Together.ai, Gemini proxy                                    │
+│  Data: EDGAR/SEC, XBRL, market data (AlphaVantage/Polygon/Tiingo)  │
+│  Auth: Supabase GoTrue + Auth0 (legacy)                             │
+└─────────────────────────────────────────────────────────────────────┘
+B) Workflow Atlas
+Workflow 1: Value Case Discovery (Opportunity Stage)
+Field	Detail
+Persona	Sales rep, account executive
+Trigger	User creates new account/case in UI or CRM sync
+Steps	1. User enters company name → 2. OpportunityAgent invoked via Kafka agent.requests → 3. Agent calls MCP Ground Truth (EDGAR, market data) → 4. Company-Intelligence agent enriches → 5. Agent produces SDUI schema with DiscoveryCard, StatCard → 6. Schema stored, rendered in canvas
+State transitions	cases.status: open → in_progress; workflow_states.status: running → completed/failed
+Data written	cases, agent_runs, agent_memory (embeddings), shared_artifacts, audit_logs
+Agents	OpportunityAgent, Company-Intelligence, Research
+Failure modes	Circuit breaker on LLM calls (CircuitBreaker.ts), saga compensation rolls back partial artifacts (LifecycleCompensationHandlers.ts), dead-letter queue for failed Kafka messages
+Observability	Prometheus metrics (kafkaProducerEventsTotal, kafkaProducerLatency), structured logging via winston, agent_runs.duration_ms + tokens_used
+Evidence	packages/agents/opportunity/src/index.ts, packages/backend/src/services/ValueLifecycleOrchestrator.ts, packages/mcp/ground-truth/core/UnifiedTruthLayer.ts, packages/shared/src/types/events.ts
+Workflow 2: Financial Model Building (Target Stage)
+Field	Detail
+Persona	Value consultant, sales engineer
+Trigger	User advances case to "target" stage or requests financial model
+Steps	1. TargetAgent receives validated input (TargetAgentInputSchema) → 2. Financial-Modeling agent builds KPI model → 3. Value-Mapping agent maps value tree → 4. Results written to models + kpis tables → 5. SDUI schema generated with KPIForm, InteractiveChart, ValueTreeCard
+State transitions	models.status: draft → active; workflow_states.current_stage: opportunity → target
+Data written	models, kpis, workflow_states, agent_runs, audit_logs
+Agents	TargetAgent, Financial-Modeling, Value-Mapping, Intervention-Designer
+Failure modes	Input validation via Zod (TargetAgentInputSchema), compensation handlers revert model state
+Observability	Agent run metrics, cost tracking (LLMCostTracker.ts)
+Evidence	packages/backend/src/services/ValueLifecycleOrchestrator.ts (lines ~24-30), packages/backend/src/validators/agentInputs.ts, infra/supabase/supabase/migrations/20231101000000_initial_schema.sql (models, kpis tables)
+Workflow 3: Integrity Verification
+Field	Detail
+Persona	System (automated), value consultant (review)
+Trigger	Any agent output before presentation to user
+Steps	1. IntegrityAgent receives agent output → 2. Validates against UnifiedTruthLayer (tiered: EDGAR → Market → Benchmarks) → 3. Confidence scoring → 4. If issues found, IntegrityVetoPanel rendered in SDUI → 5. User resolves: accept/reject/modify → 6. HumanCheckpoint component for high-severity items
+State transitions	Issue resolution: pending → accepted/rejected/modified
+Data written	agent_runs, audit_logs, integrity events
+Agents	IntegrityAgent, Value-Eval
+Failure modes	Strict mode requires Tier 1 data for public companies; fallback to lower tiers configurable
+Evidence	packages/sdui/src/components/Agent/IntegrityVetoPanel.tsx, packages/mcp/ground-truth/core/UnifiedTruthLayer.ts, packages/backend/src/services/IntegrityValidationService.ts
+Workflow 4: Realization Tracking
+Field	Detail
+Persona	Customer success manager, account executive
+Trigger	Case advances to realization stage; periodic feedback loops
+Steps	1. RealizationAgent monitors actual vs. predicted KPIs → 2. Feedback loop updates model assumptions → 3. SDUI updated with MetricBadge, ConfidenceIndicator → 4. Alerts on significant deviations
+State transitions	workflow_states.current_stage: target → realization
+Data written	models (updated), kpis (actuals), agent_memory, audit_logs
+Agents	RealizationAgent, Outcome-Engineer
+Evidence	packages/backend/src/services/RealizationFeedbackLoop.ts, packages/agents/realization/
+Workflow 5: Billing & Subscription Management
+Field	Detail
+Persona	Account admin, platform ops
+Trigger	Stripe webhook events, user subscription actions
+Steps	1. Stripe webhook received → 2. Signature verified → 3. SubscriptionService processes event → 4. UsageMeteringService tracks agent calls/tokens → 5. InvoiceService generates invoices → 6. Plan enforcement middleware gates features
+State transitions	Subscription: active → past_due → cancelled; Invoice: draft → open → paid
+Data written	Billing tables (via Stripe sync), audit_logs
+Failure modes	WebhookRetryService.ts for failed webhook processing, idempotency on webhook events
+Evidence	packages/backend/src/services/billing/ (StripeService, SubscriptionService, WebhookService, UsageMeteringService, WebhookRetryService)
+Workflow 6: CRM Sync & Context Injection
+Field	Detail
+Persona	Sales rep (implicit), system (automated)
+Trigger	OAuth connection established; deal stage change in CRM
+Steps	1. MCPCRMServer connects via tenant OAuth → 2. crm_search_deals tool fetches deal data → 3. ContextInjectionBridge normalizes deal → 4. Ground Truth Engine enriches with financial data → 5. Injected into SDUI templates (Trinity Dashboard, Impact Cascade)
+Data written	shared_artifacts, CRM sync state
+Agents	Any agent via MCP tool calls
+Evidence	packages/mcp/crm/index.ts, packages/mcp/crm/core/MCPCRMServer.ts, packages/integrations/
+C) Server-Driven UI Audit
+SDUI Schema Types and Registry
+Item	Detail	Evidence
+Schema version	SDUI_VERSION = 2	packages/sdui/src/schema.ts
+Page definition	SDUIPageDefinition = { type: "page", version, sections[], metadata? }	packages/sdui/src/schema.ts
+Section types	SDUIComponentSection = { type: "component", component: string, version, props, hydrateWith?, fallback? }	packages/sdui/src/schema.ts
+Layout directives	SDUILayoutDirectiveSchema = { type: "layout.directive", intent, component, props, layout }	packages/sdui-types/index.ts
+Validation	Zod schemas with validateSDUISchema()	packages/sdui/src/schema.ts
+Metadata	Tenant-aware: permissions, theme, featureFlags, dataResidency, lifecycle_stage, confidence_score, telemetry	packages/sdui-types/index.ts
+Rendering Pipeline
+HTTP GET /api/sdui/schema/:workspaceId
+  → CanvasSchemaService.generateSchema()
+  → Version negotiation (Accept-Version header)
+  → Optional auto-migration (X-Auto-Migrate header)
+  → Zod validation
+  → JSON response with SDUI-Version header
+
+Client:
+  SDUIPageDefinition JSON
+  → SDUIRenderer (packages/sdui/src/renderer.tsx)
+  → componentRegistry lookup (packages/sdui/src/registry.tsx)
+  → Layout resolution (DashboardPanel, Grid, HorizontalSplit, VerticalSplit)
+  → ComponentErrorBoundary per component
+  → Data binding resolution (DataBindingResolver.ts)
+Evidence: packages/backend/src/routes/sdui.ts, packages/sdui/src/renderer.tsx, packages/sdui/src/registry.tsx
+
+Component Inventory (40+ registered)
+Category	Components
+Layout	DashboardPanel, Grid, HorizontalSplit, VerticalSplit, Breadcrumbs, Tabs
+Data Display	StatCard, MetricBadge, DataTable, ConfidenceIndicator, KPICard, ProgressTracker
+Charts	InteractiveChart, ROIChart, ImpactCascadeChart, TrendChart
+Agent	AgentResponseCard, AgentWorkflowPanel, IntegrityVetoPanel, ConfidenceDisplay
+Forms	KPIForm, FilterPanel, SearchBar
+Value Domain	ValueTreeCard, DiscoveryCard, ExplorerCard, StakeholderMap, SystemMapViewer, CausalLoopDiagram
+Workflow	HumanCheckpoint, WorkflowStatusBar
+Narrative	NarrativeBlock, ExecutiveSummary, InfoBanner
+Action	ActionPanel, ExportPanel, NotificationCenter
+Evidence: packages/sdui/src/registry.tsx (full mapping), packages/sdui/src/sof-components.ts
+
+Data Binding Model
+Item	Detail
+Binding syntax	{ $bind: "metrics.revenue_uplift", $source: "realization_engine", $fallback: 0, $refresh: 5000 }
+Sources	10 types: realization_engine, system_mapper, intervention_designer, outcome_engineer, value_eval, semantic_memory, tool_registry, supabase, mcp_tool, realtime_stream
+Transforms	format_currency, format_percentage, round, abbreviate, date_relative, confidence_label, status_color, trend_direction
+Caching	Per-binding $cache key + $cacheTTL
+Tenant-aware	TenantAwareDataBinding.ts resolves bindings within tenant context
+Evidence: packages/sdui/src/DataBindingSchema.ts, packages/sdui/src/TenantAwareDataBinding.ts
+
+Action Model
+Item	Detail
+Action types	mutate_component, add_component, remove_component, reorder_components, update_layout, batch
+Mutation ops	set, merge, append, prepend, remove, replace
+Targeting	By component id, type, index, props match, or natural language description
+Execution	AtomicActionExecutor.ts applies patches; ComponentMutationService.ts for server-side
+Undo/Redo	UndoRedoManager.ts exists
+Evidence: packages/sdui/src/AtomicUIActions.ts, packages/backend/src/services/AtomicActionExecutor.ts
+
+Versioning Strategy
+Version negotiation via Accept-Version header
+Auto-migration via X-Auto-Migrate header
+migrationRunner with checkpoints and rollback
+Schema diff endpoint (POST /api/sdui/migrations/diff)
+Backward compatibility: server downgrades schema for older clients
+Evidence: packages/backend/src/routes/sdui.ts, packages/sdui/src/migrations.ts
+
+D) Middleware & Orchestration
+Request Lifecycle
+Kong Gateway (port 8000)
+  → Express Backend (packages/backend/src/server.ts)
+    → securityHeaders.ts (Helmet)
+    → corsMiddleware.ts
+    → auth.ts (Supabase JWT verification)
+    → tenantContext.ts (extract org_id from JWT)
+    → rbac.ts (role + permission check against user_roles table)
+    → planEnforcementMiddleware.ts (tier-based feature gating)
+    → inputValidation.ts (Zod schemas)
+    → rateLimiter.ts / enhancedRateLimiter.ts / llmRateLimiter.ts
+    → costThrottlingMiddleware.ts (budget enforcement)
+    → requestAuditMiddleware.ts (log every request)
+    → Route handler
+    → globalErrorHandler.ts
+Cross-Cutting Concerns
+Concern	Implementation	Evidence
+Rate limiting	Redis-backed (redisRateLimitStore.ts), per-API-key (apiKeyRateLimiter.ts), per-customer (customerRateLimit.ts), LLM-specific (llmRateLimiter.ts)	packages/backend/src/middleware/
+Tenancy	JWT org_id claim → tenantContext.ts → RLS policies on all 13 tables	packages/backend/src/middleware/tenantContext.ts, migrations
+Audit	DB triggers on 7 tables + requestAuditMiddleware.ts + AuditTrailService.ts	packages/backend/src/middleware/auditHooks.ts, packages/backend/src/services/security/AuditTrailService.ts
+PII	consentMiddleware.ts, LLMSanitizer.ts	packages/backend/src/middleware/consentMiddleware.ts
+Idempotency	Webhook idempotency keys, saga step IDs	packages/backend/src/services/billing/WebhookRetryService.ts
+MFA	mfa.ts middleware, MFAService.ts, WebAuthnService.ts	packages/backend/src/middleware/mfa.ts
+Feature flags	featureFlagMiddleware.ts, FeatureFlags.ts service	packages/backend/src/middleware/featureFlagMiddleware.ts
+Background Jobs
+Job	Mechanism	Purpose	Evidence
+Agent execution	Kafka consumer (AgentExecutorService.ts)	Async agent invocation	packages/backend/src/services/AgentExecutorService.ts
+Saga coordination	Kafka (saga.commands topic)	Multi-step workflow orchestration	packages/backend/src/services/SagaCoordinator.ts
+Webhook retry	WebhookRetryService.ts	Retry failed Stripe webhooks	packages/backend/src/services/billing/WebhookRetryService.ts
+Dead letter processing	Kafka dead.letter topic	Failed event recovery	packages/shared/src/types/events.ts
+Usage metering	UsageMeteringService.ts	Track agent/token usage for billing	packages/backend/src/services/billing/UsageMeteringService.ts
+Transaction Boundaries
+Atomic: Single Supabase table writes (RLS-enforced), Stripe API calls
+Eventual: Multi-agent workflows (saga pattern with compensation), CRM sync, SDUI schema generation
+Saga coordinator manages compensation: each step has action() + compensate(), executed in order, compensated in reverse on failure
+Evidence: packages/backend/src/services/SagaCoordinator.ts, packages/backend/src/services/WorkflowStateMachine.ts
+
+E) Ground Truth & Data Layer
+Sources of Truth
+Domain Object	Authoritative Source	Evidence
+Users/Auth	Supabase GoTrue auth.users + public.users	infra/supabase/supabase/migrations/20231101000000_initial_schema.sql
+Organizations (tenants)	organizations table	Same migration
+Value models	models + kpis tables	Same migration
+Agent state	agents + agent_runs + agent_memory	Same migration
+Workflows	workflows + workflow_states	Same migration
+Financial facts	UnifiedTruthLayer (tiered: EDGAR > Market > Benchmarks)	packages/mcp/ground-truth/core/UnifiedTruthLayer.ts
+Billing	Stripe (canonical) synced to local tables	packages/backend/src/services/billing/StripeService.ts
+CRM data	External CRM (Salesforce/HubSpot) via adapters	packages/integrations/
+Domain Model Inventory (13 core tables)
+Entity	Key Invariants
+organizations	tier IN (free, pro, enterprise); slug UNIQUE; soft-delete via deleted_at
+users	Scoped to org; role IN (admin, manager, member); status IN (active, inactive, invited, suspended); email lowercase + validated
+api_keys	Scoped to org+user; key_hash UNIQUE; scopes array; rate_limit per key
+cases	Scoped to org; status IN (open, in_progress, resolved, closed); priority IN (low, medium, high, urgent)
+workflows	Scoped to org; UNIQUE(org, name, version); definition JSONB (DAG)
+workflow_states	Scoped to org; status IN (running, completed, failed, cancelled); UNIQUE(workflow, case)
+agents	Scoped to org; UNIQUE(org, name); agent_type categorizes
+agent_runs	Scoped to org; status IN (running, success, failed, cancelled); tracks tokens_used + cost
+agent_memory	Scoped to org; embedding vector(1536) for semantic search
+models	Scoped to org; status IN (draft, active, archived); model_data JSONB
+kpis	Scoped to org+model; category IN (revenue, cost, risk)
+shared_artifacts	Scoped to org; cross-agent data sharing
+audit_logs	Scoped to org; immutable append-only; changes JSONB (before/after)
+Eventing Model
+Topic	Schema	Purpose	Evidence
+agent.requests	AgentRequestEvent	Trigger agent execution	packages/shared/src/types/events.ts
+agent.responses	AgentResponseEvent	Agent results	Same
+saga.commands	Saga step commands	Workflow orchestration	Same
+workflow.events	Workflow state changes	State machine transitions	Same
+dead.letter	Failed events	Error recovery	Same
+Event envelope: EventMeta = { eventId, timestamp, source, correlationId, causationId }
+
+Domain events: UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent (discriminated union)
+
+Audit Trail
+**DBNow producing the full audit:
+ValueOS Architecture Audit
+A) Executive Map
+What This Platform Is
+ValueOS is a multi-tenant, agent-orchestrated B2B value-selling platform. It guides enterprise sales teams through a structured "value lifecycle" (Opportunity → Target → Realization → Expansion) where AI agents research companies, build financial models, map value trees, and generate narratives — all rendered through a Server-Driven UI (SDUI) system that agents can dynamically compose and mutate. The platform sits on Supabase/Postgres with Kafka eventing, integrates with CRMs (Salesforce, HubSpot), and uses a financial "Ground Truth" engine backed by EDGAR/XBRL filings to prevent hallucinated financial claims.
+
+Primary User Outcomes
+Discover and qualify opportunities — AI-assisted company research, 10-K analysis, competitive intelligence
+Build defensible value cases — Financial models with ground-truth-backed KPIs, ROI calculators, impact cascades
+Orchestrate multi-agent workflows — Coordinate specialized agents across lifecycle stages with human checkpoints
+Deliver customer-facing value narratives — Auto-generated presentations, business cases, executive summaries
+Track value realization post-sale — Monitor KPI actuals vs. predictions, feedback loops
+Manage enterprise tenancy — Multi-org isolation, RBAC, billing, API keys, audit trails
+System Spine
+┌─────────────────────────────────────────────────────────────────────┐
+│ UI LAYER                                                            │
+│  ValyntApp (Vite/React) ─── SDUI Renderer ─── Component Registry   │
+│  VOSAcademy (training)     MCP Dashboard (ops)                      │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ HTTP/WS
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ MIDDLEWARE / ORCHESTRATION                                           │
+│  Kong Gateway → Express Backend (auth, RBAC, rate-limit, tenant)    │
+│  ValueLifecycleOrchestrator → SagaCoordinator → WorkflowStateMachine│
+│  AgentExecutorService (Kafka consumer) → UnifiedAgentAPI            │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ Kafka / Direct
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ AGENT LAYER                                                         │
+│  OpportunityAgent │ TargetAgent │ RealizationAgent │ ExpansionAgent  │
+│  IntegrityAgent │ CoordinatorAgent │ NarrativeAgent │ ResearchAgent  │
+│  ToolRegistry (MCP) │ SafetyGuard │ ContextManager                  │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ DATA / GROUND TRUTH                                                 │
+│  Supabase/Postgres (RLS) │ pgvector │ Kafka topics                  │
+│  UnifiedTruthLayer (EDGAR/XBRL → Market → Benchmarks)               │
+│  Memory: semantic/episodic/vector/provenance (stub)                 │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ INTEGRATIONS                                                        │
+│  Salesforce │ HubSpot │ Slack │ ServiceNow │ SharePoint              │
+│  Stripe (billing) │ Together.ai (LLM) │ Gemini │ EDGAR/SEC          │
+└─────────────────────────────────────────────────────────────────────┘
+B) Workflow Atlas
+Workflow 1: Value Lifecycle Execution (Primary)
+Field	Detail
+Name	Value Lifecycle Orchestration
+Persona	Sales Rep, Value Engineer
+Trigger	User initiates a new value case via UI or API
+Steps	1. Create case (Supabase cases table) → 2. Opportunity stage (OpportunityAgent: company research, hypothesis generation) → 3. Target stage (TargetAgent: intervention design, KPI targeting) → 4. Realization stage (RealizationAgent: financial modeling, ROI calculation) → 5. Expansion stage (ExpansionAgent: growth opportunities) → 6. Integrity check (IntegrityAgent: veto/validate all outputs)
+State Machine	created → started → completed/failed/paused; paused → resumed → completed/failed; failed → retrying → completed/failed; cancelled is terminal
+Data	Writes: cases, workflow_states, agent_runs, shared_artifacts, agent_memory, audit_logs. Reads: organizations, users, models, kpis
+Agents	OpportunityAgent, TargetAgent, RealizationAgent, ExpansionAgent, IntegrityAgent — each wrapped in CircuitBreaker
+Failure	SagaCoordinator with per-step compensation handlers; dead-letter topic (dead.letter); LifecycleError with compensation outcomes
+Observability	Kafka events (workflow.events, agent.requests, agent.responses), structured logging via winston, Prometheus metrics (kafkaProducerEventsTotal, kafkaProducerLatency)
+Evidence	packages/backend/src/services/ValueLifecycleOrchestrator.ts, WorkflowStateMachine.ts, SagaCoordinator.ts, AgentExecutorService.ts
+Workflow 2: SDUI Schema Generation & Rendering
+Field	Detail
+Name	Server-Driven UI Delivery
+Persona	Any authenticated user
+Trigger	GET /api/sdui/schema/:workspaceId or GET /api/sdui/agent/:agentId/schema
+Steps	1. Client requests schema with Accept-Version header → 2. CanvasSchemaService.generateSchema() builds page definition → 3. Zod validation → 4. Version negotiation (migrate/downgrade) → 5. JSON response with cache headers → 6. Client SDUIRenderer resolves components from ComponentRegistry → 7. DataBindingResolver hydrates $bind references → 8. AtomicUIActions apply surgical patches
+Data	Schema is generated per-request (not persisted). Data bindings resolve from: realization_engine, system_mapper, supabase, mcp_tool, realtime_stream
+Failure	ComponentErrorBoundary per component; FallbackComponentRegistry for unknown types; schema validation errors return 400/500
+Evidence	packages/backend/src/routes/sdui.ts, packages/sdui/src/schema.ts, renderer.tsx, registry.tsx, DataBindingSchema.ts, AtomicUIActions.ts
+Workflow 3: CRM Data Sync & Context Injection
+Field	Detail
+Name	CRM Integration & Deal Context
+Persona	Sales Rep (via agent)
+Trigger	Agent invokes MCP CRM tool (e.g., crm_search_deals)
+Steps	1. MCPCRMServer.executeTool() → 2. Adapter (Salesforce/HubSpot) fetches via OAuth → 3. Normalize to NormalizedEntity → 4. ContextInjectionBridge maps deal data to financial templates → 5. Ground Truth Engine validates claims
+Data	External CRM data normalized; no persistent CRM cache in DB (adapter is stateless)
+Failure	RateLimiter per provider; adapter ensureConnected() guard; empty stubs for actual API calls
+Evidence	packages/mcp/crm/, packages/integrations/salesforce/SalesforceAdapter.ts, packages/integrations/base/IEnterpriseAdapter.ts
+Workflow 4: Financial Ground Truth Resolution
+Field	Detail
+Name	Zero-Hallucination Financial Data
+Persona	System (agent-initiated)
+Trigger	Agent queries UnifiedTruthLayer.resolve()
+Steps	1. Parse request (company identifier + metric) → 2. Tier 1: EDGAR/XBRL (authoritative) → 3. Tier 2: Market/Private company data → 4. Tier 3: Industry benchmarks → 5. ClaimExtractor validates → 6. Return with confidence tier + provenance
+Data	External: SEC EDGAR, XBRL filings, market data APIs. Internal: agent_memory (vector embeddings)
+Failure	Tiered fallback (Tier 1 → 2 → 3); maxResolutionTime timeout (30s); strictMode requires Tier 1 for public companies
+Evidence	packages/mcp/ground-truth/core/UnifiedTruthLayer.ts, modules/EDGARModule.ts, modules/XBRLModule.ts
+Workflow 5: Billing & Subscription Management
+Field	Detail
+Name	Stripe Billing Lifecycle
+Persona	Admin, System
+Trigger	User subscribes/upgrades; Stripe webhook events
+Steps	1. SubscriptionService creates Stripe subscription → 2. WebhookService receives Stripe events → 3. UsageMeteringService tracks agent/API usage → 4. InvoiceService generates invoices → 5. WebhookRetryService handles failed deliveries
+Data	Supabase billing tables (with RLS); Stripe as external source of truth for payment state
+Evidence	packages/backend/src/services/billing/ (StripeService, SubscriptionService, WebhookService, UsageMeteringService, WebhookRetryService)
+Workflow 6: Human-in-the-Loop Checkpoint
+Field	Detail
+Name	Agent Action Approval
+Persona	Value Engineer, Manager
+Trigger	Agent emits agent.action.checkpoint event via Redis Streams
+Steps	1. Agent flags action as requiresApproval → 2. HumanCheckpoint component renders pending actions → 3. User approves/rejects/modifies → 4. Agent resumes or compensates
+Data	Redis Streams (agent.checkpoints); checkpoint state in component
+Evidence	packages/sdui/src/components/Workflow/HumanCheckpoint.tsx, packages/backend/src/services/HumanCheckpointService.ts
+C) Server-Driven UI Audit
+Schema Types & Registry
+Item	Detail	Evidence
+Schema root	SDUIPageDefinition: { type: "page", version: number, sections: SDUIComponentSection[], metadata?, layout? }	packages/sdui/src/schema.ts
+Component section	{ type: "component", component: string, version: number, props: Record<string,any>, hydrateWith?: string[], fallback? }	schema.ts:SDUIComponentSectionSchema
+Layout directive	{ type: "layout.directive", intent: string, component: string, props, layout: enum }	sdui-types/index.ts:SDUILayoutDirectiveSchema
+Version	SDUI_VERSION = 2; supports v1 and v2	schema.ts, sdui-types/index.ts
+Validation	Zod schemas with validateSDUISchema()	schema.ts
+Component Inventory (from registry.tsx)
+Category	Components
+Layout	Grid, DashboardPanel, HorizontalSplit, VerticalSplit, Breadcrumbs, Tabs
+Data Display	DataTable, InteractiveChart, StatCard, MetricBadge, ConfidenceIndicator, ValueTreeCard, ImpactCascadeCard
+Agent	AgentResponseCard, AgentWorkflowPanel, IntegrityVetoPanel, ConfidenceDisplay
+Forms/Input	KPIForm, FilterBar, SearchInput
+Workflow	HumanCheckpoint, WorkflowStatusBar, ProgressTracker
+Content	InfoBanner, DiscoveryCard, ExecutiveSummary, NarrativeBlock, ROICalculator
+Navigation	Breadcrumbs, Tabs
+Rendering Pipeline
+Backend generates SDUIPageDefinition via CanvasSchemaService
+Client fetches via GET /api/sdui/schema/:workspaceId
+SDUIRenderer iterates sections[], looks up each component in ComponentRegistry
+ComponentErrorBoundary wraps each component
+DataBindingResolver resolves $bind references at render time
+AtomicUIActions enable surgical mutations without full re-render
+Data Binding Model
+Syntax: { $bind: "metrics.revenue_uplift", $source: "realization_engine", $fallback: 0, $refresh: 5000 }
+Sources: realization_engine, system_mapper, intervention_designer, outcome_engineer, value_eval, semantic_memory, tool_registry, supabase, mcp_tool, realtime_stream
+Caching: Optional $cache key + $cacheTTL
+Transforms: $transform function name applied post-resolution
+Evidence: packages/sdui/src/DataBindingSchema.ts, useDataBinding.tsx
+Action Model
+Atomic actions: mutate_component, add_component, remove_component, reorder_components, update_layout, batch
+Targeting: By id, type, index, props match, or natural language description
+Mutations: set, merge, append, prepend, remove, replace on property paths
+Evidence: packages/sdui/src/AtomicUIActions.ts, ComponentTargeting.ts
+Versioning Strategy
+Version negotiation via Accept-Version header
+Auto-migration via x-auto-migrate header
+Checkpoint/rollback system for schema migrations
+Backward compatibility via migrateSchema() downgrade
+Evidence: packages/backend/src/routes/sdui.ts, packages/sdui/src/migrations.ts
+D) Middleware & Orchestration
+Request Lifecycle
+Kong Gateway → Express
+  → securityHeaders
+  → corsMiddleware
+  → auth.ts (JWT verification via Supabase)
+  → tenantContext.ts (extract org_id from JWT)
+  → rbac.ts (permission check against user_roles table)
+  → rateLimiter.ts / enhancedRateLimiter / llmRateLimiter
+  → inputValidation.ts
+  → planEnforcementMiddleware (tier-based feature gates)
+  → Route handler
+  → globalErrorHandler
+Cross-Cutting Concerns
+Concern	Implementation	Evidence
+Rate limiting	Redis-backed (redisRateLimitStore.ts), per-API-key (apiKeyRateLimiter), per-customer (customerRateLimit), LLM-specific (llmRateLimiter), cost-throttling (costThrottlingMiddleware)	packages/backend/src/middleware/
+Tenancy	JWT org_id claim → tenantContext.ts → Supabase RLS; tenantDbContext.ts for DB-level isolation	middleware/tenantContext.ts, tenantDbContext.ts
+Audit	requestAuditMiddleware.ts logs all requests; DB-level audit_trigger() on all tenant tables	middleware/requestAuditMiddleware.ts, migration SQL
+PII	consentMiddleware.ts for GDPR consent; fileUploadSecurity.ts for upload scanning	middleware/consentMiddleware.ts
+Idempotency	nonceStore.ts for replay protection	middleware/nonceStore.ts
+Feature flags	featureFlagMiddleware.ts + org-level features JSONB column	middleware/featureFlagMiddleware.ts
+MFA	mfa.ts middleware	middleware/mfa.ts
+Background Jobs
+Job	Mechanism	Purpose	Evidence
+Agent execution	Kafka consumer (AgentExecutorService)	Async agent invocation	services/AgentExecutorService.ts
+Event sourcing	Kafka topics	Domain event persistence	services/EventSourcingService.ts
+Webhook retries	WebhookRetryService	Retry failed Stripe webhooks	services/billing/WebhookRetryService.ts
+Usage metering	UsageMeteringService	Track API/agent usage for billing	services/billing/UsageMeteringService.ts
+Transaction Boundaries
+Atomic: Individual Supabase writes (single-row inserts/updates)
+Eventual: Saga-coordinated multi-agent workflows (compensation on failure)
+Evidence: SagaCoordinator.ts (in-memory saga state, not persisted), WorkflowStateMachine.ts
+E) Ground Truth & Data Layer
+Sources of Truth
+Domain Object	Authoritative Source	Evidence
+Users/Auth	Supabase Auth (GoTrue) + users table	auth.users, public.users
+Organizations	organizations table	Migration SQL
+Value Cases	cases table	Migration SQL
+Agent Runs	agent_runs table	Migration SQL
+Financial Data	UnifiedTruthLayer (EDGAR > Market > Benchmarks)	mcp/ground-truth/core/UnifiedTruthLayer.ts
+Billing	Stripe (external) + local billing tables	services/billing/StripeService.ts
+Workflow State	workflow_states table	Migration SQL
+SDUI Schemas	Generated at request time (not persisted)	routes/sdui.ts
+Domain Model Inventory
+Entity	Key Invariants	Table
+organizations	tier IN (free, pro, enterprise); slug unique; soft-delete via deleted_at	organizations
+users	Scoped to org; role IN (admin, manager, member); status IN (active, inactive, invited, suspended); email lowercase + validated	users
+cases	Scoped to org; status IN (open, in_progress, resolved, closed)	cases
+workflows	Scoped to org; versioned; (org_id, name, version) unique	workflows
+workflow_states	status IN (running, completed, failed, cancelled); (workflow_id, case_id) unique	workflow_states
+agents	Scoped to org; (org_id, name) unique; typed (research, analysis, modeling, narrative)	agents
+agent_runs	status IN (running, success, failed, cancelled); tracks tokens_used, cost, duration_ms	agent_runs
+agent_memory	pgvector embedding vector(1536); scoped to org+agent	agent_memory
+models	status IN (draft, active, archived); versioned	models
+kpis	Scoped to model; category IN (revenue, cost, risk)	kpis
+api_keys	Scoped to org+user; hashed; scoped permissions; rate-limited; expirable	api_keys
+audit_logs	Immutable; {before, after} JSONB diffs; IP + user agent	audit_logs
+Eventing Model
+Topic	Schema	Purpose	Evidence
+saga.commands	SagaStep	Saga orchestration commands	shared/src/types/events.ts
+workflow.events	DomainEvent (discriminated union)	Workflow state changes	Same
+agent.requests	AgentRequestEvent	Agent invocation requests	Same
+agent.responses	AgentResponseEvent	Agent execution results	Same
+dead.letter	Any failed event	Failed event processing	Same
+Event types: UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent — all carry EventMeta (eventId, timestamp, source, correlationId, causationId).
+
+Audit Trail
+DB-level: audit_trigger() function fires on INSERT/UPDATE/DELETE for users, agents, models, cases, workflows, workflow_states, shared_artifacts — writes to audit_logs with {before, after} JSONB
+Application-level: AuditTrailService persists security events with riskScore, complianceFlags, correlationId
+Evidence: Migration SQL (triggers), services/security/AuditTrailService.ts
+F) Agent Layer Deep Dive
+Agent Inventory
+Agent	Purpose	Runtime	Evidence
+OpportunityAgent	Company research, hypothesis generation	Express microservice (port 8081)	packages/agents/opportunity/src/index.ts
+TargetAgent	Intervention design, KPI targeting	Express microservice (port 8082)	packages/agents/target/
+RealizationAgent	Financial modeling, ROI calculation	Express microservice (port 8083)	packages/agents/realization/
+ExpansionAgent	Growth opportunity identification	Express microservice (port 8084)	packages/agents/expansion/
+IntegrityAgent	Output validation, hallucination detection, veto power	Backend service	services/IntegrityAgentService.ts, IntegrityVetoPanel.tsx
+CoordinatorAgent	Multi-agent orchestration, layout directives	Backend service	packages/agents/coordinator/
+NarrativeAgent	Executive summary, business case generation	Backend service	packages/agents/narrative/
+ResearchAgent	Deep company/market research	Backend service	packages/agents/research/
+CompanyIntelligence	10-K filing analysis, competitive intel	Backend service	packages/agents/company-intelligence/
+ValueMapping	Value tree construction	Backend service	packages/agents/value-mapping/
+FinancialModeling	Financial model building	Backend service	packages/agents/financial-modeling/
+SystemMapper	Entity/relationship mapping	Backend service	packages/agents/system-mapper/
+OutcomeEngineer	Outcome hypothesis engineering	Backend service	packages/agents/outcome-engineer/
+InterventionDesigner	Intervention design	Backend service	packages/agents/intervention-designer/
+ValueEval	Value evaluation scoring	Backend service	packages/agents/value-eval/
+Tooling
+ToolRegistry: MCP-compatible interface (MCPTool); JSON Schema parameters; execution context (userId, sessionId, traceId); rate limits per tool
+MCP CRM Tools: crm_search_deals, crm_get_company, etc. via MCPCRMServer
+Ground Truth Tools: EDGAR, XBRL, market data, private company, industry benchmarks via MCPFinancialGroundTruthServer
+Evidence: services/ToolRegistry.ts, packages/mcp/crm/, `packages/mcpNow producing the full audit:
+ValueOS Architecture Audit
+A) Executive Map
+What This Platform Is
+ValueOS is a multi-tenant, agent-orchestrated value-selling platform that helps B2B sales teams quantify, model, and track the business value of their solutions for prospects and customers. It uses a lifecycle model (Opportunity → Target → Realization → Expansion) where specialized AI agents assist at each stage, producing financial models, ROI calculations, and narrative artifacts. The UI is server-driven (SDUI): agents generate JSON schemas that the frontend renders dynamically. The data layer is Supabase/Postgres with Kafka eventing, Stripe billing, and CRM integrations (Salesforce, HubSpot).
+
+Primary User Outcomes
+Discover and qualify opportunities — AI-assisted company research, 10-K analysis, competitive intelligence
+Build value models — KPI definition, financial modeling, assumption management, scenario analysis
+Generate business cases — Agent-produced ROI narratives, impact cascades, value trees
+Track value realization — Post-sale metric tracking, feedback loops, confidence scoring
+Expand accounts — Identify upsell/cross-sell opportunities based on realized value
+Maintain data integrity — Ground truth verification against EDGAR/XBRL, hallucination detection, integrity veto
+System Spine
+┌─────────────────────────────────────────────────────────────────────┐
+│ UI LAYER                                                            │
+│  ValyntApp (React/Vite)                                             │
+│  ├─ SDUI Renderer (packages/sdui/renderer.tsx)                      │
+│  ├─ Component Registry (packages/sdui/registry.tsx) — 40+ components│
+│  ├─ Data Binding Resolver (packages/sdui/DataBindingResolver.ts)    │
+│  └─ Atomic UI Actions (packages/sdui/AtomicUIActions.ts)            │
+├─────────────────────────────────────────────────────────────────────┤
+│ MIDDLEWARE / ORCHESTRATION                                          │
+│  Express Backend (packages/backend/src/server.ts)                   │
+│  ├─ Auth (Supabase JWT) → RBAC → Tenant Isolation → Rate Limiting  │
+│  ├─ ValueLifecycleOrchestrator (saga pattern, circuit breakers)     │
+│  ├─ WorkflowStateMachine (created→started→completed/failed)         │
+│  ├─ SagaCoordinator (step-by-step with compensation)                │
+│  └─ 226 service files in packages/backend/src/services/             │
+├─────────────────────────────────────────────────────────────────────┤
+│ DATA / GROUND TRUTH                                                 │
+│  PostgreSQL + pgvector (Supabase)                                   │
+│  ├─ 13 core tables with RLS per organization_id                     │
+│  ├─ 45+ migrations (infra/supabase/supabase/migrations/)            │
+│  ├─ Audit triggers on all domain tables                             │
+│  ├─ Kafka eventing (EventProducer/EventConsumer)                    │
+│  └─ UnifiedTruthLayer (EDGAR/XBRL/Market/Private/Benchmark tiers)   │
+├─────────────────────────────────────────────────────────────────────┤
+│ AGENT LAYER                                                         │
+│  packages/agents/ — 15 agent types (Express microservices)          │
+│  ├─ Base: SafetyGuard, ContextManager, health, metrics              │
+│  ├─ Fabric: LLMGateway, MemorySystem, AuditLogger                  │
+│  ├─ Tools: MCP ToolRegistry (packages/backend/src/services/)        │
+│  └─ Memory: semantic/episodic/vector/provenance (stub interfaces)   │
+├─────────────────────────────────────────────────────────────────────┤
+│ INTEGRATIONS                                                        │
+│  packages/integrations/ — Salesforce, HubSpot, ServiceNow,          │
+│                           SharePoint, Slack                         │
+│  packages/mcp/ — CRM MCP Server, Ground Truth MCP Server            │
+│  Stripe billing, Together.ai LLM, Supabase Auth                     │
+└─────────────────────────────────────────────────────────────────────┘
+B) Workflow Atlas
+Workflow 1: Value Lifecycle Orchestration
+Field	Detail
+Name	Value Lifecycle (Opportunity → Target → Realization → Expansion)
+Persona	Sales Rep, Value Engineer
+Trigger	User creates a "value case" or starts a new workspace
+Steps	1. OpportunityAgent analyzes company/deal → 2. TargetAgent designs interventions → 3. RealizationAgent tracks metrics → 4. ExpansionAgent identifies growth → 5. IntegrityAgent validates at each step
+State Machine	created → started → completed/failed/paused/cancelled with resumed, retrying transitions
+Data	workflows, workflow_states, agent_runs, shared_artifacts, cases tables
+Agents	OpportunityAgent, TargetAgent, RealizationAgent, ExpansionAgent, IntegrityAgent
+Failure	SagaCoordinator with per-step compensation handlers; CircuitBreaker per agent; DLQ via Kafka dead.letter topic
+Observability	Prometheus metrics (kafkaProducerEventsTotal, kafkaProducerLatency), structured logging via winston, agent_runs.duration_ms/tokens_used/cost
+Evidence	packages/backend/src/services/ValueLifecycleOrchestrator.ts, WorkflowStateMachine.ts, SagaCoordinator.ts
+Workflow 2: Agent Chat / Query
+Field	Detail
+Name	Agent Interaction (user asks agent a question)
+Persona	Sales Rep
+Trigger	User sends message via chat UI
+Steps	1. Frontend posts to API → 2. Kafka agent.requests topic → 3. AgentExecutorService consumes → 4. UnifiedAgentAPI routes to correct agent → 5. Agent executes with tools → 6. Response published to agent.responses → 7. SDUI schema generated → 8. Frontend renders
+Data	agent_runs (input/output/status/tokens/cost), agent_memory (embeddings)
+Agents	Any agent via UnifiedAgentAPI routing
+Failure	Kafka retries, EventSourcingService for replay, dead-letter queue
+Evidence	AgentExecutorService.ts, EventProducer.ts, EventConsumer.ts, UnifiedAgentAPI.ts
+Workflow 3: Ground Truth Resolution
+Field	Detail
+Name	Financial Data Verification
+Persona	Value Engineer, IntegrityAgent
+Trigger	Agent needs financial data or user requests verification
+Steps	1. Request to UnifiedTruthLayer → 2. Tier 1 (EDGAR/XBRL) queried → 3. Fallback to Tier 2 (Market/Private) → 4. Fallback to Tier 3 (Benchmarks) → 5. Confidence score assigned → 6. ClaimExtractor validates
+Data	External APIs (SEC EDGAR, market data providers), cached in memory
+Agents	IntegrityAgent, any agent via MCP tools
+Failure	Tiered fallback, maxResolutionTime: 30s, strict mode for public companies
+Evidence	packages/mcp/ground-truth/core/UnifiedTruthLayer.ts, modules/EDGARModule.ts, modules/XBRLModule.ts
+Workflow 4: CRM Sync
+Field	Detail
+Name	CRM Data Synchronization
+Persona	Sales Rep (implicit), System
+Trigger	Agent needs deal data, or user connects CRM
+Steps	1. OAuth connection established → 2. MCPCRMServer instantiated per tenant → 3. Tools exposed (crm_search_deals, etc.) → 4. ContextInjectionBridge maps CRM data to financial templates
+Data	External CRM (Salesforce/HubSpot), normalized via NormalizedEntity
+Failure	RateLimiter per provider (100 req/min Salesforce), adapter-level error handling
+Evidence	packages/mcp/crm/core/MCPCRMServer.ts, packages/integrations/salesforce/SalesforceAdapter.ts
+Workflow 5: Billing / Subscription
+Field	Detail
+Name	Subscription Management & Usage Metering
+Persona	Admin, System
+Trigger	User subscribes, usage threshold hit, Stripe webhook
+Steps	1. StripeService creates subscription → 2. UsageMeteringService tracks agent calls/tokens → 3. InvoiceService generates invoices → 4. WebhookService processes Stripe events → 5. PlanEnforcementMiddleware gates features
+Data	Stripe API, billing tables (behind RLS), organizations.tier/limits
+Failure	WebhookRetryService, Stripe's built-in retry, idempotency via webhook event IDs
+Evidence	packages/backend/src/services/billing/, middleware/planEnforcementMiddleware.ts
+Workflow 6: SDUI Schema Delivery
+Field	Detail
+Name	Server-Driven UI Rendering
+Persona	Frontend (automated)
+Trigger	Page load or agent produces output
+Steps	1. GET /api/sdui/schema/:workspaceId → 2. CanvasSchemaService generates schema → 3. Version negotiation via Accept-Version header → 4. Optional auto-migration → 5. Zod validation → 6. Client SDUIRenderer resolves components from registry → 7. DataBindingResolver hydrates live data → 8. AtomicUIActions apply partial mutations
+Data	Schema JSON (in-memory generation), cached 5min (Cache-Control: public, max-age=300)
+Evidence	packages/backend/src/routes/sdui.ts, packages/sdui/src/renderer.tsx, registry.tsx, schema.ts
+C) Server-Driven UI Audit
+Schema Types
+Type	Evidence
+SDUIPageDefinition	packages/sdui/src/schema.ts — Zod schema: { type: "page", version: number, sections: SDUIComponentSection[], metadata?: {...} }
+SDUIComponentSection	{ type: "component", component: string, version: number, props: Record<string,any>, hydrateWith?: string[], fallback?: {...} }
+SDUILayoutDirective	{ type: "layout.directive", intent: string, component: string, props: {...}, layout: enum } — for CoordinatorAgent
+DataBinding	{ $bind: string, $source: DataSourceType, $fallback?: any, $refresh?: number, $transform?: string, $cache?: string }
+AtomicUIAction	`mutate_component
+Registry (40+ components)
+Evidence: packages/sdui/src/registry.tsx
+
+Category	Components
+Layout	Grid, HorizontalSplit, VerticalSplit, DashboardPanel, Breadcrumbs, Tabs
+Data Display	DataTable, StatCard, MetricBadge, ConfidenceIndicator, ProgressTracker, TimelineView
+Charts	InteractiveChart, ROIChart, ImpactCascadeChart, ValueTreeVisualization
+Agent	AgentResponseCard, AgentWorkflowPanel, IntegrityVetoPanel, ConfidenceDisplay
+Forms	KPIForm, AssumptionEditor, ScenarioBuilder, PlaygroundEditor
+Value	DiscoveryCard, ValueTreeCard, ExecutiveSummary, StakeholderMap
+Workflow	HumanCheckpoint, WorkflowStatusBar, ApprovalPanel
+Navigation	InfoBanner, FilterBar, SearchBar
+Rendering Pipeline
+Backend generates SDUIPageDefinition JSON via CanvasSchemaService
+Client SDUIRenderer (renderer.tsx) iterates sections[]
+Each section's component string is looked up in componentRegistry map
+ComponentErrorBoundary wraps each component
+DataBindingResolver resolves $bind expressions against data sources
+hydrateWith endpoints are fetched for live data
+AtomicUIActions enable surgical mutations without full re-render
+Data Binding Model
+Sources: 10 types — realization_engine, system_mapper, intervention_designer, outcome_engineer, value_eval, semantic_memory, tool_registry, supabase, mcp_tool, realtime_stream
+Caching: Optional per-binding via $cache key and $cacheTTL
+Refresh: Optional polling via $refresh interval (ms)
+Transforms: Named transform functions applied post-resolution
+Versioning Strategy
+Current: SDUI_VERSION = 2
+Supported: [1, 2]
+Version negotiation via Accept-Version header
+Auto-migration via migrationRunner with checkpoint/rollback support
+Backward compatibility: migrateSchema() downgrades for old clients
+Evidence: packages/backend/src/routes/sdui.ts (endpoints), packages/sdui/src/migrations.ts
+D) Middleware & Orchestration
+Request Lifecycle
+Request → CORS → Security Headers → Rate Limiter → Auth (JWT verify)
+  → Tenant Context (org_id from JWT) → RBAC (permission check)
+  → Input Validation (Zod) → Feature Flags → Plan Enforcement
+  → Route Handler → Audit Log → Response
+Cross-Cutting Concerns
+Concern	Implementation	Evidence
+AuthN	Supabase JWT verification	middleware/auth.ts
+AuthZ	RBAC with user_roles table, permission matrix	middleware/rbac.ts, shared/lib/permissions
+Tenant Isolation	organization_id on every table, RLS policies, JWT org_id claim	middleware/tenantContext.ts, all RLS policies in migrations
+Rate Limiting	Per-API-key, per-customer, per-LLM, Redis-backed	middleware/rateLimiter.ts, apiKeyRateLimiter.ts, llmRateLimiter.ts, redisRateLimitStore.ts
+Audit	DB triggers on all domain tables + AuditTrailService for security events	audit_trigger() in initial migration, services/security/AuditTrailService.ts
+PII	Consent middleware	middleware/consentMiddleware.ts
+Idempotency	Nonce store	middleware/nonceStore.ts
+Cost Tracking	LLM cost throttling	middleware/costThrottlingMiddleware.ts, services/LLMCostTracker.ts
+Chaos	Chaos engineering middleware (dev)	middleware/chaosMiddleware.ts
+Background Jobs
+Job	Mechanism	Evidence
+Agent execution	Kafka consumer (agent.requests topic)	AgentExecutorService.ts
+Saga orchestration	In-process saga coordinator	SagaCoordinator.ts
+Webhook retries	WebhookRetryService	services/billing/WebhookRetryService.ts
+Usage metering	UsageMeteringService	services/billing/UsageMeteringService.ts
+Unknown: No cron jobs found. No dedicated worker process configuration found. Kafka consumer runs in-process with the Express server (evidence: AgentExecutorService constructor in same process).
+
+Transaction Boundaries
+Atomic: Individual Supabase table writes (single-row inserts/updates)
+Eventual: Multi-agent workflows via SagaCoordinator with compensation
+Evidence: SagaCoordinator.ts — each step has action() + compensate(), executed sequentially with rollback on failure
+E) Ground Truth & Data Layer
+Sources of Truth
+Domain Object	Authoritative Source	Evidence
+Users/Auth	Supabase auth.users + public.users	20231101000000_initial_schema.sql
+Organizations (tenants)	organizations table	Same migration
+Value Models	models table (model_data JSONB)	Same migration
+KPIs	kpis table	Same migration
+Agent Runs	agent_runs table	Same migration
+Agent Memory	agent_memory table (pgvector 1536-dim)	Same migration
+Workflows	workflows (DAG definition) + workflow_states (execution)	Same migration
+Financial Facts	UnifiedTruthLayer (EDGAR > Market > Benchmark)	packages/mcp/ground-truth/core/UnifiedTruthLayer.ts
+CRM Data	External CRM via adapters	packages/integrations/
+Billing	Stripe (authoritative) + local billing tables	services/billing/
+Domain Model Inventory (13 core tables)
+organizations, users, api_keys, audit_logs, cases, workflows, workflow_states, shared_artifacts, agents, agent_runs, agent_memory, models, kpis
+
+All tables have: organization_id FK, RLS enabled, updated_at triggers, audit triggers.
+
+Eventing Model
+Topic	Schema	Evidence
+saga.commands	SagaStep commands	EVENT_TOPICS in shared/types/events.ts
+workflow.events	Workflow state changes	Same
+agent.requests	AgentRequestEvent (agentId, userId, query, context)	Same
+agent.responses	AgentResponseEvent	Same
+dead.letter	Failed events	Same
+Event envelope: EventMeta { eventId, timestamp, source, correlationId, causationId } + discriminated union payload.
+
+Transport: KafkaJS with GZIP compression, 3 retries, configurable batch size.
+
+Audit Trail
+DB-level: audit_trigger() function fires on INSERT/UPDATE/DELETE for users, agents, models, cases, workflows, workflow_states, shared_artifacts. Stores { before, after } JSONB diffs.
+Application-level: AuditTrailService with typed events (authentication, authorization, data_access, configuration_change, security_event, compliance_violation, saga_compensation). Includes riskScore, complianceFlags, correlationId.
+Evidence: Initial migration (trigger definitions), services/security/AuditTrailService.ts
+F) Agent Layer Deep Dive
+Agent Inventory
+Agent	Purpose	Runtime	Evidence
+OpportunityAgent	Identifies business opportunities, company analysis	Express microservice (port 8081)	packages/agents/opportunity/src/index.ts
+TargetAgent	Designs interventions, value targets	Express microservice (port 8082)	packages/agents/target/
+RealizationAgent	Tracks value realization metrics	Express microservice (port 8083)	packages/agents/realization/
+ExpansionAgent	Identifies growth/upsell opportunities	Express microservice (port 8084)	packages/agents/expansion/
+IntegrityAgent	Validates data, detects hallucinations, veto power	In-process	services/IntegrityAgentService.ts
+CoordinatorAgent	Multi-agent orchestration, layout directives	In-process	packages/agents/coordinator/
+CompanyIntelligence	10-K analysis, competitive research	Stub	packages/agents/company-intelligence/
+ValueMapping	Maps value drivers to KPIs	Stub	packages/agents/value-mapping/
+FinancialModeling	ROI calculations, scenario modeling	Stub	packages/agents/financial-modeling/
+Narrative	Generates executive summaries, business cases	Stub	packages/agents/narrative/
+Research	General research capabilities	Stub	packages/agents/research/
+SystemMapper	Maps system entities and relationships	Stub	packages/agents/system-mapper/
+InterventionDesigner	Designs value interventions	Stub	packages/agents/intervention-designer/
+OutcomeEngineer	Engineers outcome hypotheses	Stub	packages/agents/outcome-engineer/
+ValueEval	Evaluates value claims	Stub	packages/agents/value-eval/
+Tooling
+ToolRegistry: MCP-compatible interface (packages/backend/src/services/ToolRegistry.ts) — MCPTool { name, description, parameters: JSONSchema, execute(), validate?() }
+MCP CRM Tools: crm_search_deals, etc. via MCPCRMServer
+MCP Ground Truth Tools: EDGAR, XBRL, Market Data, Private Company, Industry Benchmark modules
+Tool execution context: { userId, sessionId, workflowId, agentType, traceId }
+Memory Model
+Type	Status	Evidence
+Semantic	Interface only (export {})	packages/memory/semantic/index.ts
+Episodic	Interface only (export {})	packages/memory/episodic/index.ts
+Vector	Interface only (export {})	packages/memory/vector/index.ts
+Provenance	Interface only (export {})	packages/memory/provenance/index.ts
+DB Storage	agent_memory table with pgvector (1536-dim), IVFFlat index	Initial migration
+Backend Service	AgentMemoryService.ts, SemanticMemory.ts, VectorSearchService.ts	packages/backend/src/services/
+Assessment: The packages/memory/ package is a stub — all exports are empty. Actual memory logic lives in packages/backend/src/services/ as service classes.
+
+Guardrails
+Guardrail	Implementation	Evidence
+SafetyGuard	Input validation (length, injection patterns), output validation (PII, toxicity), rate limiting per agent	packages/agents/base/src/safety.ts
+IntegrityVetoPanel	UI component for human review ofNow producing the full audit:	
+ValueOS Architecture Audit
+A) Executive Map
+What This Platform Is
+ValueOS is a multi-tenant, agent-orchestrated B2B value-selling platform. It guides enterprise sales teams through a structured "value lifecycle" (Opportunity → Target → Realization → Expansion) using AI agents that research companies, model financial impact, build business cases, and track realized value. The UI is server-driven (SDUI): agents produce JSON schemas that the frontend renders dynamically. The data layer is Supabase/Postgres with RLS-based tenant isolation, Kafka for eventing, and a tiered "Ground Truth" engine that resolves financial claims against authoritative sources (EDGAR, XBRL, market data) to prevent hallucination.
+
+Primary User Outcomes
+Discover and qualify opportunities — AI-assisted company research, 10-K analysis, competitive intelligence
+Build quantified value cases — Financial modeling with KPIs, assumptions, ROI calculations tied to ground-truth data
+Design and track interventions — Map system dynamics, design targeted interventions, track realization
+Collaborate with AI agents — Conversational interface where agents produce SDUI layouts, charts, and recommendations
+Manage customer lifecycle — Multi-tenant org management, billing, access control, customer portals
+Ensure data integrity — Integrity agent vetoes hallucinated outputs; human checkpoints for high-stakes decisions
+System Spine
+┌─────────────────────────────────────────────────────────────────────┐
+│ UI LAYER                                                            │
+│  ValyntApp (Vite/React)  │  VOSAcademy  │  MCP Dashboard           │
+│  ↓ fetches SDUI schema                                              │
+│  SDUIRenderer → ComponentRegistry → DataBindingResolver             │
+├─────────────────────────────────────────────────────────────────────┤
+│ MIDDLEWARE                                                          │
+│  Kong Gateway → Express Backend                                     │
+│  auth.ts → rbac.ts → tenantContext.ts → rateLimiter.ts             │
+│  → planEnforcement → inputValidation → auditHooks                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ ORCHESTRATION                                                       │
+│  ValueLifecycleOrchestrator (saga pattern)                          │
+│  WorkflowStateMachine │ SagaCoordinator │ AgentExecutorService      │
+│  Kafka: agent.requests → agent.responses → dead.letter              │
+├─────────────────────────────────────────────────────────────────────┤
+│ AGENT LAYER                                                         │
+│  Opportunity │ Target │ Realization │ Expansion │ Integrity         │
+│  Company-Intelligence │ Financial-Modeling │ Narrative │ Research    │
+│  Coordinator │ Value-Mapping │ System-Mapper │ Outcome-Engineer     │
+│  ToolRegistry (MCP) │ SafetyGuard │ ContextManager                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ DATA / GROUND TRUTH                                                 │
+│  Supabase/Postgres (RLS) │ pgvector │ Kafka                        │
+│  UnifiedTruthLayer: EDGAR → XBRL → MarketData → Benchmarks         │
+│  Memory: semantic │ episodic │ vector │ provenance                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ INTEGRATIONS                                                        │
+│  Salesforce │ HubSpot │ ServiceNow │ SharePoint │ Slack             │
+│  Stripe (billing) │ Together.ai (LLM) │ Gemini │ Auth0/Supabase    │
+└─────────────────────────────────────────────────────────────────────┘
+B) Workflow Atlas
+Workflow 1: Value Case Discovery (Opportunity Stage)
+Field	Detail
+Persona	Sales rep, account executive
+Trigger	User creates new account/case in UI or agent chat
+Steps	1. User enters company name → 2. OpportunityAgent receives request via Kafka agent.requests → 3. Agent calls ToolRegistry (company research, EDGAR lookup) → 4. UnifiedTruthLayer resolves financial data (Tier 1→2→3) → 5. Agent produces SDUI schema with DiscoveryCard, StatCard components → 6. Schema stored, pushed to frontend via SDUI endpoint → 7. Frontend renders via SDUIRenderer
+State transitions	created → started → completed/failed (WorkflowStateMachine)
+Data written	cases, agent_runs, agent_memory, shared_artifacts, audit_logs
+Data read	organizations, users, external EDGAR/XBRL APIs
+Agents	OpportunityAgent, Company-Intelligence (research tools)
+Failure modes	Circuit breaker on LLM calls (CircuitBreaker.ts), saga compensation rolls back partial artifacts, dead-letter queue for failed events
+Observability	Kafka metrics (kafkaProducerEventsTotal), agent run duration/cost in agent_runs, structured logging via winston
+Evidence	packages/agents/opportunity/src/index.ts, packages/backend/src/services/ValueLifecycleOrchestrator.ts, packages/backend/src/services/AgentExecutorService.ts, packages/mcp/ground-truth/core/UnifiedTruthLayer.ts
+Workflow 2: Financial Modeling (Target Stage)
+Field	Detail
+Persona	Value engineer, sales rep
+Trigger	User advances case to "target" stage or requests financial model
+Steps	1. TargetAgent receives validated input (TargetAgentInputSchema) → 2. Calls FinancialCalculator, ROIFormulaInterpreter tools → 3. Ground truth validates assumptions against EDGAR/market data → 4. Produces SDUI schema with KPIForm, InteractiveChart, ValueTreeCard → 5. IntegrityAgent validates output (confidence scoring) → 6. If confidence < threshold, IntegrityVetoPanel shown to user
+State transitions	created → started → completed/failed, with integrity veto possible
+Data written	models, kpis, agent_runs, workflow_states
+Agents	TargetAgent, Financial-Modeling, IntegrityAgent
+Failure modes	Validation errors caught by Zod schemas, compensation handlers in ValueLifecycleOrchestrator
+Evidence	packages/backend/src/services/ValueLifecycleOrchestrator.ts (TargetAgentInputSchema import), packages/sdui/src/components/Agent/IntegrityVetoPanel.tsx, packages/backend/src/services/FinancialCalculator.ts
+Workflow 3: Human Checkpoint Approval
+Field	Detail
+Persona	Manager, compliance officer
+Trigger	Agent action flagged as requiresApproval
+Steps	1. Agent emits checkpoint event to Redis stream agent.checkpoints → 2. HumanCheckpoint component subscribes via RedisStreamBroker → 3. Pending actions displayed to user → 4. User approves/rejects → 5. Resolution event published → 6. Workflow resumes or compensates
+State transitions	started → paused → resumed/cancelled
+Data written	Checkpoint events in Redis streams, audit_logs
+Agents	Any agent can trigger; Coordinator routes
+Evidence	packages/sdui/src/components/Workflow/HumanCheckpoint.tsx, packages/backend/src/services/HumanCheckpointService.ts
+Workflow 4: Billing & Subscription Management
+Field	Detail
+Persona	Account admin, billing admin
+Trigger	Subscription creation, plan change, usage threshold
+Steps	1. User selects plan → 2. SubscriptionService creates Stripe subscription → 3. Webhook receives invoice.paid/customer.subscription.updated → 4. UsageMeteringService tracks agent calls, API usage → 5. PlanEnforcementMiddleware gates features by tier → 6. InvoiceService generates records
+State transitions	Stripe webhook-driven; invoice concurrency hardened (20260201000000_harden_invoice_concurrency.sql)
+Data written	Stripe objects, local billing tables, usage metering
+Failure modes	WebhookRetryService for failed webhook processing, idempotency via Stripe event IDs
+Evidence	packages/backend/src/services/billing/, packages/backend/src/middleware/planEnforcementMiddleware.ts, infra/supabase/supabase/migrations/20260201000000_harden_invoice_concurrency.sql
+Workflow 5: CRM Sync (Salesforce/HubSpot)
+Field	Detail
+Persona	Sales rep (implicit), admin (config)
+Trigger	OAuth connection established, periodic sync, or agent tool call
+Steps	1. CRMOAuthService establishes tenant-level OAuth → 2. MCPCRMServer provides tools to agents (crm_search_deals, etc.) → 3. ContextInjectionBridge maps CRM deal data to financial templates → 4. Bidirectional sync via EnterpriseAdapter interface
+Data exchanged	Deals, contacts, accounts (NormalizedEntity format)
+Failure modes	RateLimiter per provider, circuit breaker on API calls
+Evidence	packages/mcp/crm/index.ts, packages/integrations/salesforce/SalesforceAdapter.ts, packages/integrations/base/IEnterpriseAdapter.ts
+C) Server-Driven UI Audit
+SDUI Schema Types and Registry
+Item	Detail	Evidence
+Schema definition	Zod-validated SDUIPageDefinition with type: "page", version, sections[], metadata	packages/sdui/src/schema.ts, packages/sdui-types/index.ts
+Component section	{ type: "component", component: string, version: number, props: Record, hydrateWith?: string[], fallback? }	SDUIComponentSectionSchema in schema.ts
+Layout directive	`{ type: "layout.directive", intent, component, props, layout: "default"	"full_width"
+Version	SDUI_VERSION = 2; supports v1 and v2 with migration	schema.ts
+Metadata	Tenant-aware: permissions, theme, featureFlags, dataResidency, lifecycle_stage, case_id, confidence_score, telemetry trace_id	SDUIMetadataSchema in sdui-types/index.ts
+Rendering Pipeline
+HTTP GET /api/sdui/schema/:workspaceId
+  → CanvasSchemaService.generateSchema()
+  → validateSDUISchema() (Zod)
+  → version negotiation (Accept-Version header)
+  → migrateSchema() if needed
+  → JSON response with SDUI-Version header
+
+Client:
+  SDUIRenderer.tsx
+    → resolves sections[]
+    → looks up each component in ComponentRegistry (registry.tsx)
+    → wraps in ComponentErrorBoundary
+    → DataBindingResolver resolves $bind references
+    → renders React components
+Evidence: packages/backend/src/routes/sdui.ts, packages/sdui/src/renderer.tsx, packages/sdui/src/registry.tsx
+
+Component Inventory (from registry.tsx)
+Category	Components
+Layout	Grid, HorizontalSplit, VerticalSplit, DashboardPanel, Breadcrumbs, InfoBanner
+Data Display	StatCard, MetricBadge, DataTable, ConfidenceIndicator, ConfidenceDisplay
+Charts	InteractiveChart
+Value/Domain	ValueTreeCard, DiscoveryCard, ImpactCascadeCard, ROICalculator, KPIForm, ExternalDataCard
+Agent	AgentResponseCard, AgentWorkflowPanel, IntegrityVetoPanel
+Workflow	HumanCheckpoint, WorkflowStatusBar
+Forms	KPIForm, AssumptionEditor
+Narrative	NarrativeBlock
+Total registered: ~20 components. Evidence: packages/sdui/src/registry.tsx
+
+Data-Binding Model
+Item	Detail
+Syntax	{ $bind: "metrics.revenue_uplift", $source: "realization_engine", $fallback: 0, $refresh: 5000, $transform: "currency", $cache: "key", $cacheTTL: 60000 }
+Sources	realization_engine, system_mapper, intervention_designer, outcome_engineer, value_eval, semantic_memory, tool_registry, supabase, mcp_tool, realtime_stream
+Resolution	DataBindingResolver.ts resolves at render time; TenantAwareDataBinding.ts adds tenant scoping
+Caching	Per-binding $cache/$cacheTTL; HTTP-level Cache-Control: public, max-age=300 on schema endpoint
+Evidence	packages/sdui/src/DataBindingSchema.ts, packages/sdui/src/DataBindingResolver.ts
+Action Model
+Item	Detail
+Action types	mutate_component, add_component, remove_component, reorder_components, update_layout, batch
+Targeting	By component id, type, index, props match, or natural language description
+Mutations	set, merge, append, prepend, remove, replace on property paths
+Execution	AtomicActionExecutor.ts (backend), ComponentMutationService.ts
+Evidence	packages/sdui/src/AtomicUIActions.ts, packages/backend/src/services/AtomicActionExecutor.ts
+Versioning Strategy
+Schema version in SDUIPageDefinition.version
+Server negotiates via Accept-Version header
+migrateSchema() downgrades v2→v1; migrationRunner handles upgrades
+Checkpoints for rollback (/api/sdui/migrations/checkpoints)
+Diff endpoint (/api/sdui/migrations/diff)
+Evidence: packages/backend/src/routes/sdui.ts, packages/sdui/src/migrations.ts
+D) Middleware & Orchestration
+Request Lifecycle
+Kong Gateway (port 8000)
+  → Express server (packages/backend/src/server.ts)
+    → corsMiddleware.ts
+    → securityHeaders.ts
+    → auth.ts (JWT verification via Supabase)
+    → tenantContext.ts (extract org_id from JWT)
+    → rbac.ts (permission check against user_roles table)
+    → planEnforcementMiddleware.ts (tier-based feature gating)
+    → inputValidation.ts (Zod schemas)
+    → rateLimiter.ts / enhancedRateLimiter.ts / llmRateLimiter.ts
+    → auditHooks.ts (log action)
+    → route handler
+    → globalErrorHandler.ts
+Cross-Cutting Concerns
+Concern	Implementation	Evidence
+Rate limiting	Redis-backed (redisRateLimitStore.ts), per-API-key (apiKeyRateLimiter.ts), per-customer (customerRateLimit.ts), LLM-specific (llmRateLimiter.ts)	packages/backend/src/middleware/
+Tenancy	JWT org_id claim → tenantContext.ts → Supabase RLS via get_current_org_id()	middleware/tenantContext.ts, middleware/tenantDbContext.ts
+Audit	DB-level triggers (audit_trigger() on all tables) + app-level AuditTrailService.ts with correlation IDs	infra/supabase/.../initial_schema.sql, packages/backend/src/services/security/AuditTrailService.ts
+PII handling	consentMiddleware.ts, consentRegistry.ts	packages/backend/src/middleware/consentMiddleware.ts
+Idempotency	Saga steps have stepId; Stripe webhooks use event IDs; Redis nonce store (nonceStore.ts)	packages/backend/src/services/SagaCoordinator.ts, middleware/nonceStore.ts
+Cost tracking	costThrottlingMiddleware.ts, LLMCostTracker.ts, CostAwareRouter.ts	packages/backend/src/services/
+MFA	mfa.ts middleware, MFAService.ts, WebAuthnService.ts	packages/backend/src/middleware/mfa.ts
+Background Jobs
+Job	Mechanism	Purpose	Evidence
+AgentExecutorService	Kafka consumer on agent.requests	Execute agent tasks asynchronously	packages/backend/src/services/AgentExecutorService.ts
+EventConsumer	Kafka consumer groups	Process domain events	packages/backend/src/services/EventConsumer.ts
+WebhookRetryService	Unknown (likely timer-based)	Retry failed Stripe webhooks	packages/backend/src/services/billing/WebhookRetryService.ts
+SelfHealingManager	Unknown trigger	Auto-recover from failures	packages/backend/src/services/SelfHealingManager.ts
+Transaction Boundaries
+Atomic: Supabase RLS policies enforce per-row tenant isolation at DB level
+Eventual: Saga pattern via SagaCoordinator.ts — each step has action() + compensate(); failures trigger reverse compensation
+Invoice concurrency: Hardened via migration 20260201000000_harden_invoice_concurrency.sql
+Evidence: packages/backend/src/services/SagaCoordinator.ts, packages/backend/src/services/WorkflowStateMachine.ts
+E) Ground Truth & Data Layer
+Sources of Truth
+Domain Object	Authoritative Source	Evidence
+Users/Auth	Supabase auth.users + public.users	infra/supabase/.../initial_schema.sql
+Tenants	organizations table	Same migration
+Value models	models table (JSONB model_data)	Same migration
+KPIs	kpis table (linked to models)	Same migration
+Agent runs	agent_runs table (input, output, cost, tokens)	Same migration
+Agent memory	agent_memory table (pgvector embeddings)	Same migration
+Financial facts	UnifiedTruthLayer (EDGAR → XBRL → MarketData → Benchmarks)	packages/mcp/ground-truth/core/UnifiedTruthLayer.ts
+Workflows	workflows + workflow_states tables	Same migration
+Audit trail	audit_logs table (DB triggers + app-level)	Same migration, AuditTrailService.ts
+Domain Model Inventory
+Entity	Key Invariants
+organizations	tier IN ('free','pro','enterprise'), slug UNIQUE, soft-delete via deleted_at
+users	(org_id, email) UNIQUE, role IN ('admin','manager','member'), status IN ('active','inactive','invited','suspended'), email lowercase + regex validated
+cases	status IN ('open','in_progress','resolved','closed'), priority IN ('low','medium','high','urgent')
+workflows	(org_id, name, version) UNIQUE, JSONB DAG definition
+workflow_states	status IN ('running','completed','failed','cancelled'), (workflow_id, case_id) UNIQUE
+agent_runs	status IN ('running','success','failed','cancelled'), tracks tokens_used and cost
+models	status IN ('draft','active','archived'), (org_id, name) UNIQUE
+Eventing Model
+Topic	Schema	Purpose	Evidence
+agent.requests	AgentRequestEvent	Trigger agent execution	packages/shared/src/types/events.ts
+agent.responses	AgentResponseEvent	Agent results	Same
+saga.commands	Saga step commands	Orchestration	Same
+workflow.events	Workflow state changes	State tracking	Same
+dead.letter	Failed events	Error recovery	Same
+Event envelope: All events carry EventMeta with eventId, timestamp, source, correlationId, causationId.
+
+Transport: KafkaJS with GZIP compression, 3 retries, configurable batch size. Evidence: packages/backend/src/services/EventProducer.ts
+
+Audit Trail
+DB-level: audit_trigger() function fires on INSERT/UPDATE/DELETE for users, agents, models, cases, workflows, workflow_states, shared_artifacts. Records {before, after} JSONB diffs.
+App-level: AuditTrailService.ts with typed events, risk scoring, compliance flags, correlation IDs, IP/user-agent tracking.
+Migration: 20260202000000_add_audit_trace_ids.sql adds trace IDs to audit records.
+F) Agent Layer Deep Dive
+Agent Inventory
+Agent	Purpose	Runtime	Evidence
+OpportunityAgent	Identify/analyze business opportunities	Express microservice (port 8081)	packages/agents/opportunity/src/index.ts
+TargetAgent	Design interventions, financial targets	Express microservice (port 8082)	packages/agents/target/
+RealizationAgent	Track value realization metrics	Express microservice (port 8083)	packages/agents/realization/
+ExpansionAgent	Identify expansion opportunities	Express microservice (port 8084)	packages/agents/expansion/
+IntegrityAgent	Validate outputs, veto hallucinations	In-process	packages/backend/src/services/IntegrityAgentService.ts
+Company-Intelligence	Research companies via EDGAR, web	Stub	packages/agents/company-intelligence/
+Financial-Modeling	ROI calculations, scenario modeling	Stub	packages/agents/financial-modeling/
+Coordinator	Route requests to appropriate agents	Stub	packages/agents/coordinator/
+Narrative	Generate human-readable summaries	Stub	packages/agents/narrative/
+Research	General research tasks	Stub	packages/agents/research/
+Value-Mapping	Map valueNow producing the full audit:		
+ValueOS Architecture Audit
+A) Executive Map
+What This Platform Is
+ValueOS is a multi-tenant, agent-orchestrated B2B value-selling platform. It guides enterprise sales teams through a structured "value lifecycle" (Opportunity → Target → Realization → Expansion) using AI agents that research companies, model financial impact, generate narratives, and track realized value. The UI is server-driven (SDUI): agents produce JSON schemas that the frontend renders dynamically. The data layer is Supabase/Postgres with RLS-based tenant isolation, Kafka for eventing, and a tiered "Ground Truth" engine (EDGAR/XBRL/market data) to prevent financial hallucinations.
+
+Primary User Outcomes
+Discover and qualify opportunities — AI-assisted company research, 10-K analysis, competitive intelligence
+Build value cases — Financial modeling with KPIs, assumptions, scenarios, ROI calculations
+Generate buyer-facing narratives — Agent-produced business cases, impact cascades, executive summaries
+Track realized value — Post-sale value realization monitoring with feedback loops
+Expand accounts — Identify expansion opportunities within existing customers
+Manage multi-tenant access — Org-scoped RBAC, billing, API keys, audit trails
+System Spine
+┌─────────────────────────────────────────────────────────────────────┐
+│ UI LAYER                                                            │
+│  ValyntApp (Vite/React) ─── SDUI Renderer ─── Component Registry   │
+│  VOSAcademy (training)     MCP Dashboard (ops)                      │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ HTTP/WS
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ MIDDLEWARE / ORCHESTRATION                                           │
+│  Express backend (packages/backend)                                 │
+│  Auth (Supabase JWT) → RBAC → Tenant Context → Rate Limit          │
+│  → Plan Enforcement → Audit Hooks → Route Handlers                  │
+│  ValueLifecycleOrchestrator ← SagaCoordinator                      │
+│  WorkflowStateMachine ← CircuitBreaker                              │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ Kafka / Direct
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ AGENT LAYER                                                         │
+│  5 lifecycle agents: Opportunity, Target, Realization, Expansion,   │
+│                      Integrity (veto/guardrail)                     │
+│  Support agents: Coordinator, Research, Narrative, Financial-       │
+│                  Modeling, Company-Intelligence, Value-Mapping,      │
+│                  System-Mapper, Outcome-Engineer, Value-Eval        │
+│  Runtime: agent-base (Express per agent), SafetyGuard, ContextMgr  │
+│  Tools: ToolRegistry (MCP-compatible), MCPCRMServer                 │
+│  Memory: semantic/episodic/vector/provenance (stub packages)        │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ DATA / GROUND TRUTH                                                 │
+│  Supabase Postgres (RLS per org) — 13+ tables, 40+ migrations      │
+│  Ground Truth Engine: EDGAR → XBRL → Market Data → Private Co →    │
+│                       Industry Benchmarks (tiered resolution)       │
+│  Kafka topics: saga.commands, workflow.events, agent.requests/      │
+│                responses, dead.letter                                │
+│  pgvector for embeddings (agent_memory table)                       │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────────┐
+│ INTEGRATIONS                                                        │
+│  CRM: Salesforce, HubSpot (EnterpriseAdapter pattern)               │
+│  Comms: Slack, ServiceNow, SharePoint                               │
+│  Billing: Stripe (subscriptions, usage metering, webhooks)          │
+│  LLM: Together.ai, Gemini proxy                                    │
+│  Auth: Supabase GoTrue, Auth0 (legacy), WebAuthn                   │
+│  Observability: Prometheus, Grafana, structured logging             │
+└─────────────────────────────────────────────────────────────────────┘
+B) Workflow Atlas
+Workflow 1: Value Case Discovery (Opportunity Stage)
+Field	Detail
+Persona	Sales rep, account executive
+Trigger	User creates new account/case in UI or agent chat
+Steps	1. User enters company name → 2. OpportunityAgent invoked via Kafka agent.requests → 3. Agent calls Ground Truth (EDGAR/XBRL) for financials → 4. Company-Intelligence agent researches 10-K, news → 5. Agent produces SDUI schema (DiscoveryCard, StatCard) → 6. Schema stored, rendered in Canvas → 7. IntegrityAgent validates confidence scores
+State transitions	cases.status: open → in_progress; workflow_states.status: running → completed/failed
+Data	Reads: organizations, cases; Writes: agent_runs, agent_memory, shared_artifacts, workflow_states, audit_logs
+Agents	OpportunityAgent, Company-Intelligence, IntegrityAgent
+Failure	CircuitBreaker on LLM calls; SagaCoordinator compensates (rollback artifacts); dead-letter topic for unprocessable events
+Observability	kafkaProducerEventsTotal, kafkaProducerLatency, agent-base metrics, structured logger
+Evidence	packages/agents/opportunity/src/index.ts, packages/backend/src/services/ValueLifecycleOrchestrator.ts, packages/mcp/ground-truth/core/UnifiedTruthLayer.ts
+Workflow 2: Financial Modeling (Target Stage)
+Field	Detail
+Persona	Value engineer, sales rep
+Trigger	User advances case to "Target" stage or requests ROI model
+Steps	1. TargetAgent receives input (validated via TargetAgentInputSchema) → 2. Financial-Modeling agent builds KPI model → 3. Value-Mapping agent maps value drivers → 4. Results written to models, kpis tables → 5. SDUI schema generated (KPIForm, InteractiveChart, ValueTreeCard) → 6. IntegrityAgent validates assumptions
+State transitions	models.status: draft → active; workflow_states.current_stage: opportunity → target
+Data	Reads: shared_artifacts from opportunity stage; Writes: models, kpis, agent_runs
+Agents	TargetAgent, Financial-Modeling, Value-Mapping, IntegrityAgent
+Failure	Zod validation on inputs; compensation handlers in LifecycleCompensationHandlers.ts; circuit breaker
+Evidence	packages/backend/src/services/ValueLifecycleOrchestrator.ts (lines 1-100), packages/backend/src/validators/agentInputs.ts
+Workflow 3: Narrative Generation & Business Case
+Field	Detail
+Persona	Sales rep preparing buyer presentation
+Trigger	User requests narrative/business case from canvas
+Steps	1. NarrativeAgent invoked → 2. Reads shared_artifacts, models, kpis → 3. Generates executive summary, impact cascade → 4. SDUI schema with ExecSummaryCard, ImpactCascade → 5. IntegrityAgent checks for hallucinations via ClaimExtractor
+Agents	NarrativeAgent, IntegrityAgent, Outcome-Engineer
+Evidence	packages/agents/narrative/, packages/sdui/src/registry.tsx (ExecSummaryCard, ImpactCascade components)
+Workflow 4: Value Realization Tracking
+Field	Detail
+Persona	Customer success manager
+Trigger	Post-sale: periodic or manual trigger
+Steps	1. RealizationAgent activated → 2. Pulls actual metrics from CRM (via MCP CRM Server) → 3. Compares predicted vs actual KPIs → 4. Generates realization dashboard (SDUI) → 5. Feedback loop updates model confidence → 6. Alerts on variance
+Data	Reads: models, kpis; Writes: agent_runs, realization metrics
+Agents	RealizationAgent, IntegrityAgent
+Evidence	packages/agents/realization/, packages/backend/src/services/RealizationFeedbackLoop.ts, packages/mcp/crm/
+Workflow 5: Billing & Subscription Management
+Field	Detail
+Persona	Account admin
+Trigger	Signup, plan change, usage threshold
+Steps	1. User selects plan → 2. StripeService creates subscription → 3. WebhookService receives Stripe events → 4. SubscriptionService updates org tier → 5. PlanEnforcementMiddleware enforces limits → 6. UsageMeteringService tracks agent calls
+State transitions	organizations.tier: free → pro → enterprise
+Data	Writes: billing tables (via Stripe), organizations.limits
+Failure	WebhookRetryService for failed webhook processing; idempotency via Stripe event IDs
+Evidence	packages/backend/src/services/billing/, packages/backend/src/middleware/planEnforcementMiddleware.ts
+Workflow 6: Multi-Agent Orchestration (Full Lifecycle)
+Field	Detail
+Persona	System (automated pipeline)
+Trigger	User initiates full value case or stage transition
+Steps	1. ValueLifecycleOrchestrator.executeStage() → 2. SagaCoordinator registers compensation handlers → 3. Agent invoked with CircuitBreaker → 4. WorkflowStateMachine validates transition → 5. Results persisted to workflow_states → 6. Events published to Kafka → 7. SDUI schema updated
+State machine	created → started → completed/failed/paused; paused → resumed → completed/failed; failed → retrying → completed/failed
+Evidence	packages/backend/src/services/WorkflowStateMachine.ts, packages/backend/src/services/SagaCoordinator.ts, packages/backend/src/services/ValueLifecycleOrchestrator.ts
+C) Server-Driven UI Audit
+SDUI Schema Types and Registry
+Schema definition: packages/sdui/src/schema.ts — Zod-validated. Core types:
+
+SDUIPageDefinition: { type: "page", version: number, sections: SDUIComponentSection[], metadata?, layout? }
+SDUIComponentSection: { type: "component", component: string, version: number, props: Record, hydrateWith?: string[], fallback? }
+SDUILayoutDirective: { type: "layout.directive", intent, component, props, layout }
+Version: SDUI_VERSION = 2
+Evidence: packages/sdui/src/schema.ts, packages/sdui-types/index.ts
+
+Rendering Pipeline
+Backend generates SDUIPageDefinition (via CanvasSchemaService or agent output)
+Delivered via GET /api/sdui/schema/:workspaceId with version negotiation (Accept-Version header)
+Client SDUIRenderer (packages/sdui/src/renderer.tsx) iterates sections[], resolves each component name against ComponentRegistry
+ComponentRegistry (packages/sdui/src/registry.tsx) maps string names → React components
+Data bindings resolved at render time via DataBindingResolver ($bind, $source, $fallback)
+ComponentErrorBoundary wraps each component for isolation
+Evidence: packages/sdui/src/renderer.tsx, packages/sdui/src/registry.tsx, packages/backend/src/routes/sdui.ts
+
+Component Inventory (from registry.tsx)
+Category	Components
+Layout	Grid, HorizontalSplit, VerticalSplit, DashboardPanel, Breadcrumbs, TabNavigation
+Data Display	StatCard, MetricBadge, DataTable, ConfidenceIndicator, ProgressTracker
+Charts	InteractiveChart
+Cards	DiscoveryCard, ExecSummaryCard, ValueTreeCard, InfoBanner
+Agent	AgentResponseCard, AgentWorkflowPanel, IntegrityVetoPanel, ConfidenceDisplay
+Workflow	HumanCheckpoint, WorkflowStatusBar
+Forms	KPIForm, FilterBar, SearchInput
+Actions	ActionButton, ExportButton
+Total registered: ~25 components
+
+Data-Binding Model
+DataBindingSchema.ts: Bindings use { $bind: "path", $source: DataSourceType, $fallback, $refresh, $transform, $cache, $cacheTTL }
+10 data source types: realization_engine, system_mapper, intervention_designer, outcome_engineer, value_eval, semantic_memory, tool_registry, supabase, mcp_tool, realtime_stream
+TenantAwareDataBinding.ts scopes bindings to tenant context
+Cache invalidation: TTL-based ($cacheTTL), no explicit invalidation protocol observed
+Evidence: packages/sdui/src/DataBindingSchema.ts, packages/sdui/src/TenantAwareDataBinding.ts
+
+Action Model
+AtomicUIActions.ts: 6 action types — mutate_component, add_component, remove_component, reorder_components, update_layout, batch
+ComponentSelector: target by id, type, index, props match, or description (fuzzy)
+Mutations: set, merge, append, prepend, remove, replace
+ComponentMutationService.ts executes mutations server-side
+Unknown: Optimistic update strategy on client. No evidence of client-side optimistic mutation handling.
+Evidence: packages/sdui/src/AtomicUIActions.ts, packages/backend/src/services/ComponentMutationService.ts
+
+Versioning Strategy
+Schema version in SDUIPageDefinition.version (currently v2)
+Version negotiation via Accept-Version header
+Backward compatibility: migrateSchema() downgrades v2 → v1
+Forward migration: migrationRunner.runMigration() with checkpoints and rollback
+Diff endpoint: POST /api/sdui/migrations/diff
+Evidence: packages/backend/src/routes/sdui.ts, packages/sdui/src/migrations.ts
+
+D) Middleware & Orchestration
+Request Lifecycle
+Request → corsMiddleware → securityHeaders → rateLimiter
+  → auth.ts (JWT verification via Supabase)
+  → tenantContext.ts (extract org_id from JWT)
+  → rbac.ts (permission check against user_roles table)
+  → planEnforcementMiddleware (check org tier limits)
+  → inputValidation.ts (Zod schemas)
+  → requestAuditMiddleware (log to audit_logs)
+  → Route Handler
+  → globalErrorHandler
+Evidence: packages/backend/src/middleware/ (40+ middleware files)
+
+Cross-Cutting Concerns
+Concern	Implementation	Evidence
+Rate limiting	rateLimiter.ts, enhancedRateLimiter.ts, llmRateLimiter.ts, customerRateLimit.ts, redisRateLimitStore.ts	Multiple rate limit layers
+Idempotency	Kafka event IDs, Stripe webhook idempotency, nonceStore.ts	packages/backend/src/middleware/nonceStore.ts
+Multi-tenancy	RLS policies on all tables, tenantContext.ts middleware, get_current_org_id() SQL function	infra/supabase/supabase/migrations/20231101000000_initial_schema.sql
+Audit	DB trigger audit_trigger() on 7 tables + AuditTrailService + requestAuditMiddleware	packages/backend/src/services/security/AuditTrailService.ts
+PII	consentMiddleware.ts, consentRegistry.ts	packages/backend/src/middleware/consentMiddleware.ts
+Cost tracking	costTracker.ts, costThrottlingMiddleware.ts, LLMCostTracker.ts	packages/backend/src/middleware/costTracker.ts
+Background Jobs
+Job	Type	Purpose	Evidence
+AgentExecutorService	Kafka consumer	Consumes agent.requests, executes agents, publishes agent.responses	packages/backend/src/services/AgentExecutorService.ts
+EventConsumer	Kafka consumer	Generic event consumption	packages/backend/src/services/EventConsumer.ts
+WebhookRetryService	Retry queue	Retries failed Stripe webhook deliveries	packages/backend/src/services/billing/WebhookRetryService.ts
+SagaCoordinator	In-memory	Manages saga state for multi-step workflows	packages/backend/src/services/SagaCoordinator.ts
+Transaction Boundaries
+Atomic: Individual Supabase table writes (single-row inserts/updates)
+Eventual: Multi-agent workflows via SagaCoordinator (compensation on failure)
+Unknown: No evidence of database transactions wrapping multi-table writes. SubscriptionService.transaction.ts exists but needs inspection.
+E) Ground Truth & Data Layer
+Sources of Truth
+Domain Object	Authoritative Source	Evidence
+Organizations/tenants	organizations table	initial_schema.sql
+Users	auth.users (Supabase GoTrue) + users table	initial_schema.sql
+Value models	models table	initial_schema.sql
+KPIs	kpis table	initial_schema.sql
+Agent runs	agent_runs table	initial_schema.sql
+Financial facts	UnifiedTruthLayer (EDGAR → XBRL → Market → Private → Benchmarks)	packages/mcp/ground-truth/core/UnifiedTruthLayer.ts
+Workflow state	workflow_states table + WorkflowStateMachine	initial_schema.sql, WorkflowStateMachine.ts
+Audit trail	audit_logs table (DB triggers) + AuditTrailService (app-level)	Two parallel audit systems
+Domain Model Inventory
+Entity	Key Invariants
+organizations	tier IN (free, pro, enterprise), unique slug, soft-delete via deleted_at
+users	Scoped to org, role IN (admin, manager, member), status IN (active, inactive, invited, suspended), email lowercase + regex validated
+agents	Scoped to org, unique (org_id, name), versioned
+agent_runs	status IN (running, success, failed, cancelled), tracks tokens_used, cost
+models	status IN (draft, active, archived), versioned, soft-delete
+cases	status IN (open, in_progress, resolved, closed), priority IN (low, medium, high, urgent)
+workflows	DAG definition in JSONB, versioned, unique (org_id, name, version)
+workflow_states	status IN (running, completed, failed, cancelled), unique (workflow_id, case_id)
+Eventing Model
+Broker: Kafka (via kafkajs)
+Topics: saga.commands, workflow.events, agent.requests, agent.responses, dead.letter
+Event types: Discriminated union DomainEvent = UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent
+Envelope: EnvelopedEvent<T> with eventId, timestamp, source, correlationId, causationId
+Ordering: Per-partition (Kafka default)
+Replay: EventSourcingService.ts exists but implementation depth unknown
+Evidence: packages/shared/src/types/events.ts, packages/backend/src/services/EventProducer.ts, packages/backend/src/services/EventConsumer.ts
+
+Audit Trail
+DB-level: audit_trigger() function fires on INSERT/UPDATE/DELETE for users, agents, models, cases, workflows, workflow_states, shared_artifacts. Stores {before, after} JSONB diffs.
+App-level: AuditTrailService persists typed AuditEvent records with riskScore, complianceFlags, correlationId, sessionId.
+Gap: Two parallel audit systems with no clear reconciliation.
+F) Agent Layer Deep Dive
+Agent Inventory
+Agent	Purpose	Runtime	Evidence
+OpportunityAgent	Identifies business opportunities, company research	Express (agent-base) on port 8081	packages/agents/opportunity/src/index.ts
+TargetAgent	Designs interventions, value architecture	Express on port 8082	packages/agents/target/
+RealizationAgent	Tracks value realization post-sale	Express on port 8083	packages/agents/realization/
+ExpansionAgent	Identifies account expansion opportunities	Express on port 8084	packages/agents/expansion/
+IntegrityAgent	Veto/guardrail — validates confidence, detects hallucinations	In-process	packages/backend/src/services/IntegrityAgentService.ts
+CoordinatorAgent	Multi-agent orchestration, layout directives	Stub	packages/agents/coordinator/ (empty export)
+NarrativeAgent	Generates business cases, executive summaries	Stub	packages/agents/narrative/ (empty export)
+Research	Deep research capabilities	Stub	packages/agents/research/
+Financial-Modeling	KPI modeling, ROI calculations	Stub	packages/agents/financial-modeling/
+Company-Intelligence	Company research, 10-K analysis	Stub	packages/agents/company-intelligence/
+Value-Mapping	Maps value drivers to outcomes	Stub	packages/agents/value-mapping/
+System-Mapper	Maps system entities and relationships	Stub	packages/agents/system-mapper/
+Outcome-Engineer	Hypothesis generation	Stub	packages/agents/outcome-engineer/
+Value-Eval	Evaluates value claims	Stub	packages/agents/value-eval/
+
+
+VALYNT Design System
+A minimalist, high-fidelity documentation for the VALYNT Enterprise Value Intelligence platform. This spec provides the exact tokens, layout structures, and behavioral logic required for full replication.
+
+1. Visual Design Tokens
+Color Palette
+Primary / Action
+
+#000000 (Zinc-950)
+
+Surface / Background
+
+#FFFFFF / #FAFAFA
+
+Muted / Secondary
+
+#F4F4F5 (Zinc-100)
+
+Success / Positive
+
+#16A34A
+
+Typography Stack
+Inter Black
+
+font-weight: 900; letter-spacing: -0.05em;
+
+Micro-Label Semibold
+
+font-size: 11px; font-weight: 800; tracking: 0.2em;
+
+Prompt Placeholder Light
+
+font-weight: 300; font-style: italic;
+
+2. Layout Architecture
+Navigation Spine
+
+• Width: 256px (64 units)
+• Position: Fixed Left
+• Background: White
+• Border-right: 1px #E5E7EB
+Main Canvas
+
+• Flex: 1 (Growth)
+• Padding: 40px (10 units)
+• Overflow: Auto
+• Background: #FAFAFA
+Agent Sidebar
+
+• Width: 450px
+• Position: Fixed Right
+• Interaction: Slide (X-translate)
+• Shadow: 60px blur offset
+CSS Implementation (Tailwind Classes)
+<!-- Main Shell --> <body class="h-screen flex text-foreground bg-[#fafafa]"> <aside class="w-64 border-r border-border h-full flex flex-col bg-white">...</aside> <main class="flex-1 flex flex-col relative overflow-hidden"> <header class="h-16 border-b border-border bg-white">...</header> <div class="flex-1 overflow-y-auto">...</div> </main> <aside id="chat" class="w-[450px] fixed right-0 translate-x-full transition-transform">...</aside> </body>
+3. Key Component Specs
+dashboard
+Metric Cards
+Value Generated
+
+$4.2M
+
+trending_up
++12.5% vs PREV
+Properties:
+
+Background: White | Border: 1px #E5E7EB | Shadow: 0 4px 20px -2px rgba(0,0,0,0.05) | Radius: 1.5rem (24px).
+edit_note
+Search/Prompt Container
+Container: { bg: #FFF, border: 1px #E5E7EB, shadow: xl, radius: 2rem }
+Textarea: { padding: 40px, font: Inter Light 18px, italic: true, placeholder: #71717A }
+FAB-Action: { size: 56px, bg: #000, icon: Arrow_Forward, radius: Full }
+4. Interaction & Behavioral Logic
+01
+View Switching
+
+Navigation updates use an "Active State" class switching system. When a tab is selected, the corresponding ID in the `main-view-container` is set to `display: block` with a CSS `translateY` + `opacity` animation.
+
+02
+Agent Stream Trigger
+
+Submitting a prompt triggers a dual action: (1) The Right Sidebar slides in via `translate-x-0`, and (2) The `agent-thinking` state is activated, showing a pulse animation on three horizontal bars representing data ingestion.
+
+03
+Chat Bubble Alignment
+
+User bubbles are `flex-row-reverse` with a black background (#000). Agent bubbles are standard row alignment with a white background and 1px border. Radius is set to 1.5rem (24px) for all bubbles.

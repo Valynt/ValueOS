@@ -14,6 +14,7 @@ import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
 import { checkBenchmarkAlignment } from "../types/eso";
 import type { ESOKPINode, ESOPersona, FinancialDriver } from "../types/eso";
 import type { VMRT } from "../types/vmrt";
+import { logger } from "../lib/logger";
 
 // ============================================================================
 // Types
@@ -92,7 +93,7 @@ export class GroundTruthIntegrationService {
     }
 
     this.initialized = true;
-    console.log(
+    logger.info(
       `GroundTruthIntegrationService initialized: ${this.kpiIndex.size} KPIs, ${this.vmrtIndex.size} traces`
     );
   }

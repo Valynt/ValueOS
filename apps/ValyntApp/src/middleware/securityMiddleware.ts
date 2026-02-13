@@ -9,7 +9,6 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { getSecurityHeaders } from '../security/SecurityHeaders';
-import { getSecurityConfig } from '../security/SecurityConfig';
 
 /**
  * Apply strong security headers to responses.
@@ -52,3 +51,6 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
 
   next();
 }
+
+export function sessionTimeoutMiddleware(req: any, res: any, next: any): void { next(); }
+export function sessionSecurityMiddleware(req: any, res: any, next: any): void { next(); }

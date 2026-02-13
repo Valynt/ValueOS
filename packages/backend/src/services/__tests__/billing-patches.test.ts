@@ -107,7 +107,7 @@ import { trackUsage } from '../UsageTrackingService.js'
 describe('Billing patches', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    const client = (await import('@supabase/supabase-js')).createClient();
+    const client = (await import('@supabase/supabase-js')).createClient() as any;
     client.state.lastUpdatePayload = null;
     client.state.lastUpsertPayload = null;
     client.state.lastInsertPayload = null;
@@ -122,7 +122,7 @@ describe('Billing patches', () => {
     await (webhookService as any).markEventFailed('evt_test_1', 'boom');
 
     // The mocked supabase stores lastUpdatePayload
-    const client = (await import('@supabase/supabase-js')).createClient();
+    const client = (await import('@supabase/supabase-js')).createClient() as any;
     expect(client.state.lastUpdatePayload).toBeTruthy();
     expect(client.state.lastUpdatePayload.retry_count).toBe(3); // 2 -> 3
     expect(client.state.lastUpdatePayload.error_message).toBe('boom');
@@ -135,7 +135,7 @@ describe('Billing patches', () => {
 
     await (aggregator as any).createAggregate(events);
 
-    const client = (await import('@supabase/supabase-js')).createClient();
+    const client = (await import('@supabase/supabase-js')).createClient() as any;
     // markEventsProcessed calls update on usage_events; lastUpdatePayload should include processed:true
     expect(client.state.lastUpdatePayload).toBeTruthy();
     expect(client.state.lastUpdatePayload.processed).toBe(true);
@@ -156,7 +156,7 @@ describe('Billing patches', () => {
       timestamp: new Date(),
     });
 
-    const client = (await import('@supabase/supabase-js')).createClient();
+    const client = (await import('@supabase/supabase-js')).createClient() as any;
     expect(client.state.lastUpsertPayload).toBeTruthy();
     expect(client.state.lastUpsertPayload.organization_id).toBe('org-1');
   });
@@ -167,7 +167,7 @@ describe('Billing patches', () => {
       { id: 'e2', tenant_id: 't1', metric: 'api_calls', amount: '2', timestamp: '2025-01-01T00:05:00Z' },
     ];
 
-    const client = (await import('@supabase/supabase-js')).createClient();
+    const client = (await import('@supabase/supabase-js')).createClient() as any;
     client.state.selectResponses.subscriptions = [{ id: 'sub-1' }];
     client.state.selectResponses.subscription_items = [{ id: 'item-1' }];
 

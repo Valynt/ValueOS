@@ -116,12 +116,7 @@ npm update ts-node@latest --legacy-peer-deps
 
 #### Immediate (Pre-Staging)
 
-<<<<<<< HEAD
-
-=======
-
-> > > > > > > abdf1deaad6ae735b2af5e199e9cf9d374047a98
-
+ 
 ```bash
 # Fix HIGH severity issues
 npm update supabase@latest

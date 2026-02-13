@@ -30,13 +30,35 @@ export interface SchemaDelta {
   operations: SchemaPatchOperation[];
   reason?: string;
   timestamp: number;
+  /** Optional unique ID for deduplication. If provided, repeated deltas with the same ID are skipped. */
+  deltaId?: string;
 }
+
+// Track applied delta IDs to prevent duplicate application.
+// Bounded to last 1000 entries.
+const appliedDeltaIds = new Set<string>();
+const MAX_APPLIED_DELTAS = 1000;
 
 export class SchemaPatcher {
   /**
-   * Apply delta patches to existing schema state
+   * Apply delta patches to existing schema state.
+   * If the delta has a `deltaId` that was already applied, the schema is returned unchanged.
    */
   static applyDelta(currentSchema: SDUIPageDefinition, delta: SchemaDelta): SDUIPageDefinition {
+    // Dedup by deltaId
+    if (delta.deltaId) {
+      if (appliedDeltaIds.has(delta.deltaId)) {
+        return currentSchema;
+      }
+      appliedDeltaIds.add(delta.deltaId);
+      if (appliedDeltaIds.size > MAX_APPLIED_DELTAS) {
+        const oldest = appliedDeltaIds.values().next().value;
+        if (oldest !== undefined) {
+          appliedDeltaIds.delete(oldest);
+        }
+      }
+    }
+
     let newSchema = { ...currentSchema };
 
     for (const op of delta.operations) {
@@ -181,5 +203,10 @@ export class SchemaPatcher {
       valid: errors.length === 0,
       errors,
     };
+  }
+
+  /** Clear the applied delta ID cache. Useful for testing. */
+  static clearAppliedDeltas(): void {
+    appliedDeltaIds.clear();
   }
 }

@@ -4,7 +4,6 @@
  * Sidebar list of artifacts with selection and status indicators.
  */
 
-import React from 'react';
 import { cn } from '@/lib/utils';
 import type { Artifact } from '../agent/types';
 import { FileText, BarChart3, TrendingUp, FileCheck } from 'lucide-react';

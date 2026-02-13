@@ -211,6 +211,70 @@ class CustomerService {
 
     return data;
   }
+
+  /**
+   * Create a Stripe SetupIntent for collecting a payment method.
+   * Returns the client_secret for frontend confirmation.
+   */
+  async createSetupIntent(tenantId: string): Promise<{ clientSecret: string; setupIntentId: string }> {
+    if (!this.stripe) {
+      throw new Error('Stripe not configured');
+    }
+
+    const customer = await this.getCustomerByTenantId(tenantId);
+    if (!customer) {
+      throw new Error('Customer not found. Create customer first.');
+    }
+
+    const setupIntent = await this.stripe.setupIntents.create({
+      customer: customer.stripe_customer_id,
+      payment_method_types: ['card'],
+      metadata: { tenant_id: tenantId },
+    });
+
+    logger.info('SetupIntent created', { tenantId, setupIntentId: setupIntent.id });
+
+    return {
+      clientSecret: setupIntent.client_secret!,
+      setupIntentId: setupIntent.id,
+    };
+  }
+
+  /**
+   * List payment methods for a tenant from Stripe.
+   */
+  async listPaymentMethods(tenantId: string): Promise<Array<{
+    id: string;
+    type: string;
+    card?: { brand: string; last4: string; exp_month: number; exp_year: number };
+    is_default: boolean;
+  }>> {
+    if (!this.stripe) {
+      throw new Error('Stripe not configured');
+    }
+
+    const customer = await this.getCustomerByTenantId(tenantId);
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    const methods = await this.stripe.paymentMethods.list({
+      customer: customer.stripe_customer_id,
+      type: 'card',
+    });
+
+    return methods.data.map((pm) => ({
+      id: pm.id,
+      type: pm.type,
+      card: pm.card ? {
+        brand: pm.card.brand,
+        last4: pm.card.last4,
+        exp_month: pm.card.exp_month,
+        exp_year: pm.card.exp_year,
+      } : undefined,
+      is_default: pm.id === customer.default_payment_method,
+    }));
+  }
 }
 
 export default new CustomerService();

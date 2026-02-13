@@ -25,14 +25,14 @@ const openApiSpec = YAML.load(openApiPath);
 /**
  * Serve OpenAPI specification as JSON
  */
-router.get('/openapi.json', (req, res) => {
+router.get('/openapi.json', (_req, res) => {
   res.json(openApiSpec);
 });
 
 /**
  * Serve OpenAPI specification as YAML
  */
-router.get('/openapi.yaml', (req, res) => {
+router.get('/openapi.yaml', (_req, res) => {
   res.type('text/yaml');
   res.send(YAML.stringify(openApiSpec, 10));
 });
@@ -59,7 +59,7 @@ router.use(
 /**
  * Serve ReDoc documentation (alternative)
  */
-router.get('/redoc', (req, res) => {
+router.get('/redoc', (_req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>
@@ -86,7 +86,7 @@ router.get('/redoc', (req, res) => {
 /**
  * API documentation landing page
  */
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html>

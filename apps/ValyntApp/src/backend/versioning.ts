@@ -53,9 +53,3 @@ export function createVersionedApiRouter(): express.Router {
 
   return router;
 }
-
-export const apiVersioningMetadata = {
-  supported: SUPPORTED_VERSIONS,
-  deprecated: DEPRECATED_VERSIONS,
-  defaultVersion: DEFAULT_VERSION,
-};

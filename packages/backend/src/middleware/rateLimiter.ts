@@ -14,7 +14,8 @@
 import { Request, Response, NextFunction } from "express";
 import { logger } from "@shared/lib/logger";
 import { RateLimitKeyService } from "../services/RateLimitKeyService.js"
-import { RedisRateLimitStore, RateLimitEntry } from "./redisRateLimitStore.js"
+import { RedisRateLimitStore } from "./redisRateLimitStore.js"
+import { createCounter } from "../lib/observability/index.js";
 
 /**
  * Rate limit tier
@@ -49,6 +50,66 @@ export interface RateLimitConfig {
 
   /** Custom key generator */
   keyGenerator?: (req: Request) => string;
+
+  /**
+   * When true, reject requests if the rate limit store is unavailable
+   * (e.g. Redis down and memory fallback also fails).
+   * Use for security-sensitive endpoints like auth/admin.
+   * Default: false (fail-open).
+   */
+  failClosed?: boolean;
+}
+
+interface RouteFailClosedPolicy {
+  failClosed: boolean;
+  reason: "auth" | "admin" | "write-heavy" | "default";
+}
+
+function isSensitiveMemoryFallbackOverrideEnabled(): boolean {
+  return process.env.RATE_LIMIT_ALLOW_SENSITIVE_MEMORY_FALLBACK === "true";
+}
+
+function isDistributedRateLimitMode(): boolean {
+  return (
+    process.env.RATE_LIMIT_DISTRIBUTED === "true" ||
+    process.env.NODE_ENV === "production"
+  );
+}
+
+const rateLimit429Counter = createCounter(
+  "rate_limit_429_responses_total",
+  "Total HTTP 429 responses emitted by rate limiter"
+);
+const rateLimitProtective503Counter = createCounter(
+  "rate_limit_protective_503_responses_total",
+  "Total HTTP 503 protective responses emitted by rate limiter degraded mode"
+);
+const rateLimitBackendUnavailableCounter = createCounter(
+  "rate_limit_backend_unavailable_total",
+  "Total requests where distributed rate limit backend was unavailable"
+);
+const rateLimitSensitiveOverrideCounter = createCounter(
+  "rate_limit_sensitive_memory_fallback_override_total",
+  "Total sensitive requests allowed to use memory fallback via operator override"
+);
+
+function getRouteFailClosedPolicy(req: Request): RouteFailClosedPolicy {
+  const path = req.path.toLowerCase();
+  const method = req.method.toUpperCase();
+
+  if (/^\/(api\/)?auth(\/|$)/.test(path)) {
+    return { failClosed: true, reason: "auth" };
+  }
+
+  if (/^\/(api\/)?admin(\/|$)/.test(path)) {
+    return { failClosed: true, reason: "admin" };
+  }
+
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    return { failClosed: true, reason: "write-heavy" };
+  }
+
+  return { failClosed: false, reason: "default" };
 }
 
 /**
@@ -86,6 +147,10 @@ class HybridRateLimitStore {
   private cleanupInterval: NodeJS.Timeout;
   private redisAvailable = false;
 
+  isRedisAvailable(): boolean {
+    return this.redisAvailable;
+  }
+
   constructor() {
     this.redisStore = new RedisRateLimitStore();
     this.redisAvailable = false; // Will be set by Redis store initialization
@@ -121,7 +186,11 @@ class HybridRateLimitStore {
    */
   async increment(
     key: string,
-    windowMs: number
+    windowMs: number,
+    options?: {
+      requireDistributedStore?: boolean;
+      allowSensitiveMemoryFallback?: boolean;
+    }
   ): Promise<{ count: number; resetTime: number }> {
     if (this.redisAvailable) {
       try {
@@ -137,6 +206,21 @@ class HybridRateLimitStore {
     }
 
     // In-memory fallback
+    if (
+      options?.requireDistributedStore &&
+      isDistributedRateLimitMode() &&
+      !options.allowSensitiveMemoryFallback
+    ) {
+      rateLimitBackendUnavailableCounter.inc();
+      throw new Error(
+        "Sensitive endpoint requires distributed rate limiting backend"
+      );
+    }
+
+    if (options?.requireDistributedStore && options.allowSensitiveMemoryFallback) {
+      rateLimitSensitiveOverrideCounter.inc();
+    }
+
     const now = Date.now();
     const entry = this.memoryStore.get(key);
 
@@ -259,13 +343,15 @@ export function createRateLimiter(
   customConfig?: Partial<RateLimitConfig>
 ): (req: Request, res: Response, next: NextFunction) => void {
   const config = { ...TIER_CONFIGS[tier], ...customConfig };
-  const keyGenerator = config.keyGenerator || getRateLimitKey;
 
   return async (req: Request, res: Response, next: NextFunction) => {
     // Skip if configured
     if (config.skip && config.skip(req)) {
       return next();
     }
+
+    const routePolicy = getRouteFailClosedPolicy(req);
+    const failClosed = routePolicy.failClosed || (config.failClosed ?? false);
 
     // Use unified key service
     const key = RateLimitKeyService.generateSecureKey(req, {
@@ -274,7 +360,11 @@ export function createRateLimiter(
     });
 
     try {
-      const entry = await store.increment(key, config.windowMs);
+      const entry = await store.increment(key, config.windowMs, {
+        requireDistributedStore: failClosed,
+        allowSensitiveMemoryFallback:
+          isSensitiveMemoryFallbackOverrideEnabled(),
+      });
 
       // Set rate limit headers
       res.setHeader("X-RateLimit-Limit", config.max);
@@ -301,6 +391,9 @@ export function createRateLimiter(
           method: req.method,
         });
 
+        rateLimit429Counter.inc();
+        res.setHeader("X-RateLimit-Enforcement", "active");
+
         return res.status(config.statusCode || 429).json({
           error: "Too Many Requests",
           message: config.message,
@@ -314,9 +407,24 @@ export function createRateLimiter(
         key,
         tier,
         path: req.path,
+        failClosed,
+        policyReason: routePolicy.reason,
+        degradedMode: true,
+        redisAvailable: store.isRedisAvailable(),
       });
 
-      // On rate limit failure, allow request to proceed to prevent blocking
+      if (failClosed) {
+        rateLimitProtective503Counter.inc();
+        res.setHeader("X-RateLimit-Enforcement", "degraded-protective");
+        return res.status(503).json({
+          error: "Service Unavailable",
+          code: "RATE_LIMIT_DEGRADED_PROTECTION",
+          message:
+            "Request blocked because distributed rate limiting is temporarily unavailable for this sensitive endpoint.",
+        });
+      }
+
+      // Fail-open: allow request to proceed
       next();
     }
   };
@@ -328,9 +436,9 @@ export function createRateLimiter(
 export const rateLimiters = {
   /**
    * Strict rate limiter for expensive operations
-   * 5 requests per minute
+   * 5 requests per minute — fail-closed for security-sensitive routes
    */
-  strict: createRateLimiter("strict"),
+  strict: createRateLimiter("strict", { failClosed: true }),
 
   /**
    * Standard rate limiter for regular API calls

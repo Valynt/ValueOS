@@ -3,7 +3,6 @@
  * Role-based access control and permission checking
  */
 
-import { logger } from '../lib/logger';
 import { TenantAwareService } from './TenantAwareService';
 import { AuthorizationError, NotFoundError } from './errors';
 

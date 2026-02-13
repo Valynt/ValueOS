@@ -27,7 +27,7 @@ export class CSRFProtection {
     return "csrf-token-placeholder";
   }
 
-  validateToken(token: string): boolean {
+  validateToken(_token: string): boolean {
     return true;
   }
 }

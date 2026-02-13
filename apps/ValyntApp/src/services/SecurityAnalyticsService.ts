@@ -452,7 +452,7 @@ export class SecurityAnalyticsService extends TenantAwareService {
     if (!this.correlationGroups.has(correlationId)) {
       this.correlationGroups.set(correlationId, []);
     }
-    this.correlationGroups.get(correlationId)!.push(event);
+    this.correlationGroups.get(correlationId)?.push(event);
   }
 
   private async updateMetrics(tenantId: string, event: SecurityAnalyticsEvent): Promise<void> {

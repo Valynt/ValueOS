@@ -3,7 +3,6 @@
  * Visual indicator of agent state with "breathing" animation
  */
 
-import React from "react";
 import { Loader2, Sparkles, AlertCircle, CheckCircle } from "lucide-react";
 import type { AgentState } from "@/hooks/useAgentOrchestrator";
 
@@ -31,18 +30,18 @@ export function AgentStatusIndicator({
       case "PLANNING":
         return {
           icon: <Loader2 className="h-4 w-4 animate-spin" />,
-          label: "Planning",
-          color: "text-primary",
-          bgColor: "bg-primary/10",
-          animate: true,
+          label: "Thinking",
+          color: "text-brand-indigo",
+          bgColor: "bg-brand-indigo/10",
+          animate: "glow",
         };
       case "EXECUTING":
         return {
           icon: <Loader2 className="h-4 w-4 animate-spin" />,
-          label: currentStep || "Executing",
-          color: "text-primary",
-          bgColor: "bg-primary/10",
-          animate: true,
+          label: currentStep || "Thinking",
+          color: "text-brand-indigo",
+          bgColor: "bg-brand-indigo/10",
+          animate: "glow",
         };
       case "ERROR":
         return {
@@ -68,7 +67,7 @@ export function AgentStatusIndicator({
   return (
     <div
       className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ${config.bgColor} ${config.color} ${
-        config.animate ? "animate-pulse-glow" : ""
+        config.animate === "glow" ? "agent-glow" : config.animate ? "animate-pulse-glow" : ""
       } ${className}`}
     >
       {config.icon}

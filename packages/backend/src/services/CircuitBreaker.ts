@@ -1,17 +1,16 @@
-// Re-export CircuitBreaker from the consolidated main implementation
+// Re-export from the canonical implementation in lib/resilience
 export {
   CircuitBreaker,
   CircuitBreakerManager,
-  CircuitState,
   CircuitBreakerError,
   LLMCircuitBreaker,
 } from "../lib/resilience/CircuitBreaker";
 
-// Export types from the interface file
 export type {
+  CircuitState,
   CircuitBreakerConfig,
   CircuitBreakerMetrics,
-} from "../lib/resilience/CircuitBreakerInterface";
+} from "../lib/resilience/CircuitBreaker";
 
 // Legacy type exports for backward compatibility
 export type {

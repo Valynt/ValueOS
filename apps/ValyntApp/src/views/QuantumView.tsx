@@ -8,16 +8,12 @@ import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   UserCheck, 
-  UserX, 
   AlertTriangle, 
   CheckCircle, 
   Brain,
-  MessageSquare,
   Activity,
   Shield,
   TrendingUp,
-  Clock,
-  Star
 } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
 import ConfidenceIndicator from '../components/Agents/ConfidenceIndicator';

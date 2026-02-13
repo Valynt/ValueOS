@@ -1,0 +1,65 @@
+# ValueOS Self-Healing Database Watcher
+# Kubernetes Liveness/Readiness Probe
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-watcher-config
+  namespace: valynt
+  labels:
+    app: backend
+    component: db-watcher
+    app.kubernetes.io/name: db-watcher
+    app.kubernetes.io/part-of: valynt
+
+data:
+  watcher-script: |-
+    #!/bin/bash
+    bash /scripts/self_healing_db_watcher.sh
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db-watcher
+  namespace: valynt
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-self-heal
+  namespace: valynt
+spec:
+  schedule: "*/15 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: db-watcher
+          containers:
+            - name: db-watcher
+              image: valynt/db-watcher:latest
+              imagePullPolicy: IfNotPresent
+              command: ["bash", "/scripts/self_healing_db_watcher.sh"]
+              volumeMounts:
+                - name: watcher-scripts
+                  mountPath: /scripts
+          volumes:
+            - name: watcher-scripts
+              configMap:
+                name: db-watcher-config
+                defaultMode: 0755
+---
+apiVersion: v1
+kind: Probe
+metadata:
+  name: db-watcher-liveness
+  namespace: valynt
+spec:
+  exec:
+    command:
+      - bash
+      - /scripts/self_healing_db_watcher.sh
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  failureThreshold: 2
+  successThreshold: 1

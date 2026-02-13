@@ -5,17 +5,17 @@
 
 /// <reference types="vitest/globals" />
 
+// Mock environment variables - MUST be set before importing modules that instantiate clients
+process.env.VITE_SUPABASE_URL = "https://test.supabase.co";
+process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
+process.env.STRIPE_SECRET_KEY = "sk_test_stripe_key";
+
 // Vitest provides globals automatically with globals: true in config
 import { PLANS } from "../../../config/billing";
 import SubscriptionService from "../SubscriptionService";
 import CustomerService from "../CustomerService";
-import { createClient } from "@supabase/supabase-js";
+import * as supabaseClient from "@supabase/supabase-js";
 import { vi } from "vitest";
-
-// Mock environment variables
-process.env.VITE_SUPABASE_URL = "https://test.supabase.co";
-process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
-process.env.STRIPE_SECRET_KEY = "sk_test_stripe_key";
 
 describe("SaaS Schema Architecture Fixes", () => {
   let subscriptionService: ReturnType<typeof SubscriptionService>;
@@ -54,6 +54,9 @@ describe("SaaS Schema Architecture Fixes", () => {
         })),
       })),
     };
+
+    // Ensure any module-level Supabase client creation returns our mock
+    vi.spyOn(supabaseClient as any, 'createClient').mockReturnValue(mockSupabase as any);
 
     // Mock Stripe service
     const mockStripe = {
@@ -187,8 +190,8 @@ describe("SaaS Schema Architecture Fixes", () => {
         ),
       };
 
-      // Mock dynamic import
-      jest.doMock("../SubscriptionService.transaction", () => ({
+      // Mock dynamic import using Vitest
+      vi.doMock("../SubscriptionService.transaction", () => ({
         default: vi.fn().mockImplementation(() => mockTransactionalService),
       }));
 
@@ -209,7 +212,7 @@ describe("SaaS Schema Architecture Fixes", () => {
         ),
       };
 
-      jest.doMock("../SubscriptionService.transaction", () => ({
+      vi.doMock("../SubscriptionService.transaction", () => ({
         default: vi.fn().mockImplementation(() => mockTransactionalService),
       }));
 
@@ -322,6 +325,6 @@ describe("SaaS Schema Architecture Fixes", () => {
 });
 
 afterEach(() => {
-  jest.clearAllMocks();
-  jest.resetModules();
+  vi.clearAllMocks();
+  vi.resetModules();
 });

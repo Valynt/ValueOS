@@ -1,6 +1,6 @@
 #!/bin/bash
 # Deploy Observability Stack to Kubernetes
-# Deploys Prometheus, Grafana, Jaeger, Loki, and Fluent Bit
+# Deploys Prometheus, Grafana, Tempo, Loki, and Fluent Bit
 
 set -euo pipefail
 
@@ -53,13 +53,13 @@ kubectl apply -f grafana/grafana-deployment.yaml
 echo -e "${YELLOW}Waiting for Grafana to be ready...${NC}"
 kubectl wait --for=condition=available --timeout=300s deployment/grafana -n observability
 
-# Deploy Jaeger
-echo -e "\n${YELLOW}Deploying Jaeger...${NC}"
-kubectl apply -f jaeger/jaeger-all-in-one.yaml
+# Deploy Tempo
+echo -e "\n${YELLOW}Deploying Tempo...${NC}"
+kubectl apply -f tempo/tempo-deployment.yaml
 
-# Wait for Jaeger
-echo -e "${YELLOW}Waiting for Jaeger to be ready...${NC}"
-kubectl wait --for=condition=available --timeout=300s deployment/jaeger -n observability
+# Wait for Tempo
+echo -e "${YELLOW}Waiting for Tempo to be ready...${NC}"
+kubectl wait --for=condition=available --timeout=300s deployment/tempo -n observability
 
 # Deploy Loki
 echo -e "\n${YELLOW}Deploying Loki...${NC}"
@@ -92,7 +92,7 @@ kubectl get services -n observability
 echo -e "\n${GREEN}Access URLs:${NC}"
 echo -e "Prometheus: kubectl port-forward -n observability svc/prometheus 9090:9090"
 echo -e "Grafana: kubectl port-forward -n observability svc/grafana 3000:3000"
-echo -e "Jaeger: kubectl port-forward -n observability svc/jaeger-query 16686:16686"
+echo -e "Tempo: kubectl port-forward -n observability svc/tempo 3200:3200"
 
 echo -e "\n${YELLOW}Grafana Credentials:${NC}"
 echo -e "Username: admin"

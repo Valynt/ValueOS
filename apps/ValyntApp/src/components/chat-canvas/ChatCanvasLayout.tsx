@@ -9,7 +9,7 @@
  * This replaces the monolithic "God Component" with a modular architecture.
  */
 
-import React, { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 // Shell Layer
 import { Sidebar, TopBar, CommandBar } from "@/components/shell";
@@ -22,6 +22,7 @@ import { useCanvasState } from "@/hooks/useCanvasState";
 
 // Canvas Layer
 import {
+import { logger } from "../../lib/logger";
   ValueSummaryCard,
   AgentResponseCard,
   ChatInput,
@@ -55,8 +56,8 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
     submitQuery,
     cancel,
   } = useAgentOrchestrator({
-    onThought: (event) => console.log("Thought:", event),
-    onStateChange: (state) => console.log("Agent state:", state),
+    onThought: (event) => logger.info("Thought:", event),
+    onStateChange: (state) => logger.info("Agent state:", state),
   });
 
   const {
@@ -90,7 +91,7 @@ export function ChatCanvasLayout({ onSettingsClick, onHelpClick }: ChatCanvasLay
   }, []);
 
   const handleNewCase = useCallback(() => {
-    console.log("Create new case");
+    logger.info("Create new case");
   }, []);
 
   const handleCommandSubmit = useCallback((query: string) => {

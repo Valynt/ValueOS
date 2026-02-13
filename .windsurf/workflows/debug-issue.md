@@ -18,7 +18,7 @@ description: Systematic approach to debugging issues in ValueOS
    - Check the component's test files for expected behavior
 
 4. **Run Related Tests**
-   - Run the specific test file: `npx vitest run <test-file>`
+   - Run the specific test file: `npx vitest run <test-file> --passWithNoTests`
    - Check if tests pass or reveal the issue
 
 5. **Fix and Verify**

@@ -90,6 +90,10 @@ class CircuitBreaker {
 
   constructor(private readonly options: CircuitBreakerOptions) {}
 
+  getState(): 'closed' | 'open' | 'half_open' {
+    return this.state;
+  }
+
   canExecute(): boolean {
     if (this.state === 'open') {
       const openedAt = this.openedAt ?? 0;
@@ -204,7 +208,7 @@ export async function executeWithResilience<T>(
   if (lastError) {
     throw lastError;
   }
-  
+
   // This should only happen if maxAttempts is 0 or negative
   throw new DependencyUnavailableError(options.dependencyName);
 }
@@ -382,4 +386,24 @@ function mergeAbortSignals(
   primary.addEventListener('abort', handleAbort, { once: true });
   secondary.addEventListener('abort', handleAbort, { once: true });
   return controller.signal;
+}
+
+/**
+ * Query the current state of a circuit breaker by dependency name.
+ * Returns undefined if no circuit breaker exists for the given key.
+ */
+export function getCircuitBreakerState(
+  dependencyName: string
+): 'closed' | 'open' | 'half_open' | undefined {
+  const cb = circuitBreakers.get(dependencyName);
+  if (!cb) return undefined;
+  // Probe canExecute to trigger half-open transition if cooldown elapsed
+  cb.canExecute();
+  return cb.getState();
+}
+
+// Test helper: reset internal resilience state (use in tests to avoid cross-test flakiness)
+export function _test_resetResilienceState(): void {
+  circuitBreakers.clear();
+  bulkheads.clear();
 }

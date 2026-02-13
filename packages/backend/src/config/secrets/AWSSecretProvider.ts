@@ -16,11 +16,9 @@ import {
   PutSecretValueCommand,
   RotateSecretCommand,
   SecretsManagerClient,
-  UpdateSecretCommand,
 } from "@aws-sdk/client-secrets-manager";
 import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
 import { logger } from "../../lib/logger.js"
-import { createServerSupabaseClient } from "../../lib/supabase.js"
 import type {
   AuditAction,
   AuditResult,
@@ -35,7 +33,6 @@ import {
 import { getRedisClient } from "../../lib/redisClient";
 import { RedisClientType } from "redis";
 import {
-  CircuitBreaker,
   createConfigurableCircuitBreaker,
 } from "./CircuitBreaker";
 import { config } from "./SecretConfig.js"

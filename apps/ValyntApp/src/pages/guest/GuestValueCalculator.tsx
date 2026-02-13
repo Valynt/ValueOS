@@ -5,12 +5,10 @@
  * Allows adjusting assumptions and seeing real-time ROI impact.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { 
   TrendingUp, 
   DollarSign, 
-  Users, 
-  Clock, 
   Percent,
   RefreshCw,
   Download,

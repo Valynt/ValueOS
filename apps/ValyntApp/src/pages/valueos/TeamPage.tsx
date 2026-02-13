@@ -4,7 +4,7 @@
  * List members, roles, invite new members.
  */
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Search,
   UserPlus,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
+import { logger } from "../../lib/logger";
 
 // Types
 interface TeamMember {
@@ -89,7 +90,7 @@ export function TeamPage() {
   );
 
   const handleInvite = () => {
-    console.log("Inviting:", inviteEmail, "as", inviteRole);
+    logger.info("Inviting:", inviteEmail, "as", inviteRole);
     setInviteModalOpen(false);
     setInviteEmail("");
     setInviteRole("member");

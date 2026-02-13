@@ -7,6 +7,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 
 export const CollaborationPanel: React.FC = () => {
   const [events, setEvents] = useState<CollaborationEvent[]>([]);

@@ -24,10 +24,11 @@
   "observability": {
     "prometheusPort": 9090,
     "grafanaPort": 3000,
-    "jaegerPort": 16686,
     "lokiPort": 3100,
     "tempoPort": 3200,
-    "tempoOtlpGrpcPort": 4317,
-    "tempoOtlpHttpPort": 4318
+    "otelGrpcPort": 4317,
+    "otelHttpPort": 4318,
+    "otelCollectorHealthPort": 13133,
+    "nodeExporterPort": 9100
   }
 }

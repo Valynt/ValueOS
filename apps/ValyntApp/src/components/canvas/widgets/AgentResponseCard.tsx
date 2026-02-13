@@ -3,7 +3,6 @@
  * Displays agent analysis results with value drivers
  */
 
-import React from "react";
 import { Sparkles } from "lucide-react";
 import type { WidgetProps } from "../CanvasHost";
 

@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+node-v*-linux-x64/
 .pnpm-store/
 .pnpm/
 npm-debug.log*
@@ -23,8 +24,8 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
-ops/env/.env.ports
 ops/env/.env.local
+secrets/
 
 # IDE and editor files
 .vscode/*
@@ -126,10 +127,7 @@ playwright-report/
 # Config files that should be environment-specific
 .env.*
 !.env.example
-!.env.ports
-!.env.ports.example
 !.env.local.example
-!scripts/.env.ports.example
 
 # Development files
 .dx-lock
@@ -188,3 +186,21 @@ supabase/.temp
 
 # Turborepo cache
 .turbo/
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md
+
+# Allow example secret files for safe commits (do not commit real secrets)
+# Re-include specific example files inside nested 'secrets' directories
+!apps/ValyntApp/src/config/secrets/
+!apps/ValyntApp/src/config/secrets/.env.example
+!packages/backend/src/config/secrets/
+!packages/backend/src/config/secrets/.env.example
+
+# Cruft directories — must not be committed
+Cleanup/
+.archive/
+archive/
+_SECURITY/
+upabase/
+scripts/.env.ports

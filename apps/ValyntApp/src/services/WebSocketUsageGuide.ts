@@ -34,12 +34,12 @@ export function setupBasicWebSocket() {
 
   // Listen for messages
   webSocketManager.on('message', (message: WSMessage) => {
-    console.log('Received:', message);
+    logger.info('Received:', message);
   });
 
   // Listen for state changes
   webSocketManager.on('state_change', ({ from, to }: StateChange) => {
-    console.log(`Connection state: ${from} -> ${to}`);
+    logger.info(`Connection state: ${from} -> ${to}`);
   });
 
   // Send messages
@@ -52,7 +52,7 @@ export function setupBasicWebSocket() {
 
   // Check connection status
   if (webSocketManager.isConnected()) {
-    console.log('Connected');
+    logger.info('Connected');
   }
 }
 
@@ -67,7 +67,7 @@ export function setupRobustConnection() {
 
   // Listen for messages
   robustConnectionManager.on('message', (message: WSMessage) => {
-    console.log('Received via', message.strategy, ':', message);
+    logger.info('Received via', message.strategy, ':', message);
   });
 
   // Monitor connection health
@@ -79,7 +79,7 @@ export function setupRobustConnection() {
 
   // Handle strategy changes
   robustConnectionManager.on('state_change', ({ from, to }: StateChange) => {
-    console.log(`Connection: ${from} -> ${to}`);
+    logger.info(`Connection: ${from} -> ${to}`);
   });
 
   // Send messages (will use best available strategy)
@@ -90,7 +90,7 @@ export function setupRobustConnection() {
 
   // Get detailed health metrics
   const health = robustConnectionManager.getHealth();
-  console.log('Connection health:', health);
+  logger.info('Connection health:', health);
 
   // Force reconnection with specific strategy
   // robustConnectionManager.forceReconnect('polling');

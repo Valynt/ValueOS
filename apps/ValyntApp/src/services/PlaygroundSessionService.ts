@@ -27,7 +27,6 @@ import {
   REDIS_KEYS,
   SessionConfig,
   SessionStats,
-  SessionStatus,
   UpdateSessionOptions,
   validateSession,
 } from './PlaygroundSessionSchema';

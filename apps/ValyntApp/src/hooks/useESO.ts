@@ -7,7 +7,6 @@
 
 import { useEffect, useCallback } from "react";
 import { useESOStore } from "../stores/esoStore";
-import { ESODataPoint } from "../services/ESOService";
 
 export interface ESOConfig {
   sec: {

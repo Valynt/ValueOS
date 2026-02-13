@@ -13,15 +13,7 @@ import { logger } from '../lib/logger';
 import { getCache, setCache, deleteCache } from '../lib/redis';
 import {
   OrganizationConfiguration,
-  ConfigCategory,
   hasConfigAccess,
-  TenantProvisioningConfig,
-  CustomBrandingConfig,
-  AuthPolicyConfig,
-  LLMSpendingLimitsConfig,
-  FeatureFlagsConfig,
-  AuditIntegrityConfig,
-  TokenDashboardConfig,
 } from './settingsMatrix';
 
 /**

@@ -19,6 +19,19 @@ export type ValueCommitStatus = "active" | "achieved" | "at_risk" | "missed" | "
 
 export type RealizationStatus = "on_track" | "at_risk" | "achieved" | "missed";
 
+export interface VMRTSeed {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  lifecycle_stage: LifecycleStage;
+  default_kpis: string[];
+  suggested_benchmarks: string[];
+  template_data: Record<string, unknown>;
+}
+
+export const ALL_VMRT_SEEDS: VMRTSeed[] = [];
+
 export type ResultStatus = "exceeded" | "achieved" | "on_track" | "at_risk" | "missed";
 
 export type ExpansionOpportunityType = "upsell" | "cross_sell" | "optimization" | "expansion";

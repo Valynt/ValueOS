@@ -3,30 +3,30 @@ name: CI
 on:
   push:
     branches: [main, develop]
+    tags:
+      - 'v*'
   pull_request:
     branches: [main, develop]
+  release:
+    types: [published]
   workflow_dispatch:
 
-jobs:
-  # Sprint 0: Security gate - block merge on P0/P1 findings
-  security-gate:
-    uses: ./.github/workflows/security-gate.yml
-    permissions:
-      contents: read
-      security-events: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-  build-test:
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  ci:
+    name: Build & Test
     runs-on: ubuntu-latest
-    needs: [security-gate]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Enable Docker BuildKit
-        run: echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -38,11 +38,6 @@ jobs:
         with:
           version: 9.15.0
           run_install: false
-
-      - name: Verify tool versions
-        run: |
-          node --version
-          pnpm --version
 
       - name: Resolve pnpm store path
         id: pnpm-store
@@ -59,15 +54,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Environment Verification
-        run: pnpm run dev:verify --dependencies-only
+      - name: TS any ratchet
+        run: bash scripts/ts-any-ratchet.sh
 
-      - name: Run CI verification suite
-        run: pnpm run ci:verify
+      - name: Debt policy ratchet
+        run: node scripts/debt/inventory.mjs
+      - name: Enforce Valynt service freeze
+        run: pnpm check:valynt-services-freeze
 
-  quality:
+      - name: Check service duplicate filenames
+        run: pnpm check:service-duplicates
+
+      - name: Lint
+        run: npx turbo run lint
+
+      - name: Typecheck
+        run: npx turbo run typecheck
+
+      - name: Build
+        run: npx turbo run build
+
+      - name: Test
+        run: npx turbo run test
+
+  rls-and-compliance:
+    name: RLS & Compliance Tests
     runs-on: ubuntu-latest
-    needs: [security-gate]
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -83,20 +96,157 @@ jobs:
           version: 9.15.0
           run_install: false
 
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "store_path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.store_path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      - name: Quality gate
-        run: pnpm run quality:ci
+      - name: Run RLS tenant isolation tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=verbose
+
+      - name: Run DSR compliance tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+
+  sca-license:
+    name: SCA + License Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability + license scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          vuln-type: os,library
+          scanners: vuln,license,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
+  iac:
+    name: IaC Scan (infra/**)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect IaC files
+        id: detect
+        run: |
+          if [ -d "infra" ] && find infra -type f | grep -q .; then
+            echo "has_infra=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_infra=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Checkov on infra/
+        if: steps.detect.outputs.has_infra == 'true'
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra
+          quiet: true
+          soft_fail: false
+
+      - name: No IaC files present
+        if: steps.detect.outputs.has_infra != 'true'
+        run: echo "No files found under infra/, skipping IaC scan."
+
+  sbom:
+    name: SBOM Generation (CycloneDX)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate CycloneDX SBOM
+        uses: CycloneDX/gh-node-module-generatebom@v1
+        with:
+          path: .
+          output: bom.xml
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyclonedx-sbom
+          path: bom.xml
+
+  image-signature-verify:
+    name: Verify Image Signature (cosign verify)
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_IMAGE_REF: ${{ vars.RELEASE_IMAGE_REF }}
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify release image signature
+        run: |
+          if [ -z "$RELEASE_IMAGE_REF" ]; then
+            echo "RELEASE_IMAGE_REF repo variable is required for cosign verification."
+            exit 1
+          fi
+
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/.+" \
+            "$RELEASE_IMAGE_REF"
+
+  security-gate:
+    name: Security Gate (required)
+    runs-on: ubuntu-latest
+    needs:
+      - sast
+      - sca-license
+      - iac
+      - sbom
+      - image-signature-verify
+    if: always()
+    steps:
+      - name: Fail if any security job failed
+        run: |
+          status_list="${{ join(needs.*.result, ' ') }}"
+          echo "Security job results: $status_list"
+          for status in $status_list; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "A required security job failed or was cancelled."
+              exit 1
+            fi
+          done
+
+      - name: Block unresolved P0/P1 labels on PRs
+        if: github.event_name == 'pull_request'
+        env:
+          HAS_P0: ${{ contains(github.event.pull_request.labels.*.name, 'P0') }}
+          HAS_P1: ${{ contains(github.event.pull_request.labels.*.name, 'P1') }}
+        run: |
+          if [ "$HAS_P0" = "true" ] || [ "$HAS_P1" = "true" ]; then
+            echo "PR has unresolved severity label (P0/P1). Resolve and remove label before merge."
+            exit 1
+          fi
+          echo "No blocking P0/P1 labels found."

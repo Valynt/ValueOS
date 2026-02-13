@@ -34,6 +34,7 @@ describe("Observability Pipeline - E2E Tests", () => {
       url: "http://localhost:4318/v1/traces",
     });
 
+    // OpenTelemetry Resource import compatibility (ESM/CJS)
     const resource = new Resource({
       [SemanticResourceAttributes.SERVICE_NAME]: "e2e-test-service",
     });

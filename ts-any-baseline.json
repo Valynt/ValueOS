@@ -1,0 +1,6 @@
+{
+  "baseline": 1947,
+  "updated_at": "2026-02-12T13:37:37Z",
+  "target": 100,
+  "note": "Run 'bash scripts/ts-any-ratchet.sh --update' after reducing any count"
+}

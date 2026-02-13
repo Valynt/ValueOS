@@ -14,6 +14,8 @@ import {
   LifecycleCompensationHandlers,
   resetLifecycleCompensationHandlers
 } from '../../services/LifecycleCompensationHandlers';
+import { SnapshotManager } from '../../services/SnapshotManager';
+import { AuditTrailService } from '../../services/AuditTrailService';
 
 // Mock Supabase client
 const mockSupabase = createClient(
@@ -24,12 +26,16 @@ const mockSupabase = createClient(
 describe('Saga Execution and Rollback', () => {
   let integration: WorkflowLifecycleIntegration;
   let handlers: LifecycleCompensationHandlers;
+  let snapshotManager: SnapshotManager;
+  let auditTrail: AuditTrailService;
 
   beforeEach(() => {
     resetWorkflowLifecycleIntegration();
     resetLifecycleCompensationHandlers();
     integration = new WorkflowLifecycleIntegration(mockSupabase);
-    handlers = new LifecycleCompensationHandlers(mockSupabase);
+    auditTrail = new AuditTrailService();
+    snapshotManager = new SnapshotManager(auditTrail);
+    handlers = new LifecycleCompensationHandlers(mockSupabase, snapshotManager);
   });
 
   afterEach(() => {

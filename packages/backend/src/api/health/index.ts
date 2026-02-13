@@ -416,7 +416,7 @@ router.get(["/health", "/api/health"], async (req: Request, res: Response) => {
  * Liveness probe (for Kubernetes) - legacy compatibility
  * Now checks critical dependencies for Docker healthcheck
  */
-router.get("/healthz", async (req: Request, res: Response) => {
+router.get("/healthz", async (_req: Request, res: Response) => {
   try {
     // Check critical dependencies: Supabase and Redis
     const [supabaseCheck, redisCheck] = await Promise.all([
@@ -454,7 +454,7 @@ router.get("/healthz", async (req: Request, res: Response) => {
 /**
  * Readiness probe (for Kubernetes)
  */
-router.get("/ready", async (req: Request, res: Response) => {
+router.get("/ready", async (_req: Request, res: Response) => {
   // Check if shutting down
   if (isShuttingDown) {
     res.status(503).json({
@@ -498,7 +498,7 @@ router.get("/ready", async (req: Request, res: Response) => {
 /**
  * Liveness probe (for Kubernetes)
  */
-router.get("/health/live", (req: Request, res: Response) => {
+router.get("/health/live", (_req: Request, res: Response) => {
   res.status(200).json({
     status: "alive",
     timestamp: new Date().toISOString(),
@@ -508,7 +508,7 @@ router.get("/health/live", (req: Request, res: Response) => {
 /**
  * Readiness probe (for Kubernetes)
  */
-router.get("/health/ready", async (req: Request, res: Response) => {
+router.get("/health/ready", async (_req: Request, res: Response) => {
   // Check if shutting down
   if (isShuttingDown) {
     res.status(503).json({
@@ -552,7 +552,7 @@ router.get("/health/ready", async (req: Request, res: Response) => {
 /**
  * Startup probe (for Kubernetes)
  */
-router.get("/health/startup", async (req: Request, res: Response) => {
+router.get("/health/startup", async (_req: Request, res: Response) => {
   const isStarted = process.uptime() > 10; // Application has been running for at least 10 seconds
 
   if (isStarted) {
@@ -573,7 +573,7 @@ router.get("/health/startup", async (req: Request, res: Response) => {
 /**
  * Detailed dependency status
  */
-router.get("/health/dependencies", async (req: Request, res: Response) => {
+router.get("/health/dependencies", async (_req: Request, res: Response) => {
   // Configuration from environment variables
   const enabledChecks = {
     database: process.env.HEALTH_CHECK_DATABASE !== "false",
@@ -673,7 +673,7 @@ router.get(
 /**
  * Health dashboard
  */
-router.get("/health/dashboard", (req: Request, res: Response) => {
+router.get("/health/dashboard", (_req: Request, res: Response) => {
   const dashboardPath = path.join(
     process.cwd(),
     "public",
@@ -692,7 +692,7 @@ router.get("/health/dashboard", (req: Request, res: Response) => {
 /**
  * Health dashboard JS
  */
-router.get("/health/health-dashboard.js", (req: Request, res: Response) => {
+router.get("/health/health-dashboard.js", (_req: Request, res: Response) => {
   const jsPath = path.join(
     process.cwd(),
     "public",

@@ -5,7 +5,7 @@
  * Used when no deal is currently selected in the DealsView.
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Building2,
   Plus,

@@ -18,16 +18,16 @@ const projectRoot = path.resolve(__dirname, "../..");
 // Validate required environment variables (fail fast)
 validateEnvOrThrow();
 
-console.log("[Instrumentation] Environment validation passed");
+logger.info("[Instrumentation] Environment validation passed");
 
 // Now safe to import modules that depend on env vars
-console.log("[Instrumentation] Starting module imports...");
+logger.info("[Instrumentation] Starting module imports...");
 
 import express from "express";
-console.log("[Instrumentation] Express imported successfully");
+logger.info("[Instrumentation] Express imported successfully");
 
 import cors from "cors";
-console.log("[Instrumentation] CORS imported successfully");
+logger.info("[Instrumentation] CORS imported successfully");
 
 import { createServer, type IncomingMessage } from "http";
 import { WebSocket, WebSocketServer } from "ws";
@@ -44,9 +44,16 @@ import securityMonitoringRouter from "./api/securityMonitoring.js";
 import referralsRouter from "./api/referrals.js";
 import projectsRouter from "./api/projects.js";
 import analyticsRouter from "./api/analytics.js";
+import dsrRouter from "./api/dataSubjectRequests.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import teamsRouter from "./api/teams.js";
 import integrationsRouter from "./api/integrations.js";
+import crmRouter from "./api/crm.js";
+import onboardingRouter from "./api/onboarding.js";
+import { initResearchWorker } from "./workers/researchWorker.js";
+import { initCrmWorkers } from "./workers/crmWorker.js";
+import { createCheckpointRouter } from "./api/checkpoints.js";
+import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
 import docsApiRouter from "./docs-api/index.js";
 import {
   initializeSecretVolumeWatcher,
@@ -57,13 +64,6 @@ import {
   secretHealthMiddleware,
 } from "./config/secrets/SecretValidator.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
-// Temporary stub implementations for testing
-const createLogger = () => ({
-  info: console.log,
-  error: console.error,
-  warn: console.warn,
-  debug: console.debug,
-});
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { registerDevRoutes } from "./routes/devRoutes.js";
@@ -104,19 +104,21 @@ import {
 import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js";
 import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
-import { csrfProtectionMiddleware } from "./middleware/securityMiddleware.js";
+import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
-import { settings } from "./config/settings.js";
+import { settings, initSecrets } from "./config/settings.js";
+import { securityAuditService } from "./services/SecurityAuditService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
-
-const logger = createLogger({ component: "BillingServer" });
+import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
 
 const app = express();
-app.set("trust proxy", true);
+// Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
+// Using `true` trusts all X-Forwarded-* headers, allowing IP spoofing.
+app.set("trust proxy", 1);
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws/sdui" });
@@ -308,6 +310,7 @@ app.use(requestIdMiddleware); // Request ID and timing (must be early)
 app.use(accessLogMiddleware); // Access logging
 app.use(securityHeadersMiddleware);
 app.use(cachingMiddleware); // HTTP caching headers
+app.use(csrfTokenMiddleware); // Set CSRF cookie if absent (must precede validation)
 app.use((req, res, next) => {
   const stateChangingMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
   if (stateChangingMethods.has(req.method)) {
@@ -404,8 +407,18 @@ app.use(
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/dsr", dsrRouter);
 app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/crm", crmRouter);
+app.use("/api/onboarding", onboardingRouter);
+
+// Mount checkpoint HITL endpoints
+const orchestrator = getUnifiedOrchestrator();
+const checkpointMiddleware = orchestrator.getCheckpointMiddleware();
+if (checkpointMiddleware) {
+  app.use("/api/checkpoints", createCheckpointRouter(checkpointMiddleware));
+}
 
 await registerDevRoutes(app);
 
@@ -416,11 +429,16 @@ app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
 async function startServer(): Promise<void> {
-  console.log("[Instrumentation] Starting backend server initialization");
+  logger.info("[Instrumentation] Starting backend server initialization");
 
   // 0. Setup global error handlers for unhandled rejections/exceptions
-  console.log("[Instrumentation] Setting up global error handlers");
+  logger.info("[Instrumentation] Setting up global error handlers");
   setupGlobalErrorHandlers();
+
+  // 0.5. Hydrate managed secrets before any service initialization.
+  // This closes the race where the server could start before Vault/AWS secrets are loaded.
+  logger.info("[Instrumentation] Hydrating managed secrets");
+  await initSecrets();
 
   // 1. Validate all secrets before starting any services (production only)
   if (settings.NODE_ENV === "production") {
@@ -430,7 +448,7 @@ async function startServer(): Promise<void> {
   }
 
   // 2. Validate production requirements
-  console.log("[Instrumentation] Validating production requirements");
+  logger.info("[Instrumentation] Validating production requirements");
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
@@ -438,7 +456,7 @@ async function startServer(): Promise<void> {
   }
 
   // 3. Initialize infrastructure
-  console.log("[Instrumentation] Initializing infrastructure");
+  logger.info("[Instrumentation] Initializing infrastructure");
   await initializeContext();
   await initializeSecretVolumeWatcher();
 
@@ -466,14 +484,84 @@ async function startServer(): Promise<void> {
     });
   }
 
+  // 4. Workers run as a separate process (see workers/workerMain.ts).
+  // In development, optionally start them in-process for convenience.
+  if (settings.NODE_ENV === "development") {
+    try {
+      initResearchWorker();
+      logger.info("[Instrumentation] Research worker initialized (in-process, dev only)");
+    } catch (workerErr) {
+      logger.warn("[Instrumentation] Research worker failed to start:", { error: workerErr });
+    }
+
+    try {
+      initCrmWorkers();
+      logger.info("[Instrumentation] CRM workers initialized (in-process, dev only)");
+    } catch (workerErr) {
+      logger.warn("[Instrumentation] CRM workers failed to start:", { error: workerErr });
+    }
+  } else {
+    logger.info("[Instrumentation] Workers run as separate process; skipping in-process init");
+  }
+
   server.listen(PORT, () => {
-    console.log(`[Instrumentation] Server listening on port ${PORT}`);
+    logger.info(`[Instrumentation] Server listening on port ${PORT}`);
     logger.info(`Billing API server with WebSocket support running on port ${PORT}`, {
       url: `http://localhost:${PORT}`,
       webSocketUrl: `ws://localhost:${PORT}/ws/sdui`,
       healthCheck: `http://localhost:${PORT}/health`,
     });
   });
+
+  // 6. Start audit log DLQ retry loop
+  securityAuditService.startRetryLoop();
+
+  // 7. Register graceful shutdown handlers
+  registerGracefulShutdown();
+}
+
+// ============================================================================
+// Graceful Shutdown
+// ============================================================================
+
+const SHUTDOWN_TIMEOUT_MS = 15_000;
+let isShuttingDown = false;
+
+function registerGracefulShutdown(): void {
+  const shutdown = (signal: string) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    logger.info(`Received ${signal}, starting graceful shutdown`);
+
+    // 1. Tell health check to return 503 so the load balancer stops sending traffic
+    markAsShuttingDown();
+
+    // 2. Stop audit DLQ retry loop
+    securityAuditService.stopRetryLoop();
+
+    // 3. Close WebSocket connections
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.close(1001, "Server shutting down");
+      }
+    });
+
+    // 3. Stop accepting new HTTP connections and drain existing ones
+    server.close(() => {
+      logger.info("All connections drained, exiting");
+      process.exit(0);
+    });
+
+    // 4. Force exit if connections don't drain in time
+    setTimeout(() => {
+      logger.error(`Forcing exit after ${SHUTDOWN_TIMEOUT_MS}ms timeout`);
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS).unref();
+  };
+
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
 }
 
 const isMainModule =
@@ -484,5 +572,31 @@ if (isMainModule || settings.NODE_ENV === "development") {
   void startServer();
 }
 
-export { app, server, wss };
+// ============================================================================
+// Agent Reasoning Broadcast Helper
+// ============================================================================
+
+/**
+ * Broadcast a reasoning chain update to all authenticated WebSocket clients
+ * in the specified tenant. Matches the event format expected by
+ * AgentReasoningViewer: { type: 'agent.event', payload: { eventType, data } }
+ */
+function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
+  const message = JSON.stringify({
+    type: "agent.event",
+    payload: {
+      eventType: "agent.reasoning.update",
+      data: chain,
+    },
+  });
+
+  wss.clients.forEach((client) => {
+    const authed = client as AuthenticatedWebSocket;
+    if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+export { app, server, wss, broadcastReasoningUpdate };
 export default app;

@@ -1,9 +1,25 @@
 import React, { useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { SettingsSection } from '../../components/settings';
 import {
   Calendar, Check, CreditCard, Database, Download, TrendingUp, Users, Zap
 } from 'lucide-react';
-import { BillingPlan, BillingUsage } from '../../types';
+
+interface BillingPlan {
+  id: string;
+  name: string;
+  tier: string;
+  price: number;
+  billingCycle: string;
+  features: string[];
+  limits: { users: number; storage: number; apiCalls: number };
+}
+
+interface BillingUsage {
+  users: number;
+  storage: number;
+  apiCalls: number;
+  period: string;
+}
 
 const PLANS: BillingPlan[] = [
   {
@@ -203,11 +219,10 @@ export const OrganizationBilling: React.FC = () => {
           {PLANS.map((plan) => (
             <div
               key={plan.id}
-              className={`p-6 border-2 rounded-lg ${
-                plan.id === currentPlan.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
+              className={`p-6 border-2 rounded-lg ${plan.id === currentPlan.id
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+                }`}
             >
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>

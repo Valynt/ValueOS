@@ -18,7 +18,7 @@ import { logger } from "../lib/logger";
 import { v4 as uuidv4 } from "uuid";
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry";
-import { SDUIPageDefinition, validateSDUISchema } from "../sdui/schema";
+import { SDUIPageDefinition } from "../sdui/schema";
 import { logAgentResponse } from "./AgentAuditLogger";
 import { AgentType } from "./agent-types";
 import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
@@ -48,7 +48,6 @@ import { ESOModule } from "../mcp-ground-truth/modules/StructuralTruthModule";
 import { getEnhancedParallelExecutor, EnhancedParallelExecutor } from "./EnhancedParallelExecutor"; // NEW: Import for parallel execution
 import {
   validateGroundTruthMetadata,
-  assertHighConfidence,
   assertProvenance,
 } from "../lib/agent-fabric/ground-truth/GroundTruthValidator";
 import { ConfidenceMonitor } from "./ConfidenceMonitor";
@@ -650,10 +649,33 @@ export class UnifiedAgentOrchestrator {
       timeout: timeoutMs,
     };
 
+    // Standardized retry options for exponential backoff
+    const retryOptions: Partial<RetryOptions> = {
+      maxRetries: 5,
+      strategy: "exponential_backoff",
+      baseDelay: 500,
+      maxDelay: 10000,
+      backoffMultiplier: 2,
+      jitterFactor: 0.3,
+      attemptTimeout: timeoutMs,
+      overallTimeout: timeoutMs * 2,
+      retryableErrors: ["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "429", "5xx", "TimeoutError"],
+      nonRetryableErrors: ["400", "401", "403", "404", "422"],
+      fallbackAgents: [],
+      fallbackStrategy: "none",
+      context: {
+        requestId: params.traceId,
+        sessionId: params.context?.sessionId,
+        userId: params.context?.userId,
+        organizationId: params.context?.organizationId,
+        priority: "medium",
+        source: "UnifiedAgentOrchestrator",
+      },
+    };
     const retryResult = await this.retryManager.executeWithRetry(
       retryAgent,
       retryRequest,
-      this.buildRetryOptions(params.traceId, agentType, timeoutMs, params.context)
+      retryOptions
     );
 
     if (retryResult.success) {
@@ -1351,7 +1373,7 @@ Provide a JSON response with:
       if (!stageDependencies.has(transition.to_stage)) {
         stageDependencies.set(transition.to_stage, []);
       }
-      stageDependencies.get(transition.to_stage)!.push(transition.from_stage);
+      stageDependencies.get(transition.to_stage)?.push(transition.from_stage);
     }
 
     // Find stages that can be executed in parallel

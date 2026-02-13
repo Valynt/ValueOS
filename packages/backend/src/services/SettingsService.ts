@@ -8,7 +8,6 @@ import { TenantAwareService } from './TenantAwareService.js'
 import { AuthorizationError, NotFoundError, ValidationError } from './errors.js'
 import { tenantCache } from './cache/TenantCache.js'
 import { z } from 'zod';
-import { securityEvents } from '../security/securityLogger.js'
 
 // Schema definitions for secure deserialization
 const SecureSettingsSchemas = {
@@ -470,7 +469,7 @@ export class SettingsService extends TenantAwareService {
           const parsed = JSON.parse(value);
           const schema = type === 'object' ? SecureSettingsSchemas.object : SecureSettingsSchemas.array;
           const validated = schema.parse(parsed);
-          console.log('JSON parsing and schema validation successful:', {
+          logger.info('JSON parsing and schema validation successful:', {
             parsedType: typeof validated,
             isArray: Array.isArray(validated)
           });

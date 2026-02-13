@@ -7,6 +7,8 @@
 import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { LifecycleStage } from './ValueLifecycleOrchestrator';
+import { SnapshotManager } from './SnapshotManager';
+import { CompensationEvent } from '../types/CompensationEvent';
 
 /**
  * Compensation context for a stage
@@ -32,7 +34,10 @@ export type CompensationHandler = (context: StageCompensationContext) => Promise
 export class LifecycleCompensationHandlers {
   private handlers: Map<LifecycleStage, CompensationHandler> = new Map();
 
-  constructor(private supabase: SupabaseClient) {
+  private snapshotManager: SnapshotManager;
+
+  constructor(private supabase: SupabaseClient, snapshotManager: SnapshotManager) {
+    this.snapshotManager = snapshotManager;
     this.registerHandlers();
   }
 
@@ -116,6 +121,68 @@ export class LifecycleCompensationHandlers {
     });
 
     try {
+      // --- Formula Snapshotting (before modification) ---
+      if (context.stateChanges.valueTreeId && context.stateChanges.formula) {
+        await this.snapshotManager.createSnapshot({
+          valueCaseId: context.stateChanges.valueCaseId,
+          valueTreeId: context.stateChanges.valueTreeId,
+          formula: context.stateChanges.formula,
+          agent: 'TargetAgent',
+          reason: 'Pre-modification snapshot before compensation',
+        });
+      }
+
+      // --- Reasoned Rollback for IntegrityAgent Veto ---
+      if (context.stateChanges.integrityVeto) {
+        // Retrieve last verified formula snapshot
+        const lastSnapshot = context.stateChanges.valueCaseId && context.stateChanges.valueTreeId
+          ? await this.snapshotManager.getLastSnapshot(
+              context.stateChanges.valueCaseId,
+              context.stateChanges.valueTreeId
+            )
+          : null;
+
+        const compensationEvent: CompensationEvent = {
+          timestamp: new Date().toISOString(),
+          reason: `ROI target rejected due to ${context.stateChanges.vetoReason || 'Rule Violation'}`,
+          details: lastSnapshot
+            ? `Reverting to last verified formula (snapshot ${lastSnapshot.id}) with a -15% confidence adjustment.`
+            : 'No previous formula snapshot found. Manual review required.',
+          confidenceAdjustment: -0.15,
+          previousFormulaSnapshotId: lastSnapshot?.id,
+          triggeredBy: 'IntegrityAgent',
+        };
+        // Append CompensationEvent to ValueCase (pseudo-code, replace with actual DB logic)
+        if (context.stateChanges.valueCaseId) {
+          await this.supabase.from('value_cases').update({
+            compensation_events: this.supabase.fn('array_append', 'compensation_events', compensationEvent)
+          }).eq('id', context.stateChanges.valueCaseId);
+        }
+      }
+
+      // --- Fiscal Circuit Breaker: Emergency Compensation ---
+      if (context.stateChanges.emergencyCompensation) {
+        const compensationEvent: CompensationEvent = {
+          timestamp: new Date().toISOString(),
+          reason: 'EMERGENCY_COMPENSATION: Infinite loop or NaN detected in ROI calculation',
+          details: 'Model locked and Value Engineer alerted.',
+          triggeredBy: 'CircuitBreaker',
+          emergency: true,
+        };
+        if (context.stateChanges.valueCaseId) {
+          await this.supabase.from('value_cases').update({
+            locked: true,
+            status: 'LOCKED_INTEGRITY_FAILURE',
+            compensation_events: this.supabase.fn('array_append', 'compensation_events', compensationEvent)
+          }).eq('id', context.stateChanges.valueCaseId);
+        }
+        // Pseudo-code: Alert Value Engineer (replace with actual notification logic)
+        logger.warn('EMERGENCY_COMPENSATION triggered: Value Engineer must be alerted.', {
+          valueCaseId: context.stateChanges.valueCaseId
+        });
+      }
+
+      // --- Standard Compensation Logic ---
       // Delete value trees
       if (context.stateChanges.valueTreeIds) {
         const { error: treeError } = await this.supabase
@@ -392,9 +459,19 @@ let handlersInstance: LifecycleCompensationHandlers | null = null;
 /**
  * Get or create handlers instance
  */
-export function getLifecycleCompensationHandlers(supabase: SupabaseClient): LifecycleCompensationHandlers {
+import { SnapshotManager } from './SnapshotManager';
+import { AuditTrailService } from './AuditTrailService';
+
+export function getLifecycleCompensationHandlers(
+  supabase: SupabaseClient,
+  snapshotManager?: SnapshotManager,
+  auditTrail?: AuditTrailService
+): LifecycleCompensationHandlers {
   if (!handlersInstance) {
-    handlersInstance = new LifecycleCompensationHandlers(supabase);
+    // If not provided, create minimal stubs for snapshotManager and auditTrail
+    const audit = auditTrail || new AuditTrailService();
+    const snap = snapshotManager || new SnapshotManager(audit);
+    handlersInstance = new LifecycleCompensationHandlers(supabase, snap);
   }
   return handlersInstance;
 }

@@ -1,3 +1,4 @@
+import { logger } from "./logger.js";
 /**
  * Sentry Integration
  * 
@@ -13,7 +14,7 @@ export interface SentryConfig {
 
 export function initSentry(config: SentryConfig): void {
   // Placeholder - actual Sentry SDK integration would go here
-  console.log('Sentry initialized', { environment: config.environment });
+  logger.info('Sentry initialized', { environment: config.environment });
 }
 
 export function captureException(error: Error, context?: Record<string, any>): void {
@@ -21,7 +22,7 @@ export function captureException(error: Error, context?: Record<string, any>): v
 }
 
 export function captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info'): void {
-  console.log(`Sentry ${level}`, message);
+  logger.info(`Sentry ${level}`, message);
 }
 
 export function addBreadcrumb(breadcrumb: {
@@ -30,5 +31,5 @@ export function addBreadcrumb(breadcrumb: {
   level?: string;
   data?: Record<string, any>;
 }): void {
-  console.log('Sentry breadcrumb', breadcrumb);
+  logger.info('Sentry breadcrumb', breadcrumb);
 }

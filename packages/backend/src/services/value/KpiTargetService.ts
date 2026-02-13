@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { getFinancialModelForCase, listValueDriversForCase } from '../../../domain/value/db/rows';
-import { deriveKpis } from '../../../domain/value/adapters/kpiTarget.derived';
+import { getFinancialModelForCase, listValueDriversForCase } from '../../domain/value/db/rows';
+import { deriveKpis } from '../../domain/value/adapters/kpiTarget.derived';
 
 export class KpiTargetService {
   constructor(private supabase: ReturnType<typeof createClient>) {}

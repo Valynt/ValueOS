@@ -2,10 +2,10 @@
  * SecureMessageBus with Consumer Group Support
  */
 
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
 import { AgentIdentity } from "../auth/AgentIdentity";
 import { redisStreamBroker } from "../../services/messaging/RedisStreamBroker";
-import { Logger, logger } from "../logger";
+import { createLogger } from "../logger";
 
 export type MessagePriority = "low" | "normal" | "high" | "urgent";
 
@@ -13,7 +13,7 @@ export interface SecureMessage {
   id: string;
   fromAgentId: string;
   toAgentId: string;
-  payload: any;
+  payload: unknown;
   priority: MessagePriority;
   encrypted: boolean;
   correlationId?: string;
@@ -39,11 +39,11 @@ export class SecureMessageBus extends EventEmitter {
   private subscribers: Map<string, { handler: Function; patterns?: string[] }[]> = new Map();
   private consumerGroups: Map<string, ConsumerGroupConfig> = new Map();
   private activeBrokers: Map<string, any> = new Map(); // Store broker instances for ack
-  private log: Logger;
+  private log: ReturnType<typeof createLogger>;
 
   constructor() {
     super();
-    this.log = logger.withContext({ component: "secure-message-bus" });
+    this.log = createLogger({ component: "secure-message-bus" });
   }
 
   // Configure consumer group for an agent type
@@ -55,7 +55,7 @@ export class SecureMessageBus extends EventEmitter {
   async send(
     from: string,
     to: string,
-    payload: any,
+    payload: unknown,
     options: SendOptions = {}
   ): Promise<SecureMessage> {
     const message: SecureMessage = {
@@ -176,7 +176,7 @@ export class SecureMessageBus extends EventEmitter {
     // In a full implementation, this would need broker support for manual acking
     this.log.info("Acknowledged message", { agentType, messageId });
 
-    // TODO: Implement manual acking in RedisStreamBroker if needed
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement manual acking in RedisStreamBroker if needed
     // const broker = this.activeBrokers.get(agentType);
     // if (broker) {
     //   await broker.acknowledge(messageId);

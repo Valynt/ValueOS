@@ -105,6 +105,11 @@ export interface MutateComponentAction {
    * Human-readable description of the change
    */
   description?: string;
+
+  /**
+   * Idempotency key for deduplication
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -153,6 +158,11 @@ export interface AddComponentAction {
    * Human-readable description
    */
   description?: string;
+
+  /**
+   * Idempotency key for deduplication
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -170,6 +180,11 @@ export interface RemoveComponentAction {
    * Human-readable description
    */
   description?: string;
+
+  /**
+   * Idempotency key for deduplication
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -187,6 +202,11 @@ export interface ReorderComponentsAction {
    * Human-readable description
    */
   description?: string;
+
+  /**
+   * Idempotency key for deduplication
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -204,6 +224,11 @@ export interface UpdateLayoutAction {
    * Human-readable description
    */
   description?: string;
+
+  /**
+   * Idempotency key for deduplication
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -221,6 +246,11 @@ export interface BatchAction {
    * Human-readable description
    */
   description?: string;
+
+  /**
+   * Idempotency key for deduplication
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -290,6 +320,7 @@ export const MutateComponentActionSchema = z.object({
   selector: ComponentSelectorSchema,
   mutations: z.array(PropertyMutationSchema).min(1),
   description: z.string().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 export const AddComponentActionSchema = z.object({
@@ -308,24 +339,28 @@ export const AddComponentActionSchema = z.object({
     append: z.boolean().optional(),
   }),
   description: z.string().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 export const RemoveComponentActionSchema = z.object({
   type: z.literal('remove_component'),
   selector: ComponentSelectorSchema,
   description: z.string().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 export const ReorderComponentsActionSchema = z.object({
   type: z.literal('reorder_components'),
   order: z.array(z.union([z.string(), z.number()])).min(1),
   description: z.string().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 export const UpdateLayoutActionSchema = z.object({
   type: z.literal('update_layout'),
   layout: z.string(),
   description: z.string().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 // Non-batch actions discriminated union (no circular reference)
@@ -342,6 +377,7 @@ const BatchActionSchema = z.object({
   type: z.literal('batch'),
   actions: z.array(z.lazy(() => AtomicUIActionSchema)),
   description: z.string().optional(),
+  idempotencyKey: z.string().optional(),
 });
 
 // Combined schema using union (not discriminatedUnion to avoid lazy issues)

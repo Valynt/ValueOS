@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { onCLS, onFID, onFCP, onLCP, onTTFB } from "web-vitals";
+import { logger } from "../lib/logger";
 
 /**
  * Hook to track Core Web Vitals and send to analytics
@@ -8,28 +9,28 @@ export const useWebVitals = () => {
   useEffect(() => {
     // Track Core Web Vitals
     onCLS((metric) => {
-      console.log("CLS:", metric);
+      logger.info("CLS:", metric);
       // Send to analytics
       sendToAnalytics("CLS", metric);
     });
 
     onFID((metric) => {
-      console.log("FID:", metric);
+      logger.info("FID:", metric);
       sendToAnalytics("FID", metric);
     });
 
     onFCP((metric) => {
-      console.log("FCP:", metric);
+      logger.info("FCP:", metric);
       sendToAnalytics("FCP", metric);
     });
 
     onLCP((metric) => {
-      console.log("LCP:", metric);
+      logger.info("LCP:", metric);
       sendToAnalytics("LCP", metric);
     });
 
     onTTFB((metric) => {
-      console.log("TTFB:", metric);
+      logger.info("TTFB:", metric);
       sendToAnalytics("TTFB", metric);
     });
   }, []);
@@ -70,7 +71,7 @@ function sendToAnalytics(name: string, metric: any) {
   }
 
   // Log to console for debugging
-  console.log(`Web Vital ${name}:`, {
+  logger.info(`Web Vital ${name}:`, {
     name: metric.name,
     value: metric.value,
     rating: metric.rating,

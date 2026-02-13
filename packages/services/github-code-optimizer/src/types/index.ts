@@ -68,8 +68,8 @@ export interface BenchmarkResult {
 }
 
 export interface TestCase {
-  input: any;
-  expectedOutput: any;
+  input: unknown;
+  expectedOutput: unknown;
   description: string;
 }
 

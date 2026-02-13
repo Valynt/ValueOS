@@ -7,6 +7,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
+import { logger } from "../../lib/logger.js";
   Message, 
   CreateMessageRequest, 
   ListMessagesQuery,
@@ -17,7 +18,7 @@ import {
 
 // Simple logger
 const logger = {
-  info: (msg: string, data?: Record<string, unknown>) => console.log(`[INFO] ${msg}`, JSON.stringify(data || {})),
+  info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, JSON.stringify(data || {})),
   error: (msg: string, data?: Record<string, unknown>) => console.error(`[ERROR] ${msg}`, JSON.stringify(data || {})),
 };
 

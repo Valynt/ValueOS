@@ -67,6 +67,10 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
             <div
               className="h-full bg-primary transition-all duration-300"
               style={{ width: `${progress}%` }}
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              role="progressbar"
             />
           </div>
         </div>

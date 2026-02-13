@@ -3,7 +3,6 @@
  * Header with case title and command bar trigger
  */
 
-import React from "react";
 import { Search } from "lucide-react";
 
 interface TopBarProps {

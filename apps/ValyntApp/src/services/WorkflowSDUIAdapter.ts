@@ -13,13 +13,11 @@ import {
   StageCompletionEvent,
   StageTransitionEvent,
   WorkflowProgress,
-  WorkflowSDUIUpdate,
 } from '../types/workflow-sdui';
 import {
   AtomicUIAction,
   createAddAction,
   createMutateAction,
-  createRemoveAction,
 } from '../sdui/AtomicUIActions';
 import { canvasSchemaService } from './CanvasSchemaService';
 

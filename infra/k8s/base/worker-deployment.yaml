@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: valynt
+  labels:
+    app: worker
+    component: background-jobs
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/component: background-jobs
+    app.kubernetes.io/part-of: valynt
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+        component: background-jobs
+    spec:
+      serviceAccountName: valynt-backend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: worker
+          image: REGISTRY_URL/valynt-backend:latest
+          imagePullPolicy: Always
+          command: ["node", "--import", "tsx", "src/workers/workerMain.ts"]
+
+          ports:
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: WORKER_HEALTH_PORT
+              value: "8081"
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: supabase-url
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: supabase-service-key
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: valynt-config
+                  key: redis-url
+            - name: TOGETHER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: together-api-key
+                  optional: true
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: valynt-secrets
+                  key: openai-api-key
+                  optional: true
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp
+          emptyDir: {}

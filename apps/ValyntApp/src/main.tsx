@@ -4,10 +4,11 @@ import { App } from "./App";
 import { bootstrap } from "./app/bootstrap";
 import "./styles/globals.css";
 import { analyticsClient } from "./lib/analyticsClient";
+import { logger } from "./lib/logger";
 
 // Bootstrap application before rendering
 bootstrap({
-  onProgress: (msg) => console.log(`⏳ ${msg}`),
+  onProgress: (msg) => logger.info(`⏳ ${msg}`),
   onWarning: (msg) => console.warn(`⚠️ ${msg}`),
   onError: (msg) => console.error(`❌ ${msg}`),
 }).then((result) => {

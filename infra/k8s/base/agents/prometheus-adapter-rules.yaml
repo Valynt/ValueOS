@@ -1,0 +1,40 @@
+# Prometheus Adapter external metrics rules.
+# Exposes Redis Stream XPENDING count as a Kubernetes external metric
+# so that HPAs can scale on queue depth rather than just CPU/memory.
+#
+# Requires: prometheus-adapter (or KEDA ScaledObject as an alternative).
+# The broker.pending.claimed histogram is emitted by RedisStreamBroker.
+# For a direct XPENDING count, deploy the redis_exporter sidecar or
+# use the redis_stream_length metric from redis-exporter.
+#
+# This file is the prometheus-adapter ConfigMap rules snippet.
+# Merge into your prometheus-adapter Helm values under `rules.external`.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-adapter-agent-rules
+  namespace: valynt-agents
+  labels:
+    app.kubernetes.io/name: prometheus-adapter
+    app.kubernetes.io/component: metrics
+data:
+  agent-rules.yaml: |
+    rules:
+      - seriesQuery: 'redis_stream_length{stream=~"valuecanvas.events"}'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+        name:
+          matches: "^redis_stream_length$"
+          as: "redis_stream_pending_messages"
+        metricsQuery: 'redis_stream_length{stream="valuecanvas.events"}'
+      # Alternative: derive from broker's own pending claim histogram
+      - seriesQuery: 'broker_pending_claimed_sum{}'
+        resources:
+          overrides:
+            namespace: {resource: "namespace"}
+        name:
+          matches: "^broker_pending_claimed_sum$"
+          as: "redis_stream_pending_messages_broker"
+        metricsQuery: 'rate(broker_pending_claimed_sum[2m])'

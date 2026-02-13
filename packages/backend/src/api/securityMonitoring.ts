@@ -7,16 +7,9 @@ import { Router, Request, Response } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
 import { SecurityMetricsCollector } from "../security/enhancedSecurityLogger.js";
-// Temporary stub for testing
-const createLogger = () => ({
-  info: console.log,
-  error: console.error,
-  warn: console.warn,
-  debug: console.debug,
-});
-
+import { logger } from "../lib/logger.js";
 const router = Router();
-const logger = createLogger({ component: "SecurityMonitoringAPI" });
+const securityLogger = logger;
 const metricsCollector = SecurityMetricsCollector.getInstance();
 
 // Apply authentication and authorization middleware
@@ -27,7 +20,7 @@ router.use(requireRole("admin"));
  * GET /api/admin/security/metrics
  * Get current security metrics
  */
-router.get("/metrics", async (req: Request, res: Response) => {
+router.get("/metrics", async (_req: Request, res: Response) => {
   try {
     const metrics = metricsCollector.getMetrics();
 
@@ -94,7 +87,7 @@ router.get("/events", async (req: Request, res: Response) => {
  * GET /api/admin/security/alerts
  * Get active security alerts
  */
-router.get("/alerts", async (req: Request, res: Response) => {
+router.get("/alerts", async (_req: Request, res: Response) => {
   try {
     const events = metricsCollector.getRecentEvents(100);
 
@@ -176,7 +169,7 @@ router.get("/alerts", async (req: Request, res: Response) => {
  * GET /api/admin/security/dashboard
  * Get comprehensive dashboard data
  */
-router.get("/dashboard", async (req: Request, res: Response) => {
+router.get("/dashboard", async (_req: Request, res: Response) => {
   try {
     const metrics = metricsCollector.getMetrics();
     const recentEvents = metricsCollector.getRecentEvents(20);

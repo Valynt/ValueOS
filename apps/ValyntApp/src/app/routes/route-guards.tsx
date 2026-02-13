@@ -1,6 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { LoadingSkeleton } from "@valueos/components/ui/loading-skeleton";
 
 export function ProtectedRoute() {
   const { user, loading } = useAuth();
@@ -15,7 +14,7 @@ export function ProtectedRoute() {
   }
 
   if (!user) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <Outlet />;
@@ -27,7 +26,7 @@ export function PublicOnlyRoute() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <LoadingSkeleton variant="text" lines={1} className="w-24" />
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }

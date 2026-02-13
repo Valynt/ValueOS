@@ -9,7 +9,7 @@
  * - Comprehensive error handling
  */
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   UsageMetricsGrid,
   UsageSummaryBanner,

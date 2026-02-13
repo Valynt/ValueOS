@@ -1,20 +1,18 @@
-.PHONY: help obs-up obs-down obs-logs obs-status obs-restart test-unit test-integration test-e2e test-all test-ci clean
+COMPOSE_FILE := infra/docker/docker-compose.observability.yml
 
-# Default target
+.PHONY: help obs-up obs-down obs-logs obs-status obs-restart test-unit test-integration test-e2e test-all test-ci clean verify
+
 help:
-	@echo "ValueOS Observability Stack - Available Commands"
-	@echo "=================================================="
+	@echo "ValueOS PGLT Observability Stack"
+	@echo "================================"
 	@echo ""
 	@echo "Stack Management:"
-	@echo "  make obs-up              Start observability stack"
+	@echo "  make obs-up              Start observability stack (7 services)"
 	@echo "  make obs-down            Stop observability stack"
 	@echo "  make obs-restart         Restart observability stack"
 	@echo "  make obs-status          Check stack status"
 	@echo "  make obs-logs            View stack logs"
-	@echo "  make obs-logs-loki       View Loki logs only"
-	@echo "  make obs-logs-tempo      View Tempo logs only"
-	@echo "  make obs-logs-prometheus View Prometheus logs only"
-	@echo "  make obs-logs-grafana    View Grafana logs only"
+	@echo "  make obs-logs-SERVICE    View logs for a specific service"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test-unit           Run unit tests only"
@@ -28,108 +26,86 @@ help:
 	@echo "  make clean               Clean up all resources"
 	@echo ""
 	@echo "Quick Links:"
-	@echo "  Grafana:    http://localhost:3000"
-	@echo "  Prometheus: http://localhost:9090"
-	@echo "  Loki:       http://localhost:3100"
-	@echo "  Tempo:      http://localhost:3200"
+	@echo "  Grafana:        http://localhost:3000"
+	@echo "  Prometheus:     http://localhost:9090"
+	@echo "  Loki:           http://localhost:3100"
+	@echo "  Tempo:          http://localhost:3200"
+	@echo "  OTel Collector: http://localhost:13133 (health)"
+	@echo "  node-exporter:  http://localhost:9100"
 
-# Start observability stack
 obs-up:
-	@echo "🚀 Starting observability stack..."
-	docker-compose -f docker-compose.observability.yml up -d
-	@echo "⏳ Waiting for services to be healthy..."
-	@sleep 10
+	@echo "Starting observability stack..."
+	docker compose -f $(COMPOSE_FILE) up -d
+	@echo "Waiting for services to be healthy..."
+	@sleep 15
 	@$(MAKE) verify
-	@echo "✅ Observability stack is ready!"
-	@echo ""
-	@echo "📊 Access Grafana at http://localhost:3000 (no login required)"
-	@echo "📈 Access Prometheus at http://localhost:9090"
+	@echo "Observability stack is ready."
+	@echo "Grafana: http://localhost:3000 (no login required)"
 
-# Stop observability stack
 obs-down:
-	@echo "🛑 Stopping observability stack..."
-	docker-compose -f docker-compose.observability.yml down
-	@echo "✅ Stack stopped"
+	@echo "Stopping observability stack..."
+	docker compose -f $(COMPOSE_FILE) down
+	@echo "Stack stopped."
 
-# Restart observability stack
 obs-restart:
-	@echo "🔄 Restarting observability stack..."
 	@$(MAKE) obs-down
 	@$(MAKE) obs-up
 
-# Check stack status
 obs-status:
-	@echo "📊 Observability Stack Status:"
-	@docker-compose -f docker-compose.observability.yml ps
+	@docker compose -f $(COMPOSE_FILE) ps
 
-# View all logs
 obs-logs:
-	docker-compose -f docker-compose.observability.yml logs -f
+	docker compose -f $(COMPOSE_FILE) logs -f
 
-# View individual service logs
 obs-logs-loki:
-	docker-compose -f docker-compose.observability.yml logs -f loki
+	docker compose -f $(COMPOSE_FILE) logs -f loki
 
 obs-logs-tempo:
-	docker-compose -f docker-compose.observability.yml logs -f tempo
+	docker compose -f $(COMPOSE_FILE) logs -f tempo
 
 obs-logs-prometheus:
-	docker-compose -f docker-compose.observability.yml logs -f prometheus
+	docker compose -f $(COMPOSE_FILE) logs -f prometheus
 
 obs-logs-grafana:
-	docker-compose -f docker-compose.observability.yml logs -f grafana
+	docker compose -f $(COMPOSE_FILE) logs -f grafana
 
-# Verify all services are healthy
+obs-logs-otel:
+	docker compose -f $(COMPOSE_FILE) logs -f otel-collector
+
+obs-logs-promtail:
+	docker compose -f $(COMPOSE_FILE) logs -f promtail
+
+obs-logs-node-exporter:
+	docker compose -f $(COMPOSE_FILE) logs -f node-exporter
+
 verify:
-	@echo "🔍 Verifying service health..."
-	@echo -n "  Loki: "
-	@curl -sf http://localhost:3100/ready > /dev/null && echo "✅" || echo "❌"
-	@echo -n "  Tempo: "
-	@curl -sf http://localhost:3200/ready > /dev/null && echo "✅" || echo "❌"
-	@echo -n "  Prometheus: "
-	@curl -sf http://localhost:9090/-/ready > /dev/null && echo "✅" || echo "❌"
-	@echo -n "  Grafana: "
-	@curl -sf http://localhost:3000/api/health > /dev/null && echo "✅" || echo "❌"
+	@echo "Verifying service health..."
+	@echo -n "  Loki:           " && curl -sf http://localhost:3100/ready > /dev/null && echo "OK" || echo "FAIL"
+	@echo -n "  Tempo:          " && curl -sf http://localhost:3200/ready > /dev/null && echo "OK" || echo "FAIL"
+	@echo -n "  Prometheus:     " && curl -sf http://localhost:9090/-/ready > /dev/null && echo "OK" || echo "FAIL"
+	@echo -n "  Grafana:        " && curl -sf http://localhost:3000/api/health > /dev/null && echo "OK" || echo "FAIL"
+	@echo -n "  OTel Collector: " && curl -sf http://localhost:13133/ > /dev/null && echo "OK" || echo "FAIL"
+	@echo -n "  node-exporter:  " && curl -sf http://localhost:9100/metrics > /dev/null && echo "OK" || echo "FAIL"
 
-# Run unit tests
 test-unit:
-	@echo "🧪 Running unit tests..."
 	pnpm run test:observability:unit
 
-# Run integration tests
 test-integration:
-	@echo "🧪 Running integration tests..."
 	pnpm run test:observability:integration
 
-# Run E2E tests
 test-e2e:
-	@echo "🧪 Running E2E tests..."
 	pnpm run test:observability:e2e
 
-# Run all tests
 test-all:
-	@echo "🧪 Running all observability tests..."
 	@$(MAKE) test-unit
 	@$(MAKE) test-integration
 	@$(MAKE) test-e2e
-	@echo "✅ All tests completed!"
 
-# CI test sequence
 test-ci:
-	@echo "🤖 Running CI test sequence..."
-	@echo "1️⃣  Starting stack..."
 	@$(MAKE) obs-up
-	@echo ""
-	@echo "2️⃣  Running tests..."
-	@$(MAKE) test-all || (echo "❌ Tests failed" && $(MAKE) obs-down && exit 1)
-	@echo ""
-	@echo "3️⃣  Cleaning up..."
+	@$(MAKE) test-all || ($(MAKE) obs-down && exit 1)
 	@$(MAKE) obs-down
-	@echo "✅ CI test sequence completed successfully!"
 
-# Clean up all resources
 clean:
-	@echo "🧹 Cleaning up..."
-	docker-compose -f docker-compose.observability.yml down -v
+	docker compose -f $(COMPOSE_FILE) down -v
 	docker system prune -f
-	@echo "✅ Cleanup complete"

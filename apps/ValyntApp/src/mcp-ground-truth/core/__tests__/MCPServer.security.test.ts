@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 /**
  * MCP Server Security Tests
  *
@@ -9,14 +10,14 @@ import { MCPFinancialGroundTruthServer } from "../MCPServer";
 import { logger } from "../../../lib/logger";
 
 // Mock dependencies
-jest.mock("../../../lib/logger");
-jest.mock("../UnifiedTruthLayer");
-jest.mock("../modules/EDGARModule");
-jest.mock("../modules/XBRLModule");
-jest.mock("../modules/MarketDataModule");
-jest.mock("../modules/PrivateCompanyModule");
-jest.mock("../modules/IndustryBenchmarkModule");
-jest.mock("../modules/StructuralTruthModule");
+vi.mock("../../../lib/logger");
+vi.mock("../UnifiedTruthLayer");
+vi.mock("../modules/EDGARModule");
+vi.mock("../modules/XBRLModule");
+vi.mock("../modules/MarketDataModule");
+vi.mock("../modules/PrivateCompanyModule");
+vi.mock("../modules/IndustryBenchmarkModule");
+vi.mock("../modules/StructuralTruthModule");
 
 describe("MCPFinancialGroundTruthServer - Security", () => {
   let server: MCPFinancialGroundTruthServer;

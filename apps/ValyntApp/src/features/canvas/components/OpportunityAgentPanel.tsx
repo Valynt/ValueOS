@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Edit2, Check, X } from "lucide-react";
+import { logger } from "../../../lib/logger";
 
 interface OpportunityAgentPanelProps {
   agentId: string;
@@ -29,7 +30,7 @@ export const OpportunityAgentPanel: React.FC<OpportunityAgentPanelProps> = ({ ag
 
   const saveEdit = (id: string) => {
     // In a real app, this would call an API to update the message/node
-    console.log(`Saving edit for ${id}: ${editValue}`);
+    logger.info(`Saving edit for ${id}: ${editValue}`);
     setEditingId(null);
   };
 

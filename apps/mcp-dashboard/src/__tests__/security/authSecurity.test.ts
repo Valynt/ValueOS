@@ -10,6 +10,18 @@ import { authRateLimiter } from "../../lib/rateLimiter";
 import { secureTokenStorage } from "../../lib/secureStorage";
 import { securityLogger } from "../../lib/securityLogger";
 
+// Test constants
+const MAX_FAILED_ATTEMPTS = 5;
+const ALLOWED_ATTEMPTS_BEFORE_BLOCK = 4;
+const TEST_TIMEOUT_MS = 900000;
+const HOUR_MS = 3600000;
+const MINUTE_MS = 60000;
+const SECOND_MS = 1000;
+const PARTIAL_FAILED_ATTEMPTS = 3;
+const RESET_ATTEMPTS = 0;
+const LOG_RATE_LIMIT_COUNT = 5;
+const LOG_TIMEOUT_MS = 900000;
+
 // Global type declarations for test environment
 declare global {
   var localStorage: Storage;
@@ -68,10 +80,10 @@ describe("MCP Dashboard Authentication Security Tests", () => {
         json: async () => ({ message: "Invalid credentials" }),
       });
 
-      // Make 5 failed attempts
-      for (let i = 0; i < 5; i++) {
+      // Make MAX_FAILED_ATTEMPTS failed attempts
+      for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) {
         const status = authRateLimiter.canAttemptAuth(email);
-        if (i < 4) {
+        if (i < ALLOWED_ATTEMPTS_BEFORE_BLOCK) {
           expect(status.allowed).toBe(true);
         } else {
           expect(status.allowed).toBe(false);
@@ -88,20 +100,20 @@ describe("MCP Dashboard Authentication Security Tests", () => {
     it("should reset rate limit after successful authentication", async () => {
       const email = "admin@example.com";
 
-      // Make 3 failed attempts
-      for (let i = 0; i < 3; i++) {
+      // Make PARTIAL_FAILED_ATTEMPTS failed attempts
+      for (let i = 0; i < PARTIAL_FAILED_ATTEMPTS; i++) {
         authRateLimiter.recordFailedAttempt(email);
       }
 
       // Check rate limit status
       const status = authRateLimiter.getRateLimitStatus(email);
-      expect(status.attempts).toBe(3);
+      expect(status.attempts).toBe(PARTIAL_FAILED_ATTEMPTS);
 
       // Successful login should reset rate limit
       authRateLimiter.recordSuccessfulAttempt(email);
 
       const finalStatus = authRateLimiter.getRateLimitStatus(email);
-      expect(finalStatus.attempts).toBe(0);
+      expect(finalStatus.attempts).toBe(RESET_ATTEMPTS);
     });
 
     it("should log rate limit exceeded events", async () => {
@@ -113,7 +125,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       }
 
       // One more attempt should trigger rate limit logging
-      securityLogger.logRateLimitExceeded(email, 5, 900000, "192.168.1.100");
+      securityLogger.logRateLimitExceeded(email, LOG_RATE_LIMIT_COUNT, LOG_TIMEOUT_MS, "192.168.1.100");
 
       const events = securityLogger.getEventsByType("rate_limit_exceeded");
       expect(events.length).toBe(1);
@@ -127,7 +139,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       const tokenData = {
         token: "sensitive-jwt-token",
         refreshToken: "refresh-token",
-        expiresAt: Date.now() + 3600000,
+        expiresAt: Date.now() + HOUR_MS,
         userId: "admin123",
       };
 
@@ -145,7 +157,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       const expiredTokenData = {
         token: "expired-token",
         refreshToken: "refresh-token",
-        expiresAt: Date.now() - 1000, // Expired 1 second ago
+        expiresAt: Date.now() - SECOND_MS, // Expired 1 second ago
         userId: "admin123",
       };
 
@@ -159,7 +171,7 @@ describe("MCP Dashboard Authentication Security Tests", () => {
       const tokenData = {
         token: "test-token",
         refreshToken: "refresh-token",
-        expiresAt: Date.now() + 3600000,
+        expiresAt: Date.now() + HOUR_MS,
         userId: "admin123",
       };
 

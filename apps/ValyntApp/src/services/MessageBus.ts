@@ -1,6 +1,6 @@
 /**
  * MessageBus Service
- * 
+ *
  * Provides Redis/NATS abstraction for inter-agent communication.
  * Supports pub/sub, message compression, and delivery guarantees.
  */
@@ -99,7 +99,7 @@ export class MessageBus {
       this.subscribers.set(channel, new Set());
     }
 
-    this.subscribers.get(channel)!.add(messageHandler);
+    this.subscribers.get(channel)?.add(messageHandler);
 
     // Update stats
     this.updateStats(channel, 'subscribe');

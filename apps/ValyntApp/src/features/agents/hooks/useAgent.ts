@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { Agent, AgentMessage, AgentStatus, AgentSession } from "../types";
+import type { AgentMessage, AgentStatus, AgentSession } from "../types";
 
 export function useAgent(agentId: string) {
   const [status, setStatus] = useState<AgentStatus>("idle");
@@ -78,7 +78,7 @@ export function useAgent(agentId: string) {
     [agentId]
   );
 
-  const executeAction = useCallback(async (actionId: string) => {
+  const executeAction = useCallback(async (_actionId: string) => {
     setStatus("executing");
     try {
       // TODO: Implement actual action execution

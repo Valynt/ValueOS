@@ -419,7 +419,7 @@ router.post('/sync', (req: Request, res: Response) => {
  * GET /api/docs/health
  * Health check for documentation API
  */
-router.get('/health', (req: Request, res: Response) => {
+router.get('/health', (_req: Request, res: Response) => {
   const totalSections = docSections.size;
   const totalMappings = codeMappings.size;
   const outdatedMappings = Array.from(codeMappings.values())
@@ -443,7 +443,7 @@ router.get('/health', (req: Request, res: Response) => {
 // Error Handler
 // ============================================================================
 
-router.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const sanitizedError = sanitizeForLogging(err);
   logger.error('Documentation API Error', err, { context: sanitizedError as any });
   

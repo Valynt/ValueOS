@@ -748,7 +748,7 @@ interface ComplianceIssue {
 }
 
 class SourceVerifier {
-  constructor(supabaseUrl: string, supabaseKey: string) {
+  constructor(_supabaseUrl: string, _supabaseKey: string) {
     // Initialize source verifier
   }
 

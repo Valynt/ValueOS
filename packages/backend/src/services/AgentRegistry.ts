@@ -6,7 +6,6 @@
  * This registry manages all agent registrations, health status, and routing.
  */
 
-import { logger } from '../lib/logger.js'
 import { WorkflowStage } from '../types/workflow';
 import { 
   AgentHealthStatus, 

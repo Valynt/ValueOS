@@ -255,7 +255,6 @@ export class NetworkSegmentationManager {
     const startTime = Date.now();
 
     // Check rate limiting
-    const rateLimitKey = `network-${request.agentType}-${request.agentId}`;
     const rateLimitAllowed = await clientRateLimit.checkLimit("api-calls");
 
     if (!rateLimitAllowed) {

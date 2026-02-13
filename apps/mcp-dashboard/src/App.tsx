@@ -22,12 +22,15 @@ import {
   publicRoutes,
 } from "./routeConfig";
 
+// Magic numbers replaced with constants
+const FIVE_MINUTES = 1000 * 60 * 5;
+const THIRTY_MINUTES = 1000 * 60 * 30;
 // Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      cacheTime: 1000 * 60 * 30, // 30 minutes
+      staleTime: FIVE_MINUTES,
+      cacheTime: THIRTY_MINUTES,
     },
   },
 });

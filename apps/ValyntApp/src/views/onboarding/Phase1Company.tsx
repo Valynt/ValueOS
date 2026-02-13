@@ -1,0 +1,333 @@
+import { useState } from "react";
+import { Building2, Plus, X, Globe, Package, Sparkles, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { OnboardingPhase1Input } from "@/hooks/company-context/types";
+import type { ResearchJob, ResearchSuggestion } from "@/hooks/company-context/types";
+
+interface Props {
+  onNext: (data: OnboardingPhase1Input, researchJobId?: string) => void;
+  researchJob?: ResearchJob | null;
+  researchSuggestions?: ResearchSuggestion[];
+  onStartResearch?: (website: string, industry: string, companySize: string | null, salesMotion: string | null) => void;
+  isResearching?: boolean;
+}
+
+export function Phase1Company({ onNext, researchJob, researchSuggestions, onStartResearch, isResearching }: Props) {
+  const [companyName, setCompanyName] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [companySize, setCompanySize] = useState<OnboardingPhase1Input["company_size"]>(null);
+  const [salesMotion, setSalesMotion] = useState<OnboardingPhase1Input["sales_motion"]>(null);
+  const [products, setProducts] = useState<OnboardingPhase1Input["products"]>([
+    { name: "", description: "", product_type: "platform" },
+  ]);
+
+  // Pre-populate products from suggestions when research completes
+  const productSuggestions = researchSuggestions?.filter(
+    (s) => s.entity_type === "product" && s.status === "suggested"
+  ) ?? [];
+
+  const hasResearchCompleted = researchJob?.status === "completed";
+  const hasResearchFailed = researchJob?.status === "failed";
+  const isResearchRunning = researchJob?.status === "running" || researchJob?.status === "queued";
+
+  const [hasPrePopulated, setHasPrePopulated] = useState(false);
+  if (hasResearchCompleted && productSuggestions.length > 0 && !hasPrePopulated) {
+    const suggestedProducts = productSuggestions.map((s) => ({
+      name: (s.payload as Record<string, string>).name ?? "",
+      description: (s.payload as Record<string, string>).description ?? "",
+      product_type: ((s.payload as Record<string, string>).product_type ?? "platform") as OnboardingPhase1Input["products"][0]["product_type"],
+    }));
+    const existingFilled = products.filter((p) => p.name.trim().length > 0);
+    setProducts([...existingFilled, ...suggestedProducts]);
+    setHasPrePopulated(true);
+  }
+
+  const addProduct = () => setProducts([...products, { name: "", description: "", product_type: "module" }]);
+  const removeProduct = (i: number) => setProducts(products.filter((_, idx) => idx !== i));
+  const updateProduct = (i: number, field: string, value: string) => {
+    setProducts(products.map((p, idx) => (idx === i ? { ...p, [field]: value } : p)));
+  };
+
+  const canProceed = companyName.trim().length > 0 && products.some((p) => p.name.trim().length > 0);
+  const canAutoFill = websiteUrl.trim().length > 0 && websiteUrl.includes(".") && !isResearching && !isResearchRunning;
+
+  const handleSubmit = () => {
+    onNext(
+      {
+        company_name: companyName.trim(),
+        website_url: websiteUrl.trim(),
+        industry: industry.trim(),
+        company_size: companySize,
+        sales_motion: salesMotion,
+        products: products.filter((p) => p.name.trim().length > 0),
+      },
+      researchJob?.id,
+    );
+  };
+
+  const handleAutoFill = () => {
+    if (onStartResearch && canAutoFill) {
+      onStartResearch(websiteUrl.trim(), industry.trim(), companySize, salesMotion);
+    }
+  };
+
+  const sizeOptions: Array<{ value: OnboardingPhase1Input["company_size"]; label: string }> = [
+    { value: "smb", label: "SMB" },
+    { value: "mid_market", label: "Mid-Market" },
+    { value: "enterprise", label: "Enterprise" },
+  ];
+
+  const motionOptions: Array<{ value: OnboardingPhase1Input["sales_motion"]; label: string }> = [
+    { value: "new_logo", label: "New Logo" },
+    { value: "expansion", label: "Expansion" },
+    { value: "land_and_expand", label: "Land & Expand" },
+    { value: "renewal", label: "Renewal" },
+  ];
+
+  const entityStatus = researchJob?.entity_status ?? {};
+  const entityTypes = ["product", "competitor", "persona", "claim", "capability", "value_pattern"];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-[16px] font-black text-zinc-950 tracking-tight">Your Company</h2>
+            <p className="text-[12px] text-zinc-400">Tell us about your business so every value case starts smarter</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Company basics */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+            Company Name *
+          </label>
+          <input
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="e.g. Acme Corp"
+            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+            Website
+          </label>
+          <div className="relative">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <input
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="https://acme.com"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+          Industry
+        </label>
+        <input
+          value={industry}
+          onChange={(e) => setIndustry(e.target.value)}
+          placeholder="e.g. Enterprise Software, Manufacturing, Financial Services"
+          className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+        />
+      </div>
+
+      {/* Company size */}
+      <div>
+        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-2 block">
+          Company Size
+        </label>
+        <div className="flex gap-2">
+          {sizeOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setCompanySize(opt.value)}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl border text-[12px] font-medium transition-colors",
+                companySize === opt.value
+                  ? "border-zinc-950 bg-zinc-950 text-white"
+                  : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sales motion */}
+      <div>
+        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-2 block">
+          Primary Sales Motion
+        </label>
+        <div className="flex gap-2">
+          {motionOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSalesMotion(opt.value)}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl border text-[12px] font-medium transition-colors",
+                salesMotion === opt.value
+                  ? "border-zinc-950 bg-zinc-950 text-white"
+                  : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Auto-fill from website */}
+      {onStartResearch && (
+        <div className="space-y-3">
+          {!researchJob && (
+            <button
+              onClick={handleAutoFill}
+              disabled={!canAutoFill}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-[12px] font-medium transition-colors",
+                canAutoFill
+                  ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-400 cursor-not-allowed"
+              )}
+            >
+              <Sparkles className="w-4 h-4" />
+              Auto-fill from website
+            </button>
+          )}
+
+          {(isResearchRunning || isResearching) && (
+            <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/50 space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                <span className="text-[12px] font-medium text-blue-700">Analyzing website...</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {entityTypes.map((et) => {
+                  const status = entityStatus[et] ?? "pending";
+                  const statusColors: Record<string, string> = {
+                    pending: "bg-zinc-100 text-zinc-400",
+                    running: "bg-blue-100 text-blue-600",
+                    completed: "bg-emerald-100 text-emerald-700",
+                    done: "bg-emerald-100 text-emerald-700",
+                    failed: "bg-red-100 text-red-600",
+                  };
+                  return (
+                    <div
+                      key={et}
+                      className={cn(
+                        "px-2 py-1.5 rounded-lg text-[10px] font-medium text-center capitalize",
+                        statusColors[status] ?? "bg-zinc-100 text-zinc-400"
+                      )}
+                    >
+                      {et.replace("_", " ")}
+                      {status === "running" && (
+                        <Loader2 className="w-3 h-3 inline ml-1 animate-spin" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {hasResearchCompleted && (
+            <div className="p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span className="text-[12px] text-emerald-700 font-medium">
+                Research complete — products pre-populated below. Suggestions for competitors, personas, and claims will appear in the next steps.
+              </span>
+            </div>
+          )}
+
+          {hasResearchFailed && (
+            <div className="p-3 rounded-xl border border-red-100 bg-red-50/50">
+              <span className="text-[12px] text-red-700">
+                Research failed: {researchJob?.error_message ?? "Unknown error"}. You can continue manually.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Products */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400">
+            Products / Solutions *
+          </label>
+          <button
+            onClick={addProduct}
+            className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-700 transition-colors"
+          >
+            <Plus className="w-3 h-3" /> Add
+          </button>
+        </div>
+        <div className="space-y-3">
+          {products.map((p, i) => (
+            <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 bg-zinc-50/50">
+              <Package className="w-4 h-4 text-zinc-400 mt-2.5 flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <input
+                  value={p.name}
+                  onChange={(e) => updateProduct(i, "name", e.target.value)}
+                  placeholder="Product name"
+                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+                />
+                <input
+                  value={p.description}
+                  onChange={(e) => updateProduct(i, "description", e.target.value)}
+                  placeholder="Brief description — what does it do for customers?"
+                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400"
+                />
+                <select
+                  value={p.product_type ?? "platform"}
+                  onChange={(e) => updateProduct(i, "product_type", e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-zinc-200 text-[12px] bg-white text-zinc-600 outline-none"
+                >
+                  <option value="platform">Platform</option>
+                  <option value="module">Module</option>
+                  <option value="service">Service</option>
+                  <option value="add_on">Add-on</option>
+                </select>
+              </div>
+              {products.length > 1 && (
+                <button onClick={() => removeProduct(i)} className="p-1 rounded hover:bg-zinc-200 mt-2">
+                  <X className="w-3.5 h-3.5 text-zinc-400" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Next */}
+      <div className="flex justify-end pt-2">
+        <button
+          onClick={handleSubmit}
+          disabled={!canProceed}
+          className={cn(
+            "px-6 py-3 rounded-xl text-[13px] font-medium transition-colors",
+            canProceed
+              ? "bg-zinc-950 text-white hover:bg-zinc-800"
+              : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+          )}
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}

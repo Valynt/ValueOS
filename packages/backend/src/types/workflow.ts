@@ -34,6 +34,7 @@ export interface RetryConfig {
 export interface WorkflowStage {
   id: string;
   name: string;
+  description?: string;
   agent_type: LifecycleStage;
   timeout_seconds: number;
   retry_config?: RetryConfig;
@@ -41,12 +42,12 @@ export interface WorkflowStage {
   required_capabilities?: string[];
   dependencies?: string[];
   parallel?: boolean;
+  transitions?: WorkflowTransition[];
 }
 
 export interface WorkflowTransition {
-  from: string;
-  to: string;
-  // Aliases for backward compatibility with DAG definitions
+  from?: string;
+  to?: string;
   from_stage?: string;
   to_stage?: string;
   condition?: string;
@@ -57,7 +58,7 @@ export interface WorkflowDAG {
   id: string;
   name: string;
   description: string;
-  version?: string;
+  version?: string | number;
   stages: WorkflowStage[];
   transitions: WorkflowTransition[];
   entry_stage: string;

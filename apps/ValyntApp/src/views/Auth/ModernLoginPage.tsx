@@ -11,6 +11,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { getSupportedLocales } from "../../i18n";
 import type { LocaleCode } from "../../i18n/config";
 import { useI18n } from "../../i18n/I18nProvider";
+import { logger } from "../../lib/logger";
 
 export function ModernLoginPage() {
   const [email, setEmail] = useState("");
@@ -27,7 +28,7 @@ export function ModernLoginPage() {
   const location = useLocation();
 
    
-  const from = (location.state as any)?.from?.pathname || "/";
+  const from = (location.state as any)?.from?.pathname || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,22 +36,22 @@ export function ModernLoginPage() {
     setLoading(true);
 
     const logPrefix = "[LoginPage]";
-    console.log(`${logPrefix} 🚀 Form submitted`);
-    console.log(`${logPrefix} Email: ${email}`);
-    console.log(`${logPrefix} Password length: ${password.length}`);
-    console.log(`${logPrefix} Redirect target: ${from}`);
+    logger.info(`${logPrefix} 🚀 Form submitted`);
+    logger.info(`${logPrefix} Email: ${email}`);
+    logger.info(`${logPrefix} Password length: ${password.length}`);
+    logger.info(`${logPrefix} Redirect target: ${from}`);
 
     try {
-      console.log(`${logPrefix} 📡 Calling login()...`);
+      logger.info(`${logPrefix} 📡 Calling login()...`);
       await login({ email, password });
-      console.log(`${logPrefix} ✅ login() returned successfully`);
-      console.log(`${logPrefix} 🔀 Navigating to: ${from}`);
+      logger.info(`${logPrefix} ✅ login() returned successfully`);
+      logger.info(`${logPrefix} 🔀 Navigating to: ${from}`);
       navigate(from, { replace: true });
-      console.log(`${logPrefix} ✅ navigate() called`);
+      logger.info(`${logPrefix} ✅ navigate() called`);
     } catch (err: unknown) {
       console.error(`${logPrefix} ❌ Login error:`, err);
       const errorMessage = err instanceof Error ? err.message : "An error occurred";
-      console.log(`${logPrefix} Error message: ${errorMessage}`);
+      logger.info(`${logPrefix} Error message: ${errorMessage}`);
 
       if (errorMessage.includes("rate limit")) {
         setError("Too many login attempts. Please try again later.");
@@ -58,7 +59,7 @@ export function ModernLoginPage() {
         setError(errorMessage || "Invalid email or password");
       }
     } finally {
-      console.log(`${logPrefix} 🏁 Login attempt finished, loading=false`);
+      logger.info(`${logPrefix} 🏁 Login attempt finished, loading=false`);
       setLoading(false);
     }
   };

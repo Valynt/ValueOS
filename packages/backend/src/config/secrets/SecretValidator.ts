@@ -5,11 +5,9 @@
  * at application startup with detailed error reporting
  */
 
-import { z } from "zod";
 import { logger } from "../../lib/logger.js"
 import { createProviderFromEnv as getSecretProvider } from "./ProviderFactory.js"
 import {
-  createSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "./SecretVolumeWatcher";
 
@@ -580,7 +578,7 @@ export async function validateSecretsOnStartup(): Promise<void> {
 const secretValidator = new SecretValidator();
 
 export function secretHealthMiddleware() {
-  return async (req: any, res: any) => {
+  return async (_req: any, res: any) => {
     try {
       const health = await secretValidator.getSecretHealthCheck();
       const statusCode =

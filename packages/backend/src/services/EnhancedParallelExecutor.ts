@@ -771,7 +771,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
 
     logger.debug("Streaming thinking update", progress);
 
-    // TODO: Send to UI via MessageBus or WebSocket
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Send to UI via MessageBus or WebSocket
     // await this.messageBus.send('thinking-update', progress);
   }
 
@@ -852,7 +852,7 @@ export function createParallelExecutionPlan(
       maxConcurrentAgents: Math.max(...groups.map((g) => g.tasks.length)),
       memoryRequirement: "medium",
       tokenRequirement: groups.reduce(
-        (sum, group) => sum + group.tasks.reduce((taskSum, task) => taskSum + 1000, 0),
+        (sum, group) => sum + group.tasks.reduce((taskSum, _task) => taskSum + 1000, 0),
         0
       ),
       securityLevel: "medium",

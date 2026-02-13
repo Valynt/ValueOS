@@ -31,6 +31,7 @@ import {
   CLOCK_SKEW_MS,
   IDLE_TIMEOUT_MS,
 } from "../security/sessionTimeoutConfig";
+import { enforceSessionTimeouts } from "../middleware/sessionTimeoutMiddleware";
 
 export interface LoginCredentials {
   email: string;
@@ -123,42 +124,8 @@ export class AuthService extends BaseService {
   }
 
   private validateSessionTimeouts(session: Session): void {
-    const accessToken = session.access_token;
-    if (!accessToken) {
-      return;
-    }
-
-    const claims = this.decodeJwt(accessToken);
-    if (!claims) {
-      return;
-    }
-
-    const issuedAt = typeof claims.iat === "number" ? claims.iat : undefined;
-    const expiresAt = typeof claims.exp === "number" ? claims.exp : session.expires_at;
-    if (!issuedAt || !expiresAt) {
-      return;
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    const clockSkewSeconds = AuthService.SESSION_TIMEOUTS.CLOCK_SKEW_MS / 1000;
-
-    if (expiresAt + clockSkewSeconds < now) {
-      throw new TokenAuthenticationError("Token expired", "TOKEN_EXPIRED", {
-        expiresAt,
-        currentTime: now,
-      });
-    }
-
-    const tokenAge = now - issuedAt;
-    const maxAge = AuthService.SESSION_TIMEOUTS.ABSOLUTE_TIMEOUT_MS / 1000;
-    if (tokenAge > maxAge) {
-      throw new SessionTimeoutAuthenticationError(
-        "Session expired due to absolute timeout (1 hour)",
-        "SESSION_ABSOLUTE_TIMEOUT",
-        { tokenAge, maxAge }
-      );
-    }
-
+    // Use shared session timeout enforcement logic
+    enforceSessionTimeouts(session);
   }
 
   private mapAuthFailure(payload: AuthEndpointErrorPayload, responseStatus: number): ServiceError {

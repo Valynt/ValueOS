@@ -1,17 +1,139 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# on-create.sh
+# Runs once when the DevContainer is created
+# Performs initial setup and configuration
 
-if [[ ! -d "${ROOT_DIR}/.git" ]]; then
-  echo "Expected to run inside the ValueOS repo; .git directory missing." >&2
-  exit 1
+echo "🔧 Running on-create setup..."
+
+# =============================================================================
+# ENVIRONMENT SETUP
+# =============================================================================
+
+# Load environment variables
+if [ -f .devcontainer/.env ]; then
+    echo "📋 Loading environment variables..."
+    export $(grep -v '^#' .devcontainer/.env | xargs)
+elif [ -f .devcontainer/.env.template ] && [ ! -f .devcontainer/.env ]; then
+    cp .devcontainer/.env.template .devcontainer/.env
+    echo "✅ Created .env from template"
+elif [ ! -f .devcontainer/.env ]; then
+    echo "⚠️  No .env or .env.template found, skipping .env creation"
+else
+    echo "Skipping .env creation"
 fi
 
-if [[ ! -f "${ROOT_DIR}/package.json" ]]; then
-  echo "package.json not found at repo root; devcontainer layout may be incorrect." >&2
-  exit 1
+# =============================================================================
+# DEPENDENCY INSTALLATION
+# =============================================================================
+
+echo "📦 Installing dependencies..."
+
+# Enable pnpm
+corepack enable
+corepack prepare pnpm@latest --activate
+
+# Install workspace dependencies
+if [ -f pnpm-lock.yaml ]; then
+    echo "📥 Installing pnpm dependencies..."
+    pnpm install --frozen-lockfile || echo "⚠️ pnpm install failed (will retry manually)"
+else
+    echo "📥 Installing pnpm dependencies (no lockfile)..."
+    pnpm install
 fi
 
-echo "Devcontainer on-create: repo structure verified."
+# =============================================================================
+# DATABASE INITIALIZATION
+# =============================================================================
+
+echo "🗄️  Waiting for database to be ready..."
+
+# Wait for PostgreSQL to be ready
+max_attempts=30
+attempt=0
+until PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-54323}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT 1" > /dev/null 2>&1; do
+    attempt=$((attempt + 1))
+    if [ $attempt -ge $max_attempts ]; then
+        echo "❌ Database failed to start after $max_attempts attempts"
+        exit 1
+    fi
+    echo "⏳ Waiting for database... (attempt $attempt/$max_attempts)"
+    sleep 2
+done
+
+echo "✅ Database is ready"
+
+# =============================================================================
+# MIGRATION APPLICATION
+# =============================================================================
+
+echo "🚀 Applying database migrations..."
+
+if [ -f infra/scripts/apply_migrations.sh ]; then
+    bash infra/scripts/apply_migrations.sh
+    echo "✅ Migrations applied successfully"
+else
+    echo "⚠️  Migration script not found, skipping"
+fi
+
+# =============================================================================
+# AGENT FABRIC SETUP
+# =============================================================================
+
+if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
+    echo "🤖 Setting up agent fabric..."
+
+    # Wait for NATS to be ready
+    max_attempts=30
+    attempt=0
+    until curl -f http://localhost:8222/healthz > /dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [ $attempt -ge $max_attempts ]; then
+            echo "⚠️  NATS failed to start, continuing anyway"
+            break
+        fi
+        echo "⏳ Waiting for NATS... (attempt $attempt/$max_attempts)"
+        sleep 2
+    done
+
+    echo "✅ Agent fabric ready"
+fi
+
+# =============================================================================
+# DEVELOPMENT TOOLS
+# =============================================================================
+
+echo "🛠️  Setting up development tools..."
+
+# Ensure build-essential is available in the dev environment. It is intentionally
+# installed at create time so the Dockerfile can keep final stage minimal.
+if ! dpkg -s build-essential >/dev/null 2>&1; then
+    echo "🔧 Installing build-essential for dev environment..."
+    sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential
+fi
+
+# Install global tools if needed
+if ! command -v tsx &> /dev/null; then
+    pnpm add -g tsx
+fi
+
+# Setup git hooks if using husky
+if [ -d .husky ]; then
+    echo "🪝 Setting up git hooks..."
+    pnpm exec husky install
+fi
+
+# =============================================================================
+# COMPLETION
+# =============================================================================
+
+echo ""
+echo "✅ on-create setup completed successfully!"
+echo ""
+echo "📚 Next steps:"
+echo "  1. Review .devcontainer/.env and update as needed"
+echo "  2. Run 'pnpm dev' to start the development server"
+echo "  3. Open http://localhost:3001 for the frontend"
+echo "  4. Open http://localhost:54324 for Supabase Studio"
+echo ""

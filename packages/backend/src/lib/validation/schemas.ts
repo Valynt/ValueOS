@@ -12,13 +12,10 @@
 
 import { z } from 'zod';
 import {
-  nameSchema,
   emailSchema,
-  phoneSchema,
   optionalPhoneSchema,
   uuidSchema,
   optionalUuidSchema,
-  urlSchema,
   optionalUrlSchema,
   descriptionSchema,
   passwordSchema,
@@ -28,7 +25,6 @@ import {
   pageSchema,
   limitSchema,
   sanitizedString,
-  FieldLimits,
 } from './zodHelpers';
 import { normalizeName, normalizeCompanyName } from './normalizers.js'
 

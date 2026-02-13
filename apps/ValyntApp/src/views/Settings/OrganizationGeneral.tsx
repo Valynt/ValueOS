@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { SettingsSection } from "../../components/Settings/SettingsSection";
-import { AlertCircle, Building2, Check, Loader2, Upload, X } from "lucide-react";
+import { SettingsSection } from "../../components/settings";
+import { Building2, Loader2, Upload, X } from "lucide-react";
 import {
   applyBrandTheme,
   VALYNT_BRAND_PRIMARY,
@@ -13,8 +13,8 @@ export const OrganizationGeneral: React.FC = () => {
   const [domain, setDomain] = useState("acme.com");
   const [industry, setIndustry] = useState("technology");
   const [orgSize, setOrgSize] = useState("51-200");
-  const [primaryColor, setPrimaryColor] = useState(VALYNT_BRAND_PRIMARY);
-  const [secondaryColor, setSecondaryColor] = useState(VALYNT_BRAND_SECONDARY);
+  const [primaryColor, _setPrimaryColor] = useState(VALYNT_BRAND_PRIMARY);
+  const [secondaryColor, _setSecondaryColor] = useState(VALYNT_BRAND_SECONDARY);
   const [logo, setLogo] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);

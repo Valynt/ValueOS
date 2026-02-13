@@ -1,8 +1,8 @@
 /**
  * Vector Search Service
- * 
+ *
  * Production-ready service for querying semantic_memory table with pgvector
- * 
+ *
  * Features:
  * - Type-safe query methods
  * - Configurable thresholds
@@ -87,7 +87,7 @@ export class VectorSearchService {
       }
 
       // Determine threshold
-      const effectiveThreshold = threshold || 
+      const effectiveThreshold = threshold ||
         (type ? getSemanticThreshold(type) : semanticMemoryConfig.defaultThreshold);
 
       // Build filter clause
@@ -395,19 +395,27 @@ export class VectorSearchService {
       delete (filters as any).organization_id;
     }
 
-    // Metadata filters
+
+    // Metadata filters (object injection safe)
+    const SAFE_KEY_REGEX = /^[a-zA-Z0-9_]+$/;
+    const BLOCKED_KEYS = new Set([
+      '__proto__', 'constructor', 'prototype', 'hasOwnProperty', 'isPrototypeOf',
+      'propertyIsEnumerable', 'toString', 'valueOf', '__defineGetter__', '__defineSetter__',
+      '__lookupGetter__', '__lookupSetter__'
+    ]);
     Object.entries(filters).forEach(([key, value]) => {
       if (value === null || value === undefined) return;
+      if (!SAFE_KEY_REGEX.test(key) || BLOCKED_KEYS.has(key)) return;
 
       if (typeof value === 'string') {
-        conditions.push(`metadata->>'${key}' = '${value}'`);
+        conditions.push(`metadata->>'${key}' = '${value.replace(/'/g, "''")}'`);
       } else if (typeof value === 'number') {
         conditions.push(`(metadata->>'${key}')::float = ${value}`);
       } else if (typeof value === 'boolean') {
         conditions.push(`(metadata->>'${key}')::boolean = ${value}`);
       } else if (Array.isArray(value)) {
         // Array contains check
-        conditions.push(`metadata->'${key}' @> '${JSON.stringify(value)}'::jsonb`);
+        conditions.push(`metadata->'${key}' @> '${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`);
       }
     });
 

@@ -1,0 +1,49 @@
+# Unified Deployment Pipeline for Zero-Downtime Migrations
+
+name: Unified Deployment Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  migration-readiness-check:
+    name: Migration Readiness Template Enforcement
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Check for Migration Readiness Template
+        run: |
+          if ! grep -q "Migration Readiness Template" $(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E 'migrations/zero-downtime/.*\\.sql|migrations/zero-downtime/.*\\.sh|migrations/zero-downtime/.*\\.js|migrations/zero-downtime/.*\\.ts'); then
+            echo "::error::Migration Readiness Template is missing or not updated in this PR."
+            exit 1
+          fi
+
+  zero-downtime-migration:
+    name: Zero-Downtime Migration
+    needs: migration-readiness-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Acquire Redis Migration Lock
+        run: |
+          REDIS_URL=${{ secrets.REDIS_URL }} node scripts/migrations/zero-downtime/redis-migration-lock.js || exit 1
+      - name: Run Dual-Write Migration
+        run: |
+          ./scripts/migrations/zero-downtime/zero-downtime-dual-write.sh ${{ secrets.DATABASE_URL }}
+      - name: Verify Deployment Health
+        run: |
+          node scripts/maintenance/verify-deployment.ts
+      - name: Post-Migration Cleanup
+        if: success()
+        run: |
+          ./scripts/maintenance/final-cleanup.sh ${{ secrets.DATABASE_URL }}
+      - name: Release Redis Migration Lock
+        if: always()
+        run: |
+          # Lock is released in the script, but ensure cleanup if needed
+          echo "Migration lock released."

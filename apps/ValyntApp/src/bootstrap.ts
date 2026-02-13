@@ -11,6 +11,15 @@ import {
   isProduction,
   validateEnvironmentConfig,
 } from "./config/environment";
+import {
+  DEFAULT_AGENT_CHECK_TIMEOUT_DEV,
+  DEFAULT_AGENT_CHECK_TIMEOUT_PROD,
+  DEFAULT_AGENT_HEALTH_RETRY_ATTEMPTS_DEV,
+  DEFAULT_AGENT_HEALTH_RETRY_ATTEMPTS_PROD,
+  DEFAULT_AGENT_HEALTH_RETRY_DELAY,
+  DEFAULT_DB_MAX_RETRIES,
+  DEFAULT_DB_RETRY_DELAY,
+} from "./app/config/bootstrap.constants";
 import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 import { initializeSecurity, validateSecurity } from "./security";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
@@ -81,7 +90,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     skipAgentCheck = isDevelopment(),
     failFast = isProduction(),
     // Short timeout in dev, longer in production
-    agentCheckTimeout = isDevelopment() ? 5000 : 30000,
+    agentCheckTimeout = isDevelopment() ? DEFAULT_AGENT_CHECK_TIMEOUT_DEV : DEFAULT_AGENT_CHECK_TIMEOUT_PROD,
     onProgress,
     onWarning,
     onError,
@@ -263,8 +272,8 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
         initializeAgents({
           healthCheckTimeout: Math.min(2000, agentCheckTimeout / 4), // Individual check timeout
           failFast: false, // Don't fail fast during bootstrap
-          retryAttempts: isDevelopment() ? 1 : 3, // Fewer retries in dev
-          retryDelay: 500,
+          retryAttempts: isDevelopment() ? DEFAULT_AGENT_HEALTH_RETRY_ATTEMPTS_DEV : DEFAULT_AGENT_HEALTH_RETRY_ATTEMPTS_PROD, // Fewer retries in dev
+          retryDelay: DEFAULT_AGENT_HEALTH_RETRY_DELAY,
           onProgress: (status) => {
             const icon = status.available ? "✅" : "❌";
             const time = status.responseTime ? ` (${status.responseTime}ms)` : "";
@@ -333,8 +342,8 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
     onProgress?.("Checking database connection...");
     logger.info("\n💾 Step 7: Database connection");
     try {
-      const maxRetries = 10;
-      const retryDelay = 1000;
+      const maxRetries = DEFAULT_DB_MAX_RETRIES;
+      const retryDelay = DEFAULT_DB_RETRY_DELAY;
       const dbHealth = await checkDatabaseConnection(maxRetries, retryDelay);
 
       if (dbHealth.connected) {

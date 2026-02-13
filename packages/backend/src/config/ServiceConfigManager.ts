@@ -31,9 +31,10 @@ const AgentAPIConfigSchema = z.object({
 // Event Executor configuration
 const EventExecutorConfigSchema = z.object({
   ...BaseServiceConfigSchema.shape,
+  enabled: z.boolean().default(false),
   kafka: z
     .object({
-      brokers: z.array(z.string()).default(["localhost:9092"]),
+      brokers: z.array(z.string()).default(["localhost:9093"]),
       groupId: z.string().default("agent-executor"),
       topics: z.object({
         agentRequests: z.string().default("agent.requests"),
@@ -41,7 +42,7 @@ const EventExecutorConfigSchema = z.object({
       }),
     })
     .default({
-      brokers: ["localhost:9092"],
+      brokers: ["localhost:9093"],
       groupId: "agent-executor",
       topics: {
         agentRequests: "agent.requests",
@@ -331,7 +332,7 @@ export class ServiceConfigManager {
     };
 
     const eventExecutorEnv: Partial<ServiceConfiguration["eventExecutor"]> = {
-      enabled: env.EVENT_EXECUTOR_ENABLED !== "false",
+      enabled: env.EVENT_EXECUTOR_ENABLED === "true",
       kafka: {
         ...(env.KAFKA_BROKERS && { brokers: env.KAFKA_BROKERS.split(",") }),
         ...(env.KAFKA_GROUP_ID && { groupId: env.KAFKA_GROUP_ID }),

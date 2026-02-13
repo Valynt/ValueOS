@@ -142,7 +142,7 @@ export const useSchemaStore = create<SchemaState>()(
               }
             };
 
-            ws.onerror = (event) => {
+            ws.onerror = (_event) => {
               logger.error("Schema streaming WebSocket error", new Error("WebSocket error"), { schemaId });
               get().stopStreaming();
             };

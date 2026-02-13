@@ -21,6 +21,9 @@ const ignoresConfig = {
     "vendor",
     "coverage",
     ".cache",
+    ".coverage",
+    ".next",
+    ".turbo",
     "*.config.js",
     "!eslint.config.js",
     "**/__fixtures__",
@@ -65,7 +68,7 @@ const pluginConfig = {
     "import/resolver": {
       typescript: {
         // Look up workspace and package tsconfigs so path aliases and package-local files resolve correctly
-        project: ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json"],
+        project: ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json", "./packages/*/*/tsconfig.json"],
         alwaysTryTypes: true,
       },
       node: {
@@ -96,7 +99,9 @@ const baseConfig = {
       sourceType: "module",
       // Provide an explicit list of tsconfig files so type-aware rules can resolve projects across the monorepo
       // This avoids 'Resolve error: typescript with invalid interface loaded as resolver'
-      project: ["./tsconfig.json", "apps/*/tsconfig.json", "packages/*/tsconfig.json"],
+      project: ["./tsconfig.json", "./apps/*/tsconfig.json", "./packages/*/tsconfig.json", "./packages/*/*/tsconfig.json"],
+      // Suppress warning about multiple projects - expected in a pnpm monorepo with 17+ workspace packages
+      noWarnOnMultipleProjects: true,
     },
   },
   rules: {
@@ -121,7 +126,7 @@ const baseConfig = {
     "jsx-a11y/aria-props": "error",
     "jsx-a11y/aria-role": "error",
     "jsx-a11y/role-has-required-aria-props": "error",
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-unnecessary-type-assertion": "warn",
     "no-unused-vars": [
       "warn",
@@ -173,27 +178,6 @@ const baseConfig = {
     "security/detect-pseudoRandomBytes": "error",
     "security/detect-unsafe-regex": "error",
     "import/no-dynamic-require": "error",
-    "import/no-unresolved": "off", // TypeScript handles this
-    "import/order": [
-      "error",
-      {
-        groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
-        "newlines-between": "always",
-        pathGroups: [
-          {
-            pattern: "@/**",
-            group: "internal",
-            position: "after",
-          },
-        ],
-        pathGroupsExcludedImportTypes: ["builtin"],
-        alphabetize: {
-          order: "asc",
-          caseInsensitive: true,
-        },
-        warnOnUnassignedImports: true,
-      },
-    ],
     eqeqeq: ["error", "always"],
     "no-duplicate-imports": "error",
     "no-return-await": "error",
@@ -265,9 +249,34 @@ const baseConfig = {
     // Error handling
 
     // Security: Prevent dangerous patterns in agent code
+    "no-console": ["error", { allow: ["warn", "error"] }],
     "no-alert": "error",
     "no-debugger": "error",
     "no-sequences": "error",
+  },
+};
+
+const valyntBackendServiceImportGuard = {
+  files: [
+    "apps/ValyntApp/src/api/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/config/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/middleware/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/utils/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/views/**/*.{ts,tsx}",
+  ],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: ["../services/*Service", "../../services/*Service"],
+            message:
+              "Backend-domain services are canonical in packages/backend/src/services. Import from @backend/services/* instead.",
+          },
+        ],
+      },
+    ],
   },
 };
 
@@ -435,7 +444,6 @@ const configOverrides = {
     },
   },
   rules: {
-    "import/no-unresolved": "off", // Config files may have different resolution
     "@typescript-eslint/no-var-requires": "off",
     "@typescript-eslint/no-require-imports": "off",
     // Disable type-aware @typescript-eslint rules for config files (no type-checking available)
@@ -465,6 +473,7 @@ export default [
   ignoresConfig,
   pluginConfig,
   baseConfig,
+  valyntBackendServiceImportGuard,
   backendServiceAuthOverrides,
   configOverrides,
   testOverrides,

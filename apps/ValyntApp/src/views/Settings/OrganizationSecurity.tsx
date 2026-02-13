@@ -1,9 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { SettingsSection } from '../../components/settings';
 import {
   AlertCircle, Check, Clock, Globe, Key, Lock, Plus, Shield, Trash2, Users
 } from 'lucide-react';
-import { AllowedDomain, AuthPolicy } from '../../types';
+
+interface AllowedDomain {
+  id: string;
+  domain: string;
+  createdAt: string;
+}
+
+interface AuthPolicy {
+  id: string;
+  ssoEnforced: boolean;
+  mfaRequired: boolean;
+  passwordMinLength: number;
+  passwordRequireUppercase: boolean;
+  passwordRequireNumbers: boolean;
+  passwordRequireSymbols: boolean;
+  passwordExpiryDays: number;
+  sessionTimeoutMinutes: number;
+  idleTimeoutMinutes: number;
+  maxConcurrentSessions: number;
+}
 import { analyticsClient } from '../../lib/analyticsClient';
 import { useDebouncedState } from '../../hooks/useDebounce';
 

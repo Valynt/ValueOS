@@ -47,13 +47,13 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: backend
+            name: backend-active
             port:
               number: 8000
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: frontend
+            name: frontend-active
             port:
               number: 80

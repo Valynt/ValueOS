@@ -1,109 +1,43 @@
-# Contributing to ValueOS
+# ValueOS Devcontainer & Environment Invariants
 
-Welcome to the ValueOS monorepo! This document provides guidelines for contributing to the project.
+## Deterministic Dev Environment: Invariants
 
-## Project Structure
+- **Single authoritative compose file:** Only `docker-compose.yml` at repo root is the base. No `compose.yml`.
+- **Dev override layer:** All devcontainer-specific config in `compose.devcontainer.override.yml` (never referenced in production).
+- **No cached VS Code pollution:** Always clear VS Code Dev Containers cache after major Compose or devcontainer changes.
+- **No bind-mounted build artifacts:** Never commit or mount `node_modules` from host. All `node_modules` are Docker volumes.
+- **WSL-safe, Codespaces-safe, CI-safe:** This setup works on all platforms and for all contributors.
+- **No COMPOSE_FILE env injection:** Do not set `COMPOSE_FILE` in your shell or `.env`.
 
-This is a modular monorepo managed with **pnpm workspaces**.
+## Resetting the Dev Environment
 
-- `apps/`: End-user applications (e.g., ValyntApp, mcp-dashboard).
-- `packages/`: Shared libraries and services (e.g., backend, shared types).
-- `infra/`: Infrastructure as Code (Terraform) and deployment configurations.
-- `docs/`: Comprehensive documentation, ADRs, and runbooks.
+Use the provided script for a deterministic reset:
 
-## Getting Started
+```sh
+./reset-dev-env.sh
+```
 
-### Prerequisites
+## Guard Against Host node_modules
 
-- Node.js >= 20.19.0
-- pnpm >= 9.15.0
-- Docker (for local services)
-- Supabase CLI (for database development)
+A guard script is provided to prevent accidental host `node_modules` pollution:
 
-### Local Setup
+```sh
+./guard-node-modules.sh
+```
 
-1. Clone the repository.
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-4. Start local development services:
-   ```bash
-   pnpm run docker:up
-   ```
+Add this to your prestart scripts or source in your shell for extra safety.
 
-## Development Workflow
+## Troubleshooting
 
-### Branching Strategy
+- If you see permission errors, EACCES, or `compose.yml` references, run `./reset-dev-env.sh` and rebuild the devcontainer.
+- If you see `node_modules` on the host, delete them and use Docker volumes only.
 
-- `main`: Production-ready code.
-- `develop`: Integration branch for features.
-- Feature branches: `feature/your-feature-name`.
+## Contributing
 
-### Coding Standards
-
-- **Linting**: We use ESLint with security and accessibility plugins. Run `pnpm run lint` to check.
-- **Formatting**: Prettier is enforced. Run `pnpm run format` before committing.
-- **Type Checking**: TypeScript is used throughout. Run `pnpm run typecheck`.
-
-### Technical Debt Governance
-
-To prevent TODO/dead-code sprawl, the repo enforces a debt inventory ratchet in strict zones:
-
-- Run `pnpm debt:inventory` to generate `docs/debt/inventory-report.json` and validate baseline ratchets.
-- Baselines live in `config/debt-baseline.json` and can be refreshed intentionally with `pnpm debt:baseline`.
-- Strict-zone TODO/FIXME comments must use this format:
-  - `TODO(ticket:ABC-123 owner:team-or-name date:YYYY-MM-DD): short note`
-  - `FIXME(ticket:ABC-123 owner:team-or-name date:YYYY-MM-DD): short note`
-- CI should run `pnpm debt:inventory`; it fails only when strict-zone counts regress or TODO/FIXME metadata is malformed in strict zones.
-
-### Testing
-
-We use Vitest for unit and integration tests, and Playwright for E2E/accessibility tests.
-
-- Unit tests: `pnpm run test:unit`
-- Integration tests: `pnpm run test:integration`
-- RLS tests: `pnpm run test:rls`
-- Accessibility tests: `pnpm run test:a11y`
-
-## CI/CD Pipeline
-
-Our CI pipeline (GitHub Actions) enforces:
-
-1. Linting and Type Checking
-2. Unit and Integration Tests
-3. Security Scans (CodeQL, Trivy, Semgrep, TruffleHog)
-4. SBOM Generation
-5. RLS Leakage and Accessibility Gates
-
-### Branch Protection Requirements
-
-To maintain high quality and security standards, the following checks are **required** for all pull requests to `main` and `develop`:
-
-- **Linting and Type Checking**: Ensures code consistency and type safety.
-- **Unit and Integration Tests**: Validates core business logic.
-- **RLS Leakage Tests**: Critical for multi-tenant isolation.
-- **Accessibility Tests**: Ensures WCAG 2.1 AA compliance.
-- **Security Scans**: No high or critical vulnerabilities in dependencies or code.
-
-Administrators should enforce these as "Required" status checks in GitHub repository settings.
-
-## Documentation
-
-- **ADRs**: Architectural decisions are recorded in `docs/engineering/adr/README.md`.
-- **Runbooks**: Operational guides are in `docs/runbooks/`.
-- **API**: OpenAPI specs are located in `packages/backend/openapi.yaml`.
-
-## Security
-
-- Never commit secrets. Use the provided secret management guidance.
-- All database changes must include Row Level Security (RLS) policies.
-- Report security vulnerabilities via the process defined in `SECURITY.md`.
+- Never reintroduce `compose.yml` or host `node_modules`.
+- Always use the devcontainer for local development.
+- Document any changes to Compose or devcontainer setup in this file.
 
 ---
 
-Thank you for contributing to ValueOS!
+For more details, see the project README and `.devcontainer/` docs.

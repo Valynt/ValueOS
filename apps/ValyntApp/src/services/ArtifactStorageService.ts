@@ -10,13 +10,13 @@ import { createClient } from "@supabase/supabase-js";
 import { EventEmitter } from "events";
 
 import {
-  Artifact,
   ArtifactStorageMetadata,
   RetentionPolicy,
   ArtifactFormat,
 } from "../types/artifact";
 
 import { Database } from "../types/database";
+import { logger } from "../lib/logger";
 
 // ============================================================================
 // Configuration
@@ -359,7 +359,7 @@ export class ArtifactStorageService extends EventEmitter {
         // Log audit event (if available)
         if (this.config.enableEncryption) {
           // In a real implementation, this would log to audit service
-          console.log(`Deleted ${versions.length} versions for artifact ${artifact.id}`);
+          logger.info(`Deleted ${versions.length} versions for artifact ${artifact.id}`);
         }
       } catch (error) {
         result.errors.push(`Failed to process artifact ${artifact.id}: ${error instanceof Error ? error.message : "Unknown error"}`);

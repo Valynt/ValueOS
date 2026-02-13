@@ -9,13 +9,10 @@ metadata:
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: api
     app.kubernetes.io/part-of: valynt
-<<<<<<< HEAD
-=======
   annotations:
     valynt.io/llm-usage-limit: "500.00" # Monthly USD limit per namespace
     valynt.io/cost-center: "ai-orchestration"
     valynt.io/cost-tracking: "enabled"
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 spec:
   replicas: 2
   strategy:
@@ -46,68 +43,15 @@ spec:
           type: RuntimeDefault
 
       containers:
-<<<<<<< HEAD
-      - name: backend
-        image: REGISTRY_URL/valynt-backend:latest
-        imagePullPolicy: Always
-=======
         - name: backend
           image: REGISTRY_URL/valynt-backend:latest
           imagePullPolicy: Always
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 
           ports:
             - name: http
               containerPort: 8000
               protocol: TCP
 
-<<<<<<< HEAD
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: PORT
-          value: "8000"
-        - name: LOG_FORMAT
-          value: "json"
-        - name: LOG_LEVEL
-          value: "info"
-        - name: SUPABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: supabase-url
-        - name: SUPABASE_ANON_KEY
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: supabase-anon-key
-        - name: SUPABASE_SERVICE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: supabase-service-key
-        - name: TOGETHER_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: together-api-key
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: openai-api-key
-              optional: true
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: jwt-secret
-        - name: REDIS_URL
-          valueFrom:
-            configMapKeyRef:
-              name: valynt-config
-              key: redis-url
-=======
           env:
             - name: NODE_ENV
               value: "production"
@@ -153,7 +97,6 @@ spec:
                 configMapKeyRef:
                   name: valynt-config
                   key: redis-url
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
 
           resources:
             requests:

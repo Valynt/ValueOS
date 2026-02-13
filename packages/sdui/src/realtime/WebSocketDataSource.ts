@@ -6,9 +6,8 @@
  */
 
 import { WebSocketManager } from "./WebSocketManager";
-import { DataBinding, ResolvedBinding, TransformFunction } from "../DataBindingSchema";
+import { DataBinding, ResolvedBinding } from "../DataBindingSchema";
 import { DataSourceContext } from "../DataBindingSchema";
-import { TenantContext } from "../TenantContext";
 
 /**
  * Real-time data binding configuration

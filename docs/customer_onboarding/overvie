@@ -1,0 +1,292 @@
+“Value Intelligence Onboarding” that upgrades every downstream hypothesis, model, and narrative from generic to firm-specific. Below is how to do this in a production-ready, defensible, scalable way.
+
+The Core Idea (Why This Is Powerful)
+
+A licensing customer is saying:
+
+“Learn us once — deeply — so every value case you help us build is faster, sharper, and safer.”
+
+That changes the agent’s role from:
+
+“generic consultant guessing from first principles”
+
+to:
+
+embedded value strategist who already knows the company, products, ICPs, and competitive terrain.
+
+This is exactly how elite human value consultants work.
+
+What This Unlocks (Practically)
+
+Once this onboarding exists:
+
+Hypotheses become company-specific, not industry-generic
+
+KPIs reuse prior logic instead of being reinvented
+
+Narratives align with how this company already sells
+
+Risky claims are avoided automatically
+
+Value Engineers stop re-explaining their business every deal
+
+This is the difference between:
+
+“AI helps me”
+
+“AI feels like part of our team”
+
+The Onboarding Contract (What the Company Gives You Once)
+Required Inputs (Minimal Friction)
+
+These are reasonable asks for a licensing customer.
+
+Company website
+
+Product pages / docs
+
+Named competitors
+
+Target customer profiles (ICPs)
+
+Primary buyer personas
+
+Common use cases / industries
+
+Sales motion type
+
+Enterprise / mid-market / SMB
+
+New logo / expansion / land-and-expand
+
+Optionally:
+
+Pitch decks
+
+ROI calculators
+
+Case studies
+
+Analyst reports
+
+Pricing structure (high-level)
+
+What the System Does During Onboarding
+
+Think of this as a Value Intelligence Ingestion Pipeline, not a setup wizard.
+
+Phase 1 — Company & Product Intelligence
+Automated extraction
+
+Crawl website + docs
+
+Extract:
+
+Products
+
+Capabilities (not features)
+
+Claimed outcomes
+
+Target industries
+
+Personas mentioned
+
+Language patterns
+
+Output
+
+Product Capability Graph
+
+Product → Capability → Operational Change → Potential Economic Lever
+
+
+This becomes the foundation for all future hypotheses.
+
+Phase 2 — Competitive & Market Context
+Inputs
+
+Named competitors
+
+Market category
+
+System actions
+
+Build comparative capability map
+
+Identify:
+
+Differentiated claims
+
+Commodity claims
+
+Risky claims (where competitors overpromise)
+
+Output
+
+“What we should lean into”
+
+“What we should be conservative about”
+
+“Where value narratives differ by competitor”
+
+This directly informs hypothesis framing and objection handling.
+
+Phase 3 — Value Pattern Mining
+
+This is where things get elite.
+
+System analyzes
+
+Use cases
+
+Industries
+
+Personas
+
+And derives:
+
+Reusable Value Patterns
+
+[Industry + Persona + Capability] → Typical KPIs → Typical Assumptions
+
+
+Examples:
+
+“Mid-market SaaS → RevOps persona → Forecast accuracy → Pipeline velocity”
+
+“Regulated enterprise → Compliance persona → Risk avoidance → Audit cost reduction”
+
+These patterns become defaults, not guesses.
+
+Phase 4 — Risk & Claim Governance
+
+During onboarding, the system should classify claims into:
+
+Safe
+
+Conditional
+
+High-risk
+
+Based on:
+
+Public data availability
+
+Benchmark strength
+
+Regulatory exposure
+
+Prior integrity veto patterns
+
+This feeds directly into:
+
+IntegrityAgent thresholds
+
+Hypothesis confidence defaults
+
+Narrative tone
+
+Phase 5 — Persistent Company Context Object
+
+At the end, you create something like:
+
+CompanyValueContext {
+  products
+  capabilities
+  approved_value_levers
+  risky_claims
+  preferred_kpis
+  typical_assumptions
+  buyer_personas
+  competitive_positioning
+  narrative_doctrine
+}
+
+
+This object becomes:
+
+Read-only ground context for agents
+
+Reusable across all opportunities
+
+Versioned (so changes are auditable)
+
+How This Changes the Hypothesis Phase
+
+Before:
+
+“Based on industry benchmarks, companies like this might see…”
+
+After:
+
+“Given how your product improves X, and how your buyers typically measure success, the most credible value hypotheses are…”
+
+This is a qualitative jump, not incremental improvement.
+
+UX Design Insight (Critical)
+Do NOT make this feel like setup
+
+This should feel like:
+
+“We’re investing in understanding you”
+
+Not “please fill out a 30-field form”
+
+Best pattern:
+
+Upload links
+
+Confirm extracted summaries
+
+Light human validation
+
+Optional guided refinement
+
+Think: concierge onboarding, not SaaS config.
+
+Trust, Privacy, and Enterprise Safety
+
+You’ll need to be explicit about:
+
+Data isolation per tenant
+
+No cross-customer leakage
+
+Clear opt-out / refresh controls
+
+Visibility into “what we believe about you”
+
+Expose:
+
+“Company Knowledge” page
+
+Editable / reviewable assumptions
+
+Version history
+
+This builds trust instead of fear.
+
+Why This Is a Moat
+
+Most competitors:
+
+Start from zero every deal
+
+Re-derive the same logic repeatedly
+
+Hide assumptions inside slides
+
+You:
+
+Accumulate institutional value intelligence
+
+Improve with every deal
+
+Reduce cognitive load for power users
+
+This is very hard to copy.
+
+One-Sentence Summary
+
+A one-time deep onboarding that turns the system into a company-specific value expert is the single highest-leverage move you can make — it transforms hypothesis generation from generic consulting into institutional memory with compounding returns.

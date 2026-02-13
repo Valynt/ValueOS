@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Security Audit Logger
  * Comprehensive audit logging for compliance and security monitoring
@@ -213,11 +214,11 @@ class AuditLogger {
 
     if (filter) {
       if (filter.startDate) {
-        filtered = filtered.filter((event) => event.timestamp >= filter.startDate!.getTime());
+        filtered = filtered.filter((event) => event.timestamp >= filter.startDate?.getTime?.());
       }
 
       if (filter.endDate) {
-        filtered = filtered.filter((event) => event.timestamp <= filter.endDate!.getTime());
+        filtered = filtered.filter((event) => event.timestamp <= filter.endDate?.getTime?.());
       }
 
       if (filter.userId) {

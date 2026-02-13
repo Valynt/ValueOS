@@ -1,5 +1,6 @@
 import { logger } from "@shared/lib/logger";
 import React, { ReactElement } from "react";
+import { MotionMasterProvider } from "./MotionMaster";
 import { ErrorBoundary } from "../components/Common/ErrorBoundary";
 import { SectionErrorFallback, UnknownComponentFallback } from "../components/SDUI";
 import {
@@ -491,7 +492,9 @@ export function renderPage(
         options.onRenderError?.(error, "PageRenderer");
       }}
     >
-      <PageRenderer page={page} options={effectiveOptions} warnings={warnings} />
+      <MotionMasterProvider>
+        <PageRenderer page={page} options={effectiveOptions} warnings={warnings} />
+      </MotionMasterProvider>
     </ErrorBoundary>
   );
 

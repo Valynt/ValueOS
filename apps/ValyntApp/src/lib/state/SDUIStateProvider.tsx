@@ -1,5 +1,5 @@
 // Stub SDUIStateProvider for development
-import React, { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
 
 interface SDUIStateContextType {
   // Stub
@@ -7,7 +7,7 @@ interface SDUIStateContextType {
 
 const SDUIStateContext = createContext<SDUIStateContextType | undefined>(undefined);
 
-export function SDUIStateProvider({ children, supabase }: { children: ReactNode; supabase: any }) {
+export function SDUIStateProvider({ children, _supabase }: { children: ReactNode; supabase: any }) {
   return <SDUIStateContext.Provider value={{}}>{children}</SDUIStateContext.Provider>;
 }
 

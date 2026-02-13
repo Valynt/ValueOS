@@ -1,3 +1,4 @@
+import { logger } from "../lib/logger";
 export interface TelemetryMetric {
   metricId: string;
   value: number;
@@ -27,7 +28,7 @@ export class TelemetryService {
       timestamp: new Date().toISOString(),
     };
     this.subscribers.forEach((s) => s(metric));
-    console.log(`[Telemetry] Received update for ${metricId}: ${value}`);
+    logger.info(`[Telemetry] Received update for ${metricId}: ${value}`);
   }
 
   public subscribe(callback: (metric: TelemetryMetric) => void) {

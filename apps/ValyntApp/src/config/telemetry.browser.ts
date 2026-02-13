@@ -5,7 +5,7 @@
  * Falls back to no-op implementations when OpenTelemetry is not available.
  */
 
-import { context, Span, SpanStatusCode, trace } from '@opentelemetry/api';
+import { Span, SpanStatusCode, trace } from '@opentelemetry/api';
 
 // Service configuration
 const SERVICE_NAME = 'valuecanvas-frontend';
@@ -24,7 +24,7 @@ const noopSpan = {
 
 const noopTracer = {
   startSpan: () => noopSpan,
-  startActiveSpan: (name: string, options: any, fn: (span: Span) => any) => fn(noopSpan)
+  startActiveSpan: (_name: string, _options: any, fn: (span: Span) => any) => fn(noopSpan)
 };
 
 /**
@@ -252,7 +252,7 @@ export function getTraceContextForLogging(): Record<string, string> {
 /**
  * Create custom metric counter (no-op for browser)
  */
-export function createCounter(name: string, description: string) {
+export function createCounter(_name: string, _description: string) {
   return {
     add: () => {},
     record: () => {}
@@ -262,7 +262,7 @@ export function createCounter(name: string, description: string) {
 /**
  * Create custom metric histogram (no-op for browser)
  */
-export function createHistogram(name: string, description: string) {
+export function createHistogram(_name: string, _description: string) {
   return {
     record: () => {}
   };
@@ -274,7 +274,7 @@ export function createHistogram(name: string, description: string) {
 export function createObservableGauge(
   name: string,
   description: string,
-  callback: () => number
+  _callback: () => number
 ) {
   return {
     observe: () => {}

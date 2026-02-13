@@ -295,6 +295,10 @@ export interface CanvasState {
   canUndo: () => boolean;
   canRedo: () => boolean;
   getComponentById: (componentId: string) => CanvasLayout | null;
+
+  // Page navigation
+  currentPage?: string;
+  setCurrentPage?: (page: string) => void;
 }
 
 // ============================================================================

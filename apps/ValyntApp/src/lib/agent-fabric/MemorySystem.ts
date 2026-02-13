@@ -100,7 +100,7 @@ class InMemoryStorage implements IMemoryStorage {
         if (!this.tagIndex.has(tag)) {
           this.tagIndex.set(tag, new Set());
         }
-        this.tagIndex.get(tag)!.add(entry.id);
+        this.tagIndex.get(tag)?.add(entry.id);
       }
     }
 
@@ -244,7 +244,7 @@ class InMemoryStorage implements IMemoryStorage {
         if (!this.tagIndex.has(tag)) {
           this.tagIndex.set(tag, new Set());
         }
-        this.tagIndex.get(tag)!.add(id);
+        this.tagIndex.get(tag)?.add(id);
       }
     }
 

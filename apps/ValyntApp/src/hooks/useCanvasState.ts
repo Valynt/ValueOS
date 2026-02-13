@@ -9,6 +9,7 @@
  */
 
 import { useState, useCallback, useRef } from "react";
+import { logger } from "../lib/logger";
 
 export interface CanvasSnapshot {
   snapshotId: string;
@@ -197,7 +198,7 @@ export function useCanvasState(
     await new Promise((resolve) => setTimeout(resolve, 100));
     
     setIsDirty(false);
-    console.log("Committed snapshot:", snapshot.snapshotId);
+    logger.info("Committed snapshot:", snapshot.snapshotId);
   }, [isDirty, createSnapshot]);
 
   const undo = useCallback(() => {

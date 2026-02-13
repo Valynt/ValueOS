@@ -13,7 +13,6 @@
  * - Timeout protection
  */
 
-import { logger } from '../../lib/logger.js'
 import { LifecycleStage, RetryConfig, WorkflowDAG, WorkflowStage } from '../../types/workflow';
 
 // ============================================================================
@@ -597,10 +596,10 @@ export function validateWorkflowDAG(workflow: WorkflowDAG): WorkflowValidationRe
 
   // Check transitions reference valid stages
   workflow.transitions.forEach(transition => {
-    if (!workflow.stages.find(s => s.id === transition.from_stage)) {
+    if (!workflow.stages.find(s => s.id === transition.from_stage!)) {
       errors.push(`Transition from_stage '${transition.from_stage}' not found`);
     }
-    if (!workflow.stages.find(s => s.id === transition.to_stage)) {
+    if (!workflow.stages.find(s => s.id === transition.to_stage!)) {
       errors.push(`Transition to_stage '${transition.to_stage}' not found`);
     }
   });
@@ -611,8 +610,8 @@ export function validateWorkflowDAG(workflow: WorkflowDAG): WorkflowValidationRe
   while (changed) {
     changed = false;
     workflow.transitions.forEach(transition => {
-      if (reachableStages.has(transition.from_stage) && !reachableStages.has(transition.to_stage)) {
-        reachableStages.add(transition.to_stage);
+      if (reachableStages.has(transition.from_stage!) && !reachableStages.has(transition.to_stage!)) {
+        reachableStages.add(transition.to_stage!);
         changed = true;
       }
     });
@@ -647,11 +646,11 @@ function detectCycle(workflow: WorkflowDAG): boolean {
 
     const outgoingTransitions = workflow.transitions.filter(t => t.from_stage === stageId);
     for (const transition of outgoingTransitions) {
-      if (!visited.has(transition.to_stage)) {
-        if (dfs(transition.to_stage)) {
+      if (!visited.has(transition.to_stage!)) {
+        if (dfs(transition.to_stage!)) {
           return true;
         }
-      } else if (recursionStack.has(transition.to_stage)) {
+      } else if (recursionStack.has(transition.to_stage!)) {
         return true;
       }
     }

@@ -90,5 +90,45 @@
     "state": {
       "mode": "local"
     }
+  },
+  {
+    "id": "checkpoint_1770597636444",
+    "timestamp": 1770597636444,
+    "step": "docker_deps",
+    "state": {
+      "mode": "local"
+    }
+  },
+  {
+    "id": "checkpoint_1770597804541",
+    "timestamp": 1770597804541,
+    "step": "docker_deps",
+    "state": {
+      "mode": "local"
+    }
+  },
+  {
+    "id": "checkpoint_1770598179435",
+    "timestamp": 1770598179435,
+    "step": "docker_deps",
+    "state": {
+      "mode": "local"
+    }
+  },
+  {
+    "id": "checkpoint_1770599207626",
+    "timestamp": 1770599207628,
+    "step": "docker_deps",
+    "state": {
+      "mode": "local"
+    }
+  },
+  {
+    "id": "checkpoint_1770599533999",
+    "timestamp": 1770599534001,
+    "step": "docker_deps",
+    "state": {
+      "mode": "local"
+    }
   }
 ]

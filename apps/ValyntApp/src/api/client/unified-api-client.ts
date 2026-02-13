@@ -5,7 +5,6 @@
  * authentication, request/response transformation, and retry logic.
  */
 
-import { z } from "zod";
 import { getClientConfig } from "@valueos/shared/config/client-config";
 import { toast } from "../../components/ui/use-toast";
 

@@ -293,7 +293,7 @@ async function checkRedis(): Promise<DependencyStatus> {
 /**
  * Comprehensive health check
  */
-router.get(['/health', '/api/health'], async (req: Request, res: Response) => {
+router.get(['/health', '/api/health'], async (_req: Request, res: Response) => {
   const [database, supabase, togetherAI, openAI, redis] = await Promise.all([
     checkDatabase(),
     checkSupabase(),
@@ -347,7 +347,7 @@ router.get(['/health', '/api/health'], async (req: Request, res: Response) => {
  * Liveness probe (for Kubernetes)
  * Returns 200 if the application is running
  */
-router.get('/health/live', (req: Request, res: Response) => {
+router.get('/health/live', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'alive',
     timestamp: new Date().toISOString()
@@ -358,7 +358,7 @@ router.get('/health/live', (req: Request, res: Response) => {
  * Readiness probe (for Kubernetes)
  * Returns 200 if the application is ready to serve traffic
  */
-router.get('/health/ready', async (req: Request, res: Response) => {
+router.get('/health/ready', async (_req: Request, res: Response) => {
   // Check if shutting down
   if (isShuttingDown) {
     res.status(503).json({
@@ -404,7 +404,7 @@ router.get('/health/ready', async (req: Request, res: Response) => {
  * Startup probe (for Kubernetes)
  * Returns 200 when the application has finished starting up
  */
-router.get('/health/startup', async (req: Request, res: Response) => {
+router.get('/health/startup', async (_req: Request, res: Response) => {
   // Check if all critical services are initialized
   const isStarted = process.uptime() > 10; // Application has been running for at least 10 seconds
   
@@ -426,7 +426,7 @@ router.get('/health/startup', async (req: Request, res: Response) => {
 /**
  * Detailed dependency status
  */
-router.get('/health/dependencies', async (req: Request, res: Response) => {
+router.get('/health/dependencies', async (_req: Request, res: Response) => {
   const [database, supabase, togetherAI, openAI, redis] = await Promise.all([
     checkDatabase(),
     checkSupabase(),

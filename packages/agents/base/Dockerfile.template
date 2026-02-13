@@ -70,9 +70,27 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --prod --fr
 
 FROM ${RUNTIME_IMAGE} AS final
 ARG AGENT_NAME
-RUN addgroup -g 1001 -S agent && adduser -S -D -H -u 1001 -G agent agent
+ARG NODE_VERSION=20.19.0
+ARG PNPM_VERSION=9.15.0
+
+# Security hardening
+RUN addgroup -g 1001 -S agent && adduser -S -D -H -u 1001 -G agent agent \
+    && apk add --no-cache dumb-init \
+    && find /app -type d -exec chmod 755 {} \; \
+    && find /app -type f -exec chmod 644 {} \;
+
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    NODE_VERSION=${NODE_VERSION} \
+    PNPM_VERSION=${PNPM_VERSION} \
+    AGENT_NAME=${AGENT_NAME}
+
+# Drop all capabilities, add only what's needed
+USER agent
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${EXPOSE_PORT:-8080}/health || exit 1
 
 RUN test -n "${AGENT_NAME}"
 COPY --from=prod-deps --chown=agent:agent /workspace/node_modules /app/node_modules
@@ -81,9 +99,11 @@ COPY --from=build --chown=agent:agent /workspace/packages/agents/base/dist /app/
 COPY --from=build --chown=agent:agent /workspace/packages/agents/${AGENT_NAME}/package.json /app/packages/agents/${AGENT_NAME}/package.json
 COPY --from=build --chown=agent:agent /workspace/packages/agents/${AGENT_NAME}/dist /app/packages/agents/${AGENT_NAME}/dist
 
-RUN test -f packages/agents/${AGENT_NAME}/dist/index.js
-RUN find /app -type f -name '*.map' -delete && rm -rf /tmp/*
+RUN test -f packages/agents/${AGENT_NAME}/dist/index.js \
+    && find /app -type f -name '*.map' -delete \
+    && rm -rf /tmp/* \
+    && chmod -R 755 /app/packages/agents/${AGENT_NAME}/dist
 
-USER agent
-EXPOSE 8080
+# Entrypoint with security
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["sh", "-c", "node packages/agents/${AGENT_NAME}/dist/index.js"]

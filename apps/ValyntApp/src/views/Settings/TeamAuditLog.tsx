@@ -1,10 +1,25 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { SettingsSection } from '../../components/settings';
 import {
   Activity, Calendar, ChevronDown, Download, FileText, Filter,
   Loader2, Search, Settings, Shield, User, Users
 } from 'lucide-react';
-import { TeamAuditLog as AuditLogType } from '../../types';
+
+interface AuditLogType {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  details: {
+    description: string;
+    oldValue: string;
+    newValue: string;
+  };
+  ipAddress: string;
+}
 
 const MOCK_AUDIT_LOGS: AuditLogType[] = Array.from({ length: 50 }, (_, i) => ({
   id: `log-${i}`,

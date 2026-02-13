@@ -50,7 +50,7 @@ export function useAuditLog() {
     }
   }, []);
 
-  const exportLogs = useCallback(async (filter?: AuditFilter, format: "csv" | "json" = "csv") => {
+  const exportLogs = useCallback(async (_filter?: AuditFilter, _format: "csv" | "json" = "csv") => {
     try {
       // TODO: Implement actual export
       // const response = await api.post('/audit/export', { filter, format });

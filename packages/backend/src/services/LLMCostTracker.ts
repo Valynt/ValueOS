@@ -480,7 +480,6 @@ export class LLMCostTracker {
     if (!this.isEnabled() || !this.supabase) return;
 
     // Check for duplicate alerts within 1 hour using database
-    const alertKey = `${alert.period}-${alert.level}`;
     const oneHourAgo = new Date(Date.now() - ONE_HOUR_MS).toISOString();
 
     let duplicateQuery = this.supabase

@@ -609,7 +609,6 @@ export class AdvancedCausalEngine extends EventEmitter {
     // Sample target KPI based on action
     const kpiProbs = sample.action === "applied" ? [0.2, 0.4, 0.4] : [0.6, 0.3, 0.1];
     const rand = Math.random();
-    let cumulative = 0;
 
     if (rand < kpiProbs[0]) {
       sample.target_kpi = "low";

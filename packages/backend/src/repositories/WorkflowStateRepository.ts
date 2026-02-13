@@ -17,8 +17,10 @@ export interface WorkflowState {
   lifecycle_stage: string;
   status: WorkflowStatus;
   current_step: string;
+  currentStage?: string;
   completed_steps: string[];
-  state_data: Record<string, any>;
+  state_data: Record<string, unknown>;
+  context?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

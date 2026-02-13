@@ -404,7 +404,7 @@ export class CategorizedCircuitBreakerManager extends BaseCircuitBreakerManager 
    * Initialize category statistics
    */
   private initializeCategoryStats(): void {
-    for (const [category, config] of Object.entries(AGENT_CATEGORIES)) {
+    for (const [category, _config] of Object.entries(AGENT_CATEGORIES)) {
       this.categoryStats.set(category as AgentCategory, {
         category: category as AgentCategory,
         state: 'closed',

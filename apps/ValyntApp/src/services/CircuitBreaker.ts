@@ -34,25 +34,57 @@ export class CircuitBreakerManager {
     overrides: Partial<CircuitBreakerConfig> = {}
   ): Promise<T> {
     const breaker = this.getOrCreateBreaker(key, overrides);
-    this.ensureAvailability(breaker);
+    // Check and update state for HALF_OPEN probe eligibility
+    try {
+      this.ensureAvailability(breaker);
+    } catch (err) {
+      // If breaker is open and eligible for half_open, transition and allow probe
+      const openedAt = breaker.opened_at ? new Date(breaker.opened_at).getTime() : 0;
+      const elapsed = Date.now() - openedAt;
+      if (breaker.state === 'open' && elapsed >= breaker.timeout_seconds * 1000) {
+        breaker.state = 'half_open';
+        breaker.half_open_probes = 0;
+      } else {
+        throw err;
+      }
+    }
 
+    let inHalfOpenProbe = false;
     if (breaker.state === 'half_open') {
+      if (breaker.half_open_probes >= breaker.half_open_max_probes) {
+        throw new Error('Circuit breaker half-open probe already in progress');
+      }
       breaker.half_open_probes += 1;
+      inHalfOpenProbe = true;
     }
 
     const start = Date.now();
     let success = false;
+    let probeError: unknown = undefined;
     try {
       const result = await task();
       success = true;
       return result;
+    } catch (err) {
+      probeError = err;
+      return Promise.reject(err);
     } finally {
       const duration = Date.now() - start;
-      this.recordMetric(breaker, { timestamp: Date.now(), success, durationMs: duration });
-      this.evaluateBreaker(breaker, success);
-
-      if (breaker.state === 'half_open') {
+      if (inHalfOpenProbe) {
+        // Only one probe at a time; decrement after completion
         breaker.half_open_probes = Math.max(0, breaker.half_open_probes - 1);
+        this.recordMetric(breaker, { timestamp: Date.now(), success, durationMs: duration });
+        if (success) {
+          // Success in HALF_OPEN closes the breaker
+          this.evaluateBreaker(breaker, true);
+        } else {
+          // Failure in HALF_OPEN re-opens the breaker
+          breaker.state = 'open';
+          breaker.opened_at = new Date().toISOString();
+        }
+      } else {
+        this.recordMetric(breaker, { timestamp: Date.now(), success, durationMs: duration });
+        this.evaluateBreaker(breaker, success);
       }
     }
   }
@@ -131,7 +163,7 @@ export class CircuitBreakerManager {
   private pruneMetrics(breaker: CircuitBreakerState): void {
     const cutoff = Date.now() - breaker.window_ms;
     breaker.metrics = breaker.metrics.filter(metric => metric.timestamp >= cutoff);
-    
+
     // Limit metrics array size to prevent unbounded growth
     // Keep at most 10x minimum_samples or 100 metrics, whichever is larger
     const maxMetrics = Math.max(breaker.minimum_samples * 10, 100);
@@ -205,6 +237,20 @@ export class CircuitBreaker {
       minimum_samples: failureThreshold,
       half_open_max_probes: 1,
     };
+  }
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.canExecute()) {
+      throw new Error(`Circuit breaker ${this.key} is open`);
+    }
+    try {
+      const result = await fn();
+      this.recordSuccess();
+      return result;
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
   }
 
   canExecute(): boolean {

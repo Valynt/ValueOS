@@ -8,6 +8,13 @@
 import { logger } from '../logger.js';
 import { LLMCostTracker } from '../../services/LLMCostTracker.js';
 import { CostAwareRouter } from '../../services/CostAwareRouter.js';
+import {
+  LLMResilienceWrapper,
+  type LLMResilienceConfig,
+  type CircuitBreakerStateInfo,
+} from './LLMResilience.js';
+import { getTracer } from '../../config/telemetry.js';
+import { SpanStatusCode } from '@opentelemetry/api';
 
 export interface LLMGatewayConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
@@ -84,8 +91,13 @@ export class LLMGateway {
   private config: LLMGatewayConfig;
   private costTracker: LLMCostTracker;
   private costAwareRouter: CostAwareRouter;
+  private resilienceWrapper: LLMResilienceWrapper;
 
-  constructor(config: LLMGatewayConfig | string, costTracker?: LLMCostTracker) {
+  constructor(
+    config: LLMGatewayConfig | string,
+    costTracker?: LLMCostTracker,
+    resilienceConfig?: Partial<LLMResilienceConfig>
+  ) {
     if (typeof config === 'string') {
       // Backward compatibility: config is provider string
       this.config = {
@@ -99,6 +111,10 @@ export class LLMGateway {
     }
     this.costTracker = costTracker || new LLMCostTracker();
     this.costAwareRouter = new CostAwareRouter(this.costTracker);
+    this.resilienceWrapper = new LLMResilienceWrapper({
+      providerKey: `llm:${this.config.provider}`,
+      ...resilienceConfig,
+    });
   }
 
 
@@ -180,7 +196,53 @@ export class LLMGateway {
         tenant_id: tenantId,
       });
 
-      const response = await this.executeCompletion(request, startTime);
+      const tracer = getTracer();
+      const response = await tracer.startActiveSpan(
+        'llm.complete',
+        {
+          attributes: {
+            'llm.provider': this.config.provider,
+            'llm.model': model,
+          },
+        },
+        async (span: any) => {
+          try {
+            const result = await this.resilienceWrapper.execute(
+              () => this.executeCompletion(request, startTime)
+            );
+
+            const latencyMs = Date.now() - startTime;
+            const costUsd = this.estimateCostUsd(
+              result.usage?.prompt_tokens || 0,
+              result.usage?.completion_tokens || 0,
+              model
+            );
+
+            span.setAttributes({
+              'llm.prompt_tokens': result.usage?.prompt_tokens || 0,
+              'llm.completion_tokens': result.usage?.completion_tokens || 0,
+              'llm.total_tokens': result.usage?.total_tokens || 0,
+              'llm.cost_usd': costUsd,
+              'llm.latency_ms': latencyMs,
+              'llm.cached': false,
+            });
+            span.setStatus({ code: SpanStatusCode.OK });
+            span.end();
+
+            return result;
+          } catch (err) {
+            const latencyMs = Date.now() - startTime;
+            span.setAttributes({ 'llm.latency_ms': latencyMs });
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: err instanceof Error ? err.message : String(err),
+            });
+            if (err instanceof Error) span.recordException(err);
+            span.end();
+            throw err;
+          }
+        }
+      );
 
       const latencyMs = Date.now() - startTime;
       void this.costTracker.trackUsage({
@@ -247,6 +309,34 @@ export class LLMGateway {
     // Rough estimation: ~4 characters per token
     const totalChars = messages.reduce((sum, msg) => sum + msg.content.length, 0);
     return Math.ceil(totalChars / 4);
+  }
+
+  private estimateCostUsd(promptTokens: number, completionTokens: number, model: string): number {
+    // Rough per-token pricing (USD per 1K tokens)
+    const pricing: Record<string, { prompt: number; completion: number }> = {
+      'gpt-4': { prompt: 0.03, completion: 0.06 },
+      'gpt-4o': { prompt: 0.005, completion: 0.015 },
+      'gpt-4o-mini': { prompt: 0.00015, completion: 0.0006 },
+      'gpt-3.5-turbo': { prompt: 0.0005, completion: 0.0015 },
+    };
+    const rate = pricing[model] ?? { prompt: 0.01, completion: 0.03 };
+    return (promptTokens / 1000) * rate.prompt + (completionTokens / 1000) * rate.completion;
+  }
+
+  /**
+   * Bypass resilience (no circuit breaker, no retry, no timeout).
+   * Use when the caller handles its own retry/fallback logic.
+   */
+  async completeRaw(request: LLMRequest): Promise<LLMResponse> {
+    const startTime = Date.now();
+    return this.executeCompletion(request, startTime);
+  }
+
+  /**
+   * Observable circuit breaker state for the provider this gateway targets.
+   */
+  getCircuitBreakerState(): CircuitBreakerStateInfo {
+    return this.resilienceWrapper.getCircuitBreakerState();
   }
 
   /**

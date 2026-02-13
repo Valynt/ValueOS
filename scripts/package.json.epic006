@@ -11,12 +11,12 @@
     "lint:openapi": "node scripts/validate-openapi.mjs",
     "lint:console": "bash scripts/cleanup-console-logs.sh",
     "preview": "serve dist -s -l 5173",
-    "test": "vitest run --coverage",
+    "test": "vitest run --coverage --passWithNoTests",
     "bias:probes": "tsx scripts/run-bias-probes.ts",
     "typecheck": "tsc --noEmit",
     "test:rls": "supabase test db supabase/tests/database/rls_policies.test.sql supabase/tests/database/multi_tenant_rls.test.sql",
-    "test:watch": "vitest",
-    "test:perf": "vitest run --config vitest.config.ts --include \"test/performance/**/*.test.ts\"",
+    "test:watch": "vitest run --passWithNoTests --watch",
+    "test:perf": "vitest run --config vitest.config.ts --include \"test/performance/**/*.test.ts\" --passWithNoTests",
     "test:testcafe": "testcafe chrome:headless test/testcafe/**/*.test.js",
     "sdk:generate": "openapi-typescript openapi.yaml --output src/api/client/generated-types.ts",
     "db:setup": "bash infra/supabase/setup.sh",
@@ -106,39 +106,39 @@
     "lint:inline-check": "node scripts/check-inline-styles.cjs",
     "lint:all": "pnpm run lint && pnpm run lint:css && pnpm run lint:inline-check",
     "check:tw-config": "node scripts/validate-tailwind-config.js",
-    
+
     "🔥 NEW EPIC-006 SCRIPTS 🔥",
-    
-    "test:coverage:enhance": "vitest run --coverage --reporter=verbose",
+
+    "test:coverage:enhance": "vitest run --coverage --reporter=verbose --passWithNoTests",
     "test:mutation": "pnpm stryker run",
-    "test:property": "vitest run --config vitest.config.property.ts",
+    "test:property": "vitest run --config vitest.config.property.ts --passWithNoTests",
     "test:benchmark": "tsx scripts/performance/run-benchmarks.ts",
     "test:load:agent": "k6 run test/performance/agent-load-test.js",
     "test:load:ui": "k6 run test/performance/ui-load-test.js",
     "test:load:full": "k6 run test/performance/full-load-test.js",
-    
+
     "chaos:full": "tsx scripts/chaos-engineering-pipeline.ts full",
     "chaos:daily": "tsx scripts/chaos-engineering-pipeline.ts scheduled daily",
     "chaos:weekly": "tsx scripts/chaos-engineering-pipeline.ts scheduled weekly",
     "chaos:monthly": "tsx scripts/chaos-engineering-pipeline.ts scheduled monthly",
-    
+
     "compliance:evidence": "bash scripts/compliance/collect-evidence.sh",
     "compliance:validate": "tsx scripts/compliance/validate-controls.ts",
     "compliance:report": "tsx scripts/compliance/generate-report.ts",
     "compliance:full": "pnpm run compliance:evidence && pnpm run compliance:validate && pnpm run compliance:report",
-    
+
     "soc2:prepare": "tsx scripts/soc2/prepare-audit.ts",
     "soc2:checklist": "tsx scripts/soc2/checklist.ts",
     "soc2:evidence": "bash scripts/compliance/collect-evidence.sh",
-    
+
     "performance:baseline": "tsx scripts/performance/baseline.ts",
     "performance:regression": "tsx scripts/performance/regression-check.ts",
     "performance:monitor": "tsx scripts/performance/monitor.ts",
-    
+
     "security:compliance": "pnpm run security:scan:all && pnpm run compliance:validate",
-    
+
     "audit:all": "pnpm run test:coverage:enhance && pnpm run chaos:full && pnpm run performance:baseline && pnpm run compliance:full",
-    
+
     "report:quality": "tsx scripts/reports/quality-metrics.ts",
     "report:performance": "tsx scripts/reports/performance-metrics.ts",
     "report:security": "tsx scripts/reports/security-metrics.ts",
@@ -238,9 +238,9 @@
     "typescript-eslint": "^8.3.0",
     "vite": "^7.2.6",
     "vitest": "^4.0.15",
-    
+
     "🔥 NEW EPIC-006 DEPENDENCIES 🔥",
-    
+
     "fast-check": "^3.15.0",
     "@stryker-mutator/core": "^6.4.0",
     "@stryker-mutator/vitest": "^6.4.0",

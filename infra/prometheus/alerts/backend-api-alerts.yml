@@ -58,11 +58,11 @@ groups:
         expr: |
           histogram_quantile(
             0.95,
-            sum(rate(http_request_duration_seconds_bucket{handler="getCustomerValueCase"}[5m])) by (le)
-          ) > 0.2
+            sum(rate(valuecanvas_http_request_duration_ms_bucket{route="/api/value-cases"}[5m])) by (le)
+          ) > 200
         for: 5m
         labels:
           severity: page
         annotations:
-          summary: "High latency for getCustomerValueCase (P95 > 200ms)"
-          description: "P95 latency for handler getCustomerValueCase is above 200ms for more than 5 minutes."
+          summary: "High latency for value-cases endpoint (P95 > 200ms)"
+          description: "P95 latency for /api/value-cases is above 200ms for more than 5 minutes."

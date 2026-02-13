@@ -2,21 +2,31 @@ import { Request, Response, Router } from "express";
 import { modelCardService } from "../services/ModelCardService.js"
 import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
 import { rateLimiters } from "../middleware/rateLimiter.js"
-import { validateRequest } from "../middleware/inputValidation.js"
 import { logger } from "@shared/lib/logger";
 import { requirePermission } from "../middleware/rbac.js"
 import { getEventProducer } from "../services/EventProducer.js"
 import { getEventSourcingService } from "../services/EventSourcingService.js"
 import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "@shared/types/events";
-import { AgentType } from "../services/agent-types.js"
 import { v4 as uuidv4 } from "uuid";
-import { getServiceConfigManager, getAgentAPIConfig } from "../config/ServiceConfigManager.js"
+import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
 import { z } from "zod";
 import { agentCache } from "../services/CacheService.js"
 import { getMetricsCollector } from "../services/MetricsCollector.js"
 import { sanitizeAgentInput } from "../utils/security.js"
+import { isKafkaEnabled } from "../services/kafkaConfig.js"
 
 const router = Router();
+
+function kafkaUnavailableResponse(res: Response): Response {
+  return res.status(503).json({
+    success: false,
+    error: {
+      code: "KAFKA_DISABLED",
+      message: "Kafka-backed agent execution is disabled in this deployment profile.",
+    },
+  });
+}
+
 router.use(securityHeadersMiddleware);
 router.use(requirePermission("agents.execute"));
 
@@ -139,6 +149,10 @@ router.post(
       logger.warn("Cache check failed", cacheError instanceof Error ? cacheError : undefined);
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
@@ -232,6 +246,10 @@ router.post(
       return res.status(403).json({ success: false, error: { code: "tenant_required", message: "Tenant context is required" } });
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
@@ -296,6 +314,10 @@ router.post(
     const tenantId = (req as any).tenantId;
     if (!tenantId) {
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+    }
+
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
     }
 
     try {
@@ -534,6 +556,10 @@ router.post(
     const tenantId = (req as any).tenantId;
     if (!tenantId) {
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+    }
+
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
     }
 
     try {

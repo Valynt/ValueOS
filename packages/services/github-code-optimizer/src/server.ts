@@ -166,7 +166,7 @@ app.get("/dashboard", (req, res) => {
                                 });
                             }
                         } catch (e) {
-                            console.log('No optimizations for', repo.fullName);
+                            logger.info('No optimizations for', repo.fullName);
                         }
                     }
                     if (!hasOptimizations) {

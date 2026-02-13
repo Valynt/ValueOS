@@ -17,7 +17,7 @@ type LifecycleStage = "opportunity" | "target" | "realization" | "expansion" | "
 import { Request, Response, Router } from "express";
 import logger from "../../../shared/src/lib/logger.js";
 import { validateSDUISchema, SDUI_VERSION, SDUIPageDefinition } from "../../../sdui/src/schema.js";
-import { migrateSchema, migrationRunner, MigrationResult } from "../../../sdui/src/migrations.js";
+import { migrateSchema, migrationRunner } from "../../../sdui/src/migrations.js";
 import { canvasSchemaService } from "../services/CanvasSchemaService.js";
 
 const router: Router = Router();
@@ -364,7 +364,7 @@ router.post("/api/sdui/validate", (req: Request, res: Response) => {
  *
  * Returns available rollback checkpoints for migration management
  */
-router.get("/api/sdui/migrations/checkpoints", (req: Request, res: Response) => {
+router.get("/api/sdui/migrations/checkpoints", (_req: Request, res: Response) => {
   try {
     const checkpoints = migrationRunner.getCheckpoints();
 

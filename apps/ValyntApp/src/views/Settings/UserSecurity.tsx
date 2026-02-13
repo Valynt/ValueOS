@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { SettingsSection } from "../../components/Settings/SettingsSection";
+import { SettingsSection } from "../../components/settings";
 import { SettingsDangerZone } from "../../components/Settings/SettingsDangerZone";
 import { logger } from "@lib/logger";
 import {
@@ -537,11 +537,10 @@ export const UserSecurity: React.FC = () => {
           {sessions.map((session) => (
             <div
               key={session.id}
-              className={`flex items-start justify-between p-4 border rounded-lg ${
-                session.isCurrent
+              className={`flex items-start justify-between p-4 border rounded-lg ${session.isCurrent
                   ? "border-blue-200 bg-blue-50"
                   : "border-gray-200"
-              }`}
+                }`}
             >
               <div className="flex items-start space-x-3 flex-1">
                 {getDeviceIcon(session.deviceType)}

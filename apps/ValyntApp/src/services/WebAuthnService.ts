@@ -24,7 +24,7 @@ import type {
 } from "@simplewebauthn/browser";
 import { logger } from "../lib/logger";
 import { BaseService } from "./BaseService";
-import { AuthenticationError, ValidationError } from "./errors";
+import { AuthenticationError } from "./errors";
 
 export interface WebAuthnCredential {
   id: string;

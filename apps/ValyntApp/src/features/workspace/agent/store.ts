@@ -12,6 +12,7 @@ import {
   ContentType,
 } from "../../services/IntegrityValidationService";
 import type {
+import { logger } from "../../../lib/logger";
   AgentPhase,
   AgentEvent,
   Artifact,
@@ -392,7 +393,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   },
 
   restoreCheckpoint: (checkpointId: string) => {
-    console.log("Restoring checkpoint:", checkpointId);
+    logger.info("Restoring checkpoint:", checkpointId);
   },
 
   startRun: (runId: string) => {

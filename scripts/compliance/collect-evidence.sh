@@ -42,7 +42,7 @@ fi
 
 # 4. Security Scanning Results
 echo "🛡️ Running security scans..."
-npm audit --audit-level=high > "$EVIDENCE_DIR/security-audit.txt" 2>&1 || true
+pnpm audit --audit-level=high > "$EVIDENCE_DIR/security-audit.txt" 2>&1
 echo "Security scan completed"
 
 # 5. Test Coverage Report

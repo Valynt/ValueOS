@@ -27,7 +27,7 @@ declare global {
  * Middleware to add feature flag helpers to request
  */
 export function featureFlagContext() {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     const userId = (req as any).user?.id || 'anonymous';
     const userTier = (req as any).user?.tier;
     const country = req.headers['cf-ipcountry'] as string; // Cloudflare header
@@ -112,7 +112,7 @@ export function requireFeatureFlag(flagKey: string) {
  * Middleware to add feature flag variant to request
  */
 export function withFeatureFlagVariant(flagKey: string) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (!req.featureFlags) {
         throw new Error('Feature flag context not initialized');

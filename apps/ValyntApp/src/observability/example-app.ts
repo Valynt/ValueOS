@@ -4,6 +4,7 @@
 
 import express, { Request, Response, NextFunction } from "express";
 import {
+import { logger } from "../lib/logger";
   initializeTelemetry,
   getTracer,
   Metrics,
@@ -89,7 +90,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 /**
  * Health check endpoint
  */
-app.get("/health", (req: Request, res: Response) => {
+app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
@@ -149,8 +150,8 @@ async function simulateWork(): Promise<void> {
 /**
  * Example error endpoint (for testing error tracking)
  */
-app.get("/api/error", async (req: Request, res: Response) => {
-  await withSpan("errorOperation", async (span) => {
+app.get("/api/error", async (_req: Request, _res: Response) => {
+  await withSpan("errorOperation", async (_span) => {
     logger.error("Intentional error for testing");
 
     throw new Error("This is a test error");
@@ -160,7 +161,7 @@ app.get("/api/error", async (req: Request, res: Response) => {
 /**
  * Metrics endpoint (Prometheus scrapes this)
  */
-app.get("/metrics", (req: Request, res: Response, next: NextFunction) => {
+app.get("/metrics", (_req: Request, _res: Response, next: NextFunction) => {
   // The PrometheusExporter automatically handles this endpoint
   // This route is just for documentation
   next();
@@ -170,7 +171,7 @@ app.get("/metrics", (req: Request, res: Response, next: NextFunction) => {
 // ERROR HANDLER
 // ============================================================================
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   logger.error("Unhandled error", {
     error: err.message,
     stack: err.stack,
@@ -190,9 +191,9 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Metrics: http://localhost:${PORT}/metrics`);
-  console.log(`🔍 Grafana: http://localhost:3000`);
+  logger.info(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`📊 Metrics: http://localhost:${PORT}/metrics`);
+  logger.info(`🔍 Grafana: http://localhost:3000`);
 });
 
 export { app };

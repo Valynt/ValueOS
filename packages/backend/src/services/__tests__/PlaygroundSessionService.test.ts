@@ -7,21 +7,21 @@ import { SDUIPageDefinition } from '@sdui/schema';
 import { createPropertyUpdate } from '@sdui/AtomicUIActions';
 
 // Mock Redis client
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => ({
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    get: jest.fn(),
-    setEx: jest.fn(),
-    sAdd: jest.fn(),
-    sRem: jest.fn(),
-    sMembers: jest.fn(),
-    multi: jest.fn(() => ({
-      sAdd: jest.fn(),
-      sRem: jest.fn(),
-      exec: jest.fn(),
+vi.mock('redis', () => ({
+  createClient: vi.fn(() => ({
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    get: vi.fn(),
+    setEx: vi.fn(),
+    sAdd: vi.fn(),
+    sRem: vi.fn(),
+    sMembers: vi.fn(),
+    multi: vi.fn(() => ({
+      sAdd: vi.fn(),
+      sRem: vi.fn(),
+      exec: vi.fn(),
     })),
-    on: jest.fn(),
+    on: vi.fn(),
   })),
 }));
 

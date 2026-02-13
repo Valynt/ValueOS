@@ -8,7 +8,7 @@
 # ============================================================================
 # Stage 1: Dependencies
 # ============================================================================
-FROM node:22-bookworm-slim AS deps
+FROM node:20.19.0-bookworm-slim AS deps
 
 # Install security updates and build tools
 RUN apt-get update && apt-get upgrade -y && \
@@ -82,7 +82,7 @@ RUN trivy filesystem --exit-code 1 --no-progress --ignore-unfixed /app
 # ============================================================================
 # Stage 5: Backend Production Runtime
 # ============================================================================
-FROM node:22-bookworm-slim AS backend-production
+FROM node:20.19.0-bookworm-slim AS backend-production
 
 # Install runtime dependencies
 RUN apt-get update && apt-get upgrade -y && \

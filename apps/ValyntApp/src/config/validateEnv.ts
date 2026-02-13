@@ -80,7 +80,6 @@ export function validateLLMConfig(): LLMValidationResult {
 
   if (isNodeEnv) {
     const togetherKey = process.env.TOGETHER_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
     const leakedClientKeys = [
       "VITE_TOGETHER_API_KEY",
       "VITE_SUPABASE_SERVICE_ROLE_KEY",

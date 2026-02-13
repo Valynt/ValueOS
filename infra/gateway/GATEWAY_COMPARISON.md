@@ -111,7 +111,7 @@ envoy -c envoy-security-config.yaml
 - ✅ **Automatic mTLS** (Phase 2 requirement!)
 - ✅ Service mesh capabilities
 - ✅ Advanced traffic management
-- ✅ Built-in observability (Kiali, Grafana, Jaeger)
+- ✅ Built-in observability (Kiali, Grafana, Tempo)
 
 **Deploy:**
 ```bash

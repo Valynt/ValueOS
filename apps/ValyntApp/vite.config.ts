@@ -121,6 +121,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/auth/v1": {
+        target: "http://127.0.0.1:9999",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/auth\/v1/, ""),
+      },
     },
   },
   build: {

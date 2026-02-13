@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { SettingsSection } from '../../components/Settings/SettingsSection';
+import { SettingsSection } from '../../components/settings';
 import { AlertCircle, Check, Loader2, Upload, User, X } from 'lucide-react';
 
 interface ProfileData {
@@ -226,11 +226,10 @@ export const UserProfile: React.FC = () => {
                   type="text"
                   value={formData.fullName}
                   onChange={(e) => handleChange('fullName', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    errors.fullName
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.fullName
                       ? 'border-red-300 focus:ring-red-500'
                       : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                    }`}
                   placeholder="Enter your full name"
                 />
                 {errors.fullName && (
@@ -252,11 +251,10 @@ export const UserProfile: React.FC = () => {
                     type="text"
                     value={formData.displayName}
                     onChange={(e) => handleChange('displayName', e.target.value)}
-                    className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                      errors.displayName
+                    className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.displayName
                         ? 'border-red-300 focus:ring-red-500'
                         : 'border-gray-300 focus:ring-blue-500'
-                    }`}
+                      }`}
                     placeholder="username"
                   />
                 </div>
@@ -292,11 +290,10 @@ export const UserProfile: React.FC = () => {
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => handleChange('phone', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    errors.phone
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.phone
                       ? 'border-red-300 focus:ring-red-500'
                       : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                    }`}
                   placeholder="+1 (555) 123-4567"
                 />
                 {errors.phone && (
@@ -316,11 +313,10 @@ export const UserProfile: React.FC = () => {
                   type="text"
                   value={formData.jobTitle}
                   onChange={(e) => handleChange('jobTitle', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    errors.jobTitle
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.jobTitle
                       ? 'border-red-300 focus:ring-red-500'
                       : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                    }`}
                   placeholder="e.g., Product Manager"
                 />
                 {errors.jobTitle && (

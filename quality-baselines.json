@@ -74,15 +74,16 @@
     }
   },
   "ts_debt": {
-    "apps/ValyntApp": 4516,
+    "apps/ValyntApp": 4312,
     "apps/mcp-dashboard": 54,
-    "packages/backend": 2952,
+    "packages/backend": 3061,
     "packages/sdui": 179,
     "packages/mcp": 411,
     "packages/agents": 86,
     "packages/infra": 6,
     "packages/services": 20,
-    "packages/shared": 5
+    "packages/shared": 5,
+    "_note": "Re-baselined 2026-02-12. ValyntApp: noUnusedLocals/noUnusedParameters disabled, exactOptionalPropertyTypes disabled. Backend: uuid types added, vite-env.d.ts added."
   },
   "performance": {
     "time_to_interaction": {

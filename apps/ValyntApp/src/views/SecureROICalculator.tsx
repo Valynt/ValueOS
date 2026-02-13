@@ -30,7 +30,7 @@ const SecureROICalculator: React.FC = () => {
     budgetConstraint: 500,
   });
 
-  const [securityLog, setSecurityLog] = useState<any[]>([]);
+  const [securityLog, _setSecurityLog] = useState<any[]>([]);
 
   // Secure input handler with validation
   const handleInputChange = useCallback((field: keyof ROIInputs, value: string | number) => {

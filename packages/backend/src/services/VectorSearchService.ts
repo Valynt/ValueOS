@@ -13,9 +13,9 @@
 
 import { supabase } from "../lib/supabase";
 import { logger } from "@shared/lib/logger";
-// TODO: Create llm config or import from shared
+// TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Create llm config or import from shared
 const semanticMemoryConfig = { cosine_threshold: 0.7, max_results: 10 };
-const getSemanticThreshold = (type?: string) => 0.7;
+const getSemanticThreshold = (_type?: string) => 0.7;
 
 // ============================================================================
 // Types

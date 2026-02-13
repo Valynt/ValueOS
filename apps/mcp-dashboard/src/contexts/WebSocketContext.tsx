@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 
-import { secureTokenStorage } from "../lib/secureStorage";
+import { secureTokenStorage } from "../index";
 
 import { useAuth } from "./AuthContext";
 
@@ -189,13 +189,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     (channel: string, callback: (data: StreamData) => void) => {
       if (!socket || !isConnected) {
         console.warn("Cannot subscribe: WebSocket not connected");
-        return () => {};
+        return () => { };
       }
 
       // Validate channel name for security
       if (!/^[a-zA-Z0-9_-]+$/.test(channel)) {
         console.error("Invalid channel name:", channel);
-        return () => {};
+        return () => { };
       }
 
       // Store callback

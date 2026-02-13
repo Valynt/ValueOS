@@ -4,22 +4,19 @@ const registry = new client.Registry();
 client.collectDefaultMetrics({ register: registry });
 
 export const httpRequestDuration = new client.Histogram({
-  name: "http_request_duration_seconds",
-  help: "Duration of HTTP requests in seconds",
-  labelNames: ["handler", "method", "status"],
-  buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
+  name: "valuecanvas_http_request_duration_ms",
+  help: "Duration of HTTP requests in milliseconds",
+  labelNames: ["method", "route", "status_code"],
+  buckets: [5, 10, 25, 50, 100, 200, 500, 1000, 2000, 5000],
+});
+
+export const httpRequestsTotal = new client.Counter({
+  name: "valuecanvas_http_requests_total",
+  help: "Total number of HTTP requests",
+  labelNames: ["method", "route", "status_code"],
 });
 
 registry.registerMetric(httpRequestDuration);
-
-export function metricsMiddleware(handlerName: string) {
-  return async function metricsWrapper(req: any, res: any, next: any) {
-    const end = httpRequestDuration.startTimer({ handler: handlerName, method: req.method });
-    res.on("finish", () => {
-      end({ status: String(res.statusCode) });
-    });
-    return next();
-  };
-}
+registry.registerMetric(httpRequestsTotal);
 
 export default registry;

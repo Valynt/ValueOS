@@ -8,7 +8,7 @@
 #   2. Run: bash scripts/sync-tool-versions.sh
 #   3. Rebuild container: Cmd+Shift+P → 'Rebuild Container'
 
-nodejs 22.11.0
+nodejs 20.19.0
 python 3.11.9
 go 1.21.13
 supabase 1.200.3

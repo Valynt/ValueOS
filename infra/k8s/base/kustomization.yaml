@@ -7,16 +7,29 @@ resources:
   - namespace.yaml
   - serviceaccount.yaml
   - configmap.yaml
-  - external-secrets.yaml
-  - agents/external-secrets.yaml
-  - network-policies.yaml
-  - agents/network-policy.yaml
+  # Blue-Green deployments
   - backend-deployment.yaml
-  - backend-service.yaml
-  - frontend-deployment.yaml
-  - frontend-service.yaml
+  - backend-blue-deployment.yaml
+  - backend-green-deployment.yaml
+  - frontend-blue-deployment.yaml
+  - frontend-green-deployment.yaml
+  # Services (active + blue + green for each)
+  - backend-active-service.yaml
+  - backend-blue-service.yaml
+  - backend-green-service.yaml
+  - frontend-active-service.yaml
+  - frontend-blue-service.yaml
+  - frontend-green-service.yaml
+  # Ingress
   - ingress.yaml
+  # Pod Disruption Budgets
+  - backend-pdb.yaml
+  - frontend-pdb.yaml
+  # Horizontal Pod Autoscalers
   - hpa.yaml
+  # Security policies are in infra/k8s/security/ and applied separately:
+  # kubectl apply -f ../security/istio-service-mesh.yaml
+  # kubectl apply -f ../security/mesh-authentication.yaml
 
 commonLabels:
   app.kubernetes.io/managed-by: kustomize

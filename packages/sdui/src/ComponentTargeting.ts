@@ -7,7 +7,6 @@
 
 import { SDUIComponentSection, SDUIPageDefinition } from "./schema";
 import { ComponentSelector } from "./AtomicUIActions";
-import { logger } from "@shared/lib/logger";
 
 /**
  * Component match result

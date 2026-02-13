@@ -31,83 +31,40 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
-      containers:
-<<<<<<< HEAD
-      - name: opportunity-agent
-        image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
-        imagePullPolicy: Always
-        ports:
-        - name: http
-          containerPort: 8080
-          protocol: TCP
-        - name: metrics
-          containerPort: 9090
-          protocol: TCP
-        env:
-        - name: PORT
-          value: "8080"
-        - name: ENVIRONMENT
-          valueFrom:
-            configMapKeyRef:
-              name: valynt-config
-              key: environment
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: database_url
-        - name: SUPABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: supabase_url
-        - name: SUPABASE_SERVICE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: valynt-secrets
-              key: supabase_service_key
-        - name: REDIS_URL
-          valueFrom:
-            configMapKeyRef:
-              name: valynt-config
-              key: redis_url
-        - name: LLM_PROXY_URL
-          valueFrom:
-            configMapKeyRef:
-              name: valynt-config
-              key: llm_proxy_url
-        - name: LOG_LEVEL
-          value: "info"
-        - name: METRICS_ENABLED
+      # Prefer spot instances; tolerate preemption for cost savings.
+      # Safe for spot: Redis Streams XAUTOCLAIM reclaims orphaned messages.
+      tolerations:
+        - key: "kubernetes.azure.com/scalesetpriority"
+          operator: "Equal"
+          value: "spot"
+          effect: "NoSchedule"
+        - key: "cloud.google.com/gke-spot"
+          operator: "Equal"
           value: "true"
-        resources:
-          requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: 1000m
-            memory: 2Gi
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: http
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: http
-          initialDelaySeconds: 10
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
-        lifecycle:
-          preStop:
-            exec:
-              command: ["/bin/sh", "-c", "sleep 15"]
-=======
+          effect: "NoSchedule"
+        - key: "eks.amazonaws.com/capacityType"
+          operator: "Equal"
+          value: "SPOT"
+          effect: "NoSchedule"
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 80
+              preference:
+                matchExpressions:
+                  - key: "node.kubernetes.io/capacity-type"
+                    operator: In
+                    values: ["spot"]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: opportunity-agent
+                topologyKey: "kubernetes.io/hostname"
+      containers:
+
         - name: opportunity-agent
           image: ${ECR_REGISTRY}/valynt-opportunity:${IMAGE_TAG}
           imagePullPolicy: Always
@@ -155,12 +112,15 @@ spec:
               value: "info"
             - name: METRICS_ENABLED
               value: "true"
+            # Backpressure: limit in-flight concurrent requests per pod
+            - name: MAX_CONCURRENT_REQUESTS
+              value: "10"
           resources:
             requests:
               cpu: 500m
               memory: 1Gi
             limits:
-              cpu: 1000m
+              cpu: 1500m
               memory: 2Gi
           livenessProbe:
             httpGet:
@@ -182,7 +142,6 @@ spec:
             preStop:
               exec:
                 command: ["/bin/sh", "-c", "sleep 15"]
->>>>>>> abdf1deaad6ae735b2af5e199e9cf9d374047a98
       terminationGracePeriodSeconds: 30
 ---
 apiVersion: v1
@@ -209,40 +168,71 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: opportunity-agent
+  namespace: valynt-agents
+  labels:
+    app: opportunity-agent
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: opportunity-agent
-  minReplicas: 1
-  maxReplicas: 3
+  minReplicas: 2
+  maxReplicas: 8
   metrics:
+    # Primary: scale on Redis Stream pending message count (queue depth).
+    # Prometheus adapter exposes this from broker.pending.claimed histogram.
+    - type: External
+      external:
+        metric:
+          name: redis_stream_pending_messages
+          selector:
+            matchLabels:
+              stream: "valuecanvas.events"
+              consumer_group: "valuecanvas-workers"
+        target:
+          type: AverageValue
+          averageValue: "20"
+    # Secondary: CPU as a safety net for compute-bound LLM post-processing
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 75
+          averageUtilization: 65
+    # Tertiary: memory pressure from in-flight context windows
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 75
   behavior:
     scaleDown:
+      # 5-minute cooldown prevents flapping after burst subsides
       stabilizationWindowSeconds: 300
       policies:
         - type: Percent
-          value: 50
-          periodSeconds: 60
+          value: 25
+          periodSeconds: 120
     scaleUp:
+      # Zero stabilization: react immediately to queue depth spikes
       stabilizationWindowSeconds: 0
       policies:
         - type: Percent
           value: 100
           periodSeconds: 30
         - type: Pods
-          value: 2
+          value: 4
           periodSeconds: 30
       selectPolicy: Max
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: opportunity-agent-pdb
+  namespace: valynt-agents
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: opportunity-agent

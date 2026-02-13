@@ -3,7 +3,7 @@
  * Provides authentication state and methods throughout the app
  */
 
-import React, { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { createLogger } from "../lib/logger";
@@ -216,7 +216,7 @@ const useAuthMethods = ({
   const login = async (credentials: LoginCredentials) => {
     const loginLogger = (msg: string, data?: Record<string, unknown>) => {
       const timestamp = new Date().toISOString();
-      console.log(`[Auth ${timestamp}] ${msg}`, data || "");
+      logger.info(`[Auth ${timestamp}] ${msg}`, data || "");
       logger.debug(msg, data);
     };
 

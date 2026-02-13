@@ -11,7 +11,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { TenantAwareService } from './TenantAwareService';
 import { log } from '../lib/logger';
-import { SecurityEvent } from './AdvancedThreatDetectionService';
 import { RateLimitEscalationService } from './RateLimitEscalationService';
 
 export interface CredentialStuffingPattern {
@@ -205,7 +204,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
     // Group by IP
     const ipGroups = attempts.reduce((groups, attempt) => {
       if (!groups[attempt.ip]) groups[attempt.ip] = [];
-      groups[attempt.ip].push(attempt);
+      groups[attempt.ip]!.push(attempt);
       return groups;
     }, {} as Record<string, LoginAttempt[]>);
 
@@ -261,7 +260,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
     // Group by IP and analyze timing
     const ipGroups = attempts.reduce((groups, attempt) => {
       if (!groups[attempt.ip]) groups[attempt.ip] = [];
-      groups[attempt.ip].push(attempt);
+      groups[attempt.ip]!.push(attempt);
       return groups;
     }, {} as Record<string, LoginAttempt[]>);
 
@@ -335,7 +334,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
     // Group by IP and check for automated behavior
     const ipGroups = attempts.reduce((groups, attempt) => {
       if (!groups[attempt.ip]) groups[attempt.ip] = [];
-      groups[attempt.ip].push(attempt);
+      groups[attempt.ip]!.push(attempt);
       return groups;
     }, {} as Record<string, LoginAttempt[]>);
 
@@ -412,7 +411,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
     const uaGroups = attempts.reduce((groups, attempt) => {
       const ua = attempt.userAgent;
       if (!groups[ua]) groups[ua] = [];
-      groups[ua].push(attempt);
+      groups[ua]!.push(attempt);
       return groups;
     }, {} as Record<string, LoginAttempt[]>);
 
@@ -420,7 +419,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
       // Group by IP within this user agent
       const ipGroups = uaAttempts.reduce((groups, attempt) => {
         if (!groups[attempt.ip]) groups[attempt.ip] = [];
-        groups[attempt.ip].push(attempt);
+        groups[attempt.ip]!.push(attempt);
         return groups;
       }, {} as Record<string, LoginAttempt[]>);
 
@@ -609,7 +608,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
 
     let totalInterval = 0;
     for (let i = 1; i < switches.length; i++) {
-      totalInterval += switches[i].timestamp.getTime() - switches[i - 1].timestamp.getTime();
+      totalInterval += switches[i]!.timestamp.getTime() - switches[i - 1]!.timestamp.getTime();
     }
 
     return totalInterval / (switches.length - 1);

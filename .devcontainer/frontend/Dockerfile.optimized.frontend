@@ -1,0 +1,82 @@
+# Multi-stage Dockerfile for ValueOS Frontend
+# Optimized for production with security hardening
+
+# =============================================================================
+# Stage 1: Dependencies
+# =============================================================================
+FROM node:20.19.0-alpine AS deps
+WORKDIR /app
+
+# Install dependencies only when needed
+RUN apk add --no-cache libc6-compat
+
+# Copy package files and scripts (needed for preinstall)
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
+
+# Install dependencies using pnpm
+RUN corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    pnpm install --frozen-lockfile --prod=false
+
+# =============================================================================
+# Stage 2: Builder
+# =============================================================================
+FROM node:20.19.0-alpine AS builder
+WORKDIR /app
+
+ARG NODE_ENV=production
+ENV NODE_ENV=${NODE_ENV}
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy application source
+COPY apps/ValyntApp ./
+# Copy root tsconfig.app.json and config-v2 base for TypeScript build
+COPY ../../tsconfig.app.json ./tsconfig.app.json
+COPY ../../tsconfig.app.json /tsconfig.app.json
+COPY ../../packages/config-v2/tsconfig.base.json ./packages/config-v2/tsconfig.base.json
+COPY ../../packages/config-v2/tsconfig.base.json /packages/config-v2/tsconfig.base.json
+
+# Set working directory to ValyntApp for build
+WORKDIR /app/apps/ValyntApp
+# Build the application
+RUN corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    pnpm run build
+
+# =============================================================================
+# Stage 3: Runtime with Caddy
+# =============================================================================
+FROM caddy:2-alpine AS runtime
+WORKDIR /srv
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Copy built assets from builder
+COPY --from=builder --chown=caddy:caddy /app/dist ./dist
+
+# Copy Caddyfile
+COPY .devcontainer/frontend/Caddyfile /etc/caddy/Caddyfile
+
+# Create non-root user for running the application
+RUN addgroup -g 1001 -S valueos && \
+    adduser -S valueos -u 1001 -G valueos && \
+    chown -R valueos:valueos /srv
+
+# Switch to non-root user
+USER valueos
+
+# Expose port
+ARG EXPOSE_PORT=3001
+ENV EXPOSE_PORT=${EXPOSE_PORT}
+EXPOSE ${EXPOSE_PORT}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
+  CMD curl --fail http://localhost:${EXPOSE_PORT}/health || exit 1
+
+# Start Caddy
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

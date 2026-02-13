@@ -9,7 +9,6 @@
  */
 
 import { logger } from '../../lib/logger';
-import { createServerSupabaseClient } from '../../lib/supabase';
 import type {
   AuditAction,
   AuditResult,

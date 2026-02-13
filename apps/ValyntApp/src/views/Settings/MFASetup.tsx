@@ -6,8 +6,8 @@
  * AUTH-001: MFA enrollment flow for privileged roles
  */
 
-import React, { useState, useEffect } from "react";
-import { mfaService } from "../../services/MFAService";
+import { useState } from "react";
+import { mfaService } from "@backend/services/MFAService";
 import { logger } from "../../lib/logger";
 
 interface MFASetupProps {

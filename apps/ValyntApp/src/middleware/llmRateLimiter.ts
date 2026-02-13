@@ -8,6 +8,7 @@
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { getRedisClient } from '../lib/redisClient';
+import { settings } from '../config/settings';
 import { Request, Response } from 'express';
 import { NextFunction } from 'express';
 import { RateLimitKeyService } from '../services/RateLimitKeyService';
@@ -102,8 +103,8 @@ async function rateLimitHandler(req: RateLimitRequest, res: Response) {
   });
 
   // Track in database for analytics
-  const supabaseUrl = process.env.VITE_SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = settings.VITE_SUPABASE_URL;
+  const supabaseServiceRoleKey = settings.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     const message = 'Missing SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_URL for LLM rate limit logging';
