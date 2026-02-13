@@ -24,6 +24,66 @@ const RECOMMENDED_VARS = [
   { name: "REDIS_URL", fix: "Run: pnpm run dx to start Redis" },
 ];
 
+const SECURE_NODE_ENVS = new Set(["staging", "production"]);
+const STRICT_POSTGRES_SSL_MODES = new Set(["require", "verify-ca", "verify-full"]);
+
+function parseUrl(raw: string): URL | null {
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
+}
+
+function validateSecureTransportRules(errors: string[]): void {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  if (!SECURE_NODE_ENVS.has(nodeEnv)) {
+    return;
+  }
+
+  const dbUrlRaw = process.env.DATABASE_URL;
+  if (dbUrlRaw) {
+    const dbUrl = parseUrl(dbUrlRaw);
+    if (!dbUrl) {
+      errors.push("Invalid DATABASE_URL format. Must be a valid postgres URL.");
+    } else {
+      const sslMode = (dbUrl.searchParams.get("sslmode") ?? "").toLowerCase();
+      if (!STRICT_POSTGRES_SSL_MODES.has(sslMode)) {
+        errors.push(
+          `In ${nodeEnv}, DATABASE_URL must enable TLS with sslmode=require, verify-ca, or verify-full.`
+        );
+      }
+    }
+  }
+
+  const redisUrlRaw = process.env.REDIS_URL;
+  if (redisUrlRaw) {
+    const redisUrl = parseUrl(redisUrlRaw);
+    if (!redisUrl) {
+      errors.push("Invalid REDIS_URL format. Must be a valid redis URL.");
+    } else if (redisUrl.protocol !== "rediss:") {
+      errors.push(`In ${nodeEnv}, REDIS_URL must use TLS (rediss://...).`);
+    }
+  }
+
+  const rejectUnauthorized = (process.env.REDIS_TLS_REJECT_UNAUTHORIZED ?? "true").toLowerCase();
+  if (rejectUnauthorized !== "true") {
+    errors.push(
+      `In ${nodeEnv}, REDIS_TLS_REJECT_UNAUTHORIZED must be true to enforce certificate validation.`
+    );
+  }
+
+  if (!process.env.REDIS_TLS_CA_CERT_PATH && !process.env.REDIS_TLS_CA_CERT) {
+    errors.push(
+      `In ${nodeEnv}, set REDIS_TLS_CA_CERT_PATH (preferred) or REDIS_TLS_CA_CERT to validate Redis certificates.`
+    );
+  }
+
+  if (!process.env.REDIS_TLS_SERVERNAME) {
+    errors.push(`In ${nodeEnv}, REDIS_TLS_SERVERNAME is required for Redis certificate hostname validation.`);
+  }
+}
+
 export function validateEnv(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -58,6 +118,8 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  validateSecureTransportRules(errors);
+
   return {
     valid: errors.length === 0,
     errors,
@@ -86,7 +148,7 @@ export function validateLLMConfig(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   if (!process.env.LLM_API_KEY && !process.env.OPENAI_API_KEY) {
-    warnings.push('No LLM API key configured');
+    warnings.push("No LLM API key configured");
   }
   return { valid: errors.length === 0, errors, warnings };
 }
