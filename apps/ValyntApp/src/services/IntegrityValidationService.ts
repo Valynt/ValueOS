@@ -466,13 +466,34 @@ export class IntegrityValidationService {
     checks: IntegrityCheck[],
     violations: IntegrityViolation[]
   ): Promise<void> {
+    const tenantId = request.context?.tenantId;
+    if (!tenantId) {
+      const details = 'Cross-agent consistency check skipped: tenant context is required';
+      checks.push({
+        type: CheckType.CROSS_AGENT_CONSISTENCY,
+        status: 'fail',
+        score: 0,
+        details,
+      });
+      violations.push({
+        type: CheckType.CROSS_AGENT_CONSISTENCY,
+        severity: 'high',
+        description: 'Missing tenant context for cross-agent consistency validation',
+        impact: 'Cannot safely validate consistency without tenant isolation',
+        remediation: 'Provide tenantId in validation context before running consistency checks',
+      });
+      logger.warn(details, { traceId: request.traceId, agentType: request.agentType });
+      return;
+    }
+
     // Get related memories from agent memory service
     try {
-      const relatedMemories = await this.agentMemoryService.queryMemories({
+      const relatedMemories = await this.agentMemoryService.queryMemoriesStrict({
         caseId: request.context.caseId,
+        tenantId,
         agentType: request.agentType,
         limit: 10,
-      });
+      }, 'IntegrityValidationService.checkCrossAgentConsistency');
 
       const consistency = await this.consistencyChecker.checkCrossAgentConsistency(
         request.content,

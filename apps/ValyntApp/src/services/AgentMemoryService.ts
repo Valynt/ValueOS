@@ -77,6 +77,11 @@ export interface MemoryQuery {
   offset?: number;
 }
 
+export interface MemoryQueryOptions {
+  caller?: string;
+  requireTenantScope?: boolean;
+}
+
 export interface MemoryQueryResult {
   memories: AgentMemory[];
   totalCount: number;
@@ -248,10 +253,15 @@ export class AgentMemoryService {
   /**
    * Query memories
    */
-  async queryMemories(query: MemoryQuery): Promise<MemoryQueryResult> {
+  async queryMemories(query: MemoryQuery, options: MemoryQueryOptions = {}): Promise<MemoryQueryResult> {
     const startTime = Date.now();
 
     try {
+      const caller = options.caller || 'unknown caller';
+      if (options.requireTenantScope && !query.tenantId) {
+        throw new Error(`Tenant-scoped memory query is required for ${caller}`);
+      }
+
       let dbQuery = this.supabase.from('agent_memory').select('*');
 
       // Apply filters
@@ -310,6 +320,17 @@ export class AgentMemoryService {
       logger.error('Failed to query memories', error instanceof Error ? error : undefined);
       throw error;
     }
+  }
+
+  /**
+   * Query memories with mandatory tenant scope.
+   * Used by integrity/security-sensitive retrieval paths.
+   */
+  async queryMemoriesStrict(query: MemoryQuery, caller = 'security-sensitive caller'): Promise<MemoryQueryResult> {
+    return this.queryMemories(query, {
+      caller,
+      requireTenantScope: true,
+    });
   }
 
   /**
