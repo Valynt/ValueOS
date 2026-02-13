@@ -1,0 +1,15 @@
+services:
+  dev:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.dev
+    command: sleep infinity
+    volumes:
+      - ../..:/workspaces/ValueOS
+      - dev_pnpm_store:/home/vscode/.pnpm-store
+    working_dir: /workspaces/ValueOS
+    depends_on:
+      - backend
+      - frontend
+      - redis
+      - postgres

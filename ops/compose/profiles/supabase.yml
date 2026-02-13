@@ -1,0 +1,61 @@
+services:
+  kong:
+    image: kong:2.8.1
+    profiles: ["supabase"]
+    restart: unless-stopped
+    ports:
+      - "${SUPABASE_API_PORT:-54321}:8000"
+      - "${SUPABASE_ADMIN_PORT:-54322}:8001"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+    volumes:
+      - ../../.devcontainer/kong/kong.yml:/tmp/kong.yml:ro
+
+  auth:
+    image: supabase/gotrue:v2.143.0
+    profiles: ["supabase"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${AUTH_PORT:-9999}:9999"
+    environment:
+      GOTRUE_DB_DRIVER: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-valuecanvas_dev}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:9999}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-this-is-a-dev-only-jwt-secret-change-me}
+
+  studio:
+    image: supabase/studio:latest
+    profiles: ["supabase"]
+    restart: unless-stopped
+    ports:
+      - "${STUDIO_PORT:-54324}:3000"
+    environment:
+      SUPABASE_URL: http://kong:8000
+      STUDIO_PG_META_URL: http://meta:8080
+
+  meta:
+    image: supabase/postgres-meta:v0.84.2
+    profiles: ["supabase"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${SUPABASE_META_PORT:-8080}:8080"
+    environment:
+      PG_META_DB_HOST: postgres
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB:-valuecanvas_dev}
+      PG_META_DB_USER: ${POSTGRES_USER:-postgres}
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}

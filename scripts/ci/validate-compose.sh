@@ -1,16 +1,24 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Validate dev compose
-if [ -f infra/docker/docker-compose.dev.yml ]; then
-  docker compose -f infra/docker/docker-compose.dev.yml config >/dev/null
-  echo "✅ infra/docker/docker-compose.dev.yml is valid."
-else
-  echo "⚠️ infra/docker/docker-compose.dev.yml not found."
-fi
+BASE=ops/compose/compose.yml
+DEV=ops/compose/devcontainer.yml
+SUPABASE=ops/compose/profiles/supabase.yml
+OBS=ops/compose/profiles/observability.yml
 
-# Validate deps compose
-if [ -f docker-compose.deps.yml ]; then
-  docker compose -f docker-compose.deps.yml config >/dev/null
-  echo "✅ docker-compose.deps.yml is valid."
-fi
+for forbidden in compose.yml docker-compose.yml docker-compose.yaml; do
+  if [ -f "$forbidden" ]; then
+    echo "❌ Forbidden root compose file detected: $forbidden"
+    echo "Compose lives in ops/compose/."
+    exit 1
+  fi
+done
+
+docker compose -f "$BASE" -f "$DEV" config >/dev/null
+echo "✅ Canonical base + devcontainer compose is valid."
+
+docker compose -f "$BASE" -f "$SUPABASE" config >/dev/null
+echo "✅ Canonical base + supabase profile compose is valid."
+
+docker compose -f "$BASE" -f "$OBS" config >/dev/null
+echo "✅ Canonical base + observability profile compose is valid."

@@ -1,5 +1,7 @@
 # ValueOS
 
+> **Compose lives in `ops/compose/` (canonical path).** Root-level compose files are intentionally unsupported to prevent config drift.
+
 AI-powered value engineering platform for B2B SaaS. ValueOS helps customer success and sales teams quantify, track, and expand business value through a multi-agent orchestration system backed by Supabase, Redis, and Kafka.
 
 ## Repository Layout
@@ -40,7 +42,7 @@ infra/
 
 ### Devcontainer (recommended)
 
-Open the repo in VS Code or Gitpod. The devcontainer starts all infrastructure automatically.
+Open the repo in VS Code or Gitpod. The devcontainer attaches to the `dev` service defined in `ops/compose/devcontainer.yml`.
 
 ```bash
 # Verify the environment
