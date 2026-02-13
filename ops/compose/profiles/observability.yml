@@ -1,6 +1,16 @@
+# Observability optional stack. Activate with: docker compose --profile observability up
+
 services:
   jaeger:
     image: jaegertracing/all-in-one:1.58
+    profiles: ["observability"]
     ports:
       - "16686:16686"
       - "4317:4317"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:16686/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

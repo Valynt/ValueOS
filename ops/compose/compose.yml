@@ -1,29 +1,97 @@
-services:
-  backend:
-    image: node:20-slim
-    command: sleep infinity
-    working_dir: /workspaces/ValueOS
-    volumes:
-      - ../..:/workspaces/ValueOS:cached
-    environment:
-      NODE_ENV: development
+# Canonical compose file for ValueOS core infrastructure.
+# Application services (frontend, backend) run on the host via pnpm.
+# Optional stacks live in ops/compose/profiles/.
 
-  frontend:
-    image: node:20-slim
-    command: sleep infinity
-    working_dir: /workspaces/ValueOS
-    volumes:
-      - ../..:/workspaces/ValueOS:cached
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # --- Core Infrastructure ---
+
+  postgres:
+    <<: *common
+    image: postgres:15-alpine
+    container_name: valueos-postgres
     environment:
-      NODE_ENV: development
+      POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+        reservations:
+          memory: 512M
 
   redis:
+    <<: *common
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    container_name: valueos-redis
+    command: >-
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-dev_password}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-dev_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  nats:
+    <<: *common
+    image: nats:2-alpine
+    container_name: valueos-nats
+    command: -DV -m 8222
+    ports:
+      - "${NATS_CLIENT_PORT:-4222}:4222"
+      - "${NATS_MONITOR_PORT:-8222}:8222"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 256M
+        reservations:
+          memory: 64M
 
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
+    driver: local

@@ -98,9 +98,8 @@ export class HubSpotProvider implements CrmProviderInterface {
   // OAuth
   // ============================================================================
 
-  getAuthUrl(tenantId: string, redirectUri: string): OAuthStartResult {
+  getAuthUrl(nonce: string, redirectUri: string): OAuthStartResult {
     const config = getConfig();
-    const state = randomBytes(32).toString('hex');
 
     const scopes = [
       'crm.objects.deals.read',
@@ -114,12 +113,12 @@ export class HubSpotProvider implements CrmProviderInterface {
       client_id: config.clientId,
       redirect_uri: redirectUri,
       scope: scopes.join(' '),
-      state: `${state}:${tenantId}`,
+      state: nonce,
     });
 
     return {
       authUrl: `${HS_AUTH_URL}?${params.toString()}`,
-      state,
+      state: nonce,
     };
   }
 

@@ -74,6 +74,12 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Compose drift guard
+        run: node scripts/ci/check-compose-drift.mjs
+
+      - name: Migration file hygiene
+        run: node scripts/ci/check-migration-hygiene.mjs
+
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs
 
@@ -182,6 +188,65 @@ jobs:
         if: steps.detect.outputs.has_infra != 'true'
         run: echo "No files found under infra/, skipping IaC scan."
 
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  hadolint:
+    name: Dockerfile Lint (Hadolint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find Dockerfiles
+        id: find
+        run: |
+          files=$(find . -name "Dockerfile*" -not -path "*/node_modules/*" | tr '\n' ',')
+          echo "dockerfiles=$files" >> "$GITHUB_OUTPUT"
+          if [ -z "$files" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Hadolint
+        if: steps.find.outputs.found == 'true'
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+          failure-threshold: warning
+          format: sarif
+          output-file: hadolint-results.sarif
+
+      - name: Upload Hadolint SARIF
+        if: steps.find.outputs.found == 'true' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint-results.sarif
+          category: hadolint
+        continue-on-error: true
+
   sbom:
     name: SBOM Generation (CycloneDX)
     runs-on: ubuntu-latest
@@ -231,6 +296,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - sast
+      - codeql
+      - hadolint
       - sca-license
       - iac
       - sbom

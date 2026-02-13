@@ -1,9 +1,18 @@
+# DevContainer overlay — defines only the dev service.
+# Does NOT duplicate backend/frontend/redis from the base compose.yml.
+# Used by .devcontainer/devcontainer.json.
+
 services:
   dev:
     image: node:20-slim
     command: sleep infinity
+    working_dir: /workspaces/ValueOS
     volumes:
       - ../..:/workspaces/ValueOS:cached
-    working_dir: /workspaces/ValueOS/apps/ValyntApp
+      - pnpm-store:/home/node/.local/share/pnpm
     environment:
       NODE_ENV: development
+
+volumes:
+  pnpm-store:
+    driver: local
