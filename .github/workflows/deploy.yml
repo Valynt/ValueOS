@@ -26,7 +26,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
   NODE_VERSION: "20.19.0"
   PNPM_VERSION: "9.15.0"
 
@@ -61,7 +61,7 @@ jobs:
   # 2. Build and push container images
   # ──────────────────────────────────────────────────────────────────────────
   build-images:
-    name: Build Images
+    name: Build Backend Runtime Image
     runs-on: ubuntu-latest
     needs: [quality-gate]
     if: always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
@@ -83,18 +83,20 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
           tags: |
             type=sha,prefix=
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push frontend
+      - name: Build and push backend runtime image
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/ValyntApp/Dockerfile.prod
+          file: infra/docker/Dockerfile.backend
+          build-args: |
+            APP=@valueos/backend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -104,7 +106,7 @@ jobs:
       - name: Resolve immutable image reference
         id: image-ref
         run: |
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
           echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_ENV"
 
@@ -126,7 +128,7 @@ jobs:
       - name: Attest SLSA provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
@@ -218,7 +220,7 @@ jobs:
 
           # Update image tag in staging overlay
           cd overlays/staging
-          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
           kustomize build . | kubectl apply -f -
 
           # Wait for rollout
@@ -277,7 +279,7 @@ jobs:
 
           # Deploy to green (inactive) slot
           cd overlays/production
-          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
           kustomize build . | kubectl apply -f -
 
           # Wait for green rollout
