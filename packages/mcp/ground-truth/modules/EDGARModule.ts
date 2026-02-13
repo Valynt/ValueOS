@@ -303,9 +303,9 @@ export class EDGARModule extends BaseModule {
             continue;
           }
 
-          // Construct filing URL
+          // Construct filing URL - ALWAYS on www.sec.gov
           const accessionNumberClean = accessionNumber.replace(/-/g, "");
-          const fileUrl = `${this.baseUrl}/Archives/edgar/data/${paddedCIK}/${accessionNumberClean}/${accessionNumber}.txt`;
+          const fileUrl = `https://www.sec.gov/Archives/edgar/data/${paddedCIK}/${accessionNumberClean}/${accessionNumber}.txt`;
 
           filings.push({
             accession_number: accessionNumber,
@@ -560,16 +560,16 @@ export class EDGARModule extends BaseModule {
 
       const sectionPatterns: Record<string, { start: RegExp; end: RegExp }> = {
         business: {
-          start: /ITEM\s+1\.\s+BUSINESS/i,
-          end: /ITEM\s+1A\.\s+RISK\s+FACTORS/i,
+          start: /ITEM\s+1\.?\s+BUSINESS/i,
+          end: /ITEM\s+1A\.?\s+RISK\s+FACTORS/i,
         },
         risk_factors: {
-          start: /ITEM\s+1A\.\s+RISK\s+FACTORS/i,
-          end: /ITEM\s+1B\.\s+UNRESOLVED\s+STAFF\s+COMMENTS/i,
+          start: /ITEM\s+1A\.?\s+RISK\s+FACTORS/i,
+          end: /ITEM\s+1B\.?\s+UNRESOLVED\s+STAFF\s+COMMENTS/i,
         },
         mda: {
-          start: /ITEM\s+7\.\s+MANAGEMENT’S\s+DISCUSSION\s+AND\s+ANALYSIS/i,
-          end: /ITEM\s+7A\.\s+QUANTITATIVE\s+AND\s+QUALITATIVE\s+DISCLOSURES/i,
+          start: /ITEM\s+7\.?\s+MANAGEMENT’S\s+DISCUSSION\s+AND\s+ANALYSIS/i,
+          end: /ITEM\s+7A\.?\s+QUANTITATIVE\s+AND\s+QUALITATIVE\s+DISCLOSURES/i,
         },
       };
 

@@ -42,16 +42,21 @@ export interface SemanticSearchResult {
 }
 
 export class SemanticMemoryService {
-  private supabase: ReturnType<typeof createClient>;
+  private _supabase: ReturnType<typeof createClient> | null = null;
   private embeddingModel = "togethercomputer/m2-bert-80M-8k-retrieval"; // Together AI embedding model
   private embeddingDimension = 768;
 
-  constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL || "",
-      process.env.SUPABASE_KEY || ""
-    );
+  private get supabase(): ReturnType<typeof createClient> {
+    if (!this._supabase) {
+      this._supabase = createClient(
+        process.env.SUPABASE_URL || "",
+        process.env.SUPABASE_KEY || ""
+      );
+    }
+    return this._supabase;
   }
+
+  constructor() {}
 
   /**
    * Generate embedding for text using Together AI
@@ -80,6 +85,65 @@ export class SemanticMemoryService {
       logger.error("Failed to generate embedding", error as Error);
       throw error;
     }
+  }
+
+  /**
+   * Split text into chunks using recursive character splitting for better context preservation.
+   */
+  chunkText(text: string, size: number = 2000, overlap: number = 200): string[] {
+    if (!text) return [];
+    if (text.length <= size) return [text];
+
+    const chunks: string[] = [];
+    const separators = ['\n##', '\n#', '\n\n', '\n', '. ', ' ', ''];
+    
+    const splitRecursive = (currentText: string, separatorIdx: number): string[] => {
+      if (currentText.length <= size) return [currentText];
+      
+      const separator = separators[separatorIdx];
+      if (separator === undefined) return [currentText.substring(0, size)]; // Fallback to hard cut
+
+      const parts = currentText.split(separator);
+      const result: string[] = [];
+      let currentChunk = '';
+
+      for (const part of parts) {
+        if ((currentChunk + separator + part).length <= size) {
+          currentChunk += (currentChunk ? separator : '') + part;
+        } else {
+          if (currentChunk) result.push(currentChunk);
+          
+          if (part.length > size) {
+            // Part itself is too big, recurse with next separator
+            result.push(...splitRecursive(part, separatorIdx + 1));
+            currentChunk = '';
+          } else {
+            currentChunk = part;
+          }
+        }
+      }
+      
+      if (currentChunk) result.push(currentChunk);
+      return result;
+    };
+
+    const initialChunks = splitRecursive(text, 0);
+    
+    // Apply overlap
+    if (overlap > 0 && initialChunks.length > 1) {
+      for (let i = 0; i < initialChunks.length; i++) {
+        let chunk = initialChunks[i];
+        if (i > 0) {
+          const prevChunk = initialChunks[i - 1];
+          const overlapText = prevChunk.substring(prevChunk.length - overlap);
+          chunk = overlapText + chunk;
+        }
+        chunks.push(chunk);
+      }
+      return chunks;
+    }
+
+    return initialChunks;
   }
 
   /**

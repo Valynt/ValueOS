@@ -7,6 +7,7 @@
 
 import { type SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
+import PQueue from 'p-queue';
 import { logger } from '../../lib/logger.js';
 import { crawlWebsite, type CrawlResult } from './WebCrawler.js';
 import {
@@ -15,6 +16,7 @@ import {
   type ExtractionResult,
   type LLMGatewayInterface,
 } from './SuggestionExtractor.js';
+import { generateValueHypotheses } from './ValueHypothesisGenerator.js';
 import { mcpGroundTruthService } from '../MCPGroundTruthService.js';
 import { semanticMemory } from '../SemanticMemory.js';
 
@@ -42,20 +44,6 @@ export interface ResearchJobResult {
 // ============================================================================
 // Helpers
 // ============================================================================
-
-function chunkText(text: string, size: number = 2000, overlap: number = 200): string[] {
-  const chunks: string[] = [];
-  if (!text) return chunks;
-  
-  let start = 0;
-  while (start < text.length) {
-    const end = Math.min(start + size, text.length);
-    chunks.push(text.substring(start, end));
-    if (end === text.length) break;
-    start += size - overlap;
-  }
-  return chunks;
-}
 
 function computeEntityHash(entityType: string, payload: Record<string, unknown>): string {
 
@@ -114,25 +102,31 @@ export async function processResearchJob(
           
           logger.info('SEC sections retrieved', { jobId, sections: Object.keys(sections) });
           
-          // Vector Ingestion for SEC (R2.2)
+          // Vector Ingestion for SEC (R2.2) - Parallelized
+          const ingestionQueue = new PQueue({ concurrency: 5 });
+          
           for (const [name, text] of Object.entries(sections)) {
-            const chunks = chunkText(text);
+            const chunks = semanticMemory.chunkText(text);
             for (let i = 0; i < chunks.length; i++) {
-              await semanticMemory.storeChunk({
-                type: 'sec_filing_chunk',
-                content: chunks[i],
-                sourceUrl: `sec://edgar/${ticker}/${name}`,
-                tenantId,
-                contextId,
-                metadata: {
-                  section: name,
-                  chunk_index: i,
-                  total_chunks: chunks.length,
-                  ticker
-                }
+              void ingestionQueue.add(async () => {
+                await semanticMemory.storeChunk({
+                  type: 'sec_filing_chunk',
+                  content: chunks[i],
+                  sourceUrl: `sec://edgar/${ticker}/${name}`,
+                  tenantId,
+                  contextId,
+                  metadata: {
+                    section: name,
+                    chunk_index: i,
+                    total_chunks: chunks.length,
+                    ticker,
+                    tier: 'tier1'
+                  }
+                });
               });
             }
           }
+          await ingestionQueue.onIdle();
 
           // Update status
           await updateEntityStatus(supabase, jobId, 'sec_filing', 'completed');
@@ -147,24 +141,29 @@ export async function processResearchJob(
     logger.info('Starting web crawl', { jobId, website });
     const crawlResult: CrawlResult = await crawlWebsite(website);
     
-    // Vector Ingestion for Web (R2.2)
+    // Vector Ingestion for Web (R2.2) - Parallelized
+    const webIngestionQueue = new PQueue({ concurrency: 5 });
     for (const page of crawlResult.pages) {
-      const chunks = chunkText(page.content);
+      const chunks = semanticMemory.chunkText(page.content);
       for (let i = 0; i < chunks.length; i++) {
-        await semanticMemory.storeChunk({
-          type: 'web_chunk',
-          content: chunks[i],
-          sourceUrl: page.url,
-          tenantId,
-          contextId,
-          metadata: {
-            title: page.title,
-            chunk_index: i,
-            total_chunks: chunks.length
-          }
+        void webIngestionQueue.add(async () => {
+          await semanticMemory.storeChunk({
+            type: 'web_chunk',
+            content: chunks[i],
+            sourceUrl: page.url,
+            tenantId,
+            contextId,
+            metadata: {
+              title: page.title,
+              chunk_index: i,
+              total_chunks: chunks.length,
+              tier: 'tier3'
+            }
+          });
         });
       }
     }
+    await webIngestionQueue.onIdle();
 
     logger.info('Crawl and Vector Ingestion complete', {
       jobId,
@@ -210,10 +209,41 @@ export async function processResearchJob(
       { companyName: undefined, industry, companySize, salesMotion },
       llmGateway,
       tenantId,
+      contextId,
       async (entityType: EntityType, status: 'running' | 'completed' | 'failed') => {
         await updateEntityStatus(supabase, jobId, entityType, status);
       },
     );
+
+    // 4.5 Grounded Value Hypothesis Generation (R3.2)
+    const products = extractionResults.find(r => r.entityType === 'product')?.items || [];
+    if (products.length > 0 && contextId) {
+      try {
+        const hypotheses = await generateValueHypotheses(
+          products.map(p => p.payload),
+          { industry, companySize, salesMotion },
+          llmGateway,
+          tenantId,
+          contextId
+        );
+
+        if (hypotheses.length > 0) {
+          extractionResults.push({
+            entityType: 'value_pattern',
+            items: hypotheses.map(h => ({
+              payload: h as any,
+              confidence_score: 0.85,
+              source_urls: ['sec://edgar'],
+              source_page_url: 'https://www.sec.gov/edgar'
+            })),
+            success: true
+          });
+          logger.info('Generated grounded value hypotheses', { count: hypotheses.length });
+        }
+      } catch (hvErr) {
+        logger.warn('Value hypothesis generation failed', { error: (hvErr as any).message });
+      }
+    }
 
     // ... (rest of the worker logic remains same) ...
   } catch (err) {

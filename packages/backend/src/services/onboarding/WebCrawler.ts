@@ -100,12 +100,35 @@ function extractSameDomainLinks(html: string, baseUrl: URL): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getLinkScore(url: string): number {
+  const path = url.toLowerCase();
+  if (path.includes('/product')) return 100;
+  if (path.includes('/solution')) return 90;
+  if (path.includes('/pricing')) return 80;
+  if (path.includes('/platform')) return 70;
+  if (path.includes('/capability')) return 60;
+  if (path.includes('/about')) return 50;
+  if (path.includes('/company')) return 40;
+  if (path.includes('/resource')) return 30;
+  return 0;
+}
+
+interface ScoredLink {
+  url: string;
+  score: number;
+}
+
+// ---------------------------------------------------------------------------
 // Main crawl function
 // ---------------------------------------------------------------------------
 
 /**
  * Crawl a website: homepage + up to MAX_PAGES same-domain linked pages.
  * Uses WebScraperService for content extraction (cheerio, SSRF protection).
+ * Prioritizes high-value paths like /products and /solutions.
  */
 export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
   const startTime = Date.now();
@@ -120,7 +143,7 @@ export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
   }
 
   const homepageUrl = `${baseUrl.protocol}//${baseUrl.hostname}${baseUrl.pathname}`;
-  const queue: string[] = [homepageUrl];
+  const queue: ScoredLink[] = [{ url: homepageUrl, score: 1000 }]; // Homepage always first
   let totalChars = 0;
 
   while (queue.length > 0 && pages.length < MAX_PAGES && totalChars < MAX_TOTAL_CHARS) {
@@ -129,9 +152,14 @@ export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
       break;
     }
 
-    const url = queue.shift()!;
+    // Sort queue by score (descending) and pick the best one
+    queue.sort((a, b) => b.score - a.score);
+    const { url } = queue.shift()!;
+    
     if (visited.has(url)) continue;
     visited.add(url);
+
+    logger.debug('Crawling URL', { url, score: getLinkScore(url) });
 
     // Use the production scraper for content extraction
     const result: WebScraperResult | null = await scraper.scrape(url, 1);
@@ -151,15 +179,13 @@ export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
     pages.push({ url, text: trimmedText });
     totalChars += trimmedText.length;
 
-    // Discover links from the first few pages
-    if (pages.length <= 3) {
-      const html = await fetchRawHtml(url, 5_000);
-      if (html) {
-        const links = extractSameDomainLinks(html, baseUrl);
-        for (const link of links) {
-          if (!visited.has(link) && !queue.includes(link)) {
-            queue.push(link);
-          }
+    // Discover links and add to queue with scores
+    const html = await fetchRawHtml(url, 5_000);
+    if (html) {
+      const links = extractSameDomainLinks(html, baseUrl);
+      for (const link of links) {
+        if (!visited.has(link) && !queue.find(q => q.url === link)) {
+          queue.push({ url: link, score: getLinkScore(link) });
         }
       }
     }

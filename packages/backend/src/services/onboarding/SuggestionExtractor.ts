@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import { logger } from '../../lib/logger.js';
 import type { CrawledPage } from './WebCrawler.js';
+import { semanticMemory } from '../SemanticMemory.js';
 
 // ============================================================================
 // Types
@@ -164,6 +165,22 @@ function assignConfidence(item: Record<string, unknown>, entityType: EntityType)
 }
 
 /**
+ * Get a specialized query for RAG retrieval based on entity type.
+ */
+function getRetrievalQuery(entityType: EntityType, context: ExtractionContext): string {
+  const company = context.companyName || 'the company';
+  const queries: Record<EntityType, string> = {
+    product: `What products, solutions, and services does ${company} offer?`,
+    competitor: `Who are the main competitors of ${company}? Who do they compete with?`,
+    persona: `What are the target buyer personas, job titles, and roles that ${company} sells to?`,
+    claim: `What value propositions, ROI claims, and benefits does ${company} promise to customers?`,
+    capability: `What are the core capabilities and operational features of ${company}'s platform?`,
+    value_pattern: `What are the key value drivers and business outcomes associated with ${company}'s products?`,
+  };
+  return queries[entityType];
+}
+
+/**
  * Extract entities of a single type from crawled pages.
  */
 export async function extractEntityType(
@@ -172,17 +189,43 @@ export async function extractEntityType(
   context: ExtractionContext,
   llmGateway: LLMGatewayInterface,
   tenantId: string,
+  contextId?: string,
 ): Promise<ExtractionResult> {
   try {
+    let ragContext = '';
+    
+    // R2.3: Retrieval Step
+    if (contextId) {
+      const query = getRetrievalQuery(entityType, context);
+      const searchResults = await semanticMemory.search(query, {
+        limit: 15, // Retrieve top 15 relevant chunks
+      });
+      
+      if (searchResults.length > 0) {
+        ragContext = searchResults
+          .map(r => `[Source: ${r.entry.metadata.source_url || 'Unknown'}]\n${r.entry.content}`)
+          .join('\n\n---\n\n');
+        
+        logger.info('RAG context retrieved', { entityType, chunks: searchResults.length });
+      }
+    }
+
+    // Fallback or additional context from pages (keeping it for now to ensure coverage)
     const combinedText = pages.map((p) => p.text).join('\n\n---\n\n');
-    const truncatedText = combinedText.substring(0, 30_000); // Keep prompt manageable
+    const truncatedText = combinedText.substring(0, 20_000); 
 
     const systemPrompt = getSystemPrompt(entityType, context);
+    
+    const userPrompt = `
+${ragContext ? `PREORITIZED CONTEXT (from vector search):\n${ragContext}\n\n` : ''}
+${truncatedText ? `ADDITIONAL CONTEXT:\n${truncatedText}\n\n` : ''}
+Please extract ${entityType} entities from the context provided above.
+`;
 
     const response = await llmGateway.complete({
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: truncatedText },
+        { role: 'user', content: userPrompt },
       ],
       metadata: {
         tenantId,
@@ -236,6 +279,7 @@ export async function extractAllEntities(
   context: ExtractionContext,
   llmGateway: LLMGatewayInterface,
   tenantId: string,
+  contextId?: string,
   onEntityProgress?: (entityType: EntityType, status: 'running' | 'completed' | 'failed') => void,
 ): Promise<ExtractionResult[]> {
   const entityTypes: EntityType[] = ['product', 'competitor', 'persona', 'claim', 'capability', 'value_pattern'];
@@ -243,7 +287,7 @@ export async function extractAllEntities(
   const results = await Promise.allSettled(
     entityTypes.map(async (entityType) => {
       onEntityProgress?.(entityType, 'running');
-      const result = await extractEntityType(entityType, pages, context, llmGateway, tenantId);
+      const result = await extractEntityType(entityType, pages, context, llmGateway, tenantId, contextId);
       onEntityProgress?.(entityType, result.success ? 'completed' : 'failed');
       return result;
     })
