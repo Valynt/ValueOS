@@ -30,9 +30,13 @@ fi
 
 echo "📦 Installing dependencies..."
 
+# Display pinned tool versions
+bash .devcontainer/scripts/toolchain-versions.sh
+
 # Enable pnpm
 corepack enable
-corepack prepare pnpm@latest --activate
+PNPM_VERSION="$(.devcontainer/scripts/read-version.sh pnpm)"
+corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
 # Install workspace dependencies
 if [ -f pnpm-lock.yaml ]; then
