@@ -29,6 +29,14 @@ export function getConfig() {
     agents: {
       enabled: process.env.AGENTS_ENABLED !== "false",
       maxConcurrent: Number(process.env.AGENTS_MAX_CONCURRENT) || 5,
+      apiUrl: process.env.AGENTS_API_URL || "http://localhost:3001/api/agents",
+      timeout: Number(process.env.AGENTS_TIMEOUT) || 30_000,
+      logging: process.env.AGENTS_LOGGING !== "false",
+      circuitBreaker: {
+        enabled: process.env.AGENTS_CIRCUIT_BREAKER_ENABLED !== "false",
+        threshold: Number(process.env.AGENTS_CB_THRESHOLD) || 5,
+        cooldown: Number(process.env.AGENTS_CB_COOLDOWN) || 30_000,
+      },
     },
     cache: {
       enabled: process.env.CACHE_ENABLED !== "false",

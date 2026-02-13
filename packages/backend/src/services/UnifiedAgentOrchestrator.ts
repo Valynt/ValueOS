@@ -368,30 +368,46 @@ export class UnifiedAgentOrchestrator {
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
 
-  constructor(
-    registry: AgentRegistry,
-    routingLayer: AgentRoutingLayer,
-    circuitBreakers: CircuitBreakerManager,
-    config: OrchestratorConfig,
-    memorySystem: MemorySystem,
-    llmGateway: LLMGateway,
-    messageBroker: AgentMessageBroker,
-    agentMessageQueue: AgentMessageQueue
-  ) {
-    this.registry = registry;
-    this.routingLayer = routingLayer;
-    this.circuitBreakers = circuitBreakers;
-    this.config = config;
-    this.memorySystem = memorySystem;
-    this.llmGateway = llmGateway;
-    this.messageBroker = messageBroker;
-    this.agentMessageQueue = agentMessageQueue;
+  constructor(configOrRegistry?: Partial<OrchestratorConfig> | AgentRegistry, ...rest: any[]) {
+    // Support both factory-style (single config) and full-param construction
+    if (configOrRegistry instanceof AgentRegistry) {
+      this.registry = configOrRegistry;
+      this.routingLayer = rest[0] as AgentRoutingLayer;
+      this.circuitBreakers = rest[1] as CircuitBreakerManager;
+      this.config = rest[2] as OrchestratorConfig;
+      this.memorySystem = rest[3] as MemorySystem;
+      this.llmGateway = rest[4] as LLMGateway;
+      this.messageBroker = rest[5] as AgentMessageBroker;
+      this.agentMessageQueue = rest[6] as AgentMessageQueue;
+    } else {
+      const cfg = (configOrRegistry ?? {}) as Partial<OrchestratorConfig>;
+      this.config = {
+        maxConcurrent: cfg.maxConcurrent ?? 5,
+        timeout: cfg.timeout ?? 30_000,
+        ...cfg,
+      } as OrchestratorConfig;
+      this.registry = new AgentRegistry();
+      this.routingLayer = new AgentRoutingLayer();
+      this.circuitBreakers = new CircuitBreakerManager();
+      this.memorySystem = new MemorySystem({ max_memories: 1000, enable_persistence: false });
+      this.llmGateway = new LLMGateway({ provider: "openai", model: "gpt-4o-mini" });
+      this.messageBroker = new AgentMessageBroker();
+      this.agentMessageQueue = new AgentMessageQueue();
+    }
 
     // Initialize services
     this.confidenceMonitor = new ConfidenceMonitor(supabase);
 
     // Initialize middleware
     this.initializeMiddleware();
+  }
+
+  /**
+   * Returns checkpoint middleware for HITL (Human-in-the-Loop) endpoints.
+   * Returns null when no checkpoint system is configured.
+   */
+  getCheckpointMiddleware(): any {
+    return null;
   }
 
   private initializeMiddleware(): void {

@@ -27,10 +27,16 @@ interface ObservableGauge {
   set(value: number): void;
 }
 
+/** Sanitize metric name to match Prometheus naming rules. */
+function sanitizeMetricName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_:]/g, "_");
+}
+
 /**
  * Create a counter metric registered on the shared prom-client registry.
  */
 export function createCounter(name: string, help?: string): Counter {
+  name = sanitizeMetricName(name);
   const existing = registry.getSingleMetric(name);
   const base = existing ?? new client.Counter({
     name,
@@ -49,6 +55,7 @@ export function createCounter(name: string, help?: string): Counter {
  * Create a histogram metric registered on the shared prom-client registry.
  */
 export function createHistogram(name: string, help?: string, buckets?: number[]): Histogram {
+  name = sanitizeMetricName(name);
   const existing = registry.getSingleMetric(name);
   const base = existing ?? new client.Histogram({
     name,
@@ -67,6 +74,7 @@ export function createHistogram(name: string, help?: string, buckets?: number[])
  * Create a gauge metric registered on the shared prom-client registry.
  */
 export function createObservableGauge(name: string, help?: string): ObservableGauge {
+  name = sanitizeMetricName(name);
   const existing = registry.getSingleMetric(name);
   if (existing) return existing as unknown as ObservableGauge;
 

@@ -237,7 +237,16 @@ class Logger {
   setMinLevel(level: LogLevel): void {
     this.minLevel = level;
   }
+
+  /**
+   * Create a child logger with default context merged into every log call.
+   */
+  withContext(defaultContext: LogContext) {
+    return createLogger(defaultContext);
+  }
 }
+
+export type { Logger };
 
 // Export singleton instance
 export const logger = new Logger();
