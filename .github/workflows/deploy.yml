@@ -68,6 +68,7 @@ jobs:
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
       image_digest: ${{ steps.build.outputs.digest }}
+      image_ref: ${{ steps.image-ref.outputs.image_ref }}
     steps:
       - uses: actions/checkout@v4
 
@@ -100,13 +101,102 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Resolve immutable image reference
+        id: image-ref
+        run: |
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_ENV"
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate CycloneDX SBOM for container image
+        run: |
+          syft "${IMAGE_REF}" -o cyclonedx-json=sbom-${{ github.sha }}.cdx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: cosign sign --yes "${IMAGE_REF}"
+
+      - name: Attest SLSA provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest image SBOM
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign attest --yes --type cyclonedx --predicate "sbom-${{ github.sha }}.cdx.json" "${IMAGE_REF}"
+
+      - name: Download signatures and attestations for archival
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign download signature "${IMAGE_REF}" > signatures-${{ github.sha }}.json
+          cosign download attestation "${IMAGE_REF}" > attestations-${{ github.sha }}.json
+
+      - name: Upload SBOM and attestations
+        uses: actions/upload-artifact@v4
+        with:
+          name: supply-chain-artifacts-${{ github.sha }}
+          path: |
+            sbom-${{ github.sha }}.cdx.json
+            signatures-${{ github.sha }}.json
+            attestations-${{ github.sha }}.json
+
+  verify-supply-chain:
+    name: Verify Supply Chain Artifacts
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    steps:
+      - name: Download SBOM and attestation artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: supply-chain-artifacts-${{ github.sha }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify signed image and attestations
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
+        run: |
+          test -s "sbom-${{ github.sha }}.cdx.json"
+          jq -e '.bomFormat == "CycloneDX"' "sbom-${{ github.sha }}.cdx.json" >/dev/null
+
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
+            "${IMAGE_REF}"
+
+          cosign verify-attestation \
+            --type slsaprovenance \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
+            "${IMAGE_REF}"
+
+          cosign verify-attestation \
+            --type cyclonedx \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
+            "${IMAGE_REF}"
+
   # ──────────────────────────────────────────────────────────────────────────
   # 3. Deploy to staging (automatic on main push)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build-images]
+    needs: [build-images, verify-supply-chain]
     environment:
       name: staging
       url: https://staging.valueos.app
@@ -164,7 +254,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging, build-images]
+    needs: [deploy-staging, build-images, verify-supply-chain]
     if: github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     environment:
       name: production
