@@ -80,6 +80,9 @@ jobs:
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
 
+      - name: Kubernetes secrets hygiene
+        run: node scripts/ci/check-k8s-secrets-hygiene.mjs
+
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs
 
