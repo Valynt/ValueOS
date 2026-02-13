@@ -771,7 +771,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
 
     logger.debug("Streaming thinking update", progress);
 
-    // TODO: Send to UI via MessageBus or WebSocket
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Send to UI via MessageBus or WebSocket
     // await this.messageBus.send('thinking-update', progress);
   }
 

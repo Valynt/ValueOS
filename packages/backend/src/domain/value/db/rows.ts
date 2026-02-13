@@ -3,7 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// TODO: Import generated Supabase types if available
+// TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Import generated Supabase types if available
 // import { Database } from '...';
 
 // Minimal row types (replace with generated types if available)

@@ -17,7 +17,7 @@ function loadStrictZones() {
 }
 
 function listCodeFiles() {
-  const output = execSync(`rg --files -g '*.{ts,tsx,js,jsx,mjs,cjs}' apps packages scripts`, {
+  const output = execSync(`rg --files -g '*.{ts,tsx,js,jsx,mjs,cjs,tf}' apps packages scripts infra`, {
     encoding: "utf8",
   });
   return output.split("\n").filter(Boolean);

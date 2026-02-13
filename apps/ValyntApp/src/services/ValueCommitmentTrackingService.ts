@@ -116,7 +116,7 @@ export class ValueCommitmentTrackingService {
    */
   async getCommitment(commitmentId: string, tenantId: string): Promise<CommitmentDashboard | null> {
     try {
-      // TODO: Fetch from database with joins
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Fetch from database with joins
       // const commitment = await this.db.query.value_commitments.findFirst({
       //   where: (commitments, { eq }) => eq(commitments.id, commitmentId) && eq(commitments.tenant_id, tenantId),
       //   with: {
@@ -147,7 +147,7 @@ export class ValueCommitmentTrackingService {
     reason?: string
   ): Promise<ValueCommitment> {
     try {
-      // TODO: Update in database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Update in database
       // const existing = await this.getCommitmentBasic(commitmentId, tenantId);
       // const updated = await this.db.update('value_commitments')
       //   .set({ status, progress_percentage: progressPercentage, updated_at: new Date() })
@@ -201,7 +201,7 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentStakeholderSchema.parse(data);
 
-      // TODO: Insert into database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Insert into database
       // const stakeholder = await this.db.insert('commitment_stakeholders').values(validatedData).returning();
 
       // Create audit entry
@@ -244,7 +244,7 @@ export class ValueCommitmentTrackingService {
     >
   ): Promise<CommitmentStakeholder> {
     try {
-      // TODO: Update in database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Update in database
       // const existing = await this.db.query.commitment_stakeholders.findFirst({
       //   where: eq('id', stakeholderId) && eq('tenant_id', tenantId)
       // });
@@ -287,7 +287,7 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentMilestoneSchema.parse(data);
 
-      // TODO: Insert into database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Insert into database
       // const milestone = await this.db.insert('commitment_milestones').values(validatedData).returning();
 
       // Create audit entry
@@ -327,7 +327,7 @@ export class ValueCommitmentTrackingService {
     actualDate?: string
   ): Promise<CommitmentMilestone> {
     try {
-      // TODO: Update in database and trigger progress recalculation
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Update in database and trigger progress recalculation
       // const updated = await this.db.update('commitment_milestones')
       //   .set({
       //     progress_percentage: progressPercentage,
@@ -349,7 +349,7 @@ export class ValueCommitmentTrackingService {
         "Milestone progress updated"
       );
 
-      // TODO: Trigger commitment progress recalculation
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Trigger commitment progress recalculation
       // await this.updateCommitmentProgress(updated.commitment_id);
 
       logger.info("Milestone progress updated", {
@@ -388,7 +388,7 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentMetricSchema.parse(data);
 
-      // TODO: Insert into database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Insert into database
       // const metric = await this.db.insert('commitment_metrics').values(validatedData).returning();
 
       // Create audit entry
@@ -456,7 +456,7 @@ export class ValueCommitmentTrackingService {
         "Metric value updated"
       );
 
-      // TODO: Trigger commitment progress recalculation
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Trigger commitment progress recalculation
       // await this.updateCommitmentProgress(updated.commitment_id);
 
       logger.info("Metric value updated", { metricId, tenantId, currentValue });
@@ -491,7 +491,7 @@ export class ValueCommitmentTrackingService {
 
       const validatedData = CommitmentRiskSchema.parse(data);
 
-      // TODO: Insert into database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Insert into database
       // const risk = await this.db.insert('commitment_risks').values(validatedData).returning();
 
       // Create audit entry
@@ -531,7 +531,7 @@ export class ValueCommitmentTrackingService {
     mitigatedAt?: string
   ): Promise<CommitmentRisk> {
     try {
-      // TODO: Update in database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Update in database
       // const updated = await this.db.update('commitment_risks')
       //   .set({
       //     status,
@@ -570,7 +570,7 @@ export class ValueCommitmentTrackingService {
    */
   async calculateProgress(commitmentId: string, tenantId: string): Promise<CommitmentProgress> {
     try {
-      // TODO: Calculate from database
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Calculate from database
       // const milestones = await this.db.query.commitment_milestones.findMany({
       //   where: eq('commitment_id', commitmentId)
       // });
@@ -604,7 +604,7 @@ export class ValueCommitmentTrackingService {
    */
   async getAtRiskCommitments(tenantId: string): Promise<ValueCommitment[]> {
     try {
-      // TODO: Query database for commitments that are at risk
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Query database for commitments that are at risk
       // const atRiskCommitments = await this.db.query.value_commitments.findMany({
       //   where: (commitments, { eq, and, lt, or }) =>
       //     and(
@@ -642,7 +642,7 @@ export class ValueCommitmentTrackingService {
     recommendations: string[];
   }> {
     try {
-      // TODO: Get commitment and validate against ESO benchmarks
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Get commitment and validate against ESO benchmarks
       // const commitment = await this.getCommitmentBasic(commitmentId, tenantId);
 
       // Use ground truth service to validate
@@ -697,7 +697,7 @@ export class ValueCommitmentTrackingService {
 
       const validatedAudit = CommitmentAuditSchema.parse(auditData);
 
-      // TODO: Insert audit entry
+      // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Insert audit entry
       // await this.db.insert('commitment_audits').values(validatedAudit);
 
       logger.debug("Audit entry created", { commitmentId, tenantId, action });

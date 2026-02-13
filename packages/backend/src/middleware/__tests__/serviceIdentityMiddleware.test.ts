@@ -1,10 +1,10 @@
+import { createHash, createHmac } from 'crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { addServiceIdentityHeader, serviceIdentityMiddleware } from '../serviceIdentityMiddleware.js'
-import { getAutonomyConfig } from '../../config/autonomy';
 
 vi.mock('../../config/autonomy', () => ({
   getAutonomyConfig: vi.fn(() => ({
-    serviceIdentityToken: 'secret-token',
+    serviceIdentityToken: '',
   })),
 }));
 
@@ -16,8 +16,12 @@ function mockRes() {
 }
 
 describe('serviceIdentityMiddleware', () => {
-  it('rejects missing headers', () => {
-    const req = { header: vi.fn(() => undefined) } as any;
+  it('rejects missing signed assertion headers', () => {
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+    const req = { method: 'POST', url: '/internal', originalUrl: '/internal', body: {}, header: vi.fn(() => undefined) } as any;
     const res = mockRes();
     const next = vi.fn();
 
@@ -25,24 +29,49 @@ describe('serviceIdentityMiddleware', () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
   });
 
-  it('accepts valid identity + timestamp + nonce', async () => {
+  it('accepts valid hmac signed assertion', async () => {
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+
     const now = Date.now();
+    const nonce = 'nonce';
+    const body = { ping: true };
+    const bodyHash = createHash('sha256').update(JSON.stringify(body)).digest('hex');
+    const payload = ['POST', '/internal', bodyHash, String(now), nonce].join('\n');
+    const signature = createHmac('sha256', 'super-secret').update(payload).digest('hex');
+
     const req = {
+      method: 'POST',
+      url: '/internal',
+      originalUrl: '/internal',
+      body,
       header: vi.fn((name: string) => {
         switch (name.toLowerCase()) {
-          case 'x-service-identity':
-            return 'secret-token';
+          case 'x-service-id':
+            return 'agent-api';
+          case 'x-key-id':
+            return 'k1';
+          case 'x-service-audience':
+            return 'valueos-backend';
+          case 'x-request-signature':
+            return signature;
           case 'x-request-timestamp':
             return now.toString();
           case 'x-request-nonce':
-            return 'nonce';
+            return nonce;
+          case 'x-body-sha256':
+            return bodyHash;
           default:
             return undefined;
         }
       }),
     } as any;
+
     const res = mockRes();
     const next = vi.fn();
 
@@ -51,25 +80,29 @@ describe('serviceIdentityMiddleware', () => {
         next();
         resolve();
       });
+      setTimeout(resolve, 25);
     });
 
     expect(next).toHaveBeenCalled();
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
   });
 });
 
 describe('addServiceIdentityHeader', () => {
-  it('adds signing headers when token present', () => {
-    const headers: Record<string, string> = {};
-    const result = addServiceIdentityHeader(headers);
-    expect(result['X-Service-Identity']).toBe('secret-token');
-    expect(result['X-Request-Timestamp']).toBeDefined();
-    expect(result['X-Request-Nonce']).toBeDefined();
-  });
+  it('adds hmac signing headers when outbound key present', () => {
+    process.env.SERVICE_IDENTITY_CONFIG_JSON = JSON.stringify({
+      expectedAudience: 'valueos-backend',
+      hmacKeys: [{ serviceId: 'agent-api', keyId: 'k1', secret: 'super-secret', audience: 'valueos-backend' }],
+    });
+    process.env.SERVICE_IDENTITY_CALLER_ID = 'agent-api';
 
-  it('is no-op when no token configured', () => {
-    (getAutonomyConfig as any).mockReturnValueOnce({ serviceIdentityToken: '' });
     const headers: Record<string, string> = {};
-    const result = addServiceIdentityHeader(headers);
-    expect(result['X-Service-Identity']).toBeUndefined();
+    const result = addServiceIdentityHeader(headers, { method: 'POST', path: '/agents', body: { hello: 'world' } });
+    expect(result['X-Service-Id']).toBe('agent-api');
+    expect(result['X-Key-Id']).toBe('k1');
+    expect(result['X-Request-Signature']).toBeDefined();
+
+    delete process.env.SERVICE_IDENTITY_CONFIG_JSON;
+    delete process.env.SERVICE_IDENTITY_CALLER_ID;
   });
 });

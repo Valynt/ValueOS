@@ -208,7 +208,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
       {/* Skip link for accessibility */}
       <a
         href="#main-content"
-        className="skip-link focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-primary text-primary-foreground px-4 py-2 rounded-md z-50"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 bg-primary text-primary-foreground px-4 py-2 rounded-md z-[100]"
       >
         Skip to main content
       </a>
@@ -343,7 +343,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
       </Dialog>
 
       {/* Main Content - Improved mobile responsiveness */}
-      <main id="main-content" className="flex-1 overflow-y-auto overflow-x-hidden pt-16 lg:pt-0 bg-background w-full">
+      <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto overflow-x-hidden pt-16 lg:pt-0 bg-background w-full">
         <div className="min-h-full w-full">
           {children}
         </div>

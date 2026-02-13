@@ -12,6 +12,7 @@ import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
+import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 
 export interface MFASecret {
   id: string;
@@ -195,6 +196,7 @@ export class MFAService extends BaseService {
           .eq("user_id", userId);
 
         this.clearCache(`mfa-status-${userId}`);
+        await userProfileDirectoryService.syncProfile(userId);
         return true;
       },
       { skipCache: true }
@@ -279,6 +281,7 @@ export class MFAService extends BaseService {
         await this.supabase.from("mfa_secrets").update({ enabled: false }).eq("user_id", userId);
 
         this.clearCache(`mfa-status-${userId}`);
+        await userProfileDirectoryService.syncProfile(userId);
       },
       { skipCache: true }
     );
