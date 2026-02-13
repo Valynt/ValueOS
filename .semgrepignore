@@ -1,0 +1,2 @@
+# Semgrep allowlist
+# Prefer fixing findings. If suppression is required, document expiry + ticket in PR.

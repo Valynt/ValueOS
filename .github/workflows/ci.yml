@@ -11,6 +11,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: Build & Test
@@ -63,7 +66,6 @@ jobs:
   rls-and-compliance:
     name: RLS & Compliance Tests
     runs-on: ubuntu-latest
-    # Only run when Supabase secrets are available (not on forks)
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout
@@ -96,16 +98,263 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
 
-  security:
-    name: Security Scan
+  allowlist-approval:
+    name: Allowlist Approval Gate
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    steps:
+      - name: Check changed allowlist files
+        id: changes
+        uses: tj-actions/changed-files@v45
+        with:
+          files: |
+            .github/security/**
+            .trivyignore
+            .checkov.yml
+            .hadolint.yaml
+            .semgrepignore
+
+      - name: Enforce approval label for allowlist changes
+        uses: actions/github-script@v7
+        env:
+          ANY_CHANGED: ${{ steps.changes.outputs.any_changed }}
+        with:
+          script: |
+            if (process.env.ANY_CHANGED !== 'true') {
+              core.info('No allowlist changes detected.');
+              return;
+            }
+
+            const labels = context.payload.pull_request.labels.map((label) => label.name);
+            if (!labels.includes('security-allowlist-approved')) {
+              core.setFailed('Allowlist/security policy changes require the `security-allowlist-approved` label.');
+              return;
+            }
+
+            core.info('Allowlist change is approved by required label.');
+
+  codeql:
+    name: CodeQL (SAST)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze and upload SARIF
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
+          output: codeql-results.sarif
+
+      - name: Enforce CodeQL severity threshold (HIGH/CRITICAL)
+        run: |
+          high_or_critical=$(jq '[.runs[].results[] | select(((.properties."security-severity" // "0") | tonumber) >= 7)] | length' codeql-results.sarif)
+          echo "CodeQL high/critical findings: ${high_or_critical}"
+          test "${high_or_critical}" -eq 0
+
+  semgrep:
+    name: Semgrep (SAST)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Semgrep
+        run: python3 -m pip install --user semgrep
+
+      - name: Run Semgrep and generate SARIF
+        run: |
+          ~/.local/bin/semgrep scan --config p/security-audit --severity ERROR --error --sarif --output semgrep-results.sarif
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep
+
+  trivy-filesystem:
+    name: Trivy (Filesystem)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan (SARIF)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          hide-progress: true
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          trivyignores: .trivyignore
+
+      - name: Upload Trivy filesystem SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-fs
+
+      - name: Enforce Trivy filesystem severity threshold (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          hide-progress: true
+          ignore-unfixed: true
+          format: table
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          exit-code: "1"
+
+  trivy-image:
+    name: Trivy (Container Image)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build CI image
+        run: docker build -f Dockerfile.dev -t valueos:ci-scan .
+
+      - name: Trivy image scan (SARIF)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: valueos:ci-scan
+          hide-progress: true
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          trivyignores: .trivyignore
+
+      - name: Upload Trivy image SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-image
+
+      - name: Enforce Trivy image severity threshold (HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: valueos:ci-scan
+          hide-progress: true
+          ignore-unfixed: true
+          format: table
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          exit-code: "1"
+
+  checkov:
+    name: Checkov (IaC)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Checkov with SARIF output
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra
+          framework: terraform,kubernetes,dockerfile,secrets
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          config_file: .checkov.yml
+          hard_fail_on: HIGH,CRITICAL
+          soft_fail_on: MEDIUM
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+  hadolint:
+    name: Hadolint (Dockerfiles)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Hadolint
+        run: |
+          HADOLINT_VERSION=v2.12.0
+          curl -sSL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o hadolint
+          chmod +x hadolint
+          sudo mv hadolint /usr/local/bin/hadolint
+
+      - name: Generate Hadolint SARIF
+        run: |
+          dockerfiles=$(find . -type f -name 'Dockerfile*' ! -name '*.dockerignore' ! -name '*.template')
+          hadolint --config .hadolint.yaml -f sarif $dockerfiles > hadolint-results.sarif
+
+      - name: Upload Hadolint SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint-results.sarif
+          category: hadolint
+
+      - name: Enforce Hadolint severity threshold (error)
+        run: |
+          violations=$(jq '[.runs[].results[] | select(.level == "error")] | length' hadolint-results.sarif)
+          echo "Hadolint error-level findings: ${violations}"
+          test "${violations}" -eq 0
+
+  security-summary:
+    name: Security Gate Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - allowlist-approval
+      - codeql
+      - semgrep
+      - trivy-filesystem
+      - trivy-image
+      - checkov
+      - hadolint
+    steps:
+      - name: Enforce all security gates
+        run: |
+          statuses=(
+            "${{ needs.allowlist-approval.result }}"
+            "${{ needs.codeql.result }}"
+            "${{ needs.semgrep.result }}"
+            "${{ needs.trivy-filesystem.result }}"
+            "${{ needs.trivy-image.result }}"
+            "${{ needs.checkov.result }}"
+            "${{ needs.hadolint.result }}"
+          )
+
+          for status in "${statuses[@]}"; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "A security job failed: $status"
+              exit 1
+            fi
+          done

@@ -1,0 +1,7 @@
+quiet: true
+compact: true
+skip-path:
+  - node_modules
+  - .pnpm-store
+# Add skips via explicit CKV IDs only with ticket + expiry in PR description.
+skip-check: []

@@ -1,0 +1,4 @@
+# Trivy allowlist
+# Add CVE IDs only with an expiration note and linked remediation ticket.
+# Example:
+# CVE-2024-0000 # expires: 2026-01-01, ticket: SEC-1234

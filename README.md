@@ -117,8 +117,18 @@ See [docs/architecture/](docs/architecture/) for detailed design documents.
 
 ## Security
 
-- **CI security gate**: TruffleHog (secrets), CodeQL + Semgrep (SAST), Trivy (containers + filesystem), Checkov (IaC), Hadolint (Dockerfiles). Critical/high findings block merge.
-- **Pre-commit**: Gitleaks scans staged files.
+- **Active CI security jobs (all upload SARIF to GitHub code scanning where supported)**:
+  - `CodeQL (SAST)`
+  - `Semgrep (SAST)`
+  - `Trivy (Filesystem)`
+  - `Trivy (Container Image)`
+  - `Checkov (IaC)`
+  - `Hadolint (Dockerfiles)`
+  - `Allowlist Approval Gate`
+  - `Security Gate Summary`
+- **Severity policy**: HIGH/CRITICAL findings are blocking by default (Hadolint blocks on `error` severity).
+- **Required status checks for merge**: configure branch protection/rulesets to require all jobs listed above, plus `Build & Test` and `RLS & Compliance Tests`.
+- **Allowlist policy**: Changes to `.trivyignore`, `.checkov.yml`, `.hadolint.yaml`, `.semgrepignore`, or `.github/security/**` require the PR label `security-allowlist-approved` (enforced by CI). See `.github/security/ALLOWLIST_PROCESS.md`.
 - **Secrets**: Vault / AWS Secrets Manager via External Secrets Operator. No secrets in code or config.
 - **RLS**: All tenant-scoped tables enforce row-level security. Dedicated CI check validates policies.
 
