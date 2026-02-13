@@ -15,7 +15,9 @@ export interface MemoryEntry {
     | "target_definition"
     | "opportunity"
     | "integrity_check"
-    | "workflow_result";
+    | "workflow_result"
+    | "sec_filing_chunk"
+    | "web_chunk";
   content: string;
   embedding: number[];
   metadata: {
@@ -27,6 +29,9 @@ export interface MemoryEntry {
     userId?: string;
     workflowId?: string;
     tags?: string[];
+    source_url?: string;
+    chunk_index?: number;
+    total_chunks?: number;
   };
   createdAt: Date;
 }
@@ -112,6 +117,31 @@ export class SemanticMemoryService {
       logger.error("Failed to store memory", error as Error);
       throw error;
     }
+  }
+
+  /**
+   * Store a raw content chunk (RAG support)
+   */
+  async storeChunk(data: {
+    type: "sec_filing_chunk" | "web_chunk";
+    content: string;
+    sourceUrl: string;
+    metadata?: Record<string, any>;
+    tenantId: string;
+    contextId?: string;
+  }): Promise<string> {
+    return this.store({
+      type: data.type,
+      content: data.content,
+      metadata: {
+        agentType: "ResearchWorker",
+        timestamp: new Date(),
+        userId: data.tenantId,
+        workflowId: data.contextId,
+        source_url: data.sourceUrl,
+        ...data.metadata,
+      },
+    });
   }
 
   /**

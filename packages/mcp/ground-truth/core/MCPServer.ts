@@ -22,9 +22,10 @@ import { MarketDataModule } from "../modules/MarketDataModule";
 import { PrivateCompanyModule } from "../modules/PrivateCompanyModule";
 import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
 import { ESOModule } from "../modules/StructuralTruthModule";
+import { EntityMappingModule } from "../modules/EntityMappingModule";
 import { ErrorCodes, GroundTruthError } from "../types";
 import { logger } from "../../lib/logger";
-import { sha256 } from "../../lib/contentHash";
+import { createHash } from "crypto";
 import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
 import { PredictiveModelingService } from "../services/PredictiveModelingService";
 import { AutomatedInsightsService } from "../services/AutomatedInsightsService";
@@ -33,6 +34,12 @@ import { WebSocketServer } from "../services/WebSocketServer";
 import { SECWebhookSystem } from "../services/SECWebhookSystem";
 import { EventBus, getEventBus } from "../services/EventBus";
 import { StreamingSentimentAnalyzer } from "../services/StreamingSentimentAnalyzer";
+import { ToolSchemas } from "../schemas";
+import { z } from "zod";
+
+async function sha256(data: string): Promise<string> {
+  return createHash("sha256").update(data).digest("hex");
+}
 
 interface MCPServerConfig {
   // Module configurations
@@ -117,6 +124,7 @@ export class MCPFinancialGroundTruthServer {
     privateCompany?: PrivateCompanyModule;
     industryBenchmark?: IndustryBenchmarkModule;
     eso?: ESOModule;
+    entityMapping?: EntityMappingModule;
   } = {};
 
   private config: MCPServerConfig;
@@ -196,6 +204,11 @@ export class MCPFinancialGroundTruthServer {
       await this.modules.industryBenchmark.initialize(this.config.industryBenchmark);
       this.truthLayer.registerModule(this.modules.industryBenchmark);
 
+      // Initialize Entity Mapping module (R1.2)
+      this.modules.entityMapping = new EntityMappingModule();
+      await this.modules.entityMapping.initialize({});
+      this.truthLayer.registerModule(this.modules.entityMapping);
+
       // Initialize ESO module (Economic Structure Ontology)
       this.modules.eso = new ESOModule();
       await this.modules.eso.initialize();
@@ -224,7 +237,7 @@ export class MCPFinancialGroundTruthServer {
     } catch (error) {
       logger.error(
         "Failed to initialize MCP server",
-        error instanceof Error ? error : new Error("Unknown error")
+        { error: error instanceof Error ? error.message : "Unknown error" }
       );
       throw error;
     }
@@ -278,6 +291,51 @@ export class MCPFinancialGroundTruthServer {
             },
           },
           required: ["entity_id", "metrics"],
+        },
+      },
+      {
+        name: "get_filing_sections",
+        description:
+          "Retrieves specific qualitative sections (Business, Risk Factors, MD&A) from SEC filings (10-K/10-Q). R1.1 integration.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            identifier: {
+              type: "string",
+              description: "CIK or Ticker symbol.",
+              pattern: "^[A-Z0-9.]{1,20}$",
+            },
+            filing_type: {
+              type: "string",
+              description: "Type of filing to retrieve.",
+              enum: ["10-K", "10-Q", "8-K"],
+              default: "10-K",
+            },
+            sections: {
+              type: "array",
+              description: "List of sections to extract.",
+              items: {
+                type: "string",
+                enum: ["business", "risk_factors", "mda", "financial_statements", "controls"],
+              },
+              minItems: 1,
+            },
+          },
+          required: ["identifier", "sections"],
+        },
+      },
+      {
+        name: "resolve_ticker_from_domain",
+        description: "Resolves a corporate domain name to a public ticker symbol. R1.2 integration.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            domain: {
+              type: "string",
+              description: "Corporate domain (e.g., microsoft.com).",
+            },
+          },
+          required: ["domain"],
         },
       },
       {
@@ -618,6 +676,7 @@ export class MCPFinancialGroundTruthServer {
         inputSchema: {
           type: "object",
           properties: {},
+          required: [],
         },
       },
       // ESO Module Tools
@@ -649,6 +708,18 @@ export class MCPFinancialGroundTruthServer {
               currency?: string;
             }
           );
+
+        case "get_filing_sections":
+          return await this.getFilingSections(
+            args as {
+              identifier: string;
+              filing_type?: string;
+              sections: string[];
+            }
+          );
+
+        case "resolve_ticker_from_domain":
+          return await this.resolveTickerFromDomain(args as { domain: string });
 
         case "get_private_entity_estimates":
           return await this.getPrivateEntityEstimates(
@@ -783,9 +854,9 @@ export class MCPFinancialGroundTruthServer {
     } catch (error) {
       logger.error(
         "MCP tool execution failed",
-        error instanceof Error ? error : new Error("Unknown error"),
         {
           toolName,
+          error: error instanceof Error ? error.message : "Unknown error",
         }
       );
 
@@ -901,6 +972,84 @@ export class MCPFinancialGroundTruthServer {
         {
           type: "text",
           text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: get_filing_sections (R1.1)
+   */
+  private async getFilingSections(args: {
+    identifier: string;
+    filing_type?: string;
+    sections: string[];
+  }): Promise<MCPToolResult> {
+    const { identifier, filing_type = "10-K", sections } = args;
+
+    if (!this.modules.edgar) {
+      throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "EDGAR module not initialized");
+    }
+
+    const results = await this.modules.edgar.query({
+      identifier,
+      metric: "get_filing_sections",
+      options: { filing_type, sections },
+    });
+
+    if (!results.success || !results.data) {
+      throw new GroundTruthError(
+        results.error?.code || ErrorCodes.UPSTREAM_FAILURE,
+        results.error?.message || "Failed to retrieve filing sections"
+      );
+    }
+
+    const data = Array.isArray(results.data) ? results.data : [results.data];
+    const sectionMap: Record<string, string> = {};
+
+    data.forEach((m) => {
+      const sectionName = m.metadata.section;
+      if (sectionName) {
+        sectionMap[sectionName] = m.value as string;
+      }
+    });
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ sections: sectionMap }, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: resolve_ticker_from_domain (R1.2)
+   */
+  private async resolveTickerFromDomain(args: { domain: string }): Promise<MCPToolResult> {
+    const { domain } = args;
+
+    const result = await this.truthLayer.resolve({
+      identifier: domain,
+      metric: "resolve_ticker",
+      prefer_tier: "tier2",
+      fallback_enabled: true,
+    });
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(
+            {
+              domain,
+              ticker: result.metric.value,
+              confidence: result.metric.confidence,
+            },
+            null,
+            2
+          ),
         },
       ],
     };
@@ -1247,6 +1396,7 @@ export class MCPFinancialGroundTruthServer {
     const { metric_name, data, comparison_data } = args;
 
     const result = await this.predictiveService.analyzeTrends({
+      analysisType: comparison_data ? "peer_comparison" : "company",
       data: {
         periods: data.periods,
         values: data.values,
@@ -1333,6 +1483,32 @@ export class MCPFinancialGroundTruthServer {
         {
           type: "text",
           text: JSON.stringify(response, null, 2),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Tool: start_sentiment_stream
+   */
+  private async startSentimentStream(args: {
+    session_id: string;
+    event_type: string;
+    company_name: string;
+  }): Promise<MCPToolResult> {
+    const { session_id, event_type, company_name } = args;
+
+    await this.streamingSentimentAnalyzer.startSession(
+      session_id,
+      event_type as any,
+      company_name
+    );
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ session_id, status: "started" }, null, 2),
         },
       ],
     };

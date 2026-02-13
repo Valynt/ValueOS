@@ -374,6 +374,24 @@ class MCPGroundTruthService {
     }, data => data?.benchmarks || null);
   }
 
+  /**
+   * Get specific sections from SEC filings (R1.1)
+   */
+  async getFilingSections(request: {
+    identifier: string;
+    filingType?: '10-K' | '10-Q';
+    sections: string[];
+  }): Promise<Record<string, string> | null> {
+    await this.initialize();
+
+    // Use financialsMcp key for now as it's EDGAR-related
+    return this.callMcpTool('financialsMcp', 'get_filing_sections', {
+      identifier: request.identifier,
+      filing_type: request.filingType || '10-K',
+      sections: request.sections,
+    }, data => data?.sections || null);
+  }
+
   getCircuitBreakerMetrics(): Record<string, ReturnType<ExternalCircuitBreaker["getMetrics"]>> {
     return {
       [this.breakerKeys.financialsApi]: this.circuitBreaker.getMetrics(this.breakerKeys.financialsApi),

@@ -28,6 +28,11 @@ WORKDIR /app
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
 
+# Install vite as dev dependency
+RUN corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    pnpm add -D vite
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 

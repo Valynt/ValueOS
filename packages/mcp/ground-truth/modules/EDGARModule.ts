@@ -88,7 +88,8 @@ export class EDGARModule extends BaseModule {
     // Can handle CIK or ticker lookups with improved validation
     return !!(
       sanitizedIdentifier.match(/^\d{10}$/) || // CIK format (exactly 10 digits)
-      sanitizedIdentifier.match(/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/) // Ticker format (1-5 letters, optional .class)
+      sanitizedIdentifier.match(/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/) || // Ticker format
+      request.metric === "get_filing_sections" // R1.1 support
     );
   }
 
@@ -109,7 +110,48 @@ export class EDGARModule extends BaseModule {
         );
       }
 
-      // Search for relevant filings
+      // R1.1: Section extraction
+      if (metric === "get_filing_sections") {
+        const sectionsToExtract = options?.sections || ["business", "risk_factors", "mda"];
+        const filings = await this.searchFilings({
+          cik,
+          filing_type: options?.filing_type || "10-K",
+        });
+
+        if (filings.length === 0) {
+          throw new GroundTruthError(
+            ErrorCodes.NO_DATA_FOUND,
+            `No filings found for CIK ${cik}`
+          );
+        }
+
+        const filing = filings[0];
+        const results: FinancialMetric[] = [];
+
+        for (const sectionName of sectionsToExtract) {
+          try {
+            const extraction = await this.extractSection(filing.accession_number, sectionName, filing.file_url);
+            results.push(this.createMetric(
+              `section_${sectionName}`,
+              extraction.content,
+              {
+                source_type: "sec-edgar",
+                source_url: filing.file_url,
+                filing_type: filing.filing_type,
+                accession_number: filing.accession_number,
+                extraction_method: "text-extract",
+              },
+              { section: sectionName, company_name: filing.company_name }
+            ));
+          } catch (err) {
+            logger.warn(`Failed to extract section ${sectionName}`, { cik, error: (err as any).message });
+          }
+        }
+
+        return results;
+      }
+
+      // Search for relevant filings for metrics
       const filings = await this.searchFilings({
         cik,
         filing_type: options?.filing_type || "10-K",
@@ -488,14 +530,87 @@ export class EDGARModule extends BaseModule {
    */
   async extractSection(
     accessionNumber: string,
-    section: string
+    section: string,
+    fileUrl?: string
   ): Promise<EDGARExtraction> {
-    // Implementation would parse filing structure and extract specific sections
-    // This is a placeholder for the full implementation
-    throw new GroundTruthError(
-      ErrorCodes.INVALID_REQUEST,
-      "Section extraction not yet implemented"
-    );
+    await this.enforceRateLimit();
+
+    if (!fileUrl) {
+      throw new GroundTruthError(
+        ErrorCodes.INVALID_REQUEST,
+        "File URL required for section extraction"
+      );
+    }
+
+    try {
+      const response = await fetch(fileUrl, {
+        headers: {
+          "User-Agent": this.userAgent,
+        },
+      });
+
+      if (!response.ok) {
+        throw new GroundTruthError(
+          ErrorCodes.UPSTREAM_FAILURE,
+          `Failed to fetch filing: ${response.status}`
+        );
+      }
+
+      const text = await response.text();
+
+      const sectionPatterns: Record<string, { start: RegExp; end: RegExp }> = {
+        business: {
+          start: /ITEM\s+1\.\s+BUSINESS/i,
+          end: /ITEM\s+1A\.\s+RISK\s+FACTORS/i,
+        },
+        risk_factors: {
+          start: /ITEM\s+1A\.\s+RISK\s+FACTORS/i,
+          end: /ITEM\s+1B\.\s+UNRESOLVED\s+STAFF\s+COMMENTS/i,
+        },
+        mda: {
+          start: /ITEM\s+7\.\s+MANAGEMENT’S\s+DISCUSSION\s+AND\s+ANALYSIS/i,
+          end: /ITEM\s+7A\.\s+QUANTITATIVE\s+AND\s+QUALITATIVE\s+DISCLOSURES/i,
+        },
+      };
+
+      const pattern = sectionPatterns[section.toLowerCase()];
+      if (!pattern) {
+        throw new GroundTruthError(
+          ErrorCodes.INVALID_REQUEST,
+          `Unsupported section: ${section}`
+        );
+      }
+
+      const startIndex = text.search(pattern.start);
+      if (startIndex === -1) {
+        throw new GroundTruthError(
+          ErrorCodes.NO_DATA_FOUND,
+          `Could not find start of section: ${section}`
+        );
+      }
+
+      const remainingText = text.substring(startIndex);
+      const endIndex = remainingText.search(pattern.end);
+
+      let content = "";
+      if (endIndex === -1) {
+        // If we can't find the end pattern, take a reasonable amount of text (e.g. 100kb)
+        content = remainingText.substring(0, 100000);
+      } else {
+        content = remainingText.substring(0, endIndex);
+      }
+
+      return {
+        section,
+        content: content.trim(),
+      };
+    } catch (error) {
+      if (error instanceof GroundTruthError) throw error;
+      throw new GroundTruthError(
+        ErrorCodes.UPSTREAM_FAILURE,
+        `Section extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
   }
 
   /**

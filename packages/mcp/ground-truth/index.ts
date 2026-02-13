@@ -16,6 +16,7 @@ export { XBRLModule } from "./modules/XBRLModule";
 export { MarketDataModule } from "./modules/MarketDataModule";
 export { PrivateCompanyModule } from "./modules/PrivateCompanyModule";
 export { IndustryBenchmarkModule } from "./modules/IndustryBenchmarkModule";
+export { EntityMappingModule } from "./modules/EntityMappingModule";
 // Fix: Import from StructuralTruthModule which contains the ESOModule class
 export { ESOModule } from "./modules/StructuralTruthModule";
 

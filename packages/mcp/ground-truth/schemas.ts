@@ -25,6 +25,16 @@ export const GetAuthoritativeFinancialsSchema = z.object({
     .optional(),
 });
 
+export const GetFilingSectionsSchema = z.object({
+  identifier: z.string().regex(/^[A-Z0-9.]{1,20}$/, "Invalid identifier format"),
+  filing_type: z.enum(["10-K", "10-Q", "8-K"]).default("10-K").optional(),
+  sections: z.array(z.string()).min(1),
+});
+
+export const ResolveTickerFromDomainSchema = z.object({
+  domain: z.string().min(1),
+});
+
 export const GetPrivateEntityEstimatesSchema = z.object({
   domain: z
     .string()
@@ -154,6 +164,8 @@ export const GetStreamingStatsSchema = z.object({});
 
 export const ToolSchemas: Record<string, z.ZodType<any>> = {
   get_authoritative_financials: GetAuthoritativeFinancialsSchema,
+  get_filing_sections: GetFilingSectionsSchema,
+  resolve_ticker_from_domain: ResolveTickerFromDomainSchema,
   get_private_entity_estimates: GetPrivateEntityEstimatesSchema,
   verify_claim_aletheia: VerifyClaimAletheiaSchema,
   populate_value_driver_tree: PopulateValueDriverTreeSchema,
