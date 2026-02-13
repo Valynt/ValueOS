@@ -60,6 +60,24 @@ jobs:
       - name: Test
         run: npx turbo run test
 
+      - name: Coverage (baseline thresholds)
+        run: npx vitest run --config vitest.config.ts --coverage.enabled --coverage.reportsDirectory=coverage/root
+
+      - name: Generate package coverage trend snapshot
+        run: node scripts/reporting/generate-package-coverage-trend.mjs coverage/root
+
+      - name: Upload coverage summary artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-summary-${{ github.run_id }}
+          path: |
+            coverage/root/coverage-summary.json
+            coverage/root/coverage-final.json
+            coverage/root/trend/package-coverage-trend.json
+            coverage/root/trend/package-coverage-trend.md
+          if-no-files-found: error
+
   rls-and-compliance:
     name: RLS & Compliance Tests
     runs-on: ubuntu-latest

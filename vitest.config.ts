@@ -37,8 +37,16 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "json-summary"],
+      reporter: ["text", "json", "json-summary"],
       exclude: ["node_modules/", "src/test/", "**/*.config.*"],
+      thresholds: {
+        global: {
+          statements: 60,
+          branches: 55,
+          functions: 60,
+          lines: 60,
+        },
+      },
     },
   },
   resolve: {
