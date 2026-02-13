@@ -3,13 +3,22 @@ name: CI
 on:
   push:
     branches: [main, develop]
+    tags:
+      - 'v*'
   pull_request:
     branches: [main, develop]
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
 
 jobs:
   ci:
@@ -48,6 +57,14 @@ jobs:
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
+      - name: Debt policy ratchet
+        run: node scripts/debt/inventory.mjs
+      - name: Enforce Valynt service freeze
+        run: pnpm check:valynt-services-freeze
+
+      - name: Check service duplicate filenames
+        run: pnpm check:service-duplicates
+
       - name: Lint
         run: npx turbo run lint
 
@@ -66,7 +83,6 @@ jobs:
   rls-and-compliance:
     name: RLS & Compliance Tests
     runs-on: ubuntu-latest
-    # Only run when Supabase secrets are available (not on forks)
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout
@@ -99,16 +115,141 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
 
-  security:
-    name: Security Scan
+  sast:
+    name: SAST (Semgrep)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
+      - name: Run Semgrep SAST
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+
+  sca-license:
+    name: SCA + License Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability + license scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          vuln-type: os,library
+          scanners: vuln,license,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
+  iac:
+    name: IaC Scan (infra/**)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect IaC files
+        id: detect
+        run: |
+          if [ -d "infra" ] && find infra -type f | grep -q .; then
+            echo "has_infra=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_infra=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Checkov on infra/
+        if: steps.detect.outputs.has_infra == 'true'
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra
+          quiet: true
+          soft_fail: false
+
+      - name: No IaC files present
+        if: steps.detect.outputs.has_infra != 'true'
+        run: echo "No files found under infra/, skipping IaC scan."
+
+  sbom:
+    name: SBOM Generation (CycloneDX)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate CycloneDX SBOM
+        uses: CycloneDX/gh-node-module-generatebom@v1
+        with:
+          path: .
+          output: bom.xml
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyclonedx-sbom
+          path: bom.xml
+
+  image-signature-verify:
+    name: Verify Image Signature (cosign verify)
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_IMAGE_REF: ${{ vars.RELEASE_IMAGE_REF }}
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify release image signature
+        run: |
+          if [ -z "$RELEASE_IMAGE_REF" ]; then
+            echo "RELEASE_IMAGE_REF repo variable is required for cosign verification."
+            exit 1
+          fi
+
+          cosign verify \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/.+" \
+            "$RELEASE_IMAGE_REF"
+
+  security-gate:
+    name: Security Gate (required)
+    runs-on: ubuntu-latest
+    needs:
+      - sast
+      - sca-license
+      - iac
+      - sbom
+      - image-signature-verify
+    if: always()
+    steps:
+      - name: Fail if any security job failed
+        run: |
+          status_list="${{ join(needs.*.result, ' ') }}"
+          echo "Security job results: $status_list"
+          for status in $status_list; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "A required security job failed or was cancelled."
+              exit 1
+            fi
+          done
+
+      - name: Block unresolved P0/P1 labels on PRs
+        if: github.event_name == 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HAS_P0: ${{ contains(github.event.pull_request.labels.*.name, 'P0') }}
+          HAS_P1: ${{ contains(github.event.pull_request.labels.*.name, 'P1') }}
+        run: |
+          if [ "$HAS_P0" = "true" ] || [ "$HAS_P1" = "true" ]; then
+            echo "PR has unresolved severity label (P0/P1). Resolve and remove label before merge."
+            exit 1
+          fi
+          echo "No blocking P0/P1 labels found."

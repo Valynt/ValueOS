@@ -1,6 +1,10 @@
 {
-  "updated_at": "2026-02-06T01:06:14.188Z",
-  "strict_zones": ["packages/memory", "packages/backend/src/services/billing/__tests__/__helpers"],
-  "strict_todo_fixme_count": 0,
+  "updated_at": "2026-02-13T02:37:40.380Z",
+  "strict_zones": [
+    "packages/backend/src",
+    "apps/ValyntApp/src/services",
+    "infra/terraform"
+  ],
+  "strict_todo_fixme_count": 50,
   "strict_dead_export_count": 0
 }
