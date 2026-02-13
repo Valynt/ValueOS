@@ -103,7 +103,10 @@
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
     "typescript-eslint": "^8.55.0",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.17",
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.55.1",
+    "axe-core": "^4.10.3"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
@@ -133,5 +136,9 @@
       "@types/react": "18.3.27",
       "@types/react-dom": "18.3.7"
     }
+  },
+  "scripts": {
+    "test:a11y": "playwright test -c playwright.a11y.config.ts",
+    "test:a11y:report": "pnpm test:a11y && node scripts/ci/a11y-trend-report.mjs"
   }
 }

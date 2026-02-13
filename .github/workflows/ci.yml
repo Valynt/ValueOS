@@ -60,6 +60,53 @@ jobs:
       - name: Test
         run: npx turbo run test
 
+  accessibility:
+    name: Accessibility E2E (WCAG 2.2 AA)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run accessibility Playwright suite
+        run: pnpm test:a11y
+
+      - name: Build accessibility trend report
+        if: always()
+        run: node scripts/ci/a11y-trend-report.mjs
+
+      - name: Publish accessibility artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-reports-${{ github.run_number }}
+          path: |
+            playwright-report/a11y-html
+            playwright-report/a11y-results.json
+            playwright-report/a11y-trend.json
+            playwright-report/a11y-summary.md
+          retention-days: 30
+
+      - name: Add accessibility summary
+        if: always()
+        run: cat playwright-report/a11y-summary.md >> $GITHUB_STEP_SUMMARY
+
   rls-and-compliance:
     name: RLS & Compliance Tests
     runs-on: ubuntu-latest

@@ -101,6 +101,7 @@ export default defineConfig(({ mode }) => {
         "@shared/const": resolve(__dirname, "packages/shared/src/const.ts"),
         "@valueos/shared": resolve(__dirname, "../../packages/shared/src"),
         "@shared": resolve(__dirname, "../../packages/shared/src"),
+        "@valueos/design-system": resolve(__dirname, "../../packages/components/design-system/src"),
       },
     },
   };
