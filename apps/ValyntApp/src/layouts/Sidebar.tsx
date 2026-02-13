@@ -3,6 +3,7 @@ import {
   Briefcase,
   Boxes,
   Bot,
+  Sparkles,
   Settings,
   LogOut,
   ChevronLeft,
@@ -11,10 +12,11 @@ import {
   User,
   Building2,
 } from "lucide-react";
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigationPersonalization } from "@/hooks/useNavigationPersonalization";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -33,6 +35,23 @@ interface SidebarProps {
 export function Sidebar({ onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const { trackRouteVisit, getUsageCount, frequentRouteSet } = useNavigationPersonalization();
+
+  useEffect(() => {
+    trackRouteVisit(location.pathname);
+  }, [location.pathname, trackRouteVisit]);
+
+  const prioritizedNavItems = useMemo(() => {
+    return [...navItems].sort((a, b) => {
+      const usageDiff = getUsageCount(b.path) - getUsageCount(a.path);
+      if (usageDiff !== 0) return usageDiff;
+      return (
+        navItems.findIndex((item) => item.path === a.path) -
+        navItems.findIndex((item) => item.path === b.path)
+      );
+    });
+  }, [getUsageCount]);
 
   const handleNavClick = () => {
     if (onClose) onClose();
@@ -79,7 +98,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => (
+        {prioritizedNavItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
@@ -90,12 +109,23 @@ export function Sidebar({ onClose }: SidebarProps) {
                 collapsed && "justify-center px-2",
                 isActive
                   ? "bg-zinc-950 text-white"
-                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+                frequentRouteSet.has(item.path) && !isActive && "ring-1 ring-zinc-200 bg-zinc-50"
               )
             }
           >
             <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
+            {!collapsed && (
+              <div className="flex items-center justify-between w-full">
+                <span>{item.label}</span>
+                {frequentRouteSet.has(item.path) && (
+                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-400">
+                    <Sparkles className="w-3 h-3" />
+                    Hot
+                  </span>
+                )}
+              </div>
+            )}
           </NavLink>
         ))}
       </nav>
