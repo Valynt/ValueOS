@@ -356,6 +356,7 @@ export class ValueLifecycleOrchestrator {
     await this.auditTrailService.logImmediate({
       eventType: "saga_compensation",
       actorId: context.userId || "system",
+      auth0Sub: context.userId || "system",
       actorType: "service",
       resourceId: handler.metadata?.stageExecutionId
         ? String(handler.metadata.stageExecutionId)
@@ -447,6 +448,7 @@ export class ValueLifecycleOrchestrator {
       await this.auditTrailService.logImmediate({
         eventType: "saga_compensation_executed",
         actorId: context.userId || "system",
+        auth0Sub: context.userId || "system",
         actorType: "service",
         resourceId: opportunityResult.stageExecutionId
           ? String(opportunityResult.stageExecutionId)
@@ -487,6 +489,7 @@ export class ValueLifecycleOrchestrator {
       await this.auditTrailService.logImmediate({
         eventType: "saga_compensation_failed",
         actorId: context.userId || "system",
+        auth0Sub: context.userId || "system",
         actorType: "service",
         resourceId: opportunityResult.stageExecutionId
           ? String(opportunityResult.stageExecutionId)
@@ -535,6 +538,7 @@ export class ValueLifecycleOrchestrator {
     await this.auditTrailService.logImmediate({
       eventType: "saga_opportunity_target_compensation",
       actorId: context.userId || "system",
+      auth0Sub: context.userId || "system",
       actorType: "service",
       resourceId: opportunityResult.stageExecutionId
         ? String(opportunityResult.stageExecutionId)
@@ -808,6 +812,7 @@ export class ValueLifecycleOrchestrator {
       await this.auditTrailService.logImmediate({
         eventType: 'saga_compensation',
         actorId: context.userId || 'system',
+        auth0Sub: context.userId || 'system',
         actorType: 'service',
         resourceId: opportunityResult.stageExecutionId || context.sessionId || 'unknown',
         resourceType: 'data',
@@ -837,6 +842,7 @@ export class ValueLifecycleOrchestrator {
       await this.auditTrailService.logImmediate({
         eventType: 'saga_compensation',
         actorId: context.userId || 'system',
+        auth0Sub: context.userId || 'system',
         actorType: 'service',
         resourceId: opportunityResult.stageExecutionId || context.sessionId || 'unknown',
         resourceType: 'data',
@@ -893,6 +899,7 @@ export class ValueLifecycleOrchestrator {
     await this.auditTrailService.logImmediate({
       eventType: 'dlq_alert',
       actorId: 'system',
+      auth0Sub: 'system',
       actorType: 'service',
       resourceId: alert.streamName,
       resourceType: 'message_queue',

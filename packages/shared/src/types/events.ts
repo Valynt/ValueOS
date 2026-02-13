@@ -234,6 +234,7 @@ export interface AgentRequestEvent {
   payload: {
     agentId: string;
     userId: string;
+    auth0Sub?: string;
     sessionId: string;
     tenantId: string;
     query: string;

@@ -146,6 +146,7 @@ export function createPlanEnforcement(config: EnforcementConfig) {
           void audit.logImmediate({
             eventType: 'security_event',
             actorId: (req as any).user?.id || 'system',
+            auth0Sub: (req as any).user?.sub || (req as any).user?.auth0_sub || (req as any).user?.id || 'system',
             actorType: 'service',
             resourceId: tenantId,
             resourceType: 'data',
