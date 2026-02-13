@@ -48,6 +48,10 @@ jobs:
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
+      - name: Enforce Supabase migration filename policy
+        run: bash scripts/check-supabase-migration-filenames.sh
+
+
       - name: Lint
         run: npx turbo run lint
 
