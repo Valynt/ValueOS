@@ -1,0 +1,14 @@
+metadata:
+  id: "CKV2_CUSTOM_002"
+  name: "Disallow REPLACE_ME_ON_FIRST_DEPLOY placeholder secrets"
+  category: "SECRETS"
+  severity: "HIGH"
+scope:
+  provider: "aws"
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "aws_secretsmanager_secret_version"
+  attribute: "secret_string"
+  operator: "not_contains"
+  value: "REPLACE_ME_ON_FIRST_DEPLOY"

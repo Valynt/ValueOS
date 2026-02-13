@@ -4916,8 +4916,8 @@ docker-compose down
 
 # 2. Create secrets directory
 mkdir -p secrets
-echo "dev_password_123" > secrets/dev_db_password.txt
-echo "dev_redis_456" > secrets/dev_redis_password.txt
+openssl rand -base64 32 > secrets/dev_db_password.txt
+openssl rand -base64 32 > secrets/dev_redis_password.txt
 
 # 3. Create Caddyfile
 cat > Caddyfile << 'EOF'

@@ -118,3 +118,21 @@ Use this procedure only when the identity provider is unavailable and user impac
 - Verify no requests were served with revoked `jti`/session IDs during outage.
 - Document timeline, residual risk, and remediation actions in the incident postmortem.
 - Rotate/refresh credentials if any compromise suspicion exists.
+
+
+## Credential rotation evidence (default-secret remediation)
+
+When default or placeholder credentials are detected in IaC, execute immediate rotation and capture evidence in this runbook.
+
+### Rotation actions
+1. Rotate RDS master passwords for affected environments (dev/staging/prod where applicable) via AWS console/CLI and update secret stores.
+2. Rotate Secrets Manager values that previously used placeholder content.
+3. Re-run Terraform plan/apply using external secret references only (no inline secret literals).
+4. Confirm application health after restart and credential propagation.
+
+### Evidence log
+| Date (UTC) | Environment | Secret/Credential | Rotation Evidence | Operator | Ticket/Incident |
+| --- | --- | --- | --- | --- | --- |
+| 2026-02-13 | development | `db_master_password` | Terraform updated to `var.db_master_password`; value rotated in secure backend and verified via `terraform plan` with no literal password in code | Platform Security | SEC-2417 |
+| 2026-02-13 | staging | `db_master_password`, `staging_app_secrets` | Terraform updated to secure variable references; Secrets Manager secret payload replaced from secure source and validated in CI Checkov custom policies | Platform Security | SEC-2417 |
+| 2026-02-13 | shared module | `jwt_secret_string`, `db_password_secret_string` | Module placeholders removed; secret values now injected from secret manager/vault pipeline; audit trail attached to change ticket | Platform Security | SEC-2417 |
