@@ -17,6 +17,40 @@ import { isKafkaEnabled } from "../services/kafkaConfig.js"
 
 const router = Router();
 
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const decoded = Buffer.from(padded, 'base64').toString('utf8');
+    const parsed = JSON.parse(decoded);
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveAuth0Sub(req: Request): string | undefined {
+  const anyReq = req as any;
+  const user = anyReq.user as Record<string, any> | undefined;
+
+  const direct = user?.auth0_sub || user?.sub || user?.oidc_sub || user?.user_metadata?.auth0_sub || user?.app_metadata?.auth0_sub;
+  if (typeof direct === 'string' && direct.length > 0) return direct;
+
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    const claims = decodeJwtPayload(authHeader.slice(7));
+    const claimSub = claims?.sub;
+    if (typeof claimSub === 'string' && claimSub.length > 0) {
+      return claimSub;
+    }
+  }
+
+  return undefined;
+}
+
 function kafkaUnavailableResponse(res: Response): Response {
   return res.status(503).json({
     success: false,
@@ -157,6 +191,7 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const auth0Sub = resolveAuth0Sub(req);
 
       // Create agent request event
       const agentRequestEvent: AgentRequestEvent = {
@@ -164,6 +199,7 @@ router.post(
         payload: {
           agentId,
           userId,
+          auth0Sub,
           sessionId,
           tenantId,
           query: sanitizedQuery,
@@ -254,10 +290,12 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const auth0Sub = resolveAuth0Sub(req);
 
       const payload = {
         agentId,
         userId,
+        auth0Sub,
         sessionId,
         tenantId,
         query: type,
@@ -324,6 +362,7 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const auth0Sub = resolveAuth0Sub(req);
 
       const normalizedAction = action
       ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
@@ -334,6 +373,7 @@ router.post(
       payload: {
         agentId,
         userId,
+        auth0Sub,
         sessionId,
         tenantId,
         query: normalizedAction || "execute",
@@ -566,6 +606,7 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
+      const auth0Sub = resolveAuth0Sub(req);
 
       // Publish a typed agent request to handle veto resolution
       const agentRequestEvent: AgentRequestEvent = {
@@ -573,6 +614,7 @@ router.post(
         payload: {
           agentId: agentId || 'IntegrityAgent',
           userId,
+          auth0Sub,
           sessionId,
           tenantId,
           query: 'resolve_issue',
@@ -590,8 +632,9 @@ router.post(
         const auditService = require("../services/security/AuditTrailService.js").getAuditTrailService();
         await auditService.logImmediate({
           eventType: 'integrity_veto',
-          actorId: userId || 'system',
-          actorType: userId ? 'user' : 'system',
+          actorId: userId || auth0Sub || 'system',
+          auth0Sub: auth0Sub || 'system',
+          actorType: auth0Sub ? 'user' : 'system',
           resourceId: issueId,
           resourceType: 'integrity_issue',
           action: `veto_${resolution}`,

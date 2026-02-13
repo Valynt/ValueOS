@@ -204,6 +204,7 @@ export class SagaAuditTrailLogger implements SagaAuditLogger {
     await this.auditTrail.logImmediate({
       eventType: entry.eventType as any,
       actorId: 'system',
+      auth0Sub: 'system',
       actorType: 'service',
       resourceId: entry.resourceId,
       resourceType: 'case',

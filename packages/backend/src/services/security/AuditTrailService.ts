@@ -17,6 +17,7 @@ export interface AuditEvent {
   id?: string;
   eventType: AuditEventType;
   actorId: string;
+  auth0Sub: string;
   actorType: ActorType;
   resourceId: string;
   resourceType: ResourceType;
@@ -42,7 +43,12 @@ export type AuditEventType =
   | "compliance_violation"
   | "permission_change"
   | "role_change"
-  | "saga_compensation";
+  | "saga_compensation"
+  | "integrity_veto"
+  | "saga_compensation_executed"
+  | "saga_compensation_failed"
+  | "saga_opportunity_target_compensation"
+  | "dlq_alert";
 
 export type ActorType = "user" | "agent" | "system" | "service";
 export type ResourceType =
@@ -53,12 +59,16 @@ export type ResourceType =
   | "user"
   | "system"
   | "permission"
-  | "role";
+  | "role"
+  | "integrity_issue"
+  | "case"
+  | "message_queue";
 export type AuditOutcome = "success" | "failure" | "denied" | "error";
 
 export interface AuditQueryFilters {
   eventType?: AuditEventType;
   actorId?: string;
+  auth0Sub?: string;
   actorType?: ActorType;
   resourceType?: ResourceType;
   outcome?: AuditOutcome;
@@ -189,6 +199,9 @@ export class AuditTrailService {
       }
       if (filters.actorId) {
         query = query.eq("actor_id", filters.actorId);
+      }
+      if (filters.auth0Sub) {
+        query = query.eq("auth0_sub", filters.auth0Sub);
       }
       if (filters.actorType) {
         query = query.eq("actor_type", filters.actorType);
@@ -397,6 +410,7 @@ export class AuditTrailService {
     return {
       event_type: event.eventType,
       actor_id: event.actorId,
+      auth0_sub: event.auth0Sub,
       actor_type: event.actorType,
       resource_id: event.resourceId,
       resource_type: event.resourceType,
@@ -419,6 +433,7 @@ export class AuditTrailService {
       id: row.id as string,
       eventType: row.event_type as AuditEventType,
       actorId: row.actor_id as string,
+      auth0Sub: row.auth0_sub as string,
       actorType: row.actor_type as ActorType,
       resourceId: row.resource_id as string,
       resourceType: row.resource_type as ResourceType,

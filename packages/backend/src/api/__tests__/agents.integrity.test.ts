@@ -22,7 +22,7 @@ describe("POST /api/agents/integrity/veto", () => {
 
     // Inject simple auth/tenant middleware for test
     app.use((req: any, _res, next) => {
-      req.user = { id: "test-user" };
+      req.user = { id: "test-user", sub: "auth0|test-user" };
       req.tenantId = "test-tenant";
       next();
     });
@@ -48,5 +48,9 @@ describe("POST /api/agents/integrity/veto", () => {
     const [[topic, event]] = fakeProducer.publish.mock.calls;
     expect(topic).toBeDefined();
     expect(event.payload.parameters.issueId).toBe("issue-123");
+    expect(event.payload.auth0Sub).toBe("auth0|test-user");
+
+    const [auditArg] = mockLogImmediate.mock.calls[0];
+    expect(auditArg.auth0Sub).toBe("auth0|test-user");
   });
 });
