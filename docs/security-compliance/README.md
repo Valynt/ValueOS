@@ -13,6 +13,8 @@
 - [Security Overview](./security-overview.md)
 - [Security Testing](./security-testing.md)
 
+For vulnerability disclosure policy and coordinated reporting, see [../../SECURITY.md](../../SECURITY.md).
+
 ---
 
 **Total Documents**: 6

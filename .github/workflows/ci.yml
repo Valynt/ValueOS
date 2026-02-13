@@ -86,6 +86,9 @@ jobs:
       - name: Critical claims verification
         run: node scripts/ci/verify-critical-claims.mjs
 
+      - name: Security baseline verification
+        run: node scripts/ci/security-baseline-verification.mjs
+
       - name: Build
         run: npx turbo run build
 

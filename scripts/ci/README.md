@@ -40,3 +40,17 @@ Notes & troubleshooting:
 - If CI time becomes a concern, run the full apply+rollback job only on PRs that add migrations and schedule nightly full runs.
 
 Contact: Mention this README in migration PRs or ping the infra team for questions.
+
+---
+
+## Security baseline verification
+
+- `security-baseline-verification.mjs` — lightweight guard that validates baseline security controls remain wired:
+  - backend security headers middleware is imported and applied in `packages/backend/src/server.ts`.
+  - CI workflow includes SAST (Semgrep) and SCA (Trivy) jobs in `.github/workflows/ci.yml`.
+
+Run locally:
+
+```bash
+node scripts/ci/security-baseline-verification.mjs
+```

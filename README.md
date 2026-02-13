@@ -124,6 +124,8 @@ See [docs/architecture/](docs/architecture/) for detailed design documents.
 
 See [docs/security-compliance/](docs/security-compliance/) for the full security overview and compliance guide.
 
+For coordinated vulnerability disclosure, see [SECURITY.md](SECURITY.md).
+
 ## Documentation
 
 | Category | Path | Contents |
