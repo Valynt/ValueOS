@@ -25,3 +25,6 @@ export * from "./provenance/index.js";
 
 // Memory lifecycle (TTL, consolidation, promotion)
 export * from "./lifecycle/index.js";
+
+// Session-scoped context ledger
+export * from "./context-ledger/index.js";

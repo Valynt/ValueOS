@@ -9,11 +9,13 @@
     "./episodic": "./episodic/index.ts",
     "./vector": "./vector/index.ts",
     "./provenance": "./provenance/index.ts",
-    "./lifecycle": "./lifecycle/index.ts"
+    "./lifecycle": "./lifecycle/index.ts",
+    "./context-ledger": "./context-ledger/index.ts"
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run packages/memory/**/*.test.ts"
   },
   "dependencies": {
     "zod": "^3.25.76"
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.29",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.17"
   }
 }
