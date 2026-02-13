@@ -85,10 +85,23 @@ services:
       OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
-      KAFKA_BROKERS: kafka:9092
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
+      EVENT_EXECUTOR_ENABLED: ${EVENT_EXECUTOR_ENABLED:-false}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:9093}
+      KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-SASL_SSL}
+      KAFKA_SSL_ENABLED: "true"
+      KAFKA_SSL_REJECT_UNAUTHORIZED: ${KAFKA_SSL_REJECT_UNAUTHORIZED:-true}
+      KAFKA_SSL_CA_PATH: /etc/kafka/certs/ca.crt
+      KAFKA_SSL_CERT_PATH: /etc/kafka/certs/backend.crt
+      KAFKA_SSL_KEY_PATH: /etc/kafka/certs/backend.key
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-scram-sha-512}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-valueos-backend}
+      KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-}
     secrets:
       - supabase_service_key
       - openai_api_key
+    volumes:
+      - ../tls/certs:/etc/kafka/certs:ro
     expose:
       - "${API_PORT:-3001}"
     networks:
@@ -161,8 +174,18 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SASL_SSL:SASL_SSL
+      KAFKA_LISTENERS: SASL_SSL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: SASL_SSL://kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: SASL_SSL
+      KAFKA_SASL_ENABLED_MECHANISMS: SCRAM-SHA-512
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-512
+      KAFKA_SSL_CLIENT_AUTH: required
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.broker.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: kafka_keystore_creds
+      KAFKA_SSL_KEY_CREDENTIALS: kafka_sslkey_creds
+      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.broker.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: kafka_truststore_creds
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -171,6 +194,7 @@ services:
       KAFKA_LOG_SEGMENT_BYTES: 1073741824
     volumes:
       - kafka-data:/var/lib/kafka/data
+      - ../tls/certs:/etc/kafka/secrets:ro
     networks:
       - valueos-network
     healthcheck:
@@ -179,7 +203,7 @@ services:
           "CMD",
           "kafka-broker-api-versions",
           "--bootstrap-server",
-          "localhost:9092",
+          "localhost:9093",
         ]
       interval: 30s
       timeout: 10s
@@ -194,6 +218,9 @@ volumes:
   caddy-config:
   caddy-logs:
   redis-data:
+  kafka-data:
+  zookeeper-data:
+  zookeeper-logs:
 
 secrets:
   supabase_service_key:

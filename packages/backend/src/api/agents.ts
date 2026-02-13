@@ -13,8 +13,20 @@ import { z } from "zod";
 import { agentCache } from "../services/CacheService.js"
 import { getMetricsCollector } from "../services/MetricsCollector.js"
 import { sanitizeAgentInput } from "../utils/security.js"
+import { isKafkaEnabled } from "../services/kafkaConfig.js"
 
 const router = Router();
+
+function kafkaUnavailableResponse(res: Response): Response {
+  return res.status(503).json({
+    success: false,
+    error: {
+      code: "KAFKA_DISABLED",
+      message: "Kafka-backed agent execution is disabled in this deployment profile.",
+    },
+  });
+}
+
 router.use(securityHeadersMiddleware);
 router.use(requirePermission("agents.execute"));
 
@@ -137,6 +149,10 @@ router.post(
       logger.warn("Cache check failed", cacheError instanceof Error ? cacheError : undefined);
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
@@ -230,6 +246,10 @@ router.post(
       return res.status(403).json({ success: false, error: { code: "tenant_required", message: "Tenant context is required" } });
     }
 
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
+    }
+
     try {
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
@@ -294,6 +314,10 @@ router.post(
     const tenantId = (req as any).tenantId;
     if (!tenantId) {
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+    }
+
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
     }
 
     try {
@@ -532,6 +556,10 @@ router.post(
     const tenantId = (req as any).tenantId;
     if (!tenantId) {
       return res.status(403).json({ success: false, error: { code: 'tenant_required', message: 'Tenant context is required' } });
+    }
+
+    if (!isKafkaEnabled()) {
+      return kafkaUnavailableResponse(res);
     }
 
     try {
