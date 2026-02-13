@@ -1,0 +1,10 @@
+{
+  "passRate": 100,
+  "keyboardCoverage": 100,
+  "maxFailedTests": 0,
+  "regressionThresholds": {
+    "maxPassRateDrop": 2,
+    "maxKeyboardCoverageDrop": 5,
+    "maxFailedTestsIncrease": 0
+  }
+}
