@@ -26,17 +26,19 @@ RUN apt-get update && \
     fdupes \
     && rm -rf /var/lib/apt/lists/*
 
-# Node.js (via nvm)
-ENV NVM_DIR=/usr/local/share/nvm
+# Node.js (pinned binary + checksum verification)
 ENV NODE_VERSION=20.19.0
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-    && . "$NVM_DIR/nvm.sh" \
-    && nvm install $NODE_VERSION \
-    && nvm use $NODE_VERSION \
-    && nvm alias default $NODE_VERSION \
-    && npm install -g pnpm
-
-ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+ENV NODE_DISTRO=node-v${NODE_VERSION}-linux-x64
+ENV NODE_DOWNLOAD_URL=https://nodejs.org/dist/v${NODE_VERSION}/${NODE_DISTRO}.tar.xz
+ENV NODE_DOWNLOAD_SHA256=b4e336584d62abefad31baecff7af167268be9bb7dd11f1297112e6eed3ca0d5
+RUN set -eux; \
+    curl -fsSLo /tmp/node.tar.xz "$NODE_DOWNLOAD_URL"; \
+    echo "$NODE_DOWNLOAD_SHA256  /tmp/node.tar.xz" | sha256sum -c -; \
+    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner; \
+    rm -f /tmp/node.tar.xz; \
+    node --version; \
+    npm --version; \
+    npm install -g pnpm
 # Copy ensure-pnpm.js for preinstall
 COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
 

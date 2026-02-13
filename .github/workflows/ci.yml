@@ -77,6 +77,9 @@ jobs:
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
 
+      - name: Security anti-pattern guard
+        run: node scripts/ci/check-security-antipatterns.mjs
+
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
 
