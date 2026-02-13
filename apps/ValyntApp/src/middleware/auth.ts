@@ -5,7 +5,7 @@
 
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { authService } from '../services/AuthService';
+import { authService } from '@backend/services/AuthService';
 import { AuthenticationError } from '../services/errors';
 import { Logger } from '../utils/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
