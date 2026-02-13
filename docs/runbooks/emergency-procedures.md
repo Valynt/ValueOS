@@ -84,3 +84,37 @@ If all else fails:
 ```
 
 ---
+
+## Auth fallback emergency mode (IdP outage)
+
+Use this procedure only when the identity provider is unavailable and user impact is ongoing.
+
+### Preconditions
+- Confirm IdP outage and incident ticket severity with on-call security + platform leads.
+- Validate Redis/shared storage availability, because revoked token/session denylist checks depend on it.
+- Define a strict expiry timestamp before enabling fallback (`AUTH_FALLBACK_EMERGENCY_TTL_UNTIL`, ISO-8601 UTC).
+
+### Enable fallback (time-boxed break-glass)
+1. Set `AUTH_FALLBACK_EMERGENCY_MODE=true`.
+2. Set `AUTH_FALLBACK_EMERGENCY_TTL_UNTIL=<ISO-8601 timestamp>` for the shortest viable window (recommended ≤ 30 minutes).
+3. Ensure `SUPABASE_JWT_ISSUER` and `SUPABASE_JWT_AUDIENCE` are set and validated.
+4. Keep `ALLOW_LOCAL_JWT_FALLBACK` unset/false in non-dev environments.
+5. Deploy config and monitor high-severity audit event `auth.jwt_fallback_activated`.
+
+### Required monitoring while active
+- Watch audit events for route, tenant, and fallback reason details.
+- Alert if fallback activation frequency exceeds configured threshold:
+  - `AUTH_FALLBACK_ALERT_THRESHOLD` activations
+  - within `AUTH_FALLBACK_ALERT_WINDOW_SECONDS`.
+- Treat threshold breach as a security incident escalation.
+
+### Disable fallback
+1. Set `AUTH_FALLBACK_EMERGENCY_MODE=false` immediately when IdP recovers.
+2. Remove/expire `AUTH_FALLBACK_EMERGENCY_TTL_UNTIL`.
+3. Validate Supabase/IdP token verification has resumed and fallback events stop.
+
+### Post-incident review (required)
+- Review all `auth.jwt_fallback_activated` audit entries and impacted tenants/routes.
+- Verify no requests were served with revoked `jti`/session IDs during outage.
+- Document timeline, residual risk, and remediation actions in the incident postmortem.
+- Rotate/refresh credentials if any compromise suspicion exists.
