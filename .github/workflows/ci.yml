@@ -21,8 +21,8 @@ permissions:
   pull-requests: read
 
 jobs:
-  ci:
-    name: Build & Test
+  unit-tests:
+    name: Unit Tests & Coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -59,6 +59,7 @@ jobs:
 
       - name: Debt policy ratchet
         run: node scripts/debt/inventory.mjs
+
       - name: Enforce Valynt service freeze
         run: pnpm check:valynt-services-freeze
 
@@ -89,11 +90,108 @@ jobs:
       - name: Build
         run: npx turbo run build
 
-      - name: Test
-        run: npx turbo run test
+      - name: Unit test suite with coverage thresholds
+        run: npx vitest run --coverage
 
-  rls-and-compliance:
-    name: RLS & Compliance Tests
+      - name: Upload unit coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-coverage-${{ github.run_id }}
+          path: |
+            coverage/unit/**
+            coverage/coverage-summary.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Download baseline coverage artifact
+        if: github.event_name == 'pull_request'
+        id: baseline-coverage
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: ci.yml
+          branch: ${{ github.base_ref }}
+          name: unit-coverage-*
+          name_is_regexp: true
+          search_artifacts: true
+          path: baseline-coverage
+
+      - name: Coverage trend summary
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const currentPath = 'coverage/unit/coverage-summary.json';
+          if (!fs.existsSync(currentPath)) {
+            console.log('No coverage summary found for current run.');
+            process.exit(0);
+          }
+
+          const readSummary = (path) => JSON.parse(fs.readFileSync(path, 'utf8')).total;
+          const current = readSummary(currentPath);
+          const baselineCandidates = [
+            'baseline-coverage/coverage/unit/coverage-summary.json',
+            'baseline-coverage/coverage/coverage-summary.json',
+          ];
+          const baselinePath = baselineCandidates.find((p) => fs.existsSync(p));
+
+          const metric = (name, value, baseline) => {
+            const delta = baseline == null ? 'n/a' : `${(value - baseline).toFixed(2)}%`;
+            return `| ${name} | ${value.toFixed(2)}% | ${baseline == null ? 'n/a' : `${baseline.toFixed(2)}%`} | ${delta} |`;
+          };
+
+          const lines = [
+            '## Coverage trend',
+            '',
+            '| Metric | Current | Baseline | Delta |',
+            '| --- | ---: | ---: | ---: |',
+          ];
+
+          if (!baselinePath) {
+            lines.push(metric('Lines', current.lines.pct, null));
+            lines.push(metric('Statements', current.statements.pct, null));
+            lines.push(metric('Functions', current.functions.pct, null));
+            lines.push(metric('Branches', current.branches.pct, null));
+            lines.push('', 'Baseline artifact not found for this PR base branch.');
+          } else {
+            const baseline = readSummary(baselinePath);
+            lines.push(metric('Lines', current.lines.pct, baseline.lines.pct));
+            lines.push(metric('Statements', current.statements.pct, baseline.statements.pct));
+            lines.push(metric('Functions', current.functions.pct, baseline.functions.pct));
+            lines.push(metric('Branches', current.branches.pct, baseline.branches.pct));
+          }
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          NODE
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run integration suite
+        run: npx vitest run "tests/integration/**/*.test.ts" "**/*.integration.{test,spec}.{js,ts,jsx,tsx}" --reporter=verbose
+
+  security-tests:
+    name: Security & Compliance Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -114,19 +212,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run RLS tenant isolation tests
+      - name: Run security suite
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=verbose
+        run: |
+          npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=verbose
+          npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
 
-      - name: Run DSR compliance tests
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
-
+  ci-required-checks:
+    name: CI Required Checks
+    runs-on: ubuntu-latest
+    needs:
+      - unit-tests
+      - integration-tests
+      - security-tests
+    if: always()
+    steps:
+      - name: Enforce required unit/integration/security checks
+        run: |
+          for status in "${{ needs.unit-tests.result }}" "${{ needs.integration-tests.result }}" "${{ needs.security-tests.result }}"; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "A required CI suite failed or was cancelled."
+              exit 1
+            fi
+          done
   sast:
     name: SAST (Semgrep)
     runs-on: ubuntu-latest
