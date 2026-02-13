@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { webScraperService } from '../WebScraperService.js'
+import { WebScraperService, webScraperService } from '../WebScraperService.js'
 
 describe('WebScraperService', () => {
   const originalFetch = global.fetch;
@@ -82,5 +82,76 @@ describe('WebScraperService', () => {
     const result3 = await webScraperService.scrape('http://192.168.1.1/router');
     expect(result3).toBeNull();
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('should keep cache, dns cache, and request time entries bounded with eviction metrics', () => {
+    const scraper = new WebScraperService();
+    const internal = scraper as any;
+
+    internal.maxCacheEntries = 2;
+    internal.maxDnsCacheEntries = 2;
+    internal.maxRequestTimeEntries = 2;
+
+    const now = Date.now();
+    internal.cache.set('https://a.example.com', { result: { url: 'a', title: '', h1_tags: [], main_content: '', relevance_score: 1 }, timestamp: now });
+    internal.cache.set('https://b.example.com', { result: { url: 'b', title: '', h1_tags: [], main_content: '', relevance_score: 1 }, timestamp: now });
+    internal.cache.set('https://c.example.com', { result: { url: 'c', title: '', h1_tags: [], main_content: '', relevance_score: 1 }, timestamp: now });
+    internal.evictLruEntries(internal.cache, internal.maxCacheEntries, () => {
+      internal.cacheMetrics.cacheEvictions += 1;
+    });
+
+    internal.dnsCache.set('a.example.com', { ips: ['1.1.1.1'], timestamp: now });
+    internal.dnsCache.set('b.example.com', { ips: ['1.1.1.2'], timestamp: now });
+    internal.dnsCache.set('c.example.com', { ips: ['1.1.1.3'], timestamp: now });
+    internal.evictLruEntries(internal.dnsCache, internal.maxDnsCacheEntries, () => {
+      internal.cacheMetrics.dnsCacheEvictions += 1;
+    });
+
+    internal.requestTimes.set('a.example.com', [now]);
+    internal.requestTimes.set('b.example.com', [now]);
+    internal.requestTimes.set('c.example.com', [now]);
+    internal.evictLruEntries(internal.requestTimes, internal.maxRequestTimeEntries, () => {
+      internal.cacheMetrics.requestTimesEvictions += 1;
+    });
+
+    const stats = scraper.getCacheStats();
+    expect(stats.cacheSize).toBeLessThanOrEqual(2);
+    expect(stats.dnsCacheEntries).toBeLessThanOrEqual(2);
+    expect(stats.rateLimitEntries).toBeLessThanOrEqual(2);
+    expect(stats.cacheEvictions).toBeGreaterThan(0);
+    expect(stats.dnsCacheEvictions).toBeGreaterThan(0);
+    expect(stats.requestTimesEvictions).toBeGreaterThan(0);
+
+    clearInterval(internal.cleanupTimer);
+  });
+
+  it('should record cache hit and miss metrics', async () => {
+    const scraper = new WebScraperService();
+    const internal = scraper as any;
+
+    internal.cache.set('https://cached.example.com', {
+      result: { url: 'https://cached.example.com', title: 'Cached', h1_tags: [], main_content: 'Cached', relevance_score: 50 },
+      timestamp: Date.now(),
+    });
+
+    const hitResult = await scraper.scrape('https://cached.example.com');
+    expect(hitResult?.title).toBe('Cached');
+
+    internal.validateUrlAndGetSafeIP = vi.fn().mockResolvedValue({ ip: '93.184.216.34', hostname: 'miss.example.com' });
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      text: async () => '<html><head><title>Miss</title></head><body><h1>Miss</h1></body></html>',
+      status: 200,
+      statusText: 'OK',
+      headers: { get: () => null },
+    });
+
+    await scraper.scrape('https://miss.example.com');
+
+    const stats = scraper.getCacheStats();
+    expect(stats.cacheHits).toBeGreaterThanOrEqual(1);
+    expect(stats.cacheMisses).toBeGreaterThanOrEqual(1);
+
+    clearInterval(internal.cleanupTimer);
   });
 });

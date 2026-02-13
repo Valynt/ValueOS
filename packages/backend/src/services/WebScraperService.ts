@@ -22,10 +22,24 @@ export class WebScraperService {
   private maxRequestsPerMinute = 10; // Conservative limit per domain
   private cache: Map<string, { result: WebScraperResult; timestamp: number }> = new Map();
   private cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
+  private maxCacheEntries = 500;
+  private maxRequestTimeEntries = 1000;
+  private maxDnsCacheEntries = 1000;
+  private cleanupIntervalMs = 60 * 1000;
+  private cleanupTimer: NodeJS.Timeout;
   private redis: any | null = null;
   private encryptionKey: string;
   private dnsCache: Map<string, { ips: string[]; timestamp: number }> = new Map();
   private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes DNS cache TTL
+  private cacheMetrics = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    cacheEvictions: 0,
+    dnsCacheHits: 0,
+    dnsCacheMisses: 0,
+    dnsCacheEvictions: 0,
+    requestTimesEvictions: 0,
+  };
 
   constructor(userAgent = "ValueCanvasBot/1.0 (+http://valuecanvas.com)", redisUrl?: string) {
     this.userAgent = userAgent;
@@ -43,6 +57,9 @@ export class WebScraperService {
         });
       }
     }
+
+    this.cleanupTimer = setInterval(() => this.cleanupStaleEntries(), this.cleanupIntervalMs);
+    this.cleanupTimer.unref?.();
   }
 
   /**
@@ -52,9 +69,17 @@ export class WebScraperService {
     // Check cache first
     const cached = this.cache.get(url);
     if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) {
+      this.cacheMetrics.cacheHits += 1;
+      this.cache.delete(url);
+      this.cache.set(url, cached);
       logger.debug("Web scraper cache hit", { url });
       return cached.result;
     }
+
+    if (cached) {
+      this.cache.delete(url);
+    }
+    this.cacheMetrics.cacheMisses += 1;
 
     let currentUrl = url;
     let redirectCount = 0;
@@ -129,6 +154,9 @@ export class WebScraperService {
               result,
               timestamp: Date.now(),
             });
+            this.evictLruEntries(this.cache, this.maxCacheEntries, () => {
+              this.cacheMetrics.cacheEvictions += 1;
+            });
 
             return result;
           } catch (error) {
@@ -194,8 +222,63 @@ export class WebScraperService {
     }
 
     validRequests.push(now);
+    this.requestTimes.delete(hostname);
     this.requestTimes.set(hostname, validRequests);
+    this.evictLruEntries(this.requestTimes, this.maxRequestTimeEntries, () => {
+      this.cacheMetrics.requestTimesEvictions += 1;
+    });
     return true;
+  }
+
+  private evictLruEntries<T>(map: Map<string, T>, maxEntries: number, onEvict: () => void): void {
+    while (map.size > maxEntries) {
+      const oldestKey = map.keys().next().value;
+      if (!oldestKey) {
+        break;
+      }
+      map.delete(oldestKey);
+      onEvict();
+    }
+  }
+
+  private cleanupStaleEntries(): void {
+    const now = Date.now();
+
+    for (const [url, value] of this.cache.entries()) {
+      if (now - value.timestamp >= this.cacheTtlMs) {
+        this.cache.delete(url);
+        this.cacheMetrics.cacheEvictions += 1;
+      }
+    }
+    this.evictLruEntries(this.cache, this.maxCacheEntries, () => {
+      this.cacheMetrics.cacheEvictions += 1;
+    });
+
+    const requestWindowStart = now - 60000;
+    for (const [hostname, requests] of this.requestTimes.entries()) {
+      const validRequests = requests.filter((time) => time >= requestWindowStart);
+      if (validRequests.length === 0) {
+        this.requestTimes.delete(hostname);
+        this.cacheMetrics.requestTimesEvictions += 1;
+        continue;
+      }
+
+      this.requestTimes.delete(hostname);
+      this.requestTimes.set(hostname, validRequests);
+    }
+    this.evictLruEntries(this.requestTimes, this.maxRequestTimeEntries, () => {
+      this.cacheMetrics.requestTimesEvictions += 1;
+    });
+
+    for (const [hostname, value] of this.dnsCache.entries()) {
+      if (now - value.timestamp >= this.dnsCacheTtlMs) {
+        this.dnsCache.delete(hostname);
+        this.cacheMetrics.dnsCacheEvictions += 1;
+      }
+    }
+    this.evictLruEntries(this.dnsCache, this.maxDnsCacheEntries, () => {
+      this.cacheMetrics.dnsCacheEvictions += 1;
+    });
   }
 
   /**
@@ -361,8 +444,12 @@ export class WebScraperService {
       // Check DNS cache first
       const cached = this.dnsCache.get(hostname);
       if (cached && Date.now() - cached.timestamp < this.dnsCacheTtlMs) {
+        this.cacheMetrics.dnsCacheHits += 1;
+        this.dnsCache.delete(hostname);
+        this.dnsCache.set(hostname, cached);
         return cached.ips;
       }
+      this.cacheMetrics.dnsCacheMisses += 1;
 
       const ips = await resolveAsync(hostname);
 
@@ -370,6 +457,9 @@ export class WebScraperService {
       this.dnsCache.set(hostname, {
         ips,
         timestamp: Date.now(),
+      });
+      this.evictLruEntries(this.dnsCache, this.maxDnsCacheEntries, () => {
+        this.cacheMetrics.dnsCacheEvictions += 1;
       });
 
       return ips;
@@ -399,6 +489,15 @@ export class WebScraperService {
     this.cache.clear();
     this.requestTimes.clear();
     this.dnsCache.clear();
+    this.cacheMetrics = {
+      cacheHits: 0,
+      cacheMisses: 0,
+      cacheEvictions: 0,
+      dnsCacheHits: 0,
+      dnsCacheMisses: 0,
+      dnsCacheEvictions: 0,
+      requestTimesEvictions: 0,
+    };
   }
 
   /**
@@ -408,11 +507,25 @@ export class WebScraperService {
     cacheSize: number;
     rateLimitEntries: number;
     dnsCacheEntries: number;
+    cacheHits: number;
+    cacheMisses: number;
+    cacheEvictions: number;
+    dnsCacheHits: number;
+    dnsCacheMisses: number;
+    dnsCacheEvictions: number;
+    requestTimesEvictions: number;
   } {
     return {
       cacheSize: this.cache.size,
       rateLimitEntries: this.requestTimes.size,
       dnsCacheEntries: this.dnsCache.size,
+      cacheHits: this.cacheMetrics.cacheHits,
+      cacheMisses: this.cacheMetrics.cacheMisses,
+      cacheEvictions: this.cacheMetrics.cacheEvictions,
+      dnsCacheHits: this.cacheMetrics.dnsCacheHits,
+      dnsCacheMisses: this.cacheMetrics.dnsCacheMisses,
+      dnsCacheEvictions: this.cacheMetrics.dnsCacheEvictions,
+      requestTimesEvictions: this.cacheMetrics.requestTimesEvictions,
     };
   }
 }
