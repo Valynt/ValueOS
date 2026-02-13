@@ -178,27 +178,6 @@ const baseConfig = {
     "security/detect-pseudoRandomBytes": "error",
     "security/detect-unsafe-regex": "error",
     "import/no-dynamic-require": "error",
-    "import/no-unresolved": "off", // TypeScript handles this
-    "import/order": [
-      "error",
-      {
-        groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
-        "newlines-between": "always",
-        pathGroups: [
-          {
-            pattern: "@/**",
-            group: "internal",
-            position: "after",
-          },
-        ],
-        pathGroupsExcludedImportTypes: ["builtin"],
-        alphabetize: {
-          order: "asc",
-          caseInsensitive: true,
-        },
-        warnOnUnassignedImports: true,
-      },
-    ],
     eqeqeq: ["error", "always"],
     "no-duplicate-imports": "error",
     "no-return-await": "error",
@@ -274,6 +253,30 @@ const baseConfig = {
     "no-alert": "error",
     "no-debugger": "error",
     "no-sequences": "error",
+  },
+};
+
+const valyntBackendServiceImportGuard = {
+  files: [
+    "apps/ValyntApp/src/api/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/config/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/middleware/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/utils/**/*.{ts,tsx}",
+    "apps/ValyntApp/src/views/**/*.{ts,tsx}",
+  ],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: ["../services/*Service", "../../services/*Service"],
+            message:
+              "Backend-domain services are canonical in packages/backend/src/services. Import from @backend/services/* instead.",
+          },
+        ],
+      },
+    ],
   },
 };
 
@@ -441,7 +444,6 @@ const configOverrides = {
     },
   },
   rules: {
-    "import/no-unresolved": "off", // Config files may have different resolution
     "@typescript-eslint/no-var-requires": "off",
     "@typescript-eslint/no-require-imports": "off",
     // Disable type-aware @typescript-eslint rules for config files (no type-checking available)
@@ -471,6 +473,7 @@ export default [
   ignoresConfig,
   pluginConfig,
   baseConfig,
+  valyntBackendServiceImportGuard,
   backendServiceAuthOverrides,
   configOverrides,
   testOverrides,

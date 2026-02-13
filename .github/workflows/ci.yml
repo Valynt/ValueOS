@@ -48,6 +48,12 @@ jobs:
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
+      - name: Enforce Valynt service freeze
+        run: pnpm check:valynt-services-freeze
+
+      - name: Check service duplicate filenames
+        run: pnpm check:service-duplicates
+
       - name: Lint
         run: npx turbo run lint
 
