@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-02-13T02:38:02.823Z",
+  "strict_zones": [
+    "packages/backend/src",
+    "apps/ValyntApp/src/services",
+    "infra/terraform"
+  ],
+  "todo_fixme": {
+    "total": 105,
+    "strict": 50,
+    "malformedStrict": []
+  },
+  "dead_exports": {
+    "total": 0,
+    "strict": 0,
+    "top20": []
+  }
+}

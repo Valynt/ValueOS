@@ -899,7 +899,7 @@ export class ValueLifecycleOrchestrator {
       tenantId: undefined, // System-wide alert
     });
 
-    // TODO: Implement recovery strategies based on agent type
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement recovery strategies based on agent type
     // For example:
     // - Restart failed agent instances
     // - Scale up consumer groups

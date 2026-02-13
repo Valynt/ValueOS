@@ -1,57 +1,63 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { SettingsSection } from '../../components/settings';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { SettingsSection } from "../../components/settings";
 import {
-  Ban, CheckCircle, ChevronLeft, ChevronRight, Clock, Download,
-  Mail, MoreVertical, Search, UserPlus, XCircle
-} from 'lucide-react';
+  Ban,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  Mail,
+  MoreVertical,
+  Search,
+  UserPlus,
+  XCircle,
+} from "lucide-react";
 
 interface OrganizationUser {
-  id: string;
-  fullName: string;
+  userUuid: string;
+  tenantId: string;
   email: string;
+  emailVerified: boolean;
+  displayName: string;
   role: string;
   status: string;
+  lastLoginAt: string | null;
+  creationSource: string;
+  mfaEnrolled: boolean;
+  deviceCount: number;
+  deviceListReference: string;
   department?: string;
-  joinedAt: string;
 }
-import { analyticsClient } from '../../lib/analyticsClient';
-import { useAuth } from '../../contexts/AuthContext';
-import { addCSRFHeader } from '../../security/CSRFProtection';
+import { analyticsClient } from "../../lib/analyticsClient";
+import { useAuth } from "../../contexts/AuthContext";
+import { addCSRFHeader } from "../../security/CSRFProtection";
 
 const PAGE_SIZE = 10;
 const ROLE_OPTIONS = [
-  { value: 'owner', label: 'Owner' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'member', label: 'User' },
-  { value: 'viewer', label: 'Viewer' },
+  { value: "owner", label: "Owner" },
+  { value: "admin", label: "Admin" },
+  { value: "member", label: "User" },
+  { value: "viewer", label: "Viewer" },
 ] as const;
 
-type TenantRoleValue = typeof ROLE_OPTIONS[number]['value'];
-
-const roleLabelToValue = (label: string): TenantRoleValue => {
-  const option = ROLE_OPTIONS.find((role) => role.label === label);
-  return option?.value || 'member';
-};
-
-const roleValueToLabel = (value: TenantRoleValue): string => {
-  return ROLE_OPTIONS.find((role) => role.value === value)?.label || 'User';
-};
+type TenantRoleValue = (typeof ROLE_OPTIONS)[number]["value"];
 
 export const OrganizationUsers: React.FC = () => {
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [deptFilter, _setDeptFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [deptFilter, _setDeptFilter] = useState("all");
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-  const [sortColumn, setSortColumn] = useState<keyof OrganizationUser>('fullName');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortColumn, setSortColumn] = useState<keyof OrganizationUser>("displayName");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<TenantRoleValue>('member');
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<TenantRoleValue>("member");
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const { session } = useAuth();
 
@@ -59,7 +65,7 @@ export const OrganizationUsers: React.FC = () => {
     (includeJson?: boolean) => {
       const headers: Record<string, string> = {};
       if (includeJson) {
-        headers['Content-Type'] = 'application/json';
+        headers["Content-Type"] = "application/json";
       }
       if (session?.access_token) {
         headers.Authorization = `Bearer ${session.access_token}`;
@@ -80,17 +86,17 @@ export const OrganizationUsers: React.FC = () => {
       setLoadError(null);
 
       try {
-        const response = await fetch('/api/admin/users', {
+        const response = await fetch("/api/admin/users", {
           headers: buildHeaders(),
         });
         const payload = await response.json();
         if (!response.ok) {
-          throw new Error(payload?.error || 'Failed to load users');
+          throw new Error(payload?.error || "Failed to load users");
         }
 
-        setUsers(payload.users || []);
+        setUsers((payload.users || []) as OrganizationUser[]);
       } catch (error) {
-        setLoadError(error instanceof Error ? error.message : 'Failed to load users');
+        setLoadError(error instanceof Error ? error.message : "Failed to load users");
       } finally {
         setIsLoading(false);
       }
@@ -100,14 +106,15 @@ export const OrganizationUsers: React.FC = () => {
   }, [buildHeaders, session?.access_token]);
 
   const filteredAndSortedUsers = useMemo(() => {
-    const result = users.filter(user => {
-      const matchesSearch = !searchQuery ||
-        user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const result = users.filter((user) => {
+      const matchesSearch =
+        !searchQuery ||
+        user.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-      const matchesDept = deptFilter === 'all' || user.department === deptFilter;
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      const matchesStatus = statusFilter === "all" || user.status === statusFilter;
+      const matchesDept = deptFilter === "all" || user.department === deptFilter;
 
       return matchesSearch && matchesRole && matchesStatus && matchesDept;
     });
@@ -119,7 +126,7 @@ export const OrganizationUsers: React.FC = () => {
       if (bVal === undefined) return -1;
 
       const comparison = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      return sortDirection === 'asc' ? comparison : -comparison;
+      return sortDirection === "asc" ? comparison : -comparison;
     });
 
     return result;
@@ -134,10 +141,10 @@ export const OrganizationUsers: React.FC = () => {
 
   const handleSort = (column: keyof OrganizationUser) => {
     if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortColumn(column);
-      setSortDirection('asc');
+      setSortDirection("asc");
     }
   };
 
@@ -155,7 +162,7 @@ export const OrganizationUsers: React.FC = () => {
     if (selectedUsers.size === paginatedUsers.length) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(paginatedUsers.map(u => u.id)));
+      setSelectedUsers(new Set(paginatedUsers.map((u) => u.userUuid)));
     }
   };
 
@@ -164,8 +171,8 @@ export const OrganizationUsers: React.FC = () => {
     if (!inviteEmail) return;
 
     try {
-      const response = await fetch('/api/admin/users/invite', {
-        method: 'POST',
+      const response = await fetch("/api/admin/users/invite", {
+        method: "POST",
         headers: buildHeaders(true),
         body: JSON.stringify({
           email: inviteEmail,
@@ -175,80 +182,88 @@ export const OrganizationUsers: React.FC = () => {
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || 'Invite failed');
+        throw new Error(payload?.error || "Invite failed");
       }
 
       setUsers((current) => [payload.user, ...current]);
       setInviteStatus(`Invitation sent to ${inviteEmail}`);
-      analyticsClient.trackWorkflowEvent('teammate_invited', 'team_invite', {
+      analyticsClient.trackWorkflowEvent("teammate_invited", "team_invite", {
         email: inviteEmail,
-        role: roleValueToLabel(inviteRole),
+        role: inviteRole,
       });
       setInviteModalOpen(false);
-      setInviteEmail('');
+      setInviteEmail("");
     } catch (error) {
-      setInviteStatus(
-        error instanceof Error ? error.message : 'Failed to send invite'
-      );
+      setInviteStatus(error instanceof Error ? error.message : "Failed to send invite");
     }
   };
 
   const handleRoleChange = async (userId: string, role: TenantRoleValue) => {
     try {
       const response = await fetch(`/api/admin/users/${userId}/role`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: buildHeaders(true),
         body: JSON.stringify({ role }),
       });
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || 'Role update failed');
+        throw new Error(payload?.error || "Role update failed");
       }
 
       setUsers((current) =>
-        current.map((user) =>
-          user.id === userId ? { ...user, role: roleValueToLabel(role) } : user
-        )
+        current.map((user) => (user.userUuid === userId ? { ...user, role } : user))
       );
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to update role');
+      setLoadError(error instanceof Error ? error.message : "Failed to update role");
     }
   };
 
   const handleRemoveUser = async (userId: string) => {
     try {
       const response = await fetch(`/api/admin/users/${userId}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: buildHeaders(),
       });
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || 'Removal failed');
+        throw new Error(payload?.error || "Removal failed");
       }
 
-      setUsers((current) => current.filter((user) => user.id !== userId));
+      setUsers((current) => current.filter((user) => user.userUuid !== userId));
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Failed to remove user');
+      setLoadError(error instanceof Error ? error.message : "Failed to remove user");
     }
   };
 
-  const getStatusIcon = (status: OrganizationUser['status']) => {
+  const getStatusIcon = (status: OrganizationUser["status"]) => {
     switch (status) {
-      case 'active': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'invited': return <Mail className="h-4 w-4 text-blue-600" />;
-      case 'suspended': return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'deactivated': return <Ban className="h-4 w-4 text-red-600" />;
+      case "active":
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case "invited":
+        return <Mail className="h-4 w-4 text-blue-600" />;
+      case "suspended":
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case "deactivated":
+        return <Ban className="h-4 w-4 text-red-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const getStatusColor = (status: OrganizationUser['status']) => {
+  const getStatusColor = (status: OrganizationUser["status"]) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'invited': return 'bg-blue-100 text-blue-800';
-      case 'suspended': return 'bg-yellow-100 text-yellow-800';
-      case 'deactivated': return 'bg-red-100 text-red-800';
+      case "active":
+        return "bg-green-100 text-green-800";
+      case "invited":
+        return "bg-blue-100 text-blue-800";
+      case "suspended":
+        return "bg-yellow-100 text-yellow-800";
+      case "deactivated":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -268,7 +283,7 @@ export const OrganizationUsers: React.FC = () => {
               onClick={() => {
                 setInviteModalOpen(true);
                 setInviteStatus(null);
-                analyticsClient.trackWorkflowEvent('teammate_invite_opened', 'team_invite', {});
+                analyticsClient.trackWorkflowEvent("teammate_invite_opened", "team_invite", {});
               }}
             >
               <UserPlus className="h-4 w-4 mr-2" />
@@ -298,7 +313,7 @@ export const OrganizationUsers: React.FC = () => {
             >
               <option value="all">All Roles</option>
               {ROLE_OPTIONS.map((role) => (
-                <option key={role.value} value={role.label}>
+                <option key={role.value} value={role.value}>
                   {role.label}
                 </option>
               ))}
@@ -332,7 +347,7 @@ export const OrganizationUsers: React.FC = () => {
           {!isLoading && selectedUsers.size > 0 && (
             <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <span className="text-sm text-blue-900">
-                {selectedUsers.size} user{selectedUsers.size > 1 ? 's' : ''} selected
+                {selectedUsers.size} user{selectedUsers.size > 1 ? "s" : ""} selected
               </span>
               <div className="flex space-x-2">
                 <button className="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
@@ -353,58 +368,61 @@ export const OrganizationUsers: React.FC = () => {
                     <th className="px-4 py-3 text-left w-12">
                       <input
                         type="checkbox"
-                        checked={selectedUsers.size === paginatedUsers.length && paginatedUsers.length > 0}
+                        checked={
+                          selectedUsers.size === paginatedUsers.length && paginatedUsers.length > 0
+                        }
                         onChange={handleSelectAll}
                         className="rounded border-gray-300 focus:ring-blue-500"
                       />
                     </th>
                     <th
-                      onClick={() => handleSort('fullName')}
+                      onClick={() => handleSort("displayName")}
                       className="px-4 py-3 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     >
-                      Name {sortColumn === 'fullName' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      Name {sortColumn === "displayName" && (sortDirection === "asc" ? "↑" : "↓")}
                     </th>
                     <th
-                      onClick={() => handleSort('email')}
+                      onClick={() => handleSort("email")}
                       className="px-4 py-3 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     >
-                      Email {sortColumn === 'email' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      Email {sortColumn === "email" && (sortDirection === "asc" ? "↑" : "↓")}
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Role</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Department</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      Department
+                    </th>
                     <th
-                      onClick={() => handleSort('status')}
+                      onClick={() => handleSort("status")}
                       className="px-4 py-3 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100"
                     >
-                      Status {sortColumn === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      Status {sortColumn === "status" && (sortDirection === "asc" ? "↑" : "↓")}
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Last Login</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
+                      Last Login
+                    </th>
                     <th className="px-4 py-3 w-12"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {paginatedUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                    <tr key={user.userUuid} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
-                          checked={selectedUsers.has(user.id)}
-                          onChange={() => handleSelectUser(user.id)}
+                          checked={selectedUsers.has(user.userUuid)}
+                          onChange={() => handleSelectUser(user.userUuid)}
                           className="rounded border-gray-300 focus:ring-blue-500"
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{user.fullName}</p>
+                        <p className="font-medium text-gray-900">{user.displayName}</p>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                       <td className="px-4 py-3">
                         <select
-                          value={roleLabelToValue(user.role)}
+                          value={user.role as TenantRoleValue}
                           onChange={(event) =>
-                            handleRoleChange(
-                              user.id,
-                              event.target.value as TenantRoleValue
-                            )
+                            handleRoleChange(user.userUuid, event.target.value as TenantRoleValue)
                           }
                           className="text-xs font-medium bg-blue-50 text-blue-800 border border-blue-100 rounded-full px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
@@ -417,13 +435,17 @@ export const OrganizationUsers: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{user.department}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}
+                        >
                           {getStatusIcon(user.status)}
                           <span className="ml-1 capitalize">{user.status}</span>
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}
+                        {user.lastLoginAt
+                          ? new Date(user.lastLoginAt).toLocaleDateString()
+                          : "Never"}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -432,7 +454,7 @@ export const OrganizationUsers: React.FC = () => {
                           </button>
                           <button
                             className="text-xs text-red-600 hover:text-red-700"
-                            onClick={() => handleRemoveUser(user.id)}
+                            onClick={() => handleRemoveUser(user.userUuid)}
                           >
                             Remove
                           </button>
@@ -447,11 +469,13 @@ export const OrganizationUsers: React.FC = () => {
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">
-              Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, filteredAndSortedUsers.length)} of {filteredAndSortedUsers.length} users
+              Showing {(currentPage - 1) * PAGE_SIZE + 1} to{" "}
+              {Math.min(currentPage * PAGE_SIZE, filteredAndSortedUsers.length)} of{" "}
+              {filteredAndSortedUsers.length} users
             </span>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -461,7 +485,7 @@ export const OrganizationUsers: React.FC = () => {
                 Page {currentPage} of {totalPages}
               </span>
               <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -479,7 +503,11 @@ export const OrganizationUsers: React.FC = () => {
       </SettingsSection>
 
       {isInviteModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/50"
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 m-4">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -494,7 +522,10 @@ export const OrganizationUsers: React.FC = () => {
                 <XCircle className="h-5 w-5 text-gray-500" />
               </button>
             </div>
-            <p className="text-sm text-gray-600 mb-4">Invites are auto-tagged with <span className="font-semibold">beta_cohort</span> for priority support.</p>
+            <p className="text-sm text-gray-600 mb-4">
+              Invites are auto-tagged with <span className="font-semibold">beta_cohort</span> for
+              priority support.
+            </p>
             <form className="space-y-4" onSubmit={handleInviteSubmit}>
               <div>
                 <label

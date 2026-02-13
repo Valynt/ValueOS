@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { mfaService } from "../../services/MFAService";
+import { mfaService } from "@backend/services/MFAService";
 import { logger } from "../../lib/logger";
 
 interface MFASetupProps {

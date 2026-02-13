@@ -1,4 +1,4 @@
-import { Permission } from '../services/PermissionService';
+import { Permission } from '@backend/services/PermissionService';
 import { LifecycleStage } from '../types/workflow';
 
 export type EntryPoint =

@@ -420,6 +420,17 @@ export const ValidationSchemas = {
     },
   },
 
+
+
+  adminCustomRoleUpsert: {
+    name: { type: 'string' as const, required: true, minLength: 2, maxLength: 64 },
+    description: { type: 'string' as const, required: false, maxLength: 500 },
+    permissionKeys: { type: 'array' as const, required: false },
+  },
+
+  adminRolePermissionMutation: {
+    permissionKeys: { type: 'array' as const, required: true },
+  },
   // Agent/LLM interactions
   agentPrompt: {
     prompt: { type: 'string' as const, required: true, maxLength: 2000 },
