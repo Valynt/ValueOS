@@ -96,6 +96,42 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
 
+  terraform:
+    name: Terraform Checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [staging, production]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive infra/terraform
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate
+
+      - name: Terraform plan (${{ matrix.environment }})
+        working-directory: infra/terraform
+        env:
+          TF_VAR_environment: ${{ matrix.environment }}
+          TF_VAR_domain_name: example.com
+          TF_VAR_frontend_image: public.ecr.aws/docker/library/nginx:stable
+          TF_VAR_backend_image: public.ecr.aws/docker/library/nginx:stable
+          TF_VAR_alert_email: alerts@example.com
+          TF_VAR_slack_webhook_url: https://hooks.slack.com/services/example
+        run: terraform plan -refresh=false -input=false -out=tfplan-${{ matrix.environment }}
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest

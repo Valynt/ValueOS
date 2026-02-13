@@ -1,8 +1,20 @@
-# ECS cluster module stub
-# TODO: Replace with real resources before production deployment
+resource "aws_cloudwatch_log_group" "ecs" {
+  name              = "/ecs/${var.name_prefix}"
+  retention_in_days = 30
+  tags              = var.tags
+}
 
-variable "name_prefix" { type = string }
-variable "tags" { type = map(string) }
+resource "aws_ecs_cluster" "this" {
+  name = "${var.name_prefix}-cluster"
 
-output "cluster_id" { value = "ecs-cluster-stub" }
-output "cluster_name" { value = "valueos-cluster-stub" }
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = var.tags
+}
+
+output "cluster_id" { value = aws_ecs_cluster.this.id }
+output "cluster_name" { value = aws_ecs_cluster.this.name }
+output "log_group_name" { value = aws_cloudwatch_log_group.ecs.name }

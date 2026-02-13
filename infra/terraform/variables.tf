@@ -25,6 +25,10 @@ variable "aws_region" {
 variable "domain_name" {
   description = "Domain name for the application"
   type        = string
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9.-]+$", var.domain_name))
+    error_message = "domain_name must be a valid DNS hostname."
+  }
 }
 
 # Networking
@@ -142,10 +146,18 @@ variable "backend_memory" {
 variable "alert_email" {
   description = "Email for alerts"
   type        = string
+  validation {
+    condition     = can(regex("^[^@]+@[^@]+\\.[^@]+$", var.alert_email))
+    error_message = "alert_email must be a valid email address."
+  }
 }
 
 variable "slack_webhook_url" {
   description = "Slack webhook URL for alerts"
   type        = string
   sensitive   = true
+  validation {
+    condition     = startswith(var.slack_webhook_url, "https://")
+    error_message = "slack_webhook_url must be an HTTPS URL."
+  }
 }

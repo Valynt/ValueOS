@@ -1,55 +1,33 @@
-# Ci Cd Pipeline
+# CI/CD Pipeline
 
-**Last Updated**: 2026-02-08
+## Overview
+The GitHub Actions CI workflow now includes Terraform guardrails in addition to application quality checks. The Terraform job enforces formatting, validation, and a per-environment plan for `staging` and `production` to catch IaC regressions before merge.
 
-**Consolidated from 1 source documents**
+## Terraform CI Stages
+1. `terraform fmt -check -recursive infra/terraform` ensures all Terraform code is consistently formatted.
+2. `terraform init -backend=false` initializes providers/modules without touching remote state in CI.
+3. `terraform validate` checks syntax and module wiring.
+4. `terraform plan` runs per environment using matrix values (`staging`, `production`) with CI-safe placeholder inputs.
 
----
+## State Management
+- **Backend**: Remote S3 backend with DynamoDB locking is configured in the root Terraform stack (`infra/terraform/main.tf`).
+- **Locking**: DynamoDB lock table prevents concurrent state mutation.
+- **Encryption**: State at rest is encrypted in S3 (`encrypt = true`).
+- **Isolation**: Use environment-specific state keys (for example `production/terraform.tfstate`) so each environment has independent state lineage.
 
-## CI Runbook: Test Execution & Best Practices
+## Drift Detection
+- Run scheduled `terraform plan` in CI against each environment to detect drift caused by manual console changes.
+- Treat non-empty plans outside approved deployment windows as incidents and reconcile with code-first changes.
+- Store plan output artifacts for auditability and handoff.
 
-*Source: `operations/ci/ci-runbook.md`*
+## Promotion Workflow
+1. **Develop/PR**: CI validates code + Terraform and generates plans for `staging` and `production`.
+2. **Staging Apply**: After approval, apply staging from the reviewed commit SHA.
+3. **Verification**: Execute smoke tests, alarm checks, and rollout metrics in staging.
+4. **Production Promotion**: Promote the same immutable commit SHA to production.
+5. **Post-Deploy Drift Check**: Re-run production `terraform plan` to confirm zero unexpected changes.
 
-This runbook documents the CI testing process and introduces checks to keep test quality high.
-
-CI pipeline entry point:
-
-- Standard workflow runs `pnpm run ci:verify`.
-- The command executes checks in this order: lint → typecheck → test → build.
-- Additional CI-only checks (legacy route validation, docs path linting, typecheck telemetry) are included inside `ci:verify`.
-
-Detailed test stages (within or adjacent to `ci:verify`):
-
-1. Lint: `pnpm run lint` — fail fast on style & console usage
-2. Typecheck: `pnpm run typecheck:islands` + telemetry — TypeScript type correctness
-3. Tests: `pnpm run test` — unit + integration through Turbo
-4. Build: `pnpm run build` — production build validation
-5. RLS: `pnpm run test:rls` — Supabase policy enforcement checks
-6. E2E: `pnpm run test:smoke` — Playwright runs on the running app
-
-Architecture & operational notes:
-
-- Runs-on: `ubuntu-latest`
-- Integration runner uses GitHub Actions services: Postgres 15 & Redis 7
-- Use `$GITHUB_ENV` to set `DATABASE_URL` and `REDIS_URL`
-- RLS tests run against a local, ephemeral Supabase stack started via `pnpm supabase start`
-- No production keys are required; the CLI supplies local anon/service keys
-- CI sets `SUPABASE_DB_PASSWORD=postgres` to align with the default local stack credentials
-- Upload artifacts from integration & E2E runs into `test-results/` and `playwright-report/`
-- Retention: 14–30 days based on artifact size and workflow cost
-
-Failure handling:
-
-- Unit tests failing blocks the PR immediately.
-- Integration tests failing triggers log capture and supabase RLS command-run checks.
-- E2E failing triggers application and environment logs capture.
-
-Best practices:
-
-- Keep unit tests fast and deterministic.
-- Isolate integration tests with unique fixtures and cleanup.
-- Use `supabase test db` when verifying RLS in migration slots.
-- Run `npx playwright install --with-deps` before Playwright invocation.
-- Limit the Playwright scope in PR pipelines (once `main` merges, run full suite nightly).
-
----
+## Operational Controls
+- Require pull request approvals for workflow and Terraform changes.
+- Restrict `terraform apply` to protected branches/environments.
+- Keep Terraform credentials short-lived and injected via GitHub environment secrets.
