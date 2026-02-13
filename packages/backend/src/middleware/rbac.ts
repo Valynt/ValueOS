@@ -85,11 +85,48 @@ async function hasPermission(
       // Continue with role-based check even if explicit permissions fail
     }
 
-    // Check if any role has the permission (using unified permission matching with wildcard support)
+    // Check if any system role has the permission (using unified permission matching with wildcard support)
     if (userRoles && userRoles.length > 0) {
       for (const userRole of userRoles) {
         const rolePermissions = ROLE_PERMISSIONS[userRole.role as Role];
         if (rolePermissions && matchPermission(rolePermissions, permission)) {
+          return true;
+        }
+      }
+    }
+
+    // Resolve tenant membership roles for custom role matrix
+    const { data: membership, error: membershipError } = await supabase
+      .from("memberships")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (membershipError) {
+      logger.error("Failed to fetch membership", membershipError, { userId, tenantId });
+    } else if (membership?.id) {
+      const { data: customRolePermissions, error: customRoleError } = await supabase
+        .from("membership_roles")
+        .select("role_permissions(permissions(key))")
+        .eq("membership_id", membership.id);
+
+      if (customRoleError) {
+        logger.error("Failed to fetch custom role permissions", customRoleError, { userId, tenantId });
+      } else {
+        const grantedPermissions: string[] = [];
+        for (const row of customRolePermissions || []) {
+          const rolePermissions = (row as any).role_permissions;
+          const normalized = Array.isArray(rolePermissions) ? rolePermissions : [rolePermissions];
+          for (const rp of normalized) {
+            const perm = Array.isArray(rp?.permissions) ? rp.permissions[0] : rp?.permissions;
+            if (perm?.key) {
+              grantedPermissions.push(perm.key);
+            }
+          }
+        }
+
+        if (grantedPermissions.length > 0 && matchPermission(grantedPermissions, permission)) {
           return true;
         }
       }
@@ -244,9 +281,32 @@ export function requireRole(role: Role | Role[]) {
         });
       }
 
-      const hasRole = userRoles?.some((ur: { role: string }) =>
+      let hasRole = userRoles?.some((ur: { role: string }) =>
         roles.includes(ur.role as Role)
       );
+
+      if (!hasRole) {
+        const { data: membership } = await supabase
+          .from("memberships")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (membership?.id) {
+          const { data: customRoles } = await supabase
+            .from("membership_roles")
+            .select("roles(name)")
+            .eq("membership_id", membership.id);
+
+          const customRoleNames = (customRoles || []).map((row: any) => {
+            const roleObj = Array.isArray(row.roles) ? row.roles[0] : row.roles;
+            return roleObj?.name?.split(":", 3)?.[2] || roleObj?.name;
+          });
+
+          hasRole = customRoleNames.some((customRoleName: string) => roles.includes(customRoleName as Role));
+        }
+      }
 
       if (!hasRole) {
         logger.warn("Role denied", {

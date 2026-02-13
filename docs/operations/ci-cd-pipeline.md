@@ -1,10 +1,32 @@
 # Ci Cd Pipeline
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-13
 
 **Consolidated from 1 source documents**
 
 ---
+
+
+## Compliance Evidence Checkpoints (Governance)
+
+For regulated workloads (including HIPAA in-scope tenants), CI and governance checkpoints must preserve evidence required for periodic compliance reviews.
+
+- **Per PR / Merge**:
+  - Preserve lint/typecheck/test/build outputs from `pnpm run ci:verify`.
+  - Preserve RLS and smoke-test artifacts (`test-results/`, `playwright-report/`) when present.
+  - Ensure audit-relevant change context is traceable to commit SHA and workflow run ID.
+- **Monthly checkpoint**:
+  - Export CI pass/fail trends, security scan summaries, and exception approvals for compliance review packets.
+- **Quarterly checkpoint**:
+  - Attach incident-response drill evidence, access-review attestations, and control-validation artifacts to governance records.
+- **Annual checkpoint**:
+  - Produce compliance evidence bundle covering policy review, control operation samples, and remediation closure tracking.
+
+Suggested ownership:
+
+- Engineering: CI evidence retention and reproducibility.
+- Security/Compliance: control mapping review and attestation package assembly.
+- Operations: incident drill records and disaster recovery evidence.
 
 ## CI Runbook: Test Execution & Best Practices
 

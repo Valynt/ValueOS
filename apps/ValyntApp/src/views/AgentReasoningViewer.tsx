@@ -17,7 +17,7 @@ import {
   Activity,
 } from "lucide-react";
 import { AgentBadge } from "../components/Agents/AgentBadge";
-import { auditLogService } from "../services/AuditLogService";
+import { auditLogService } from "@backend/services/AuditLogService";
 import { webSocketManager } from "../services/WebSocketManager";
 import { ConfidenceDisplay } from "@valueos/sdui";
 import { IntegrityVetoPanel } from "@valueos/sdui";

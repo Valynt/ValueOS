@@ -12,7 +12,7 @@ import { CronJob } from 'cron';
 import { logger } from '../../lib/logger';
 import type { ISecretProvider, RotationPolicy } from './ISecretProvider';
 import { EventEmitter } from 'events';
-import { auditLogService } from '../../services/AuditLogService';
+import { auditLogService } from '@backend/services/AuditLogService';
 
 /**
  * Rotation job configuration

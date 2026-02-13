@@ -1,6 +1,6 @@
 # Compliance Guide
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-13
 
 **Consolidated from 6 source documents**
 
@@ -14,6 +14,71 @@
 4. [Epic 6 Compliance and Governance Gap Closure](#epic-6-compliance-and-governance-gap-closure)
 5. [Compliance checklists](#compliance-checklists)
 6. [ValueCanvas Compliance & Security Audit](#valuecanvas-compliance-&-security-audit)
+7. [HIPAA Applicability and Control Mapping](#hipaa-applicability-and-control-mapping)
+
+---
+
+## HIPAA Applicability and Control Mapping
+
+### Applicability by Product Use Case and Environment
+
+- **Default platform posture**: HIPAA is **not required** for standard ValueOS workloads that exclude protected health information (PHI).
+- **HIPAA-triggering posture**: HIPAA Security Rule controls become **in-scope** when a tenant stores, processes, transmits, or supports workflows containing PHI (for example: patient identifiers, treatment context, claims, or clinical operations data).
+- **Environment scoping**:
+  - **Production** handling PHI: in-scope for HIPAA administrative, technical, and physical safeguards.
+  - **Staging/non-production**: must use de-identified/synthetic data unless explicitly designated as HIPAA in-scope and covered by equivalent safeguards.
+  - **Developer local environments**: out-of-scope for PHI; PHI is prohibited outside approved managed environments.
+
+Reference architecture and environment controls:
+
+- [Security Architecture](../architecture/security-architecture.md)
+- [Infrastructure Architecture](../architecture/infrastructure-architecture.md)
+- [Production Environment](../environments/production-environment.md)
+
+### HIPAA Security Rule Safeguard Mapping
+
+| Safeguard domain | HIPAA reference | ValueOS control implementation |
+| --- | --- | --- |
+| Administrative safeguards | 45 CFR §164.308 | Security governance ownership, workforce security responsibilities, and documented response workflows in [Incident Response Runbook](../operations/incident-response.md) and [Emergency Procedures](../runbooks/emergency-procedures.md). |
+| Technical safeguards: access controls | 45 CFR §164.312(a) | Tenant-scoped authorization, role-based access patterns, and least-privilege service access; see [Security Overview](./security-overview.md) and [Audit Logging](./audit-logging.md). |
+| Technical safeguards: audit controls | 45 CFR §164.312(b) | Centralized, immutable audit trail requirements with traceability and retention expectations in [Audit Logging](./audit-logging.md) and incident handling validation in [Monitoring & Observability](../operations/monitoring-observability.md). |
+| Technical safeguards: transmission security | 45 CFR §164.312(e) | Encryption in transit (TLS) and controlled egress/integration patterns per [Production Contract](./production-contract.md) and [Deployment Guide](../operations/deployment-guide.md). |
+| Administrative + technical: incident response/security incidents | 45 CFR §164.308(a)(6) | Detection, triage, containment, eradication, and post-incident review in [Incident Response](../operations/incident-response.md) and [Disaster Recovery Runbook](../runbooks/disaster-recovery.md). |
+| Physical safeguards | 45 CFR §164.310 | Inherited controls through cloud providers and hosting vendors; enforce vendor assurance and contractual obligations via annual vendor review and BAA requirements below. |
+
+### PHI Classification and Data Boundaries
+
+- **Data classification**:
+  - **Restricted-PHI**: any individually identifiable health information; highest handling requirements.
+  - **Confidential**: sensitive non-PHI business data.
+  - **Internal/Public**: non-sensitive operational and published content.
+- **Storage and processing boundaries**:
+  - PHI is only permitted in approved production data stores and services that are explicitly designated HIPAA-capable.
+  - PHI is excluded from analytics, observability, and debugging sinks unless those sinks are approved and contractually covered.
+  - Backups containing PHI must follow encrypted storage, strict access review, and restore test procedures documented in [Disaster Recovery Runbook](../runbooks/disaster-recovery.md).
+- **Operational linkage**:
+  - Incident and breach workflow: [Incident Response Runbook](../operations/incident-response.md).
+  - Platform data flow and trust boundaries: [Data Architecture](../architecture/data-architecture.md) and [Architecture Overview](../architecture/architecture-overview.md).
+
+### Third-Party BAA Requirements
+
+- Any vendor that stores, processes, transmits, or can access PHI on behalf of ValueOS or a tenant must have a signed **Business Associate Agreement (BAA)** before PHI onboarding.
+- Vendor onboarding for PHI-enabled tenants must include:
+  - Security review and risk classification.
+  - Verification of HIPAA support and breach-notification terms.
+  - Evidence of encryption, access controls, and auditability.
+- No PHI-enabled integration may be promoted to production without BAA confirmation and legal/compliance sign-off.
+
+### Compliance Review Cadence and Evidence Checkpoints
+
+- **Monthly**: Access review and audit-log sampling for PHI-enabled tenants.
+- **Quarterly**: HIPAA safeguard control review (administrative/technical/physical), incident-response tabletop, and vendor/BAA status validation.
+- **Annually**: Full policy review, risk assessment refresh, and training attestation.
+
+Evidence checkpoints are tracked in CI/governance workflows:
+
+- CI evidence and artifact retention requirements: [CI/CD Pipeline](../operations/ci-cd-pipeline.md).
+- Governance/compliance review checkpoints and ownership: this guide's checklist and audit sections.
 
 ---
 
@@ -1426,7 +1491,7 @@ npm run security-scan
 | ---------------- | -------------- | --------------------------- |
 | **SOC 2 Type I** | Ready          | Q1 2026                     |
 | **ISO 27001**    | Preparation    | Q3 2026                     |
-| **HIPAA**        | Not applicable | N/A                         |
+| **HIPAA**        | Conditional    | Required for PHI in-scope tenants |
 | **PCI DSS**      | Not applicable | N/A (no payment processing) |
 
 ---

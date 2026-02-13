@@ -2,22 +2,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../AuthService.js'
 import { RateLimitError, ValidationError } from '../errors.js'
 
-const mockSupabaseAuth = {
-  signInWithPassword: vi.fn(),
-  signUp: vi.fn(),
-  resetPasswordForEmail: vi.fn(),
-  updateUser: vi.fn(),
-  signOut: vi.fn(),
-  getSession: vi.fn(),
-  getUser: vi.fn(),
-};
+const { mockSupabaseAuth, mockConsumeAuthRateLimit, mockResetRateLimit, mockGetConfig } = vi.hoisted(() => ({
+  mockSupabaseAuth: {
+    signInWithPassword: vi.fn(),
+    signUp: vi.fn(),
+    resetPasswordForEmail: vi.fn(),
+    updateUser: vi.fn(),
+    signOut: vi.fn(),
+    getSession: vi.fn(),
+    getUser: vi.fn(),
+  },
+  mockConsumeAuthRateLimit: vi.fn(),
+  mockResetRateLimit: vi.fn(),
+  mockGetConfig: vi.fn(() => ({ auth: { mfaEnabled: false } })),
+}));
 
 vi.mock('../../lib/supabase', () => ({
   supabase: { auth: mockSupabaseAuth },
 }));
 
-const mockConsumeAuthRateLimit = vi.fn();
-const mockResetRateLimit = vi.fn();
 vi.mock('../../security', async () => {
   const actual = await vi.importActual<typeof import('../../security')>('../../security');
   return {
@@ -27,10 +30,6 @@ vi.mock('../../security', async () => {
     checkPasswordBreach: vi.fn().mockResolvedValue(false),
   };
 });
-
-const mockGetConfig = vi.fn(() => ({
-  auth: { mfaEnabled: false },
-}));
 
 vi.mock('../../config/environment', async () => {
   const actual = await vi.importActual<typeof import('../../config/environment')>('../../config/environment');
@@ -42,15 +41,35 @@ vi.mock('../../config/environment', async () => {
 
 describe('AuthService', () => {
   let service: AuthService;
+  const originalEnv = { ...process.env };
 
   beforeEach(() => {
+    process.env = { ...originalEnv, TCT_SECRET: 'test-tct-secret', NODE_ENV: 'test' };
     service = new AuthService();
     vi.clearAllMocks();
     mockGetConfig.mockReturnValue({ auth: { mfaEnabled: false } });
   });
 
   afterEach(() => {
+    process.env = { ...originalEnv };
     vi.restoreAllMocks();
+  });
+
+  it('throws on missing TCT_SECRET outside sanctioned local test mode', () => {
+    process.env.TCT_SECRET = '';
+    process.env.NODE_ENV = 'development';
+    process.env.TCT_ALLOW_EPHEMERAL_SECRET = 'false';
+    process.env.LOCAL_TEST_MODE = 'false';
+
+    expect(() => new AuthService()).toThrow(/TCT_SECRET must be set/);
+  });
+
+  it('allows ephemeral secret only in sanctioned local test mode', () => {
+    process.env.TCT_SECRET = '';
+    process.env.NODE_ENV = 'test';
+    process.env.TCT_ALLOW_EPHEMERAL_SECRET = 'true';
+
+    expect(() => new AuthService()).not.toThrow();
   });
 
   it('requires MFA code when MFA is enabled', async () => {
