@@ -31,8 +31,23 @@ fi
 echo "📦 Installing dependencies..."
 
 # Enable pnpm
+PNPM_VERSION="9.15.0"
+if [ -f .devcontainer/versions.json ]; then
+    detected_pnpm_version=$(python3 - <<'PY'
+import json
+from pathlib import Path
+versions = Path('.devcontainer/versions.json')
+if versions.exists():
+    data = json.loads(versions.read_text())
+    print(data.get('pnpm', ''))
+PY
+)
+    if [ -n "${detected_pnpm_version}" ]; then
+        PNPM_VERSION="${detected_pnpm_version}"
+    fi
+fi
 corepack enable
-corepack prepare pnpm@latest --activate
+corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # Install workspace dependencies
 if [ -f pnpm-lock.yaml ]; then

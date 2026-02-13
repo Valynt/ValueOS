@@ -1,4 +1,9 @@
 # syntax=docker/dockerfile:1
+ARG NODE_VERSION=20.19.0
+ARG PNPM_VERSION=9.15.0
+ARG KUBECTL_VERSION=1.32.2
+ARG TERRAFORM_VERSION=1.11.2
+
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04 AS build
 
 # Install build tools in build stage only (kept out of final image for hardening)
@@ -8,6 +13,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
+
+ARG NODE_VERSION
+ARG PNPM_VERSION
+ARG KUBECTL_VERSION
+ARG TERRAFORM_VERSION
 
 # Install core dev tools (runtime) — excludes build-essential which is installed in build stage
 RUN apt-get update && \
@@ -28,15 +38,27 @@ RUN apt-get update && \
 
 # Node.js (via nvm)
 ENV NVM_DIR=/usr/local/share/nvm
-ENV NODE_VERSION=20.19.0
+ENV NODE_VERSION=${NODE_VERSION}
+ENV PNPM_VERSION=${PNPM_VERSION}
+ENV KUBECTL_VERSION=${KUBECTL_VERSION}
+ENV TERRAFORM_VERSION=${TERRAFORM_VERSION}
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
     && . "$NVM_DIR/nvm.sh" \
     && nvm install $NODE_VERSION \
     && nvm use $NODE_VERSION \
     && nvm alias default $NODE_VERSION \
-    && npm install -g pnpm
+    && npm install -g pnpm@$PNPM_VERSION
 
 ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
+# Install reproducible infra CLIs
+RUN curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
+    && chmod +x /usr/local/bin/kubectl \
+    && kubectl version --client=true --output=yaml >/dev/null \
+    && curl -fsSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+    && unzip -q /tmp/terraform.zip -d /usr/local/bin \
+    && rm -f /tmp/terraform.zip \
+    && terraform version | head -n 1
 # Copy ensure-pnpm.js for preinstall
 COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
 

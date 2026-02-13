@@ -369,7 +369,8 @@ services:
       context: ..
       dockerfile: .devcontainer/frontend/Dockerfile.optimized.frontend
       args:
-        NODE_VERSION: ${NODE_VERSION:-20}
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
+        PNPM_VERSION: ${PNPM_VERSION:-9.15.0}
         EXPOSE_PORT: ${FRONTEND_PORT:-3001}
     container_name: valueos-frontend
     environment:
@@ -401,7 +402,7 @@ services:
       dockerfile: .devcontainer/agents/Dockerfile.opportunity
       args:
         AGENT_NAME: opportunity
-        NODE_VERSION: ${NODE_VERSION:-20}
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
         EXPOSE_PORT: 8081
     container_name: valueos-opportunity-agent
     user: agent
@@ -456,7 +457,7 @@ services:
       dockerfile: .devcontainer/agents/Dockerfile.target
       args:
         AGENT_NAME: target
-        NODE_VERSION: ${NODE_VERSION:-20}
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
         EXPOSE_PORT: 8082
     container_name: valueos-target-agent
     user: agent
@@ -511,7 +512,7 @@ services:
       dockerfile: .devcontainer/agents/Dockerfile.realization
       args:
         AGENT_NAME: realization
-        NODE_VERSION: ${NODE_VERSION:-20}
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
         EXPOSE_PORT: 8083
     container_name: valueos-realization-agent
     user: agent
@@ -566,7 +567,7 @@ services:
       dockerfile: .devcontainer/agents/Dockerfile.expansion
       args:
         AGENT_NAME: expansion
-        NODE_VERSION: ${NODE_VERSION:-20}
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
         EXPOSE_PORT: 8084
     container_name: valueos-expansion-agent
     user: agent
