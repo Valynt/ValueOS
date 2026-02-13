@@ -28,6 +28,10 @@ import GroundtruthAPI, {
   GroundtruthRequestPayload,
   GroundtruthRequestOptions,
 } from "./GroundtruthAPI";
+import {
+  createInputGuardrailTripwire,
+  validateAlertDetails,
+} from "../contracts/alert-details";
 
 // ============================================================================
 // Types
@@ -162,6 +166,18 @@ function sanitizeForPrompt(input: string): string {
 /**
  * Validate and sanitize agent request
  */
+function extractAlertPayload(request: UnifiedAgentRequest): unknown {
+  if (request.context && typeof request.context === "object" && "alertDetails" in request.context) {
+    return request.context.alertDetails;
+  }
+
+  if (request.parameters && typeof request.parameters === "object" && "alertDetails" in request.parameters) {
+    return request.parameters.alertDetails;
+  }
+
+  return undefined;
+}
+
 function validateAndSanitizeRequest(request: UnifiedAgentRequest): UnifiedAgentRequest {
   if (!request.query || typeof request.query !== "string" || request.query.trim().length === 0) {
     throw new Error("Query is required and must be a non-empty string");
@@ -270,6 +286,42 @@ export class UnifiedAgentAPI {
           traceId,
         },
       };
+    }
+
+    const alertPayload = extractAlertPayload(sanitizedRequest);
+    if (typeof alertPayload !== "undefined") {
+      const validationResult = validateAlertDetails(alertPayload);
+      if (!validationResult.success) {
+        const tripwire = createInputGuardrailTripwire({
+          violations: validationResult.violations,
+          traceId,
+          tenantId: sanitizedRequest.tenantId,
+          caseId:
+            (sanitizedRequest.context?.caseId as string | undefined) ||
+            (sanitizedRequest.parameters?.caseId as string | undefined),
+        });
+
+        logger.warn("Input guardrail triggered for alert payload", {
+          traceId: tripwire.traceId,
+          tenantId: tripwire.tenantId,
+          caseId: tripwire.caseId,
+          agent: request.agent,
+          reasonCode: tripwire.code,
+          violations: tripwire.violations,
+        });
+
+        return {
+          success: false,
+          error: tripwire.message,
+          payload: tripwire,
+          metadata: {
+            agent: request.agent,
+            duration: 0,
+            timestamp: new Date().toISOString(),
+            traceId,
+          },
+        };
+      }
     }
 
     try {

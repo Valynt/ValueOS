@@ -6,11 +6,19 @@ import { llmSanitizer } from './LLMSanitizer';
 import type { LLMConfig, LLMMessage, LLMProvider, LLMResponse, LLMStreamCallback, LLMTool } from '../lib/agent-fabric/llm-types';
 import { webSocketManager } from './WebSocketManager';
 import type { WebSocketMessage } from './WebSocketManager';
+import {
+  createInputGuardrailTripwire,
+  validateAlertDetails,
+} from '../contracts/alert-details';
 
 interface ProxyChatRequest {
   messages: LLMMessage[];
   config?: LLMConfig;
   provider?: LLMProvider;
+  alertDetails?: unknown;
+  traceId?: string;
+  tenantId?: string;
+  caseId?: string;
 }
 
 interface ProxyToolsRequest extends ProxyChatRequest {
@@ -22,8 +30,42 @@ interface ProxyEmbeddingRequest {
   provider?: LLMProvider;
 }
 
+function validateAlertPayloadBoundary(request: Pick<ProxyChatRequest, "alertDetails" | "traceId" | "tenantId" | "caseId">): void {
+  if (typeof request.alertDetails === "undefined") {
+    return;
+  }
+
+  const validationResult = validateAlertDetails(request.alertDetails);
+  if (validationResult.success) {
+    return;
+  }
+
+  const tripwire = createInputGuardrailTripwire({
+    violations: validationResult.violations,
+    traceId: request.traceId,
+    tenantId: request.tenantId,
+    caseId: request.caseId,
+  });
+
+  securityLogger.log({
+    category: 'llm',
+    action: 'input-guardrail-tripwire',
+    severity: 'warn',
+    metadata: {
+      traceId: tripwire.traceId,
+      tenantId: tripwire.tenantId,
+      caseId: tripwire.caseId,
+      reasonCode: tripwire.code,
+      violations: tripwire.violations,
+    },
+  });
+
+  throw tripwire;
+}
+
 class LlmProxyClient {
-  async complete({ messages, config, provider }: ProxyChatRequest): Promise<LLMResponse> {
+  async complete({ messages, config, provider, alertDetails, traceId, tenantId, caseId }: ProxyChatRequest): Promise<LLMResponse> {
+    validateAlertPayloadBoundary({ alertDetails, traceId, tenantId, caseId });
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
       return {
         content: '',
@@ -90,7 +132,8 @@ class LlmProxyClient {
     };
   }
 
-  async completeWithTools({ messages, tools, config, provider }: ProxyToolsRequest): Promise<LLMResponse> {
+  async completeWithTools({ messages, tools, config, provider, alertDetails, traceId, tenantId, caseId }: ProxyToolsRequest): Promise<LLMResponse> {
+    validateAlertPayloadBoundary({ alertDetails, traceId, tenantId, caseId });
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
       return {
         content: 'Test response',
@@ -164,10 +207,12 @@ class LlmProxyClient {
   }
 
   async completeStream(
-    { messages, config, provider }: ProxyChatRequest,
+    { messages, config, provider, alertDetails, traceId, tenantId, caseId }: ProxyChatRequest,
     onChunk: LLMStreamCallback,
     sessionId: string
   ): Promise<void> {
+    validateAlertPayloadBoundary({ alertDetails, traceId, tenantId, caseId });
+
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
       // Simulate streaming for tests
       const chunks = ['Hello', ' world', '!'];
