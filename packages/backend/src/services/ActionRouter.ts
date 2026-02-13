@@ -577,7 +577,7 @@ export class ActionRouter {
     });
 
     // updateAssumption handler
-    this.registerHandler("updateAssumption", async (action: CanonicalAction, _context: ActionContext): Promise<ActionResult> => {
+    this.registerHandler("updateAssumption", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "updateAssumption") {
         return { success: false, error: "Invalid action type" };
       }
@@ -585,7 +585,14 @@ export class ActionRouter {
       try {
         const result = await assumptionService.updateAssumption(
           action.assumptionId,
-          action.updates
+          action.updates,
+          {
+            userId: context.userId,
+            auth0Sub: typeof context.metadata?.auth0_sub === "string" ? context.metadata.auth0_sub : undefined,
+            sessionId: context.sessionId,
+            valueCaseId: context.workspaceId,
+            organizationId: context.organizationId,
+          }
         );
 
         return {
