@@ -3,7 +3,7 @@
  */
 
 import { logger } from '../lib/logger';
-import { Permission } from '../services/PermissionService';
+import { Permission } from '@backend/services/PermissionService';
 
 export type RoleType = 'admin' | 'moderator' | 'member' | 'guest' | 'owner';
 
