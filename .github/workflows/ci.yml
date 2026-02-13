@@ -57,6 +57,9 @@ jobs:
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
+      - name: TS error package ratchet
+        run: node scripts/ci/ts-error-ratchet.mjs
+
       - name: Debt policy ratchet
         run: node scripts/debt/inventory.mjs
       - name: Enforce Valynt service freeze
