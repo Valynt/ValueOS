@@ -1,0 +1,45 @@
+name: Terraform Infra Checks
+
+on:
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform-infra.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform-infra.yml'
+
+jobs:
+  terraform:
+    name: Validate & Plan infra/terraform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: Terraform plan
+        env:
+          TF_VAR_environment: staging
+          TF_VAR_domain_name: example.com
+          TF_VAR_frontend_image: nginx:stable
+          TF_VAR_backend_image: public.ecr.aws/docker/library/httpd:2.4
+          TF_VAR_alert_email: alerts@example.com
+          TF_VAR_slack_webhook_url: ""
+        run: terraform plan -input=false -lock=false -out=tfplan
