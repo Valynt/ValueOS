@@ -538,3 +538,18 @@ For issues or questions:
 - **On-call**: PagerDuty escalation for critical issues
 
 ---
+## Engineering Readiness Metrics (Accessibility, i18n, UX)
+
+CI now emits machine-readable readiness metrics that can be ingested by engineering dashboards:
+
+- `artifacts/ci/accessibility-readiness-metrics.json` from `scripts/ci/check-wcag-budgets.mjs`.
+- `artifacts/ci/i18n-readiness-metrics.json` from `scripts/ci/check-i18n-keys.mjs`.
+- `artifacts/ci/ux-bundle-metrics.json` from `scripts/ci/check-bundle-budgets.mjs`.
+
+### Dashboard KPI targets
+
+- **Accessibility (WCAG 2.2 AA)**: `critical=0`, `serious=0` violations across guarded routes.
+- **Localization readiness**: no missing keys across locales, with translation coverage at or above configured minimum.
+- **UX performance**: bundle and route-load budgets enforced through CI budget gates and Lighthouse checks.
+
+All budget thresholds are centralized in `config/readiness-budgets.json`.

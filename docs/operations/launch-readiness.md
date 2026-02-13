@@ -76,3 +76,11 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
 
 ---
+## Additional Release Checklist: Accessibility, i18n, UX budgets
+
+Before release cutover, confirm the following CI gates are green and include links in the release packet:
+
+- [ ] WCAG severity budget gate passed (`critical=0`, `serious=0`) for `/`, `/dashboard`, and `/auth/login`.
+- [ ] i18n locale completeness gate passed (source locale parity and minimum coverage).
+- [ ] UX performance budgets passed for bundle size and route-level load targets (Lighthouse).
+- [ ] Readiness metrics artifacts attached to the engineering dashboard/release evidence bundle.

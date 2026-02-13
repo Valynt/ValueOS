@@ -40,3 +40,10 @@ Notes & troubleshooting:
 - If CI time becomes a concern, run the full apply+rollback job only on PRs that add migrations and schedule nightly full runs.
 
 Contact: Mention this README in migration PRs or ping the infra team for questions.
+
+## Frontend readiness gates
+
+- `check-i18n-keys.mjs` — validates locale key completeness/coverage and writes `artifacts/ci/i18n-readiness-metrics.json`.
+- `check-wcag-budgets.mjs` — enforces WCAG severity budgets (`critical`/`serious`) and writes `artifacts/ci/accessibility-readiness-metrics.json`.
+- `check-bundle-budgets.mjs` — enforces bundle size budgets and writes `artifacts/ci/ux-bundle-metrics.json`.
+- Lighthouse route-level load budgets are configured in `scripts/tools/lighthouserc.json`.

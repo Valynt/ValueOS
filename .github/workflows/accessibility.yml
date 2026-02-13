@@ -51,6 +51,13 @@ jobs:
         run: npx playwright test tests/accessibility/axe-a11y.spec.ts --reporter=html
         continue-on-error: false
 
+      - name: Enforce WCAG severity budgets
+        run: |
+          npx serve -s apps/ValyntApp/dist -l 4173 &
+          SERVER_PID=$!
+          node scripts/ci/check-wcag-budgets.mjs
+          kill $SERVER_PID
+
       - name: Upload a11y report
         if: always()
         uses: actions/upload-artifact@v4

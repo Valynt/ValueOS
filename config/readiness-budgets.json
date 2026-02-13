@@ -1,0 +1,31 @@
+{
+  "accessibility": {
+    "wcag": {
+      "severityBudget": {
+        "critical": 0,
+        "serious": 0,
+        "moderate": 25,
+        "minor": 50
+      },
+      "routes": ["/", "/dashboard", "/auth/login"]
+    }
+  },
+  "i18n": {
+    "sourceLocale": "en",
+    "minimumCoveragePercent": 90,
+    "requireLocaleKeyCompleteness": true
+  },
+  "uxPerformance": {
+    "bundleBudgets": {
+      "scriptBytes": 350000,
+      "stylesheetBytes": 100000,
+      "totalBytes": 1500000
+    },
+    "routeLoadTargetsMs": {
+      "firstContentfulPaint": 1800,
+      "largestContentfulPaint": 2500,
+      "interactive": 3800
+    },
+    "routes": ["/", "/dashboard", "/auth/login"]
+  }
+}
