@@ -6,6 +6,7 @@
 
 ## Documents in this Category
 
+- [Critical Claims Checklist](./critical-claims-checklist.md)
 - [Code Review](./code-review.md)
 - [Incident Management](./incident-management.md)
 - [Project Management](./project-management.md)
@@ -14,4 +15,4 @@
 
 ---
 
-**Total Documents**: 5
+**Total Documents**: 6

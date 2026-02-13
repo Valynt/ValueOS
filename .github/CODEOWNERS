@@ -28,5 +28,13 @@ src/components/ @team/frontend
 .github/workflows/ @team/devops
 scripts/ @team/devops
 
+# Compliance control docs
+docs/security-compliance/ @team/security @team/devops
+docs/runbooks/disaster-recovery.md @team/security @team/devops
+docs/runbooks/deployment-runbook.md @team/devops
+docs/operations/deployment-guide.md @team/devops
+docs/processes/critical-claims-checklist.md @team/security @team/devops
+
+
 # Default fallback
 * @team/owners

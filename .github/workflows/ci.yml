@@ -96,6 +96,20 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
 
+  critical-claims:
+    name: Critical Claims Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate critical claims and control coupling
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/validate-critical-claims.js
+
   security:
     name: Security Scan
     runs-on: ubuntu-latest
