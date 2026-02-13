@@ -1,18 +1,17 @@
 # Security Compliance
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-13
 
 ---
 
 ## Documents in this Category
 
 - [Audit Logging](./audit-logging.md)
-- [Authentication Authorization](./authentication-authorization.md)
 - [Compliance Guide](./compliance-guide.md)
-- [Data Protection](./data-protection.md)
+- [Production Contract](./production-contract.md)
+- [Rbac Role Taxonomy](./rbac-role-taxonomy.md)
 - [Security Overview](./security-overview.md)
-- [Security Testing](./security-testing.md)
 
 ---
 
-**Total Documents**: 6
+**Total Documents**: 5

@@ -75,6 +75,20 @@ Reference architecture and environment controls:
 - **Quarterly**: HIPAA safeguard control review (administrative/technical/physical), incident-response tabletop, and vendor/BAA status validation.
 - **Annually**: Full policy review, risk assessment refresh, and training attestation.
 
+
+### Quarterly Compliance Evidence Bundle Checklist
+
+Use this checklist at the end of each quarter to assemble and attest the evidence bundle:
+
+- [ ] Confirm the latest successful `Compliance Evidence Export` workflow run for the quarter.
+- [ ] Verify bundle contains all required directories: `security-scans/`, `privacy/`, `rls/`, and `metadata/`.
+- [ ] Validate immutable metadata fields: commit SHA, run ID, run attempt, ref, and UTC export timestamp.
+- [ ] Confirm DSR/privacy and RLS outputs are from the expected test suites and include pass/fail status.
+- [ ] Review security scan outputs for unresolved critical findings and document approved exceptions.
+- [ ] Attach the artifact link and manifest to quarterly governance review records.
+- [ ] Download and archive the `.tar.gz` bundle to the long-term compliance archive location defined in CI/CD policy.
+- [ ] Record reviewer name, review date, and sign-off outcome in the compliance tracker.
+
 Evidence checkpoints are tracked in CI/governance workflows:
 
 - CI evidence and artifact retention requirements: [CI/CD Pipeline](../operations/ci-cd-pipeline.md).
