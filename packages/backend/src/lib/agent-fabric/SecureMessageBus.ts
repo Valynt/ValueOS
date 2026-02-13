@@ -176,7 +176,7 @@ export class SecureMessageBus extends EventEmitter {
     // In a full implementation, this would need broker support for manual acking
     this.log.info("Acknowledged message", { agentType, messageId });
 
-    // TODO: Implement manual acking in RedisStreamBroker if needed
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement manual acking in RedisStreamBroker if needed
     // const broker = this.activeBrokers.get(agentType);
     // if (broker) {
     //   await broker.acknowledge(messageId);

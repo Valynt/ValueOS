@@ -79,3 +79,33 @@ Deliver a multi-workspace platform for value modeling and lifecycle intelligence
 - PII: avoid storing sensitive user data in model payloads; redact user identifiers in logs where possible.
 
 ---
+
+## Technical Debt Annotation Policy
+
+The following **strict zones** require metadata on every `TODO`/`FIXME` comment:
+
+- `packages/backend/src`
+- `apps/ValyntApp/src/services`
+- `infra/terraform`
+
+Required format in strict zones:
+
+- `TODO(ticket:<id> owner:<team-or-user> date:YYYY-MM-DD): <action>`
+- `FIXME(ticket:<id> owner:<team-or-user> date:YYYY-MM-DD): <action>`
+
+Examples:
+
+- `// TODO(ticket:VOS-1234 owner:platform-team date:2026-02-13): Replace stub repository with Supabase-backed implementation.`
+- `# FIXME(ticket:OPS-987 owner:devops date:2026-02-13): Restrict overly broad IAM policy.`
+
+Enforcement:
+
+- `node scripts/debt/inventory.mjs` is CI-enforced and fails when strict-zone comments are malformed.
+- The same check ratchets strict-zone TODO/FIXME counts against `config/debt-baseline.json` and fails CI on net-new growth.
+
+Backlog triage guidance:
+
+- Prefer resolving debt immediately when scope is small and safe.
+- If deferring, annotate with required metadata and link an actionable ticket.
+- Keep owners current and refresh stale dates when work is re-triaged.
+

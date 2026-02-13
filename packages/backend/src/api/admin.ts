@@ -12,6 +12,7 @@ import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
 import { requireAllPermissions, requirePermission } from "../middleware/rbac.js"
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
 import { adminUserService } from "../services/AdminUserService.js"
+import { adminRoleService } from "../services/AdminRoleService.js"
 import { auditLogService } from "../services/AuditLogService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
@@ -186,6 +187,174 @@ router.delete(
     } catch (error) {
       logger.error("Failed to remove user", sanitizeForLogging(error));
       res.status(500).json({ error: "Failed to remove user" });
+    }
+  }
+);
+
+router.post(
+  "/roles",
+  requirePermission("roles.assign"),
+  validateRequest(ValidationSchemas.adminCustomRoleUpsert),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as any).tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
+
+      const actor = (req as any).user;
+      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+
+      const role = await adminRoleService.createCustomRole(
+        { id: actor.id, email: actor.email, name: actorName },
+        {
+          tenantId,
+          name: req.body.name,
+          description: req.body.description,
+          permissionKeys: req.body.permissionKeys || [],
+        }
+      );
+
+      res.status(201).json({ role });
+    } catch (error) {
+      logger.error("Failed to create custom role", sanitizeForLogging(error));
+      res.status(500).json({ error: "Failed to create role" });
+    }
+  }
+);
+
+router.patch(
+  "/roles/:roleId",
+  requirePermission("roles.assign"),
+  validateRequest(ValidationSchemas.adminCustomRoleUpsert),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as any).tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
+
+      const actor = (req as any).user;
+      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+
+      const role = await adminRoleService.updateCustomRole(
+        { id: actor.id, email: actor.email, name: actorName },
+        req.params.roleId,
+        {
+          tenantId,
+          name: req.body.name,
+          description: req.body.description,
+        }
+      );
+
+      res.json({ role });
+    } catch (error) {
+      logger.error("Failed to update custom role", sanitizeForLogging(error));
+      res.status(500).json({ error: "Failed to update role" });
+    }
+  }
+);
+
+router.delete(
+  "/roles/:roleId",
+  requirePermission("roles.assign"),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as any).tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
+
+      const actor = (req as any).user;
+      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+
+      await adminRoleService.deleteCustomRole(
+        { id: actor.id, email: actor.email, name: actorName },
+        tenantId,
+        req.params.roleId
+      );
+
+      res.json({ message: "Role deleted" });
+    } catch (error) {
+      logger.error("Failed to delete custom role", sanitizeForLogging(error));
+      res.status(500).json({ error: "Failed to delete role" });
+    }
+  }
+);
+
+router.get("/roles/matrix", requirePermission("users.read"), async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).tenantId as string | undefined;
+    if (!tenantId) {
+      return res.status(400).json({ error: "Tenant ID required" });
+    }
+
+    const matrix = await adminRoleService.listRolePermissionMatrix(tenantId);
+    res.json({ matrix });
+  } catch (error) {
+    logger.error("Failed to list role permission matrix", sanitizeForLogging(error));
+    res.status(500).json({ error: "Failed to list role matrix" });
+  }
+});
+
+router.post(
+  "/roles/:roleId/permissions",
+  requirePermission("roles.assign"),
+  validateRequest(ValidationSchemas.adminRolePermissionMutation),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as any).tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
+
+      const actor = (req as any).user;
+      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+
+      await adminRoleService.assignPermissionsToRole(
+        { id: actor.id, email: actor.email, name: actorName },
+        {
+          tenantId,
+          roleId: req.params.roleId,
+          permissionKeys: req.body.permissionKeys,
+        }
+      );
+
+      res.status(204).send();
+    } catch (error) {
+      logger.error("Failed to assign permissions", sanitizeForLogging(error));
+      res.status(500).json({ error: "Failed to assign permissions" });
+    }
+  }
+);
+
+router.delete(
+  "/roles/:roleId/permissions",
+  requirePermission("roles.assign"),
+  validateRequest(ValidationSchemas.adminRolePermissionMutation),
+  async (req: Request, res: Response) => {
+    try {
+      const tenantId = (req as any).tenantId as string | undefined;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant ID required" });
+      }
+
+      const actor = (req as any).user;
+      const actorName = actor?.user_metadata?.full_name || actor?.user_metadata?.name || actor?.email || "Admin User";
+
+      await adminRoleService.removePermissionsFromRole(
+        { id: actor.id, email: actor.email, name: actorName },
+        {
+          tenantId,
+          roleId: req.params.roleId,
+          permissionKeys: req.body.permissionKeys,
+        }
+      );
+
+      res.status(204).send();
+    } catch (error) {
+      logger.error("Failed to remove permissions", sanitizeForLogging(error));
+      res.status(500).json({ error: "Failed to remove permissions" });
     }
   }
 );
