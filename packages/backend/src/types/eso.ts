@@ -68,3 +68,80 @@ export interface ESOMetadata {
   attempt_number: number;
   timestamp: string;
 }
+
+// ============================================================================
+// ESO Ground Truth Domain Types
+// ============================================================================
+
+export type ESOIndustry = string;
+
+export type ESOPersona =
+  | "cfo"
+  | "cio"
+  | "vp_ops"
+  | "vp_sales"
+  | "vp_cs"
+  | "ceo"
+  | "cto"
+  | "cmo";
+
+export type FinancialDriver =
+  | "cost_reduction"
+  | "revenue_growth"
+  | "margin_improvement"
+  | "risk_mitigation"
+  | "efficiency_gain";
+
+export type ImprovementDirection = "increase" | "decrease" | "maintain";
+
+export interface ESOKPIBenchmarks {
+  p25: number;
+  p50: number;
+  p75: number;
+  worldClass?: number;
+  source: string;
+  vintage: string;
+}
+
+export interface ESOKPINode {
+  id: string;
+  name: string;
+  domain: string;
+  unit: string;
+  improvementDirection: ImprovementDirection;
+  dependencies: string[];
+  benchmarks: ESOKPIBenchmarks;
+}
+
+export interface ESOEdge {
+  sourceId: string;
+  targetId: string;
+  relationship: string;
+  weight: number;
+}
+
+export interface ESOPersonaValueMap {
+  persona: ESOPersona;
+  primaryPain: string;
+  financialDriver: FinancialDriver;
+  keyKPIs: string[];
+  communicationPreference: string;
+}
+
+export interface BenchmarkAlignmentResult {
+  aligned: boolean;
+  percentile: string;
+  warning?: string;
+}
+
+/**
+ * Check if a claimed value aligns with known benchmarks for a given metric.
+ * Returns alignment status and the percentile bracket.
+ */
+export function checkBenchmarkAlignment(
+  _metricId: string,
+  _claimedValue: number
+): BenchmarkAlignmentResult {
+  // Stub: in production this would look up the metric and compare
+  return { aligned: true, percentile: "p50" };
+}

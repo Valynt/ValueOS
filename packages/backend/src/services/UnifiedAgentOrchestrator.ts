@@ -133,7 +133,17 @@ export class IntegrityVetoMiddleware implements AgentMiddleware {
     return response;
   }
 }
-import { renderPage, RenderPageOptions } from "@sdui/renderPage";
+// Lazy-imported to avoid pulling the entire SDUI component tree into the backend at startup.
+// renderPage depends on React component registry which has deep frontend-only dependencies.
+type RenderPageOptions = Record<string, unknown>;
+let _renderPage: ((page: any, options?: RenderPageOptions) => any) | null = null;
+async function getRenderPage() {
+  if (!_renderPage) {
+    const mod = await import("@sdui/renderPage");
+    _renderPage = mod.renderPage;
+  }
+  return _renderPage;
+}
 import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
 import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
 import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExecutor.js";
@@ -2585,11 +2595,12 @@ Provide a JSON response with:
     renderOptions?: RenderPageOptions
   ): Promise<{
     response: AgentResponse;
-    rendered: ReturnType<typeof renderPage>;
+    rendered: any;
   }> {
     const response = await this.generateSDUIPage(envelope, agent, query, context);
 
     if (response.sduiPage) {
+      const renderPage = await getRenderPage();
       const rendered = renderPage(response.sduiPage, renderOptions);
       return { response, rendered };
     }

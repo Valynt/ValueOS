@@ -1,11 +1,14 @@
-// Re-export CircuitBreakerManager from the consolidated main implementation
+// Re-export from the canonical implementation
 export {
   CircuitBreaker,
   CircuitBreakerManager,
+  CircuitBreakerError,
+} from "../lib/resilience/CircuitBreaker";
+
+export type {
   CircuitState,
   CircuitBreakerConfig,
   CircuitBreakerMetrics,
-  CircuitBreakerError,
 } from "../lib/resilience/CircuitBreaker";
 
 // Re-export categorized circuit breaker manager

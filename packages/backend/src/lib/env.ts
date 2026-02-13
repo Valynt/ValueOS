@@ -8,6 +8,7 @@ export {
   getEnvVar,
   setEnvVar,
   getSupabaseConfig,
+  getGroundtruthConfig,
   getLLMCostTrackerConfig,
   __setEnvSourceForTests
 } from '@shared/lib/env';

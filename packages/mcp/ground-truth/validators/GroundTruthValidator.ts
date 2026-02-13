@@ -1,7 +1,7 @@
 // GroundTruthValidator: Enforces schema and provenance/confidence checks for MCP ground truth responses
 
 import { z } from "zod";
-import { logger } from "../../../../packages/backend/src/lib/logger";
+import { logger } from "@backend/lib/logger.js";
 
 // Schema for ground truth metadata
 export const GroundTruthMetadataSchema = z.object({

@@ -55,3 +55,38 @@ export interface BenchmarkReference {
   unit: string;
   date_published: string;
 }
+
+// ============================================================================
+// VMRT Trace Type (used by GroundTruthIntegrationService)
+// ============================================================================
+
+export interface VMRT {
+  traceId: string;
+  context: {
+    organization: {
+      industry: string;
+      [key: string]: any;
+    };
+    persona: string;
+    [key: string]: any;
+  };
+  valueModel: {
+    outcomeCategory: string;
+    financialImpact: {
+      totalImpact: {
+        amount: number;
+        [key: string]: any;
+      };
+      [key: string]: any;
+    };
+    [key: string]: any;
+  };
+  reasoningSteps: {
+    description: string;
+    [key: string]: any;
+  }[];
+  qualityMetrics: {
+    overallConfidence: number;
+    [key: string]: any;
+  };
+}

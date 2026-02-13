@@ -1,14 +1,8 @@
 /**
- * ESO (Employee Stock Ownership) Module stub
- * Provides ESO-related ground truth data for the valuation engine.
+ * Re-export ESOModule from StructuralTruthModule.
+ *
+ * The ESOModule class lives in StructuralTruthModule.ts.
+ * This file exists so that `@mcp/ground-truth/modules/ESOModule`
+ * resolves for consumers that import by class name.
  */
-
-export class ESOModule {
-  async initialize(): Promise<void> {
-    // No-op for local dev
-  }
-
-  async getESOData(companyId: string): Promise<Record<string, unknown>> {
-    return {};
-  }
-}
+export { ESOModule } from "./StructuralTruthModule";
