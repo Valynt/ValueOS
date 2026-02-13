@@ -14,7 +14,7 @@ export function MainLayout() {
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 motion-reduce:transition-none lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -22,7 +22,7 @@ export function MainLayout() {
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-out lg:translate-x-0 lg:static lg:inset-0",
+          "fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-out motion-reduce:transition-none lg:translate-x-0 lg:static lg:inset-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

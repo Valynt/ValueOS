@@ -26,7 +26,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         )}
 
         {/* Org / Tenant switcher */}
-        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors">
+        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-zinc-100 transition-colors motion-reduce:transition-none">
           <div className="w-6 h-6 bg-zinc-950 rounded flex items-center justify-center">
             <span className="text-white text-[10px] font-black">AC</span>
           </div>
@@ -42,7 +42,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
       <div className="flex-1 max-w-md mx-4">
         <div
           className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all",
+            "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all motion-reduce:transition-none",
             searchFocused
               ? "border-zinc-400 shadow-sm bg-white"
               : "border-zinc-200 bg-zinc-50"
@@ -67,7 +67,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         {/* Notifications */}
         <button
           aria-label="Open notifications"
-          className="relative p-2 rounded-lg hover:bg-zinc-100 transition-colors"
+          className="relative p-2 rounded-lg hover:bg-zinc-100 transition-colors motion-reduce:transition-none"
         >
           <Bell className="w-[18px] h-[18px] text-zinc-500" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
@@ -76,7 +76,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         {/* Agent quick action */}
         <button
           onClick={onAgentOpen}
-          className="flex items-center gap-2 px-3 py-2 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors motion-reduce:transition-none"
         >
           <Sparkles className="w-4 h-4" />
           <span className="hidden sm:inline">Ask Agent</span>

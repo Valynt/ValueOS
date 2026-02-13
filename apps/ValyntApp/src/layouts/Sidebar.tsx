@@ -41,7 +41,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-zinc-200 h-full bg-white transition-all duration-200 relative",
+        "flex flex-col border-r border-zinc-200 h-full bg-white transition-all duration-200 motion-reduce:transition-none relative",
         collapsed ? "w-16" : "w-64"
       )}
     >
@@ -86,7 +86,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             onClick={handleNavClick}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors motion-reduce:transition-none",
                 collapsed && "justify-center px-2",
                 isActive
                   ? "bg-zinc-950 text-white"
@@ -117,7 +117,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           onClick={() => logout()}
           aria-label={collapsed ? "Sign out" : undefined}
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 w-full transition-colors",
+            "flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 w-full transition-colors motion-reduce:transition-none",
             collapsed && "justify-center px-2"
           )}
         >

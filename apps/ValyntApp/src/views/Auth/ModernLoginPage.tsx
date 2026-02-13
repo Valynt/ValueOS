@@ -92,9 +92,9 @@ export function ModernLoginPage() {
         }}
       >
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-zinc-900 via-black to-zinc-900" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse motion-reduce:animate-none" />
         <div
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
+          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse motion-reduce:animate-none"
           style={{ animationDelay: "1s" }}
         />
       </div>
@@ -127,7 +127,7 @@ export function ModernLoginPage() {
               {t("auth.noAccount", "Don't have an account?")}{" "}
               <Link
                 to="/signup"
-                className="font-medium text-white underline underline-offset-4 hover:text-zinc-300 transition-colors"
+                className="font-medium text-white underline underline-offset-4 hover:text-zinc-300 transition-colors motion-reduce:transition-none"
               >
                 {t("auth.signUp", "Sign up")}
               </Link>
@@ -179,7 +179,7 @@ export function ModernLoginPage() {
                 autoCapitalize="none"
                 autoComplete="email"
                 autoCorrect="off"
-                className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors motion-reduce:transition-none"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -198,7 +198,7 @@ export function ModernLoginPage() {
                   placeholder="••••••••"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 pr-10 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                  className="flex h-9 w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 pr-10 text-sm text-zinc-200 placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-300 focus-visible:border-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 transition-colors motion-reduce:transition-none"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -207,7 +207,7 @@ export function ModernLoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:text-zinc-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:text-zinc-200"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   disabled={loading || oauthLoading}
                 >
@@ -219,13 +219,13 @@ export function ModernLoginPage() {
             {/* Login Button */}
             <button
               type="submit"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold ring-offset-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-black hover:bg-zinc-200 h-9 w-full shadow-[0_0_20px_-5px_rgba(255,255,255,0.15)]"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold ring-offset-black transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-black hover:bg-zinc-200 h-9 w-full shadow-[0_0_20px_-5px_rgba(255,255,255,0.15)]"
               disabled={loading || oauthLoading}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <svg
-                    className="animate-spin h-4 w-4"
+                    className="animate-spin motion-reduce:animate-none h-4 w-4"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -266,7 +266,7 @@ export function ModernLoginPage() {
           <button
             onClick={() => handleOAuthSignIn("google")}
             disabled={loading || oauthLoading}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-zinc-800 bg-black hover:bg-zinc-900 hover:border-zinc-700 text-zinc-200 h-9 w-full gap-2"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-all motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-zinc-800 bg-black hover:bg-zinc-900 hover:border-zinc-700 text-zinc-200 h-9 w-full gap-2"
           >
             <svg className="size-4" viewBox="0 0 24 24">
               <path
@@ -295,14 +295,14 @@ export function ModernLoginPage() {
           By clicking continue, you agree to our{" "}
           <a
             href="/terms"
-            className="underline underline-offset-4 hover:text-zinc-400 transition-colors"
+            className="underline underline-offset-4 hover:text-zinc-400 transition-colors motion-reduce:transition-none"
           >
             Terms of Service
           </a>{" "}
           and{" "}
           <a
             href="/privacy"
-            className="underline underline-offset-4 hover:text-zinc-400 transition-colors"
+            className="underline underline-offset-4 hover:text-zinc-400 transition-colors motion-reduce:transition-none"
           >
             Privacy Policy
           </a>

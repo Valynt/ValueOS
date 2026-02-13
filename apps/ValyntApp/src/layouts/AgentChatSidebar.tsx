@@ -109,7 +109,13 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
   return (
     <>
       {/* Backdrop */}
-      {open && <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} aria-hidden="true" />}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-300 motion-reduce:transition-none"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Panel */}
       <aside
@@ -118,9 +124,9 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         className={cn(
-          "fixed right-0 top-0 h-full w-[450px] bg-white z-50 flex flex-col transition-transform duration-300 ease-out",
+          "fixed right-0 top-0 h-full w-[450px] bg-white z-50 flex flex-col transition-transform duration-300 ease-out motion-reduce:transition-none",
           "shadow-[-60px_0_60px_-15px_rgba(0,0,0,0.08)]",
-          open ? "translate-x-0" : "translate-x-full"
+          open ? "translate-x-0 border-l border-zinc-200" : "translate-x-full border-l border-transparent"
         )}
       >
         {/* Header */}
@@ -136,7 +142,7 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
               <p className="text-[11px] text-emerald-600 font-medium">Online</p>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close agent chat" className="p-1.5 rounded-lg hover:bg-zinc-100">
+          <button onClick={onClose} aria-label="Close agent chat" className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors motion-reduce:transition-none">
             <X className="w-5 h-5 text-zinc-400" />
           </button>
         </div>
@@ -187,7 +193,7 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
             />
             <button
               aria-label="Send message"
-              className="w-10 h-10 bg-zinc-950 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-zinc-800 transition-colors"
+              className="w-10 h-10 bg-zinc-950 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-zinc-800 transition-colors motion-reduce:transition-none"
             >
               <ArrowUp className="w-4 h-4 text-white" />
             </button>
