@@ -74,21 +74,23 @@ const readEnv = (key: string, fallback?: string) => {
   return getEnvVar(key, { defaultValue: fallback });
 };
 
-// Resolve service role key with deprecation support
-const resolveServiceRoleKey = () => {
-  // Canonical name first
-  const canonical = readEnv("SUPABASE_SERVICE_ROLE_KEY");
-  if (canonical) return canonical;
-
-  // Deprecated name with warning
-  const deprecated = readEnv("SUPABASE_SERVICE_KEY");
-  if (deprecated && isServer) {
-    console.warn(
-      "[DEPRECATION] SUPABASE_SERVICE_KEY is deprecated. Use SUPABASE_SERVICE_ROLE_KEY instead."
-    );
-  }
-  return deprecated;
+const DEPRECATED_ENV_ALIASES: Record<string, string> = {
+  SUPABASE_SERVICE_KEY: "SUPABASE_SERVICE_ROLE_KEY",
 };
+
+const assertNoDeprecatedAliases = () => {
+  const found = Object.entries(DEPRECATED_ENV_ALIASES).find(([deprecated]) => Boolean(readEnv(deprecated)));
+  if (!found) {
+    return;
+  }
+
+  const [deprecated, canonical] = found;
+  throw new Error(
+    `Deprecated environment variable ${deprecated} is set. Use ${canonical} instead.`
+  );
+};
+
+assertNoDeprecatedAliases();
 
 const resolvedEnv = {
   VITE_SUPABASE_URL: readEnv("VITE_SUPABASE_URL") || readEnv("SUPABASE_URL"),
@@ -98,7 +100,7 @@ const resolvedEnv = {
   VITE_SENTRY_DSN: readEnv("VITE_SENTRY_DSN") || readEnv("SENTRY_DSN"),
   NODE_ENV: readEnv("NODE_ENV"),
   API_PORT: readEnv("API_PORT", "3001"),
-  SUPABASE_SERVICE_ROLE_KEY: resolveServiceRoleKey(),
+  SUPABASE_SERVICE_ROLE_KEY: readEnv("SUPABASE_SERVICE_ROLE_KEY"),
   REDIS_URL: readEnv("REDIS_URL"),
   CORS_ALLOWED_ORIGINS: readEnv("CORS_ALLOWED_ORIGINS"),
   ALERT_WEBHOOK_URL: readEnv("ALERT_WEBHOOK_URL"),

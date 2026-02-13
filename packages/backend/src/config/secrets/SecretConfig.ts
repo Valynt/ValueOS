@@ -124,7 +124,7 @@ function loadSecretConfig(): SecretConfig {
     validation: {
       criticalSecrets: [
         "SUPABASE_URL",
-        "SUPABASE_SERVICE_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
         "VITE_SUPABASE_ANON_KEY",
         "JWT_SECRET",
         "ENCRYPTION_KEY",

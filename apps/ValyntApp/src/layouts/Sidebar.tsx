@@ -41,7 +41,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-zinc-200 h-full bg-white transition-all duration-200 relative",
+        "flex flex-col border-r border-zinc-200 h-full bg-white transition-all duration-200 relative max-w-full overflow-x-hidden",
         collapsed ? "w-16" : "w-64"
       )}
     >
@@ -59,7 +59,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="lg:hidden p-1 rounded-md hover:bg-zinc-100"
+            className="lg:hidden min-h-11 min-w-11 p-2 rounded-lg hover:bg-zinc-100 inline-flex items-center justify-center"
           >
             <X className="w-5 h-5 text-zinc-500" />
           </button>
@@ -71,7 +71,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         <button
           onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-[4.5rem] w-6 h-6 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 z-10 hidden lg:flex shadow-sm"
+          className="absolute -right-3 top-[4.5rem] w-11 h-11 bg-white border border-zinc-200 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-700 z-10 hidden lg:flex shadow-sm"
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
@@ -86,8 +86,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             onClick={handleNavClick}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors",
-                collapsed && "justify-center px-2",
+                "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] font-medium transition-colors",
+                collapsed && "justify-center px-2 min-w-11",
                 isActive
                   ? "bg-zinc-950 text-white"
                   : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
@@ -117,8 +117,8 @@ export function Sidebar({ onClose }: SidebarProps) {
           onClick={() => logout()}
           aria-label={collapsed ? "Sign out" : undefined}
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 w-full transition-colors",
-            collapsed && "justify-center px-2"
+            "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 w-full transition-colors",
+            collapsed && "justify-center px-2 min-w-11"
           )}
         >
           <LogOut className="w-[18px] h-[18px]" />

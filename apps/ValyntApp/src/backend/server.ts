@@ -59,7 +59,7 @@ const logger = new Logger({ component: "BillingServer" });
 const WS_POLICY_VIOLATION_CODE = 1008;
 
 const app = express();
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws/sdui" });
