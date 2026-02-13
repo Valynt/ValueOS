@@ -46,6 +46,11 @@ export interface ResearchJobResult {
 // ============================================================================
 
 function computeEntityHash(entityType: string, payload: Record<string, unknown>): string {
+  const hash = createHash('sha256');
+  hash.update(entityType);
+  hash.update(JSON.stringify(payload));
+  return hash.digest('hex');
+}
 
 /**
  * Process a single research job. Called by the BullMQ worker or directly.
@@ -81,7 +86,7 @@ export async function processResearchJob(
     let secContent = '';
     try {
       const domain = new URL(website).hostname.replace('www.', '');
-      
+
       // Resolve ticker
       const tickerResult = await mcpGroundTruthService.resolveTickerFromDomain({ domain });
 
@@ -99,12 +104,12 @@ export async function processResearchJob(
           secContent = Object.entries(sections)
             .map(([name, text]) => `## SEC 10-K Section: ${name}\n\n${text}`)
             .join('\n\n');
-          
+
           logger.info('SEC sections retrieved', { jobId, sections: Object.keys(sections) });
-          
+
           // Vector Ingestion for SEC (R2.2) - Parallelized
           const ingestionQueue = new PQueue({ concurrency: 5 });
-          
+
           for (const [name, text] of Object.entries(sections)) {
             const chunks = semanticMemory.chunkText(text);
             for (let i = 0; i < chunks.length; i++) {
@@ -140,7 +145,7 @@ export async function processResearchJob(
     // 3. Crawl the website
     logger.info('Starting web crawl', { jobId, website });
     const crawlResult: CrawlResult = await crawlWebsite(website);
-    
+
     // Vector Ingestion for Web (R2.2) - Parallelized
     const webIngestionQueue = new PQueue({ concurrency: 5 });
     for (const page of crawlResult.pages) {

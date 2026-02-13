@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260213000002_research_onboarding_tenant_uuid_alignment.sql
+-- 20260213000003_research_onboarding_tenant_uuid_alignment.sql
 -- Align research onboarding tables to canonical tenant UUID, object naming,
 -- indexes/triggers, and restrictive RLS policy pattern.
 -- ============================================================================
@@ -167,13 +167,25 @@ BEGIN
     EXECUTE format('ALTER TABLE public.company_research_suggestions DROP CONSTRAINT %I;', constraint_name);
   END LOOP;
 
-  ALTER TABLE public.company_research_jobs
-    ADD CONSTRAINT fk_company_research_jobs_tenant_id_tenants
-    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_company_research_jobs_tenant_id_tenants'
+      AND conrelid = 'public.company_research_jobs'::regclass
+  ) THEN
+    ALTER TABLE public.company_research_jobs
+      ADD CONSTRAINT fk_company_research_jobs_tenant_id_tenants
+      FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+  END IF;
 
-  ALTER TABLE public.company_research_suggestions
-    ADD CONSTRAINT fk_company_research_suggestions_tenant_id_tenants
-    FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'fk_company_research_suggestions_tenant_id_tenants'
+      AND conrelid = 'public.company_research_suggestions'::regclass
+  ) THEN
+    ALTER TABLE public.company_research_suggestions
+      ADD CONSTRAINT fk_company_research_suggestions_tenant_id_tenants
+      FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE CASCADE;
+  END IF;
 END
 $fk$;
 

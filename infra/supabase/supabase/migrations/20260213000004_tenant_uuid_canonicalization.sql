@@ -207,7 +207,13 @@ BEGIN
       END IF;
 
       EXECUTE format(
-        'ALTER TABLE public.%I ADD CONSTRAINT %I FOREIGN KEY (tenant_id) REFERENCES public.tenants(id_uuid) ON DELETE CASCADE;',
+        'DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = %L) THEN
+            ALTER TABLE public.%I ADD CONSTRAINT %I FOREIGN KEY (tenant_id) REFERENCES public.tenants(id_uuid) ON DELETE CASCADE;
+          END IF;
+        END $$;',
+        tbl || '_tenant_id_fkey',
         tbl,
         tbl || '_tenant_id_fkey'
       );

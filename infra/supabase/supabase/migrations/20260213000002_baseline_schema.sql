@@ -5579,8 +5579,13 @@ $$;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_certifications_pkey' AND conrelid = 'public.academy_certifications'::regclass) THEN
-        ALTER TABLE ONLY public.academy_certifications
-            ADD CONSTRAINT academy_certifications_pkey PRIMARY KEY (id);
+        DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_certifications_pkey') THEN
+    ALTER TABLE ONLY public.academy_certifications
+        ADD CONSTRAINT academy_certifications_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
     END IF;
 END $$;
 
@@ -5605,8 +5610,13 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_lessons_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_lessons_pkey') THEN
     ALTER TABLE ONLY public.academy_lessons
         ADD CONSTRAINT academy_lessons_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
   END IF;
 END $$;
 
@@ -5618,8 +5628,13 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_modules_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'academy_modules_pkey') THEN
     ALTER TABLE ONLY public.academy_modules
         ADD CONSTRAINT academy_modules_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
   END IF;
 END $$;
 
@@ -5652,8 +5667,13 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_accuracy_metrics_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'agent_accuracy_metrics_pkey') THEN
     ALTER TABLE ONLY public.agent_accuracy_metrics
         ADD CONSTRAINT agent_accuracy_metrics_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
   END IF;
 END $$;
 
@@ -5663,7 +5683,7 @@ END $$;
 --
 
 ALTER TABLE ONLY public.agent_activities
-    ADD CONSTRAINT agent_activities_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_activities_pkey PRIMARY KEY (id);
 
 
 --
@@ -5671,7 +5691,7 @@ ALTER TABLE ONLY public.agent_activities
 --
 
 ALTER TABLE ONLY public.agent_audit_log
-    ADD CONSTRAINT agent_audit_log_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_audit_log_pkey PRIMARY KEY (id);
 
 
 --
@@ -5679,7 +5699,7 @@ ALTER TABLE ONLY public.agent_audit_log
 --
 
 ALTER TABLE ONLY public.agent_calibration_history
-    ADD CONSTRAINT agent_calibration_history_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_calibration_history_pkey PRIMARY KEY (id);
 
 
 --
@@ -5687,7 +5707,7 @@ ALTER TABLE ONLY public.agent_calibration_history
 --
 
 ALTER TABLE ONLY public.agent_calibration_models
-    ADD CONSTRAINT agent_calibration_models_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_calibration_models_pkey PRIMARY KEY (id);
 
 
 --
@@ -5695,7 +5715,7 @@ ALTER TABLE ONLY public.agent_calibration_models
 --
 
 ALTER TABLE ONLY public.agent_memory
-    ADD CONSTRAINT agent_memory_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_memory_pkey PRIMARY KEY (id);
 
 
 --
@@ -5703,7 +5723,7 @@ ALTER TABLE ONLY public.agent_memory
 --
 
 ALTER TABLE ONLY public.agent_metrics
-    ADD CONSTRAINT agent_metrics_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_metrics_pkey PRIMARY KEY (id);
 
 
 --
@@ -5711,7 +5731,7 @@ ALTER TABLE ONLY public.agent_metrics
 --
 
 ALTER TABLE ONLY public.agent_ontologies
-    ADD CONSTRAINT agent_ontologies_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_ontologies_pkey PRIMARY KEY (id);
 
 
 --
@@ -5719,7 +5739,7 @@ ALTER TABLE ONLY public.agent_ontologies
 --
 
 ALTER TABLE ONLY public.agent_predictions
-    ADD CONSTRAINT agent_predictions_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_predictions_pkey PRIMARY KEY (id);
 
 
 --
@@ -5727,7 +5747,7 @@ ALTER TABLE ONLY public.agent_predictions
 --
 
 ALTER TABLE ONLY public.agent_retraining_queue
-    ADD CONSTRAINT agent_retraining_queue_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_retraining_queue_pkey PRIMARY KEY (id);
 
 
 --
@@ -5735,7 +5755,7 @@ ALTER TABLE ONLY public.agent_retraining_queue
 --
 
 ALTER TABLE ONLY public.agent_sessions
-    ADD CONSTRAINT agent_sessions_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_sessions_pkey PRIMARY KEY (id);
 
 
 --
@@ -5751,7 +5771,7 @@ ALTER TABLE ONLY public.agent_sessions
 --
 
 ALTER TABLE ONLY public.agent_tools
-    ADD CONSTRAINT agent_tools_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agent_tools_pkey PRIMARY KEY (id);
 
 
 --
@@ -5767,71 +5787,151 @@ ALTER TABLE ONLY public.agents
 --
 
 ALTER TABLE ONLY public.agents
-    ADD CONSTRAINT agents_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS agents_pkey PRIMARY KEY (id);
 
 
 --
 -- Name: approval_requests_archive approval_requests_archive_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approval_requests_archive
-    ADD CONSTRAINT approval_requests_archive_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approval_requests_archive_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approval_requests_archive_pkey') THEN
+    ALTER TABLE ONLY public.approval_requests_archive
+        ADD CONSTRAINT approval_requests_archive_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: approval_requests approval_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approval_requests
-    ADD CONSTRAINT approval_requests_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approval_requests_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approval_requests_pkey') THEN
+    ALTER TABLE ONLY public.approval_requests
+        ADD CONSTRAINT approval_requests_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: approvals_archive approvals_archive_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals_archive
-    ADD CONSTRAINT approvals_archive_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approvals_archive_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approvals_archive_pkey') THEN
+    ALTER TABLE ONLY public.approvals_archive
+        ADD CONSTRAINT approvals_archive_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: approvals approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approvals
-    ADD CONSTRAINT approvals_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approvals_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approvals_pkey') THEN
+    ALTER TABLE ONLY public.approvals
+        ADD CONSTRAINT approvals_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: approver_roles approver_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.approver_roles
-    ADD CONSTRAINT approver_roles_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approver_roles_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'approver_roles_pkey') THEN
+    ALTER TABLE ONLY public.approver_roles
+        ADD CONSTRAINT approver_roles_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: assumptions assumptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.assumptions
-    ADD CONSTRAINT assumptions_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'assumptions_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'assumptions_pkey') THEN
+    ALTER TABLE ONLY public.assumptions
+        ADD CONSTRAINT assumptions_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: audit_log_access audit_log_access_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.audit_log_access
-    ADD CONSTRAINT audit_log_access_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'audit_log_access_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'audit_log_access_pkey') THEN
+    ALTER TABLE ONLY public.audit_log_access
+        ADD CONSTRAINT audit_log_access_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: audit_logs_archive audit_logs_archive_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.audit_logs_archive
-    ADD CONSTRAINT audit_logs_archive_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'audit_logs_archive_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'audit_logs_archive_pkey') THEN
+    ALTER TABLE ONLY public.audit_logs_archive
+        ADD CONSTRAINT audit_logs_archive_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
@@ -5839,7 +5939,7 @@ ALTER TABLE ONLY public.audit_logs_archive
 --
 
 ALTER TABLE ONLY public.audit_logs
-    ADD CONSTRAINT audit_logs_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS audit_logs_pkey PRIMARY KEY (id);
 
 
 --
@@ -5847,7 +5947,7 @@ ALTER TABLE ONLY public.audit_logs
 --
 
 ALTER TABLE ONLY public.automated_check_results
-    ADD CONSTRAINT automated_check_results_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS automated_check_results_pkey PRIMARY KEY (id);
 
 
 --
@@ -5855,7 +5955,7 @@ ALTER TABLE ONLY public.automated_check_results
 --
 
 ALTER TABLE ONLY public.automated_responses
-    ADD CONSTRAINT automated_responses_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS automated_responses_pkey PRIMARY KEY (id);
 
 
 --
@@ -5863,7 +5963,7 @@ ALTER TABLE ONLY public.automated_responses
 --
 
 ALTER TABLE ONLY public.backup_logs
-    ADD CONSTRAINT backup_logs_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS backup_logs_pkey PRIMARY KEY (id);
 
 
 --
@@ -5871,23 +5971,33 @@ ALTER TABLE ONLY public.backup_logs
 --
 
 ALTER TABLE ONLY public.billing_customers
-    ADD CONSTRAINT billing_customers_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS billing_customers_pkey PRIMARY KEY (id);
 
 
 --
 -- Name: billing_customers billing_customers_stripe_customer_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.billing_customers
-    ADD CONSTRAINT billing_customers_stripe_customer_id_key UNIQUE (stripe_customer_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'billing_customers_stripe_customer_id_key') THEN
+    ALTER TABLE ONLY public.billing_customers
+        ADD CONSTRAINT billing_customers_stripe_customer_id_key UNIQUE (stripe_customer_id);
+  END IF;
+END $$;
 
 
 --
 -- Name: billing_customers billing_customers_tenant_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.billing_customers
-    ADD CONSTRAINT billing_customers_tenant_id_key UNIQUE (tenant_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'billing_customers_tenant_id_key') THEN
+    ALTER TABLE ONLY public.billing_customers
+        ADD CONSTRAINT billing_customers_tenant_id_key UNIQUE (tenant_id);
+  END IF;
+END $$;
 
 
 --
@@ -5895,7 +6005,7 @@ ALTER TABLE ONLY public.billing_customers
 --
 
 ALTER TABLE ONLY public.business_cases
-    ADD CONSTRAINT business_cases_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS business_cases_pkey PRIMARY KEY (id);
 
 
 --
@@ -5903,7 +6013,7 @@ ALTER TABLE ONLY public.business_cases
 --
 
 ALTER TABLE ONLY public.canvas_components
-    ADD CONSTRAINT canvas_components_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS canvas_components_pkey PRIMARY KEY (id);
 
 
 --
@@ -5911,7 +6021,7 @@ ALTER TABLE ONLY public.canvas_components
 --
 
 ALTER TABLE ONLY public.cases
-    ADD CONSTRAINT cases_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS cases_pkey PRIMARY KEY (id);
 
 
 --
@@ -5919,7 +6029,7 @@ ALTER TABLE ONLY public.cases
 --
 
 ALTER TABLE ONLY public.company_profiles
-    ADD CONSTRAINT company_profiles_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS company_profiles_pkey PRIMARY KEY (id);
 
 
 --
@@ -5927,7 +6037,7 @@ ALTER TABLE ONLY public.company_profiles
 --
 
 ALTER TABLE ONLY public.compliance_evidence
-    ADD CONSTRAINT compliance_evidence_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS compliance_evidence_pkey PRIMARY KEY (id);
 
 
 --
@@ -5935,23 +6045,43 @@ ALTER TABLE ONLY public.compliance_evidence
 --
 
 ALTER TABLE ONLY public.compliance_reports
-    ADD CONSTRAINT compliance_reports_pkey PRIMARY KEY (id);
+    ADD CONSTRAINT IF NOT EXISTS compliance_reports_pkey PRIMARY KEY (id);
 
 
 --
 -- Name: component_history component_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.component_history
-    ADD CONSTRAINT component_history_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'component_history_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'component_history_pkey') THEN
+    ALTER TABLE ONLY public.component_history
+        ADD CONSTRAINT component_history_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: component_relationships component_relationships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.component_relationships
-    ADD CONSTRAINT component_relationships_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'component_relationships_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'component_relationships_pkey') THEN
+    ALTER TABLE ONLY public.component_relationships
+        ADD CONSTRAINT component_relationships_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
@@ -5966,48 +6096,98 @@ ALTER TABLE ONLY public.component_relationships
 -- Name: confidence_violations confidence_violations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.confidence_violations
-    ADD CONSTRAINT confidence_violations_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'confidence_violations_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'confidence_violations_pkey') THEN
+    ALTER TABLE ONLY public.confidence_violations
+        ADD CONSTRAINT confidence_violations_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: contextual_triggers contextual_triggers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.contextual_triggers
-    ADD CONSTRAINT contextual_triggers_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contextual_triggers_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contextual_triggers_pkey') THEN
+    ALTER TABLE ONLY public.contextual_triggers
+        ADD CONSTRAINT contextual_triggers_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: cost_alerts cost_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.cost_alerts
-    ADD CONSTRAINT cost_alerts_pkey PRIMARY KEY (id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'cost_alerts_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'cost_alerts_pkey') THEN
+    ALTER TABLE ONLY public.cost_alerts
+        ADD CONSTRAINT cost_alerts_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: device_trust_history device_trust_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.device_trust_history
-    ADD CONSTRAINT device_trust_history_pkey PRIMARY KEY (user_id, device_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'device_trust_history_pkey') THEN
+    DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'device_trust_history_pkey') THEN
+    ALTER TABLE ONLY public.device_trust_history
+        ADD CONSTRAINT device_trust_history_pkey PRIMARY KEY (user_id, device_id);
+  END IF;
+END 76347;
+  END IF;
+END $$;
 
 
 --
 -- Name: evaluation_runs evaluation_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.evaluation_runs
-    ADD CONSTRAINT evaluation_runs_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'evaluation_runs_pkey') THEN
+    ALTER TABLE ONLY public.evaluation_runs
+        ADD CONSTRAINT evaluation_runs_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: feature_flag_evaluations feature_flag_evaluations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.feature_flag_evaluations
-    ADD CONSTRAINT feature_flag_evaluations_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'feature_flag_evaluations_pkey') THEN
+    ALTER TABLE ONLY public.feature_flag_evaluations
+        ADD CONSTRAINT feature_flag_evaluations_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6022,40 +6202,65 @@ ALTER TABLE ONLY public.feature_flags
 -- Name: feature_flags feature_flags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.feature_flags
-    ADD CONSTRAINT feature_flags_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'feature_flags_pkey') THEN
+    ALTER TABLE ONLY public.feature_flags
+        ADD CONSTRAINT feature_flags_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: financial_models financial_models_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.financial_models
-    ADD CONSTRAINT financial_models_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'financial_models_pkey') THEN
+    ALTER TABLE ONLY public.financial_models
+        ADD CONSTRAINT financial_models_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: golden_examples golden_examples_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.golden_examples
-    ADD CONSTRAINT golden_examples_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'golden_examples_pkey') THEN
+    ALTER TABLE ONLY public.golden_examples
+        ADD CONSTRAINT golden_examples_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: integration_usage_log integration_usage_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.integration_usage_log
-    ADD CONSTRAINT integration_usage_log_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'integration_usage_log_pkey') THEN
+    ALTER TABLE ONLY public.integration_usage_log
+        ADD CONSTRAINT integration_usage_log_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.invoices
-    ADD CONSTRAINT invoices_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoices_pkey') THEN
+    ALTER TABLE ONLY public.invoices
+        ADD CONSTRAINT invoices_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6070,16 +6275,26 @@ ALTER TABLE ONLY public.invoices
 -- Name: kpi_hypotheses kpi_hypotheses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.kpi_hypotheses
-    ADD CONSTRAINT kpi_hypotheses_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kpi_hypotheses_pkey') THEN
+    ALTER TABLE ONLY public.kpi_hypotheses
+        ADD CONSTRAINT kpi_hypotheses_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: llm_calls llm_calls_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.llm_calls
-    ADD CONSTRAINT llm_calls_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llm_calls_pkey') THEN
+    ALTER TABLE ONLY public.llm_calls
+        ADD CONSTRAINT llm_calls_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6094,56 +6309,91 @@ ALTER TABLE ONLY public.llm_job_results
 -- Name: llm_job_results llm_job_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.llm_job_results
-    ADD CONSTRAINT llm_job_results_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llm_job_results_pkey') THEN
+    ALTER TABLE ONLY public.llm_job_results
+        ADD CONSTRAINT llm_job_results_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: llm_usage llm_usage_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.llm_usage
-    ADD CONSTRAINT llm_usage_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'llm_usage_pkey') THEN
+    ALTER TABLE ONLY public.llm_usage
+        ADD CONSTRAINT llm_usage_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: login_attempts login_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.login_attempts
-    ADD CONSTRAINT login_attempts_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'login_attempts_pkey') THEN
+    ALTER TABLE ONLY public.login_attempts
+        ADD CONSTRAINT login_attempts_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: memory_provenance memory_provenance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.memory_provenance
-    ADD CONSTRAINT memory_provenance_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'memory_provenance_pkey') THEN
+    ALTER TABLE ONLY public.memory_provenance
+        ADD CONSTRAINT memory_provenance_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: message_bus message_bus_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.message_bus
-    ADD CONSTRAINT message_bus_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'message_bus_pkey') THEN
+    ALTER TABLE ONLY public.message_bus
+        ADD CONSTRAINT message_bus_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: messages messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.messages
-    ADD CONSTRAINT messages_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'messages_pkey') THEN
+    ALTER TABLE ONLY public.messages
+        ADD CONSTRAINT messages_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: policy_rules policy_rules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.policy_rules
-    ADD CONSTRAINT policy_rules_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'policy_rules_pkey') THEN
+    ALTER TABLE ONLY public.policy_rules
+        ADD CONSTRAINT policy_rules_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6158,16 +6408,26 @@ ALTER TABLE ONLY public.policy_rules
 -- Name: prompt_executions prompt_executions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.prompt_executions
-    ADD CONSTRAINT prompt_executions_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'prompt_executions_pkey') THEN
+    ALTER TABLE ONLY public.prompt_executions
+        ADD CONSTRAINT prompt_executions_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: prompt_versions prompt_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.prompt_versions
-    ADD CONSTRAINT prompt_versions_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'prompt_versions_pkey') THEN
+    ALTER TABLE ONLY public.prompt_versions
+        ADD CONSTRAINT prompt_versions_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6182,24 +6442,39 @@ ALTER TABLE ONLY public.prompt_versions
 -- Name: rate_limit_violations rate_limit_violations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.rate_limit_violations
-    ADD CONSTRAINT rate_limit_violations_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rate_limit_violations_pkey') THEN
+    ALTER TABLE ONLY public.rate_limit_violations
+        ADD CONSTRAINT rate_limit_violations_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: resource_artifacts resource_artifacts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.resource_artifacts
-    ADD CONSTRAINT resource_artifacts_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'resource_artifacts_pkey') THEN
+    ALTER TABLE ONLY public.resource_artifacts
+        ADD CONSTRAINT resource_artifacts_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: retention_policies retention_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.retention_policies
-    ADD CONSTRAINT retention_policies_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'retention_policies_pkey') THEN
+    ALTER TABLE ONLY public.retention_policies
+        ADD CONSTRAINT retention_policies_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6222,8 +6497,13 @@ ALTER TABLE ONLY public.roles
 -- Name: roles roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.roles
-    ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'roles_pkey') THEN
+    ALTER TABLE ONLY public.roles
+        ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6262,72 +6542,117 @@ ALTER TABLE ONLY public.secret_audit_logs_2026
 -- Name: secret_audit_logs_default secret_audit_logs_default_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.secret_audit_logs_default
-    ADD CONSTRAINT secret_audit_logs_default_pkey PRIMARY KEY (id, "timestamp");
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'secret_audit_logs_default_pkey') THEN
+    ALTER TABLE ONLY public.secret_audit_logs_default
+        ADD CONSTRAINT secret_audit_logs_default_pkey PRIMARY KEY (id, "timestamp");
+  END IF;
+END 76347;
 
 
 --
 -- Name: secret_audit_logs_legacy secret_audit_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.secret_audit_logs_legacy
-    ADD CONSTRAINT secret_audit_logs_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'secret_audit_logs_pkey') THEN
+    ALTER TABLE ONLY public.secret_audit_logs_legacy
+        ADD CONSTRAINT secret_audit_logs_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: security_audit_log security_audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.security_audit_log
-    ADD CONSTRAINT security_audit_log_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'security_audit_log_pkey') THEN
+    ALTER TABLE ONLY public.security_audit_log
+        ADD CONSTRAINT security_audit_log_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: security_events security_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.security_events
-    ADD CONSTRAINT security_events_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'security_events_pkey') THEN
+    ALTER TABLE ONLY public.security_events
+        ADD CONSTRAINT security_events_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: security_incidents security_incidents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.security_incidents
-    ADD CONSTRAINT security_incidents_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'security_incidents_pkey') THEN
+    ALTER TABLE ONLY public.security_incidents
+        ADD CONSTRAINT security_incidents_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: security_metrics security_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.security_metrics
-    ADD CONSTRAINT security_metrics_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'security_metrics_pkey') THEN
+    ALTER TABLE ONLY public.security_metrics
+        ADD CONSTRAINT security_metrics_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: security_policies security_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.security_policies
-    ADD CONSTRAINT security_policies_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'security_policies_pkey') THEN
+    ALTER TABLE ONLY public.security_policies
+        ADD CONSTRAINT security_policies_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: semantic_memory semantic_memory_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.semantic_memory
-    ADD CONSTRAINT semantic_memory_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'semantic_memory_pkey') THEN
+    ALTER TABLE ONLY public.semantic_memory
+        ADD CONSTRAINT semantic_memory_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: subscription_items subscription_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.subscription_items
-    ADD CONSTRAINT subscription_items_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subscription_items_pkey') THEN
+    ALTER TABLE ONLY public.subscription_items
+        ADD CONSTRAINT subscription_items_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6342,8 +6667,13 @@ ALTER TABLE ONLY public.subscription_items
 -- Name: subscriptions subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subscriptions_pkey') THEN
+    ALTER TABLE ONLY public.subscriptions
+        ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6358,24 +6688,39 @@ ALTER TABLE ONLY public.subscriptions
 -- Name: system_metrics system_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.system_metrics
-    ADD CONSTRAINT system_metrics_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'system_metrics_pkey') THEN
+    ALTER TABLE ONLY public.system_metrics
+        ADD CONSTRAINT system_metrics_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: task_queue task_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.task_queue
-    ADD CONSTRAINT task_queue_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'task_queue_pkey') THEN
+    ALTER TABLE ONLY public.task_queue
+        ADD CONSTRAINT task_queue_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: tenant_integrations tenant_integrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenant_integrations
-    ADD CONSTRAINT tenant_integrations_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tenant_integrations_pkey') THEN
+    ALTER TABLE ONLY public.tenant_integrations
+        ADD CONSTRAINT tenant_integrations_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6390,8 +6735,13 @@ ALTER TABLE ONLY public.tenant_integrations
 -- Name: tenants tenants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.tenants
-    ADD CONSTRAINT tenants_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tenants_pkey') THEN
+    ALTER TABLE ONLY public.tenants
+        ADD CONSTRAINT tenants_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6406,32 +6756,52 @@ ALTER TABLE ONLY public.usage_aggregates
 -- Name: usage_aggregates usage_aggregates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.usage_aggregates
-    ADD CONSTRAINT usage_aggregates_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_aggregates_pkey') THEN
+    ALTER TABLE ONLY public.usage_aggregates
+        ADD CONSTRAINT usage_aggregates_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: usage_alerts usage_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.usage_alerts
-    ADD CONSTRAINT usage_alerts_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_alerts_pkey') THEN
+    ALTER TABLE ONLY public.usage_alerts
+        ADD CONSTRAINT usage_alerts_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: usage_events usage_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.usage_events
-    ADD CONSTRAINT usage_events_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_events_pkey') THEN
+    ALTER TABLE ONLY public.usage_events
+        ADD CONSTRAINT usage_events_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: usage_quotas usage_quotas_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.usage_quotas
-    ADD CONSTRAINT usage_quotas_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usage_quotas_pkey') THEN
+    ALTER TABLE ONLY public.usage_quotas
+        ADD CONSTRAINT usage_quotas_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6446,48 +6816,78 @@ ALTER TABLE ONLY public.usage_quotas
 -- Name: user_behavior_analysis user_behavior_analysis_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.user_behavior_analysis
-    ADD CONSTRAINT user_behavior_analysis_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_behavior_analysis_pkey') THEN
+    ALTER TABLE ONLY public.user_behavior_analysis
+        ADD CONSTRAINT user_behavior_analysis_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.user_roles
-    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_roles_pkey') THEN
+    ALTER TABLE ONLY public.user_roles
+        ADD CONSTRAINT user_roles_pkey PRIMARY KEY (user_id, role_id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: user_sessions user_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.user_sessions
-    ADD CONSTRAINT user_sessions_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_sessions_pkey') THEN
+    ALTER TABLE ONLY public.user_sessions
+        ADD CONSTRAINT user_sessions_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: user_tenants user_tenants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.user_tenants
-    ADD CONSTRAINT user_tenants_pkey PRIMARY KEY (tenant_id, user_id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_tenants_pkey') THEN
+    ALTER TABLE ONLY public.user_tenants
+        ADD CONSTRAINT user_tenants_pkey PRIMARY KEY (tenant_id, user_id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: value_cases value_cases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.value_cases
-    ADD CONSTRAINT value_cases_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'value_cases_pkey') THEN
+    ALTER TABLE ONLY public.value_cases
+        ADD CONSTRAINT value_cases_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: value_ledger value_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.value_ledger
-    ADD CONSTRAINT value_ledger_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'value_ledger_pkey') THEN
+    ALTER TABLE ONLY public.value_ledger
+        ADD CONSTRAINT value_ledger_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6502,24 +6902,39 @@ ALTER TABLE ONLY public.value_ledger
 -- Name: value_maps value_maps_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.value_maps
-    ADD CONSTRAINT value_maps_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'value_maps_pkey') THEN
+    ALTER TABLE ONLY public.value_maps
+        ADD CONSTRAINT value_maps_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: value_prediction_accuracy value_prediction_accuracy_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.value_prediction_accuracy
-    ADD CONSTRAINT value_prediction_accuracy_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'value_prediction_accuracy_pkey') THEN
+    ALTER TABLE ONLY public.value_prediction_accuracy
+        ADD CONSTRAINT value_prediction_accuracy_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: webhook_events webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.webhook_events
-    ADD CONSTRAINT webhook_events_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'webhook_events_pkey') THEN
+    ALTER TABLE ONLY public.webhook_events
+        ADD CONSTRAINT webhook_events_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
@@ -6534,16 +6949,26 @@ ALTER TABLE ONLY public.webhook_events
 -- Name: workflow_executions workflow_executions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.workflow_executions
-    ADD CONSTRAINT workflow_executions_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'workflow_executions_pkey') THEN
+    ALTER TABLE ONLY public.workflow_executions
+        ADD CONSTRAINT workflow_executions_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
 -- Name: workflows workflows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.workflows
-    ADD CONSTRAINT workflows_pkey PRIMARY KEY (id);
+DO 76347
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'workflows_pkey') THEN
+    ALTER TABLE ONLY public.workflows
+        ADD CONSTRAINT workflows_pkey PRIMARY KEY (id);
+  END IF;
+END 76347;
 
 
 --
