@@ -20,11 +20,11 @@ import {
   ApiErrorResponse,
 } from './types';
 import { 
-import { logger } from "../../lib/logger.js";
   getConversationsRepository,
   NotFoundError,
   DatabaseError,
 } from './repository';
+import { logger } from "../../lib/logger.js";
 
 // ============================================================================
 // Types

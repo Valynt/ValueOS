@@ -79,12 +79,14 @@ export abstract class BaseAgent {
       trackPrediction?: boolean;
       confidenceThresholds?: { low: number; high: number };
       context?: Record<string, any>;
+      idempotencyKey?: string;
     } = {}
   ): Promise<T & { hallucination_check?: boolean }> {
     const {
       trackPrediction = true,
       confidenceThresholds = { low: 0.6, high: 0.85 },
       context = {},
+      idempotencyKey,
     } = options;
 
     return this.circuitBreaker.execute(async () => {
@@ -94,6 +96,7 @@ export abstract class BaseAgent {
           tenantId: this.organizationId,
           sessionId,
           userId: "system", // Default for agents
+          idempotencyKey,
           ...context,
         },
       };

@@ -227,8 +227,13 @@ async function emitFallbackAuditEvent(context: {
       action: 'auth.jwt_fallback_activated',
       resourceType: 'authentication',
       resourceId: context.route || 'unknown_route',
-const revokedCount = await redis.exists(...revocationKeys);
-      status: 'failed',
+      status: 'success',
+      details: {
+        reason: context.reason,
+        tenantId: context.tenantId,
+        route: context.route,
+        method: context.method,
+      },
     });
   } catch (error) {
     logger.error('Failed to persist fallback activation audit event', sanitizeForLogging(error));

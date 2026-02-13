@@ -219,8 +219,8 @@ const baseConfig = {
       },
       {
         selector:
-          "CallExpression[callee.object.name='llmGateway'][callee.property.name='complete']",
-        message: "Direct calls to llmGateway.complete are forbidden; use secureLLMInvoke instead.",
+          "CallExpression[callee.property.name='complete'][callee.object.name='llmGateway'], CallExpression[callee.property.name='complete'][callee.object.property.name='llmGateway']",
+        message: "Direct calls to llmGateway.complete are forbidden; use secureInvoke instead.",
       },
       {
         selector: "AssignmentExpression[left.property.name='innerHTML']",
@@ -229,6 +229,20 @@ const baseConfig = {
       {
         selector: "AssignmentExpression[left.property.name='outerHTML']",
         message: "Do not assign to outerHTML. Use DOM APIs or sanitizeHtml() with an allowlist.",
+      },
+      // ESLint Integrity Gate: Agent Patterns
+      {
+        selector: "CallExpression[callee.property.name='secureInvoke'][arguments.length<4]",
+        message: "secureInvoke must be called with 4 arguments (sessionId, prompt, schema, options).",
+      },
+      {
+        selector:
+          "CallExpression[callee.property.name='secureInvoke'] > ObjectExpression:last-child:not([properties.0.key.name='idempotencyKey']):not([properties.1.key.name='idempotencyKey']):not([properties.2.key.name='idempotencyKey']):not([properties.3.key.name='idempotencyKey'])",
+        message: "secureInvoke options must include an idempotencyKey as one of the first few properties.",
+      },
+      {
+        selector: "CallExpression[callee.property.name='secureInvoke'][typeArguments.params.0.type='TSAnyKeyword']",
+        message: "Do not use 'any' with secureInvoke. Provide a specific Zod-validated type.",
       },
     ],
 
@@ -253,6 +267,7 @@ const baseConfig = {
     "no-alert": "error",
     "no-debugger": "error",
     "no-sequences": "error",
+    "complexity": ["warn", { max: 8 }],
   },
 };
 

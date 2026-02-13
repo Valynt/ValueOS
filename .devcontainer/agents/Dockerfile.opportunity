@@ -33,8 +33,11 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 COPY packages/agents/${AGENT_NAME}/package.json ./packages/agents/${AGENT_NAME}/
 
-# Install dependencies
+# Install dependencies including dev dependencies
 RUN pnpm install --frozen-lockfile --prod=false
+
+# Install TypeScript as a dev dependency in workspace root
+RUN pnpm add -D -w typescript
 
 # =============================================================================
 # Stage 2: Builder

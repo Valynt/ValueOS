@@ -111,6 +111,28 @@ import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore
 import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailService.js";
 import { DLQAlert } from "../lib/agent-fabric/FabricMonitor";
 
+import { 
+  ValueCaseSaga, 
+  IdempotencyGuard, 
+  DeadLetterQueue,
+  HypothesisLoop,
+  RedTeamAgent
+} from "@valueos/agents";
+import { 
+  SupabaseSagaPersistence, 
+  DomainSagaEventEmitter, 
+  SagaAuditTrailLogger 
+} from "./workflows/SagaAdapters.js";
+import { 
+  RedisIdempotencyStore, 
+  RedisDLQStore, 
+  DomainDLQEventEmitter 
+} from "./workflows/RedisAdapters.js";
+import { 
+  RedTeamLLMAdapter,
+  AgentServiceAdapter
+} from "./workflows/AgentAdapters.js";
+
 // ... (other imports remain the same) ...
 
 const REPLAYABLE_STAGES = new Set<LifecycleStage>(["opportunity", "target", "expansion"]);
@@ -125,6 +147,10 @@ export class ValueLifecycleOrchestrator {
   private auditLogger: AuditLogger;
   private auditTrailService: AuditTrailService;
 
+  // Saga Infrastructure
+  private saga: ValueCaseSaga;
+  private hypothesisLoop: HypothesisLoop;
+
   constructor(
     supabaseClient: ReturnType<typeof createClient>,
     llmGateway: LLMGateway,
@@ -137,6 +163,33 @@ export class ValueLifecycleOrchestrator {
     this.memorySystem = memorySystem;
     this.auditLogger = auditLogger;
     this.auditTrailService = getAuditTrailService();
+
+    // Initialize Saga Infrastructure
+    const sagaPersistence = new SupabaseSagaPersistence(this.supabase);
+    const sagaEventEmitter = new DomainSagaEventEmitter();
+    const sagaAuditLogger = new SagaAuditTrailLogger();
+    this.saga = new ValueCaseSaga({
+      persistence: sagaPersistence,
+      eventEmitter: sagaEventEmitter,
+      auditLogger: sagaAuditLogger,
+    });
+
+    const idempotencyGuard = new IdempotencyGuard(new RedisIdempotencyStore());
+    const dlq = new DeadLetterQueue(new RedisDLQStore(), new DomainDLQEventEmitter());
+    
+    const redTeamAgent = new RedTeamAgent(new RedTeamLLMAdapter(this.llmGateway));
+    const agentAdapter = new AgentServiceAdapter(this.llmGateway);
+
+    this.hypothesisLoop = new HypothesisLoop({
+      saga: this.saga,
+      idempotencyGuard,
+      dlq,
+      opportunityAgent: agentAdapter,
+      financialModelingAgent: agentAdapter,
+      groundTruthAgent: agentAdapter,
+      narrativeAgent: agentAdapter,
+      redTeamAgent,
+    });
   }
 
   async executeLifecycleStage(
@@ -531,72 +584,33 @@ export class ValueLifecycleOrchestrator {
     try {
       this.ensureWorkflowActive(context);
 
-      // The actual HypothesisLoop execution is delegated to the agents/orchestration layer.
-      // This method serves as the backend integration point that:
-      // 1. Validates the workflow is active
-      // 2. Provides the correlation context
-      // 3. Handles terminal failures with DLQ routing
-      // 4. Records audit trail entries
+      // Initialize the saga in the INITIATED state if it doesn't exist
+      const existingState = await this.saga.getState(valueCaseId);
+      if (!existingState) {
+        await this.saga.initialize(valueCaseId, tenantId, correlationId);
+      }
 
-      await this.auditTrailService.logImmediate({
-        eventType: 'saga_compensation',
-        actorId: context.userId || 'system',
-        actorType: 'service',
-        resourceId: valueCaseId,
-        resourceType: 'system',
-        action: 'hypothesis_loop_started',
-        outcome: 'success',
-        details: {
-          valueCaseId,
-          tenantId,
-          idempotencyKey: context.idempotencyKey,
-        },
-        ipAddress: 'system',
-        userAgent: 'system',
-        timestamp: Date.now(),
-        sessionId: context.sessionId || correlationId,
-        correlationId,
-        riskScore: 0,
-        complianceFlags: [],
+      // Execute the HypothesisLoop
+      const result = await this.hypothesisLoop.run(
+        valueCaseId,
         tenantId,
-      });
+        correlationId
+      );
 
       return {
-        success: true,
-        finalState: 'INITIATED',
+        success: result.success,
+        finalState: result.finalState as SagaLifecycleState,
+        error: result.error,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // Route terminal failure to DLQ
-      logger.error('Hypothesis loop terminal failure, routing to DLQ', {
+      // Route terminal failure to DLQ is handled inside HypothesisLoop.executeWithGuard
+      // but we log here for the top-level orchestration.
+      logger.error('Hypothesis loop terminal failure', {
         valueCaseId,
         error: errorMsg,
         correlationId,
-      });
-
-      await this.auditTrailService.logImmediate({
-        eventType: 'saga_compensation',
-        actorId: context.userId || 'system',
-        actorType: 'service',
-        resourceId: valueCaseId,
-        resourceType: 'system',
-        action: 'hypothesis_loop_failed',
-        outcome: 'error',
-        details: {
-          valueCaseId,
-          tenantId,
-          error: errorMsg,
-          idempotencyKey: context.idempotencyKey,
-        },
-        ipAddress: 'system',
-        userAgent: 'system',
-        timestamp: Date.now(),
-        sessionId: context.sessionId || correlationId,
-        correlationId,
-        riskScore: 0.9,
-        complianceFlags: ['terminal_failure'],
-        tenantId,
       });
 
       return {

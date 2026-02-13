@@ -20,11 +20,11 @@ import {
   ApiErrorResponse,
 } from './types';
 import { 
-import { logger } from "../../lib/logger.js";
   getArtifactsRepository,
   NotFoundError,
   DatabaseError,
 } from './repository';
+import { logger } from "../../lib/logger.js";
 const standardLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 const strictLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 

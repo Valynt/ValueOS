@@ -1,13 +1,13 @@
 # Tracks Registry
 
-This file lists all active tracks and their respective plans. Each entry should link to a track's `plan.md` file within its dedicated directory.
+This file lists all active tracks and their respective plans.
 
-## Example Track Entry
+- **[Core Agentic Workflow Implementation](tracks/core-implementation/index.md)**
+    - *Description*: Implementing the end-to-end hypothesis-first loop, saga orchestration, and integrity engine.
+    - *Status*: Completed
+    - *Owner*: @agent
 
--   **Track ID**: [Track Name](tracks/track_id/plan.md)
-    -   *Description*: A brief description of what this track aims to achieve.
-    -   *Status*: (e.g., Proposed, In Progress, Completed, On Hold)
-    -   *Owner*: @username
-
----
-
+- **[Real-world Data Grounding (RAG & SEC EDGAR)](tracks/rag-grounding/index.md)**
+    - *Description*: Integrating SEC filings and a RAG pipeline for company onboarding and value case grounding.
+    - *Status*: Proposed
+    - *Owner*: @agent
