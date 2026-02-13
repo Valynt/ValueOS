@@ -41,6 +41,7 @@ import { sessionTimeoutMiddleware } from "../middleware/sessionTimeoutMiddleware
 import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
+import { validateBackendStartupEnv } from "../config/startupEnvValidator";
 import { isConsentRegistryConfigured } from "../services/consentRegistry";
 import { TenantContextResolver } from "../services/TenantContextResolver";
 import { errorHandler } from "../middleware/errorHandler";
@@ -54,6 +55,8 @@ import {
   registerShutdownHandler,
   wireProcessShutdownSignals,
 } from "../lib/shutdown/gracefulShutdown";
+
+validateBackendStartupEnv();
 
 const logger = new Logger({ component: "BillingServer" });
 const WS_POLICY_VIOLATION_CODE = 1008;

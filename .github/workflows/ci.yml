@@ -80,6 +80,11 @@ jobs:
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
 
+      - name: Env/port drift guard
+        run: node scripts/ci/check-env-port-drift.mjs
+
+      - name: Hardcoded port mismatch guard
+        run: node scripts/ci/check-hardcoded-port-mismatches.mjs
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
