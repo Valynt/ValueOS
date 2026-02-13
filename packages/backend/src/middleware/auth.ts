@@ -227,7 +227,7 @@ async function emitFallbackAuditEvent(context: {
       action: 'auth.jwt_fallback_activated',
       resourceType: 'authentication',
       resourceId: context.route || 'unknown_route',
-      details,
+const revokedCount = await redis.exists(...revocationKeys);
       status: 'failed',
     });
   } catch (error) {
