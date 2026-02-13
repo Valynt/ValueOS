@@ -13,13 +13,13 @@ Thank you for helping improve VOS Academy. This guide outlines how to propose ch
 - Rebase on `main` before opening a PR to reduce merge churn.
 
 ## Pull request expectations
-- Link to related issues or ADRs; add a new ADR in `/docs/adr` when you change an architectural decision.
+- Link to related issues or ADRs; add a new ADR in `/docs/engineering/adr` when you change an architectural decision.
 - Update diagrams-as-code and runbooks when behavior, dependencies, or operational steps change.
 - Add or update tests and include local run results. Note any known limitations in the PR description.
 - Follow API versioning rules: avoid breaking changes within a major version; introduce new endpoints under a new version prefix when required.
 
 ## Architecture records and diagrams-as-code
-- Record architecture decisions in `/docs/adr` using numbered markdown files (see ADR 0001). Link the ADR ID in your PR description for any change that alters system boundaries, data flows, or operational posture.
+- Record architecture decisions in `/docs/engineering/adr` using numbered markdown files (see ADR 0001). Link the ADR ID in your PR description for any change that alters system boundaries, data flows, or operational posture.
 - Keep diagrams-as-code in `/docs/diagrams` up to date with your change set (Mermaid preferred). When updating `docs/vos_education_hub_architecture.md`, also refresh `docs/diagrams/vos-education-hub-architecture.mmd` where applicable.
 - Update runbooks in `/docs/runbooks` whenever deployment steps, rollback procedures, or on-call diagnostics change.
 

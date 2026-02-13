@@ -11,3 +11,5 @@ This directory contains Supabase deployment and migration configuration for infr
 - Documentation of migration and security improvements
 
 For local CLI config, use the root-level `supabase/` directory (if present).
+
+- Schema governance baseline: `SCHEMA_GOVERNANCE_CHECKLIST.md`
