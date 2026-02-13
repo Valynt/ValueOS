@@ -1,4 +1,5 @@
 import { logger } from "../lib/logger";
+import type { BillingEvent } from "./billing-events";
 /**
  * Typed Domain Events
  *
@@ -158,7 +159,7 @@ export type SagaEvent =
 /**
  * All domain events union
  */
-export type DomainEvent = UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent | SagaEvent;
+export type DomainEvent = UserEvent | TenantEvent | AgentEvent | MemoryEvent | SystemEvent | SagaEvent | BillingEvent;
 
 /**
  * Event with metadata wrapper
