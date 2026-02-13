@@ -256,9 +256,11 @@ export async function createTestAgentSession(
  * Create a test tenant
  */
 export async function createTestTenant(client: SupabaseClient, overrides: Partial<any> = {}) {
+  const tenantId = generateTestId("tenant");
   const tenant = {
-    id: generateTestId("tenant"),
+    id: tenantId,
     name: "Test Tenant",
+    slug: `test-tenant-${tenantId}`,
     tier: "standard",
     status: "active",
     ...overrides,
