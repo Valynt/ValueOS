@@ -133,5 +133,9 @@
       "@types/react": "18.3.27",
       "@types/react-dom": "18.3.7"
     }
+  },
+  "scripts": {
+    "check:service-duplicates": "node scripts/check-service-duplicate-filenames.mjs",
+    "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs"
   }
 }
