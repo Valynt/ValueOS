@@ -37,7 +37,7 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
       {/* Panel */}
       <aside
         className={cn(
-          "fixed right-0 top-0 h-full w-[450px] bg-white z-50 flex flex-col transition-transform duration-300 ease-out",
+          "fixed right-0 top-0 h-full w-[450px] bg-white z-50 flex flex-col transition-transform duration-300 ease-out motion-reduce:transition-none motion-reduce:duration-0",
           "shadow-[-60px_0_60px_-15px_rgba(0,0,0,0.08)]",
           open ? "translate-x-0" : "translate-x-full"
         )}
@@ -101,7 +101,7 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
               rows={1}
               className="flex-1 resize-none bg-transparent px-3 py-2 text-[14px] text-zinc-900 placeholder:text-zinc-400 placeholder:italic placeholder:font-light outline-none"
             />
-            <button className="w-10 h-10 bg-zinc-950 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-zinc-800 transition-colors">
+            <button className="w-10 h-10 bg-zinc-950 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-zinc-800 transition-colors motion-reduce:transition-none">
               <ArrowUp className="w-4 h-4 text-white" />
             </button>
           </div>
