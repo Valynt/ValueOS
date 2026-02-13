@@ -22,6 +22,7 @@ import { auditLogService } from "../services/AuditLogService.js"
 import { createServerSupabaseClient } from "@shared/lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security.js"
 import { getConfig } from "../config/environment.js"
+import { userProfileDirectoryService } from "../services/UserProfileDirectoryService.js"
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
@@ -57,6 +58,8 @@ router.post(
       }
 
       const result = await authService.login({ email, password, otpCode });
+
+      await userProfileDirectoryService.syncProfile(result.user.id);
 
       logger.info("User login successful", {
         userId: String(sanitizeForLogging(result.user.id)),
@@ -127,6 +130,8 @@ router.post(
       }
 
       const result = await authService.signup({ email, password, fullName });
+
+      await userProfileDirectoryService.syncProfile(result.user.id);
 
       logger.info("User signup successful", {
         userId: String(sanitizeForLogging(result.user.id)),

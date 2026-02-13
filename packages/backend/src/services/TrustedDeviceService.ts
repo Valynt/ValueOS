@@ -12,6 +12,7 @@
 
 import { logger } from "../lib/logger.js"
 import { BaseService } from "./BaseService.js"
+import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 
 export interface TrustedDevice {
   id: string;
@@ -136,6 +137,7 @@ export class TrustedDeviceService extends BaseService {
           expiresAt: expiresAt.toISOString(),
         });
 
+        await userProfileDirectoryService.syncProfile(userId);
         return data;
       },
       { skipCache: true }
@@ -179,6 +181,7 @@ export class TrustedDeviceService extends BaseService {
         if (error) throw error;
 
         this.clearCache(`trusted-devices-${userId}`);
+        await userProfileDirectoryService.syncProfile(userId);
       },
       { skipCache: true }
     );
@@ -200,6 +203,7 @@ export class TrustedDeviceService extends BaseService {
         if (error) throw error;
 
         this.clearCache(`trusted-devices-${userId}`);
+        await userProfileDirectoryService.syncProfile(userId);
       },
       { skipCache: true }
     );
