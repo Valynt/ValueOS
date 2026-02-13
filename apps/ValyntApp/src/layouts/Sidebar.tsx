@@ -10,21 +10,27 @@ import {
   X,
   User,
   Building2,
+  TrendingUp,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
+import { useNavigationPersonalization } from "@/hooks/useNavigationPersonalization";
+import { NAVIGATION_ITEMS } from "@/layouts/navigationConfig";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { path: "/dashboard", label: "My Work", icon: Zap },
-  { path: "/opportunities", label: "Cases", icon: Briefcase },
-  { path: "/models", label: "Models", icon: Boxes },
-  { path: "/agents", label: "Agents", icon: Bot },
-  { path: "/company", label: "Company Intel", icon: Building2 },
-  { path: "/settings", label: "Settings", icon: Settings },
-];
+const iconByPath = {
+  "/dashboard": Zap,
+  "/opportunities": Briefcase,
+  "/models": Boxes,
+  "/agents": Bot,
+  "/company": Building2,
+  "/settings": Settings,
+};
+
+const settingsPath = "/settings";
 
 interface SidebarProps {
   onClose?: () => void;
@@ -33,8 +39,26 @@ interface SidebarProps {
 export function Sidebar({ onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
+  const { currentTenant } = useTenant();
 
-  const handleNavClick = () => {
+  const storageScope = user?.id ?? currentTenant?.id ?? "anon";
+  const { routeUsage, frequentRoutePaths, recordRouteVisit } = useNavigationPersonalization(storageScope);
+
+  const prioritizedItems = useMemo(() => {
+    const score = (path: string) => routeUsage[path] ?? 0;
+
+    const primary = NAVIGATION_ITEMS.filter((item) => item.path !== settingsPath).sort(
+      (a, b) => score(b.path) - score(a.path),
+    );
+    const settings = NAVIGATION_ITEMS.find((item) => item.path === settingsPath);
+
+    return settings ? [...primary, settings] : primary;
+  }, [routeUsage]);
+
+  const frequentSet = useMemo(() => new Set(frequentRoutePaths.slice(0, 2)), [frequentRoutePaths]);
+
+  const handleNavClick = (path: string) => {
+    recordRouteVisit(path);
     if (onClose) onClose();
   };
 
@@ -42,10 +66,9 @@ export function Sidebar({ onClose }: SidebarProps) {
     <aside
       className={cn(
         "flex flex-col border-r border-zinc-200 h-full bg-white transition-all duration-200 relative",
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-16" : "w-64",
       )}
     >
-      {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-zinc-200">
         <div className={cn("flex items-center gap-3", collapsed && "justify-center w-full")}>
           <div className="w-8 h-8 bg-zinc-950 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -66,7 +89,6 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </div>
 
-      {/* Collapse toggle (desktop) */}
       {!onClose && (
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -77,30 +99,43 @@ export function Sidebar({ onClose }: SidebarProps) {
         </button>
       )}
 
-      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            onClick={handleNavClick}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors",
-                collapsed && "justify-center px-2",
-                isActive
-                  ? "bg-zinc-950 text-white"
-                  : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-              )
-            }
-          >
-            <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
-          </NavLink>
-        ))}
+        {prioritizedItems.map((item) => {
+          const Icon = iconByPath[item.path as keyof typeof iconByPath] ?? Zap;
+          const isFrequent = frequentSet.has(item.path);
+
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={() => handleNavClick(item.path)}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors",
+                  collapsed && "justify-center px-2",
+                  isActive
+                    ? "bg-zinc-950 text-white"
+                    : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+                )
+              }
+            >
+              <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+              {!collapsed && (
+                <>
+                  <span className="truncate">{item.label}</span>
+                  {isFrequent && (
+                    <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      <TrendingUp className="h-2.5 w-2.5" />
+                      Frequent
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
-      {/* User footer */}
       <div className="px-3 py-3 border-t border-zinc-200">
         {user && !collapsed && (
           <div className="flex items-center gap-3 px-3 py-2 mb-1">
@@ -118,7 +153,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           aria-label={collapsed ? "Sign out" : undefined}
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 w-full transition-colors",
-            collapsed && "justify-center px-2"
+            collapsed && "justify-center px-2",
           )}
         >
           <LogOut className="w-[18px] h-[18px]" />
