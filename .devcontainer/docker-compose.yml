@@ -362,6 +362,35 @@ services:
   # APPLICATION SERVICES
   # =============================================================================
 
+
+  # Dev workspace service - runs readiness + migrations then dev server
+  dev:
+    <<: *common
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+    container_name: valueos-dev
+    working_dir: /workspaces/ValueOS
+    command: ["bash", "-lc", "scripts/dev/start-dev-env.sh --start-dev-server"]
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      KONG_HOST: kong
+    volumes:
+      - ..:/workspaces/ValueOS:cached
+      - pnpm-store:/home/vscode/.local/share/pnpm
+    networks:
+      - internal
+      - caddy-proxy
+    ports:
+      - "${VITE_PORT:-5173}:5173"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   # Frontend Application (React/Vite)
   frontend:
     <<: *common
@@ -623,4 +652,6 @@ volumes:
   caddy_data:
     driver: local
   caddy_config:
+    driver: local
+  pnpm-store:
     driver: local
