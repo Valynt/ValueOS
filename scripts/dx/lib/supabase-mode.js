@@ -20,18 +20,25 @@ export function extractUrlHost(raw) {
   }
 }
 
-export function isLocalHost(host, localHosts = []) {
+export function isLocalHost(host, localHosts = [], networkHosts = []) {
   if (!host) return true;
   const normalized = host.toLowerCase();
   const allowed = new Set(
-    ["localhost", "127.0.0.1", "0.0.0.0", "host.docker.internal", ...localHosts]
+    [
+      "localhost",
+      "127.0.0.1",
+      "0.0.0.0",
+      "host.docker.internal",
+      ...localHosts,
+      ...networkHosts,
+    ]
       .filter(Boolean)
       .map((value) => String(value).toLowerCase())
   );
   return allowed.has(normalized);
 }
 
-export function resolveSupabaseMode({ env = process.env, localHosts = [] } = {}) {
+export function resolveSupabaseMode({ env = process.env, localHosts = [], networkHosts = [] } = {}) {
   const force = normalizeFlag(env.DX_FORCE_SUPABASE);
   const skip = normalizeFlag(env.DX_SKIP_SUPABASE);
   const localFlag = normalizeFlag(env.DX_SUPABASE_LOCAL);
@@ -47,7 +54,7 @@ export function resolveSupabaseMode({ env = process.env, localHosts = [] } = {})
   const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || "";
   if (supabaseUrl) {
     const host = extractUrlHost(supabaseUrl);
-    if (!isLocalHost(host, localHosts)) {
+    if (!isLocalHost(host, localHosts, networkHosts)) {
       return { mode: "cloud", reason: "remote-url", host };
     }
   }

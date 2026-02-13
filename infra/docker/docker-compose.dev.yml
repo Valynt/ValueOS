@@ -199,7 +199,7 @@ services:
       # CRITICAL: sslmode=disable required - container postgres has no TLS
       DATABASE_URL: postgresql://postgres:dev_password@postgres:${DB_PORT:-${POSTGRES_PORT:-5432}}/valuecanvas_dev?sslmode=disable
       DB_URL: postgresql://postgres:dev_password@postgres:${DB_PORT:-${POSTGRES_PORT:-5432}}/valuecanvas_dev?sslmode=disable
-      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase:${SUPABASE_API_PORT:-54321}}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
       KAFKA_BROKERS: kafka:9092
@@ -255,7 +255,7 @@ services:
       - "${WEB_PORT:-${VITE_PORT:-5173}}:5173"
       - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
     environment:
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
       VITE_API_BASE_URL: http://backend:${API_PORT:-3001}
       HOST: 0.0.0.0
