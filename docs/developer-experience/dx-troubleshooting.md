@@ -44,7 +44,7 @@ Prevention: Import validation runs in CI via `.github/workflows/dx-e2e.yml`.
 Symptoms:
 
 - DX startup fails with "address already in use"
-- Services can't bind to required ports (3001, 5173, 5432, 6379, 54321-54323)
+- Services can't bind to required ports (8000, 5173, 5432, 6379, 54321-54323)
 
 
 Root Cause:
@@ -98,7 +98,7 @@ cat .dx-trace.log | grep ERROR
 cat .env.local | grep DATABASE_URL
 
 # Test backend directly
-curl -v http://localhost:3001/health
+curl -v http://localhost:8000/health
 ```
 
 
