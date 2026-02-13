@@ -65,6 +65,9 @@ jobs:
       - name: Enforce Valynt service freeze
         run: pnpm check:valynt-services-freeze
 
+      - name: Guard browser provider secrets
+        run: pnpm check:browser-provider-secrets
+
       - name: Check service duplicate filenames
         run: pnpm check:service-duplicates
 
@@ -80,8 +83,19 @@ jobs:
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
 
+      - name: Env/port drift guard
+        run: node scripts/ci/check-env-port-drift.mjs
+
+      - name: Hardcoded port mismatch guard
+        run: node scripts/ci/check-hardcoded-port-mismatches.mjs
+      - name: Security anti-pattern guard
+        run: node scripts/ci/check-security-antipatterns.mjs
+
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
+
+      - name: Kubernetes secrets hygiene
+        run: node scripts/ci/check-k8s-secrets-hygiene.mjs
 
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs
@@ -96,9 +110,12 @@ jobs:
         run: npx turbo run test
 
   rls-and-compliance:
-    name: RLS & Compliance Tests
+    name: Compliance Core Suites (required)
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -117,18 +134,85 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare compliance report directories
+        run: |
+          mkdir -p reports/compliance/rls
+          mkdir -p reports/compliance/dsr
+          mkdir -p reports/compliance/audit
+          mkdir -p reports/compliance/metadata
+
       - name: Run RLS tenant isolation tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=verbose
+        run: |
+          npx vitest run tests/security/rls-tenant-isolation.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
+            --outputFile.json=reports/compliance/rls/vitest-rls.json
 
       - name: Run DSR compliance tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
+        run: |
+          npx vitest run tests/compliance/dsr-workflow.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml \
+            --outputFile.json=reports/compliance/dsr/vitest-dsr.json
+
+      - name: Run audit immutability compliance tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          npx vitest run tests/compliance/audit/audit-log-immutability.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/compliance/audit/vitest-audit-immutability.junit.xml \
+            --outputFile.json=reports/compliance/audit/vitest-audit-immutability.json
+
+      - name: Record workflow run metadata
+        run: |
+          cat > reports/compliance/metadata/workflow-run.json <<JSON
+          {
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "ref": "${{ github.ref }}"
+          }
+          JSON
+
+      - name: Build checksum ledger
+        run: |
+          find reports/compliance -type f -print0 | sort -z | xargs -0 sha256sum > reports/compliance/SHA256SUMS
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign checksum ledger (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-certificate reports/compliance/SHA256SUMS.pem \
+            --output-signature reports/compliance/SHA256SUMS.sig \
+            reports/compliance/SHA256SUMS
+
+      - name: Upload compliance evidence artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-evidence-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: reports/compliance
+          retention-days: 90
 
   sast:
     name: SAST (Semgrep)
@@ -305,6 +389,7 @@ jobs:
       - iac
       - sbom
       - image-signature-verify
+      - rls-and-compliance
     if: always()
     steps:
       - name: Fail if any security job failed
