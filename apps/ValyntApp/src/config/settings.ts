@@ -118,6 +118,25 @@ try {
   throw error;
 }
 
+
+export const validateRedisUrlForProduction = (nodeEnv: string, redisUrl?: string) => {
+  if (nodeEnv !== "production" || !redisUrl) {
+    return;
+  }
+
+  const parsed = new URL(redisUrl);
+  const isRedisProtocol = parsed.protocol === "redis:" || parsed.protocol === "rediss:";
+
+  if (isRedisProtocol && !parsed.password) {
+    throw new Error(
+      "Invalid REDIS_URL for production: Redis password is required in the URL (redis://:password@host:port)."
+    );
+  }
+};
+
+
+validateRedisUrlForProduction(parsedSettings.NODE_ENV, parsedSettings.REDIS_URL);
+
 const defaultCorsOrigins = [
   "http://localhost:8080",
   "http://localhost:5173",
