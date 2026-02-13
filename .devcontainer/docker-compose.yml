@@ -22,7 +22,7 @@ x-supabase-env: &supabase-env
 
 networks:
   # Internal network for agent-to-agent and database communication
-  internal:
+  app-internal:
     driver: bridge
     internal: true
     ipam:
@@ -61,10 +61,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     networks:
-      - internal
+      - app-internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-valueos} -d ${POSTGRES_DB:-valueos_dev}"]
       interval: 10s
@@ -97,10 +95,8 @@ services:
       - allkeys-lru
     volumes:
       - redis_data:/data
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     networks:
-      - internal
+      - app-internal
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-valueos_dev}", "ping"]
       interval: 10s
@@ -123,11 +119,8 @@ services:
     container_name: valueos-nats
     command: -DV -m 8222
     networks:
-      - internal
+      - app-internal
       - messagebus-network
-    ports:
-      - "${NATS_CLIENT_PORT:-4222}:4222"
-      - "${NATS_MONITOR_PORT:-8222}:8222"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
       interval: 10s
@@ -175,10 +168,8 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - internal
+      - app-internal
       - caddy-proxy
-    ports:
-      - "${AUTH_PORT:-9999}:9999"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9999/health"]
       interval: 30s
@@ -201,10 +192,8 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - internal
+      - app-internal
       - caddy-proxy
-    ports:
-      - "${REST_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
@@ -229,10 +218,8 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - internal
+      - app-internal
       - caddy-proxy
-    ports:
-      - "${REALTIME_PORT:-4000}:4000"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/api/health"]
       interval: 30s
@@ -256,10 +243,8 @@ services:
     volumes:
       - storage_data:/var/lib/storage
     networks:
-      - internal
+      - app-internal
       - caddy-proxy
-    ports:
-      - "${STORAGE_PORT:-5000}:5000"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/status"]
       interval: 30s
@@ -280,10 +265,8 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - internal
+      - app-internal
       - caddy-proxy
-    ports:
-      - "${STUDIO_PORT:-54324}:3000"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/profile"]
       interval: 30s
@@ -313,13 +296,8 @@ services:
       KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
     volumes:
       - ./kong/kong.yml:/etc/kong/kong.yml:ro
-    ports:
-      - "${KONG_PROXY_PORT:-8000}:8000"
-      - "${KONG_PROXY_SSL_PORT:-8443}:8443"
-      - "${KONG_ADMIN_PORT:-8001}:8001"
-      - "${KONG_ADMIN_SSL_PORT:-8444}:8444"
     networks:
-      - internal
+      - app-internal
       - caddy-proxy
     healthcheck:
       test: ["CMD", "kong", "health"]
@@ -345,8 +323,8 @@ services:
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
-      - "${CADDY_ADMIN_PORT:-2019}:2019"
     networks:
+      - app-internal
       - caddy-proxy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:2019/config/"]
@@ -378,8 +356,6 @@ services:
       VITE_SUPABASE_ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
     networks:
       - caddy-proxy
-    ports:
-      - "${FRONTEND_PORT:-3001}:3001"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/"]
       interval: 30s
@@ -422,10 +398,8 @@ services:
       RISK_CATEGORY: "discovery"
       LIFECYCLE_STAGE: "discovery"
     networks:
-      - internal
+      - app-internal
       - messagebus-network
-    ports:
-      - "8081:8081"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/health"]
       interval: 30s
@@ -477,10 +451,8 @@ services:
       RISK_CATEGORY: "commitment"
       LIFECYCLE_STAGE: "definition"
     networks:
-      - internal
+      - app-internal
       - messagebus-network
-    ports:
-      - "8082:8082"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/health"]
       interval: 30s
@@ -532,10 +504,8 @@ services:
       RISK_CATEGORY: "commitment"
       LIFECYCLE_STAGE: "realization"
     networks:
-      - internal
+      - app-internal
       - messagebus-network
-    ports:
-      - "8083:8083"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/health"]
       interval: 30s
@@ -587,10 +557,8 @@ services:
       RISK_CATEGORY: "discovery"
       LIFECYCLE_STAGE: "expansion"
     networks:
-      - internal
+      - app-internal
       - messagebus-network
-    ports:
-      - "8084:8084"
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/health"]
       interval: 30s
