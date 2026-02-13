@@ -6,7 +6,7 @@ const baseEnv = {
   ENABLE_BILLING: "true",
   DATABASE_URL: "postgres://user:pass@localhost:5432/valueos",
   SUPABASE_URL: "https://example.supabase.co",
-  SUPABASE_SERVICE_KEY: "service-key-1234567890",
+  SUPABASE_SERVICE_ROLE_KEY: "service-key-1234567890",
   SUPABASE_ANON_KEY: "anon-key-1234567890123",
   VITE_SUPABASE_ANON_KEY: "vite-anon-key-1234567890",
   JWT_SECRET: "jwt-secret-123456789012345678901234",
