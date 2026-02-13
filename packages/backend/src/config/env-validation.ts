@@ -20,6 +20,8 @@ const baseEnvSchema = z.object({
   HOST: z.string().ip().default("0.0.0.0"),
 
   // Database Configuration
+  // Precedence: DATABASE_URL is canonical.
+  // Only fall back to POSTGRES_* atomics when DATABASE_URL is not explicitly provided.
   DATABASE_URL: z.string().url().optional(),
   POSTGRES_HOST: z.string().default("localhost"),
   POSTGRES_PORT: z
@@ -251,7 +253,7 @@ export function validateEnvironment(
     // Create safe defaults for missing optional values
     safeDefaults = {
       ...validatedData,
-      // Ensure critical values have fallbacks
+      // DATABASE_URL precedence: use DATABASE_URL first; only derive from POSTGRES_* for legacy compatibility.
       DATABASE_URL:
         validatedData.DATABASE_URL ||
         `postgresql://${validatedData.POSTGRES_USER}:${validatedData.POSTGRES_PASSWORD}@${validatedData.POSTGRES_HOST}:${validatedData.POSTGRES_PORT}/${validatedData.POSTGRES_DB}`,
