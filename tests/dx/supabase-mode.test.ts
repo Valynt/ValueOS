@@ -24,6 +24,14 @@ describe("resolveSupabaseMode", () => {
     expect(result.mode).toBe("cloud");
   });
 
+  it("treats compose service DNS as local when provided as network host", () => {
+    const result = resolveSupabaseMode({
+      env: { SUPABASE_URL: "http://supabase:54321" },
+      networkHosts: ["supabase"],
+    });
+    expect(result.mode).toBe("local");
+  });
+
   it("treats docker host gateway as local when provided", () => {
     const result = resolveSupabaseMode({
       env: { SUPABASE_URL: "http://172.17.0.1:54321" },

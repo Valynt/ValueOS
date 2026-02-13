@@ -9,6 +9,7 @@ const mockReq = (overrides: any = {}) => {
     header: (name: string) => headers[name.toLowerCase()],
     get: (name: string) => headers[name.toLowerCase()],
     tenantId: overrides.tenantId,
+    serviceIdentityVerified: overrides.serviceIdentityVerified,
     ip: overrides.ip || '1.1.1.1',
     socket: { remoteAddress: overrides.remoteAddress || '1.1.1.1' },
     path: overrides.path || '/test',
@@ -49,6 +50,39 @@ describe('rateLimiter tenant isolation', () => {
   it('keys by ip when neither tenant nor user are present', () => {
     const key = getRateLimitKey(mockReq());
     expect(key).toBe('ip:1.1.1.1');
+  });
+
+
+  it('ignores forged x-tenant-id for external traffic', () => {
+    const key = getRateLimitKey(
+      mockReq({
+        headers: { 'x-tenant-id': 'forged-tenant' },
+        ip: '9.9.9.9',
+      })
+    );
+    expect(key).toBe('ip:9.9.9.9');
+  });
+
+  it('uses x-tenant-id only for verified service identity traffic', () => {
+    const key = getRateLimitKey(
+      mockReq({
+        headers: { 'x-tenant-id': 'service-tenant' },
+        serviceIdentityVerified: true,
+        ip: '9.9.9.9',
+      })
+    );
+    expect(key).toBe('tenant:service-tenant:ip:9.9.9.9');
+  });
+
+
+  it('ignores forged x-forwarded-for for external traffic keying', () => {
+    const key = getRateLimitKey(
+      mockReq({
+        headers: { 'x-forwarded-for': '203.0.113.10' },
+        ip: '198.51.100.7',
+      })
+    );
+    expect(key).toBe('ip:198.51.100.7');
   });
 
   it('enforces limits per tenant boundary', async () => {

@@ -3,19 +3,13 @@
  * Emits usage events from services to database queue
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase';
 import { BillingMetric } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'UsageEmitter' });
 
-// Server-only Supabase client
-const supabase = (typeof window === 'undefined')
-  ? createClient(
-      import.meta.env?.VITE_SUPABASE_URL || '',
-      import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
-    )
-  : (null as any);
+const supabase = createServerSupabaseClient();
 
 class UsageEmitter {
   /**

@@ -15,8 +15,35 @@
 5. [Compliance checklists](#compliance-checklists)
 6. [ValueCanvas Compliance & Security Audit](#valuecanvas-compliance-&-security-audit)
 7. [HIPAA Applicability and Control Mapping](#hipaa-applicability-and-control-mapping)
+8. [Third-Party Penetration Test Program](#third-party-penetration-test-program)
 
 ---
+
+## Third-Party Penetration Test Program
+
+ValueOS requires an **independent third-party penetration test at least annually** for in-scope production systems, APIs, and tenant isolation controls.
+
+### Program Requirements
+
+- Testing must be performed by a qualified external assessor independent of implementation teams.
+- Scope must include external attack surface, authentication/authorization paths, tenant isolation, and high-risk integrations.
+- Retesting is required for any unresolved Critical/High finding before attestation closeout.
+- Findings must be entered into the risk register with owner, severity, and mitigation due date alignment.
+
+### Evidence Artifact Checklist
+
+For each annual test cycle, retain the following evidence artifacts in the compliance evidence repository:
+
+- Signed statement of work or engagement letter (scope, dates, assessor).
+- Final penetration test report with methodology and finding severity ratings.
+- Executive summary suitable for customer trust review.
+- Raw finding tracker mapped to internal Risk IDs.
+- Remediation plan with assigned owners and committed due dates.
+- Retest or validation evidence for Critical/High findings.
+- Management attestation confirming closure status and residual risk acceptance.
+
+Evidence retention should follow the policy baseline used for audit artifacts and remain accessible for customer and auditor review.
+
 
 ## HIPAA Applicability and Control Mapping
 
