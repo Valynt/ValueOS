@@ -16,7 +16,7 @@ import {
   Search
 } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
-import { auditLogService } from '../services/AuditLogService';
+import { auditLogService } from '@backend/services/AuditLogService';
 
 // ============================================================================
 // Types
