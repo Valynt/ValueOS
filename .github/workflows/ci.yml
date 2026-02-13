@@ -62,6 +62,9 @@ jobs:
       - name: Enforce Valynt service freeze
         run: pnpm check:valynt-services-freeze
 
+      - name: Guard browser provider secrets
+        run: pnpm check:browser-provider-secrets
+
       - name: Check service duplicate filenames
         run: pnpm check:service-duplicates
 
