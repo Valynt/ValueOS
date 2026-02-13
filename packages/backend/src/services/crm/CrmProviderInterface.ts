@@ -21,7 +21,7 @@ export interface CrmProviderInterface {
   readonly provider: CrmProvider;
 
   // OAuth flow
-  getAuthUrl(tenantId: string, redirectUri: string): OAuthStartResult;
+  getAuthUrl(state: string, redirectUri: string): OAuthStartResult;
   exchangeCodeForTokens(params: OAuthCallbackParams, redirectUri: string): Promise<OAuthTokens>;
   refreshTokenIfNeeded(tokens: OAuthTokens): Promise<OAuthTokens | null>;
 

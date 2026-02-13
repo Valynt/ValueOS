@@ -27,6 +27,7 @@ import { crmHealthService } from '../services/crm/CrmHealthService.js';
 import { getCrmSyncQueue, getCrmWebhookQueue } from '../workers/crmWorker.js';
 import { auditLogService } from '../services/AuditLogService.js';
 import { CrmProviderSchema } from '../services/crm/types.js';
+import { logSecurityEvent } from '../security/securityLogger.js';
 
 const logger = createLogger({ component: 'CrmAPI' });
 const router = Router();
@@ -85,11 +86,11 @@ router.post(
     try {
       const provider = parseProvider(req);
       const tenantId = getTenantId(req);
+      const actor = getActor(req);
       const redirectUri = getRedirectUri(req, provider);
 
-      const result = await crmConnectionService.startOAuth(tenantId, provider, redirectUri);
+      const result = await crmConnectionService.startOAuth(tenantId, actor.id, provider, redirectUri);
 
-      const actor = getActor(req);
       await auditLogService.logAudit({
         userId: actor.id,
         userName: actor.name,
@@ -134,12 +135,8 @@ router.get(
         return res.status(400).json({ error: 'Missing code or state parameter' });
       }
 
-      // Extract tenantId from state (format: randomHex:tenantId)
-      const stateParts = state.split(':');
-      if (stateParts.length < 2) {
-        return res.status(400).json({ error: 'Invalid state parameter' });
-      }
-      const tenantId = stateParts.slice(1).join(':');
+      const oauthState = await crmConnectionService.consumeOAuthStateOnce(state, provider);
+      const tenantId = oauthState.tenantId;
 
       const redirectUri = getRedirectUri(req, provider);
 
@@ -151,6 +148,10 @@ router.get(
         redirectUri,
         'oauth-callback', // connected_by — we don't have auth context in callback
       );
+
+      if (connection.tenant_id !== tenantId) {
+        throw new Error('OAuth state tenant mismatch');
+      }
 
       // Audit log
       await auditLogService.logAudit({
@@ -185,8 +186,32 @@ router.get(
         </body></html>
       `);
     } catch (error) {
+      const provider = req.params.provider;
+      const state = req.query.state as string | undefined;
+      const reason = error instanceof Error ? error.message : 'Unknown OAuth callback failure';
+      const stateErrors = new Set([
+        'OAuth state not found or already consumed',
+        'OAuth state provider mismatch',
+        'OAuth state expired',
+        'OAuth state nonce mismatch',
+        'OAuth state tenant mismatch',
+      ]);
+      const isStateValidationError = stateErrors.has(reason);
+
+      logSecurityEvent({
+        type: 'CRM_OAUTH_CALLBACK_REJECTED',
+        outcome: 'blocked',
+        reason,
+        metadata: {
+          provider,
+          stateNonce: state,
+          reasonCode: isStateValidationError ? 'invalid_oauth_state' : 'oauth_callback_failed',
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        },
+      });
       logger.error('OAuth callback failed', error instanceof Error ? error : undefined);
-      return res.status(500).send(`
+      return res.status(isStateValidationError ? 400 : 500).send(`
         <html><body>
           <script>
             window.opener?.postMessage({ type: 'crm-oauth-error', error: 'Connection failed' }, '*');

@@ -25,7 +25,7 @@ describe('HubSpotProvider', () => {
 
   describe('getAuthUrl', () => {
     it('returns a valid HubSpot OAuth URL with state and scopes', () => {
-      const result = provider.getAuthUrl('tenant-456', 'https://app.test/callback');
+      const result = provider.getAuthUrl('oauth-state-nonce', 'https://app.test/callback');
 
       expect(result.authUrl).toContain('https://app.hubspot.com/oauth/authorize');
       expect(result.authUrl).toContain('client_id=test-hs-client-id');
@@ -34,9 +34,8 @@ describe('HubSpotProvider', () => {
       expect(result.authUrl).toContain('crm.objects.deals.read');
       expect(result.authUrl).toContain('crm.objects.companies.read');
       expect(result.authUrl).toContain('state=');
-      expect(result.authUrl).toContain('tenant-456');
-      expect(result.state).toBeTruthy();
-      expect(result.state).toHaveLength(64);
+      expect(result.authUrl).toContain('state=oauth-state-nonce');
+      expect(result.state).toBe('oauth-state-nonce');
     });
   });
 

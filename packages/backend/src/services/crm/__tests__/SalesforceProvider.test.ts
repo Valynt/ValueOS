@@ -17,15 +17,14 @@ describe('SalesforceProvider', () => {
 
   describe('getAuthUrl', () => {
     it('returns a valid Salesforce OAuth URL with state', () => {
-      const result = provider.getAuthUrl('tenant-123', 'https://app.test/callback');
+      const result = provider.getAuthUrl('oauth-state-nonce', 'https://app.test/callback');
 
       expect(result.authUrl).toContain('https://login.salesforce.com/services/oauth2/authorize');
       expect(result.authUrl).toContain('client_id=test-client-id');
       expect(result.authUrl).toContain('redirect_uri=');
       expect(result.authUrl).toContain('state=');
-      expect(result.authUrl).toContain('tenant-123');
-      expect(result.state).toBeTruthy();
-      expect(result.state.length).toBe(64); // 32 bytes hex
+      expect(result.authUrl).toContain('state=oauth-state-nonce');
+      expect(result.state).toBe('oauth-state-nonce');
     });
   });
 

@@ -6,7 +6,7 @@
  * delta sync via SOQL, and field mapping to canonical types.
  */
 
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 import { createLogger } from '../../lib/logger.js';
 import type { CrmProviderInterface } from './CrmProviderInterface.js';
@@ -69,16 +69,15 @@ function validateInstanceUrl(url: string): boolean {
 export class SalesforceProvider implements CrmProviderInterface {
   readonly provider = 'salesforce' as const;
 
-  getAuthUrl(tenantId: string, redirectUri: string): OAuthStartResult {
+  getAuthUrl(state: string, redirectUri: string): OAuthStartResult {
     const config = getConfig();
-    const state = randomBytes(32).toString('hex');
 
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: config.clientId,
       redirect_uri: redirectUri,
       scope: 'api refresh_token',
-      state: `${state}:${tenantId}`,
+      state,
       prompt: 'consent',
     });
 

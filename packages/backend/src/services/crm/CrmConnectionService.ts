@@ -7,6 +7,8 @@
 
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
+import { getRedisClient, getRedisKey } from '../../lib/redis.js';
+import { randomUUID } from 'node:crypto';
 import { encryptToken, decryptToken, tokenFingerprint, needsReEncryption } from './tokenEncryption.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
 import type {
@@ -24,6 +26,15 @@ const REQUIRED_SCOPES: Record<CrmProvider, string[]> = {
 };
 
 const logger = createLogger({ component: 'CrmConnectionService' });
+const OAUTH_STATE_TTL_SECONDS = 10 * 60;
+
+interface StoredOAuthState {
+  nonce: string;
+  tenantId: string;
+  userId: string;
+  provider: CrmProvider;
+  expiresAt: string;
+}
 
 export class CrmConnectionService {
   private supabase = createServerSupabaseClient();
@@ -33,14 +44,54 @@ export class CrmConnectionService {
    */
   async startOAuth(
     tenantId: string,
+    userId: string,
     provider: CrmProvider,
     redirectUri: string,
   ): Promise<{ authUrl: string; state: string }> {
+    const nonce = await this.createOAuthState(tenantId, userId, provider);
     const impl = getCrmProvider(provider);
-    const result = impl.getAuthUrl(tenantId, redirectUri);
+    const result = impl.getAuthUrl(nonce, redirectUri);
 
     logger.info('OAuth flow started', { tenantId, provider });
     return result;
+  }
+
+  async consumeOAuthStateOnce(
+    nonce: string,
+    provider: CrmProvider,
+  ): Promise<StoredOAuthState> {
+    const redis = await getRedisClient();
+    if (!redis) {
+      throw new Error('OAuth state store unavailable');
+    }
+
+    const key = this.getOAuthStateKey(nonce);
+    const raw = await redis.getDel(key);
+
+    if (!raw) {
+      throw new Error('OAuth state not found or already consumed');
+    }
+
+    let parsed: StoredOAuthState;
+    try {
+      parsed = JSON.parse(raw) as StoredOAuthState;
+    } catch {
+      throw new Error('Invalid OAuth state payload');
+    }
+
+    if (parsed.nonce !== nonce) {
+      throw new Error('OAuth state nonce mismatch');
+    }
+
+    if (parsed.provider !== provider) {
+      throw new Error('OAuth state provider mismatch');
+    }
+
+    if (new Date(parsed.expiresAt).getTime() <= Date.now()) {
+      throw new Error('OAuth state expired');
+    }
+
+    return parsed;
   }
 
   /**
@@ -266,6 +317,36 @@ export class CrmConnectionService {
     }
 
     return data as CrmConnectionRow;
+  }
+
+  private async createOAuthState(
+    tenantId: string,
+    userId: string,
+    provider: CrmProvider,
+  ): Promise<string> {
+    const redis = await getRedisClient();
+    if (!redis) {
+      throw new Error('OAuth state store unavailable');
+    }
+
+    const nonce = randomUUID();
+    const payload: StoredOAuthState = {
+      nonce,
+      tenantId,
+      userId,
+      provider,
+      expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_SECONDS * 1000).toISOString(),
+    };
+
+    await redis.set(this.getOAuthStateKey(nonce), JSON.stringify(payload), {
+      EX: OAUTH_STATE_TTL_SECONDS,
+    });
+
+    return nonce;
+  }
+
+  private getOAuthStateKey(nonce: string): string {
+    return getRedisKey('backend', 'crm_oauth_state', nonce);
   }
 }
 
