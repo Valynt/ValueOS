@@ -1,0 +1,8 @@
+torch>=2.4
+vllm>=0.6
+text-generation>=0.7
+transformers>=4.45
+accelerate>=0.33
+bitsandbytes>=0.43
+sentencepiece>=0.2
+huggingface_hub>=0.24

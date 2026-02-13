@@ -469,8 +469,8 @@ export class EDGARModule extends BaseModule {
     await this.enforceRateLimit();
 
     try {
-      // SEC company tickers JSON
-      const url = `${this.baseUrl}/files/company_tickers.json`;
+      // SEC company tickers JSON - ALWAYS on www.sec.gov
+      const url = `https://www.sec.gov/files/company_tickers.json`;
 
       const response = await fetch(url, {
         headers: {

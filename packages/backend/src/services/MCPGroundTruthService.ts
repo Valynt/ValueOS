@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../lib/logger.js'
-import { isBrowser } from '../lib/env';
+import { isBrowser, getGroundtruthConfig } from '../lib/env.js';
 import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
 
 // MCP Server type (dynamic import to avoid circular deps)
@@ -61,6 +61,8 @@ class MCPGroundTruthService {
     financialsApi: 'external:groundtruth:financials',
     verifyApi: 'external:groundtruth:verify',
     benchmarksApi: 'external:groundtruth:benchmarks',
+    resolveTickerApi: 'external:groundtruth:resolve_ticker',
+    filingSectionsApi: 'external:groundtruth:filing_sections',
     financialsMcp: 'external:groundtruth:mcp:financials',
     verifyMcp: 'external:groundtruth:mcp:verify',
     benchmarksMcp: 'external:groundtruth:mcp:benchmarks',
@@ -77,11 +79,6 @@ class MCPGroundTruthService {
     if (this.initialized) return;
     if (this.initPromise) return this.initPromise;
 
-    if (isBrowser()) {
-      this.initialized = true;
-      return;
-    }
-
     this.initPromise = this.doInitialize();
     return this.initPromise;
   }
@@ -92,7 +89,11 @@ class MCPGroundTruthService {
       const { createDevServer } = await import('../mcp-ground-truth');
       this.server = await createDevServer();
       this.initialized = true;
-      logger.info('MCP Ground Truth Server initialized');
+      if (this.server) {
+        logger.info('MCP Ground Truth Server initialized');
+      } else {
+        logger.warn('MCP Ground Truth Server initialization returned null, falling back to HTTP');
+      }
     } catch (error) {
       logger.error('Failed to initialize MCP server', error instanceof Error ? error : undefined);
       // Don't throw - service degrades gracefully
@@ -104,7 +105,7 @@ class MCPGroundTruthService {
    * Check if service is available
    */
   isAvailable(): boolean {
-    return isBrowser() || this.server !== null;
+    return this.server !== null;
   }
 
   /**
@@ -122,18 +123,39 @@ class MCPGroundTruthService {
   }
 
   private async callGroundtruthApi<T>(
-    operation: 'financialsApi' | 'verifyApi' | 'benchmarksApi',
+    operation: 'financialsApi' | 'verifyApi' | 'benchmarksApi' | 'resolveTickerApi' | 'filingSectionsApi',
     payload: Record<string, unknown>
   ): Promise<T | null> {
     const breakerKey = this.breakerKeys[operation];
-    const path = operation.replace('Api', '');
+    let path = operation.replace('Api', '');
+    
+    // Map operation to endpoint path
+    const pathMap: Record<string, string> = {
+      financials: 'financials',
+      verify: 'verify',
+      benchmarks: 'benchmarks',
+      resolveTicker: 'resolve-ticker',
+      filingSections: 'filing-sections'
+    };
+    path = pathMap[path] || path;
 
     return this.circuitBreaker.execute(
       breakerKey,
       async () => {
-        const response = await fetch(`${this.apiBasePath}/${path}`, {
+        const config = getGroundtruthConfig();
+        const url = isBrowser() 
+          ? `${this.apiBasePath}/${path}`
+          : `${config.baseUrl.replace(/\/$/, '')}/${path}`;
+
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (config.apiKey && !isBrowser()) {
+          headers['Authorization'] = `Bearer ${config.apiKey}`;
+          headers['x-api-key'] = config.apiKey;
+        }
+
+        const response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload),
         });
 
@@ -143,11 +165,12 @@ class MCPGroundTruthService {
         }
 
         const data = await response.json();
-        if (!data?.success) {
+        // The API returns { success: true, data: ... }
+        if (!data?.success && !isBrowser()) {
           throw new Error(`Groundtruth API unsuccessful (${operation}): ${data?.error || data?.message || 'unknown'}`);
         }
 
-        return data.data as T;
+        return (isBrowser() ? data : data.data) as T;
       },
       {
         config: this.breakerConfig,
@@ -196,14 +219,31 @@ class MCPGroundTruthService {
     return normalized;
   }
 
-  private async callMcpTool<T>(
+  public async callMcpTool<T>(
     operation: 'financialsMcp' | 'verifyMcp' | 'benchmarksMcp',
     toolName: string,
     args: Record<string, unknown>,
     transform: (data: any) => T | null
   ): Promise<T | null> {
+    await this.initialize();
+    
     if (!this.server) {
-      logger.warn('MCP server not available, returning null', { operation, toolName });
+      // Fallback to HTTP if server not available and it's a known tool
+      if (toolName === 'get_authoritative_financials') {
+        return this.callGroundtruthApi<any>('financialsApi', {
+          entityId: args.entity_id,
+          metrics: args.metrics,
+          period: args.period
+        }) as any;
+      }
+      if (toolName === 'resolve_ticker_from_domain') {
+        return this.resolveTickerFromDomain(args as { domain: string }) as any;
+      }
+      if (toolName === 'get_filing_sections') {
+        return this.getFilingSections(args as any) as any;
+      }
+
+      logger.warn('MCP server not available and no HTTP fallback for tool, returning null', { operation, toolName });
       return null;
     }
 
@@ -269,26 +309,50 @@ class MCPGroundTruthService {
   async getFinancialData(request: FinancialDataRequest): Promise<FinancialDataResult | null> {
     await this.initialize();
 
-    if (isBrowser()) {
-      return this.callGroundtruthApi<FinancialDataResult>('financialsApi', {
-        entityId: request.entityId,
-        metrics: request.metrics,
-        period: request.period,
-        includeIndustryBenchmarks: request.includeIndustryBenchmarks,
-      });
+    if (this.server) {
+      return this.callMcpTool('financialsMcp', 'get_authoritative_financials', {
+        entity_id: request.entityId,
+        metrics: request.metrics || ['revenue', 'netIncome', 'totalAssets', 'operatingIncome'],
+        period: request.period || 'latest',
+        include_benchmarks: request.includeIndustryBenchmarks ?? true,
+      }, data => this.transformResult(data, request));
     }
 
-    if (!this.server) {
-      logger.warn('MCP server not available, returning null');
-      return null;
+    return this.callGroundtruthApi<FinancialDataResult>('financialsApi', {
+      entityId: request.entityId,
+      metrics: request.metrics,
+      period: request.period,
+      includeIndustryBenchmarks: request.includeIndustryBenchmarks,
+    });
+  }
+
+  /**
+   * Resolve a corporate domain to a public ticker
+   */
+  async resolveTickerFromDomain(request: { domain: string }): Promise<{
+    ticker: string;
+    confidence: number;
+    domain: string;
+  } | null> {
+    await this.initialize();
+
+    if (this.server) {
+      return this.callMcpTool('financialsMcp', 'resolve_ticker_from_domain', {
+        domain: request.domain
+      }, data => ({
+        ticker: data.ticker,
+        confidence: data.confidence,
+        domain: data.domain
+      }));
     }
 
-    return this.callMcpTool('financialsMcp', 'get_authoritative_financials', {
-      entity_id: request.entityId,
-      metrics: request.metrics || ['revenue', 'netIncome', 'totalAssets', 'operatingIncome'],
-      period: request.period || 'latest',
-      include_benchmarks: request.includeIndustryBenchmarks ?? true,
-    }, data => this.transformResult(data, request));
+    return this.callGroundtruthApi<{
+      ticker: string;
+      confidence: number;
+      domain: string;
+    }>('resolveTickerApi', {
+      domain: request.domain
+    });
   }
 
   /**
@@ -308,38 +372,34 @@ class MCPGroundTruthService {
   }> {
     await this.initialize();
 
-    if (isBrowser()) {
-      const response = await this.callGroundtruthApi<{
-        verified: boolean;
-        actualValue?: number;
-        deviation?: number;
-        source?: string;
-        confidence: number;
-      }>('verifyApi', {
-        entityId: claim.entityId,
-        metric: claim.metric,
-        value: claim.value,
-        period: claim.period,
-      });
+    if (this.server) {
+      const response = await this.callMcpTool('verifyMcp', 'verify_claim_aletheia', {
+        claim_text: `${claim.metric} is ${claim.value}`,
+        context_entity: claim.entityId,
+        context_date: claim.period || new Date().toISOString(),
+      }, data => ({
+        verified: data.verified ?? false,
+        actualValue: data.actual_value,
+        deviation: data.deviation_percentage,
+        source: data.source,
+        confidence: data.confidence ?? 0,
+      }));
 
       return response ?? { verified: false, confidence: 0 };
     }
 
-    if (!this.server) {
-      return { verified: false, confidence: 0 };
-    }
-
-    const response = await this.callMcpTool('verifyMcp', 'verify_claim_aletheia', {
-      claim_text: `${claim.metric} is ${claim.value}`,
-      context_entity: claim.entityId,
-      context_date: claim.period || new Date().toISOString(),
-    }, data => ({
-      verified: data.verified ?? false,
-      actualValue: data.actual_value,
-      deviation: data.deviation_percentage,
-      source: data.source,
-      confidence: data.confidence ?? 0,
-    }));
+    const response = await this.callGroundtruthApi<{
+      verified: boolean;
+      actualValue?: number;
+      deviation?: number;
+      source?: string;
+      confidence: number;
+    }>('verifyApi', {
+      entityId: claim.entityId,
+      metric: claim.metric,
+      value: claim.value,
+      period: claim.period,
+    });
 
     return response ?? { verified: false, confidence: 0 };
   }
@@ -355,23 +415,23 @@ class MCPGroundTruthService {
   }> | null> {
     await this.initialize();
 
-    if (isBrowser()) {
-      return this.callGroundtruthApi<Record<string, {
-        median: number;
-        p25: number;
-        p75: number;
-        sampleSize: number;
-      }>>('benchmarksApi', {
-        industryCode,
-        metrics,
-      });
+    if (this.server) {
+      return this.callMcpTool('benchmarksMcp', 'populate_value_driver_tree', {
+        target_cik: '',
+        benchmark_naics: industryCode,
+        driver_node_id: 'productivity_delta',
+      }, data => data?.benchmarks || null);
     }
 
-    return this.callMcpTool('benchmarksMcp', 'populate_value_driver_tree', {
-      target_cik: '',
-      benchmark_naics: industryCode,
-      driver_node_id: 'productivity_delta',
-    }, data => data?.benchmarks || null);
+    return this.callGroundtruthApi<Record<string, {
+      median: number;
+      p25: number;
+      p75: number;
+      sampleSize: number;
+    }>>('benchmarksApi', {
+      industryCode,
+      metrics,
+    });
   }
 
   /**
@@ -384,12 +444,20 @@ class MCPGroundTruthService {
   }): Promise<Record<string, string> | null> {
     await this.initialize();
 
-    // Use financialsMcp key for now as it's EDGAR-related
-    return this.callMcpTool('financialsMcp', 'get_filing_sections', {
+    if (this.server) {
+      // Use financialsMcp key for now as it's EDGAR-related
+      return this.callMcpTool('financialsMcp', 'get_filing_sections', {
+        identifier: request.identifier,
+        filing_type: request.filingType || '10-K',
+        sections: request.sections,
+      }, data => data?.sections || null);
+    }
+
+    return this.callGroundtruthApi<Record<string, string>>('filingSectionsApi', {
       identifier: request.identifier,
-      filing_type: request.filingType || '10-K',
+      filingType: request.filingType,
       sections: request.sections,
-    }, data => data?.sections || null);
+    });
   }
 
   getCircuitBreakerMetrics(): Record<string, ReturnType<ExternalCircuitBreaker["getMetrics"]>> {

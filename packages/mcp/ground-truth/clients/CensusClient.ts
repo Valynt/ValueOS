@@ -6,7 +6,7 @@
  * Census API: https://www.census.gov/data/developers/data-sets.html
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../../lib/logger";
 import { fetchWithRetry } from "./utils/fetchWithRetry";
 
 export interface CensusBusinessData {

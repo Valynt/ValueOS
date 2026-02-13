@@ -35,18 +35,19 @@ export class ExternalCircuitBreaker {
     task: () => Promise<T>,
     options: ExecuteOptions<T> = {}
   ): Promise<T> {
-    const previousState = this.manager.getState(key)?.state ?? 'closed';
+    const breaker = this.manager.getBreaker(key, options.config);
+    const previousState = breaker.getState();
 
     try {
-      const result = await this.manager.execute(key, task, options.config);
+      const result = await breaker.execute(task);
       this.logStateTransitionIfNeeded(
         key,
         previousState,
-        this.manager.getState(key)?.state ?? 'closed'
+        breaker.getState()
       );
       return result;
     } catch (error) {
-      const currentState = this.manager.getState(key)?.state ?? previousState;
+      const currentState = breaker.getState();
       this.logStateTransitionIfNeeded(key, previousState, currentState);
 
       const normalizedError =
@@ -61,7 +62,7 @@ export class ExternalCircuitBreaker {
           state: currentState,
           error: normalizedError.message,
         });
-        return options.fallback(normalizedError, currentState);
+        return options.fallback(normalizedError, currentState as BreakerState);
       }
 
       throw normalizedError;
@@ -69,23 +70,20 @@ export class ExternalCircuitBreaker {
   }
 
   getMetrics(key: string): IntegrationCircuitMetrics {
-    const state = this.manager.getState(key);
-    const metrics = state?.metrics ?? [];
-    const totalRequests = metrics.length;
-    const failedRequests = metrics.filter((metric) => !metric.success).length;
-    const successfulRequests = totalRequests - failedRequests;
+    const breaker = this.manager.getBreaker(key);
+    const metrics = breaker.getMetrics();
 
     return {
       key,
       integration: this.integration,
-      state: state?.state ?? 'closed',
-      totalRequests,
-      successfulRequests,
-      failedRequests,
-      failureRate: totalRequests === 0 ? 0 : failedRequests / totalRequests,
-      failureCount: state?.failure_count ?? 0,
-      lastFailureTime: state?.last_failure_time ?? null,
-      openedAt: state?.opened_at ?? null,
+      state: metrics.state as BreakerState,
+      totalRequests: metrics.totalRequests,
+      successfulRequests: metrics.successes,
+      failedRequests: metrics.failures,
+      failureRate: metrics.totalRequests === 0 ? 0 : metrics.failures / metrics.totalRequests,
+      failureCount: metrics.failures,
+      lastFailureTime: null, // Not tracked by canonical breaker
+      openedAt: null, // Not tracked by canonical breaker
     };
   }
 
@@ -97,11 +95,11 @@ export class ExternalCircuitBreaker {
   }
 
   getState(key: string): BreakerState {
-    return this.manager.getState(key)?.state ?? 'closed';
+    return this.manager.getBreaker(key).getState() as BreakerState;
   }
 
   reset(key: string): void {
-    this.manager.reset(key);
+    this.manager.getBreaker(key).reset();
   }
 
   private logStateTransitionIfNeeded(

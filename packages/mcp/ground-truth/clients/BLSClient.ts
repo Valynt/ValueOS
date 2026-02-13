@@ -6,7 +6,7 @@
  * BLS API: https://www.bls.gov/developers/
  */
 
-import { logger } from "../lib/logger";
+import { logger } from "../../lib/logger";
 import { fetchWithRetry } from "./utils/fetchWithRetry";
 
 export interface BLSWageData {

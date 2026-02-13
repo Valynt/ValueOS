@@ -95,12 +95,10 @@ export async function processResearchJob(
       const domain = new URL(website).hostname.replace('www.', '');
       
       // Resolve ticker
-      const tickerResult = await mcpGroundTruthService.callMcpTool<any>('financialsMcp', 'resolve_ticker_from_domain', {
-        domain
-      }, d => d);
+      const tickerResult = await mcpGroundTruthService.resolveTickerFromDomain({ domain });
 
-      if (tickerResult?.value) {
-        const ticker = tickerResult.value;
+      if (tickerResult?.ticker) {
+        const ticker = tickerResult.ticker;
         logger.info('Resolved ticker', { domain, ticker });
 
         // Fetch sections

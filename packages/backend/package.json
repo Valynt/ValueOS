@@ -16,6 +16,7 @@
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.989.0",
     "@valueos/shared": "workspace:*",
+    "@mcp/ground-truth": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.22.1",

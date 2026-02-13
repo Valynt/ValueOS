@@ -9,5 +9,5 @@ This file lists all active tracks and their respective plans.
 
 - **[Real-world Data Grounding (RAG & SEC EDGAR)](tracks/rag-grounding/index.md)**
     - *Description*: Integrating SEC filings and a RAG pipeline for company onboarding and value case grounding.
-    - *Status*: Proposed
+    - *Status*: Active
     - *Owner*: @agent
