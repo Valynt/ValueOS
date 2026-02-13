@@ -27,6 +27,9 @@ export interface MemoryEntry {
     targetMarket?: string;
     score?: number;
     timestamp: Date;
+    organization_id?: string;
+    auth0_sub?: string;
+    session_id?: string;
     userId?: string;
     workflowId?: string;
     tags?: string[];
@@ -65,12 +68,7 @@ export class SemanticMemoryService {
     if (text.length <= size) return [text];
 
     const chunks: string[] = [];
-    const separators = ['
-##', '
-#', '
-
-', '
-', '. ', ' ', ''];
+    const separators = ["\n##", "\n#", "\n\n", "\n", ". ", " ", ""];
     
     const splitRecursive = (currentText: string, separatorIdx: number): string[] => {
       if (currentText.length <= size) return [currentText];
@@ -160,6 +158,8 @@ export class SemanticMemoryService {
       // Generate embedding
       const embedding = await this.generateEmbedding(entry.content);
 
+      const namespace = this.resolveNamespace(entry.metadata);
+
       // Store in database
       const { data, error } = await this.supabase
         .from("semantic_memory")
@@ -167,7 +167,13 @@ export class SemanticMemoryService {
           type: entry.type,
           content: entry.content,
           embedding,
-          metadata: entry.metadata,
+          metadata: {
+            ...entry.metadata,
+            ...namespace,
+          },
+          organization_id: namespace.organization_id,
+          auth0_sub: namespace.auth0_sub,
+          session_id: namespace.session_id,
         })
         .select("id")
         .single();
@@ -204,8 +210,9 @@ export class SemanticMemoryService {
       metadata: {
         agentType: "ResearchWorker",
         timestamp: new Date(),
-        userId: data.tenantId,
+        organization_id: data.tenantId,
         workflowId: data.contextId,
+        session_id: data.contextId,
         source_url: data.sourceUrl,
         ...data.metadata,
       },
@@ -223,6 +230,9 @@ export class SemanticMemoryService {
       targetMarket?: string;
       minScore?: number;
       limit?: number;
+      organizationId?: string;
+      auth0Sub?: string;
+      sessionId?: string;
       tenantId?: string;
       workflowId?: string;
     } = {}
@@ -231,22 +241,8 @@ export class SemanticMemoryService {
       // Generate query embedding
       const queryEmbedding = await this.generateEmbedding(query);
 
-      // Build filter conditions
-      const filters: string[] = [];
-      if (options.type) filters.push(`type = '${options.type}'`);
-      if (options.industry)
-        filters.push(`metadata->>'industry' = '${options.industry}'`);
-      if (options.targetMarket)
-        filters.push(`metadata->>'targetMarket' = '${options.targetMarket}'`);
-      if (options.minScore)
-        filters.push(`(metadata->>'score')::float >= ${options.minScore}`);
-      if (options.tenantId)
-        filters.push(`metadata->>'userId' = '${options.tenantId}'`);
-      if (options.workflowId)
-        filters.push(`metadata->>'workflowId' = '${options.workflowId}'`);
-
-      const whereClause =
-        filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+      const organizationId = options.organizationId ?? options.tenantId;
+      const sessionId = options.sessionId ?? options.workflowId;
 
       // Perform vector similarity search
       const { data, error } = await this.supabase.rpc(
@@ -255,7 +251,13 @@ export class SemanticMemoryService {
           query_embedding: queryEmbedding,
           match_threshold: options.minScore || 0.7, // Cosine similarity threshold
           match_count: options.limit || 10,
-          filter_clause: whereClause,
+          p_type: options.type ?? null,
+          p_industry: options.industry ?? null,
+          p_target_market: options.targetMarket ?? null,
+          p_min_score: options.minScore ?? null,
+          p_organization_id: organizationId ?? null,
+          p_auth0_sub: options.auth0Sub ?? null,
+          p_session_id: sessionId ?? null,
         }
       );
 
@@ -281,6 +283,18 @@ export class SemanticMemoryService {
       logger.error("Semantic search failed", error as Error);
       throw error;
     }
+  }
+
+  private resolveNamespace(metadata: MemoryEntry["metadata"]): {
+    organization_id: string | null;
+    auth0_sub: string | null;
+    session_id: string | null;
+  } {
+    return {
+      organization_id: metadata.organization_id ?? metadata.userId ?? null,
+      auth0_sub: metadata.auth0_sub ?? null,
+      session_id: metadata.session_id ?? metadata.workflowId ?? null,
+    };
   }
 
   /**
