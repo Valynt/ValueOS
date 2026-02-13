@@ -262,6 +262,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Fail on IaC placeholders
+        run: |
+          patterns=(
+            "change_immediately"
+            "prod_[A-Za-z0-9_]*_key"
+            "192\.0\.2\.0/24"
+            "198\.51\.100\.0/24"
+            "203\.0\.113\.0/24"
+          )
+
+          for pattern in "${patterns[@]}"; do
+            if rg -n --glob '*.tf' --pcre2 "$pattern" infra/environments/prod/terraform; then
+              echo "❌ Found disallowed placeholder pattern: $pattern"
+              exit 1
+            fi
+          done
+
+          echo "✅ No placeholder markers found in production Terraform IaC files."
+
       - name: Detect IaC files
         id: detect
         run: |
