@@ -1,8 +1,44 @@
-# ECS cluster module stub
-# TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Replace with real resources before production deployment
+# ECS cluster module — Fargate cluster with Container Insights
 
 variable "name_prefix" { type = string }
 variable "tags" { type = map(string) }
 
-output "cluster_id" { value = "ecs-cluster-stub" }
-output "cluster_name" { value = "valueos-cluster-stub" }
+resource "aws_ecs_cluster" "main" {
+  name = "${var.name_prefix}-cluster"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-cluster"
+  })
+}
+
+resource "aws_ecs_cluster_capacity_providers" "main" {
+  cluster_name = aws_ecs_cluster.main.name
+
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+
+  default_capacity_provider_strategy {
+    base              = 1
+    weight            = 1
+    capacity_provider = "FARGATE"
+  }
+
+  default_capacity_provider_strategy {
+    weight            = 3
+    capacity_provider = "FARGATE_SPOT"
+  }
+}
+
+# --- Outputs ---
+
+output "cluster_id" {
+  value = aws_ecs_cluster.main.id
+}
+
+output "cluster_name" {
+  value = aws_ecs_cluster.main.name
+}

@@ -74,6 +74,12 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: i18n key integrity
+        run: node scripts/ci/check-i18n-keys.mjs
+
+      - name: Critical claims verification
+        run: node scripts/ci/verify-critical-claims.mjs
+
       - name: Build
         run: npx turbo run build
 
