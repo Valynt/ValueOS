@@ -13,6 +13,7 @@
 - [Database Guide](./database-guide.md)
 - [Development Setup](./development-setup.md)
 - [Frontend Development](./frontend-development.md)
+- [Localization Standards](./localization-standards.md)
 - [Messaging Guide](./messaging-guide.md)
 - [Migration Guide](./migration-guide.md)
 - [Platform Guide](./platform-guide.md)
@@ -21,4 +22,4 @@
 
 ---
 
-**Total Documents**: 12
+**Total Documents**: 13

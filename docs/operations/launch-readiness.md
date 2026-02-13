@@ -73,6 +73,7 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Feature flags transitioned (`beta_*` removed or mapped to `ga_*`).
 - [ ] Backup stored and verified.
 - [ ] Stakeholder communications sent (pre/post).
+- [ ] Localization QA completed for all user-facing feature changes (translation completeness, formatting checks, and RTL verification when applicable).
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
 
 ---

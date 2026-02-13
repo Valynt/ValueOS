@@ -54,6 +54,11 @@ jobs:
       - name: Typecheck
         run: npx turbo run typecheck
 
+      - name: Localization coverage
+        env:
+          I18N_FALLBACK_RATIO_THRESHOLD: "0.05"
+        run: pnpm run i18n:check
+
       - name: Build
         run: npx turbo run build
 

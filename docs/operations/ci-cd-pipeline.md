@@ -25,7 +25,8 @@ Detailed test stages (within or adjacent to `ci:verify`):
 3. Tests: `pnpm run test` — unit + integration through Turbo
 4. Build: `pnpm run build` — production build validation
 5. RLS: `pnpm run test:rls` — Supabase policy enforcement checks
-6. E2E: `pnpm run test:smoke` — Playwright runs on the running app
+6. Localization: `pnpm run i18n:check` — missing/unused key detection with fallback-ratio threshold enforcement
+7. E2E: `pnpm run test:smoke` — Playwright runs on the running app
 
 Architecture & operational notes:
 
