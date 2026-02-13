@@ -31,3 +31,7 @@ export type { BillingCustomer, UsageAggregate } from "./billing";
 
 // --- VOS ---
 export type { Benchmark } from "./vos";
+
+// --- Evidence / provenance ---
+export type { EvidenceTierLabel, EvidenceTierNumeric, SourceProvenance } from "./evidence";
+export { EVIDENCE_TIER, evidenceTierToLabel, evidenceTierToNumeric } from "./evidence";

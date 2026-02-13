@@ -1,3 +1,4 @@
+import type { EvidenceTierLabel, SourceProvenance } from '../../types/evidence.js';
 /**
  * CRM Integration Types
  *
@@ -146,6 +147,8 @@ export interface WebhookEventRow {
 export interface ProvenanceInput {
   tenantId: string;
   sourceType: 'crm' | 'agent' | 'user' | 'benchmark' | 'system';
+  sourceProvenance: SourceProvenance;
+  evidenceTier: EvidenceTierLabel;
   sourceProvider?: string;
   externalObjectType?: string;
   externalObjectId?: string;

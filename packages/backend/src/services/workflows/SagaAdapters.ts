@@ -8,6 +8,7 @@ import {
 } from "@valueos/agents";
 import { getAuditTrailService } from "../security/AuditTrailService.js";
 import { logger } from "../../lib/logger.js";
+import { evidenceTierToLabel, evidenceTierToNumeric } from "../../types/evidence.js";
 
 /**
  * Supabase implementation of SagaPersistence.
@@ -109,7 +110,10 @@ export class SupabaseProvenanceStore {
         value_case_id: record.valueCaseId,
         claim_id: record.claimId,
         data_source: record.dataSource,
-        evidence_tier: record.evidenceTier,
+        evidence_tier: typeof record.evidenceTier === 'number'
+          ? evidenceTierToLabel(record.evidenceTier)
+          : record.evidenceTier,
+        source_provenance: record.sourceProvenance || 'agent_inference',
         formula: record.formula,
         agent_id: record.agentId,
         agent_version: record.agentVersion,
@@ -162,7 +166,10 @@ export class SupabaseProvenanceStore {
       valueCaseId: data.value_case_id,
       claimId: data.claim_id,
       dataSource: data.data_source,
-      evidenceTier: data.evidence_tier,
+      evidenceTier: typeof data.evidence_tier === 'string'
+        ? evidenceTierToNumeric(data.evidence_tier)
+        : data.evidence_tier,
+      sourceProvenance: data.source_provenance,
       formula: data.formula,
       agentId: data.agent_id,
       agentVersion: data.agent_version,
