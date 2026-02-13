@@ -25,6 +25,38 @@ compose_args=(
   -f "${COMPOSE_FILE}"
 )
 
+show_usage() {
+  cat <<'EOF'
+Usage: dc [docker compose args]
+
+Wrapper around `docker compose` using:
+  -f scripts/docker-compose.yml
+  --project-name valueos
+  --project-directory <repo-root>
+
+Profiles:
+  supabase        Base local stack from scripts/docker-compose.yml (default compose services; no --profile required)
+  observability   Optional profile from scripts/docker-compose.yml (prometheus, grafana)
+  validate        Optional profile from scripts/docker-compose.yml (build-validator)
+  devcontainer    Optional profile when available via compose overrides (passed through when explicitly set)
+
+How profile selection works:
+  * CLI `--profile` always wins and is passed through unchanged.
+  * If CLI does not set a profile and VALUEOS_PROFILES is set, its comma-separated values are forwarded as --profile flags.
+  * Otherwise no --profile flag is added.
+
+Examples:
+  dc up
+  VALUEOS_PROFILES=observability dc up -d
+  dc --profile validate run --rm build-validator
+EOF
+}
+
+if [[ "${1:-}" == "help" || "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_usage
+  exit 0
+fi
+
 has_profile_arg=false
 for arg in "$@"; do
   if [[ "${arg}" == "--profile" || "${arg}" == --profile=* ]]; then
@@ -37,12 +69,6 @@ if [[ "${has_profile_arg}" == "false" ]]; then
   profiles=()
   if [[ -n "${VALUEOS_PROFILES:-}" ]]; then
     IFS=',' read -r -a profiles <<< "${VALUEOS_PROFILES}"
-  elif [[ -n "${DEVCONTAINER:-}" || -n "${REMOTE_CONTAINERS:-}" || -n "${CODESPACES:-}" ]]; then
-    profiles=("devcontainer")
-  elif [[ -f "/.dockerenv" && -d "${ROOT}/.devcontainer" ]]; then
-    profiles=("devcontainer")
-  else
-    profiles=("dev")
   fi
 
   for profile in "${profiles[@]}"; do
