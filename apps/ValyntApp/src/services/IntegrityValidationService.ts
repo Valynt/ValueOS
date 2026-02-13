@@ -308,6 +308,28 @@ export class IntegrityValidationService {
     if (request.content.confidence !== undefined) {
       const confidence = request.content.confidence;
 
+      const isOutOfRange = !Number.isFinite(confidence) || confidence < 0 || confidence > 1;
+
+      if (isOutOfRange) {
+        checks.push({
+          type: CheckType.CONFIDENCE_REASONING,
+          status: 'fail',
+          score: 0,
+          details: `Confidence score out of range: ${confidence}. Expected a finite value between 0 and 1.`,
+        });
+
+        violations.push({
+          type: CheckType.CONFIDENCE_REASONING,
+          severity: 'high',
+          description: 'Confidence score is out of range',
+          impact: 'Integrity scoring is invalid when confidence is outside [0, 1] or non-finite.',
+          remediation: 'Clamp or recalculate confidence to a finite value within [0, 1] before validation.',
+          evidence: { confidence },
+        });
+
+        return;
+      }
+
       let status: 'pass' | 'fail' | 'warning' = 'pass';
       let score = confidence;
 
