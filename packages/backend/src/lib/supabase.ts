@@ -1,11 +1,10 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Use environment variables or defaults
-const supabaseUrl = process.env.SUPABASE_URL || "https://example.supabase.co";
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY || "example-key";
+import { getValidatedSupabaseRuntimeConfig } from "./env";
 
 export const createServerSupabaseClient = () => {
-  return createClient(supabaseUrl, supabaseKey);
+  const { url, serviceRoleKey } = getValidatedSupabaseRuntimeConfig();
+  return createClient(url, serviceRoleKey);
 };
 
 // Shared singleton client for legacy call sites/tests that import { supabase }

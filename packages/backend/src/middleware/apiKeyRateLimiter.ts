@@ -9,10 +9,12 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { logger } from '@shared/lib/logger';
 import { MLAnomalyDetectionService } from '../services/MLAnomalyDetectionService';
 import { DistributedAttackDetectionService } from '../services/DistributedAttackDetectionService';
 import { RateLimitEscalationService } from '../services/RateLimitEscalationService';
+import { getRedisClient } from '../lib/redis';
 
 export interface APIKeyCreateRequest {
   key?: string;
@@ -37,7 +39,7 @@ export interface APIKeyCreateRequest {
 
 export interface APIKey {
   id: string;
-  keyHash: string;
+  keyFingerprint: string;
   name: string;
   tier: 'free' | 'basic' | 'pro' | 'enterprise';
   ownerId: string;
@@ -49,8 +51,11 @@ export interface APIKey {
     requestsPerDay: number;
   };
   isActive: boolean;
+  status: 'active' | 'suspended' | 'expired' | 'revoked';
   createdAt: Date;
-  lastUsed?: Date;
+  expiresAt?: Date;
+  lastUsedAt?: Date;
+  revokedAt?: Date;
   usage: {
     totalRequests: number;
     currentMinute: number;
@@ -112,10 +117,27 @@ export interface APIKeySecurityContext {
   }>;
 }
 
+interface APIKeyRedisRecord {
+  id: string;
+  keyFingerprint: string;
+  name: string;
+  tier: 'free' | 'basic' | 'pro' | 'enterprise';
+  ownerId: string;
+  tenantId: string;
+  permissions: string[];
+  rateLimit: APIKey['rateLimit'];
+  isActive: boolean;
+  status: APIKey['status'];
+  created_at: string;
+  expires_at?: string;
+  last_used_at?: string;
+  revoked_at?: string;
+  metadata: APIKey['metadata'];
+}
+
 export class APIKeyRateLimiter {
-  private apiKeys = new Map<string, APIKey>();
   private keyMetrics = new Map<string, APIKeyMetrics>();
-  private securityContexts = new Map<string, APIKeySecurityContext>();
+  private readonly keyHashSecret = process.env.API_KEY_HASH_SECRET || 'dev-api-key-secret-change-me';
 
   // Default rate limits by tier
   private readonly DEFAULT_LIMITS = {
@@ -207,12 +229,6 @@ export class APIKeyRateLimiter {
       return apiKeyHeader;
     }
 
-    // Check query parameter
-    const apiKeyQuery = req.query.api_key as string;
-    if (apiKeyQuery) {
-      return apiKeyQuery;
-    }
-
     return null;
   }
 
@@ -227,11 +243,9 @@ export class APIKeyRateLimiter {
     };
 
     try {
-      // Hash the API key for lookup
-      const keyHash = this.hashAPIKey(apiKey);
-
-      // Look up API key
-      const keyData = this.apiKeys.get(keyHash);
+      const tenantId = this.resolveTenantId(req);
+      const keyFingerprint = this.hashAPIKey(apiKey);
+      const keyData = await this.getAPIKeyByFingerprint(keyFingerprint, tenantId);
 
       if (!keyData) {
         context.violations.push({
@@ -242,11 +256,24 @@ export class APIKeyRateLimiter {
         return context;
       }
 
-      // Check if key is active
-      if (!keyData.isActive) {
+      if (!this.safeCompare(keyFingerprint, keyData.keyFingerprint)) {
+        context.violations.push({
+          type: 'invalid_key',
+          message: 'Invalid API key',
+          timestamp: new Date()
+        });
+        return context;
+      }
+
+      const now = new Date();
+      const isExpired = Boolean(keyData.expiresAt && keyData.expiresAt.getTime() <= now.getTime());
+      const isRevoked = Boolean(keyData.revokedAt);
+      const isInactive = !keyData.isActive || keyData.status !== 'active';
+
+      if (isInactive || isExpired || isRevoked) {
         context.violations.push({
           type: 'expired_key',
-          message: 'API key is inactive or expired',
+          message: 'API key is inactive, expired, or revoked',
           timestamp: new Date()
         });
         return context;
@@ -272,8 +299,7 @@ export class APIKeyRateLimiter {
       context.tier = keyData.tier;
       context.permissions = keyData.permissions;
 
-      // Update last used timestamp
-      keyData.lastUsed = new Date();
+      await this.updateLastUsed(keyData.id, keyData.tenantId);
 
       return context;
 
@@ -311,17 +337,12 @@ export class APIKeyRateLimiter {
       day: Date;
     };
   }> {
-    const apiKey = this.apiKeys.get(keyId);
+    const apiKey = await this.getAPIKeyById(keyId);
     if (!apiKey) {
       throw new Error(`API key not found: ${keyId}`);
     }
-
-    const now = new Date();
-    const usage = apiKey.usage;
     const limits = apiKey.rateLimit;
-
-    // Reset counters if needed
-    this.resetUsageCounters(apiKey, now);
+    const usage = await this.getUsageCounters(keyId);
 
     // Check each limit
     const minuteExceeded = usage.currentMinute >= limits.requestsPerMinute;
@@ -343,9 +364,9 @@ export class APIKeyRateLimiter {
         day: limits.requestsPerDay
       },
       resetTimes: {
-        minute: new Date(usage.lastReset.minute.getTime() + 60 * 1000),
-        hour: new Date(usage.lastReset.hour.getTime() + 60 * 60 * 1000),
-        day: new Date(usage.lastReset.day.getTime() + 24 * 60 * 60 * 1000)
+        minute: new Date(Date.now() + 60 * 1000),
+        hour: new Date(Date.now() + 60 * 60 * 1000),
+        day: new Date(Date.now() + 24 * 60 * 60 * 1000)
       }
     };
   }
@@ -377,7 +398,7 @@ export class APIKeyRateLimiter {
     securityContext: APIKeySecurityContext
   ): Promise<void> {
     const keyId = securityContext.keyId!;
-    const apiKey = this.apiKeys.get(keyId);
+    const apiKey = await this.getAPIKeyById(keyId);
 
     if (!apiKey) return;
 
@@ -506,48 +527,22 @@ export class APIKeyRateLimiter {
    * Update API key usage metrics
    */
   private async updateAPIKeyUsage(keyId: string): Promise<void> {
-    const apiKey = this.apiKeys.get(keyId);
+    const apiKey = await this.getAPIKeyById(keyId);
     if (!apiKey) return;
-
-    const now = new Date();
-
-    // Reset counters if needed
-    this.resetUsageCounters(apiKey, now);
-
-    // Increment counters
-    apiKey.usage.totalRequests++;
-    apiKey.usage.currentMinute++;
-    apiKey.usage.currentHour++;
-    apiKey.usage.currentDay++;
+    await this.incrementUsageCounters(keyId);
 
     // Update metrics
-    this.updateAPIKeyMetrics(apiKey);
-  }
-
-  /**
-   * Reset usage counters if time windows have expired
-   */
-  private resetUsageCounters(apiKey: APIKey, now: Date): void {
-    const usage = apiKey.usage;
-    const lastReset = usage.lastReset;
-
-    // Reset minute counter
-    if (now.getTime() - lastReset.minute.getTime() >= 60 * 1000) {
-      usage.currentMinute = 0;
-      usage.lastReset.minute = now;
-    }
-
-    // Reset hour counter
-    if (now.getTime() - lastReset.hour.getTime() >= 60 * 60 * 1000) {
-      usage.currentHour = 0;
-      usage.lastReset.hour = now;
-    }
-
-    // Reset day counter
-    if (now.getTime() - lastReset.day.getTime() >= 24 * 60 * 60 * 1000) {
-      usage.currentDay = 0;
-      usage.lastReset.day = now;
-    }
+    const usage = await this.getUsageCounters(keyId);
+    this.updateAPIKeyMetrics({
+      ...apiKey,
+      usage: {
+        ...apiKey.usage,
+        totalRequests: usage.total,
+        currentMinute: usage.currentMinute,
+        currentHour: usage.currentHour,
+        currentDay: usage.currentDay
+      }
+    });
   }
 
   /**
@@ -707,8 +702,128 @@ export class APIKeyRateLimiter {
 
   // Helper methods
   private hashAPIKey(apiKey: string): string {
-    // Simple hash for demonstration - use proper hashing in production
-    return `hash_${apiKey.substring(0, 8)}_${apiKey.length}`;
+    return createHmac('sha256', this.keyHashSecret).update(apiKey).digest('hex');
+  }
+
+  private safeCompare(a: string, b: string): boolean {
+    const aBuffer = Buffer.from(a, 'utf8');
+    const bBuffer = Buffer.from(b, 'utf8');
+    if (aBuffer.length !== bBuffer.length) {
+      return false;
+    }
+    return timingSafeEqual(aBuffer, bBuffer);
+  }
+
+  private resolveTenantId(req: Request): string {
+    return (req.headers['x-tenant-id'] as string) || (req as any).tenantId || 'default';
+  }
+
+  private async getAPIKeyByFingerprint(fingerprint: string, tenantId: string): Promise<APIKey | null> {
+    const redis = await getRedisClient();
+    if (!redis) return null;
+
+    const keyId = await redis.get(`apikey:index:${tenantId}:${fingerprint}`);
+    if (!keyId) return null;
+
+    return this.getAPIKeyById(keyId);
+  }
+
+  private async getAPIKeyById(keyId: string): Promise<APIKey | null> {
+    const redis = await getRedisClient();
+    if (!redis) return null;
+
+    const payload = await redis.get(`apikey:data:${keyId}`);
+    if (!payload) return null;
+
+    const data = JSON.parse(payload) as APIKeyRedisRecord;
+
+    return {
+      id: data.id,
+      keyFingerprint: data.keyFingerprint,
+      name: data.name,
+      tier: data.tier,
+      ownerId: data.ownerId,
+      tenantId: data.tenantId,
+      permissions: data.permissions,
+      rateLimit: data.rateLimit,
+      isActive: data.isActive,
+      status: data.status,
+      createdAt: new Date(data.created_at),
+      expiresAt: data.expires_at ? new Date(data.expires_at) : undefined,
+      lastUsedAt: data.last_used_at ? new Date(data.last_used_at) : undefined,
+      revokedAt: data.revoked_at ? new Date(data.revoked_at) : undefined,
+      usage: {
+        totalRequests: 0,
+        currentMinute: 0,
+        currentHour: 0,
+        currentDay: 0,
+        lastReset: { minute: new Date(), hour: new Date(), day: new Date() }
+      },
+      metadata: data.metadata || {}
+    };
+  }
+
+  private async updateLastUsed(keyId: string, tenantId: string): Promise<void> {
+    const redis = await getRedisClient();
+    if (!redis) return;
+    const existing = await this.getAPIKeyById(keyId);
+    if (!existing) return;
+
+    const record: APIKeyRedisRecord = {
+      id: existing.id,
+      keyFingerprint: existing.keyFingerprint,
+      name: existing.name,
+      tier: existing.tier,
+      ownerId: existing.ownerId,
+      tenantId,
+      permissions: existing.permissions,
+      rateLimit: existing.rateLimit,
+      isActive: existing.isActive,
+      status: existing.status,
+      created_at: existing.createdAt.toISOString(),
+      expires_at: existing.expiresAt?.toISOString(),
+      revoked_at: existing.revokedAt?.toISOString(),
+      last_used_at: new Date().toISOString(),
+      metadata: existing.metadata
+    };
+
+    await redis.set(`apikey:data:${keyId}`, JSON.stringify(record));
+  }
+
+  private async incrementUsageCounters(keyId: string): Promise<void> {
+    const redis = await getRedisClient();
+    if (!redis) return;
+
+    await Promise.all([
+      redis.incr(`apikey:usage:${keyId}:total`),
+      redis.incr(`apikey:usage:${keyId}:minute`),
+      redis.incr(`apikey:usage:${keyId}:hour`),
+      redis.incr(`apikey:usage:${keyId}:day`),
+      redis.expire(`apikey:usage:${keyId}:minute`, 60),
+      redis.expire(`apikey:usage:${keyId}:hour`, 3600),
+      redis.expire(`apikey:usage:${keyId}:day`, 86400)
+    ]);
+  }
+
+  private async getUsageCounters(keyId: string): Promise<{ total: number; currentMinute: number; currentHour: number; currentDay: number }> {
+    const redis = await getRedisClient();
+    if (!redis) {
+      return { total: 0, currentMinute: 0, currentHour: 0, currentDay: 0 };
+    }
+
+    const [total, minute, hour, day] = await Promise.all([
+      redis.get(`apikey:usage:${keyId}:total`),
+      redis.get(`apikey:usage:${keyId}:minute`),
+      redis.get(`apikey:usage:${keyId}:hour`),
+      redis.get(`apikey:usage:${keyId}:day`)
+    ]);
+
+    return {
+      total: Number(total || 0),
+      currentMinute: Number(minute || 0),
+      currentHour: Number(hour || 0),
+      currentDay: Number(day || 0)
+    };
   }
 
   private getRequiredPermission(req: Request): string | null {
@@ -770,10 +885,14 @@ export class APIKeyRateLimiter {
   }
 
   // Public API methods
-  public createAPIKey(keyData: APIKeyCreateRequest): APIKey {
+  public async createAPIKey(keyData: APIKeyCreateRequest): Promise<APIKey> {
+    const rawApiKey = keyData.key || randomBytes(32).toString('hex');
+    const apiKeyId = `key_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    const fingerprint = this.hashAPIKey(rawApiKey);
+
     const apiKey: APIKey = {
-      id: `key_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      keyHash: this.hashAPIKey(keyData.key || ''),
+      id: apiKeyId,
+      keyFingerprint: fingerprint,
       name: keyData.name || 'Unnamed API Key',
       tier: keyData.tier || 'free',
       ownerId: keyData.ownerId || '',
@@ -781,7 +900,11 @@ export class APIKeyRateLimiter {
       permissions: keyData.permissions || ['read'],
       rateLimit: keyData.rateLimit || this.DEFAULT_LIMITS[keyData.tier || 'free'],
       isActive: keyData.isActive !== false,
+      status: keyData.isActive === false ? 'suspended' : 'active',
       createdAt: new Date(),
+      expiresAt: undefined,
+      lastUsedAt: undefined,
+      revokedAt: undefined,
       usage: {
         totalRequests: 0,
         currentMinute: 0,
@@ -796,7 +919,32 @@ export class APIKeyRateLimiter {
       metadata: keyData.metadata || {}
     };
 
-    this.apiKeys.set(apiKey.keyHash, apiKey);
+    const redis = await getRedisClient();
+    if (redis) {
+      const redisRecord: APIKeyRedisRecord = {
+        id: apiKey.id,
+        keyFingerprint: apiKey.keyFingerprint,
+        name: apiKey.name,
+        tier: apiKey.tier,
+        ownerId: apiKey.ownerId,
+        tenantId: apiKey.tenantId,
+        permissions: apiKey.permissions,
+        rateLimit: apiKey.rateLimit,
+        isActive: apiKey.isActive,
+        status: apiKey.status,
+        created_at: apiKey.createdAt.toISOString(),
+        expires_at: apiKey.expiresAt?.toISOString(),
+        last_used_at: apiKey.lastUsedAt?.toISOString(),
+        revoked_at: apiKey.revokedAt?.toISOString(),
+        metadata: apiKey.metadata
+      };
+
+      await Promise.all([
+        redis.set(`apikey:data:${apiKey.id}`, JSON.stringify(redisRecord)),
+        redis.set(`apikey:index:${apiKey.tenantId}:${apiKey.keyFingerprint}`, apiKey.id)
+      ]);
+    }
+
     return apiKey;
   }
 
@@ -808,13 +956,33 @@ export class APIKeyRateLimiter {
     return Array.from(this.keyMetrics.values());
   }
 
-  public revokeAPIKey(keyId: string): boolean {
-    for (const [hash, apiKey] of this.apiKeys.entries()) {
-      if (apiKey.id === keyId) {
-        apiKey.isActive = false;
-        return true;
-      }
-    }
-    return false;
+  public async revokeAPIKey(keyId: string): Promise<boolean> {
+    const redis = await getRedisClient();
+    if (!redis) return false;
+
+    const existing = await this.getAPIKeyById(keyId);
+    if (!existing) return false;
+
+    const revokedAt = new Date();
+    const updated: APIKeyRedisRecord = {
+      id: existing.id,
+      keyFingerprint: existing.keyFingerprint,
+      name: existing.name,
+      tier: existing.tier,
+      ownerId: existing.ownerId,
+      tenantId: existing.tenantId,
+      permissions: existing.permissions,
+      rateLimit: existing.rateLimit,
+      isActive: false,
+      status: 'revoked',
+      created_at: existing.createdAt.toISOString(),
+      expires_at: existing.expiresAt?.toISOString(),
+      last_used_at: existing.lastUsedAt?.toISOString(),
+      revoked_at: revokedAt.toISOString(),
+      metadata: existing.metadata
+    };
+
+    await redis.set(`apikey:data:${keyId}`, JSON.stringify(updated));
+    return true;
   }
 }

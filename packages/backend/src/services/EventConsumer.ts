@@ -10,6 +10,7 @@ import { logger } from "../lib/logger.js"
 import { BaseEvent } from "@shared/types/events";
 import { tenantContextStorage, TCTPayload } from "../middleware/tenantContext.js"
 import jwt from "jsonwebtoken";
+import { buildKafkaClientConfig, isKafkaEnabled } from "./kafkaConfig.js"
 
 export interface ConsumerConfig {
   clientId: string;
@@ -52,8 +53,10 @@ export class EventConsumer {
     };
 
     this.kafka = new Kafka({
-      clientId: this.config.clientId,
-      brokers: this.config.brokers,
+      ...buildKafkaClientConfig({
+        clientId: this.config.clientId,
+        brokers: this.config.brokers,
+      }),
       logLevel: logLevel.WARN,
       retry: {
         retries: this.config.maxRetries,
@@ -374,7 +377,11 @@ export function createEventConsumer(
   topics: string[],
   handlers: EventHandler[] = []
 ): EventConsumer {
-  const brokers = process.env.KAFKA_BROKERS?.split(",") || ["localhost:9092"];
+  if (!isKafkaEnabled()) {
+    throw new Error("Kafka integration is disabled. Set KAFKA_ENABLED=true to enable Kafka-dependent paths.");
+  }
+
+  const brokers = process.env.KAFKA_BROKERS?.split(",") || ["localhost:9093"];
   const clientId = `${serviceName}-consumer`;
   const groupId = `${serviceName}-group`;
 
