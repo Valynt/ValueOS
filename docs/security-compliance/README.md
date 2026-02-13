@@ -1,6 +1,6 @@
 # Security Compliance
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-13
 
 ---
 
@@ -11,8 +11,11 @@
 - [Compliance Guide](./compliance-guide.md)
 - [Data Protection](./data-protection.md)
 - [Security Overview](./security-overview.md)
+- [Trust Center Package](./trust-center.md)
+- [Vendor Risk Review Workflow](./vendor-risk-review-workflow.md)
+- [Bug Bounty & CVD Program](./bug-bounty-cvd-program.md)
 - [Security Testing](./security-testing.md)
 
 ---
 
-**Total Documents**: 6
+**Total Documents**: 9

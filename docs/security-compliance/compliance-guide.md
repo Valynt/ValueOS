@@ -1478,7 +1478,7 @@ npm run security-scan
 
 ### Low Priority
 
-9. **Explore bug bounty program**
+9. **Operate bug bounty and coordinated vulnerability disclosure program** (implemented with SLA + severity rubric)
 10. **Add automated compliance monitoring dashboard**
 11. **Implement data lineage tracking**
 12. **Add security awareness training** for team

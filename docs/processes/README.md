@@ -1,6 +1,6 @@
 # Processes
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-13
 
 ---
 
@@ -9,9 +9,10 @@
 - [Code Review](./code-review.md)
 - [Incident Management](./incident-management.md)
 - [Project Management](./project-management.md)
+- [Internal Risk Register & Quarterly Review](./internal-risk-register-quarterly-review.md)
 - [Release Process](./release-process.md)
 - [Team Onboarding](./team-onboarding.md)
 
 ---
 
-**Total Documents**: 5
+**Total Documents**: 6
