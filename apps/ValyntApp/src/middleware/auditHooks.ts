@@ -13,7 +13,7 @@
  */
 
 import { NextFunction, Request, Response } from "express";
-import { auditLogService } from "../services/AuditLogService";
+import { auditLogService } from "@backend/services/AuditLogService";
 import { logger } from "../utils/logger";
 
 /**
