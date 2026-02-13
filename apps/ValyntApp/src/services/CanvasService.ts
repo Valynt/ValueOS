@@ -95,7 +95,7 @@ export class CanvasService {
         name: valueCase.name,
         nodes,
         edges,
-        viewport: { x: 0, y: 0, zoom: 1 }, // TODO: Store viewport in DB?
+        viewport: { x: 0, y: 0, zoom: 1 }, // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Store viewport in DB?
         createdAt: valueCase.created_at,
         updatedAt: valueCase.updated_at,
       };

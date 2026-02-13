@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger.js";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type RedisClientType } from "redis";
 import { promisify } from "util";
 import { resolve } from "dns";
 import * as ipaddr from "ipaddr.js";
@@ -22,7 +22,8 @@ export class WebScraperService {
   private maxRequestsPerMinute = 10; // Conservative limit per domain
   private cache: Map<string, { result: WebScraperResult; timestamp: number }> = new Map();
   private cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
-  private redis: any | null = null;
+  private redis: RedisClientType | null = null;
+  private redisConnectionPromise: Promise<void> | null = null;
   private encryptionKey: string;
   private dnsCache: Map<string, { ips: string[]; timestamp: number }> = new Map();
   private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes DNS cache TTL
@@ -36,7 +37,8 @@ export class WebScraperService {
     if (redisUrl) {
       try {
         this.redis = createClient({ url: redisUrl });
-        this.redis.on("error", (err: any) => logger.error("Redis connection error", { err }));
+        this.redis.on("error", (err) => logger.error("Redis connection error", err));
+        this.redisConnectionPromise = this.redis.connect();
       } catch (error) {
         logger.warn("Failed to initialize Redis, falling back to in-memory rate limiting", {
           error,
@@ -174,6 +176,7 @@ export class WebScraperService {
     // Check Redis first if available
     if (this.redis) {
       try {
+        await this.ensureRedisConnected();
         const key = `rate_limit:${hostname}`;
         const count = await this.redis.incr(key);
         if (count === 1) {
@@ -184,6 +187,12 @@ export class WebScraperService {
         logger.warn("Redis rate limit check failed, falling back to memory", { error });
       }
     }
+
+    logger.warn("Web scraper in-memory rate limiting active", {
+      metric: "web_scraper_rate_limit_fallback_active",
+      hostname,
+      fallback: "in_memory",
+    });
 
     // Fallback to in-memory rate limiting
     const requests = this.requestTimes.get(hostname) || [];
@@ -196,6 +205,18 @@ export class WebScraperService {
     validRequests.push(now);
     this.requestTimes.set(hostname, validRequests);
     return true;
+  }
+
+  private async ensureRedisConnected(): Promise<void> {
+    if (!this.redis || this.redis.isOpen) {
+      return;
+    }
+
+    if (!this.redisConnectionPromise) {
+      this.redisConnectionPromise = this.redis.connect();
+    }
+
+    await this.redisConnectionPromise;
   }
 
   /**

@@ -12,7 +12,7 @@ import { AgentType } from "../../agent-types";
 import { logger } from "../../../utils/logger";
 import { createClient } from "@supabase/supabase-js";
 
-// TODO: Import these when agent-fabric is migrated
+// TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Import these when agent-fabric is migrated
 // import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';
 // import { MemorySystem } from '../../lib/agent-fabric/MemorySystem';
 // import { AuditLogger } from '../../lib/agent-fabric/AuditLogger';
