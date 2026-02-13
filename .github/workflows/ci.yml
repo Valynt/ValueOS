@@ -74,6 +74,13 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Ops metadata policy (manifests/runbooks)
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GITHUB_BEFORE_SHA: ${{ github.event.before }}
+        run: bash scripts/ci/check-ops-metadata.sh
+
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
 

@@ -84,3 +84,19 @@ If all else fails:
 ```
 
 ---
+
+## Incident Evidence Flow
+
+For every SEV-1/SEV-2 incident and for quarterly preparedness reviews, capture and attach the following artifacts to the incident record:
+
+1. **Timeline evidence**: alert trigger time, acknowledgement time, and mitigation milestones.
+2. **Change evidence**: deploy workflow run link, commit SHA, and rollback actions (if any).
+3. **Operational verification evidence**: post-deploy checklist artifacts (health, rollback readiness, key metrics).
+4. **Periodic access review automation output** (mandatory): include the latest machine-generated access review report showing privileged-role membership, approver identity, and remediation actions for stale access.
+
+### Access Review Evidence Requirements
+
+- Store the automation output in the incident ticket as `access-review-<yyyy-mm>.json` (or equivalent exported artifact).
+- Include the source workflow/job URL and execution timestamp.
+- If exceptions are found, link the follow-up remediation issue and closure evidence before incident closure.
+

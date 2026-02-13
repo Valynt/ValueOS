@@ -2,6 +2,9 @@
 
 **Last Updated**: 2026-02-08
 
+**Ops Owner**: SRE On-Call Rotation (`@valueos/sre-oncall`)
+**Ops Labels**: `ops-runbook`, `service-ownership`, `tier-1`
+
 ---
 
 ## Documents in this Category
