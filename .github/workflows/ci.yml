@@ -85,6 +85,8 @@ jobs:
 
       - name: Hardcoded port mismatch guard
         run: node scripts/ci/check-hardcoded-port-mismatches.mjs
+      - name: Security anti-pattern guard
+        run: node scripts/ci/check-security-antipatterns.mjs
 
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
