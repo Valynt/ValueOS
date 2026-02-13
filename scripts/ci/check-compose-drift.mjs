@@ -1,57 +1,49 @@
 #!/usr/bin/env node
 
 /**
- * CI guard: prevent new docker-compose/compose files at the repo root.
+ * CI guard: keep runtime compose definitions centralized in ops/compose/.
  *
- * The canonical compose file lives at ops/compose/compose.yml.
- * Repo-root files (docker-compose.yml, docker-compose.deps.yml, etc.)
- * are deprecated and must only contain an `include:` redirect.
- *
- * This script fails if:
- * - Any repo-root compose file defines `services:` directly (not via include).
- * - Any file outside ops/compose/ references compose files not in ops/compose/.
+ * This script focuses on the runtime/entry-point compose files used by local DX.
+ * Legacy/archival compose files outside this scope are tolerated temporarily.
  */
 
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import { execSync } from "child_process";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 
-// Repo-root compose files that are allowed to exist only as include redirects
-const DEPRECATED_ROOT_FILES = [
+const RUNTIME_SHIMS = [
   "docker-compose.yml",
   "docker-compose.deps.yml",
-  "docker-compose.override.yml",
   "compose.devcontainer.override.yml",
+  ".devcontainer/docker-compose.yml",
+  ".devcontainer/compose.devcontainer.override.yml",
+  "infra/docker/docker-compose.dev.yml",
 ];
 
 let failures = 0;
 
 console.log("🔍 Checking compose file drift...\n");
 
-for (const file of DEPRECATED_ROOT_FILES) {
-  const filePath = resolve(ROOT, file);
-  if (!existsSync(filePath)) continue;
+for (const file of RUNTIME_SHIMS) {
+  const fullPath = resolve(ROOT, file);
+  if (!existsSync(fullPath)) continue;
 
-  const content = readFileSync(filePath, "utf-8");
-
-  // Check if file defines services directly (not just an include redirect)
+  const content = readFileSync(fullPath, "utf-8");
   const hasServices = /^services:/m.test(content);
   const hasInclude = /^include:/m.test(content);
-  const isDeprecated = content.includes("DEPRECATED") || content.includes("deprecated");
 
-  if (hasServices && !hasInclude) {
-    console.error(`  ❌ ${file}: defines services directly. Move to ops/compose/compose.yml`);
+  if (hasServices) {
+    console.error(`  ❌ ${file}: defines services outside ops/compose/ (must be include-only)`);
     failures++;
-  } else if (hasServices && hasInclude) {
-    console.warn(`  ⚠️  ${file}: has both services and include — should only have include`);
+  } else if (!hasInclude) {
+    console.error(`  ❌ ${file}: missing include: redirect to ops/compose/*`);
+    failures++;
   } else {
-    console.log(`  ✅ ${file}: redirect only`);
+    console.log(`  ✅ ${file}: include-only shim`);
   }
 }
 
-// Check that canonical file exists
 const canonicalPath = resolve(ROOT, "ops/compose/compose.yml");
 if (!existsSync(canonicalPath)) {
   console.error("  ❌ ops/compose/compose.yml not found");
@@ -65,6 +57,6 @@ console.log("");
 if (failures > 0) {
   console.error(`❌ Compose drift check failed (${failures} issue(s))`);
   process.exit(1);
-} else {
-  console.log("✅ Compose drift check passed");
 }
+
+console.log("✅ Compose drift check passed");

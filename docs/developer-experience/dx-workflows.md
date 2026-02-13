@@ -49,7 +49,7 @@ These commands are designed to be one-shot, non-interactive, and safe on fresh c
   - **Acceptance**: `pnpm install --frozen-lockfile` works; `npm install` fails with actionable error.
 
 - [x] **Docker mode build + HMR stability**
-  - **Files**: `infra/docker/docker-compose.dev.yml`, `apps/ValyntApp/vite.config.ts`, `.env.example`, `scripts/dx/env-compiler.js`
+  - **Files**: `ops/compose/compose.yml + ops/compose/profiles/*.yml`, `apps/ValyntApp/vite.config.ts`, `.env.example`, `scripts/dx/env-compiler.js`
   - **Change**: expose Vite HMR port; set clientPort; provide polling toggle; align envs.
   - **Acceptance**: HMR connects in Docker with a stable port.
 

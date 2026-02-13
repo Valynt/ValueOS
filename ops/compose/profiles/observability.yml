@@ -1,16 +1,211 @@
-# Observability optional stack. Activate with: docker compose --profile observability up
-
+# Optional observability stack. Activate with: docker compose --profile observability up
 services:
   jaeger:
     image: jaegertracing/all-in-one:1.58
-    profiles: ["observability"]
+    profiles:
+    - observability
     ports:
-      - "16686:16686"
-      - "4317:4317"
+    - 16686:16686
+    - 4317:4317
     environment:
-      COLLECTOR_OTLP_ENABLED: "true"
+      COLLECTOR_OTLP_ENABLED: 'true'
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:16686/"]
+      test:
+      - CMD
+      - wget
+      - --quiet
+      - --tries=1
+      - --spider
+      - http://localhost:16686/
       interval: 30s
       timeout: 5s
       retries: 3
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: valueos-prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 256M
+    ports:
+    - ${PROMETHEUS_PORT:-9090}:9090
+    volumes:
+    - ../../infra/devcontainer/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    - prometheus_data:/prometheus
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --web.console.libraries=/usr/share/prometheus/console_libraries
+    - --web.console.templates=/usr/share/prometheus/consoles
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -qO- http://localhost:9090/-/healthy >/dev/null 2>&1 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+    - valueos-network
+    profiles:
+    - observability
+    depends_on:
+      istiod:
+        condition: service_healthy
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:latest
+    container_name: valueos-grafana
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 128M
+    ports:
+    - ${GRAFANA_PORT:-3000}:3000
+    environment:
+    - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+    - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget -qO- http://localhost:3000/api/health >/dev/null 2>&1 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+    - valueos-network
+    profiles:
+    - observability
+    restart: unless-stopped
+  istiod:
+    image: istio/pilot:latest
+    container_name: valueos-istiod
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 256M
+    ports:
+    - 15010:15010
+    - 15017:15017
+    volumes:
+    - observabilityd_data:/var/lib/istio/data
+    command:
+    - discovery
+    - --mesh
+    - valueos-mesh
+    environment:
+    - ISTIO_META_MESH_ID=valueos-mesh
+    - ISTIO_META_CLUSTER_ID=valueos-cluster
+    - ISTIO_META_AUTO_REGISTER_GROUP=workloads
+    - ISTIO_METAJSON_ANNOTATIONS={\"security.alpha.kubernetes.io/credential-provider\":\"istio\"}
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - nc -z localhost 15010
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+    - valueos-network
+    profiles:
+    - observability
+    restart: unless-stopped
+  istio-ca:
+    image: istio/citadel:latest
+    container_name: valueos-istio-ca
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 128M
+    volumes:
+    - observability_ca_data:/var/lib/istio/data
+    command:
+    - ca
+    - --mesh
+    - valueos-mesh
+    environment:
+    - ISTIO_META_MESH_ID=valueos-mesh
+    - ISTIO_META_CLUSTER_ID=valueos-cluster
+    - ISTIO_META_AUTO_REGISTER_GROUP=workloads
+    - ISTIO_METAJSON_ANNOTATIONS={\"security.alpha.kubernetes.io/credential-provider\":\"istio\"}
+    networks:
+    - valueos-network
+    profiles:
+    - observability
+    depends_on:
+      istiod:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - nc -z localhost 443 || nc -z localhost 15017
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  istio-gateway:
+    image: istio/proxyv2:latest
+    container_name: valueos-istio-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 128M
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - observability_gateway_data:/var/lib/istio/data
+    command:
+    - proxy
+    - router
+    - --mesh
+    - valueos-mesh
+    environment:
+    - ISTIO_META_MESH_ID=valueos-mesh
+    - ISTIO_META_CLUSTER_ID=valueos-cluster
+    - ISTIO_META_AUTO_REGISTER_GROUP=workloads
+    - ISTIO_METAJSON_ANNOTATIONS={\"security.alpha.kubernetes.io/credential-provider\":\"istio\"}
+    networks:
+    - valueos-network
+    profiles:
+    - observability
+    depends_on:
+      istiod:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - nc -z localhost 80
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+volumes:
+  prometheus_data: null
+  grafana_data: null
+  istiod_data: null
+  istio_gateway_data: null
+  istio_ca_data: null
+networks:
+  valueos-network:
+    name: valueos-network
+    driver: bridge

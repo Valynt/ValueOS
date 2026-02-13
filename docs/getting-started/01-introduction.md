@@ -497,7 +497,7 @@ The dev container automatically provisions:
 ### Service Configuration
 
 ```yaml
-# .devcontainer/docker-compose.devcontainer.yml (excerpt)
+# ops/compose/profiles/devcontainer.yml (excerpt)
 services:
   app:
     build: ..

@@ -61,7 +61,7 @@ Health signals
 
 Primary config
 - `Dockerfile.dev`
-- `compose.devcontainer.override.yml`
+- `ops/compose/profiles/devcontainer.yml`
 - `.devcontainer/devcontainer.json`
 
 ---
@@ -245,7 +245,7 @@ Commands
 
 ### Step 2: Bring up services
 - `pnpm dx:up`
-- or `COMPOSE_PROFILES=devcontainer docker compose -f compose.yml -f compose.devcontainer.override.yml up -d`
+- or `COMPOSE_PROFILES=devcontainer docker compose -f compose.yml -f ops/compose/profiles/devcontainer.yml up -d`
 
 ### Step 3: Apply migrations
 - `pnpm dx db:migrate` (or equivalent)
@@ -446,7 +446,7 @@ This split caused:
 | File                                            | Responsibility                  |
 | ----------------------------------------------- | ------------------------------- |
 | `.devcontainer/devcontainer.json`               | Entry point, VS Code attachment |
-| `.devcontainer/docker-compose.devcontainer.yml` | Entire local stack              |
+| `ops/compose/profiles/devcontainer.yml` | Entire local stack              |
 | `.devcontainer/Dockerfile.optimized`            | App tooling image               |
 | `.deps_installed`                               | Install marker (generated)      |
 

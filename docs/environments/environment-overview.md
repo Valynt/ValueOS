@@ -295,7 +295,7 @@ The following assets have been integrated into the repository and are now under 
 ### Infrastructure & Configuration
 *   `flake.nix` & `flake.lock`: The source of truth for all system dependencies.
 *   `.devcontainer/devcontainer.json`: The orchestration layer for VS Code/Cursor integration.
-*   `infra/docker/docker-compose.dev.yml`: Definitions for the Multi-Agent support services (Redis, Tempo, Postgres).
+*   `ops/compose/compose.yml + ops/compose/profiles/*.yml`: Definitions for the Multi-Agent support services (Redis, Tempo, Postgres).
 
 ### Tooling & Scripts
 *   `scripts/self-healing/check-health.sh`: Validates the state of the local fabric.
@@ -504,7 +504,7 @@ The current repository uses the DX scripts and Docker Compose for local observab
 | :--- | :--- |
 | `pnpm run dx:logs` | Follow logs for the local stack (including observability containers). |
 | `pnpm run dx:check` | Validate health of local services. |
-| `docker compose --env-file .env.ports -f infra/docker/docker-compose.dev.yml restart otel-collector` | Restart the OTel Collector if telemetry stalls. |
+| `docker compose --env-file .env.ports -f ops/compose/compose.yml + ops/compose/profiles/*.yml restart otel-collector` | Restart the OTel Collector if telemetry stalls. |
 
 ### Healthcheck Script Logic
 If the OTel Collector stops receiving signals, the environment's internal daemon executes the following recovery logic:

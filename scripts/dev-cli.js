@@ -76,7 +76,7 @@ Usage:
 Orchestration Flow (./dev up):
   1. dx:env         - Generate ops/env/.env.local + ops/env/.env.ports from config/ports.json
   2. Preflight      - Docker, Node/pnpm, DATABASE_URL, ports
-  3. Docker deps    - Start postgres + redis (docker compose)
+  3. Docker deps    - Start canonical compose stack (docker compose)
   4. Supabase       - Start local Supabase (optional, falls back to dx postgres)
   5. Migrations     - supabase db push against Supabase or dx postgres
   6. Schema verify  - Regenerate TypeScript types (non-critical)
@@ -263,10 +263,18 @@ async function main() {
 
   if (command === "logs") {
     ensureDocker();
-    const composeFile =
-      mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
+    const composeFiles =
+      mode === "docker"
+        ? [
+            "ops/compose/compose.yml",
+            "ops/compose/profiles/supabase.yml",
+            "ops/compose/profiles/studio.yml",
+            "ops/compose/profiles/observability.yml",
+          ]
+        : ["ops/compose/compose.yml"];
+    const composeFileFlags = composeFiles.map((file) => `-f ${file}`).join(" ");
     run(
-      `docker compose --env-file ops/env/.env.ports -f ${composeFile} logs -f${service ? ` ${service}` : ""}`
+      `docker compose --env-file ops/env/.env.ports ${composeFileFlags} logs -f${service ? ` ${service}` : ""}`
     );
     return;
   }

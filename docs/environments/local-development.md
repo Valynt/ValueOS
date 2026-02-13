@@ -107,7 +107,7 @@ This split caused:
 | File                                            | Responsibility                  |
 | ----------------------------------------------- | ------------------------------- |
 | `.devcontainer/devcontainer.json`               | Entry point, VS Code attachment |
-| `.devcontainer/docker-compose.devcontainer.yml` | Entire local stack              |
+| `ops/compose/profiles/devcontainer.yml` | Entire local stack              |
 | `.devcontainer/Dockerfile.optimized`            | App tooling image               |
 | `.deps_installed`                               | Install marker (generated)      |
 

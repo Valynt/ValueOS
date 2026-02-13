@@ -576,8 +576,16 @@ async function startDockerDeps(mode) {
 
   log.info("Starting Docker dependencies...");
 
-  const composeFile =
-    mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
+  const composeFiles =
+    mode === "docker"
+      ? [
+          "ops/compose/compose.yml",
+          "ops/compose/profiles/supabase.yml",
+          "ops/compose/profiles/studio.yml",
+          "ops/compose/profiles/observability.yml",
+        ]
+      : ["ops/compose/compose.yml"];
+  const composeFileFlags = composeFiles.map((file) => `-f ${file}`).join(" ");
 
   // In full docker mode, we want images current and builds reproducible.
   // For deps-only mode, do not force builds.
@@ -586,7 +594,7 @@ async function startDockerDeps(mode) {
   try {
     await runWithRetries("Docker pull", async () => {
       runCommand(
-        `docker compose --env-file ops/env/.env.ports -f ${composeFile} pull --ignore-pull-failures`,
+        `docker compose --env-file ops/env/.env.ports ${composeFileFlags} pull --ignore-pull-failures`,
         { silent: false }
       );
     });
@@ -594,7 +602,7 @@ async function startDockerDeps(mode) {
     if (mode === "docker") {
       await runWithRetries("Docker build", async () => {
         try {
-          runCommand(`docker compose --env-file ops/env/.env.ports -f ${composeFile} build --pull`, {
+          runCommand(`docker compose --env-file ops/env/.env.ports ${composeFileFlags} build --pull`, {
             silent: false,
           });
         } catch (error) {
@@ -615,7 +623,7 @@ async function startDockerDeps(mode) {
     }
 
     await runWithRetries("Docker up", async () => {
-      runCommand(`docker compose --env-file ops/env/.env.ports -f ${composeFile} up -d${upFlags}`, {
+      runCommand(`docker compose --env-file ops/env/.env.ports ${composeFileFlags} up -d${upFlags}`, {
         silent: false,
       });
     });
@@ -625,7 +633,7 @@ async function startDockerDeps(mode) {
     traceLogger.stepSuccess("start_docker_deps", stepStart);
   } catch (error) {
     traceLogger.stepError("start_docker_deps", error);
-    log.error(formatError("ERR_008", { composeFile, error: error.message }));
+    log.error(formatError("ERR_008", { composeFile: composeFiles.join(","), error: error.message }));
     console.error(String(error?.message || error));
     process.exit(1);
   }
@@ -638,19 +646,19 @@ function stopDockerDeps() {
   log.info("Stopping Docker dependencies...");
 
   const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-    "infra/docker/docker-compose.caddy.yml",
+    "ops/compose/compose.yml",
+    "ops/compose/profiles/supabase.yml",
+    "ops/compose/profiles/studio.yml",
+    "ops/compose/profiles/observability.yml",
   ];
+  const composeFileFlags = composeFiles.map((file) => `-f ${file}`).join(" ");
 
-  for (const file of composeFiles) {
-    try {
-      runCommand(`docker compose --env-file ops/env/.env.ports -f ${file} down --remove-orphans`, {
-        silent: true,
-      });
-    } catch {
-      // Ignore errors
-    }
+  try {
+    runCommand(`docker compose --env-file ops/env/.env.ports ${composeFileFlags} down --remove-orphans`, {
+      silent: true,
+    });
+  } catch {
+    // Ignore errors
   }
 
   log.success("Docker dependencies stopped");
@@ -663,20 +671,20 @@ function resetDockerDeps(level = "soft") {
   log.info(`Resetting Docker dependencies (${level})...`);
 
   const composeFiles = [
-    "infra/docker/docker-compose.dev.yml",
-    "docker-compose.deps.yml",
-    "infra/docker/docker-compose.caddy.yml",
+    "ops/compose/compose.yml",
+    "ops/compose/profiles/supabase.yml",
+    "ops/compose/profiles/studio.yml",
+    "ops/compose/profiles/observability.yml",
   ];
+  const composeFileFlags = composeFiles.map((file) => `-f ${file}`).join(" ");
 
-  for (const file of composeFiles) {
-    try {
-      const downArgs = level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
-      runCommand(`docker compose --env-file ops/env/.env.ports -f ${file} ${downArgs}`, {
-        silent: true,
-      });
-    } catch {
-      // Ignore errors
-    }
+  try {
+    const downArgs = level === "soft" ? "down -v --remove-orphans" : "down -v --remove-orphans";
+    runCommand(`docker compose --env-file ops/env/.env.ports ${composeFileFlags} ${downArgs}`, {
+      silent: true,
+    });
+  } catch {
+    // Ignore errors
   }
 
   if (level === "hard") {
@@ -892,7 +900,7 @@ async function startCaddy() {
 
     // Start Caddy via Docker Compose
     runCommand(
-      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.caddy.yml up -d",
+      "docker compose --env-file ops/env/.env.ports -f ops/compose/compose.yml -f ops/compose/profiles/studio.yml up -d caddy",
       { silent: false }
     );
 
@@ -927,7 +935,7 @@ async function startCaddy() {
 function stopCaddy() {
   try {
     runCommand(
-      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.caddy.yml down",
+      "docker compose --env-file ops/env/.env.ports -f ops/compose/compose.yml -f ops/compose/profiles/studio.yml down",
       { silent: true }
     );
   } catch {
