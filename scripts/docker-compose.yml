@@ -1,4 +1,5 @@
 name: valueos
+# DEPRECATED: legacy compose stack; use ops/compose/compose.yml instead.
 # Full-stack alias of docker-compose.full.yml
 services:
   # PostgreSQL database for Supabase
