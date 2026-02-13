@@ -291,6 +291,84 @@ jobs:
             --certificate-identity-regexp "https://github.com/${{ github.repository }}/.github/workflows/.+" \
             "$RELEASE_IMAGE_REF"
 
+
+  accessibility-audit:
+    name: Accessibility Audit (matrix control)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'release'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright + axe-core
+        run: |
+          pnpm add -D @playwright/test @axe-core/playwright --filter .
+          npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npx turbo run build --filter=ValyntApp
+
+      - name: Run accessibility tests
+        run: npx playwright test tests/accessibility/axe-a11y.spec.ts --reporter=html
+
+      - name: Upload a11y report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-report
+          path: playwright-report/
+          retention-days: 30
+
+  terraform-controls:
+    name: Terraform Controls (matrix control)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive -diff
+
+      - name: Terraform Init (no backend)
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan (dry run)
+        if: github.event_name == 'pull_request'
+        env:
+          TF_VAR_environment: "staging"
+          TF_VAR_domain_name: "staging.valueos.example.com"
+          TF_VAR_frontend_image: "ghcr.io/valynt/valueos-frontend:latest"
+          TF_VAR_backend_image: "ghcr.io/valynt/valueos-backend:latest"
+          TF_VAR_alert_email: "alerts@valueos.example.com"
+          TF_VAR_slack_webhook_url: "https://hooks.slack.com/services/placeholder"
+        run: terraform plan -input=false -no-color
+        continue-on-error: true
+
   security-gate:
     name: Security Gate (required)
     runs-on: ubuntu-latest
@@ -302,6 +380,8 @@ jobs:
       - iac
       - sbom
       - image-signature-verify
+      - accessibility-audit
+      - terraform-controls
     if: always()
     steps:
       - name: Fail if any security job failed

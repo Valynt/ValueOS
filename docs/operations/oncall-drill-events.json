@@ -1,0 +1,28 @@
+{
+  "drills": [
+    {
+      "date": "2026-01-08",
+      "scenario": "Primary database failover",
+      "severity": "SEV1",
+      "mttr_minutes": 24
+    },
+    {
+      "date": "2026-01-22",
+      "scenario": "Queue backlog recovery",
+      "severity": "SEV2",
+      "mttr_minutes": 82
+    },
+    {
+      "date": "2026-02-05",
+      "scenario": "Regional ingress outage simulation",
+      "severity": "SEV1",
+      "mttr_minutes": 31
+    },
+    {
+      "date": "2026-02-11",
+      "scenario": "Third-party auth provider degradation",
+      "severity": "SEV2",
+      "mttr_minutes": 96
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-02-13T22:11:38.251Z",
+  "sloTargets": {
+    "sev1_mttr_minutes": 30,
+    "sev2_mttr_minutes": 120
+  },
+  "monthly": [
+    {
+      "month": "2026-01",
+      "drills": 2,
+      "mttr_minutes": 53,
+      "sev1_mttr_minutes": 24,
+      "sev2_mttr_minutes": 82,
+      "slo_pass": true
+    },
+    {
+      "month": "2026-02",
+      "drills": 2,
+      "mttr_minutes": 63.5,
+      "sev1_mttr_minutes": 31,
+      "sev2_mttr_minutes": 96,
+      "slo_pass": false
+    }
+  ]
+}

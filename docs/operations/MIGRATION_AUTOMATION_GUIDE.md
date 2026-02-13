@@ -1,3 +1,9 @@
+---
+owner: Platform Operations
+escalation_path: 'On-call SRE -> Incident Commander -> Head of Engineering'
+review_date: '2026-06-30'
+---
+
 # Supabase Migration Automation Guide
 
 Complete guide for automated database migration management in the ValueOS development environment.

@@ -1,60 +1,16 @@
-name: Accessibility
+name: '[DEPRECATED] Accessibility'
 
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - "apps/ValyntApp/src/**"
-      - "apps/VOSAcademy/src/**"
-      - "tests/accessibility/**"
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - "apps/ValyntApp/src/**"
-      - "apps/VOSAcademy/src/**"
-      - "tests/accessibility/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  a11y:
-    name: WCAG 2.2 AA Audit
+  deprecated:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.19.0
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.0
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright + axe-core
+      - name: Notice
         run: |
-          pnpm add -D @playwright/test @axe-core/playwright --filter .
-          npx playwright install --with-deps chromium
-
-      - name: Build frontend
-        run: npx turbo run build --filter=ValyntApp
-
-      - name: Run accessibility tests
-        run: npx playwright test tests/accessibility/axe-a11y.spec.ts --reporter=html
-        continue-on-error: false
-
-      - name: Upload a11y report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: accessibility-report
-          path: playwright-report/
-          retention-days: 30
+          echo "This workflow is deprecated."
+          echo "Accessibility controls are executed in .github/workflows/ci.yml (job: accessibility-audit)."

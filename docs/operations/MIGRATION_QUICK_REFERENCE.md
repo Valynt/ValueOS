@@ -1,3 +1,9 @@
+---
+owner: Platform Operations
+escalation_path: 'On-call SRE -> Incident Commander -> Head of Engineering'
+review_date: '2026-06-30'
+---
+
 # Migration Scripts - Quick Reference Card
 
 ## 🚀 Most Common Commands

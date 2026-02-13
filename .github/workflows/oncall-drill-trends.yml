@@ -1,0 +1,42 @@
+name: On-call Drill Trends
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/operations/oncall-drill-events.json'
+      - 'scripts/ci/publish-oncall-drill-trends.mjs'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-trends:
+    name: Publish MTTR trend scorecard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Recompute scorecard + trends
+        run: node scripts/ci/publish-oncall-drill-trends.mjs
+
+      - name: Upload trend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: oncall-drill-trends
+          path: |
+            docs/operations/oncall-drill-scorecard.md
+            docs/operations/oncall-drill-trends.json
+
+      - name: Commit updates
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore(ops): publish on-call drill MTTR trends'
+          file_pattern: docs/operations/oncall-drill-scorecard.md docs/operations/oncall-drill-trends.json

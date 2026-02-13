@@ -1,3 +1,9 @@
+---
+owner: Platform Operations
+escalation_path: 'On-call SRE -> Incident Commander -> Head of Engineering'
+review_date: '2026-06-30'
+---
+
 # Operations
 
 **Last Updated**: 2026-02-08
@@ -18,7 +24,13 @@
 - [Scaling Guide](./scaling-guide.md)
 - [Testing Operations](./testing-operations.md)
 - [Troubleshooting](./troubleshooting.md)
+- [On-call Drill Scorecard](./oncall-drill-scorecard.md)
 
 ---
 
 **Total Documents**: 12
+
+
+## Deprecated Operations Docs
+
+- `MIGRATION_AUTOMATION_GUIDE.md` and `MIGRATION_QUICK_REFERENCE.md` are legacy references; use the CI-controlled migration procedures in `ci-cd-pipeline.md` for current operations.
