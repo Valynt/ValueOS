@@ -369,3 +369,40 @@ The spec is fully satisfied when:
 2. All 10 acceptance criteria (AC1-AC10) are satisfied
 3. TypeScript compilation passes (`pnpm run typecheck` or `tsc --noEmit`) for modified packages
 4. The HypothesisLoop can be instantiated and its type signatures are correct (runtime execution depends on LLM API keys and database, which are environment-specific)
+
+
+### R9: Session Context Ledger (Redis scratchpad)
+
+Add a session-scoped scratchpad module in `packages/memory/context-ledger/` for short-lived operational memory:
+
+- recent token history (`messages`)
+- transient calculation notes (`calculations`)
+- per-session agent context (`agentContext`)
+
+API surface:
+
+```ts
+appendMessage(scope, message)
+appendCalculation(scope, calculation)
+getSessionContext(scope)
+clearSession(scope)
+```
+
+Redis key schema (tenant + identity + session namespaced):
+
+```
+memory:context-ledger:{tenantId}:{authIdentity}:{sessionId}
+```
+
+Retention policy:
+
+- TTL: 24 hours (`86400` seconds) on every write
+- TTL refresh: every write and `getSessionContext` access extends TTL to 24 hours
+- Session termination: `clearSession` must hard-delete the key with `DEL`
+- Scope isolation: all session keys are fully namespaced to prevent cross-tenant/session leakage
+
+Unit tests must cover:
+
+- TTL refresh behavior under continued activity
+- expiry behavior after inactivity
+- explicit hard delete behavior during session termination

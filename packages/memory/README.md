@@ -10,7 +10,8 @@ memory/
 ├── episodic/    # Immutable interaction history, importance-weighted retrieval
 ├── vector/      # Hybrid search (vector + BM25) with provenance attachment
 ├── provenance/  # Data lineage tracking ("CFO Defence")
-└── lifecycle/   # TTL enforcement, consolidation, promotion rules
+├── lifecycle/   # TTL enforcement, consolidation, promotion rules
+└── context-ledger/ # Redis-backed session scratchpad (24h rolling TTL)
 ```
 
 ## Import Rules
