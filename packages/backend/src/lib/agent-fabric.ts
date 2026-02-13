@@ -35,8 +35,21 @@ class AgentFabricImpl implements AgentFabric {
     if (!agent) {
       return { success: false, error: `Agent ${agentId} not found` };
     }
-    // Stub implementation
-    return { success: true, output: { agentId, input }, metadata: { stub: true } };
+
+    const allowLocalStub = process.env.AGENT_FABRIC_ALLOW_STUB === "true";
+    const isProduction = process.env.NODE_ENV === "production";
+
+    if (isProduction || !allowLocalStub) {
+      throw new Error(
+        "Agent fabric stub is disabled. Configure a real agent executor before release builds."
+      );
+    }
+
+    return {
+      success: true,
+      output: { agentId, input },
+      metadata: { mode: "dev-stub", guarded: true },
+    };
   }
 
   listAgents(): AgentConfig[] {

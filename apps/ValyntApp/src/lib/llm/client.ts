@@ -10,6 +10,10 @@ const defaultConfig: LLMConfig = {
 class LLMClient {
   private config: LLMConfig;
 
+  private isReleaseBuild(): boolean {
+    return import.meta.env.PROD || process.env.NODE_ENV === "production";
+  }
+
   constructor(config?: Partial<LLMConfig>) {
     this.config = { ...defaultConfig, ...config };
   }
@@ -20,23 +24,68 @@ class LLMClient {
 
   async complete(request: LLMRequest): Promise<LLMResponse> {
     const config = { ...this.config, ...request.config };
+    const lastMessage = request.messages[request.messages.length - 1];
+    const prompt = lastMessage?.content;
 
-    // TODO: Implement actual LLM API calls
-    // This is a placeholder that should be replaced with actual provider implementations
+    if (!prompt) {
+      throw new Error("LLM completion requires at least one message with content");
+    }
 
-    const response: LLMResponse = {
-      id: `resp_${Date.now()}`,
-      content: "This is a placeholder response. Implement actual LLM integration.",
-      model: config.model,
-      usage: {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
+    const response = await fetch("/api/llm/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
       },
-      finishReason: "stop",
+      body: JSON.stringify({
+        prompt,
+        model: config.model,
+        maxTokens: config.maxTokens,
+        temperature: config.temperature,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM completion error: ${response.status} ${response.statusText}`);
+    }
+
+    const payload = (await response.json()) as {
+      success?: boolean;
+      data?: {
+        id?: string;
+        content?: string;
+        text?: string;
+        model?: string;
+        finishReason?: LLMResponse["finishReason"];
+        usage?: Partial<LLMResponse["usage"]>;
+      };
+      error?: { message?: string };
     };
 
-    return response;
+    if (!payload.success || !payload.data) {
+      throw new Error(payload.error?.message || "LLM completion request failed");
+    }
+
+    const content = payload.data.content ?? payload.data.text;
+    if (!content) {
+      if (this.isReleaseBuild()) {
+        throw new Error("LLM completion returned empty content in release build");
+      }
+
+      throw new Error("LLM completion returned empty content");
+    }
+
+    return {
+      id: payload.data.id || `resp_${Date.now()}`,
+      content,
+      model: payload.data.model || config.model,
+      usage: {
+        promptTokens: payload.data.usage?.promptTokens ?? 0,
+        completionTokens: payload.data.usage?.completionTokens ?? 0,
+        totalTokens: payload.data.usage?.totalTokens ?? 0,
+      },
+      finishReason: payload.data.finishReason || "stop",
+    };
   }
 
   async chat(messages: LLMMessage[], config?: Partial<LLMConfig>): Promise<string> {
