@@ -259,7 +259,7 @@ export function validateEnvironment(
         validatedData.REDIS_URL ||
         `redis://${validatedData.REDIS_HOST}:${validatedData.REDIS_PORT}`,
       SUPABASE_URL:
-        validatedData.SUPABASE_URL || validatedData.VITE_SUPABASE_URL || "http://localhost:54321",
+        validatedData.SUPABASE_URL || validatedData.VITE_SUPABASE_URL || "https://your-project.supabase.co",
       SUPABASE_ANON_KEY:
         validatedData.SUPABASE_ANON_KEY || validatedData.VITE_SUPABASE_ANON_KEY || "dev-key",
     };
@@ -314,9 +314,9 @@ export function getValidatedEnvironment(): EnvValidationResult & { config: Recor
         // Minimal safe defaults
         DATABASE_URL: "postgresql://postgres:password@localhost:5432/maintenance",
         REDIS_URL: "redis://localhost:6379",
-        SUPABASE_URL: "http://localhost:54321",
+        SUPABASE_URL: "https://your-project.supabase.co",
         SUPABASE_ANON_KEY: "maintenance-key",
-        VITE_SUPABASE_URL: "http://localhost:54321",
+        VITE_SUPABASE_URL: "https://your-project.supabase.co",
         VITE_SUPABASE_ANON_KEY: "maintenance-key",
         VITE_API_BASE_URL: "/api",
         INSTANCE_ID: "maintenance",

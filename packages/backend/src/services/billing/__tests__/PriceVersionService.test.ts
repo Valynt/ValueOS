@@ -13,7 +13,7 @@ const mockFrom = vi.fn();
 let mockChainResult: any = { data: null, error: null };
 
 // Mock Supabase before any imports that use it
-vi.stubEnv("VITE_SUPABASE_URL", "http://localhost:54321");
+vi.stubEnv("VITE_SUPABASE_URL", "https://your-project.supabase.co");
 vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-key");
 
 vi.mock("@supabase/supabase-js", () => {

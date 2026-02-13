@@ -18,7 +18,7 @@ describe('Stress Testing', () => {
   let client: SupabaseClient;
 
   beforeAll(() => {
-    const supabaseUrl = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
     const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
     client = createClient(supabaseUrl, supabaseKey);

@@ -9,7 +9,7 @@ vi.mock('./env', () => ({
     return '';
   },
   getSupabaseConfig: () => ({
-    url: 'http://localhost:54321',
+    url: 'https://your-project.supabase.co',
     anonKey: 'anon-key',
     serviceRoleKey: 'service-key',
   }),

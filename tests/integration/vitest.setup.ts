@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
-process.env.VITE_SUPABASE_URL ||= "http://localhost:54321";
+process.env.VITE_SUPABASE_URL ||= "https://your-project.supabase.co";
 process.env.SUPABASE_URL ||= process.env.VITE_SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY ||= "test-anon-key";
 process.env.SUPABASE_SERVICE_KEY ||= "test-service-key";
