@@ -1,7 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { encrypt, decrypt } from '../encryption.js'
 
 describe('Encryption Utils', () => {
+  const originalKey = process.env.APP_ENCRYPTION_KEY;
+
+  beforeEach(() => {
+    process.env.APP_ENCRYPTION_KEY = Buffer.from('a'.repeat(32), 'utf8').toString('base64');
+  });
+
+  afterEach(() => {
+    if (originalKey === undefined) {
+      delete process.env.APP_ENCRYPTION_KEY;
+      return;
+    }
+
+    process.env.APP_ENCRYPTION_KEY = originalKey;
+  });
+
   it('should encrypt and decrypt correctly', () => {
     const original = 'super-secret-password';
     const encrypted = encrypt(original);
@@ -31,5 +46,16 @@ describe('Encryption Utils', () => {
      expect(enc1).not.toBe(enc2);
      expect(decrypt(enc1)).toBe(input);
      expect(decrypt(enc2)).toBe(input);
+  });
+
+  it('should reject malformed key lengths', () => {
+    process.env.APP_ENCRYPTION_KEY = Buffer.from('short-key', 'utf8').toString('base64');
+    expect(() => encrypt('value')).toThrow('APP_ENCRYPTION_KEY must be a 32-byte key encoded as hex/base64');
+  });
+
+  it('should support PBKDF2-derived keys with explicit parameters', () => {
+    process.env.APP_ENCRYPTION_KEY = 'pbkdf2:100000:c2FsdC1mb3ItdGVzdHMxMjM0NTY=:passphrase';
+    const plaintext = 'pbkdf2-encrypted';
+    expect(decrypt(encrypt(plaintext))).toBe(plaintext);
   });
 });
