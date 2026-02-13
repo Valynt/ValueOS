@@ -37,6 +37,10 @@ import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMidd
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
 import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
+import {
+  csrfProtectionMiddleware,
+  csrfTokenMiddleware,
+} from "../middleware/securityMiddleware";
 import { sessionTimeoutMiddleware } from "../middleware/sessionTimeoutMiddleware";
 import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
 import { tenantContextMiddleware } from "../middleware/tenantContext";
@@ -251,6 +255,7 @@ app.use(latencyMetricsMiddleware());
 // /api-specific middleware
 app.use("/api", sessionTimeoutMiddleware);
 app.use("/api", requestSanitizationMiddleware());
+app.use("/api", csrfTokenMiddleware);
 
 // Health check
 app.use(healthRouter);
@@ -280,8 +285,18 @@ app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cs
 // Mount routes
 apiRouter.use("/billing", billingRouter);
 app.use("/api", apiRouter);
-app.use("/api/auth", authRouter);
-app.use("/api/admin", adminRouter);
+
+/**
+ * CSRF policy:
+ * - Cookie/session-authenticated browser routes MUST use double-submit CSRF.
+ * - Bearer-only/service-to-service routes are exempt because they do not rely on ambient cookies.
+ */
+app.use("/api/auth", csrfProtectionMiddleware, authRouter);
+app.use("/api/admin", csrfProtectionMiddleware, adminRouter);
+
+// Bearer-only endpoint classes (CSRF exempt by policy):
+// - serviceIdentityMiddleware + requireAuth protected APIs
+// - tokenized/public-read APIs that do not use cookie/session auth
 app.use(
   "/api/agents",
   serviceIdentityMiddleware,
@@ -307,11 +322,18 @@ app.use(
 );
 app.use("/api/llm", llmRouter);
 app.use("/api", workflowRouter);
-app.use("/api/documents", requireAuth, tenantContextMiddleware(), documentRouter);
+app.use(
+  "/api/documents",
+  csrfProtectionMiddleware,
+  requireAuth,
+  tenantContextMiddleware(),
+  documentRouter
+);
 app.use("/api/docs", docsApiRouter);
 app.use("/api/customer", customerRouter);
 app.use(
   "/api/workspaces/:tenantId/projects",
+  csrfProtectionMiddleware,
   requireAuth,
   tenantContextMiddleware(),
   projectsRouter
