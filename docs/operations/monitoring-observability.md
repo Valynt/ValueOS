@@ -538,3 +538,37 @@ For issues or questions:
 - **On-call**: PagerDuty escalation for critical issues
 
 ---
+## Accessibility SLA & Remediation Dashboard Metrics
+
+Track accessibility defects as first-class reliability signals in Grafana/Datadog mission-control dashboards.
+
+### SLA Targets
+
+| Severity | SLA to acknowledge | SLA to remediate | Escalation |
+| --- | --- | --- | --- |
+| `a11y-p0` (blocking) | 4 hours | 2 business days | Eng manager + product director |
+| `a11y-p1` (major) | 1 business day | 10 business days | Team lead |
+| `a11y-p2` (minor) | 3 business days | Next scheduled release | Backlog review |
+
+### Required Dashboard Panels
+
+1. **Open defects by severity** (`a11y_p0_open`, `a11y_p1_open`, `a11y_p2_open`)
+2. **SLA breach count** (`a11y_sla_breaches_total`)
+3. **MTTA and MTTR**
+   - `a11y_mtta_hours` (mean time to acknowledge)
+   - `a11y_mttr_hours` (mean time to remediate)
+4. **Remediation throughput** (`a11y_defects_closed_per_sprint`)
+5. **Regression rate** (`a11y_regressions_reopened_ratio`)
+6. **Manual protocol completion** (`a11y_manual_protocol_completed`) from sprint checklists
+
+### Alerting Rules
+
+- Page on-call if any `a11y-p0` defect breaches acknowledgement SLA.
+- Create Slack alert if `a11y_sla_breaches_total` increases by > 2 in 24h.
+- Trigger weekly quality review when reopened ratio exceeds 15%.
+
+### Data Sources
+
+- Issue tracker labels (`a11y-p0`, `a11y-p1`, `a11y-p2`)
+- CI checks (`check-i18n-keys`, `check-pseudo-localization`, localization overflow Playwright suite)
+- Manual assistive-technology protocol completion logs

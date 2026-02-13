@@ -83,6 +83,9 @@ jobs:
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs
 
+      - name: Pseudo-localization guardrails
+        run: node scripts/ci/check-pseudo-localization.mjs
+
       - name: Critical claims verification
         run: node scripts/ci/verify-critical-claims.mjs
 
@@ -91,6 +94,12 @@ jobs:
 
       - name: Test
         run: npx turbo run test
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Localization overflow visual regression
+        run: npx playwright test tests/visual/localization-overflow.spec.ts --project=chromium
 
   rls-and-compliance:
     name: RLS & Compliance Tests

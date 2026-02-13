@@ -7,15 +7,30 @@
 - **Translation files**: `apps/ValyntApp/src/i18n/locales/{locale}/common.json`
 - **Framework**: Custom I18nProvider (`apps/ValyntApp/src/i18n/`)
 
-## Target Locales (Phase 1)
+## Locale Coverage Plan (`apps/ValyntApp/src/i18n/locales/`)
 
-| Locale | Language | Region | Priority | Status |
-|--------|----------|--------|----------|--------|
-| en | English | US/Global | P0 | Active |
-| es | Spanish | LATAM/Spain | P0 | Active |
-| fr | French | France/Canada | P1 | Planned |
-| de | German | DACH | P1 | Planned |
-| pt-BR | Portuguese | Brazil | P2 | Planned |
+### Phase 0 (Now)
+
+| Locale folder | Purpose | Status |
+|--------|----------|--------|
+| `en/` | Source strings and key authority | Active |
+| `es/` | Production translation for Spanish | Active |
+
+### Phase 1 (Next 1-2 releases)
+
+| Locale folder | Language | Priority | Coverage gate |
+|--------|----------|----------|--------|
+| `fr/` | French | P1 | >= 95% key parity with `en` |
+| `de/` | German | P1 | >= 95% key parity with `en` |
+| `pt-BR/` | Brazilian Portuguese | P2 | >= 95% key parity with `en` |
+| `en-XA/` | Pseudo-localized English (accented + expanded copy) | P0 for QA only | 100% generated from `en` |
+
+### Phase 2 (Readiness)
+
+| Locale folder | Language | Priority | Notes |
+|--------|----------|----------|--------|
+| `ar/` | Arabic | P2 | RTL validation required |
+| `he/` | Hebrew | P2 | RTL validation required |
 
 ## Standards
 
@@ -47,11 +62,18 @@
 
 ## CI Enforcement
 
-Translation key integrity is enforced by `scripts/ci/check-i18n-keys.mjs` which runs in CI on every PR:
+Translation quality and pseudo-localization safeguards are enforced in CI:
 
-1. **Missing keys**: Fails if any non-source locale is missing keys present in `en`.
-2. **Unused keys**: Warns if keys exist in locale files but are not referenced in source code.
-3. **Fallback ratio**: Fails if any locale has < 90% of source keys translated (configurable threshold).
+1. **Key integrity** (`scripts/ci/check-i18n-keys.mjs`)
+   - Missing keys fail CI when non-source locales diverge from `en`.
+   - Coverage threshold fails CI below configured minimum.
+2. **Pseudo-localization guardrails** (`scripts/ci/check-pseudo-localization.mjs`)
+   - Ensures source locale keys can be pseudo-localized deterministically.
+   - Ensures pseudo copy expands by a safe ratio (1.15x to 1.45x) for overflow testing.
+   - Fails if generated pseudo strings include empty outputs or preserve unexpanded text.
+3. **Localization overflow visual checks** (`tests/visual/localization-overflow.spec.ts`)
+   - Runs screenshot + DOM overflow assertions for login, dashboard, deals, and canvas workflows.
+   - Fails CI on clipping/overflow regressions.
 
 ## Release Checklist
 
@@ -62,4 +84,5 @@ Before releasing any user-facing feature:
 - [ ] All active locales have translations for new keys (or approved fallback).
 - [ ] Date/number/currency formatting uses `Intl` APIs.
 - [ ] Pluralization tested with counts 0, 1, 2, 5, 21.
-- [ ] Screenshots reviewed for text truncation in longer locales (de, es).
+- [ ] Screen reader + keyboard-only + high-zoom manual protocol completed.
+- [ ] Localization overflow screenshot suite passed.
