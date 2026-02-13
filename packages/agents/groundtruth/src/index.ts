@@ -12,6 +12,7 @@ import { getConfig } from "@valueos/agent-base";
 import { logger } from "@valueos/agent-base";
 import { metrics } from "@valueos/agent-base";
 import { z } from "zod";
+import { semanticMemory } from "@valueos/shared";
 
 // ============================================================================
 // Schemas
@@ -39,6 +40,8 @@ const GroundtruthItemSchema = z.object({
   category: z.string(),
   verification_type: z.string(),
   priority: z.string(),
+  evidence_tier: z.enum(['tier1', 'tier2', 'tier3']).optional(),
+  source_url: z.string().optional(),
 });
 
 const ResponseSchema = z.object({
@@ -69,7 +72,14 @@ export interface GroundtruthLLMGateway {
 
 const GROUNDTRUTH_SYSTEM_PROMPT = `You are a Ground Truth agent for a Value Engineering platform. Your role is to verify facts, validate claims against evidence, and assess data accuracy.
 
+You will be provided with RETRIEVED CONTEXT from authoritative sources (SEC filings, web data). Use this context to verify the user's query.
+
 For each request, perform evidence retrieval and classification. Identify the source type (EDGAR filing, analyst report, internal data, etc.) and assess reliability.
+
+EVIDENCE TIERS:
+- Tier 1: SEC EDGAR filings (10-K, 10-Q). Absolute truth.
+- Tier 2: Market data, analyst reports, high-fidelity estimates.
+- Tier 3: General web data, marketing claims.
 
 You MUST respond with valid JSON matching this schema:
 {
@@ -77,13 +87,15 @@ You MUST respond with valid JSON matching this schema:
     {
       "title": "<verification title>",
       "description": "<findings and evidence details>",
-      "confidence": <0.0-1.0>,
+      "confidence": <0.0-1.0 (Higher for Tier 1)>,
       "category": "<Verification|Truth|Source|Claim|General>",
       "verification_type": "<Fact Checking|Accuracy Assessment|Reliability Check|Validation Framework|Multi-method>",
-      "priority": "<High|Medium|Low>"
+      "priority": "<High|Medium|Low>",
+      "evidence_tier": "tier1|tier2|tier3",
+      "source_url": "<url or sec path>"
     }
   ],
-  "analysis": "<overall evidence assessment>"
+  "analysis": "<overall evidence assessment referencing the tiers found>"
 }
 
 Be thorough in source attribution. Every claim should trace back to a verifiable source.`;
@@ -106,17 +118,46 @@ export class GroundtruthAnalyzer {
   ): Promise<QueryResponse> {
     const tenantId = context?.organizationId ?? 'system';
 
-    logger.info("Analyzing groundtruth", { query, userId: context?.userId });
+    logger.info("Analyzing groundtruth with RAG", { query, userId: context?.userId });
+
+    // 1. RAG Lookup
+    let ragContext = '';
+    try {
+      const searchResults = await semanticMemory.search(query, {
+        tenantId,
+        limit: 10
+      });
+
+      if (searchResults.length > 0) {
+        ragContext = searchResults
+          .map(r => {
+            const tier = r.entry.metadata.tier || 'tier3';
+            return `[Source (${tier}): ${r.entry.metadata.source_url || 'Unknown'}]\n${r.entry.content}`;
+          })
+          .join('\n\n---\n\n');
+        
+        logger.info('Groundtruth RAG context retrieved', { chunks: searchResults.length });
+      }
+    } catch (ragErr) {
+      logger.warn('Groundtruth RAG lookup failed, proceeding with hallucinated retrieval', { error: (ragErr as any).message });
+    }
 
     if (!this.llmGateway) {
       logger.warn("No LLMGateway configured, using fallback response");
       return this.fallbackResponse(query);
     }
 
+    const userPrompt = `
+${ragContext ? `RETRIEVED CONTEXT:\n${ragContext}\n\n` : 'NO AUTHORITATIVE CONTEXT FOUND. USE GENERAL KNOWLEDGE BUT FLAG AS LOW CONFIDENCE.'}
+USER QUERY: ${query}
+
+Retrieve and verify evidence for the query above using the provided context where available.
+`;
+
     const response = await this.llmGateway.complete({
       messages: [
         { role: 'system', content: GROUNDTRUTH_SYSTEM_PROMPT },
-        { role: 'user', content: `Retrieve and verify evidence for: ${query}` },
+        { role: 'user', content: userPrompt },
       ],
       metadata: {
         tenantId,
@@ -149,8 +190,13 @@ export class GroundtruthAnalyzer {
       jsonStr = jsonMatch[1]!;
     }
 
-    const raw = JSON.parse(jsonStr);
-    return ResponseSchema.omit({ timestamp: true }).parse(raw);
+    try {
+      const raw = JSON.parse(jsonStr);
+      return ResponseSchema.omit({ timestamp: true }).parse(raw);
+    } catch (err) {
+      logger.error('Failed to parse Groundtruth LLM response', { error: (err as any).message, content });
+      throw err;
+    }
   }
 
   private fallbackResponse(query: string): QueryResponse {

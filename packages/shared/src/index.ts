@@ -25,3 +25,4 @@ export * from "./lib/redisKeys";
 
 // Utilities
 export * from "./lib/featureFlags";
+export * from "./lib/SemanticMemory";

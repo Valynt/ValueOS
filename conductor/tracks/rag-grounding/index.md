@@ -5,5 +5,5 @@ Implementation of data ingestion and RAG for company learning and factual ground
 - [Specification](./spec.md)
 - [Implementation Plan](./plan.md)
 
-**Status**: Active
+**Status**: Completed
 **Owner**: @agent

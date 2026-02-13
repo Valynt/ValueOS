@@ -66,7 +66,7 @@ export default function CompanyOnboarding() {
   const { data: researchJob } = useResearchJobStatus(researchJobId);
   const { data: researchSuggestions } = useResearchSuggestions(researchJobId);
 
-  const handleStartResearch = async (website: string, industry: string, companySize: string | null, salesMotion: string | null) => {
+  const handleStartResearch = async (website: string, industry: string, companySize: string | null, salesMotion: string | null, ticker?: string) => {
     if (!contextId) {
       // Create context first if not yet created
       try {
@@ -80,13 +80,14 @@ export default function CompanyOnboarding() {
         });
         setContextId(ctx.id);
 
-        const jobInput: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string } = {
+        const jobInput: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string; ticker?: string } = {
           contextId: ctx.id,
           website,
         };
         if (industry) jobInput.industry = industry;
         if (companySize) jobInput.companySize = companySize;
         if (salesMotion) jobInput.salesMotion = salesMotion;
+        if (ticker) jobInput.ticker = ticker;
         const job = await createResearchJob.mutateAsync(jobInput);
         setResearchJobId(job.id);
       } catch {
@@ -94,13 +95,14 @@ export default function CompanyOnboarding() {
       }
     } else {
       try {
-        const jobInput2: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string } = {
+        const jobInput2: { contextId: string; website: string; industry?: string; companySize?: string; salesMotion?: string; ticker?: string } = {
           contextId,
           website,
         };
         if (industry) jobInput2.industry = industry;
         if (companySize) jobInput2.companySize = companySize;
         if (salesMotion) jobInput2.salesMotion = salesMotion;
+        if (ticker) jobInput2.ticker = ticker;
         const job = await createResearchJob.mutateAsync(jobInput2);
         setResearchJobId(job.id);
       } catch {

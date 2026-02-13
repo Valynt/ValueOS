@@ -118,6 +118,7 @@ export interface OnboardingPhase1Input {
   company_name: string;
   website_url: string;
   industry: string;
+  ticker?: string;
   company_size: CompanyContext["company_size"];
   sales_motion: CompanyContext["sales_motion"];
   products: Array<{ name: string; description: string; product_type: CompanyProduct["product_type"] }>;

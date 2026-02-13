@@ -16,6 +16,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
   const [companyName, setCompanyName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [industry, setIndustry] = useState("");
+  const [ticker, setTicker] = useState("");
   const [companySize, setCompanySize] = useState<OnboardingPhase1Input["company_size"]>(null);
   const [salesMotion, setSalesMotion] = useState<OnboardingPhase1Input["sales_motion"]>(null);
   const [products, setProducts] = useState<OnboardingPhase1Input["products"]>([
@@ -58,6 +59,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
         company_name: companyName.trim(),
         website_url: websiteUrl.trim(),
         industry: industry.trim(),
+        ticker: ticker.trim() || undefined,
         company_size: companySize,
         sales_motion: salesMotion,
         products: products.filter((p) => p.name.trim().length > 0),
@@ -68,7 +70,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
 
   const handleAutoFill = () => {
     if (onStartResearch && canAutoFill) {
-      onStartResearch(websiteUrl.trim(), industry.trim(), companySize, salesMotion);
+      onStartResearch(websiteUrl.trim(), industry.trim(), companySize, salesMotion, ticker.trim());
     }
   };
 
@@ -86,7 +88,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
   ];
 
   const entityStatus = researchJob?.entity_status ?? {};
-  const entityTypes = ["product", "competitor", "persona", "claim", "capability", "value_pattern"];
+  const entityTypes = ["product", "competitor", "persona", "claim", "capability", "value_pattern", "sec_filing"];
 
   return (
     <div className="space-y-6">
@@ -131,16 +133,29 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
         </div>
       </div>
 
-      <div>
-        <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
-          Industry
-        </label>
-        <input
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value)}
-          placeholder="e.g. Enterprise Software, Manufacturing, Financial Services"
-          className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+            Industry
+          </label>
+          <input
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value)}
+            placeholder="e.g. SaaS, FinTech"
+            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-400 mb-1.5 block">
+            Ticker / CIK (optional)
+          </label>
+          <input
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            placeholder="e.g. MSFT or 0000789019"
+            className="w-full px-4 py-3 rounded-xl border border-zinc-200 text-[13px] bg-white placeholder:text-zinc-400 outline-none focus:border-zinc-400 transition-colors"
+          />
+        </div>
       </div>
 
       {/* Company size */}
