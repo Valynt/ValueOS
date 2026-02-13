@@ -76,7 +76,7 @@ Invariants
 - Services must start in a predictable order or expose readiness checks.
 
 Health signals
-- `docker compose ps` shows services healthy/running.
+- `pnpm run dx:doctor` reports services healthy/running.
 - App can connect to dependencies via service DNS names on the Compose network.
 - No recurring crash loops; logs stable after warm-up.
 
@@ -244,7 +244,7 @@ Commands
 
 ### Step 2: Bring up services
 - `pnpm dx:up`
-- or `COMPOSE_PROFILES=devcontainer docker compose -f compose.yml -f compose.devcontainer.override.yml up -d`
+- or `pnpm run dx up --mode docker`
 
 ### Step 3: Apply migrations
 - `pnpm dx db:migrate` (or equivalent)
@@ -602,7 +602,7 @@ No README archaeology, no "run this script first", no hidden infra assumptions, 
 
 A valid environment satisfies:
 
-- [ ] `docker compose ps` shows app + supabase + redis
+- [ ] `pnpm run dx:doctor` shows app + supabase + redis
 - [ ] App can authenticate locally
 - [ ] Supabase DB persists across restarts
 - [ ] Rebuild does not reinstall deps unless marker removed
