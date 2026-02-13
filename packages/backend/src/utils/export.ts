@@ -15,7 +15,7 @@ export function exportToCSV(data: any[]): string {
 
 /**
  * Export to PDF - stub implementation
- * TODO: Implement actual PDF generation with pdfkit or similar
+ * TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement actual PDF generation with pdfkit or similar
  */
 export async function exportToPDF(
   data: Record<string, unknown>,
@@ -27,7 +27,7 @@ export async function exportToPDF(
 
 /**
  * Export to PNG - stub implementation
- * TODO: Implement actual PNG generation with canvas or similar
+ * TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement actual PNG generation with canvas or similar
  */
 export async function exportToPNG(
   element: HTMLElement | string,
@@ -39,7 +39,7 @@ export async function exportToPNG(
 
 /**
  * Export to Excel - stub implementation
- * TODO: Implement actual Excel generation with xlsx or similar
+ * TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement actual Excel generation with xlsx or similar
  */
 export async function exportToExcel(
   data: any[],

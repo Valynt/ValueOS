@@ -369,7 +369,7 @@ export class DeviceFingerprintService extends BaseService {
     }
 
     // Check for impossible travel (would need geo data)
-    // TODO: Implement with GeoIP service
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Implement with GeoIP service
 
     const recommendation = this.getRecommendation(riskScore, anomalies);
 
@@ -444,7 +444,7 @@ export class DeviceFingerprintService extends BaseService {
   }
 
   private async checkSuspiciousIP(ipAddress: string): Promise<boolean> {
-    // TODO: Integrate with threat intelligence API
+    // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Integrate with threat intelligence API
     // For now, check for known bad patterns
     const suspiciousPatterns = [
       /^10\./, // Private (shouldn't be external)
