@@ -5888,7 +5888,7 @@ open http://localhost:9090  # Prometheus
 
 ```bash
 # Deploy with Terraform
-cd infra/terraform-new/modules/monitoring
+cd infra/terraform/modules/monitoring
 terraform init
 terraform apply
 

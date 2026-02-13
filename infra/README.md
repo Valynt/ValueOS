@@ -6,6 +6,32 @@ This directory contains deployment and operational infrastructure for the ValueO
 
 Use this inventory as the source of truth for where to run Compose, Kubernetes, and Terraform targets.
 
+## Active vs Deprecated Infra Manifest Registry
+
+This registry is CI-enforced. Any path marked `Deprecated` must not be referenced by automation, docs, or scripts outside this file.
+
+| Type | Path | Lifecycle | Notes |
+| --- | --- | --- | --- |
+| Docker Compose | `infra/docker/docker-compose.dev.yml` | Active | Primary local dev stack. |
+| Docker Compose | `infra/docker/docker-compose.caddy.yml` | Active | Dev stack with Caddy routing. |
+| Docker Compose | `infra/docker/docker-compose.staging.yml` | Active | Staging compose entrypoint. |
+| Docker Compose | `infra/docker/docker-compose.prod.yml` | Active | Production compose entrypoint. |
+| Docker Compose | `infra/docker/docker-compose.ha.yml` | Active | HA testing/experimentation. |
+| Docker Compose | `infra/docker/docker-compose.test.yml` | Active | CI/integration compose stack. |
+| Docker Compose | `infra/docker/docker-compose.yml` | Active | Base compose shared services. |
+| Docker Compose | `infra/docker/docker-compose.observability.yml` | Active | Canonical LGTM observability stack. |
+| Docker Compose | `infra/docker-compose.mtls.yml` | Active | mTLS overlay for local and hardening tests. |
+| Docker Compose | `infra/docker-compose.observability.yml` | Deprecated | Legacy observability compose path. |
+| Terraform | `infra/terraform/` | Active | Primary terraform stack. |
+| Terraform | `infra/terraform-new/` | Deprecated | Legacy placeholder path retained for historical context. |
+| Terraform | `infra/environments/dev/terraform/` | Active | Dev environment terraform root. |
+| Terraform | `infra/environments/staging/terraform/` | Active | Staging environment terraform root. |
+| Terraform | `infra/environments/prod/terraform/` | Active | Production environment terraform root. |
+| Kubernetes | `infra/k8s/base/` | Active | Base runtime manifests. |
+| Kubernetes | `infra/k8s/observability/` | Active | Observability manifests. |
+| Kubernetes | `infra/k8s/security/` | Active | Security and mesh policy manifests. |
+| Kubernetes | `infra/k8s/cronjobs/` | Active | Scheduled operational workloads. |
+
 ### Docker Compose targets
 
 | Target | Path | Owner | Purpose | Status |
@@ -39,7 +65,7 @@ Use this inventory as the source of truth for where to run Compose, Kubernetes, 
 | Target | Path | Owner | Purpose | Status |
 | --- | --- | --- | --- | --- |
 | Shared Terraform | `infra/terraform/` | DevOps | Core cloud resources (baseline modules, shared state). | Active |
-| Terraform (next) | `infra/terraform-new/` | DevOps | Newer iteration of the core Terraform stack. | Active |
+| Terraform (next) | `infra/terraform-new/` | DevOps | Historical reference; do not use for active deployments. | Deprecated |
 | Dev environment | `infra/environments/dev/terraform/` | DevOps | Dev environment infrastructure with outputs and variables. | Active |
 | Staging environment | `infra/environments/staging/terraform/` | DevOps | Staging environment infrastructure. | Active |
 | Production environment | `infra/environments/prod/terraform/` | DevOps | Production environment infrastructure. | Active |

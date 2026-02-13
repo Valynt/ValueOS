@@ -9,6 +9,8 @@ metadata:
     app.kubernetes.io/name: worker
     app.kubernetes.io/component: background-jobs
     app.kubernetes.io/part-of: valynt
+  annotations:
+    autoscaling.valynt.io/policy: "manual"
 spec:
   replicas: 1
   strategy:

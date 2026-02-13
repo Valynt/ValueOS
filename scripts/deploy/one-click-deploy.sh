@@ -122,7 +122,7 @@ print_success "Backend image pushed"
 # Deploy infrastructure with Terraform
 print_step "Deploying infrastructure with Terraform..."
 
-cd infra/terraform-new/environments/${ENVIRONMENT}
+cd infra/terraform/environments/${ENVIRONMENT}
 
 terraform init -upgrade
 terraform plan \

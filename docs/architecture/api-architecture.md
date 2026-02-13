@@ -440,6 +440,26 @@ Use this template to document releases, highlight breaking changes, and track de
 - **Default:** `v1`
 - **Deprecated:** None (deprecation headers will be added when versions sunset).
 
+## Public vs Internal API Versioning Policy
+
+### Public APIs (external consumers)
+
+- Public endpoints MUST use explicit semantic major versions in the route prefix (for example: `/api/v1/...`, `/api/v2/...`).
+- Non-breaking additions (new optional fields, new endpoints) are allowed within the same major version.
+- Breaking changes (removing/renaming fields, tightening validation, changing status semantics) require a new major version and migration documentation.
+- Public API deprecation follows a minimum **90-day** notice window and must include changelog guidance and compatibility headers.
+
+### Internal APIs (service-to-service)
+
+- Internal endpoints MAY evolve faster, but must still publish contract updates in architecture/docs and associated OpenAPI specs when exposed to multiple services.
+- Internal breaking changes require coordination with owning teams and a rollout plan (compatibility window, deploy order, and rollback path).
+- Internal APIs should prefer additive changes first; hard breaks are allowed only when consumers have been verified and migrated.
+
+### Contract Enforcement
+
+- CI runs an OpenAPI breaking-change detector on pull requests using `scripts/openapi.yaml` against the PR base branch.
+- Any detected path/operation/required-parameter/response removal is treated as a breaking change and fails CI unless versioning/migration updates are made.
+
 ## Failure Behavior
 
 - Requests targeting unsupported versions return **426 Upgrade Required** with guidance and the current stable version in the `API-Version` response header.

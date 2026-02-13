@@ -10,6 +10,8 @@ metadata:
     app.kubernetes.io/name: frontend
     app.kubernetes.io/component: web
     app.kubernetes.io/part-of: valynt
+  annotations:
+    autoscaling.valynt.io/policy: "manual"
 spec:
   replicas: 0
   strategy:

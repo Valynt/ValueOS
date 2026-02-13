@@ -14,6 +14,7 @@ metadata:
     valynt.io/llm-usage-limit: "500.00"
     valynt.io/cost-center: "ai-orchestration"
     valynt.io/cost-tracking: "enabled"
+    autoscaling.valynt.io/policy: "manual"
 spec:
   replicas: 0
   strategy:

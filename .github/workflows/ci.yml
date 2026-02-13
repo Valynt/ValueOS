@@ -86,6 +86,19 @@ jobs:
       - name: Critical claims verification
         run: node scripts/ci/verify-critical-claims.mjs
 
+      - name: Infra manifest registry guard
+        run: python3 scripts/ci/check-infra-manifest-registry.py
+
+      - name: Kubernetes architecture conformance
+        run: python3 scripts/ci/lint-k8s-architecture.py
+
+      - name: OpenAPI breaking-change detector
+        if: github.event_name == "pull_request"
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git show "origin/${{ github.base_ref }}:scripts/openapi.yaml" > /tmp/openapi-base.yaml
+          python3 scripts/ci/check-openapi-breaking.py --base /tmp/openapi-base.yaml --head scripts/openapi.yaml
+
       - name: Build
         run: npx turbo run build
 

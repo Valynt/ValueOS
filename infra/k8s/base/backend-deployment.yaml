@@ -13,6 +13,7 @@ metadata:
     valynt.io/llm-usage-limit: "500.00" # Monthly USD limit per namespace
     valynt.io/cost-center: "ai-orchestration"
     valynt.io/cost-tracking: "enabled"
+    autoscaling.valynt.io/policy: "manual"
 spec:
   replicas: 2
   strategy:
