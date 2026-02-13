@@ -1,5 +1,6 @@
 import { Search, Bell, ChevronDown, Sparkles, Menu } from "lucide-react";
 import { useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 interface TopBarProps {
@@ -15,7 +16,11 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
       {/* Left: mobile menu + org/tenant switcher */}
       <div className="flex items-center gap-4">
         {onMenuClick && (
-          <button onClick={onMenuClick} className="lg:hidden p-1.5 rounded-lg hover:bg-zinc-100">
+          <button
+            onClick={onMenuClick}
+            aria-label="Open navigation menu"
+            className="lg:hidden p-1.5 rounded-lg hover:bg-zinc-100"
+          >
             <Menu className="w-5 h-5 text-zinc-600" />
           </button>
         )}
@@ -60,7 +65,10 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
       {/* Right: actions */}
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-zinc-100 transition-colors">
+        <button
+          aria-label="Open notifications"
+          className="relative p-2 rounded-lg hover:bg-zinc-100 transition-colors"
+        >
           <Bell className="w-[18px] h-[18px] text-zinc-500" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
         </button>
