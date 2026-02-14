@@ -531,3 +531,10 @@ For issues or questions:
 - [tfsec Documentation](https://aquasecurity.github.io/tfsec/)
 - [Checkov Documentation](https://www.checkov.io/)
 - [AWS OIDC Setup](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+
+
+## Supabase Cloud-Only Policy
+
+- Default migration and deployment workflows must use hosted Supabase projects (linked project refs and `supabase db push`).
+- Workflow paths must not depend on `infra/supabase/config.toml` or local Supabase stack state unless the workflow/job is explicitly marked local-only.
+- Any local-stack job must set `LOCAL_SUPABASE_ONLY=1` and be documented as optional/non-deploying.
