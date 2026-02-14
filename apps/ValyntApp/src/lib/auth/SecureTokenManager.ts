@@ -57,6 +57,18 @@ const clearLocalState = () => {
   lastRefreshToken = null;
 };
 
+const handleSignedOut = () => {
+  clearLocalState();
+};
+
+const handleTokenRefreshed = (session: Session | null) => {
+  if (!trackRefreshTokenState(session, "TOKEN_REFRESHED") || !session) {
+    return;
+  }
+
+  persistNonSensitiveAuthState(session);
+};
+
 const handleUnexpectedRefreshToken = async () => {
   clearLocalState();
   if (supabase) {
@@ -86,7 +98,7 @@ const trackRefreshTokenState = (
   const isRotationAllowed = !event || rotationAllowedEvents.has(event);
 
   if (previousFingerprint) {
-    if (event === "TOKEN_REFRESHED" && !tokenRotated) {
+    if (event === "TOKEN_REFRESHED") {
       void handleUnexpectedRefreshToken();
       return false;
     }
@@ -112,7 +124,12 @@ export const secureTokenManager = {
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        clearLocalState();
+        handleSignedOut();
+        return;
+      }
+
+      if (event === "TOKEN_REFRESHED") {
+        handleTokenRefreshed(session);
         return;
       }
 
