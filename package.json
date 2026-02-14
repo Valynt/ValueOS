@@ -154,6 +154,8 @@
     "dx:local": "node scripts/dx/dev-cli.js up --mode local",
     "dx:docker": "node scripts/dx/dev-cli.js up --mode docker",
     "db:migrate": "bash scripts/db/apply-migrations.sh",
+    "db:migrate:local": "bash scripts/db/apply-migrations.sh",
+    "db:migrate:hosted": "supabase db push --workdir infra/supabase",
     "up": "docker compose up -d",
     "down": "docker compose down -v",
     "lint": "eslint .",

@@ -62,13 +62,15 @@ Design rules enforced:
 
 ```bash
 DATABASE_URL=postgresql://<user>:<pass>@<host>:<port>/<db> bash scripts/db/apply-migrations.sh
+# For non-local/hosted targets, acknowledge explicitly:
+I_UNDERSTAND_THIS_MAY_TOUCH_PROD=1 DATABASE_URL=postgresql://<user>:<pass>@<host>:<port>/<db>?sslmode=require bash scripts/db/apply-migrations.sh
 ```
 
 ### Supabase path
 
 ```bash
 cd infra/supabase/supabase
-npx supabase db push
+pnpm db:migrate:hosted
 ```
 
 ## Phase 4 — Verification checklist
