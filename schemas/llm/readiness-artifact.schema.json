@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://valueos.dev/schemas/llm/readiness-artifact.schema.json",
+  "title": "LLM Readiness Artifact",
+  "type": "object",
+  "required": ["schema_path", "generated_at", "status"],
+  "properties": {
+    "schema_path": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "status": { "type": "string" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

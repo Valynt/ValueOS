@@ -107,6 +107,12 @@ jobs:
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
+      - name: LLM secrets hygiene guard
+        run: node scripts/ci/check-llm-secrets-hygiene.mjs
+
+      - name: LLM readiness contract guard
+        run: node scripts/ci/check-llm-readiness-contract.mjs
+
       # Resolved merge: run BOTH (they are complementary) and keep the artifact.
       - name: Supabase tenant controls guard
         run: node scripts/ci/check-supabase-tenant-controls.mjs
