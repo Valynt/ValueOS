@@ -1,0 +1,10 @@
+{
+  "budgets": {
+    "critical": 0,
+    "serious": 0,
+    "moderate": 10,
+    "minor": 25,
+    "unknown": 0
+  },
+  "notes": "Critical and serious WCAG violations must remain at zero in CI."
+}

@@ -739,6 +739,27 @@ jobs:
             --metrics-out artifacts/accessibility/a11y-metrics.json \
             --summary-out artifacts/accessibility/a11y-trend-summary.md
 
+      - name: Enforce WCAG severity budgets
+        if: always()
+        run: |
+          node scripts/ci/check-a11y-severity-budgets.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --budget .github/metrics/wcag-severity-budgets.json \
+            --metrics-out artifacts/accessibility/wcag-severity-metrics.json
+
+      - name: Run route-level UX performance checks
+        if: always()
+        run: npx playwright test tests/performance/route-load-budgets.spec.ts --reporter=list
+
+      - name: Enforce UX performance budgets
+        if: always()
+        run: |
+          node scripts/ci/check-ux-performance-budgets.mjs \
+            --budget .github/metrics/ux-performance-budgets.json \
+            --dist-assets apps/ValyntApp/dist/assets \
+            --route-metrics artifacts/performance/route-load-metrics.json \
+            --output artifacts/performance/ux-performance-metrics.json
+
       - name: Upload a11y HTML report
         if: always()
         uses: actions/upload-artifact@v4
@@ -755,5 +776,8 @@ jobs:
           path: |
             artifacts/accessibility/playwright-report.json
             artifacts/accessibility/a11y-metrics.json
+            artifacts/accessibility/wcag-severity-metrics.json
             artifacts/accessibility/a11y-trend-summary.md
+            artifacts/performance/route-load-metrics.json
+            artifacts/performance/ux-performance-metrics.json
           retention-days: 30

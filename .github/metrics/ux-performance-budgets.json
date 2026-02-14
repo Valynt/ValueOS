@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "maxTotalJsKb": 700,
+    "maxChunkJsKb": 400
+  },
+  "routeLoadMs": {
+    "/": 2500,
+    "/auth/login": 2500,
+    "/dashboard": 3000
+  }
+}

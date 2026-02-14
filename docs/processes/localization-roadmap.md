@@ -31,13 +31,14 @@
 
 Localization checks must run for every pull request and release branch:
 
-1. `check-i18n-keys.mjs` validates missing keys and translation coverage thresholds.
+1. `check-i18n-keys.mjs` validates missing keys, key completeness across locales, and translation coverage thresholds.
 2. `check-pseudo-localization.mjs` validates source strings are pseudo-localizable, preserves interpolation tokens, and enforces minimum expansion for overflow detection.
 3. Playwright localization overflow visual-regression suite captures pseudo-localized screenshots for core workflows and fails when horizontal overflow is detected.
 
 ### Required CI Outputs
 
-- `artifacts/i18n/coverage-dashboard.json` (translation key coverage).
+- `artifacts/i18n/coverage-dashboard.json` (translation key coverage + key completeness by locale).
+- `artifacts/i18n/release-coverage-dashboard.json` (release readiness localization completeness).
 - `artifacts/i18n/pseudo-localization-report.json` (pseudo-localization quality and expansion metrics).
 - Playwright screenshot snapshots for pseudo-localized core workflows.
 
@@ -83,7 +84,7 @@ Before releasing any user-facing feature:
 
 - [ ] All new UI strings use translation keys (no hardcoded strings).
 - [ ] Source locale (`en`) file updated with new keys.
-- [ ] All active locales have translations for new keys (or approved fallback).
+- [ ] All active locales meet key completeness budget (critical locales target 100% completeness).
 - [ ] Date/number/currency formatting uses `Intl` APIs.
 - [ ] Pluralization tested with counts 0, 1, 2, 5, 21.
 - [ ] Screenshots reviewed for text truncation in longer locales (de, es).

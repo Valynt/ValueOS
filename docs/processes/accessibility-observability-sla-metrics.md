@@ -24,6 +24,8 @@ Publish and review these metrics in Grafana accessibility dashboards:
 - `a11y_reopened_defects_total`
 - `a11y_manual_at_pass_rate{scenario}`
 - `a11y_localization_overflow_failures_total{workflow,locale}`
+- `a11y_wcag_violations_total{severity}` (derived from CI `wcag-severity-metrics`)
+- `a11y_wcag_budget_pass` (boolean CI gate status)
 
 ## Dashboard Panels
 
@@ -35,6 +37,7 @@ Minimum panels for the Accessibility Operations dashboard:
 4. Reopen rate trend by team.
 5. Manual AT test pass rate (screen reader, keyboard-only, high-zoom).
 6. Localization overflow failures across Tier-1 workflows.
+7. WCAG severity budget compliance (critical/serious budget=0) trend.
 
 ## Alerting Rules
 
