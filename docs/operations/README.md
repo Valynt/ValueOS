@@ -8,7 +8,7 @@ status: active
 
 # Operations
 
-**Last Updated**: 2026-02-13
+**Last Updated**: 2026-02-14
 
 ---
 
@@ -31,6 +31,7 @@ status: active
 - [Analytics Guide](./analytics-guide.md)
 - [Backup Recovery](./backup-recovery.md)
 - [Caddy Configuration](./caddy-configuration.md)
+- [Environment and Startup Unification](./env-startup-unification.md)
 - [Ci Cd Pipeline](./ci-cd-pipeline.md)
 - [Monitoring Observability](./monitoring-observability.md)
 - [Performance Tuning](./performance-tuning.md)
@@ -43,4 +44,4 @@ status: active
 
 ---
 
-**Total Documents**: 13
+**Total Documents**: 14
