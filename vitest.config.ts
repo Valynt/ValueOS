@@ -37,9 +37,44 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: "v8",
-      reporter: ["text", "json-summary"],
+      reporter: ["text", "json-summary", "lcov"],
+      reportsDirectory: "./coverage/unit",
       exclude: ["node_modules/", "src/test/", "**/*.config.*"],
+      thresholds: {
+        lines: 70,
+        functions: 70,
+        branches: 60,
+        statements: 70,
+        "packages/backend/**": {
+          lines: 80,
+          functions: 80,
+          branches: 70,
+          statements: 80,
+        },
+        "apps/ValyntApp/**": {
+          lines: 80,
+          functions: 80,
+          branches: 70,
+          statements: 80,
+        },
+      },
     },
+    projects: [
+      {
+        test: {
+          name: "critical-backend",
+          include: ["packages/backend/**/*.{test,spec}.{js,ts,jsx,tsx}"],
+          passWithNoTests: false,
+        },
+      },
+      {
+        test: {
+          name: "critical-valynt-app",
+          include: ["apps/ValyntApp/**/*.{test,spec}.{js,ts,jsx,tsx}"],
+          passWithNoTests: false,
+        },
+      },
+    ],
   },
   resolve: {
     alias: {
