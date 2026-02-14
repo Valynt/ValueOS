@@ -99,9 +99,10 @@ function cleanOrphanContainers(): void {
   log("🐳 Cleaning orphan containers...", colors.blue);
 
   const composeFiles = [
-    "docker-compose.deps.yml",
-    "infra/supabase/docker-compose.yml",
-    "infra/docker/docker-compose.dev.yml",
+    "ops/compose/compose.yml",
+    "ops/compose/profiles/supabase.yml",
+    "ops/compose/profiles/observability.yml",
+    "ops/compose/profiles/tools.yml",
   ];
 
   for (const file of composeFiles) {

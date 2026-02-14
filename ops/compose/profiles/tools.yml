@@ -1,0 +1,10 @@
+# Developer tools optional stack. Activate with: docker compose --profile tools up
+
+services:
+  adminer:
+    image: adminer:4
+    profiles: ["tools"]
+    ports:
+      - "${ADMINER_PORT:-18080}:8080"
+    depends_on:
+      - postgres

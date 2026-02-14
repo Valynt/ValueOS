@@ -4,6 +4,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { composeCommand, parseComposeProfiles } from "./dx/lib/compose.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,8 @@ const ci = hasFlag("--ci") || process.env.CI === "true";
 const autoShiftPorts = hasFlag("--auto-shift-ports") || process.env.DX_AUTO_SHIFT_PORTS === "1";
 const resetLevel = hasFlag("--hard") ? "hard" : "soft";
 const debug = hasFlag("--debug") || process.env.DX_DEBUG === "1";
+const composeProfiles = parseComposeProfiles(rawArgs);
+const composeProfileFlags = composeProfiles.map((profile) => `--profile ${profile}`).join(" ");
 const pnpmVersion = "9.15.0";
 
 function run(commandLine, options = {}) {
@@ -280,7 +283,7 @@ async function main() {
   if (command === "down") {
     logIgnoredFlags("down");
     ensureDocker();
-    run("pnpm exec tsx scripts/dx/orchestrator.js --down");
+    run(`pnpm exec tsx scripts/dx/orchestrator.js --down${composeProfileFlags ? ` ${composeProfileFlags}` : ""}`);
     return;
   }
 
@@ -288,17 +291,20 @@ async function main() {
     logIgnoredFlags("reset");
     ensureDocker();
     const resetFlag = resetLevel === "hard" ? "--reset hard" : "--reset soft";
-    run(`pnpm exec tsx scripts/dx/orchestrator.js ${resetFlag}`);
+    run(`pnpm exec tsx scripts/dx/orchestrator.js ${resetFlag}${composeProfileFlags ? ` ${composeProfileFlags}` : ""}`);
     return;
   }
 
   if (command === "logs") {
     logIgnoredFlags("logs");
     ensureDocker();
-    const composeFile =
-      mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
+    const { command: composeLogsCommand } = composeCommand("logs", {
+      mode,
+      profiles: composeProfiles,
+      extraArgs: ["-f", ...(service ? [service] : [])],
+    });
     run(
-      `docker compose --env-file ops/env/.env.ports -f ${composeFile} logs -f${service ? ` ${service}` : ""}`
+      composeLogsCommand
     );
     return;
   }
@@ -355,7 +361,7 @@ async function main() {
 
   const modeFlag = mode === "docker" ? "--mode docker" : "--mode local";
   const seedFlag = seed ? " --seed" : "";
-  run(`pnpm exec tsx scripts/dx/orchestrator.js ${modeFlag}${seedFlag}`);
+  run(`pnpm exec tsx scripts/dx/orchestrator.js ${modeFlag}${seedFlag}${composeProfileFlags ? ` ${composeProfileFlags}` : ""}`);
 }
 
 main().catch((error) => {
