@@ -19,11 +19,13 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const I18N_DIRS = ["apps/ValyntApp/src/i18n/locales"];
 const SOURCE_LOCALE = "en";
 const DEFAULT_MIN_COVERAGE_PERCENT = 90;
+const DEFAULT_MIN_KEY_COMPLETENESS_PERCENT = 100;
 const SRC_DIRS = ["apps/ValyntApp/src", "apps/VOSAcademy/src"];
 
 const cliArgs = process.argv.slice(2);
 const jsonOutPath = getArgValue(cliArgs, "--json-out");
 const minCoverageArg = getArgValue(cliArgs, "--min-coverage");
+const minCompletenessArg = getArgValue(cliArgs, "--min-completeness");
 
 const parsedMinCoverage = Number.parseInt(
   minCoverageArg ?? process.env.I18N_MIN_COVERAGE_PERCENT ?? `${DEFAULT_MIN_COVERAGE_PERCENT}`,
@@ -33,17 +35,27 @@ const MIN_COVERAGE_PERCENT = Number.isNaN(parsedMinCoverage)
   ? DEFAULT_MIN_COVERAGE_PERCENT
   : parsedMinCoverage;
 
+const parsedMinCompleteness = Number.parseInt(
+  minCompletenessArg ?? process.env.I18N_MIN_KEY_COMPLETENESS_PERCENT ?? `${DEFAULT_MIN_KEY_COMPLETENESS_PERCENT}`,
+  10
+);
+const MIN_KEY_COMPLETENESS_PERCENT = Number.isNaN(parsedMinCompleteness)
+  ? DEFAULT_MIN_KEY_COMPLETENESS_PERCENT
+  : parsedMinCompleteness;
+
 let hasErrors = false;
 let hasWarnings = false;
 const dashboard = {
   sourceLocale: SOURCE_LOCALE,
   minimumCoveragePercent: MIN_COVERAGE_PERCENT,
+  minimumKeyCompletenessPercent: MIN_KEY_COMPLETENESS_PERCENT,
   localeDirectories: [],
   totals: {
     localesChecked: 0,
     missingKeys: 0,
     extraKeys: 0,
     localesBelowThreshold: 0,
+    localesBelowCompletenessThreshold: 0,
     unusedKeys: 0,
   },
   status: "pass",
@@ -56,6 +68,24 @@ function getArgValue(args, key) {
   return args[idx + 1];
 }
 
+function flattenTranslationKeys(input, prefix = "") {
+  const keys = [];
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return prefix ? [prefix] : keys;
+  }
+
+  for (const [key, value] of Object.entries(input)) {
+    const scoped = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      keys.push(...flattenTranslationKeys(value, scoped));
+    } else {
+      keys.push(scoped);
+    }
+  }
+
+  return keys;
+}
+
 function loadLocaleKeys(localeDir) {
   const keys = new Set();
   if (!existsSync(localeDir)) return keys;
@@ -63,7 +93,7 @@ function loadLocaleKeys(localeDir) {
   for (const file of readdirSync(localeDir).filter((f) => f.endsWith(".json"))) {
     try {
       const content = JSON.parse(readFileSync(join(localeDir, file), "utf-8"));
-      for (const key of Object.keys(content)) {
+      for (const key of flattenTranslationKeys(content)) {
         keys.add(key);
       }
     } catch (e) {
@@ -142,12 +172,15 @@ for (const i18nRelDir of I18N_DIRS) {
     const coverage = sourceKeys.size > 0
       ? Math.round(((localeKeys.size - extra.length) / sourceKeys.size) * 100)
       : 100;
+    const keyCompleteness = sourceKeys.size > 0
+      ? Number((((sourceKeys.size - missing.length) / sourceKeys.size) * 100).toFixed(2))
+      : 100;
 
     dashboard.totals.localesChecked += 1;
     dashboard.totals.missingKeys += missing.length;
     dashboard.totals.extraKeys += extra.length;
 
-    console.log(`  Locale "${locale}": ${localeKeys.size} keys, coverage ${coverage}%`);
+    console.log(`  Locale "${locale}": ${localeKeys.size} keys, coverage ${coverage}%, completeness ${keyCompleteness}%`);
 
     if (missing.length > 0) {
       console.error(`    ❌ Missing ${missing.length} keys: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "..." : ""}`);
@@ -165,13 +198,21 @@ for (const i18nRelDir of I18N_DIRS) {
       dashboard.totals.localesBelowThreshold += 1;
     }
 
+    if (keyCompleteness < MIN_KEY_COMPLETENESS_PERCENT) {
+      console.error(`    ❌ Key completeness ${keyCompleteness}% is below minimum ${MIN_KEY_COMPLETENESS_PERCENT}%`);
+      hasErrors = true;
+      dashboard.totals.localesBelowCompletenessThreshold += 1;
+    }
+
     dirSummary.locales.push({
       locale,
       keyCount: localeKeys.size,
       missingKeys: missing.length,
       extraKeys: extra.length,
       coverage,
+      keyCompleteness,
       belowThreshold: coverage < MIN_COVERAGE_PERCENT,
+      belowCompletenessThreshold: keyCompleteness < MIN_KEY_COMPLETENESS_PERCENT,
     });
   }
 
