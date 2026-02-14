@@ -1,5 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-# Canonical migration entrypoint wrapper.
-exec bash infra/scripts/apply_migrations.sh "$@"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+exec bash "$PROJECT_ROOT/scripts/db/apply-migrations.sh" "$@"

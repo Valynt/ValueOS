@@ -152,7 +152,7 @@
     "dx:build": "node scripts/dx/dev-cli.js build",
     "dx:reset": "node scripts/dx/dev-cli.js reset",
     "dx:local": "node scripts/dx/mode-entrypoint.js up --mode local",
-    "dx:docker": "node scripts/dx/mode-entrypoint.js up --mode docker",
+    "dx:docker": "node scripts/dx/mode-entrypoint.js up --mode cloud-dev",
     "db:migrate": "bash scripts/migrate.sh",
     "up": "docker compose up -d",
     "down": "docker compose down -v",
@@ -166,6 +166,11 @@
     "llm:redteam": "node scripts/llm/redteam.mjs",
     "llm:verify": "node scripts/llm/verify.mjs",
     "dx:down:local": "node scripts/dx/mode-entrypoint.js down --mode local",
-    "dx:down:docker": "node scripts/dx/mode-entrypoint.js down --mode docker"
+    "dx:down:docker": "node scripts/dx/mode-entrypoint.js down --mode cloud-dev",
+    "dx:cloud-dev": "node scripts/dx/mode-entrypoint.js up --mode cloud-dev",
+    "dx:down:cloud-dev": "node scripts/dx/mode-entrypoint.js down --mode cloud-dev",
+    "dev:frontend": "bash scripts/dev/start-frontend.sh",
+    "dev:backend": "bash scripts/dev/start-backend.sh",
+    "db:apply-migrations": "bash scripts/db/apply-migrations.sh"
   }
 }
