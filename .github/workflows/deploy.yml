@@ -20,11 +20,24 @@ on:
         required: false
         default: false
         type: boolean
+      incident_ticket_id:
+        description: "Incident ticket ID (required when skip_tests=true, e.g. INC-1234)"
+        required: false
+        type: string
+      skip_tests_reason:
+        description: "Emergency justification for skipping tests (required when skip_tests=true)"
+        required: false
+        type: string
+      post_deploy_validation_checklist:
+        description: "Post-deploy validation checklist (required when skip_tests=true)"
+        required: false
+        type: string
 
 permissions:
   contents: read
   packages: write
   id-token: write
+  issues: write
 
 env:
   REGISTRY: ghcr.io
@@ -34,6 +47,75 @@ env:
   SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
+
+
+  emergency-bypass-authorization:
+    name: Emergency Test Bypass Authorization
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
+    environment:
+      name: emergency-test-bypass
+    outputs:
+      audit_file: ${{ steps.audit.outputs.audit_file }}
+    steps:
+      - name: Validate emergency bypass inputs
+        run: |
+          set -euo pipefail
+
+          if [ "${{ inputs.environment }}" != "production" ]; then
+            echo "skip_tests can only be used for production emergency deploys."
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.incident_ticket_id }}" ]; then
+            echo "incident_ticket_id is required when skip_tests=true."
+            exit 1
+          fi
+
+          if ! echo "${{ inputs.incident_ticket_id }}" | grep -Eq '^INC-[0-9]+$'; then
+            echo "incident_ticket_id must match INC-<number>."
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.skip_tests_reason }}" ]; then
+            echo "skip_tests_reason is required when skip_tests=true."
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.post_deploy_validation_checklist }}" ]; then
+            echo "post_deploy_validation_checklist is required when skip_tests=true."
+            exit 1
+          fi
+
+      - name: Create emergency bypass audit log
+        id: audit
+        run: |
+          set -euo pipefail
+          AUDIT_FILE="emergency-test-bypass-audit-${{ github.run_id }}.json"
+
+          cat > "${AUDIT_FILE}" <<EOF
+          {
+            "timestamp_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repository": "${{ github.repository }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "approver_identity": "${{ github.triggering_actor }}",
+            "workflow_actor": "${{ github.actor }}",
+            "reason": ${{ toJSON(inputs.skip_tests_reason) }},
+            "incident_ticket_id": "${{ inputs.incident_ticket_id }}",
+            "post_deploy_validation_checklist": ${{ toJSON(inputs.post_deploy_validation_checklist) }}
+          }
+          EOF
+
+          echo "audit_file=${AUDIT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload emergency bypass audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-test-bypass-audit-${{ github.run_id }}
+          path: ${{ steps.audit.outputs.audit_file }}
   # ──────────────────────────────────────────────────────────────────────────
   # 1. Quality gate — must pass before any deploy
   # ──────────────────────────────────────────────────────────────────────────
@@ -66,8 +148,12 @@ jobs:
   build-images:
     name: Build Backend Runtime Image
     runs-on: ubuntu-latest
-    needs: [quality-gate]
-    if: github.event_name != 'schedule' && always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
+    needs: [quality-gate, emergency-bypass-authorization]
+    if: >-
+      github.event_name != 'schedule' &&
+      always() &&
+      (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped') &&
+      (!inputs.skip_tests || needs.emergency-bypass-authorization.result == 'success')
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
       image_digest: ${{ steps.build.outputs.digest }}
@@ -444,3 +530,41 @@ jobs:
           kubectl -n valynt patch service backend-active \
             -p '{"spec":{"selector":{"slot":"blue"}}}'
           echo "Rolled back to blue slot"
+
+
+  create-deferred-validation-followup:
+    name: Create Deferred Validation Follow-up
+    runs-on: ubuntu-latest
+    needs: [deploy-production, emergency-bypass-authorization]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.emergency-bypass-authorization.result == 'success' }}
+    steps:
+      - name: Create follow-up issue for deferred validations
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deploymentStatus = '${{ needs.deploy-production.result }}';
+            const title = `Emergency deploy deferred validations: ${{ github.run_id }}`;
+            const body = [
+              '## Deferred validation follow-up (auto-created)',
+              '',
+              `- **Incident**: ${{ inputs.incident_ticket_id }}`,
+              `- **Workflow run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              `- **Requested by**: @${{ github.triggering_actor }}`,
+              `- **Deploy result**: ${deploymentStatus}`,
+              '',
+              '### Required post-deploy validation checklist',
+              '${{ inputs.post_deploy_validation_checklist }}',
+              '',
+              '### Emergency bypass reason',
+              '${{ inputs.skip_tests_reason }}',
+              '',
+              '> This task was created automatically and must be executed immediately after the emergency deployment.'
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['incident-followup', 'deferred-validation', 'priority:high']
+            });
