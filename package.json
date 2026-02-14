@@ -161,6 +161,9 @@
     "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs",
     "check:frozen-backend-duplicate-tree": "node scripts/ci/check-frozen-backend-duplicate-tree.mjs",
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
-    "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs"
+    "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs",
+    "llm:doctor": "node scripts/llm/doctor.mjs",
+    "llm:redteam": "node scripts/llm/redteam.mjs",
+    "llm:verify": "node scripts/llm/verify.mjs"
   }
 }
