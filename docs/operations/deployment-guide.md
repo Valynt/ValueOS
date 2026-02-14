@@ -4094,29 +4094,7 @@ New-NetFirewallRule -DisplayName "Docker Port 3000" -Direction Inbound -LocalPor
 
 ---
 
-## ✅ Solution 4: Use host.docker.internal
-
-### Update Caddyfile
-
-```caddyfile
-:80 {
-    # Use host.docker.internal to access host network
-    reverse_proxy host.docker.internal:3000
-}
-```
-
-### Update docker-compose.yml
-
-```yaml
-services:
-  app:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-```
-
----
-
-## ✅ Solution 5: Network Mode Host (Linux Only)
+## ✅ Solution 4: Network Mode Host (Linux Only)
 
 **Note:** This only works on Linux, not Windows/Mac
 

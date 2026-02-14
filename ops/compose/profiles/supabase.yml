@@ -48,7 +48,7 @@ services:
     image: supabase/studio:latest
     profiles: ["supabase"]
     environment:
-      SUPABASE_URL: http://rest:3000
+      SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
       STUDIO_PG_META_URL: http://rest:3000
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
     depends_on:

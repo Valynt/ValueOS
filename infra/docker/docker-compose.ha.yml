@@ -52,7 +52,7 @@ services:
       - API_PORT=3001
       - REDIS_URL=redis://redis:6379
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
-      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_URL=${SUPABASE_URL:-${SUPABASE_INTERNAL_URL:-http://kong:8000}}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
       - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
     volumes:

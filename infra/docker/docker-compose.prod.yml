@@ -49,14 +49,14 @@ services:
         PNPM_VERSION: "9.15.0"
         VITE_API_BASE_URL: /api
         VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     container_name: valueos-frontend-prod
     environment:
       NODE_ENV: production
       VITE_API_BASE_URL: /api
       VITE_APP_URL: https://${APP_DOMAIN:-app.example.com}
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     networks:
       - valueos-network
@@ -83,7 +83,8 @@ services:
       CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN:-app.example.com}
       SUPABASE_SERVICE_KEY_FILE: /run/secrets/supabase_service_key
       OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+      SUPABASE_URL: ${SUPABASE_URL:-${SUPABASE_INTERNAL_URL:-http://kong:8000}}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
       KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
       EVENT_EXECUTOR_ENABLED: ${EVENT_EXECUTOR_ENABLED:-false}
