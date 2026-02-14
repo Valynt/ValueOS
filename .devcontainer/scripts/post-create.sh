@@ -36,6 +36,25 @@ if [ -f package.json ]; then
     echo "✅ Package configuration found"
 fi
 
+
+# Verify Corepack-managed pnpm availability
+echo "📦 Verifying Corepack pnpm setup..."
+if command -v corepack > /dev/null 2>&1; then
+    if [ -x .devcontainer/scripts/read-version.sh ]; then
+        PNPM_VERSION="$(.devcontainer/scripts/read-version.sh pnpm)"
+    else
+        PNPM_VERSION="9.15.0"
+    fi
+    corepack enable
+    corepack prepare "pnpm@${PNPM_VERSION}" --activate
+fi
+if command -v pnpm > /dev/null 2>&1; then
+    echo "✅ pnpm is available: $(pnpm --version)"
+else
+    echo "❌ pnpm is not available after post-create setup"
+    exit 1
+fi
+
 # =============================================================================
 # HEALTH CHECKS
 # =============================================================================
