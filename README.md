@@ -145,6 +145,11 @@ See [DEPLOY.md](DEPLOY.md) for production deployment instructions using Docker C
 
 ## Contributing
 
+### Supported contributor workflow
+
+1. Open this repository in the Dev Container.
+2. Run `pnpm run dx:up --mode local` to start the local development stack.
+
 1. Create a feature branch from `main`.
 2. Make changes following the patterns in [docs/engineering/code-standards.md](docs/engineering/code-standards.md).
 3. Ensure `pnpm run lint`, `pnpm test`, and `pnpm run typecheck:islands` pass.

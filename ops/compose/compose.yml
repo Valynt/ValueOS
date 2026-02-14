@@ -47,8 +47,14 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${WEB_CONTAINER_PORT:-5173}
+      VITE_HOST: 0.0.0.0
+      VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}
+      VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
+      VITE_HMR_CLIENT_PORT: ${VITE_HMR_CLIENT_PORT:-24678}
+      VITE_USE_POLLING: ${VITE_USE_POLLING:-false}
     ports:
       - "${WEB_PORT:-5173}:${WEB_CONTAINER_PORT:-5173}"
+      - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
 
   postgres:
     <<: *common
