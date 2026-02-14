@@ -1,4 +1,4 @@
-# Full containerized app runtime for DX docker mode.
+# Runtime Docker profile extensions for the canonical ops/compose/compose.yml stack.
 
 services:
   zookeeper:
@@ -28,15 +28,15 @@ services:
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
 
   backend:
-    build:
-      context: ../..
-      dockerfile: infra/docker/Dockerfile.backend
     profiles: ["runtime-docker"]
-    ports: ["${API_PORT:-3001}:3001"]
     environment:
       SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
       SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
-    depends_on: [postgres, redis, kafka, schema-registry]
+    depends_on:
+      kafka:
+        condition: service_started
+      schema-registry:
+        condition: service_started
 
   worker:
     build:
@@ -50,22 +50,8 @@ services:
     depends_on: [redis]
 
   frontend:
-    build:
-      context: ../..
-      dockerfile: infra/docker/Dockerfile.frontend
-      target: development
-      args:
-        VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
     profiles: ["runtime-docker"]
-    ports:
-      - "${WEB_PORT:-5173}:5173"
-      - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
     environment:
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
       VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
-      VITE_HOST: 0.0.0.0
-      VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}
-      VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
-      VITE_HMR_CLIENT_PORT: ${VITE_HMR_CLIENT_PORT:-24678}
       VITE_USE_POLLING: ${VITE_USE_POLLING:-true}
-    depends_on: [backend]

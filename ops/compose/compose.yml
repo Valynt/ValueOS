@@ -29,11 +29,11 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${API_CONTAINER_PORT:-3001}
+      PORT: ${API_CONTAINER_PORT:-8000}
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}@redis:6379
     ports:
-      - "${API_PORT:-3001}:${API_CONTAINER_PORT:-3001}"
+      - "${API_PORT:-8000}:${API_CONTAINER_PORT:-8000}"
 
   frontend:
     <<: *common
@@ -53,7 +53,7 @@ services:
       VITE_HMR_CLIENT_PORT: ${VITE_HMR_CLIENT_PORT:-24678}
       VITE_USE_POLLING: ${VITE_USE_POLLING:-false}
     ports:
-      - "${WEB_PORT:-5173}:${WEB_CONTAINER_PORT:-5173}"
+      - "${WEB_PORT:-${VITE_PORT:-5173}}:${WEB_CONTAINER_PORT:-5173}"
       - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
 
   postgres:

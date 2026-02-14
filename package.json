@@ -164,7 +164,7 @@
     "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs",
     "llm:doctor": "node scripts/llm/doctor.mjs",
     "llm:redteam": "node scripts/llm/redteam.mjs",
-    "llm:verify": "node scripts/llm/verify.mjs"
+    "llm:verify": "node scripts/llm/verify.mjs",
     "dx:down:local": "node scripts/dx/mode-entrypoint.js down --mode local",
     "dx:down:docker": "node scripts/dx/mode-entrypoint.js down --mode docker"
   }
