@@ -104,6 +104,9 @@ jobs:
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
+      - name: Security baseline verification
+        run: node scripts/ci/security-baseline-verification.mjs
+
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
 
