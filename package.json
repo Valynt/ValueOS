@@ -143,16 +143,16 @@
   },
   "scripts": {
     "dx": "node scripts/dx/dev-cli.js",
-    "dx:up": "node scripts/dx/dev-cli.js up",
-    "dx:down": "node scripts/dx/dev-cli.js down",
+    "dx:up": "node scripts/dx/mode-entrypoint.js up",
+    "dx:down": "node scripts/dx/mode-entrypoint.js down",
     "dx:doctor": "node scripts/dx/dev-cli.js doctor",
     "dx:logs": "node scripts/dx/dev-cli.js logs",
     "dx:test": "node scripts/dx/dev-cli.js test",
     "dx:lint": "node scripts/dx/dev-cli.js lint",
     "dx:build": "node scripts/dx/dev-cli.js build",
     "dx:reset": "node scripts/dx/dev-cli.js reset",
-    "dx:local": "node scripts/dx/dev-cli.js up --mode local",
-    "dx:docker": "node scripts/dx/dev-cli.js up --mode docker",
+    "dx:local": "node scripts/dx/mode-entrypoint.js up --mode local",
+    "dx:docker": "node scripts/dx/mode-entrypoint.js up --mode docker",
     "db:migrate": "bash scripts/migrate.sh",
     "up": "docker compose up -d",
     "down": "docker compose down -v",
@@ -161,6 +161,8 @@
     "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs",
     "check:frozen-backend-duplicate-tree": "node scripts/ci/check-frozen-backend-duplicate-tree.mjs",
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
-    "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs"
+    "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs",
+    "dx:down:local": "node scripts/dx/mode-entrypoint.js down --mode local",
+    "dx:down:docker": "node scripts/dx/mode-entrypoint.js down --mode docker"
   }
 }
