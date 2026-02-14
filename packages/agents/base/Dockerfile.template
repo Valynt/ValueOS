@@ -4,8 +4,8 @@
 # Generate per-agent Dockerfiles from this template to avoid drift.
 
 ARG NODE_VERSION=20.19.0
-ARG BUILD_IMAGE=node:${NODE_VERSION}-slim
-ARG RUNTIME_IMAGE=node:${NODE_VERSION}-slim
+ARG BUILD_IMAGE=node:${NODE_VERSION}-alpine
+ARG RUNTIME_IMAGE=node:${NODE_VERSION}-alpine
 ARG PNPM_VERSION=9.15.0
 ARG AGENT_NAME
 
@@ -14,83 +14,74 @@ FROM ${BUILD_IMAGE} AS base
 ARG PNPM_VERSION
 ENV PNPM_HOME=/pnpm
 ENV PNPM_STORE_PATH=/pnpm/store
-ENV PATH=$PNPM_HOME:$PATH
+ENV PATH=${PNPM_HOME}:${PATH}
 WORKDIR /workspace
 
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-RUN pnpm config set store-dir ${PNPM_STORE_PATH}
+RUN apk add --no-cache libc6-compat \
+    && corepack enable \
+    && corepack prepare pnpm@${PNPM_VERSION} --activate \
+    && pnpm config set store-dir ${PNPM_STORE_PATH}
 
 # Stage 2: Prune workspace for dependency caching
 FROM base AS prune
 ARG AGENT_NAME
 WORKDIR /workspace
-
 RUN test -n "${AGENT_NAME}"
-
 COPY . .
-
 RUN pnpm dlx turbo prune --docker --scope=@valueos/agent-base --scope=@valueos/${AGENT_NAME}-agent
 
-# Stage 3: Dependencies
+# Stage 3: Dependencies (cache-efficient fetch + offline install)
 FROM base AS deps
 ARG AGENT_NAME
 WORKDIR /workspace
-
 RUN test -n "${AGENT_NAME}"
 
 COPY --from=prune /workspace/out/json/ ./
 COPY --from=prune /workspace/.npmrc ./
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm fetch --frozen-lockfile
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile --offline
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --offline --prod=false
 
 # Stage 4: Build
 FROM deps AS build
 ARG AGENT_NAME
 WORKDIR /workspace
-
 RUN test -n "${AGENT_NAME}"
-
 COPY --from=prune /workspace/out/full/ ./
-
-RUN pnpm --filter @valueos/agent-base build && pnpm --filter @valueos/${AGENT_NAME}-agent build
+RUN pnpm --filter @valueos/agent-base build \
+    && pnpm --filter @valueos/${AGENT_NAME}-agent build
 
 # Stage 5: Production dependencies
-FROM deps AS prod-deps
+FROM base AS prod-deps
 ARG AGENT_NAME
 WORKDIR /workspace
-
 RUN test -n "${AGENT_NAME}"
-
 COPY --from=prune /workspace/out/full/ ./
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --prod --frozen-lockfile --offline --filter @valueos/agent-base --filter @valueos/${AGENT_NAME}-agent \
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --prod --frozen-lockfile --offline \
+      --filter @valueos/agent-base \
+      --filter @valueos/${AGENT_NAME}-agent \
     && pnpm store prune
 
+# Stage 6: Runtime
 FROM ${RUNTIME_IMAGE} AS final
 ARG AGENT_NAME
-ARG NODE_VERSION=20.19.0
-ARG PNPM_VERSION=9.15.0
+ARG NODE_VERSION
+ARG PNPM_VERSION
 
-# Security hardening
-RUN addgroup -g 1001 -S agent && adduser -S -D -H -u 1001 -G agent agent \
-    && apk add --no-cache dumb-init \
-    && find /app -type d -exec chmod 755 {} \; \
-    && find /app -type f -exec chmod 644 {} \;
+RUN apk add --no-cache curl dumb-init \
+    && addgroup -g 1001 -S agent \
+    && adduser -S -D -H -u 1001 -G agent agent
 
 WORKDIR /app
 ENV NODE_ENV=production \
     NODE_VERSION=${NODE_VERSION} \
     PNPM_VERSION=${PNPM_VERSION} \
     AGENT_NAME=${AGENT_NAME}
-
-# Drop all capabilities, add only what's needed
-USER agent
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${EXPOSE_PORT:-8080}/health || exit 1
 
 RUN test -n "${AGENT_NAME}"
 COPY --from=prod-deps --chown=agent:agent /workspace/node_modules /app/node_modules
@@ -101,9 +92,12 @@ COPY --from=build --chown=agent:agent /workspace/packages/agents/${AGENT_NAME}/d
 
 RUN test -f packages/agents/${AGENT_NAME}/dist/index.js \
     && find /app -type f -name '*.map' -delete \
-    && rm -rf /tmp/* \
-    && chmod -R 755 /app/packages/agents/${AGENT_NAME}/dist
+    && rm -rf /tmp/* /var/tmp/*
 
-# Entrypoint with security
+USER agent
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${EXPOSE_PORT:-8080}/health || exit 1
+
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["sh", "-c", "node packages/agents/${AGENT_NAME}/dist/index.js"]
