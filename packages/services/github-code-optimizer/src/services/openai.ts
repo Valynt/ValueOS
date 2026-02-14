@@ -1,2 +1,1 @@
-import OpenAI from "openai";
-export default OpenAI;
+export { LLMGateway } from "../../../../backend/src/lib/agent-fabric/LLMGateway.js";
