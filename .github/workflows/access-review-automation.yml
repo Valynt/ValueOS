@@ -1,0 +1,48 @@
+name: Access Review Automation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 1 * *'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-access-review-evidence:
+    name: Generate Access Review Evidence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate periodic access review output
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/access-review
+          cat <<JSON > evidence/access-review/access-review-${{ github.run_id }}.json
+          {
+            "control": "Periodic access review",
+            "repository": "${{ github.repository }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "trigger": "${{ github.event_name }}",
+            "generated_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "required_reviews": [
+              "production cluster RBAC bindings",
+              "GitHub admin access",
+              "on-call escalation permissions"
+            ],
+            "status": "generated",
+            "next_actions": [
+              "Attach this artifact to active incidents requiring access-control evidence",
+              "Track remediation tickets for revoked/stale access",
+              "Link review completion in incident timeline"
+            ]
+          }
+          JSON
+
+      - name: Upload access review evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: access-review-evidence-${{ github.run_id }}
+          path: evidence/access-review/access-review-${{ github.run_id }}.json
+          retention-days: 365
