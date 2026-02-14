@@ -28,6 +28,21 @@ Suggested ownership:
 - Security/Compliance: control mapping review and attestation package assembly.
 - Operations: incident drill records and disaster recovery evidence.
 
+### Compliance Evidence Retention Policy
+
+The `Compliance Evidence Export` workflow produces the canonical evidence bundle artifact for governance checkpoints.
+
+- **Artifact name**: `compliance-evidence-bundle-<run_id>`
+- **Workflow location**: `.github/workflows/compliance-evidence-export.yml`
+- **Bundle contents**:
+  - `evidence/security-scans/` (security scan outputs, including Semgrep and dependency audit output)
+  - `evidence/privacy/` (DSR/privacy compliance test results)
+  - `evidence/rls/` (RLS validation test results)
+  - `evidence/metadata/` (immutable run metadata: commit SHA, run ID/attempt, ref, UTC export timestamp, and manifest)
+- **Retention window**: 365 days in GitHub Actions artifact storage.
+- **System of record**: GitHub Actions run artifacts for the workflow run, linked in quarterly compliance packets.
+- **Quarterly archival requirement**: At quarter close, download the latest quarterly bundle and copy it to the compliance repository/archive controlled by Security & Compliance for long-term governance storage.
+
 ## CI Runbook: Test Execution & Best Practices
 
 *Source: `operations/ci/ci-runbook.md`*

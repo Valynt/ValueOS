@@ -24,7 +24,7 @@ describe('SecretsManager (tenant-scoped)', () => {
     TOGETHER_API_KEY: 'together',
     SUPABASE_URL: 'https://example.supabase.co',
     SUPABASE_ANON_KEY: 'anon',
-    SUPABASE_SERVICE_KEY: 'service',
+    SUPABASE_SERVICE_ROLE_KEY: 'service',
     JWT_SECRET: 'jwt',
     DATABASE_URL: 'postgres://localhost',
     REDIS_URL: 'redis://localhost'

@@ -44,7 +44,7 @@ interface SecretsConfig {
   OPENAI_API_KEY?: string;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
-  SUPABASE_SERVICE_KEY: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
   JWT_SECRET: string;
   DATABASE_URL: string;
   REDIS_URL: string;
@@ -483,7 +483,7 @@ export class MultiTenantSecretsManager {
       OPENAI_API_KEY: getEnvVar('OPENAI_API_KEY'),
       SUPABASE_URL: getEnvVar('VITE_SUPABASE_URL') || '',
       SUPABASE_ANON_KEY: getEnvVar('VITE_SUPABASE_ANON_KEY') || '',
-      SUPABASE_SERVICE_KEY: getEnvVar('SUPABASE_SERVICE_KEY') || '',
+      SUPABASE_SERVICE_ROLE_KEY: getEnvVar('SUPABASE_SERVICE_ROLE_KEY') || '',
       JWT_SECRET: getEnvVar('JWT_SECRET') || '',
       DATABASE_URL: getDatabaseUrl() || '',
       REDIS_URL: getEnvVar('REDIS_URL') || 'redis://localhost:6379',
@@ -641,7 +641,7 @@ export class MultiTenantSecretsManager {
       'TOGETHER_API_KEY',
       'SUPABASE_URL',
       'SUPABASE_ANON_KEY',
-      'SUPABASE_SERVICE_KEY',
+      'SUPABASE_SERVICE_ROLE_KEY',
       'JWT_SECRET',
       'DATABASE_URL',
       'REDIS_URL',

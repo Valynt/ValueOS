@@ -44,13 +44,27 @@ router.get(
   }
 );
 
-function sanitizeEvidence(evidence: any): Array<{ source?: string; description?: string; confidence?: number }> {
+type WorkflowEvidenceItem = {
+  source?: string;
+  description?: string;
+  confidence?: number;
+};
+
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+function sanitizeEvidence(evidence: unknown): WorkflowEvidenceItem[] {
   if (!Array.isArray(evidence)) return [];
-  return evidence.map(item => ({
-    source: item.source,
-    description: item.description,
-    confidence: typeof item.confidence === 'number' ? item.confidence : undefined,
-  }));
+  return evidence.map((item) => {
+    const candidate = (item ?? {}) as Record<string, unknown>;
+    return {
+      source: typeof candidate.source === 'string' ? candidate.source : undefined,
+      description: typeof candidate.description === 'string' ? candidate.description : undefined,
+      confidence: typeof candidate.confidence === 'number' ? candidate.confidence : undefined,
+    };
+  });
 }
 
 router.get(
@@ -60,7 +74,7 @@ router.get(
   async (req: Request, res: Response) => {
     const { executionId, stepId } = req.params;
     const tenantId = (req as any).tenantId;
-    const db = (req as any).db as { query?: (query: string, params?: unknown[]) => Promise<any> } | undefined;
+    const db = (req as any).db as { query?: (query: string, params?: unknown[]) => Promise<{ rows?: Array<{ output_data?: unknown }> }> } | undefined;
 
     if (!tenantId) {
       return res.status(403).json({
@@ -97,13 +111,17 @@ router.get(
         });
       }
 
-      const output = (data.output_data as Record<string, any>) || {};
-      const reasoning = output.reasoning || output.result?.reasoning || 'No reasoning captured for this step';
-      const evidence = sanitizeEvidence(output.evidence || output.result?.evidence || []);
+      const output = asRecord(data.output_data);
+      const nestedResult = asRecord(output.result);
+      const reasoning =
+        (typeof output.reasoning === 'string' ? output.reasoning : undefined) ||
+        (typeof nestedResult.reasoning === 'string' ? nestedResult.reasoning : undefined) ||
+        'No reasoning captured for this step';
+      const evidence = sanitizeEvidence(output.evidence ?? nestedResult.evidence ?? []);
       const confidence =
-        output.confidence_score ??
-        output.confidence ??
-        output.result?.confidence_score ??
+        (typeof output.confidence_score === 'number' ? output.confidence_score : undefined) ??
+        (typeof output.confidence === 'number' ? output.confidence : undefined) ??
+        (typeof nestedResult.confidence_score === 'number' ? nestedResult.confidence_score : undefined) ??
         null;
 
       return res.json({

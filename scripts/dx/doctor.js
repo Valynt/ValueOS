@@ -37,7 +37,8 @@ try {
 
 const dockerHostGateway = resolveDockerHostGateway();
 const localHosts = dockerHostGateway ? [dockerHostGateway] : [];
-const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts });
+const networkHosts = ["supabase"];
+const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts, networkHosts });
 
 // Soft mode: print warnings but don't block dev server startup
 const softMode =
@@ -110,6 +111,47 @@ const restartingContainers = new Set();
 
 function reportFailure(title, details, fix) {
   failures.push({ title, details, fix });
+}
+
+function classifySupabaseEndpoint(rawUrl) {
+  const host = extractUrlHost(rawUrl);
+  if (!host) return "unknown";
+  if (isLocalHost(host, localHosts)) return "host";
+  if (isLocalHost(host, [], networkHosts)) return "network";
+  return "remote";
+}
+
+function checkSupabaseNetworkingConsistency() {
+  const frontendUrl = process.env.VITE_SUPABASE_URL || "";
+  const backendUrl = process.env.SUPABASE_URL || "";
+
+  if (!frontendUrl || !backendUrl) {
+    return;
+  }
+
+  const frontendKind = classifySupabaseEndpoint(frontendUrl);
+  const backendKind = classifySupabaseEndpoint(backendUrl);
+
+  if (mode === "docker") {
+    if (frontendKind !== "host" || backendKind !== "network") {
+      reportFailure(
+        "Mixed Supabase networking in docker mode",
+        `Docker mode expects browser URL on host and backend URL on Compose network. Got VITE_SUPABASE_URL=${frontendUrl} (${frontendKind}), SUPABASE_URL=${backendUrl} (${backendKind}).`,
+        "Run: pnpm run dx:env --mode docker --force so frontend uses localhost and backend uses http://supabase:<port>."
+      );
+    }
+    return;
+  }
+
+  if (mode === "local") {
+    if (frontendKind !== "host" || backendKind !== "host") {
+      reportFailure(
+        "Mixed Supabase networking in local mode",
+        `Local mode expects host endpoints for both frontend and backend. Got VITE_SUPABASE_URL=${frontendUrl} (${frontendKind}), SUPABASE_URL=${backendUrl} (${backendKind}).`,
+        "Run: pnpm run dx:env --mode local --force so both URLs point to localhost (or configured host gateway)."
+      );
+    }
+  }
 }
 
 function runCommand(command, options = {}) {
@@ -530,12 +572,12 @@ function checkEnvironment() {
 
   if (supabaseUrlLine) {
     const value = supabaseUrlLine.split("=")[1];
-    const isLocalUrl = value && (value.includes("localhost") || value.includes("127.0.0.1"));
-    if (!isLocalUrl) {
+    const host = extractUrlHost(value);
+    if (!isLocalHost(host, localHosts, networkHosts)) {
       reportFailure(
         "Invalid Supabase URL",
-        "VITE_SUPABASE_URL should point to local Supabase instance.",
-        "Set VITE_SUPABASE_URL=http://localhost:54321 in ops/env/.env.local"
+        "VITE_SUPABASE_URL should point to a local or in-network Supabase instance.",
+        "Set VITE_SUPABASE_URL to localhost for local mode (or regenerate with pnpm run dx:env --mode local --force)."
       );
     }
   }
@@ -1247,6 +1289,14 @@ async function main() {
         cacheCheckResult("Env Mode Consistency", failures.length === 0);
       } else {
         console.log(`⏭️  Env Mode Consistency check (cached)`);
+      }
+    }),
+    Promise.resolve().then(() => {
+      if (!isCheckCached("Supabase Networking")) {
+        checkSupabaseNetworkingConsistency();
+        cacheCheckResult("Supabase Networking", failures.length === 0);
+      } else {
+        console.log(`⏭️  Supabase Networking check (cached)`);
       }
     }),
   ]);

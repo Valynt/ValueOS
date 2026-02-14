@@ -3,17 +3,14 @@
  * Submits aggregated usage to Stripe with idempotency
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase';
 import StripeService from './StripeService';
 import { UsageAggregate } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'UsageMeteringService' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabase = createServerSupabaseClient();
 
 class UsageMeteringService {
   private stripe = StripeService.getInstance().getClient();

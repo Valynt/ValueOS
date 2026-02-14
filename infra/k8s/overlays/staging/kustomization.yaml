@@ -16,6 +16,7 @@ commonLabels:
 patches:
   - path: deployment-patch.yaml
   - path: external-secrets-aws-patch.yaml
+  - path: remove-placeholder-secrets.yaml
   # Staging parity: rate limiting matches production
   - path: rate-limiting-patch.yaml
 
