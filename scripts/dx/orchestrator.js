@@ -78,6 +78,7 @@ const RETRY_ATTEMPTS = 3;
 const RETRY_BASE_DELAY = 2000;
 const dockerHostGateway = resolveDockerHostGateway();
 const localHosts = dockerHostGateway ? [dockerHostGateway] : [];
+const networkHosts = ["supabase"];
 
 /**
  * Retry a function with exponential backoff
@@ -1156,7 +1157,7 @@ async function main() {
   writeEnvFiles(mode, { force: true });
   reloadEnv();
 
-  const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts });
+  const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts, networkHosts });
 
   // Step 1b: Preflight checks (now that env exists)
   runPreflightChecks(supabaseMode);

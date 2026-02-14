@@ -79,6 +79,9 @@
       "@memory/*": [
         "./packages/memory/*"
       ]
-    }
+    },
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": false
   }
 }

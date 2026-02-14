@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Docker Compose wrapper for ValueOS infrastructure orchestration only.
+# Application services should run via package scripts unless explicitly using the legacy stack.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+COMPOSE_FILE="${ROOT}/ops/compose/compose.yml"
 APP_ENV_FILE="${ROOT}/ops/env/.env.local"
+SUPABASE_PROFILE_COMPOSE_FILE="${ROOT}/ops/compose/profiles/supabase.yml"
+OBSERVABILITY_PROFILE_COMPOSE_FILE="${ROOT}/ops/compose/profiles/observability.yml"
 
 ENV_FILE="${ROOT}/ops/env/.env.ports"
 LEGACY_ENV_FILE="${ROOT}/.env.ports"
@@ -24,6 +29,14 @@ compose_args=(
   --project-directory "${ROOT}"
   -f "${COMPOSE_FILE}"
 )
+
+if [[ ",${VALUEOS_PROFILES:-}," == *",supabase,"* ]]; then
+  compose_args+=( -f "${SUPABASE_PROFILE_COMPOSE_FILE}" )
+fi
+
+if [[ ",${VALUEOS_PROFILES:-}," == *",observability,"* ]]; then
+  compose_args+=( -f "${OBSERVABILITY_PROFILE_COMPOSE_FILE}" )
+fi
 
 has_profile_arg=false
 for arg in "$@"; do

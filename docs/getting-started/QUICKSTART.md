@@ -235,6 +235,7 @@ docker compose restart opportunity-agent target-agent realization-agent expansio
 - Never commit `.env` file to version control
 - Use secrets management in production
 - Enable SSL/TLS for production deployments
+- Do not commit concrete secret defaults in any non-example file; use secure backend variables or secret-manager references.
 
 ## Success Indicators
 
@@ -251,3 +252,6 @@ You'll know everything is working when:
 **Estimated Setup Time**: 5-10 minutes (first time)
 
 **Need help?** Check `README.md` for detailed documentation or run `make help` for available commands.
+
+
+- Do not commit concrete secret defaults in any non-example file (Terraform, scripts, or app config). Reference secure backends/secret managers instead.

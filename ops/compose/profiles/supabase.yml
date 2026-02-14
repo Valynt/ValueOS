@@ -11,12 +11,12 @@ services:
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-valueos_dev}
       DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
       GOTRUE_API_URL: http://localhost:9999
       API_EXTERNAL_URL: http://localhost:9999
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
     depends_on:
       postgres:
@@ -34,10 +34,10 @@ services:
     image: postgrest/postgrest:v12.0.2
     profiles: ["supabase"]
     environment:
-      PGRST_DB_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       PGRST_DB_SCHEMA: public
       PGRST_DB_ANON_ROLE: anon
-      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,7 +50,7 @@ services:
     environment:
       SUPABASE_URL: http://rest:3000
       STUDIO_PG_META_URL: http://rest:3000
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
     depends_on:
       postgres:
         condition: service_healthy

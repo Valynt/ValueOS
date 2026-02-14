@@ -137,6 +137,12 @@ export const DEFAULT_AGENT_FABRIC_CONFIG: AgentFabricConfig = {
         baseUrl:
           process.env.TOGETHER_API_BASE_URL || "https://api.together.xyz/v1",
         timeout: parseInt(process.env.TOGETHER_TIMEOUT_MS || "30000"),
+        primaryModel:
+          process.env.TOGETHER_PRIMARY_MODEL_NAME || process.env.LLM_DEFAULT_MODEL || "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        secondaryModel: process.env.TOGETHER_SECONDARY_MODEL_NAME || "",
+        fallbackEnabled: process.env.LLM_FALLBACK_ENABLED !== "false",
+        fallbackMaxAttempts: parseInt(process.env.LLM_FALLBACK_MAX_ATTEMPTS || "1"),
+        retryBackoffMs: parseInt(process.env.LLM_RETRY_BACKOFF_MS || "200"),
       },
       openai: {
         baseUrl: process.env.OPENAI_API_BASE_URL || "https://api.openai.com/v1",
