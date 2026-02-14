@@ -1519,10 +1519,18 @@ npm run security-scan
 
 ### Low Priority
 
-9. **Explore bug bounty program**
+9. **Expand bug bounty scope coverage to additional integrations**
 10. **Add automated compliance monitoring dashboard**
 11. **Implement data lineage tracking**
 12. **Add security awareness training** for team
+
+---
+
+
+### Vulnerability Disclosure Program Status
+
+- Bug bounty and CVD are implemented with documented intake, SLA, severity taxonomy, and governance requirements.
+- See [Bug Bounty and Coordinated Vulnerability Disclosure (CVD) Program](./bug-bounty-cvd-program.md) for active process details.
 
 ---
 

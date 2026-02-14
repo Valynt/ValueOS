@@ -4,6 +4,17 @@
 
 ---
 
+## Runbook Metadata Requirements
+
+All runbooks must include operational ownership metadata near the top of the document:
+
+- `Owner: <team-or-person>`
+- `Ops-Labels: <comma-separated-labels>`
+
+This metadata is enforced in CI for changed files under `docs/runbooks/**`.
+
+---
+
 ## Documents in this Category
 
 - [Agent Runbook](./agent-runbook.md)
