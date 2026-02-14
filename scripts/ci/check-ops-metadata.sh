@@ -30,6 +30,11 @@ resolve_range() {
   echo ""
 }
 
+is_placeholder() {
+  local value="${1,,}"
+  [[ -z "$value" || "$value" =~ ^(tbd|todo|unknown|none|n/a|-)$ ]]
+}
+
 DIFF_RANGE="$(resolve_range)"
 if [[ -n "$DIFF_RANGE" ]]; then
   CHANGED_FILES="$(git diff --name-only "$DIFF_RANGE" || true)"
@@ -53,38 +58,75 @@ if [[ ${#TARGET_FILES[@]} -eq 0 ]]; then
   exit 0
 fi
 
+mkdir -p artifacts/ops-metadata
+REPORT_FILE="artifacts/ops-metadata/ops-metadata-report.jsonl"
+: > "$REPORT_FILE"
+
 missing=0
 for file in "${TARGET_FILES[@]}"; do
-  ops_owner=""
-  ops_labels=""
+  owner=""
+  labels=""
 
   case "$file" in
     *.md)
-      ops_owner="$(rg -n --max-count 1 '^Owner:\s+.+$' "$file" || true)"
-      ops_labels="$(rg -n --max-count 1 '^Ops-Labels:\s+.+$' "$file" || true)"
+      owner="$(sed -nE 's/^Owner:[[:space:]]+(.+)$/\1/p' "$file" | head -n1 || true)"
+      labels="$(sed -nE 's/^Ops-Labels:[[:space:]]+(.+)$/\1/p' "$file" | head -n1 || true)"
       ;;
     *.yml|*.yaml)
-      ops_owner="$(rg -n --max-count 1 '^\s*ops\.valueos\.io/owner:\s*.+$' "$file" || true)"
-      ops_labels="$(rg -n --max-count 1 '^\s*ops\.valueos\.io/labels:\s*.+$' "$file" || true)"
+      owner="$(sed -nE 's/^[[:space:]]*ops\.valueos\.io\/owner:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$file" | head -n1 || true)"
+      labels="$(sed -nE 's/^[[:space:]]*ops\.valueos\.io\/labels:[[:space:]]*"?([^"#]+)"?.*/\1/p' "$file" | head -n1 || true)"
       ;;
     *)
-      ops_owner="$(rg -n --max-count 1 '(Owner:\s+.+|ops\.valueos\.io/owner:\s*.+)' "$file" || true)"
-      ops_labels="$(rg -n --max-count 1 '(Ops-Labels:\s+.+|ops\.valueos\.io/labels:\s*.+)' "$file" || true)"
+      owner="$(rg -n --max-count 1 '(Owner:\s+.+|ops\.valueos\.io/owner:\s*.+)' "$file" | cut -d: -f3- || true)"
+      labels="$(rg -n --max-count 1 '(Ops-Labels:\s+.+|ops\.valueos\.io/labels:\s*.+)' "$file" | cut -d: -f3- || true)"
       ;;
   esac
 
-  if [[ -z "$ops_owner" || -z "$ops_labels" ]]; then
-    echo "[ops-metadata] Missing required metadata in $file" >&2
-    [[ -z "$ops_owner" ]] && echo "  - missing owner metadata" >&2
-    [[ -z "$ops_labels" ]] && echo "  - missing ops labels metadata" >&2
+  owner_trimmed="$(echo "$owner" | xargs || true)"
+  labels_trimmed="$(echo "$labels" | xargs || true)"
+
+  file_ok=1
+  owner_error=""
+  labels_error=""
+
+  if is_placeholder "$owner_trimmed"; then
+    owner_error="missing_or_placeholder"
+    file_ok=0
+  fi
+
+  if is_placeholder "$labels_trimmed"; then
+    labels_error="missing_or_placeholder"
+    file_ok=0
+  fi
+
+  if [[ "$labels_trimmed" != "" && "$labels_trimmed" != *","* ]]; then
+    labels_error="expected_comma_separated_labels"
+    file_ok=0
+  fi
+
+  if [[ "$file_ok" -eq 0 ]]; then
+    echo "[ops-metadata] Missing/invalid required metadata in $file" >&2
+    [[ -n "$owner_error" ]] && echo "  - owner: $owner_error" >&2
+    [[ -n "$labels_error" ]] && echo "  - labels: $labels_error" >&2
     missing=1
   else
     log "Validated metadata for $file"
   fi
+
+  python3 - <<PY >> "$REPORT_FILE"
+import json
+print(json.dumps({
+  "file": ${file@Q},
+  "owner": ${owner_trimmed@Q},
+  "labels": ${labels_trimmed@Q},
+  "valid": ${file_ok}
+}))
+PY
+
 done
 
 if [[ "$missing" -ne 0 ]]; then
-  fail "Ops metadata policy failed. Add owner + labels metadata to all changed infra manifests/runbooks."
+  fail "Ops metadata policy failed. Add valid owner + labels metadata to all changed infra manifests/runbooks."
 fi
 
 log "Ops metadata policy passed."

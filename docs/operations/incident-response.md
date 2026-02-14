@@ -26,7 +26,7 @@ When opening or updating an incident, include the following evidence artifacts:
 
 1. Deploy workflow emergency skip audit artifact (`emergency-skip-audit-<run_id>.json`) when `skip_tests=true`.
 2. Post-deploy verification artifact (`post-deploy-verification-<env>-<run_id>.json`) with health, rollback readiness, and key metrics.
-3. Periodic access review automation output (required) attached directly to the incident record for compliance and remediation tracking.
+3. Periodic access review automation output (`access-review-evidence-<run_id>` artifact from `.github/workflows/access-review-automation.yml`) attached directly to the incident record for compliance and remediation tracking.
 
 Incident updates are incomplete without the periodic access review automation evidence.
 

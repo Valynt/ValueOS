@@ -5,7 +5,9 @@ This is the single control matrix for workflows under `.github/workflows/`.
 | Control Domain | Control | Enforced In Workflow | Evidence Artifact |
 | --- | --- | --- | --- |
 | Code Quality | Lint + typecheck + unit/integration tests | `ci.yml` | Coverage + test artifacts |
-| Accessibility | WCAG 2.2 AA audit + trend gate | `ci.yml` (`accessibility-audit` job) | `accessibility-trend` artifact |
+| Accessibility | WCAG 2.2 AA audit + trend gate + WCAG severity budgets (critical/serious=0) | `ci.yml` (`accessibility-audit` job) | `accessibility-trend` artifact (`a11y-metrics`, `wcag-severity-metrics`) |
+| Localization | Key integrity + locale completeness coverage + pseudo-localization checks | `ci.yml` (`unit-tests` + `release-readiness`) | `i18n-coverage-dashboard`, `i18n-release-coverage-dashboard`, pseudo-loc report |
+| UX Performance | Bundle + route-level load budgets enforced in CI | `ci.yml` (`accessibility-audit` job) | `ux-performance-metrics`, `route-load-metrics` |
 | Security | SAST/CodeQL/IaC scans + image signature verification | `ci.yml` | Security job artifacts + gate status |
 | Compliance | RLS and DSR checks + evidence export | `ci.yml`, `compliance-evidence-export.yml` | Compliance artifacts + export bundle |
 | Infrastructure | Terraform fmt/validate/plan | `terraform.yml` | Terraform plan summary |

@@ -1,5 +1,4 @@
-# Studio/Supabase optional stack. Activate with: docker compose --profile studio up
-# Depends on postgres from the base compose.yml.
+# DEPRECATED: use ops/compose/profiles/supabase.yml (profile: supabase)
 
 services:
   auth:
@@ -102,3 +101,10 @@ services:
 volumes:
   storage_data:
     driver: local
+    
+# DEPRECATED: use ops/compose/profiles/supabase.yml (profile: supabase)
+# This file is retained only as a backwards-compatible shim.
+# Do not add services here; use the canonical profile compose file instead.
+
+include:
+  - ./supabase.yml
