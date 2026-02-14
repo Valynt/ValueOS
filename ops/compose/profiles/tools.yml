@@ -1,10 +1,15 @@
-# Developer tools optional stack. Activate with: docker compose --profile tools up
+# One-off utility services. Activate with: docker compose --profile tools up
 
 services:
   adminer:
     image: adminer:4
     profiles: ["tools"]
+    networks: [valueos-network]
     ports:
       - "${ADMINER_PORT:-18080}:8080"
     depends_on:
       - postgres
+
+networks:
+  valueos-network:
+    name: ${VALUEOS_NETWORK_NAME:-valueos-network}

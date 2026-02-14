@@ -1,5 +1,5 @@
-# DEPRECATED — canonical compose files live in ops/compose/.
-# Temporary compatibility shim.
+# LEGACY WRAPPER — canonical compose files live in ops/compose/.
+# Thin passthrough kept for backwards compatibility.
 
 include:
   - ../../ops/compose/compose.yml
