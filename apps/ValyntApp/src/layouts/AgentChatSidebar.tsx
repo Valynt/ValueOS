@@ -118,7 +118,7 @@ export function AgentChatSidebar({ open, onClose }: AgentChatSidebarProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         className={cn(
-          "fixed right-0 top-0 h-full w-[450px] bg-white z-50 flex flex-col transition-transform duration-300 ease-out",
+          "fixed right-0 top-0 h-full w-full max-w-full sm:w-[28rem] sm:max-w-[28rem] md:w-[450px] md:max-w-[450px] bg-white z-50 flex flex-col transition-transform duration-300 ease-out",
           "shadow-[-60px_0_60px_-15px_rgba(0,0,0,0.08)]",
           open ? "translate-x-0" : "translate-x-full"
         )}

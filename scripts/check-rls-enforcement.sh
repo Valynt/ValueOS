@@ -4,7 +4,7 @@
 
 set -e
 
-MIGRATIONS_DIR="infra/supabase/migrations"
+MIGRATIONS_DIR="infra/supabase/supabase/migrations"
 
 # Check for RLS enforcement
 missing_rls=$(grep -L 'ENABLE ROW LEVEL SECURITY' $MIGRATIONS_DIR/*.sql || true)

@@ -15,10 +15,10 @@ x-supabase-env: &supabase-env
   POSTGRES_PORT: 5432
   POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
   POSTGRES_USER: ${POSTGRES_USER:-valueos}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
-  JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
-  ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
-  SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}
+  JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.devcontainer before starting compose}
+  ANON_KEY: ${ANON_KEY:?Set ANON_KEY in .env.devcontainer before starting compose}
+  SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:?Set SERVICE_ROLE_KEY in .env.devcontainer before starting compose}
 
 networks:
   # Internal network for agent-to-agent and database communication
@@ -90,7 +90,7 @@ services:
       - --appendonly
       - yes
       - --requirepass
-      - ${REDIS_PASSWORD:-valueos_dev}
+      - ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.devcontainer before starting compose}
       - --maxmemory
       - 512mb
       - --maxmemory-policy
@@ -102,7 +102,7 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-valueos_dev}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.devcontainer before starting compose}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -159,7 +159,7 @@ services:
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-valueos_dev}
       DB_USER: ${POSTGRES_USER:-valueos}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
       GOTRUE_API_URL: http://localhost:${AUTH_PORT:-9999}
@@ -192,10 +192,10 @@ services:
     image: postgrest/postgrest:v12.0.2
     container_name: valueos-rest
     environment:
-      PGRST_DB_URI: postgres://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       PGRST_DB_SCHEMA: ${PGRST_DB_SCHEMA:-public}
       PGRST_DB_ANON_ROLE: ${PGRST_DB_ANON_ROLE:-anon}
-      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.devcontainer before starting compose}
       PGRST_DB_EXTRA_SEARCH_PATH: ${PGRST_DB_EXTRA_SEARCH_PATH:-public}
     depends_on:
       postgres:
@@ -222,9 +222,9 @@ services:
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-valueos_dev}
       DB_USER: ${POSTGRES_USER:-valueos}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-valueos_dev}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}
       PORT: 4000
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.devcontainer before starting compose}
     depends_on:
       postgres:
         condition: service_healthy
@@ -249,7 +249,7 @@ services:
       <<: *supabase-env
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
-      DATABASE_URL: postgres://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      DATABASE_URL: postgres://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
     depends_on:
       postgres:
         condition: service_healthy
@@ -376,7 +376,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       VITE_SUPABASE_URL: http://kong:8000
-      VITE_SUPABASE_ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      VITE_SUPABASE_ANON_KEY: ${ANON_KEY:?Set ANON_KEY in .env.devcontainer before starting compose}
     networks:
       - caddy-proxy
     ports:
@@ -413,9 +413,9 @@ services:
       NODE_ENV: production
       AGENT_NAME: opportunity
       MESSAGE_BUS_URL: nats://nats:4222
-      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       REDIS_URL: redis://redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.devcontainer before starting compose}
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -468,9 +468,9 @@ services:
       NODE_ENV: production
       AGENT_NAME: target
       MESSAGE_BUS_URL: nats://nats:4222
-      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       REDIS_URL: redis://redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.devcontainer before starting compose}
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -523,9 +523,9 @@ services:
       NODE_ENV: production
       AGENT_NAME: realization
       MESSAGE_BUS_URL: nats://nats:4222
-      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       REDIS_URL: redis://redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.devcontainer before starting compose}
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -578,9 +578,9 @@ services:
       NODE_ENV: production
       AGENT_NAME: expansion
       MESSAGE_BUS_URL: nats://nats:4222
-      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:-valueos_dev}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-valueos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.devcontainer before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       REDIS_URL: redis://redis:6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-valueos_dev}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.devcontainer before starting compose}
       SUPABASE_URL: http://kong:8000
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       OPENAI_API_KEY: ${OPENAI_API_KEY}

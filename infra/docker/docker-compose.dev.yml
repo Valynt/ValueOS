@@ -199,7 +199,7 @@ services:
       # CRITICAL: sslmode=disable required - container postgres has no TLS
       DATABASE_URL: postgresql://postgres:dev_password@postgres:${DB_PORT:-${POSTGRES_PORT:-5432}}/valuecanvas_dev?sslmode=disable
       DB_URL: postgresql://postgres:dev_password@postgres:${DB_PORT:-${POSTGRES_PORT:-5432}}/valuecanvas_dev?sslmode=disable
-      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase:${SUPABASE_API_PORT:-54321}}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
       KAFKA_BROKERS: kafka:9092
@@ -231,6 +231,36 @@ services:
       timeout: 5s
       retries: 10
 
+  worker:
+    build:
+      context: ../.. # repo root
+      dockerfile: infra/docker/Dockerfile.backend
+      args:
+        NODE_VERSION: "20.19.0"
+        PNPM_VERSION: "9.15.0"
+    container_name: valueos-worker
+    command: ["pnpm", "--filter", "@valueos/backend", "run", "worker:dev"]
+    env_file:
+      - ../../ops/env/.env.ports
+      - ../../ops/env/.env.local
+    volumes:
+      - ../../packages/backend/src:/app/packages/backend/src
+      - ../../packages/shared/src:/app/packages/shared/src
+      - ../../packages/sdui/src:/app/packages/sdui/src
+      - ../../:/workspaces/ValueOS
+    working_dir: /workspaces/ValueOS
+    restart: unless-stopped
+    networks:
+      - valueos-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   frontend:
     build:
       context: ../.. # repo root
@@ -255,7 +285,7 @@ services:
       - "${WEB_PORT:-${VITE_PORT:-5173}}:5173"
       - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
     environment:
-      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://host.docker.internal:${SUPABASE_API_PORT:-54321}}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
       VITE_API_BASE_URL: http://backend:${API_PORT:-3001}
       HOST: 0.0.0.0

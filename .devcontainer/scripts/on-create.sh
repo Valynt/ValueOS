@@ -14,6 +14,7 @@ echo "🔧 Running on-create setup..."
 # Load environment variables
 if [ -f .devcontainer/.env ]; then
     echo "📋 Loading environment variables..."
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .devcontainer/.env | xargs)
 elif [ -f .devcontainer/.env.template ] && [ ! -f .devcontainer/.env ]; then
     cp .devcontainer/.env.template .devcontainer/.env
@@ -29,6 +30,9 @@ fi
 # =============================================================================
 
 echo "📦 Installing dependencies..."
+
+# Display pinned tool versions
+bash .devcontainer/scripts/toolchain-versions.sh
 
 # Enable pnpm
 PNPM_VERSION="9.15.0"
@@ -46,8 +50,13 @@ PY
         PNPM_VERSION="${detected_pnpm_version}"
     fi
 fi
+
 corepack enable
-corepack prepare pnpm@${PNPM_VERSION} --activate
+# Prefer the script-based resolver if present; fall back to versions.json/default.
+if [ -x .devcontainer/scripts/read-version.sh ]; then
+    PNPM_VERSION="$(.devcontainer/scripts/read-version.sh pnpm)"
+fi
+corepack prepare "pnpm@${PNPM_VERSION}" --activate
 
 # Install workspace dependencies
 if [ -f pnpm-lock.yaml ]; then
