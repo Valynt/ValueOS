@@ -113,6 +113,12 @@ export function validateEnv(): ValidationResult {
     }
   }
 
+  // Production: require Together API key to prevent misconfiguration
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  if (nodeEnv === "production" && !process.env.TOGETHER_API_KEY) {
+    errors.push("TOGETHER_API_KEY is required in production");
+  }
+
   // Validate DATABASE_URL format if present
   if (process.env.DATABASE_URL) {
     const url = process.env.DATABASE_URL;
