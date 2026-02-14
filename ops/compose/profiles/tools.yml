@@ -1,0 +1,31 @@
+services:
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    profiles: ["tools"]
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-dev_password}
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    networks:
+      - valueos-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    profiles: ["tools"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@valueos.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - valueos-network
+
+networks:
+  valueos-network:
+    name: valueos-network

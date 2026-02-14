@@ -1,27 +1,58 @@
-# Canonical compose file for ValueOS core infrastructure.
-# Application services (frontend, backend) run on the host via pnpm.
-# Optional stacks live in ops/compose/profiles/.
+name: valueos
 
 x-common: &common
   restart: unless-stopped
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "10m"
-      max-file: "3"
+  networks:
+    - valueos-network
 
 services:
-  # --- Core Infrastructure ---
+  backend:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
+        PNPM_VERSION: ${PNPM_VERSION:-9.15.0}
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PORT: ${API_PORT:-3001}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-valueos_dev}?sslmode=disable}
+      DB_URL: ${DB_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-valueos_dev}?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-dev_password}@redis:6379}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
+        PNPM_VERSION: ${PNPM_VERSION:-9.15.0}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${API_PORT:-3001}}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:${SUPABASE_REST_PORT:-3000}}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+        VITE_APP_URL: ${VITE_APP_URL:-http://localhost:${FRONTEND_PORT:-5173}}
+    ports:
+      - "${FRONTEND_PORT:-5173}:8080"
+    depends_on:
+      backend:
+        condition: service_started
 
   postgres:
     <<: *common
     image: postgres:15-alpine
-    container_name: valueos-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -31,67 +62,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 2G
-        reservations:
-          memory: 512M
 
   redis:
     <<: *common
     image: redis:7-alpine
-    container_name: valueos-redis
     command: >-
       redis-server
       --appendonly yes
-      --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-dev_password}
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-dev_password}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 1G
-        reservations:
-          memory: 256M
 
-  nats:
-    <<: *common
-    image: nats:2-alpine
-    container_name: valueos-nats
-    command: -DV -m 8222
-    ports:
-      - "${NATS_CLIENT_PORT:-4222}:4222"
-      - "${NATS_MONITOR_PORT:-8222}:8222"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.3"
-          memory: 256M
-        reservations:
-          memory: 64M
+networks:
+  valueos-network:
+    name: valueos-network
+    driver: bridge
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local

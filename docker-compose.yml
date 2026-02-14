@@ -1,7 +1,7 @@
-# DEPRECATED — canonical compose lives at ops/compose/compose.yml.
-# This file exists only for backward compatibility.
-# Do NOT add services here. See ops/compose/README.md.
-
+# LEGACY WRAPPER: use ops/compose/compose.yml directly for new work.
+# This passthrough keeps older `docker compose` entrypoints functioning.
 include:
   - ops/compose/compose.yml
-
+  - ops/compose/profiles/supabase.yml
+  - ops/compose/profiles/observability.yml
+  - ops/compose/profiles/tools.yml
