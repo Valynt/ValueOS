@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PNPM_VERSION=${PNPM_VERSION:-"9.15.0"}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PNPM_VERSION=${PNPM_VERSION:-"$(${SCRIPT_DIR}/read-version.sh pnpm)"}
 
 log() { echo "[ensure-pnpm] $*"; }
 
