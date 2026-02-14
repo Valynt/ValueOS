@@ -119,6 +119,7 @@ Invariants
 - Migrations are the only way schema changes occur.
 - Reset/seed flows are idempotent (safe to run repeatedly).
 - Local DB credentials are sourced from env files, not hard-coded.
+- **Secret-default prohibition:** never commit concrete secret defaults (passwords, API keys, tokens, `REPLACE_ME_ON_FIRST_DEPLOY`) in non-example files. Use Terraform variables from secure backend state, AWS Secrets Manager data sources, or Vault references instead.
 
 Health signals
 - DB container is healthy and accepts connections.

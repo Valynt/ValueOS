@@ -45,6 +45,24 @@ type VerificationContext = {
   method?: string;
 };
 
+type AuthUser = {
+  id?: string;
+  email?: string;
+  role?: string | string[];
+  tenant_id?: string;
+  app_metadata?: {
+    tenant_id?: string;
+    roles?: unknown;
+    tier?: string;
+  };
+  user_metadata?: Record<string, unknown>;
+};
+
+type AuthSession = {
+  expires_at?: number;
+  expires_in?: number;
+};
+
 function allowLocalJwtFallback(): boolean {
   return getEnvVar(ALLOW_LOCAL_JWT_FALLBACK_FLAG) === 'true';
 }
@@ -259,17 +277,17 @@ function buildSessionFromClaims(token: string, claims: JwtPayload) {
   };
 }
 
-export function extractTenantId(claims: JwtPayload | null, user?: any): string | undefined {
+export function extractTenantId(claims: JwtPayload | null, user?: AuthUser): string | undefined {
   return (
     (claims?.tenant_id as string | undefined) ??
     (claims?.organization_id as string | undefined) ??
-    (claims?.app_metadata as any)?.tenant_id ??
+    (claims?.app_metadata as { tenant_id?: string } | undefined)?.tenant_id ??
     (user?.app_metadata?.tenant_id as string | undefined) ??
     (user?.tenant_id as string | undefined)
   );
 }
 
-function applyAuthContext(req: Request, user: any, session: any, claims: JwtPayload | null) {
+function applyAuthContext(req: Request, user: AuthUser | undefined, session: AuthSession | undefined, claims: JwtPayload | null) {
   const tenantId = extractTenantId(claims, user);
   const userWithTenant = user ? { ...user, tenant_id: tenantId ?? user.tenant_id } : user;
 

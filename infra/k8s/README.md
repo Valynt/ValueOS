@@ -89,6 +89,17 @@ kubectl create secret generic valuecanvas-secrets \
   --from-literal=openai-api-key="sk-xxx" \
   --from-literal=jwt-secret="xxx" \
   --namespace=valuecanvas-staging
+
+# Model selection and fallback controls can be provided as non-secret ConfigMap entries or as plain env-vars in the deployment.
+kubectl create configmap valuecanvas-llm-config \
+  --from-literal=together-primary-model="moonshotai/Kimi-K2-Thinking" \
+  --from-literal=together-secondary-model="openai/gpt-oss-120b" \
+  --from-literal=llm-fallback-enabled="true" \
+  --from-literal=llm-fallback-max-attempts="1" \
+  --from-literal=llm-retry-backoff-ms="200" \
+  -n valuecanvas-staging
+
+# Alternatively place model names in the secret if you prefer a single secret store.
 ```
 
 ### 4. Update image references

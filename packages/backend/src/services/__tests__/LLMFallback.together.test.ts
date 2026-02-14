@@ -140,6 +140,64 @@ describe("LLMFallback Service - Together AI Only", () => {
       const stats = await service.getStats();
       expect(stats).not.toHaveProperty("openAI");
     });
+
+    it('should default to TOGETHER_PRIMARY_MODEL_NAME when model is omitted', async () => {
+      const env = vi.importMock('@shared/lib/env') as any;
+      // getEnvVar is mocked at module level; set behavior for keys we care about
+      env.getEnvVar = vi.fn((key: string) => {
+        if (key === 'TOGETHER_PRIMARY_MODEL_NAME') return 'primary-model';
+        if (key === 'TOGETHER_API_KEY') return 'test-key';
+        return undefined;
+      });
+
+      // Mock Together primary success
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'primary-response' } }],
+          usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+        }),
+      });
+
+      const service = new LLMFallbackService();
+      const resp = await service.processRequest({ prompt: 'hi', model: (undefined as any), userId: 'u1' });
+
+      expect(resp.model).toBe('primary-model');
+      expect(resp.content).toContain('primary-response');
+      // verify fetch got the primary model in the request body
+      const body = JSON.parse((globalThis.fetch as any).mock.calls[0][1].body);
+      expect(body.model).toBe('primary-model');
+    });
+
+    it('should fallback to SECONDARY when PRIMARY fails transiently', async () => {
+      const env = vi.importMock('@shared/lib/env') as any;
+      env.getEnvVar = vi.fn((key: string) => {
+        if (key === 'TOGETHER_PRIMARY_MODEL_NAME') return 'primary-model';
+        if (key === 'TOGETHER_SECONDARY_MODEL_NAME') return 'secondary-model';
+        if (key === 'TOGETHER_API_KEY') return 'test-key';
+        if (key === 'LLM_FALLBACK_MAX_ATTEMPTS') return '1';
+        if (key === 'LLM_RETRY_BACKOFF_MS') return '1';
+        return undefined;
+      });
+
+      // fetch behaviour: primary -> 500, secondary -> 200
+      globalThis.fetch = vi.fn((url: string, opts: any) => {
+        const b = JSON.parse(opts.body || '{}');
+        if (b.model === 'primary-model') {
+          return Promise.resolve({ ok: false, status: 500, text: async () => 'server error' });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ choices: [{ message: { content: 'secondary-response' } }], usage: { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 } }) });
+      });
+
+      const service = new LLMFallbackService();
+      const resp = await service.processRequest({ prompt: 'hi', model: (undefined as any), userId: 'u1' });
+
+      expect(resp.content).toContain('secondary-response');
+      expect(resp.model).toBe('secondary-model');
+
+      const stats = await service.getStats();
+      expect(stats.togetherAI.fallbacks).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe("Stats Tracking", () => {

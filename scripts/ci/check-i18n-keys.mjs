@@ -11,18 +11,50 @@
  * Exit code 1 on failure.
  */
 
-import { readFileSync, readdirSync, existsSync } from "fs";
-import { join, resolve } from "path";
+import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "fs";
+import { dirname, join, resolve } from "path";
 import { execSync } from "child_process";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const I18N_DIRS = ["apps/ValyntApp/src/i18n/locales"];
 const SOURCE_LOCALE = "en";
-const MIN_COVERAGE_PERCENT = 90;
+const DEFAULT_MIN_COVERAGE_PERCENT = 90;
 const SRC_DIRS = ["apps/ValyntApp/src", "apps/VOSAcademy/src"];
+
+const cliArgs = process.argv.slice(2);
+const jsonOutPath = getArgValue(cliArgs, "--json-out");
+const minCoverageArg = getArgValue(cliArgs, "--min-coverage");
+
+const parsedMinCoverage = Number.parseInt(
+  minCoverageArg ?? process.env.I18N_MIN_COVERAGE_PERCENT ?? `${DEFAULT_MIN_COVERAGE_PERCENT}`,
+  10
+);
+const MIN_COVERAGE_PERCENT = Number.isNaN(parsedMinCoverage)
+  ? DEFAULT_MIN_COVERAGE_PERCENT
+  : parsedMinCoverage;
 
 let hasErrors = false;
 let hasWarnings = false;
+const dashboard = {
+  sourceLocale: SOURCE_LOCALE,
+  minimumCoveragePercent: MIN_COVERAGE_PERCENT,
+  localeDirectories: [],
+  totals: {
+    localesChecked: 0,
+    missingKeys: 0,
+    extraKeys: 0,
+    localesBelowThreshold: 0,
+    unusedKeys: 0,
+  },
+  status: "pass",
+  generatedAt: new Date().toISOString(),
+};
+
+function getArgValue(args, key) {
+  const idx = args.indexOf(key);
+  if (idx === -1) return undefined;
+  return args[idx + 1];
+}
 
 function loadLocaleKeys(localeDir) {
   const keys = new Set();
@@ -44,29 +76,33 @@ function loadLocaleKeys(localeDir) {
 
 function findUsedKeys(srcDirs) {
   const used = new Set();
-  // Match patterns like t("key"), t('key'), i18n.t("key")
-  const pattern = `(?:t|i18n\\.t)\\(["']([a-zA-Z0-9_.]+)["']`;
+  const usagePattern = /(t|i18n\.t)\(["']([a-zA-Z0-9_.]+)["']/g;
 
   for (const dir of srcDirs) {
     const absDir = join(ROOT, dir);
     if (!existsSync(absDir)) continue;
 
+    let files = "";
     try {
-      const result = execSync(
-        `grep -rEoh '${pattern}' "${absDir}" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" 2>/dev/null || true`,
+      files = execSync(
+        `rg --files "${absDir}" -g "*.ts" -g "*.tsx" -g "*.js" -g "*.jsx"`,
         { encoding: "utf-8" }
       );
-
-      for (const line of result.split("\n")) {
-        const match = line.match(/["']([a-zA-Z0-9_.]+)["']/);
-        if (match) used.add(match[1]);
-      }
     } catch {
-      // grep returns non-zero if no matches
+      continue;
+    }
+
+    for (const file of files.split("\n").filter(Boolean)) {
+      const content = readFileSync(file, "utf-8");
+      for (const match of content.matchAll(usagePattern)) {
+        used.add(match[2]);
+      }
     }
   }
+
   return used;
 }
+
 
 console.log("🌐 Checking i18n translation keys...\n");
 
@@ -90,6 +126,12 @@ for (const i18nRelDir of I18N_DIRS) {
   const sourceKeys = loadLocaleKeys(join(i18nDir, SOURCE_LOCALE));
   console.log(`  Source locale (${SOURCE_LOCALE}): ${sourceKeys.size} keys`);
 
+  const dirSummary = {
+    directory: i18nRelDir,
+    sourceKeys: sourceKeys.size,
+    locales: [],
+  };
+
   // Check each non-source locale
   for (const locale of locales) {
     if (locale === SOURCE_LOCALE) continue;
@@ -98,8 +140,12 @@ for (const i18nRelDir of I18N_DIRS) {
     const missing = [...sourceKeys].filter((k) => !localeKeys.has(k));
     const extra = [...localeKeys].filter((k) => !sourceKeys.has(k));
     const coverage = sourceKeys.size > 0
-      ? Math.round((localeKeys.size - extra.length) / sourceKeys.size * 100)
+      ? Math.round(((localeKeys.size - extra.length) / sourceKeys.size) * 100)
       : 100;
+
+    dashboard.totals.localesChecked += 1;
+    dashboard.totals.missingKeys += missing.length;
+    dashboard.totals.extraKeys += extra.length;
 
     console.log(`  Locale "${locale}": ${localeKeys.size} keys, coverage ${coverage}%`);
 
@@ -116,8 +162,20 @@ for (const i18nRelDir of I18N_DIRS) {
     if (coverage < MIN_COVERAGE_PERCENT) {
       console.error(`    ❌ Coverage ${coverage}% is below minimum ${MIN_COVERAGE_PERCENT}%`);
       hasErrors = true;
+      dashboard.totals.localesBelowThreshold += 1;
     }
+
+    dirSummary.locales.push({
+      locale,
+      keyCount: localeKeys.size,
+      missingKeys: missing.length,
+      extraKeys: extra.length,
+      coverage,
+      belowThreshold: coverage < MIN_COVERAGE_PERCENT,
+    });
   }
+
+  dashboard.localeDirectories.push(dirSummary);
 }
 
 // Check for unused keys
@@ -132,21 +190,35 @@ if (usedKeys.size > 0) {
     if (unused.length > 0) {
       console.warn(`  ⚠️  ${unused.length} potentially unused keys: ${unused.slice(0, 10).join(", ")}${unused.length > 10 ? "..." : ""}`);
       hasWarnings = true;
+      dashboard.totals.unusedKeys += unused.length;
     } else {
       console.log("  ✅ No unused keys detected");
     }
   }
 } else {
-  console.log("  ⚠️  Could not detect used keys from source (grep found no matches)");
+  console.log("  ⚠️  Could not detect used keys from source (source scan found no matches)");
 }
 
 console.log("");
 
 if (hasErrors) {
   console.error("❌ i18n key check failed");
+  dashboard.status = "fail";
+  writeDashboard(jsonOutPath, dashboard);
   process.exit(1);
 } else if (hasWarnings) {
   console.log("⚠️  i18n key check passed with warnings");
+  dashboard.status = "warn";
 } else {
   console.log("✅ i18n key check passed");
+  dashboard.status = "pass";
+}
+
+writeDashboard(jsonOutPath, dashboard);
+
+function writeDashboard(path, data) {
+  if (!path) return;
+  const absolutePath = resolve(ROOT, path);
+  mkdirSync(dirname(absolutePath), { recursive: true });
+  writeFileSync(absolutePath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
 }

@@ -90,7 +90,7 @@ router.get('/quotas', async (req: Request, res: Response) => {
       'user_seats',
     ];
 
-    const quotas: any = {};
+    const quotas: Partial<Record<BillingMetric, number>> = {};
 
     await Promise.all(
       metrics.map(async metric => {

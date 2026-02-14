@@ -65,7 +65,7 @@ export const SECRET_DEFINITIONS: SecretDefinition[] = [
     critical: true,
   },
   {
-    key: "SUPABASE_SERVICE_KEY",
+    key: "SUPABASE_SERVICE_ROLE_KEY",
     required: true,
     description: "Supabase service role key (server-only)",
     minLength: 20,

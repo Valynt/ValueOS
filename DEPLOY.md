@@ -32,6 +32,14 @@ REDIS_TLS_SERVERNAME=redis.yourdomain.internal
 ```
 
 
+## Production Backend Runtime Policy
+
+ValueOS production runtime is standardized on **`packages/backend`**.
+
+- Canonical backend artifact: `infra/docker/Dockerfile.backend` (build arg `APP=@valueos/backend`)
+- Frozen duplicate tree: `apps/ValyntApp/src/services/**` is not a deploy runtime source
+- Any required migration sync touching both trees must use a dedicated commit tagged with `[migration-sync]`
+
 ## TLS Requirements (Staging/Production)
 
 - **Postgres:** `DATABASE_URL` (and `DIRECT_DATABASE_URL` when used) must set `sslmode=require` or stricter (`verify-ca`/`verify-full`).
@@ -49,7 +57,7 @@ docker compose -f docker-compose.prod.yml --env-file ../../.env.production up -d
 This starts:
 - **Caddy** — reverse proxy with automatic HTTPS (ports 80/443)
 - **Frontend** — Vite-built SPA served by nginx (port 8080 internal)
-- **Backend** — Express API via tsx (port 3001 internal)
+- **Backend** — `@valueos/backend` from `packages/backend` via `infra/docker/Dockerfile.backend` (port 3001 internal)
 - **Redis** — session cache and rate limiting
 - **Kafka + Zookeeper** — event streaming (optional, can be removed if not using agent fabric)
 
@@ -80,6 +88,9 @@ curl -s https://app.yourdomain.com/api/health/ready
    - Add `https://app.yourdomain.com/auth/callback` to Redirect URLs
 
 ## Minimal Deploy (Frontend Only)
+
+> This path does **not** deploy backend runtime. Production API runtime remains `packages/backend`.
+
 
 If you only need the frontend (e.g., deploying to Vercel/Netlify/Cloudflare Pages):
 

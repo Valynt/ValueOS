@@ -15,9 +15,10 @@ import {
 } from './LLMResilience.js';
 import { getTracer } from '../../config/telemetry.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { getEnvVar } from '@shared/lib/env';
 
 export interface LLMGatewayConfig {
-  provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
+  provider: 'openai' | 'anthropic' | 'gemini' | 'custom' | 'together';
   model: string;
   temperature?: number;
   max_tokens?: number;
@@ -93,6 +94,13 @@ export class LLMGateway {
   private costAwareRouter: CostAwareRouter;
   private resilienceWrapper: LLMResilienceWrapper;
 
+  // Together-specific fallback settings (populated in constructor when provider==='together')
+  private togetherPrimaryModel?: string;
+  private togetherSecondaryModel?: string;
+  private llmFallbackEnabled: boolean = true;
+  private llmFallbackMaxAttempts: number = 1;
+  private llmRetryBackoffMs: number = 200;
+
   constructor(
     config: LLMGatewayConfig | string,
     costTracker?: LLMCostTracker,
@@ -115,6 +123,21 @@ export class LLMGateway {
       providerKey: `llm:${this.config.provider}`,
       ...resilienceConfig,
     });
+
+    // Load Together.ai-specific model + fallback settings when configured
+    if (this.config.provider === 'together') {
+      this.togetherPrimaryModel =
+        (getEnvVar('TOGETHER_PRIMARY_MODEL_NAME') as string) || this.config.model;
+      const secondary = getEnvVar('TOGETHER_SECONDARY_MODEL_NAME');
+      this.togetherSecondaryModel = secondary ? String(secondary) : undefined;
+      this.llmFallbackEnabled =
+        (getEnvVar('LLM_FALLBACK_ENABLED', { defaultValue: 'true' }) as string) !==
+        'false';
+      this.llmFallbackMaxAttempts = Number(
+        getEnvVar('LLM_FALLBACK_MAX_ATTEMPTS') || '1'
+      );
+      this.llmRetryBackoffMs = Number(getEnvVar('LLM_RETRY_BACKOFF_MS') || '200');
+    }
   }
 
 
@@ -207,29 +230,109 @@ export class LLMGateway {
         },
         async (span: any) => {
           try {
-            const result = await this.resilienceWrapper.execute(
-              () => this.executeCompletion(request, startTime)
-            );
+            // MODEL SELECTION + RETRY/FALLBACK (Together-specific behavior)
+            const requestedModel = request.model ?? this.config.model;
+            let modelUsed = requestedModel;
+            let retryAttempts = 0;
+            let fallbackTriggered = false;
+            let fallbackReason: string | null = null;
 
-            const latencyMs = Date.now() - startTime;
-            const costUsd = this.estimateCostUsd(
-              result.usage?.prompt_tokens || 0,
-              result.usage?.completion_tokens || 0,
-              model
-            );
+            // If provider is Together and caller didn't specify a model, prefer the configured primary
+            if (this.config.provider === 'together' && !request.model) {
+              request.model = this.togetherPrimaryModel || this.config.model;
+            }
 
-            span.setAttributes({
-              'llm.prompt_tokens': result.usage?.prompt_tokens || 0,
-              'llm.completion_tokens': result.usage?.completion_tokens || 0,
-              'llm.total_tokens': result.usage?.total_tokens || 0,
-              'llm.cost_usd': costUsd,
-              'llm.latency_ms': latencyMs,
-              'llm.cached': false,
-            });
-            span.setStatus({ code: SpanStatusCode.OK });
-            span.end();
+            const isTransientError = (err: any) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              return /timeout|ETIMEDOUT|429|5\d{2}|rate limit/i.test(msg);
+            };
 
-            return result;
+            const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+            const tryPrimaryWithRetries = async () => {
+              const maxRetries = Math.max(0, this.llmFallbackMaxAttempts || 0);
+              for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                  retryAttempts = attempt;
+                  const res = await this.resilienceWrapper.execute(
+                    () => this.executeCompletion(request, startTime)
+                  );
+                  modelUsed = request.model || modelUsed;
+                  // annotate metadata for caller
+                  res.metadata = { ...(res.metadata || {}), retry_attempts: retryAttempts };
+                  return res;
+                } catch (err) {
+                  // If not transient or we've exhausted retries -> rethrow
+                  if (!isTransientError(err) || attempt === maxRetries) throw err;
+                  // backoff with small jitter
+                  const base = this.llmRetryBackoffMs || 200;
+                  const jitter = Math.floor(Math.random() * base);
+                  await sleep(base + jitter);
+                  continue;
+                }
+              }
+              throw new Error('Primary model retries exhausted');
+            };
+
+            try {
+              // Try primary (with configured retries)
+              const primaryResult = await tryPrimaryWithRetries();
+              // normal success
+              const latencyMs = Date.now() - startTime;
+              const costUsd = this.estimateCostUsd(
+                primaryResult.usage?.prompt_tokens || 0,
+                primaryResult.usage?.completion_tokens || 0,
+                request.model || modelUsed
+              );
+
+              span.setAttributes({
+                'llm.prompt_tokens': primaryResult.usage?.prompt_tokens || 0,
+                'llm.completion_tokens': primaryResult.usage?.completion_tokens || 0,
+                'llm.total_tokens': primaryResult.usage?.total_tokens || 0,
+                'llm.cost_usd': costUsd,
+                'llm.latency_ms': latencyMs,
+                'llm.cached': false,
+              });
+              span.setStatus({ code: SpanStatusCode.OK });
+              span.end();
+
+              return primaryResult;
+            } catch (primaryErr) {
+              // If fallback is disabled or no secondary configured, rethrow
+              if (!this.llmFallbackEnabled || !this.togetherSecondaryModel) {
+                throw primaryErr;
+              }
+
+              // Attempt secondary model
+              fallbackTriggered = true;
+              fallbackReason = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
+              logger.warn('Primary Together model failed; attempting secondary', {
+                primary: request.model,
+                secondary: this.togetherSecondaryModel,
+                retry_attempts: retryAttempts,
+                fallback_reason: fallbackReason,
+              });
+
+              // Use secondary model for the retry
+              const secondaryRequest: LLMRequest = { ...request, model: this.togetherSecondaryModel };
+              const secondaryResult = await this.resilienceWrapper.execute(
+                () => this.executeCompletion(secondaryRequest, startTime)
+              );
+
+              // Annotate fallback metadata
+              secondaryResult.metadata = {
+                ...(secondaryResult.metadata || {}),
+                fallback_triggered: true,
+                fallback_reason: fallbackReason,
+                retry_attempts: retryAttempts,
+              };
+
+              span.setAttributes({ 'llm.latency_ms': Date.now() - startTime });
+              span.setStatus({ code: SpanStatusCode.OK });
+              span.end();
+
+              return secondaryResult;
+            }
           } catch (err) {
             const latencyMs = Date.now() - startTime;
             span.setAttributes({ 'llm.latency_ms': latencyMs });

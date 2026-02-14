@@ -3,10 +3,11 @@
  * Redis-backed cache for real-time usage quota checks
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { BillingMetric, USAGE_CACHE_TTL } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
-import { getEnvVar, getSupabaseConfig } from '../../lib/env';
+import { getEnvVar } from '../../lib/env';
+import { createServerSupabaseClient } from '../../lib/supabase';
 import Redis, { type RedisClientType } from 'redis';
 
 // Constants
@@ -15,15 +16,7 @@ const MILLISECONDS_MULTIPLIER = 1000;
 
 const logger = createLogger({ component: 'UsageCache' });
 
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-}
+const supabase: SupabaseClient = createServerSupabaseClient();
 
 // Redis client (optional - will use in-memory fallback if not available)
 let redisClient: RedisClientType | null = null;
@@ -31,7 +24,7 @@ let redisClient: RedisClientType | null = null;
 try {
   // Try to initialize Redis
   redisClient = Redis.createClient({
-    url: getEnvVar('REDIS_URL', 'redis://localhost:6379'),
+    url: getEnvVar('REDIS_URL', { defaultValue: 'redis://localhost:6379' }),
   });
   redisClient.connect();
   logger.info('Redis connected for usage cache');

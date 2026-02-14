@@ -19,6 +19,8 @@ vi.mock('@supabase/supabase-js', () => {
     insertedIdempotencyKeys: new Set<string>(),
     selectResponses: {} as Record<string, any[] | null>,
     processedEventIds: [] as any[],
+    insertedWebhookEventIds: new Set<string>(),
+    customerStatusTransitions: 0,
   };
 
   const createBuilder = (table: string) => {
@@ -32,17 +34,40 @@ vi.mock('@supabase/supabase-js', () => {
       lte: (_k: string, _v: any) => createBuilder(table),
       single: async () => {
         if (table === 'webhook_events') return { data: { retry_count: 2 }, error: null };
+        if (table === 'billing_customers') return { data: { tenant_id: 'tenant-1' }, error: null };
         return { data: null, error: null };
       },
       update: async (payload: any) => {
         if (table === 'usage_events') {
           state.processedEventIds.push(payload);
         }
+        if (table === 'billing_customers' && payload?.status === 'active') {
+          state.customerStatusTransitions += 1;
+        }
         state.lastUpdatePayload = payload;
         return { error: null };
       },
-      insert: async (payload: any) => {
+      insert: async (payload: any, options?: any) => {
         const payloads = Array.isArray(payload) ? payload : [payload];
+        if (table === 'webhook_events') {
+          for (const entry of payloads) {
+            const eventId = entry?.stripe_event_id as string | undefined;
+            if (eventId && state.insertedWebhookEventIds.has(eventId)) {
+              if (options?.ignoreDuplicates) {
+                return { error: null, count: 0 };
+              }
+              return {
+                error: {
+                  code: '23505',
+                  message: 'duplicate key value violates unique constraint',
+                },
+              };
+            }
+            if (eventId) {
+              state.insertedWebhookEventIds.add(eventId);
+            }
+          }
+        }
         if (table === 'usage_aggregates') {
           for (const entry of payloads) {
             const key = entry?.idempotency_key as string | undefined;
@@ -61,6 +86,9 @@ vi.mock('@supabase/supabase-js', () => {
         }
         state.lastInsertPayload = payload;
         state.insertPayloads.push(...payloads);
+        if (table === 'webhook_events') {
+          return { error: null, count: 1 };
+        }
         return { error: null };
       },
       upsert: async (payload: any) => {
@@ -100,6 +128,14 @@ vi.mock('../../config/environment', () => ({
   isDevelopment: () => true,
 }));
 
+
+vi.mock('../billing/InvoiceService', () => ({
+  default: {
+    storeInvoice: vi.fn(async () => undefined),
+    updateInvoice: vi.fn(async () => undefined),
+  },
+}));
+
 import webhookService from '../billing/WebhookService';
 import aggregator from '../metering/UsageAggregator';
 import { trackUsage } from '../UsageTrackingService';
@@ -115,6 +151,8 @@ describe('Billing patches', () => {
     client.state.insertedIdempotencyKeys.clear();
     client.state.selectResponses = {};
     client.state.processedEventIds = [];
+    client.state.insertedWebhookEventIds.clear();
+    client.state.customerStatusTransitions = 0;
   });
 
   it('increments retry_count when marking webhook failed', async () => {
@@ -159,6 +197,29 @@ describe('Billing patches', () => {
     const client = (await import('@supabase/supabase-js')).createClient();
     expect(client.state.lastUpsertPayload).toBeTruthy();
     expect(client.state.lastUpsertPayload.organization_id).toBe('org-1');
+  });
+
+
+  it('processes duplicate webhook replays atomically under concurrency', async () => {
+    const event = {
+      id: 'evt_parallel_1',
+      type: 'invoice.payment_succeeded',
+      data: {
+        object: {
+          id: 'in_1',
+          customer: 'cus_1',
+        },
+      },
+    };
+
+    await Promise.all([
+      webhookService.processEvent(event),
+      webhookService.processEvent(event),
+    ]);
+
+    const client = (await import('@supabase/supabase-js')).createClient();
+    expect(client.state.customerStatusTransitions).toBe(1);
+    expect(client.state.insertedWebhookEventIds.size).toBe(1);
   });
 
   it('does not create duplicate aggregates when reprocessing the same group', async () => {

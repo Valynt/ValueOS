@@ -65,15 +65,17 @@ function printHelp() {
 ValueOS Dev CLI - Developer Experience Orchestrator
 
 Usage:
-  ./dev up [--mode local|docker] [--seed] [--caddy] [--skip-install]
-  ./dev down
-  ./dev reset [--soft|--hard]
-  ./dev doctor [--mode local|docker]
-  ./dev logs [service] [--mode local|docker]
-  ./dev smoke-test [--mode local|docker]
-  ./dev bundle [--mode local|docker]
+  pnpm run dx [up] [--mode local|docker] [--seed] [--skip-install]
+  pnpm run dx:up [--mode local|docker] [--seed]
+  pnpm run dx:down
+  pnpm run dx:reset [--hard]
+  pnpm run dx:doctor [--mode local|docker]
+  pnpm run dx:logs [service] [--mode local|docker]
+  pnpm run dx:test [--mode local|docker]
+  pnpm run dx:lint [--mode local|docker]
+  pnpm run dx:build [--mode local|docker]
 
-Orchestration Flow (./dev up):
+Orchestration Flow (pnpm run dx:up):
   1. dx:env         - Generate ops/env/.env.local + ops/env/.env.ports from config/ports.json
   2. Preflight      - Docker, Node/pnpm, DATABASE_URL, ports
   3. Docker deps    - Start postgres + redis (docker compose)
@@ -82,23 +84,21 @@ Orchestration Flow (./dev up):
   6. Schema verify  - Regenerate TypeScript types (non-critical)
   7. Backend        - tsx watch packages/backend/src/server.ts
   8. Frontend       - pnpm --filter valynt-app dev (Vite)
-  9. Caddy          - HTTPS reverse proxy (optional, use --caddy)
 
 Recovery/Maintenance:
-  ./dev logs <service>  - Tail logs for a service
-  ./dev down            - Stop stack (Ctrl+C also works)
-  ./dev reset           - Reset stack (remove containers/volumes)
+  pnpm run dx:logs <service>  - Tail logs for a service
+  pnpm run dx:down            - Stop stack (Ctrl+C also works)
+  pnpm run dx:reset           - Reset stack (remove containers/volumes)
   pnpm run dx:doctor    - Run preflight diagnostics
   pnpm run dx:env:validate  - Validate environment files
 
 Flags:
   --mode           Set dx mode (local or docker)
   --seed           Seed database after migrations
-  --caddy          Enable Caddy HTTPS reverse proxy
   --skip-install   Skip pnpm install step
   --ci             CI mode (less verbose, no prompts)
   --auto-shift-ports  Auto-shift ports if conflicts are detected
-  --soft/--hard    Reset tier (soft removes containers + volumes, hard also prunes build cache)
+  --hard           Reset tier (soft is default; hard also prunes build cache)
 `);
 }
 
@@ -111,11 +111,29 @@ function ensureNodeVersion() {
 
   const expected = fs.readFileSync(nvmrcPath, "utf8").trim().replace(/^v/, "");
   const actual = process.versions.node;
+  if (expected) {
+    const parse = (v) => v.split(".").map((n) => parseInt(n, 10) || 0);
+    const cmp = (a, b) => {
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const av = a[i] || 0;
+        const bv = b[i] || 0;
+        if (av > bv) return 1;
+        if (av < bv) return -1;
+      }
+      return 0;
+    };
 
-  if (expected && expected !== actual) {
-    console.error(`❌ Node ${expected} required but found ${actual}.`);
-    console.error("   Fix: install the pinned version (nvm install && nvm use) or update .nvmrc.");
-    process.exit(1);
+    const expectedParts = parse(expected);
+    const actualParts = parse(actual);
+
+    if (cmp(actualParts, expectedParts) < 0) {
+      console.error(`❌ Node ${expected} required but found ${actual}.`);
+      console.error("   Fix: install the pinned version (nvm install && nvm use) or update .nvmrc.");
+      process.exit(1);
+    }
+    if (cmp(actualParts, expectedParts) > 0) {
+      console.warn(`⚠️  Node ${actual} found which is newer than pinned ${expected}; continuing.`);
+    }
   }
 }
 
@@ -226,6 +244,16 @@ function applyPortsEnvOverrides() {
   });
 }
 
+
+function logIgnoredFlags(currentCommand) {
+  const ignored = [];
+  if (currentCommand !== "up" && seed) ignored.push("--seed");
+  if (currentCommand !== "reset" && hasFlag("--hard")) ignored.push("--hard");
+  if (ignored.length > 0) {
+    console.warn(`⚠️  Ignoring ${ignored.join(", ")} for '${currentCommand}' command.`);
+  }
+}
+
 async function main() {
   if (hasFlag("--help") || hasFlag("-h")) {
     printHelp();
@@ -241,6 +269,7 @@ async function main() {
   if (command === "doctor") {
     ensureNodeVersion();
     ensurePnpm();
+    logIgnoredFlags("doctor");
     if (debug) {
       process.env.DX_DEBUG = "1";
     }
@@ -249,12 +278,14 @@ async function main() {
   }
 
   if (command === "down") {
+    logIgnoredFlags("down");
     ensureDocker();
     run("pnpm exec tsx scripts/dx/orchestrator.js --down");
     return;
   }
 
   if (command === "reset") {
+    logIgnoredFlags("reset");
     ensureDocker();
     const resetFlag = resetLevel === "hard" ? "--reset hard" : "--reset soft";
     run(`pnpm exec tsx scripts/dx/orchestrator.js ${resetFlag}`);
@@ -262,6 +293,7 @@ async function main() {
   }
 
   if (command === "logs") {
+    logIgnoredFlags("logs");
     ensureDocker();
     const composeFile =
       mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
@@ -271,17 +303,27 @@ async function main() {
     return;
   }
 
-  if (command === "bundle") {
+  if (command === "test") {
     ensureNodeVersion();
     ensurePnpm();
-    run(`node scripts/dx/bundle.js --mode ${mode}`);
+    logIgnoredFlags("test");
+    run("pnpm test");
     return;
   }
 
-  if (command === "smoke-test") {
+  if (command === "lint") {
     ensureNodeVersion();
     ensurePnpm();
-    run(`node scripts/dx/smoke-test.js --mode ${mode}`);
+    logIgnoredFlags("lint");
+    run("pnpm run lint");
+    return;
+  }
+
+  if (command === "build") {
+    ensureNodeVersion();
+    ensurePnpm();
+    logIgnoredFlags("build");
+    run("pnpm run build");
     return;
   }
 
