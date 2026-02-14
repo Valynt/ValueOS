@@ -62,13 +62,22 @@ const handleUnexpectedRefreshToken = async () => {
   }
 };
 
+const persistRefreshTokenFingerprint = (fingerprint: string) => {
+  lastRefreshToken = fingerprint;
+  localStorage.setItem(REFRESH_TOKEN_FINGERPRINT_KEY, fingerprint);
+};
+
+const clearRefreshTokenFingerprint = () => {
+  localStorage.removeItem(REFRESH_TOKEN_FINGERPRINT_KEY);
+  lastRefreshToken = null;
+};
+
 const trackRefreshTokenState = (
   session: Session | null,
   event?: string,
 ): boolean => {
   if (!session?.refresh_token) {
-    localStorage.removeItem(REFRESH_TOKEN_FINGERPRINT_KEY);
-    lastRefreshToken = null;
+    clearRefreshTokenFingerprint();
     return false;
   }
 
@@ -95,8 +104,7 @@ const trackRefreshTokenState = (
     }
   }
 
-  lastRefreshToken = fingerprint;
-  localStorage.setItem(REFRESH_TOKEN_FINGERPRINT_KEY, fingerprint);
+  persistRefreshTokenFingerprint(fingerprint);
   return true;
 };
 
@@ -111,12 +119,17 @@ export const secureTokenManager = {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         clearLocalState();
+        clearRefreshTokenFingerprint();
         return;
       }
 
       const isTracked = trackRefreshTokenState(session, event);
       if (!isTracked || !session) {
         return;
+      }
+
+      if (event === "TOKEN_REFRESHED" && session.refresh_token) {
+        persistRefreshTokenFingerprint(hashRefreshToken(session.refresh_token));
       }
 
       persistNonSensitiveAuthState(session);

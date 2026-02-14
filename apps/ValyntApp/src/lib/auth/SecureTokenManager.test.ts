@@ -14,12 +14,14 @@ vi.mock("../supabase", () => ({
   },
 }));
 
-const { secureTokenManager } = await import("./SecureTokenManager");
-
 describe("ValyntApp secureTokenManager", () => {
-  beforeEach(() => {
+  let secureTokenManager: any;
+
+  beforeEach(async () => {
     localStorage.clear();
     vi.clearAllMocks();
+    vi.resetModules();
+    ({ secureTokenManager } = await import("./SecureTokenManager"));
   });
 
   it("does not persist raw session token material to localStorage", () => {
@@ -130,4 +132,44 @@ describe("ValyntApp secureTokenManager", () => {
       localStorage.getItem("valynt.auth.refresh.fingerprint"),
     ).toBeNull();
   });
+
+  it("invalidates session when TOKEN_REFRESHED reuses an existing refresh token", async () => {
+    let authCallback: ((event: string, session: any) => void) | undefined;
+
+    mockOnAuthStateChange.mockImplementation((callback) => {
+      authCallback = callback;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    await secureTokenManager.initialize();
+
+    authCallback?.("SIGNED_IN", {
+      access_token: "access-token-1",
+      refresh_token: "refresh-token-1",
+      expires_at: 1735689600,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    });
+
+    authCallback?.("TOKEN_REFRESHED", {
+      access_token: "access-token-2",
+      refresh_token: "refresh-token-1",
+      expires_at: 1735689700,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("valynt.auth.state")).toBeNull();
+    expect(
+      localStorage.getItem("valynt.auth.refresh.fingerprint"),
+    ).toBeNull();
+  });
+
 });
