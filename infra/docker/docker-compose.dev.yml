@@ -231,6 +231,36 @@ services:
       timeout: 5s
       retries: 10
 
+  worker:
+    build:
+      context: ../.. # repo root
+      dockerfile: infra/docker/Dockerfile.backend
+      args:
+        NODE_VERSION: "20.19.0"
+        PNPM_VERSION: "9.15.0"
+    container_name: valueos-worker
+    command: ["pnpm", "--filter", "@valueos/backend", "run", "worker:dev"]
+    env_file:
+      - ../../ops/env/.env.ports
+      - ../../ops/env/.env.local
+    volumes:
+      - ../../packages/backend/src:/app/packages/backend/src
+      - ../../packages/shared/src:/app/packages/shared/src
+      - ../../packages/sdui/src:/app/packages/sdui/src
+      - ../../:/workspaces/ValueOS
+    working_dir: /workspaces/ValueOS
+    restart: unless-stopped
+    networks:
+      - valueos-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   frontend:
     build:
       context: ../.. # repo root

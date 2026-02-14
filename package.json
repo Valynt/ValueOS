@@ -151,11 +151,13 @@
     "dx:lint": "node scripts/dev-cli.js lint",
     "dx:build": "node scripts/dev-cli.js build",
     "dx:reset": "node scripts/dev-cli.js reset",
+    "dx:local": "bash scripts/dx.sh local",
+    "dx:docker": "bash scripts/dx.sh docker",
+    "db:migrate": "bash scripts/migrate.sh",
+    "up": "docker compose up -d",
+    "down": "docker compose down -v",
     "lint": "eslint .",
     "check:service-duplicates": "node scripts/check-service-duplicate-filenames.mjs",
-    "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs",
-    "dx": "node scripts/dev-cli.js",
-    "dx:up": "pnpm run dx -- up",
-    "dx:down": "pnpm run dx -- down"
+    "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs"
   }
 }
