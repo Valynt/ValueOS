@@ -25,6 +25,7 @@ import { sanitizeAgentInput } from '../utils/security.js'
 import { requireAuth } from '../middleware/auth.js'
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
+import { MODEL_POLICY_VERSION, ModelDeniedError, assertKnownApprovedModel } from '../config/models.js'
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -67,6 +68,20 @@ router.post(
         error: 'Invalid request',
         message: 'Model is required and must be a string'
       });
+    }
+
+    try {
+      assertKnownApprovedModel(model);
+    } catch (error) {
+      if (error instanceof ModelDeniedError) {
+        return res.status(error.status).json({
+          error: 'Model denied',
+          code: error.code,
+          message: 'Requested model is not approved for this API',
+          policyVersion: MODEL_POLICY_VERSION,
+        });
+      }
+      throw error;
     }
 
     const { sanitized, safe, severity, violations } = sanitizeAgentInput(prompt);
@@ -211,6 +226,15 @@ router.post(
         error: "Cost governance limit exceeded",
         message: error.message,
         details: error.snapshot,
+      });
+    }
+
+    if (error instanceof ModelDeniedError) {
+      return res.status(error.status).json({
+        error: 'Model denied',
+        code: error.code,
+        message: 'Requested model is not approved for this API',
+        policyVersion: MODEL_POLICY_VERSION,
       });
     }
 
