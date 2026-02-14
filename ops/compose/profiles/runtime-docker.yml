@@ -32,10 +32,11 @@ services:
       context: ../..
       dockerfile: infra/docker/Dockerfile.backend
     profiles: ["runtime-docker"]
-    ports: ["${API_PORT:-3001}:3001"]
+    ports: ["${API_PORT:-8000}:${API_PORT:-8000}"]
     environment:
       SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
       SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${VITE_PORT:-5173}}
     depends_on: [postgres, redis, kafka, schema-registry]
 
   worker:
@@ -47,6 +48,7 @@ services:
     environment:
       SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
       SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${VITE_PORT:-5173}}
     depends_on: [redis]
 
   frontend:
@@ -57,7 +59,7 @@ services:
       args:
         VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
     profiles: ["runtime-docker"]
-    ports: ["${WEB_PORT:-5173}:5173"]
+    ports: ["${VITE_PORT:-5173}:${VITE_PORT:-5173}"]
     environment:
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
       VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}

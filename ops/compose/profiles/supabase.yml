@@ -12,8 +12,8 @@ services:
       DB_NAME: ${POSTGRES_DB:-valueos_dev}
       DB_USER: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
-      SITE_URL: ${SITE_URL:-http://localhost:${WEB_PORT:-5173}}
-      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${WEB_PORT:-5173}}
+      SITE_URL: ${SITE_URL:-http://localhost:${VITE_PORT:-5173}}
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${VITE_PORT:-5173}}
       GOTRUE_API_URL: http://localhost:${AUTH_PORT:-9999}
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:${AUTH_PORT:-9999}}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}

@@ -161,6 +161,8 @@
     "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs",
     "check:frozen-backend-duplicate-tree": "node scripts/ci/check-frozen-backend-duplicate-tree.mjs",
     "check:runtime-sentinels": "node scripts/ci/check-runtime-sentinels.mjs",
-    "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs"
+    "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs",
+    "db:migrate:local": "bash scripts/db/apply-migrations.sh",
+    "db:migrate:hosted": "supabase db push"
   }
 }

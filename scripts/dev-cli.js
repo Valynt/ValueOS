@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { composeCommand, parseComposeProfiles } from "./dx/lib/compose.js";
+import { loadDxEnv, validateDxEnv } from "./dx/lib/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -357,6 +358,14 @@ async function main() {
     process.env.DX_DEBUG = "1";
   }
   run(`node scripts/dx/env-compiler.js --mode ${mode} --force`);
+  loadDxEnv(mode, { override: true });
+  const envValidationErrors = validateDxEnv(mode);
+  if (envValidationErrors.length > 0) {
+    console.error("❌ Environment validation failed:");
+    envValidationErrors.forEach((entry) => console.error(`   - ${entry}`));
+    process.exit(1);
+  }
+
   run(`node scripts/dx/doctor.js --mode ${mode}${autoShiftPorts ? " --auto-shift-ports" : ""}`);
   applyPortsEnvOverrides();
   ensureDocker();

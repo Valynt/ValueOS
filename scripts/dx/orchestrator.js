@@ -27,7 +27,6 @@ import fs from "fs";
 import net from "net";
 import path from "path";
 import { fileURLToPath } from "url";
-import { config } from "dotenv";
 import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort } from "./ports.js";
 import { writeEnvFiles } from "./env-compiler.js";
@@ -38,14 +37,11 @@ import { TraceLogger } from "./trace-logger.ts";
 import { formatError } from "./error-codes.ts";
 import logger from "./logger.js";
 import { ALL_COMPOSE_PROFILES, composeCommand, parseComposeProfiles } from "./lib/compose.js";
+import { loadDxEnv, validateDxEnv } from "./lib/env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
-const envPath = path.join(projectRoot, ".env.local");
-
-// Load environment variables from .env.local (if present)
-config({ path: envPath });
 
 // ANSI colors
 const colors = {
@@ -108,8 +104,8 @@ async function retry(fn, attempts = RETRY_ATTEMPTS, baseDelay = RETRY_BASE_DELAY
   }
 }
 
-function reloadEnv() {
-  config({ path: envPath, override: true });
+function reloadEnv(mode = "local") {
+  loadDxEnv(mode, { override: true });
 }
 
 // Initialize checkpoint manager and trace logger
@@ -1094,6 +1090,8 @@ async function main() {
     process.exit(1);
   }
 
+  loadDxEnv(mode);
+
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║                     ValueOS Development                        ║
@@ -1118,9 +1116,16 @@ async function main() {
   // Step 1: Compile environment
   log.step(1, "Compiling environment configuration");
   writeEnvFiles(mode, { force: true });
-  reloadEnv();
+  reloadEnv(mode);
 
   const supabaseMode = resolveSupabaseMode({ env: process.env, localHosts, networkHosts });
+
+  const envValidationErrors = validateDxEnv(mode);
+  if (envValidationErrors.length > 0) {
+    log.error("Environment validation failed. Resolve the following before startup:");
+    envValidationErrors.forEach((entry) => log.error(`- ${entry}`));
+    process.exit(1);
+  }
 
   // Step 1b: Preflight checks (now that env exists)
   runPreflightChecks(supabaseMode);

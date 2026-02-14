@@ -1,5 +1,7 @@
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { resolveModeEnvFile } from "./env.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,9 +82,15 @@ export function buildComposeArgs({ mode, profiles = [] } = {}) {
     projectRoot,
     "--env-file",
     "ops/env/.env.ports",
-    "-f",
-    BASE_COMPOSE_FILE,
   ];
+
+  const modeEnvFile = resolveModeEnvFile(mode);
+  const relativeModeEnv = path.relative(projectRoot, modeEnvFile);
+  if (modeEnvFile && fs.existsSync(modeEnvFile) && relativeModeEnv) {
+    args.push("--env-file", relativeModeEnv);
+  }
+
+  args.push("-f", BASE_COMPOSE_FILE);
 
   for (const profile of selectedProfiles) {
     const file = PROFILE_FILES[profile];
