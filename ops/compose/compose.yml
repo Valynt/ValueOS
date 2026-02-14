@@ -1,5 +1,11 @@
 # Canonical compose file for ValueOS core services.
 # Optional stacks live in ops/compose/profiles/.
+#
+# Core stack includes:
+# - backend
+# - frontend
+# - redis
+# - postgres (minimal local DB service)
 
 x-common: &common
   restart: unless-stopped
