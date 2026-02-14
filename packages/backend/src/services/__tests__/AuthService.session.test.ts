@@ -189,6 +189,20 @@ describe("AuthService - Session Management", () => {
       // Act & Assert
       await expect(service.refreshSession()).rejects.toThrow(AuthenticationError);
     });
+    it("should throw AuthenticationError when refresh token is stale/reused", async () => {
+      // Arrange
+      mocks.mockSupabaseAuth.refreshSession.mockResolvedValue({
+        data: { user: null, session: null },
+        error: {
+          message: "Invalid Refresh Token: Already Used",
+          status: 401,
+          name: "AuthApiError",
+        },
+      });
+
+      // Act & Assert
+      await expect(service.refreshSession()).rejects.toThrow(AuthenticationError);
+    });
 
     it("should throw AuthenticationError when user is null after refresh", async () => {
       // Arrange

@@ -10,6 +10,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 
+const COMPOSE_BASE_FILE = "ops/compose/compose.yml";
+const COMPOSE_DOCKER_RUNTIME_FILES = [
+  COMPOSE_BASE_FILE,
+  "ops/compose/profiles/runtime-docker.yml",
+];
+
+function composeArgs(files) {
+  return files.map((file) => `-f ${file}`).join(" ");
+}
+
 process.env.PATH = `${path.join(projectRoot, "node_modules", ".bin")}${path.delimiter}${process.env.PATH}`;
 
 const rawArgs = process.argv.slice(2);
@@ -247,7 +257,6 @@ function applyPortsEnvOverrides() {
   });
 }
 
-
 function logIgnoredFlags(currentCommand) {
   const ignored = [];
   if (currentCommand !== "up" && seed) ignored.push("--seed");
@@ -298,14 +307,17 @@ async function main() {
   if (command === "logs") {
     logIgnoredFlags("logs");
     ensureDocker();
+
+    // Resolved merge: use centralized composeCommand() so profile/file selection stays consistent
+    // with the rest of dx tooling (and avoids hardcoding env-file/compose files here).
     const { command: composeLogsCommand } = composeCommand("logs", {
       mode,
       profiles: composeProfiles,
+      // keep `-f` (follow) and optional service
       extraArgs: ["-f", ...(service ? [service] : [])],
     });
-    run(
-      composeLogsCommand
-    );
+
+    run(composeLogsCommand);
     return;
   }
 

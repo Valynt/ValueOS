@@ -1,0 +1,6 @@
+# Canonical devcontainer compose entrypoint.
+# Always run with root .env.ports for deterministic port mappings:
+#   docker compose --env-file .env.ports -f .devcontainer/docker-compose.devcontainer.yml <cmd>
+
+include:
+  - docker-compose.yml

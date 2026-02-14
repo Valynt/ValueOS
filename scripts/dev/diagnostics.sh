@@ -61,7 +61,11 @@ elif [[ -f "$PROJECT_ROOT/docker-compose.yml" ]]; then
 fi
 
 if [[ -n "$COMPOSE_FILE" ]]; then
-    COMPOSE_CMD="$COMPOSE_CMD -f $COMPOSE_FILE"
+    if [[ -f "$PROJECT_ROOT/.env.ports" ]]; then
+        COMPOSE_CMD="$COMPOSE_CMD --env-file $PROJECT_ROOT/.env.ports -f $COMPOSE_FILE"
+    else
+        COMPOSE_CMD="$COMPOSE_CMD -f $COMPOSE_FILE"
+    fi
 fi
 
 section() {
@@ -213,13 +217,22 @@ else
     echo "Check if kong service is running and /var/lib/kong/kong.yml exists" >> "$OUTPUT_FILE"
 fi
 
-echo -n ".env.local: "
+echo -n ".env.local (secrets-only): "
 if [[ -f "$PROJECT_ROOT/.env.local" ]]; then
     echo -e "${GREEN}Present${NC}"
-    echo ".env.local: Present" >> "$OUTPUT_FILE"
+    echo ".env.local (secrets-only): Present" >> "$OUTPUT_FILE"
 else
     echo -e "${YELLOW}Missing${NC}"
-    echo ".env.local: Missing" >> "$OUTPUT_FILE"
+    echo ".env.local (secrets-only): Missing" >> "$OUTPUT_FILE"
+fi
+
+echo -n ".env.ports: "
+if [[ -f "$PROJECT_ROOT/.env.ports" ]]; then
+    echo -e "${GREEN}Present${NC}"
+    echo ".env.ports: Present" >> "$OUTPUT_FILE"
+else
+    echo -e "${YELLOW}Missing${NC}"
+    echo ".env.ports: Missing" >> "$OUTPUT_FILE"
 fi
 
 ###############################################################################

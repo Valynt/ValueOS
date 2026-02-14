@@ -41,8 +41,8 @@ This audit examines the Supabase authentication implementation across code, test
 
 **Areas for Improvement:**
 
-- ⚠️ Session persistence configuration (`persistSession: false`) may cause UX issues
-- ⚠️ Dual session management (SecureSessionManager + SecureTokenManager) adds complexity
+- ✅ Session persistence uses Supabase managed persistence (`persistSession: true`) with only non-sensitive metadata in `sessionStorage`
+- ✅ Unified session persistence model: Supabase session store + refresh-token fingerprint guardrails
 - ⚠️ Missing comprehensive error recovery for network failures
 - ⚠️ OAuth callback handling could be more robust
 
@@ -212,9 +212,9 @@ auth: {
 }
 ```
 
-**Issue:** `persistSession: false` means sessions won't survive page refreshes in production. This is compensated by `SecureSessionManager` using `sessionStorage`, but creates complexity.
+**Status:** `persistSession` is enabled for browser clients. Session tokens are managed by Supabase while client code stores only non-sensitive UI metadata and a refresh-token fingerprint in `sessionStorage`.
 
-**Recommendation:** Consider using `persistSession: true` with proper security measures (httpOnly cookies in production) rather than dual session management.
+**Enforcement:** Any stale or invalid refresh-token reuse triggers local session purge and sign-out; unit tests cover rotation and reuse rejection paths.
 
 ---
 

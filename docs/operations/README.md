@@ -1,3 +1,11 @@
+---
+title: Operations
+owner: team-operations
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Operations
 
 **Last Updated**: 2026-02-13

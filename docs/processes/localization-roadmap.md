@@ -17,6 +17,30 @@
 | de | German | DACH | P1 | Planned |
 | pt-BR | Portuguese | Brazil | P2 | Planned |
 
+## Coverage Expansion Plan (2026)
+
+### Locale Rollout Scope
+
+| Wave | Locale | Product Surface | Owner | Exit Criteria |
+|------|--------|-----------------|-------|---------------|
+| Wave 1 | es | Auth, Home, Deals, Canvas, Settings | Frontend + Localization | >=98% key coverage; overflow suite passes |
+| Wave 2 | fr, de | Auth, Home, Deals, Canvas, Settings, Admin top tasks | Product + Localization | >=95% key coverage; pseudo-loc + visual regression passes |
+| Wave 3 | pt-BR | All Tier-1 workflows + notifications | Frontend + CS Ops | >=95% key coverage; no P0/P1 a11y+l10n bugs for 2 releases |
+
+### CI Localization Quality Gates
+
+Localization checks must run for every pull request and release branch:
+
+1. `check-i18n-keys.mjs` validates missing keys and translation coverage thresholds.
+2. `check-pseudo-localization.mjs` validates source strings are pseudo-localizable, preserves interpolation tokens, and enforces minimum expansion for overflow detection.
+3. Playwright localization overflow visual-regression suite captures pseudo-localized screenshots for core workflows and fails when horizontal overflow is detected.
+
+### Required CI Outputs
+
+- `artifacts/i18n/coverage-dashboard.json` (translation key coverage).
+- `artifacts/i18n/pseudo-localization-report.json` (pseudo-localization quality and expansion metrics).
+- Playwright screenshot snapshots for pseudo-localized core workflows.
+
 ## Standards
 
 ### Date/Number/Currency Formatting
@@ -63,3 +87,5 @@ Before releasing any user-facing feature:
 - [ ] Date/number/currency formatting uses `Intl` APIs.
 - [ ] Pluralization tested with counts 0, 1, 2, 5, 21.
 - [ ] Screenshots reviewed for text truncation in longer locales (de, es).
+- [ ] Pseudo-localization CI check passes with no token integrity failures.
+- [ ] Localization overflow visual-regression suite passes for login, home, and deals workflows.

@@ -2,6 +2,11 @@
 
 Automated CI/CD pipelines for ValueCanvas infrastructure deployment and management.
 
+## Canonical CI Documentation
+
+- Use [`CI_CONTROL_MATRIX.md`](./CI_CONTROL_MATRIX.md) as the canonical workflow control map.
+- Deprecated workflows are renamed with the `.deprecated.yml.disabled` suffix and should not be re-enabled without an owner + deprecation reversal plan.
+
 ## Overview
 
 This directory contains GitHub Actions workflows that automate:

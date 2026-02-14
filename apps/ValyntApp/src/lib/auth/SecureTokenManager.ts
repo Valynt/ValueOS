@@ -19,7 +19,7 @@ const persistNonSensitiveAuthState = (session: Session) => {
     expiresAt: session.expires_at,
   };
 
-  localStorage.setItem(NON_SENSITIVE_STATE_KEY, JSON.stringify(state));
+  sessionStorage.setItem(NON_SENSITIVE_STATE_KEY, JSON.stringify(state));
 };
 
 const hashRefreshToken = (token: string): string => {
@@ -41,7 +41,9 @@ const getStoredRefreshTokenFingerprint = (): string | null => {
     return lastRefreshToken;
   }
 
-  const storedFingerprint = localStorage.getItem(REFRESH_TOKEN_FINGERPRINT_KEY);
+  const storedFingerprint = sessionStorage.getItem(
+    REFRESH_TOKEN_FINGERPRINT_KEY,
+  );
   if (storedFingerprint) {
     lastRefreshToken = storedFingerprint;
   }
@@ -49,9 +51,9 @@ const getStoredRefreshTokenFingerprint = (): string | null => {
 };
 
 const clearLocalState = () => {
-  localStorage.removeItem(NON_SENSITIVE_STATE_KEY);
+  sessionStorage.removeItem(NON_SENSITIVE_STATE_KEY);
   localStorage.removeItem("supabase.auth.token");
-  localStorage.removeItem(REFRESH_TOKEN_FINGERPRINT_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_FINGERPRINT_KEY);
   lastRefreshToken = null;
 };
 
@@ -67,7 +69,7 @@ const trackRefreshTokenState = (
   event?: string,
 ): boolean => {
   if (!session?.refresh_token) {
-    localStorage.removeItem(REFRESH_TOKEN_FINGERPRINT_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_FINGERPRINT_KEY);
     lastRefreshToken = null;
     return false;
   }
@@ -96,7 +98,7 @@ const trackRefreshTokenState = (
   }
 
   lastRefreshToken = fingerprint;
-  localStorage.setItem(REFRESH_TOKEN_FINGERPRINT_KEY, fingerprint);
+  sessionStorage.setItem(REFRESH_TOKEN_FINGERPRINT_KEY, fingerprint);
   return true;
 };
 

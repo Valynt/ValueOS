@@ -16,10 +16,10 @@
  * 8. Start frontend
  *
  * Usage:
- *   node scripts/dx/orchestrator.js --mode local
- *   node scripts/dx/orchestrator.js --mode docker
- *   node scripts/dx/orchestrator.js --down
- *   node scripts/dx/orchestrator.js --reset
+ * node scripts/dx/orchestrator.js --mode local
+ * node scripts/dx/orchestrator.js --mode docker
+ * node scripts/dx/orchestrator.js --down
+ * node scripts/dx/orchestrator.js --reset
  */
 
 import { execSync, spawn } from "child_process";
@@ -80,6 +80,17 @@ const RETRY_BASE_DELAY = 2000;
 const dockerHostGateway = resolveDockerHostGateway();
 const localHosts = dockerHostGateway ? [dockerHostGateway] : [];
 const networkHosts = ["supabase"];
+
+const COMPOSE_BASE_FILE = "ops/compose/compose.yml";
+const COMPOSE_DOCKER_RUNTIME_FILES = [
+  COMPOSE_BASE_FILE,
+  "ops/compose/profiles/runtime-docker.yml",
+];
+const COMPOSE_CADDY_FILES = [COMPOSE_BASE_FILE, "ops/compose/profiles/caddy.yml"];
+
+function composeArgs(files) {
+  return files.map((file) => `-f ${file}`).join(" ");
+}
 
 /**
  * Retry a function with exponential backoff
@@ -637,7 +648,7 @@ async function startDockerDeps(mode, profiles = []) {
     traceLogger.stepSuccess("start_docker_deps", stepStart);
   } catch (error) {
     traceLogger.stepError("start_docker_deps", error);
-    log.error(formatError("ERR_008", { composeFile, error: error.message }));
+    log.error(formatError("ERR_008", { composeFiles: composeFile, error: error.message }));
     console.error(String(error?.message || error));
     process.exit(1);
   }
@@ -1085,8 +1096,8 @@ async function main() {
 
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗
-║                    ValueOS Development                         ║
-║                      Mode: ${mode.padEnd(10)}                          ║
+║                     ValueOS Development                        ║
+║                       Mode: ${mode.padEnd(10)}                           ║
 ╚════════════════════════════════════════════════════════════════╝
 `);
 
@@ -1185,13 +1196,13 @@ async function main() {
 ╔════════════════════════════════════════════════════════════════╗
 ║                    Services Running                            ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Frontend:        http://localhost:${frontendPort}                      ║
-║  Backend:         http://localhost:${backendPort}                       ║
-║  Supabase API:    http://localhost:${supabaseApiPort}                     ║
-║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                     ║
+║  Frontend:        http://localhost:${frontendPort}                   ║
+║  Backend:         http://localhost:${backendPort}                        ║
+║  Supabase API:    http://localhost:${supabaseApiPort}                      ║
+║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                      ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Stop:  pnpm run dx:down                                        ║
-║  Logs:  pnpm run dx:logs                                        ║
+║  Stop:  pnpm run dx:down                                       ║
+║  Logs:  pnpm run dx:logs                                       ║
 ╚════════════════════════════════════════════════════════════════╝
 `);
     return;
@@ -1264,14 +1275,14 @@ async function main() {
 ╔════════════════════════════════════════════════════════════════╗
 ║                    All Services Ready                          ║
 ╠════════════════════════════════════════════════════════════════╣
-║  Frontend:        http://localhost:${frontendPort}                      ║
-║  Backend:         http://localhost:${backendPort}                       ║
-║  Supabase API:    http://localhost:${supabaseApiPort}                     ║
-║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                     ║`;
+║  Frontend:        http://localhost:${frontendPort}                   ║
+║  Backend:         http://localhost:${backendPort}                        ║
+║  Supabase API:    http://localhost:${supabaseApiPort}                      ║
+║  Supabase Studio: http://localhost:${ports.supabase.studioPort}                      ║`;
 
   if (caddyInfo) {
     servicesOutput += `
-║  Caddy HTTPS:     https://localhost:${caddyInfo.httpsPort}                      ║`;
+║  Caddy HTTPS:     https://localhost:${caddyInfo.httpsPort}                       ║`;
   }
 
   servicesOutput += `

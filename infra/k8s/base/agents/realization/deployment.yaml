@@ -7,6 +7,9 @@ metadata:
     app: realization-agent
     component: agent
     tier: backend
+    app.kubernetes.io/name: realization-agent
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/part-of: valynt
   annotations:
     valynt.io/llm-usage-limit: "300.00" # Monthly USD limit — realization runs heavier models
     valynt.io/cost-center: "agent-realization"
@@ -22,6 +25,9 @@ spec:
         app: realization-agent
         component: agent
         tier: backend
+        app.kubernetes.io/name: realization-agent
+        app.kubernetes.io/component: agent
+        app.kubernetes.io/part-of: valynt
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
