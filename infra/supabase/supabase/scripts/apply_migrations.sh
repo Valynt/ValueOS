@@ -36,6 +36,17 @@ DRY_RUN=false
 FORCE=false
 VERBOSE=false
 
+
+# Guard local-only execution unless explicitly acknowledged
+if [[ "${LOCAL_SUPABASE_ONLY:-0}" != "1" ]]; then
+    cat <<'EOF' >&2
+❌ Refusing to run apply_migrations.sh without LOCAL_SUPABASE_ONLY=1.
+This script targets a local Supabase/Postgres stack and is not part of the cloud CI/deploy path.
+For hosted Supabase migration deploys, use: supabase link --project-ref <project> && supabase db push
+EOF
+    exit 1
+fi
+
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================

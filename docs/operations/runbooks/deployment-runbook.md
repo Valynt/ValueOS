@@ -13,6 +13,13 @@ status: active
 
 # Deployment Runbook
 
+
+### Supabase migration policy (cloud-only)
+
+- Production/staging database migrations must run against hosted Supabase projects via linked project refs.
+- Do not depend on local-stack assets (`infra/supabase/config.toml`, local seed/init scripts) for deploy-time migrations.
+- Local-stack scripts are optional and require explicit `LOCAL_SUPABASE_ONLY=1` acknowledgment.
+
 ## Purpose
 Authoritative operational runbook for production deployments. This runbook is the source of truth for release execution, rollback, and verification.
 

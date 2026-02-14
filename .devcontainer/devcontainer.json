@@ -1,9 +1,16 @@
 {
   "name": "ValueOS Development Environment",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "build": {
+    "dockerfile": "Dockerfile.dev",
+    "context": "..",
+    "args": {
+      "NODE_VERSION": "20.19.0",
+      "PNPM_VERSION": "9.15.0"
+    }
+  },
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker": {
-      "moby": false
+    "ghcr.io/devcontainers/features/docker-outside-of-docker": {
+      "version": "latest"
     },
     "ghcr.io/devcontainers/features/github-cli": {}
   },
@@ -45,9 +52,13 @@
     "NODE_ENV": "development",
     "NPM_CONFIG_UPDATE_NOTIFIER": "false",
     "NPM_CONFIG_FUND": "false",
-    "PNPM_HOME": "/home/node/.local/share/pnpm",
-    "VERSIONS_FILE": "pragmatic-reproducibility/ci/versions.json"
+    "PNPM_HOME": "/home/vscode/.local/share/pnpm",
+    "COREPACK_HOME": "/home/vscode/.cache/corepack",
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
+    "XDG_CACHE_HOME": "/home/vscode/.cache",
+    "VERSIONS_FILE": ".devcontainer/versions.json"
   },
+  "remoteUser": "vscode",
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
   "postStartCommand": "bash .devcontainer/scripts/post-start.sh"
