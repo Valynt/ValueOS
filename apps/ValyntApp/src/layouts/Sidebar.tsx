@@ -36,7 +36,8 @@ export function Sidebar({ onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
-  const { trackRouteVisit, getUsageCount, frequentRouteSet } = useNavigationPersonalization();
+  const { trackRouteVisit, trackFeatureUsage, getUsageCount, getFeatureUsageCount, frequentRouteSet } =
+    useNavigationPersonalization();
 
   useEffect(() => {
     trackRouteVisit(location.pathname);
@@ -44,16 +45,20 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const prioritizedNavItems = useMemo(() => {
     return [...navItems].sort((a, b) => {
-      const usageDiff = getUsageCount(b.path) - getUsageCount(a.path);
-      if (usageDiff !== 0) return usageDiff;
+      const routeUsageDiff = getUsageCount(b.path) - getUsageCount(a.path);
+      if (routeUsageDiff !== 0) return routeUsageDiff;
+
+      const featureUsageDiff = getFeatureUsageCount(`nav:${b.path}`) - getFeatureUsageCount(`nav:${a.path}`);
+      if (featureUsageDiff !== 0) return featureUsageDiff;
       return (
         navItems.findIndex((item) => item.path === a.path) -
         navItems.findIndex((item) => item.path === b.path)
       );
     });
-  }, [getUsageCount]);
+  }, [getFeatureUsageCount, getUsageCount]);
 
-  const handleNavClick = () => {
+  const handleNavClick = (path: string) => {
+    trackFeatureUsage(`nav:${path}`);
     if (onClose) onClose();
   };
 
@@ -102,7 +107,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <NavLink
             key={item.path}
             to={item.path}
-            onClick={handleNavClick}
+            onClick={() => handleNavClick(item.path)}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 sm:px-4 min-h-11 rounded-xl text-[13px] font-medium transition-colors",
