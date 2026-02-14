@@ -109,6 +109,7 @@ Closes #
 - [ ] API documentation updated (if needed)
 - [ ] Code comments added where necessary
 - [ ] CHANGELOG updated (if applicable)
+- [ ] Observability contract updated for telemetry/config changes (`infra/observability/README.md`)
 
 ### Dependencies
 - [ ] No unnecessary dependencies added

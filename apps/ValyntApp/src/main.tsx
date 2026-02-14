@@ -4,7 +4,10 @@ import { App } from "./App";
 import { bootstrap } from "./app/bootstrap";
 import "./styles/globals.css";
 import { analyticsClient } from "./lib/analyticsClient";
+import { validateFrontendStartupEnv } from "./config/startupEnvValidator";
 import { logger } from "./lib/logger";
+
+validateFrontendStartupEnv(import.meta.env as Record<string, string | undefined>);
 
 // Bootstrap application before rendering
 bootstrap({

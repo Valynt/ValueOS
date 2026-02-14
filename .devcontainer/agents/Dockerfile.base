@@ -4,7 +4,11 @@
 # =============================================================================
 # Stage 1: Dependencies
 # =============================================================================
-FROM node:20.19.0-alpine AS deps
+ARG NODE_VERSION=20.19.0
+ARG PNPM_VERSION=9.15.0
+
+FROM node:${NODE_VERSION}-alpine AS deps
+ARG PNPM_VERSION
 WORKDIR /app
 
 # Install system dependencies
@@ -24,17 +28,17 @@ COPY packages/agents/package.json ./packages/agents/
 
 # Install dependencies
 RUN corepack enable && \
-    corepack prepare pnpm@latest --activate && \
+    corepack prepare pnpm@${PNPM_VERSION} --activate && \
     pnpm install --frozen-lockfile --prod=false
 
 # =============================================================================
 # Stage 2: Builder
 # =============================================================================
-FROM node:20.19.0-alpine AS builder
+FROM node:${NODE_VERSION}-alpine AS builder
+ARG PNPM_VERSION
 WORKDIR /app
 
 ARG AGENT_NAME
-ARG NODE_VERSION=20.19.0
 
 ENV NODE_ENV=production
 
@@ -49,13 +53,13 @@ COPY packages/shared ./packages/shared
 # Build the agent
 WORKDIR /app/packages/agents/${AGENT_NAME}
 RUN corepack enable && \
-    corepack prepare pnpm@latest --activate && \
+    corepack prepare pnpm@${PNPM_VERSION} --activate && \
     pnpm run build
 
 # =============================================================================
 # Stage 3: Runtime
 # =============================================================================
-FROM node:20.19.0-alpine AS runtime
+FROM node:${NODE_VERSION}-alpine AS runtime
 WORKDIR /app
 
 ARG AGENT_NAME

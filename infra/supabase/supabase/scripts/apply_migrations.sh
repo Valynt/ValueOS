@@ -11,7 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-MIGRATIONS_DIR="${PROJECT_ROOT}/infra/postgres/migrations"
+MIGRATIONS_DIR="${PROJECT_ROOT}/infra/supabase/supabase/migrations"
 
 # Database connection parameters
 DB_HOST="${DB_HOST:-localhost}"
@@ -111,7 +111,7 @@ retry_command() {
 # Check if database is accessible
 check_database_connection() {
     log_info "Checking database connection..."
-    
+
     if retry_command "$DB_RETRY_COUNT" "$DB_RETRY_DELAY" \
         env PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
         log_success "Database connection established"
@@ -141,23 +141,23 @@ apply_migration() {
     migration_name=$(basename "$migration_file")
     local checksum
     checksum=$(calculate_checksum "$migration_file")
-    
+
     log_info "Applying migration: $migration_name"
-    
+
     if [ "$DRY_RUN" = true ]; then
         log_info "[DRY RUN] Would apply: $migration_name"
         return 0
     fi
-    
+
     local start_time
     start_time=$(date +%s%3N)
-    
+
     # Record migration start
     env PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<-EOSQL
         INSERT INTO public.migration_history (migration_name, action, status, started_at)
         VALUES ('$migration_name', 'apply', 'pending', NOW());
 EOSQL
-    
+
     # Apply migration in transaction
     if env PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<-EOSQL
         BEGIN;
@@ -170,30 +170,30 @@ EOSQL
         local end_time
         end_time=$(date +%s%3N)
         local execution_time=$((end_time - start_time))
-        
+
         # Update migration history
         env PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<-EOSQL
             UPDATE public.migration_history
             SET status = 'success', completed_at = NOW(), metadata = jsonb_build_object('execution_time_ms', $execution_time)
             WHERE migration_name = '$migration_name' AND status = 'pending';
-            
+
             UPDATE public.schema_migrations
             SET execution_time_ms = $execution_time
             WHERE name = '$migration_name';
 EOSQL
-        
+
         log_success "Migration applied: $migration_name (${execution_time}ms)"
         return 0
     else
         local error_code=$?
-        
+
         # Record failure
         env PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<-EOSQL
             UPDATE public.migration_history
             SET status = 'failure', completed_at = NOW(), error_message = 'Migration failed with exit code $error_code'
             WHERE migration_name = '$migration_name' AND status = 'pending';
 EOSQL
-        
+
         log_error "Migration failed: $migration_name"
         return $error_code
     fi
@@ -231,44 +231,44 @@ main() {
                 ;;
         esac
     done
-    
+
     log_info "Starting migration process..."
     log_info "Database: $DB_NAME@$DB_HOST:$DB_PORT"
-    
+
     if [ "$DRY_RUN" = true ]; then
         log_warning "DRY RUN MODE: No changes will be applied"
     fi
-    
+
     # Check database connection
     if ! check_database_connection; then
         log_error "Cannot proceed without database connection"
         exit 1
     fi
-    
+
     # Check migrations directory
     if [ ! -d "$MIGRATIONS_DIR" ]; then
         log_error "Migrations directory not found: $MIGRATIONS_DIR"
         exit 1
     fi
-    
+
     # Get applied migrations
     local applied_migrations
     applied_migrations=$(get_applied_migrations)
-    
+
     log_info "Applied migrations: $(echo "$applied_migrations" | wc -w)"
-    
+
     # Find pending migrations
     local pending_count=0
     local failed_count=0
-    
+
     for migration_file in "$MIGRATIONS_DIR"/*.sql; do
         if [ ! -f "$migration_file" ]; then
             continue
         fi
-        
+
         local migration_name
         migration_name=$(basename "$migration_file")
-        
+
         # Check if already applied
         if echo "$applied_migrations" | grep -q "$migration_name"; then
             if [ "$VERBOSE" = true ]; then
@@ -276,34 +276,34 @@ main() {
             fi
             continue
         fi
-        
+
         # Apply migration
         pending_count=$((pending_count + 1))
-        
+
         if retry_command "$MIGRATION_RETRY_COUNT" "$MIGRATION_RETRY_DELAY" apply_migration "$migration_file"; then
             log_success "Successfully applied: $migration_name"
         else
             failed_count=$((failed_count + 1))
             log_error "Failed to apply: $migration_name"
-            
+
             if [ "$FORCE" != true ]; then
                 log_error "Stopping migration process due to failure"
                 exit 1
             fi
         fi
     done
-    
+
     # Summary
     echo ""
     log_info "Migration Summary:"
     log_info "  Pending migrations: $pending_count"
     log_info "  Failed migrations: $failed_count"
-    
+
     if [ $failed_count -gt 0 ]; then
         log_error "Some migrations failed"
         exit 1
     fi
-    
+
     if [ $pending_count -eq 0 ]; then
         log_success "No pending migrations - database is up to date"
     else
