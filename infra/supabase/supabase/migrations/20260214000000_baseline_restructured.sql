@@ -660,6 +660,91 @@ CREATE TABLE IF NOT EXISTS public.billing_customers (
 );
 COMMENT ON TABLE public.billing_customers IS 'Maps tenants to Stripe customers for billing';
 
+CREATE TABLE IF NOT EXISTS public.billing_approval_policies (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    tenant_id uuid NOT NULL,
+    action_type text NOT NULL,
+    thresholds jsonb DEFAULT '{}'::jsonb,
+    required_approver_roles jsonb DEFAULT '[]'::jsonb,
+    sla_hours integer,
+    created_at timestamptz DEFAULT now(),
+    CONSTRAINT billing_approval_policies_action_type_check CHECK (
+        action_type IN ('plan_change', 'seat_change', 'enable_overage', 'increase_cap', 'billing_cycle_change', 'cancel')
+    ),
+    CONSTRAINT billing_approval_policies_tenant_action_unique UNIQUE (tenant_id, action_type)
+);
+COMMENT ON TABLE public.billing_approval_policies IS 'Defines approval policies for billing actions per tenant';
+
+CREATE TABLE IF NOT EXISTS public.billing_approval_requests (
+    approval_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    tenant_id uuid NOT NULL,
+    requested_by_user_id uuid NOT NULL,
+    action_type text NOT NULL,
+    payload jsonb NOT NULL,
+    computed_delta jsonb DEFAULT '{}'::jsonb,
+    status text NOT NULL DEFAULT 'pending',
+    approved_by_user_id uuid,
+    decision_reason text,
+    effective_at timestamptz,
+    expires_at timestamptz,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    CONSTRAINT billing_approval_requests_status_check CHECK (
+        status IN ('pending', 'approved', 'rejected', 'expired', 'canceled')
+    ),
+    CONSTRAINT billing_approval_requests_action_type_check CHECK (
+        action_type IN ('plan_change', 'seat_change', 'enable_overage', 'increase_cap', 'billing_cycle_change', 'cancel')
+    )
+);
+COMMENT ON TABLE public.billing_approval_requests IS 'Tracks approval requests for billing actions';
+
+CREATE TABLE IF NOT EXISTS public.billing_price_versions (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    version_tag text NOT NULL,
+    plan_tier text NOT NULL,
+    definition jsonb NOT NULL,
+    status text NOT NULL DEFAULT 'draft',
+    activated_at timestamptz,
+    archived_at timestamptz,
+    created_at timestamptz DEFAULT now(),
+    CONSTRAINT billing_price_versions_status_check CHECK (status IN ('draft', 'active', 'archived')),
+    CONSTRAINT billing_price_versions_plan_tier_check CHECK (plan_tier IN ('free', 'standard', 'enterprise')),
+    CONSTRAINT billing_price_versions_tag_tier_unique UNIQUE (version_tag, plan_tier)
+);
+COMMENT ON TABLE public.billing_price_versions IS 'Versioned pricing definitions for billing plans';
+
+CREATE TABLE IF NOT EXISTS public.compliance_evidence (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    control_id text NOT NULL,
+    tenant_id text NOT NULL,
+    evidence_type text,
+    description text NOT NULL,
+    data jsonb NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT now(),
+    valid_until timestamp with time zone,
+    status text,
+    reviewed_by text,
+    review_notes text,
+    CONSTRAINT compliance_evidence_evidence_type_check CHECK ((evidence_type = ANY (ARRAY['log'::text, 'metric'::text, 'test_result'::text, 'manual_review'::text, 'audit'::text]))),
+    CONSTRAINT compliance_evidence_status_check CHECK ((status = ANY (ARRAY['compliant'::text, 'non_compliant'::text, 'needs_review'::text])))
+);
+COMMENT ON TABLE public.compliance_evidence IS 'Evidence collected for compliance controls';
+
+CREATE TABLE IF NOT EXISTS public.compliance_reports (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id text NOT NULL,
+    report_period_start timestamp with time zone NOT NULL,
+    report_period_end timestamp with time zone NOT NULL,
+    overall_compliance numeric(5,2) NOT NULL,
+    controls_status jsonb NOT NULL,
+    category_breakdown jsonb NOT NULL,
+    critical_findings text[] DEFAULT '{}'::text[],
+    recommendations text[] DEFAULT '{}'::text[],
+    next_audit_date timestamp with time zone NOT NULL,
+    generated_at timestamp with time zone DEFAULT now()
+);
+COMMENT ON TABLE public.compliance_reports IS 'Generated compliance reports for tenants';
+
 -- ==========================================
 -- PHASE 5: Indexes + constraints
 
@@ -820,6 +905,11 @@ ALTER TABLE IF EXISTS public.agent_activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.agent_audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.billing_meters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.billing_approval_policies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.billing_approval_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.billing_price_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.compliance_evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.compliance_reports ENABLE ROW LEVEL SECURITY;
 
 -- PHASE 9: GRANTS / DEFAULT PRIVILEGES
 GRANT USAGE ON SCHEMA public TO postgres;
@@ -867,6 +957,26 @@ GRANT ALL ON TABLE public.agent_audit_log TO service_role;
 GRANT SELECT ON TABLE public.billing_meters TO anon;
 GRANT SELECT ON TABLE public.billing_meters TO authenticated;
 GRANT ALL ON TABLE public.billing_meters TO service_role;
+
+GRANT SELECT ON TABLE public.billing_approval_policies TO anon;
+GRANT SELECT ON TABLE public.billing_approval_policies TO authenticated;
+GRANT ALL ON TABLE public.billing_approval_policies TO service_role;
+
+GRANT SELECT ON TABLE public.billing_approval_requests TO anon;
+GRANT SELECT ON TABLE public.billing_approval_requests TO authenticated;
+GRANT ALL ON TABLE public.billing_approval_requests TO service_role;
+
+GRANT SELECT ON TABLE public.billing_price_versions TO anon;
+GRANT SELECT ON TABLE public.billing_price_versions TO authenticated;
+GRANT ALL ON TABLE public.billing_price_versions TO service_role;
+
+GRANT SELECT ON TABLE public.compliance_evidence TO anon;
+GRANT SELECT ON TABLE public.compliance_evidence TO authenticated;
+GRANT ALL ON TABLE public.compliance_evidence TO service_role;
+
+GRANT SELECT ON TABLE public.compliance_reports TO anon;
+GRANT SELECT ON TABLE public.compliance_reports TO authenticated;
+GRANT ALL ON TABLE public.compliance_reports TO service_role;
 0+ tables, ~95+ functions, RLS policies, grants need migration.
 -- Sample migrated: prompt_versions, academy_progress, ab_tests, academy_certifications, agent_accuracy_metrics, agent_activities, agent_audit_log, billing_meters, audit_logs
 -- Sample functions: get_active_prompt_version, check_certification_eligibility, append_audit_log
@@ -882,15 +992,15 @@ COMMIT;
 --   into PHASE 4 in logical batches (no forward FKs to missing tables).
 -- - Move remaining function/trigger definitions into PHASE 7 after referenced
 --   tables exist.
--- - Move remaining RLS policies and GRANTS into PHASE 8/9 after constraints are in place.
--- - Remove duplicate or conflicting CREATE statements from the
---   original baseline once pieces are migrated here.
---
+-- - Move remain5 tables, ~88 functions, additional RLS policies, grants need migration.
+-- Migrated: 41+ tables including prompt_versions, academy system, agent system, billing (meters, customers, approval_policies, approval_requests, price_versions), compliance (evidence, reports), audit/security, backup logs, and more
+-- Functions migrated: get_active_prompt_version, check_certification_eligibility, append_audit_log
+-- RLS enabled on 18
 -- Original authoritative baseline for reference:
 -- /workspaces/ValueOS/infra/supabase/supabase/migrations/20260213000002_baseline_schema.sql
 --
 -- Progress: Core phases (1-3,5) + extensive domain objects migrated.
--- Remaining: ~100+ tables, ~90+ functions, additional RLS policies, grants need migration.
--- Migrated: 36+ tables including prompt_versions, academy system, agent system, billing (meters, customers), audit/security, backup logs, and more
+-- Remaining: ~97 tables, ~88 functions, additional RLS policies, grants need migration.
+-- Migrated: 39+ tables including prompt_versions, academy system, agent system, billing (meters, customers, approval_policies, approval_requests, price_versions), audit/security, backup logs, and more
 -- Functions migrated: get_active_prompt_version, check_certification_eligibility, append_audit_log
--- RLS enabled on 13+ tables, grants configured for all migrated tables
+-- RLS enabled on 16+ tables, grants configured for all migrated tables
