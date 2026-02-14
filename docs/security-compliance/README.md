@@ -16,6 +16,8 @@
 - [Production Contract](./production-contract.md)
 - [RBAC Role Taxonomy](./rbac-role-taxonomy.md)
 - [Security Overview](./security-overview.md)
+
+- [Security Policy and Vulnerability Disclosure](../../SECURITY.md)
 - [Subprocessor List](./subprocessor-list.md)
 
 ---
