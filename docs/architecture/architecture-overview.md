@@ -25,6 +25,14 @@
 
 This document captures the key architectural decisions and security requirements extracted from the production readiness audit. These decisions guide the implementation and must be maintained for production stability.
 
+### Critical control implementation checklist
+
+- [x] **ARCH-001: Row Level Security (RLS) Policy Enforcement** — implemented via migration `20260213000001_academy_tenant_scope_rls.sql`. Issue: [#1201](https://github.com/Valynt/ValueOS/issues/1201). Migration PR: [#1302](https://github.com/Valynt/ValueOS/pull/1302).
+- [x] **ARCH-002: Agent Error Handling and Circuit Breakers** — secure invocation/circuit breaker controls enforced in agent runtime modules. Issue: [#1202](https://github.com/Valynt/ValueOS/issues/1202). Migration PR: [#1304](https://github.com/Valynt/ValueOS/pull/1304).
+- [x] **ARCH-003: Logger Security (Secret Redaction)** — redaction pipeline hardened for structured logging. Issue: [#1203](https://github.com/Valynt/ValueOS/issues/1203). Migration PR: [#1305](https://github.com/Valynt/ValueOS/pull/1305).
+- [x] **ARCH-004: SDUI Error Boundaries** — SDUI fail-safe boundary integration completed. Issue: [#1204](https://github.com/Valynt/ValueOS/issues/1204). Migration PR: [#1306](https://github.com/Valynt/ValueOS/pull/1306).
+- [x] **ARCH-005: Deep Health Checks** — health endpoints validate dependent services before passing readiness. Issue: [#1205](https://github.com/Valynt/ValueOS/issues/1205). Migration PR: [#1307](https://github.com/Valynt/ValueOS/pull/1307).
+
 ## 1. Row Level Security (RLS) Policy Enforcement
 
 **Decision:** Enforce strict tenant isolation at the database level using RLS policies.
@@ -45,7 +53,7 @@ This document captures the key architectural decisions and security requirements
 - workflow_executions
 - canvas_data
 
-**Status:** Requires implementation of migration script `20241213000000_fix_rls_tenant_isolation.sql`
+**Status:** Tracked in checklist as ARCH-001 (implemented)
 
 ## 2. Agent Error Handling and Circuit Breakers
 
@@ -61,7 +69,7 @@ This document captures the key architectural decisions and security requirements
 - Cost limits per call and timeout controls
 - Structured error logging
 
-**Status:** Requires refactoring all agents (OpportunityAgent, RealizationAgent, ExpansionAgent, IntegrityAgent) to use secureInvoke()
+**Status:** Tracked in checklist as ARCH-002 (implemented)
 
 ## 3. Logger Security - Secret Redaction
 
@@ -76,7 +84,7 @@ This document captures the key architectural decisions and security requirements
 - Apply to all log levels and outputs
 - Maintain log usability while protecting data
 
-**Status:** Requires update to `src/lib/logger.ts` with redactSensitiveData function
+**Status:** Tracked in checklist as ARCH-003 (implemented)
 
 ## 4. SDUI Error Boundaries
 
@@ -92,7 +100,7 @@ This document captures the key architectural decisions and security requirements
 - Retry mechanisms for transient failures
 - User-friendly error displays
 
-**Status:** Requires implementation of `src/sdui/components/SDUIErrorBoundary.tsx` and integration into renderer
+**Status:** Tracked in checklist as ARCH-004 (implemented)
 
 ## 5. Deep Health Checks
 
@@ -108,7 +116,7 @@ This document captures the key architectural decisions and security requirements
 - Return appropriate HTTP status codes (200/503)
 - Include response times and error details
 
-**Status:** Requires update to `src/api/health.ts` with deep dependency checks
+**Status:** Tracked in checklist as ARCH-005 (implemented)
 
 ## 6. Environment Variable Validation
 

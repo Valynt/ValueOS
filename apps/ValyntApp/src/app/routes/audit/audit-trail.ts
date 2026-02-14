@@ -12,7 +12,7 @@
  */
 
 import { createHash, randomUUID } from 'crypto';
-import { logger } from "../lib/logger";
+import { logger } from "../../../lib/logger";
 
 // ============================================================================
 // AUDIT TYPES

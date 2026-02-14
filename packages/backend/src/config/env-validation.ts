@@ -106,6 +106,11 @@ const baseEnvSchema = z.object({
 
   // External Services
   TOGETHER_API_KEY: z.string().min(1).optional(),
+  TOGETHER_PRIMARY_MODEL_NAME: z.string().min(1).optional(),
+  TOGETHER_SECONDARY_MODEL_NAME: z.string().min(1).optional(),
+  LLM_FALLBACK_ENABLED: z.enum(["true", "false"]).transform(Boolean).default("true"),
+  LLM_FALLBACK_MAX_ATTEMPTS: z.string().transform(Number).pipe(z.number().nonnegative()).default("1"),
+  LLM_RETRY_BACKOFF_MS: z.string().transform(Number).pipe(z.number().nonnegative()).default("200"),
   SLACK_WEBHOOK_URL: z.string().url().optional(),
 
   // Development Configuration
@@ -240,6 +245,10 @@ export function validateEnvironment(
     // Generate warnings for non-critical issues
     if (nodeEnv === "production" && !validatedData.TOGETHER_API_KEY) {
       warnings.push("TOGETHER_API_KEY not set - AI features will be disabled");
+    }
+
+    if (nodeEnv === "production" && !validatedData.TOGETHER_PRIMARY_MODEL_NAME) {
+      warnings.push("TOGETHER_PRIMARY_MODEL_NAME not set - default model will be used");
     }
 
     if (nodeEnv === "production" && !validatedData.SLACK_WEBHOOK_URL) {

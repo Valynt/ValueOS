@@ -35,7 +35,13 @@ function getServerSupabase() {
   return serverSupabase;
 }
 
-function resolveActor(user?: any) {
+type AuthActor = {
+  id?: string;
+  email?: string;
+  user_metadata?: { full_name?: string; name?: string };
+};
+
+function resolveActor(user?: AuthActor) {
   return {
     id: user?.id,
     email: user?.email,

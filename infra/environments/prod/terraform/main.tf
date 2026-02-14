@@ -48,6 +48,44 @@ variable "redis_auth_token_secret_arn" {
   }
 }
 
+variable "jwt_secret_secret_arn" {
+  type        = string
+  description = "ARN or name of the Secrets Manager secret that stores the JWT signing secret."
+}
+
+variable "together_api_key_secret_arn" {
+  type        = string
+  description = "ARN or name of the Secrets Manager secret that stores the Together API key."
+}
+
+variable "supabase_anon_key_secret_arn" {
+  type        = string
+  description = "ARN or name of the Secrets Manager secret that stores the Supabase anon key."
+}
+
+variable "supabase_service_key_secret_arn" {
+  type        = string
+  description = "ARN or name of the Secrets Manager secret that stores the Supabase service role key."
+}
+
+variable "cdn_origin_verify_secret_arn" {
+  type        = string
+  description = "ARN or name of the Secrets Manager secret that stores the CloudFront to ALB origin verification header value."
+}
+
+variable "waf_emergency_bypass_cidrs" {
+  type        = list(string)
+  description = "Emergency-only CIDR list that can temporarily bypass WAF managed protections (kept empty during normal operations)."
+  default     = []
+}
+
+
+variable "admin_ssh_cidr" {
+  type        = string
+  description = "Trusted admin CIDR allowed to access bastion SSH."
+}
+
+
 # Provider Configuration
 provider "aws" {
   region = var.aws_region
@@ -71,6 +109,28 @@ data "aws_secretsmanager_secret_version" "redis_auth_token" {
   count     = var.redis_auth_token == null ? 1 : 0
   secret_id = var.redis_auth_token_secret_arn
 }
+
+data "aws_secretsmanager_secret_version" "jwt_secret" {
+  secret_id = var.jwt_secret_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "together_api_key" {
+  secret_id = var.together_api_key_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "supabase_anon_key" {
+  secret_id = var.supabase_anon_key_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "supabase_service_key" {
+  secret_id = var.supabase_service_key_secret_arn
+}
+
+data "aws_secretsmanager_secret_version" "cdn_origin_verify" {
+  secret_id = var.cdn_origin_verify_secret_arn
+}
+
+data "aws_caller_identity" "current" {}
 
 # Local Variables
 locals {
@@ -146,7 +206,7 @@ resource "aws_network_acl" "prod" {
     from_port  = 22
     to_port    = 22
     protocol   = "tcp"
-    cidr_block = "203.0.113.0/24"  # Replace with actual admin IPs
+    cidr_block = var.admin_ssh_cidr
   }
 
   # Allow HTTP/HTTPS
@@ -483,6 +543,11 @@ resource "aws_cloudfront_distribution" "prod" {
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
+
+    custom_header {
+      name  = "x-origin-verify"
+      value = data.aws_secretsmanager_secret_version.cdn_origin_verify.secret_string
+    }
   }
 
   enabled             = true
@@ -528,14 +593,26 @@ resource "aws_shield_protection" "prod" {
   resource_arn             = aws_lb.prod.arn
 }
 
-resource "aws_wafv2_ip_set" "prod" {
-  name               = "${local.name_prefix}-ip-set"
+# Emergency break-glass allowlist: keep empty in normal operation; during an incident add temporary office/VPN CIDRs and remove them immediately after mitigation.
+resource "aws_wafv2_ip_set" "emergency_bypass" {
+  name               = "${local.name_prefix}-waf-emergency-bypass"
   scope              = "REGIONAL"
   ip_address_version = "IPV4"
+  addresses          = var.waf_emergency_bypass_cidrs
 
-  addresses = ["192.0.2.0/24", "198.51.100.0/24"]  # Replace with actual malicious IPs
+  lifecycle {
+    precondition {
+      condition     = length(var.waf_emergency_bypass_cidrs) <= 5
+      error_message = "waf_emergency_bypass_cidrs is for short-lived incidents only; keep the list to five CIDRs or fewer."
+    }
+  }
 
-  tags = local.common_tags
+  tags = merge(
+    local.common_tags,
+    {
+      Purpose = "EmergencyBypass"
+    }
+  )
 }
 
 resource "aws_wafv2_web_acl" "prod" {
@@ -546,12 +623,12 @@ resource "aws_wafv2_web_acl" "prod" {
   }
 
   rules {
-    name     = "AllowKnownGoodIPs"
+    name     = "EmergencyBypassAllowlist"
     priority = 1
 
     statement {
       ip_set_reference_statement {
-        arn = aws_wafv2_ip_set.prod.arn
+        arn = aws_wafv2_ip_set.emergency_bypass.arn
       }
     }
 
@@ -560,9 +637,134 @@ resource "aws_wafv2_web_acl" "prod" {
     }
 
     visibility_config {
-      sampled_requests_enabled = false
+      sampled_requests_enabled   = false
       cloudwatch_metrics_enabled = true
-      metric_name = "AllowKnownGoodIPs"
+      metric_name                = "EmergencyBypassAllowlist"
+    }
+  }
+
+  rules {
+    name     = "RequireCloudFrontOriginVerificationHeader"
+    priority = 5
+
+    statement {
+      not_statement {
+        statement {
+          byte_match_statement {
+            search_string         = data.aws_secretsmanager_secret_version.cdn_origin_verify.secret_string
+            positional_constraint = "EXACTLY"
+
+            field_to_match {
+              single_header {
+                name = "x-origin-verify"
+              }
+            }
+
+            text_transformation {
+              priority = 0
+              type     = "NONE"
+            }
+          }
+        }
+      }
+    }
+
+    action {
+      block {}
+    }
+
+    visibility_config {
+      sampled_requests_enabled   = false
+      cloudwatch_metrics_enabled = true
+      metric_name                = "RequireCloudFrontOriginVerificationHeader"
+    }
+  }
+
+  rules {
+    name     = "AWSManagedRulesCommon"
+    priority = 20
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesCommonRuleSet"
+      }
+    }
+
+    override_action {
+      none {}
+    }
+
+    visibility_config {
+      sampled_requests_enabled   = false
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesCommon"
+    }
+  }
+
+  rules {
+    name     = "AWSManagedRulesKnownBadInputs"
+    priority = 30
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+      }
+    }
+
+    override_action {
+      none {}
+    }
+
+    visibility_config {
+      sampled_requests_enabled   = false
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesKnownBadInputs"
+    }
+  }
+
+  rules {
+    name     = "AWSManagedRulesAmazonIpReputation"
+    priority = 40
+
+    statement {
+      managed_rule_group_statement {
+        vendor_name = "AWS"
+        name        = "AWSManagedRulesAmazonIpReputationList"
+      }
+    }
+
+    override_action {
+      none {}
+    }
+
+    visibility_config {
+      sampled_requests_enabled   = false
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesAmazonIpReputation"
+    }
+  }
+
+  rules {
+    name     = "CloudFrontRateLimit"
+    priority = 50
+
+    statement {
+      rate_based_statement {
+        limit              = 10000
+        aggregate_key_type = "IP"
+      }
+    }
+
+    action {
+      block {}
+    }
+
+    visibility_config {
+      sampled_requests_enabled   = false
+      cloudwatch_metrics_enabled = true
+      metric_name                = "CloudFrontRateLimit"
     }
   }
 
@@ -619,7 +821,6 @@ resource "aws_secretsmanager_secret" "prod" {
   name                        = "${local.name_prefix}-secrets"
   description                = "Production environment secrets"
   kms_key_id                  = aws_kms_key.prod.arn
-  secret_binary               = base64encode("initial_secret_value")
   rotation_enabled            = true
   rotation_lambda_arn         = aws_lambda_function.secret_rotation.arn
   rotation_rules {
@@ -634,11 +835,11 @@ resource "aws_secretsmanager_secret_version" "prod" {
   
   secret_string = jsonencode({
     redis_endpoint    = aws_elasticache_replication_group.prod.primary_endpoint_address
-    jwt_secret        = "prod_jwt_secret_change_immediately"
-    together_api_key  = "prod_together_api_key"
+    jwt_secret        = data.aws_secretsmanager_secret_version.jwt_secret.secret_string
+    together_api_key  = data.aws_secretsmanager_secret_version.together_api_key.secret_string
     supabase_url      = "https://prod.supabase.co"
-    supabase_anon_key = "prod_supabase_anon_key"
-    supabase_service_key = "prod_supabase_service_key"
+    supabase_anon_key = data.aws_secretsmanager_secret_version.supabase_anon_key.secret_string
+    supabase_service_key = data.aws_secretsmanager_secret_version.supabase_service_key.secret_string
   })
 }
 

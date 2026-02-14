@@ -3,6 +3,8 @@ name: Deploy
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 9 * * 1'
   workflow_dispatch:
     inputs:
       environment:
@@ -26,9 +28,10 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  BACKEND_IMAGE_NAME: ${{ github.repository }}-backend
   NODE_VERSION: "20.19.0"
   PNPM_VERSION: "9.15.0"
+  SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
@@ -37,7 +40,7 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_tests }}
+    if: ${{ github.event_name != 'schedule' && !inputs.skip_tests }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,10 +64,10 @@ jobs:
   # 2. Build and push container images
   # ──────────────────────────────────────────────────────────────────────────
   build-images:
-    name: Build Images
+    name: Build Backend Runtime Image
     runs-on: ubuntu-latest
     needs: [quality-gate]
-    if: always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
+    if: github.event_name != 'schedule' && always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
       image_digest: ${{ steps.build.outputs.digest }}
@@ -83,18 +86,20 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
           tags: |
             type=sha,prefix=
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push frontend
+      - name: Build and push backend runtime image
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/ValyntApp/Dockerfile.prod
+          file: infra/docker/Dockerfile.backend
+          build-args: |
+            APP=@valueos/backend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -104,7 +109,7 @@ jobs:
       - name: Resolve immutable image reference
         id: image-ref
         run: |
-          IMAGE_REF="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
+          IMAGE_REF="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
           echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_ENV"
 
@@ -126,7 +131,7 @@ jobs:
       - name: Attest SLSA provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
@@ -156,6 +161,7 @@ jobs:
     name: Verify Supply Chain Artifacts
     runs-on: ubuntu-latest
     needs: [build-images]
+    if: github.event_name != 'schedule'
     steps:
       - name: Download SBOM and attestation artifacts
         uses: actions/download-artifact@v4
@@ -197,6 +203,7 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: [build-images, verify-supply-chain]
+    if: github.event_name != 'schedule'
     environment:
       name: staging
       url: https://staging.valueos.app
@@ -218,7 +225,7 @@ jobs:
 
           # Update image tag in staging overlay
           cd overlays/staging
-          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
           kustomize build . | kubectl apply -f -
 
           # Wait for rollout
@@ -248,14 +255,49 @@ jobs:
           VUS: "20"
           DURATION: "1m"
 
+
+  preprod-slo-guard:
+    name: Pre-Prod SLO Guard
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Check pre-production burn-rate alerts
+        env:
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_STAGING_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_STAGING_TOKEN }}
+          ALERT_NAME_REGEX: ${{ env.SLO_ALERT_NAME_REGEX }}
+        run: |
+          if [ -z "${ALERTMANAGER_URL}" ]; then
+            echo "ALERTMANAGER_STAGING_URL secret is required for SLO guard"
+            exit 1
+          fi
+
+          AUTH_HEADER=()
+          if [ -n "${ALERTMANAGER_TOKEN}" ]; then
+            AUTH_HEADER=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
+          fi
+
+          ALERTS_JSON=$(curl -fsSL "${AUTH_HEADER[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts")
+
+          ACTIVE_SLO_ALERTS=$(echo "$ALERTS_JSON" | jq --arg pattern "${ALERT_NAME_REGEX}" '[.[] | select(.status.state == "active" and (.labels.alertname | test($pattern)))] | length')
+
+          if [ "${ACTIVE_SLO_ALERTS}" -gt 0 ]; then
+            echo "Found ${ACTIVE_SLO_ALERTS} active SLO burn-rate alerts. Blocking production promotion."
+            echo "$ALERTS_JSON" | jq --arg pattern "${ALERT_NAME_REGEX}" '.[] | select(.status.state == "active" and (.labels.alertname | test($pattern))) | {alertname: .labels.alertname, severity: .labels.severity, summary: .annotations.summary}'
+            exit 1
+          fi
+
+          echo "No active SLO burn-rate alerts in pre-production."
+
   # ──────────────────────────────────────────────────────────────────────────
   # 4. Deploy to production (manual approval via environment protection)
   # ──────────────────────────────────────────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging, build-images, verify-supply-chain]
-    if: github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
+    needs: [deploy-staging, preprod-slo-guard, build-images, verify-supply-chain]
+    if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     environment:
       name: production
       url: https://app.valueos.app
@@ -277,7 +319,7 @@ jobs:
 
           # Deploy to green (inactive) slot
           cd overlays/production
-          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          kustomize edit set image "REGISTRY_URL/valynt-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${IMAGE_TAG}"
           kustomize build . | kubectl apply -f -
 
           # Wait for green rollout
@@ -303,6 +345,79 @@ jobs:
           done
           echo "Production health check failed — consider rollback"
           exit 1
+
+
+  weekly-reliability-report:
+    name: Weekly Reliability Report
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Generate weekly SLO and incident report
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_PRODUCTION_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}
+          ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_PRODUCTION_URL }}
+          ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_PRODUCTION_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROMETHEUS_URL}" ] || [ -z "${ALERTMANAGER_URL}" ]; then
+            echo "PROMETHEUS_PRODUCTION_URL and ALERTMANAGER_PRODUCTION_URL are required"
+            exit 1
+          fi
+
+          prom_query() {
+            local query="$1"
+            local auth_header=()
+            if [ -n "${PROMETHEUS_TOKEN:-}" ]; then
+              auth_header=(-H "Authorization: Bearer ${PROMETHEUS_TOKEN}")
+            fi
+            curl -fsSL "${auth_header[@]}" --get --data-urlencode "query=${query}" "${PROMETHEUS_URL%/}/api/v1/query"
+          }
+
+          auth_header=()
+          if [ -n "${ALERTMANAGER_TOKEN:-}" ]; then
+            auth_header=(-H "Authorization: Bearer ${ALERTMANAGER_TOKEN}")
+          fi
+
+          API_AVAIL=$(prom_query 'slo:api_availability:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          API_LATENCY=$(prom_query 'slo:api_latency:good_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          AUTH_SUCCESS=$(prom_query 'slo:auth_success:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+          QUEUE_HEALTH=$(prom_query 'slo:queue_health:ratio_rate1h' | jq -r '.data.result[0].value[1] // "n/a"')
+
+          ACTIVE_BURN_ALERTS=$(curl -fsSL "${auth_header[@]}" "${ALERTMANAGER_URL%/}/api/v2/alerts" | jq '[.[] | select(.status.state == "active" and (.labels.alertname | test("SLOBurnRateTooHigh")))] | length')
+
+          INCIDENTS_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+          INCIDENTS_PREV_7D=$(prom_query 'sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[14d])) - sum(increase(alertmanager_alerts_received_total{alertname=~".*SLOBurnRateTooHigh"}[7d]))' | jq -r '.data.result[0].value[1] // "0"')
+
+          REPORT_PATH="weekly-reliability-report.md"
+          RUN_DATE=$(date -u +%Y-%m-%d)
+
+          cat > "${REPORT_PATH}" <<REPORT
+          # Weekly Reliability Report (${RUN_DATE})
+
+          ## Current SLO Status (1h rolling)
+          - API Availability: ${API_AVAIL}
+          - API Latency (P95 <= 300ms good-event ratio): ${API_LATENCY}
+          - Authentication Success: ${AUTH_SUCCESS}
+          - Queue Health: ${QUEUE_HEALTH}
+
+          ## Burn-Rate Alert Status
+          - Active SLO burn-rate alerts: ${ACTIVE_BURN_ALERTS}
+
+          ## Incident Trend
+          - Incidents triggered in last 7d: ${INCIDENTS_7D}
+          - Incidents triggered in previous 7d: ${INCIDENTS_PREV_7D}
+
+          ## Notes
+          - Incident trend uses Alertmanager received alert counts for `*SLOBurnRateTooHigh` alerts.
+          REPORT
+
+      - name: Upload reliability report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-reliability-report-${{ github.run_id }}
+          path: weekly-reliability-report.md
 
   # ──────────────────────────────────────────────────────────────────────────
   # 5. Rollback (manual trigger)

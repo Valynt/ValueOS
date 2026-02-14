@@ -8,7 +8,12 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
+import { randomBytes } from 'crypto';
 import { getSecurityHeaders } from '../security/SecurityHeaders';
+
+const CSRF_COOKIE_NAME = 'csrf_token';
+const CSRF_HEADER_NAME = 'x-csrf-token';
+const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Apply strong security headers to responses.
@@ -42,12 +47,40 @@ function getCookie(req: Request, name: string): string | undefined {
  * Rejects requests without a valid X-CSRF-Token header matching the csrf_token cookie.
  */
 export function csrfProtectionMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const headerToken = req.header('x-csrf-token');
-  const cookieToken = getCookie(req, 'csrf_token');
+  if (SAFE_HTTP_METHODS.has(req.method.toUpperCase())) {
+    next();
+    return;
+  }
+
+  const headerToken = req.header(CSRF_HEADER_NAME);
+  const cookieToken = getCookie(req, CSRF_COOKIE_NAME);
 
   if (!headerToken || !cookieToken || headerToken !== cookieToken) {
     return res.status(403).json({ error: 'CSRF validation failed' });
   }
+
+  next();
+}
+
+/**
+ * Ensures a CSRF cookie is available for safe requests so clients can
+ * include the token in X-CSRF-Token on future state-changing calls.
+ */
+export function csrfTokenMiddleware(req: Request, res: Response, next: NextFunction): void {
+  if (!SAFE_HTTP_METHODS.has(req.method.toUpperCase())) {
+    next();
+    return;
+  }
+
+  const existingToken = getCookie(req, CSRF_COOKIE_NAME);
+  const token = existingToken || randomBytes(32).toString('hex');
+
+  res.cookie(CSRF_COOKIE_NAME, token, {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+  });
 
   next();
 }

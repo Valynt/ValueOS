@@ -48,6 +48,31 @@ function parseEnvFile(content) {
   return vars;
 }
 
+function redactSensitiveValue(key, value) {
+  if (!value) return value;
+  const sensitiveKey = /(password|secret|token|key|database_url|redis_url)/i.test(key);
+  if (!sensitiveKey) return value;
+
+  if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(value)) {
+    return `${value.slice(0, 8)}...${value.slice(-6)}`;
+  }
+
+  try {
+    const url = new URL(value);
+    if (url.password) url.password = '***';
+    if (url.username) url.username = '***';
+    return url.toString();
+  } catch {
+    // Fall through for non-URL secrets
+  }
+
+  if (value.length <= 10) {
+    return '***';
+  }
+
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
 /**
  * Check for required variables
  */
@@ -159,7 +184,7 @@ function checkLocalhostUrls(env) {
       
       if (!isLocalhost && env.NODE_ENV === 'development') {
         console.log(`⚠️  Non-localhost URL in development: ${key}`);
-        console.log(`   Value: ${env[key]}`);
+        console.log(`   Value: ${redactSensitiveValue(key, env[key])}`);
         allLocalhost = false;
       }
     }

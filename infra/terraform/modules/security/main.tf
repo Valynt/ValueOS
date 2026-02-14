@@ -4,6 +4,18 @@ variable "name_prefix" { type = string }
 variable "vpc_id" { type = string }
 variable "tags" { type = map(string) }
 
+variable "jwt_secret_string" {
+  description = "JWT secret payload JSON supplied from secure secret management"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_password_secret_string" {
+  description = "Database password payload JSON supplied from secure secret management"
+  type        = string
+  sensitive   = true
+}
+
 # --- ALB Security Group ---
 
 resource "aws_security_group" "alb" {
@@ -154,9 +166,7 @@ resource "aws_secretsmanager_secret" "jwt" {
 
 resource "aws_secretsmanager_secret_version" "jwt" {
   secret_id = aws_secretsmanager_secret.jwt.id
-  secret_string = jsonencode({
-    secret = "REPLACE_ME_ON_FIRST_DEPLOY"
-  })
+  secret_string = var.jwt_secret_string
 
   lifecycle {
     ignore_changes = [secret_string]
@@ -173,9 +183,7 @@ resource "aws_secretsmanager_secret" "db_password" {
 
 resource "aws_secretsmanager_secret_version" "db_password" {
   secret_id = aws_secretsmanager_secret.db_password.id
-  secret_string = jsonencode({
-    password = "REPLACE_ME_ON_FIRST_DEPLOY"
-  })
+  secret_string = var.db_password_secret_string
 
   lifecycle {
     ignore_changes = [secret_string]

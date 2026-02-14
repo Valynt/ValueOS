@@ -21,12 +21,14 @@ permissions:
   pull-requests: read
 
 jobs:
-  ci:
-    name: Build & Test
+  unit-tests:
+    name: Unit Tests & Coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -57,13 +59,26 @@ jobs:
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
+      - name: TS error package ratchet
+        run: node scripts/ci/ts-error-ratchet.mjs
+
       - name: Debt policy ratchet
         run: node scripts/debt/inventory.mjs
+
       - name: Enforce Valynt service freeze
         run: pnpm check:valynt-services-freeze
 
+      - name: Enforce frozen backend duplicate tree
+        run: pnpm check:frozen-backend-duplicate-tree
+        
+      - name: Guard browser provider secrets
+        run: pnpm check:browser-provider-secrets
+
       - name: Check service duplicate filenames
         run: pnpm check:service-duplicates
+
+      - name: Check module boundaries
+        run: pnpm check:module-boundaries
 
       - name: Lint
         run: npx turbo run lint
@@ -74,28 +89,132 @@ jobs:
       - name: Docs integrity
         run: node scripts/ci/docs-integrity.mjs
 
+      - name: Observability contract gate
+        run: node scripts/ci/check-observability-contract.mjs
+
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
+
+      - name: Env/port drift guard
+        run: node scripts/ci/check-env-port-drift.mjs
+
+      - name: Hardcoded port mismatch guard
+        run: node scripts/ci/check-hardcoded-port-mismatches.mjs
+
+      - name: Security anti-pattern guard
+        run: node scripts/ci/check-security-antipatterns.mjs
 
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
 
+      - name: Critical architecture migrations gate
+        run: node scripts/ci/verify-critical-architecture-migrations.mjs
+        
+      - name: Kubernetes secrets hygiene
+        run: node scripts/ci/check-k8s-secrets-hygiene.mjs
+
       - name: i18n key integrity
-        run: node scripts/ci/check-i18n-keys.mjs
+        run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
+
+      - name: Upload i18n coverage dashboard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-coverage-dashboard
+          path: artifacts/i18n/coverage-dashboard.json
+          retention-days: 30
 
       - name: Critical claims verification
         run: node scripts/ci/verify-critical-claims.mjs
 
+      - name: Versioned router compatibility tests
+        run: pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts apps/ValyntApp/src/backend/__tests__/versioning.contract.test.ts
+
+      - name: Multi-tenant chaos invariants
+        run: node --test tests/integration/multi-tenant-chaos-invariants.test.mjs
+
       - name: Build
         run: npx turbo run build
 
-      - name: Test
-        run: npx turbo run test
+      - name: Unit test suite with coverage thresholds
+        run: npx vitest run --coverage
 
-  rls-and-compliance:
-    name: RLS & Compliance Tests
+      - name: Upload unit coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-coverage-${{ github.run_id }}
+          path: |
+            coverage/unit/**
+            coverage/coverage-summary.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Download baseline coverage artifact
+        if: github.event_name == 'pull_request'
+        id: baseline-coverage
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: ci.yml
+          branch: ${{ github.base_ref }}
+          name: unit-coverage-*
+          name_is_regexp: true
+          search_artifacts: true
+          path: baseline-coverage
+
+      - name: Coverage trend summary
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const currentPath = 'coverage/unit/coverage-summary.json';
+          if (!fs.existsSync(currentPath)) {
+            console.log('No coverage summary found for current run.');
+            process.exit(0);
+          }
+
+          const readSummary = (path) => JSON.parse(fs.readFileSync(path, 'utf8')).total;
+          const current = readSummary(currentPath);
+          const baselineCandidates = [
+            'baseline-coverage/coverage/unit/coverage-summary.json',
+            'baseline-coverage/coverage/coverage-summary.json',
+          ];
+          const baselinePath = baselineCandidates.find((p) => fs.existsSync(p));
+
+          const metric = (name, value, baseline) => {
+            const delta = baseline == null ? 'n/a' : `${(value - baseline).toFixed(2)}%`;
+            return `| ${name} | ${value.toFixed(2)}% | ${baseline == null ? 'n/a' : `${baseline.toFixed(2)}%`} | ${delta} |`;
+          };
+
+          const lines = [
+            '## Coverage trend',
+            '',
+            '| Metric | Current | Baseline | Delta |',
+            '| --- | ---: | ---: | ---: |',
+          ];
+
+          if (!baselinePath) {
+            lines.push(metric('Lines', current.lines.pct, null));
+            lines.push(metric('Statements', current.statements.pct, null));
+            lines.push(metric('Functions', current.functions.pct, null));
+            lines.push(metric('Branches', current.branches.pct, null));
+            lines.push('', 'Baseline artifact not found for this PR base branch.');
+          } else {
+            const baseline = readSummary(baselinePath);
+            lines.push(metric('Lines', current.lines.pct, baseline.lines.pct));
+            lines.push(metric('Statements', current.statements.pct, baseline.statements.pct));
+            lines.push(metric('Functions', current.functions.pct, baseline.functions.pct));
+            lines.push(metric('Branches', current.branches.pct, baseline.branches.pct));
+          }
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          NODE
+
+  integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -114,18 +233,131 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Run integration suite
+        run: npx vitest run "tests/integration/**/*.test.ts" "**/*.integration.{test,spec}.{js,ts,jsx,tsx}" --reporter=verbose
+
+  rls-and-compliance:
+    name: Compliance Core Suites (required)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare compliance report directories
+        run: |
+          mkdir -p reports/compliance/rls
+          mkdir -p reports/compliance/dsr
+          mkdir -p reports/compliance/audit
+          mkdir -p reports/compliance/metadata
+
       - name: Run RLS tenant isolation tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=verbose
+        run: |
+          npx vitest run tests/security/rls-tenant-isolation.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/compliance/rls/vitest-rls.junit.xml \
+            --outputFile.json=reports/compliance/rls/vitest-rls.json
 
       - name: Run DSR compliance tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=verbose
+        run: |
+          npx vitest run tests/compliance/dsr-workflow.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/compliance/dsr/vitest-dsr.junit.xml \
+            --outputFile.json=reports/compliance/dsr/vitest-dsr.json
+
+      - name: Run audit immutability compliance tests
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          npx vitest run tests/compliance/audit/audit-log-immutability.test.ts \
+            --reporter=verbose \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit=reports/compliance/audit/vitest-audit-immutability.junit.xml \
+            --outputFile.json=reports/compliance/audit/vitest-audit-immutability.json
+
+      - name: Record workflow run metadata
+        run: |
+          cat > reports/compliance/metadata/workflow-run.json <<JSON
+          {
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "ref": "${{ github.ref }}"
+          }
+          JSON
+
+      - name: Build checksum ledger
+        run: |
+          find reports/compliance -type f -print0 | sort -z | xargs -0 sha256sum > reports/compliance/SHA256SUMS
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign checksum ledger (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign-blob \
+            --yes \
+            --output-certificate reports/compliance/SHA256SUMS.pem \
+            --output-signature reports/compliance/SHA256SUMS.sig \
+            reports/compliance/SHA256SUMS
+
+      - name: Upload compliance evidence artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-evidence-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: reports/compliance
+          retention-days: 90
+
+  ci-required-checks:
+    name: CI Required Checks
+    runs-on: ubuntu-latest
+    needs:
+      - unit-tests
+      - integration-tests
+      - rls-and-compliance
+    if: always()
+    steps:
+      - name: Enforce required unit/integration/compliance checks
+        run: |
+          for status in "${{ needs.unit-tests.result }}" "${{ needs.integration-tests.result }}" "${{ needs.rls-and-compliance.result }}"; do
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "A required CI suite failed or was cancelled."
+              exit 1
+            fi
+          done
 
   sast:
     name: SAST (Semgrep)
@@ -167,6 +399,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Fail on IaC placeholders
+        run: |
+          patterns=(
+            "change_immediately"
+            "prod_[A-Za-z0-9_]*_key"
+            "192\.0\.2\.0/24"
+            "198\.51\.100\.0/24"
+            "203\.0\.113\.0/24"
+          )
+
+          for pattern in "${patterns[@]}"; do
+            if rg -n --glob '*.tf' --pcre2 "$pattern" infra/environments/prod/terraform; then
+              echo "❌ Found disallowed placeholder pattern: $pattern"
+              exit 1
+            fi
+          done
+
+          echo "✅ No placeholder markers found in production Terraform IaC files."
+
+
       - name: Detect IaC files
         id: detect
         run: |
@@ -183,10 +435,35 @@ jobs:
           directory: infra
           quiet: true
           soft_fail: false
+          external_checks_dir: .checkov/custom_policies
 
       - name: No IaC files present
         if: steps.detect.outputs.has_infra != 'true'
         run: echo "No files found under infra/, skipping IaC scan."
+
+  ts-any-package-ratchet:
+    name: TS Any Package Ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce TS any global and per-package ratchet
+        run: bash scripts/ts-any-ratchet.sh
 
   codeql:
     name: CodeQL Analysis
@@ -302,6 +579,7 @@ jobs:
       - iac
       - sbom
       - image-signature-verify
+      - rls-and-compliance
     if: always()
     steps:
       - name: Fail if any security job failed
@@ -326,3 +604,39 @@ jobs:
             exit 1
           fi
           echo "No blocking P0/P1 labels found."
+
+
+  i18n-release-gate:
+    name: Release i18n Completeness Gate
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce release translation completeness
+        env:
+          I18N_MIN_COVERAGE_PERCENT: 98
+        run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/release-coverage-dashboard.json
+
+      - name: Upload release i18n dashboard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-release-coverage-dashboard
+          path: artifacts/i18n/release-coverage-dashboard.json
+          retention-days: 90

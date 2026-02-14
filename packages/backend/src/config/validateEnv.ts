@@ -29,6 +29,11 @@ const RECOMMENDED_VARS = [
 const SECURE_NODE_ENVS = new Set(["staging", "production"]);
 const STRICT_POSTGRES_SSL_MODES = new Set(["require", "verify-ca", "verify-full"]);
 
+const DEPRECATED_ALIASES = [
+  { deprecated: "SUPABASE_SERVICE_KEY", canonical: "SUPABASE_SERVICE_ROLE_KEY" },
+];
+
+
 function parseUrl(raw: string): URL | null {
   try {
     return new URL(raw);
@@ -90,6 +95,12 @@ export function validateEnv(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  for (const { deprecated, canonical } of DEPRECATED_ALIASES) {
+    if (process.env[deprecated]) {
+      errors.push(`Deprecated ${deprecated} is set. Use ${canonical} instead.`);
+    }
+  }
+
   // Check required variables
   for (const { name, fix } of REQUIRED_VARS) {
     if (!process.env[name]) {
@@ -102,6 +113,12 @@ export function validateEnv(): ValidationResult {
     if (!process.env[name]) {
       warnings.push(`Missing ${name}. ${fix}`);
     }
+  }
+
+  // Production: require Together API key to prevent misconfiguration
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  if (nodeEnv === "production" && !process.env.TOGETHER_API_KEY) {
+    errors.push("TOGETHER_API_KEY is required in production");
   }
 
   // Validate DATABASE_URL format if present

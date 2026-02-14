@@ -202,3 +202,20 @@ Apps should map their local semantic tokens to these canonical values instead of
 If you need new semantic colors, add them to the canonical palette first and then map downstream tokens to those names.
 
 ---
+
+## UX Quality Scorecard
+
+Track quality weekly and review at release readiness.
+
+| Metric | Definition | Target | Regression Threshold | Source |
+|---|---|---:|---:|---|
+| a11y pass rate | % of accessibility tests passing across audited routes | ≥ 98% | Drop > 2 points vs baseline | `tests/accessibility` + CI trend gate |
+| keyboard coverage | % of audited routes passing keyboard navigation checks | 100% | Drop > 5 points vs baseline | `tests/accessibility/axe-a11y.spec.ts` |
+| contrast regressions | Count of new serious/critical contrast-related violations | 0 | Any increase > 0 | axe run annotations + trend artifact |
+| localization completeness | % translated keys per supported locale vs source (`en`) | ≥ 90% (dev), ≥ 98% (release) | Any locale below threshold | `scripts/ci/check-i18n-keys.mjs` dashboard |
+
+### Operational cadence
+
+1. CI publishes scorecard artifacts (`accessibility-trend`, `i18n-coverage-dashboard`).
+2. Release pipeline enforces stricter localization threshold.
+3. Any metric crossing regression thresholds blocks merge/release until resolved.

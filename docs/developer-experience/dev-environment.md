@@ -76,7 +76,7 @@ Invariants
 - Services must start in a predictable order or expose readiness checks.
 
 Health signals
-- `docker compose ps` shows services healthy/running.
+- `pnpm run dx:doctor` reports services healthy/running.
 - App can connect to dependencies via service DNS names on the Compose network.
 - No recurring crash loops; logs stable after warm-up.
 
@@ -244,7 +244,7 @@ Commands
 
 ### Step 2: Bring up services
 - `pnpm dx:up`
-- or `COMPOSE_PROFILES=devcontainer docker compose -f compose.yml -f compose.devcontainer.override.yml up -d`
+- or `pnpm run dx up --mode docker`
 
 ### Step 3: Apply migrations
 - `pnpm dx db:migrate` (or equivalent)
@@ -309,7 +309,7 @@ Compose image pull instead of build
 | Service             | Port  | Env Var                |
 | :------------------ | :---- | :--------------------- |
 | **Frontend**        | 5173  | `VITE_PORT`            |
-| **Backend**         | 3001  | `API_PORT`             |
+| **Backend**         | 8000  | `API_PORT`             |
 | **Postgres (Deps)** | 5432  | `POSTGRES_PORT`        |
 | **Redis**           | 6379  | `REDIS_PORT`           |
 | **Supabase API**    | 54321 | `SUPABASE_API_PORT`    |
@@ -603,7 +603,7 @@ No README archaeology, no "run this script first", no hidden infra assumptions, 
 
 A valid environment satisfies:
 
-- [ ] `docker compose ps` shows app + supabase + redis
+- [ ] `pnpm run dx:doctor` shows app + supabase + redis
 - [ ] App can authenticate locally
 - [ ] Supabase DB persists across restarts
 - [ ] Rebuild does not reinstall deps unless marker removed
@@ -653,7 +653,7 @@ ValueOS development is designed to be "Beyond Graceful Degradation." We prioriti
 To ensure a reproducible environment, the following contracts must never be violated:
 
 - **Demo User:** `admin@valueos.com` / `ValueOS2026!` (Fixed UUID, Role: `admin`).
-- **Port Source of Truth:** `config/ports.json` (Frontend: 5173, Backend: 3001, Supabase API: 54321).
+- **Port Source of Truth:** `config/ports.json` (Frontend: 5173, Backend: 8000, Supabase API: 54321).
 - **Database Reset:** `pnpm run db:reset` must be idempotent and produce an identical schema every time.
 - **Migrations:** Append-only, 14-digit timestamp naming, and lexical execution order.
 
@@ -668,7 +668,7 @@ The `pnpm run dx` command automates the entire development stack:
 3.  **Dependency Startup:** Launches Postgres (5432) and Redis (6379) via Docker.
 4.  **Supabase Lifecycle:** Starts Supabase CLI; falls back to `valueos-postgres` if the CLI fails.
 5.  **Schema Sync:** Applies migrations and regenerates TypeScript types.
-6.  **Service Boot:** Starts Backend (3001) and Frontend (5173).
+6.  **Service Boot:** Starts Backend (8000) and Frontend (5173).
 
 ---
 
@@ -807,7 +807,7 @@ The `pnpm run dx` command is the primary entry point for development.
     - If `DX_SKIP_SUPABASE=1` or startup fails, falls back to the `valueos-postgres` container.
 5.  **Migrations**: Applies schema changes via `supabase db push`.
 6.  **Types**: Regenerates TypeScript types from the active database.
-7.  **Services**: Boots the Backend (3001) and Frontend (5173).
+7.  **Services**: Boots the Backend (8000) and Frontend (5173).
 
 ## 2. Reproducible Setup
 
@@ -837,7 +837,7 @@ pnpm run dx
 ## 4. Access Points
 
 - **Frontend**: `http://localhost:5173`
-- **Backend API**: `http://localhost:3001`
+- **Backend API**: `http://localhost:8000`
 - **Supabase Studio**: `http://localhost:54323`
 - **Grafana (Traces/Logs/Metrics)**: `http://localhost:3000`
 

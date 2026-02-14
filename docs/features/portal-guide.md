@@ -3375,3 +3375,21 @@ The API uses configuration from `/docs/portal/.docsconfig.json`:
 **Questions?** The API is ready to use with the existing backend server. Just start the server and the endpoints will be available at `/api/docs`.
 
 ---
+
+## Onboarding usability checkpoints
+
+Use these checkpoints for new-tenant onboarding and documentation portal first-run flows.
+
+| Checkpoint | Success metric | Error metric | Exit criteria |
+|---|---|---|---|
+| Workspace creation | ≥ 95% of users complete workspace setup in ≤ 5 minutes | < 3% API validation failures during setup | Release blocked if success < 90% for 2 consecutive weeks |
+| First documentation search | ≥ 90% find target article in ≤ 90 seconds | < 5% zero-result searches in onboarding sessions | Add taxonomy/content fixes when zero-result rate exceeds threshold |
+| First agent-guided action | ≥ 85% complete guided action without support handoff | < 8% task abandonment before final confirmation | Flow requires UX review if abandonment > 10% |
+| Role invite and permission assignment | ≥ 92% complete invite flow on first attempt | < 4% permission errors requiring retry | Block rollout if permission error rate > 6% |
+
+### Instrumentation checklist
+
+- Emit `onboarding_started`, `onboarding_step_completed`, and `onboarding_failed` events with user role and tenant tier.
+- Track median completion time and p95 completion time per checkpoint.
+- Record error taxonomy (validation, auth, permission, navigation) for weekly usability review.
+- Include checkpoint scorecard in release readiness sign-off.

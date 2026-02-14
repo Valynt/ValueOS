@@ -66,20 +66,11 @@ class WebhookService {
       throw new Error('Supabase billing not configured');
     }
 
-    // Check if event already processed (idempotency)
-    const { data: existing } = await supabase
-      .from('webhook_events')
-      .select('id')
-      .eq('stripe_event_id', event.id)
-      .single();
-
-    if (existing) {
-      logger.info('Event already processed', { eventId: event.id });
+    const inserted = await this.storeWebhookEvent(event);
+    if (!inserted) {
+      logger.info('Event is an idempotent replay, skipping side effects', { eventId: event.id });
       return;
     }
-
-    // Store event
-    await this.storeWebhookEvent(event);
 
     logger.info('Processing webhook event', { 
       eventId: event.id, 
@@ -138,18 +129,43 @@ class WebhookService {
   /**
    * Store webhook event
    */
-  private async storeWebhookEvent(event: any): Promise<void> {
-    const { error } = await supabase
+  private async storeWebhookEvent(event: any): Promise<boolean> {
+    const { count, error } = await supabase
       .from('webhook_events')
-      .insert({
-        stripe_event_id: event.id,
-        event_type: event.type,
-        payload: event,
-        processed: false,
-        received_at: new Date().toISOString(),
-      });
+      .insert(
+        {
+          stripe_event_id: event.id,
+          event_type: event.type,
+          payload: event,
+          processed: false,
+          received_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'stripe_event_id',
+          ignoreDuplicates: true,
+          count: 'exact',
+        }
+      );
 
-    if (error) throw error;
+    if (error) {
+      if ((error as any).code === '23505') {
+        logger.info('Duplicate webhook event insert conflict; treating as idempotent replay', {
+          eventId: event.id,
+        });
+        return false;
+      }
+
+      throw error;
+    }
+
+    if (!count) {
+      logger.info('Duplicate webhook event insert no-op; treating as idempotent replay', {
+        eventId: event.id,
+      });
+      return false;
+    }
+
+    return true;
   }
 
   /**

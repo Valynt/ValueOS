@@ -1,12 +1,10 @@
 #!/bin/bash
 set -e
 
-GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}⚠️  scripts/bin/dev-up is deprecated.${NC}"
-echo -e "${YELLOW}➡️  Use the DX entry point instead: pnpm run dx:up${NC}"
+echo -e "${YELLOW}⚠️  scripts/bin/dev-up is deprecated and will be removed in a future release.${NC}"
+echo -e "${YELLOW}➡️  Use DX commands instead (example: pnpm run dx:up). Delegating to pnpm run dx:up...${NC}"
 
-echo -e "${GREEN}🚀 Launching DX...${NC}"
 exec pnpm run dx:up "$@"

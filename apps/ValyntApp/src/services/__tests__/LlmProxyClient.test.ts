@@ -42,6 +42,8 @@ vi.mock('../../utils/security', () => ({
 }));
 
 import { llmProxyClient } from '../LlmProxyClient';
+import { llmSanitizer } from '../LLMSanitizer';
+import { securityLogger } from '../SecurityLogger';
 
 describe('LlmProxyClient input guardrails', () => {
   beforeEach(() => {
@@ -105,5 +107,124 @@ describe('LlmProxyClient input guardrails', () => {
     });
 
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('LlmProxyClient response sanitization parity', () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    vi.mocked(llmSanitizer.sanitizeResponse).mockClear();
+    vi.mocked(securityLogger.log).mockClear();
+    process.env.NODE_ENV = 'development';
+  });
+
+  it('sanitizes script-bearing outputs identically for complete and completeWithTools', async () => {
+    vi.mocked(llmSanitizer.sanitizeResponse).mockImplementation((content: string) => ({
+      content: content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '[removed]'),
+      violations: ['script-tag'],
+      wasModified: true,
+    }));
+
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        content: 'Hello <script>alert(1)</script> world',
+        provider: 'provider-a',
+        tokens_used: 10,
+        latency_ms: 20,
+        model: 'model-a',
+      },
+      error: null,
+    });
+
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        content: 'Hello <script>alert(1)</script> world',
+        provider: 'provider-a',
+        tokens_used: 11,
+        latency_ms: 21,
+        model: 'model-a',
+      },
+      error: null,
+    });
+
+    const completeResponse = await llmProxyClient.complete({
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    const toolResponse = await llmProxyClient.completeWithTools({
+      messages: [{ role: 'user', content: 'Hi with tools' }],
+      tools: [{ type: 'function', function: { name: 'lookupAlert', parameters: {} } }],
+    });
+
+    expect(completeResponse.content).toBe('Hello [removed] world');
+    expect(toolResponse.content).toBe('Hello [removed] world');
+    expect(vi.mocked(llmSanitizer.sanitizeResponse)).toHaveBeenNthCalledWith(
+      1,
+      'Hello <script>alert(1)</script> world',
+      { allowHtml: false }
+    );
+    expect(vi.mocked(llmSanitizer.sanitizeResponse)).toHaveBeenNthCalledWith(
+      2,
+      'Hello <script>alert(1)</script> world',
+      { allowHtml: false }
+    );
+    expect(vi.mocked(securityLogger.log)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'llm',
+        action: 'response-sanitized',
+        severity: 'warn',
+        metadata: expect.objectContaining({
+          violations: ['script-tag'],
+          truncated: false,
+        }),
+      })
+    );
+  });
+
+  it('applies the same 4000-character output bound in complete and completeWithTools', async () => {
+    const oversized = 'x'.repeat(5000);
+
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        content: oversized,
+        provider: 'provider-b',
+        tokens_used: 10,
+        latency_ms: 20,
+        model: 'model-b',
+      },
+      error: null,
+    });
+
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        content: oversized,
+        provider: 'provider-b',
+        tokens_used: 10,
+        latency_ms: 20,
+        model: 'model-b',
+      },
+      error: null,
+    });
+
+    const completeResponse = await llmProxyClient.complete({
+      messages: [{ role: 'user', content: 'bound check' }],
+    });
+
+    const toolResponse = await llmProxyClient.completeWithTools({
+      messages: [{ role: 'user', content: 'bound check with tools' }],
+      tools: [{ type: 'function', function: { name: 'lookupAlert', parameters: {} } }],
+    });
+
+    expect(completeResponse.content).toHaveLength(4000);
+    expect(toolResponse.content).toHaveLength(4000);
+    expect(vi.mocked(securityLogger.log)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'llm',
+        action: 'response-sanitized',
+        metadata: expect.objectContaining({
+          truncated: true,
+        }),
+      })
+    );
   });
 });
