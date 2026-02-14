@@ -1,0 +1,29 @@
+# One-off utilities profile.
+# Usage: docker compose -f ops/compose/compose.yml -f ops/compose/profiles/tools.yml --profile tools run --rm <service>
+
+services:
+  build-validator:
+    image: node:20.19.0-alpine
+    profiles: ["tools"]
+    working_dir: /workspace
+    command: ["sh", "-lc", "pnpm run build:validate"]
+    volumes:
+      - ../../:/workspace
+    networks:
+      - valueos-network
+
+  redis-cli:
+    image: redis:7-alpine
+    profiles: ["tools"]
+    command: ["sh", "-lc", "redis-cli -h redis -a ${REDIS_PASSWORD:-dev_password}"]
+    stdin_open: true
+    tty: true
+    depends_on:
+      - redis
+    networks:
+      - valueos-network
+
+networks:
+  valueos-network:
+    external: true
+    name: valueos-network

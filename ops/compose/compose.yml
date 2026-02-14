@@ -1,97 +1,101 @@
-# Canonical compose file for ValueOS core infrastructure.
-# Application services (frontend, backend) run on the host via pnpm.
-# Optional stacks live in ops/compose/profiles/.
+# Canonical ValueOS compose entrypoint.
+# Optional stacks are split into profiles under ops/compose/profiles/*.yml.
 
 x-common: &common
   restart: unless-stopped
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "10m"
-      max-file: "3"
+  networks:
+    - valueos-network
 
 services:
-  # --- Core Infrastructure ---
+  backend:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
+        PNPM_VERSION: ${PNPM_VERSION:-9.15.0}
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PORT: ${API_PORT:-3001}
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-dev_password}@redis:6379}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-valueos_dev}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-dev_password}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-valueos_dev}?sslmode=disable}
+      DB_URL: ${DB_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-dev_password}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-valueos_dev}?sslmode=disable}
+      SUPABASE_URL: ${SUPABASE_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+    env_file:
+      - ../../ops/env/.env.ports
+      - ../../ops/env/.env.local
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20.19.0}
+        PNPM_VERSION: ${PNPM_VERSION:-9.15.0}
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:${API_PORT:-3001}}
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+    env_file:
+      - ../../ops/env/.env.ports
+      - ../../ops/env/.env.local
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_started
 
   postgres:
     <<: *common
     image: postgres:15-alpine
-    container_name: valueos-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+      POSTGRES_DB: ${DB_NAME:-valueos_dev}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 2G
-        reservations:
-          memory: 512M
 
   redis:
     <<: *common
     image: redis:7-alpine
-    container_name: valueos-redis
-    command: >-
-      redis-server
-      --appendonly yes
-      --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-dev_password}"]
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-dev_password}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 1G
-        reservations:
-          memory: 256M
 
-  nats:
-    <<: *common
-    image: nats:2-alpine
-    container_name: valueos-nats
-    command: -DV -m 8222
-    ports:
-      - "${NATS_CLIENT_PORT:-4222}:4222"
-      - "${NATS_MONITOR_PORT:-8222}:8222"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.3"
-          memory: 256M
-        reservations:
-          memory: 64M
+networks:
+  valueos-network:
+    name: valueos-network
+    driver: bridge
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
