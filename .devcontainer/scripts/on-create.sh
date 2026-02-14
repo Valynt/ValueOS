@@ -12,8 +12,25 @@ echo "🔧 Running on-create setup..."
 # =============================================================================
 
 # Load environment variables
+# Ports come from root .env.ports. Secrets belong in .env.local only.
+if [ -f .env.ports ]; then
+    echo "📋 Loading port configuration from .env.ports..."
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.ports | xargs)
+elif [ -f .env.ports.example ]; then
+    echo "📋 Loading fallback port configuration from .env.ports.example..."
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.ports.example | xargs)
+fi
+
+if [ -f .env.local ]; then
+    echo "🔐 Loading local secrets from .env.local..."
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.local | xargs)
+fi
+
 if [ -f .devcontainer/.env ]; then
-    echo "📋 Loading environment variables..."
+    echo "📋 Loading devcontainer overrides from .devcontainer/.env..."
     # shellcheck disable=SC2046
     export $(grep -v '^#' .devcontainer/.env | xargs)
 elif [ -f .devcontainer/.env.template ] && [ ! -f .devcontainer/.env ]; then
@@ -76,7 +93,7 @@ echo "🗄️  Waiting for database to be ready..."
 # Wait for PostgreSQL to be ready
 max_attempts=30
 attempt=0
-until PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-54323}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT 1" > /dev/null 2>&1; do
+until PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT 1" > /dev/null 2>&1; do
     attempt=$((attempt + 1))
     if [ $attempt -ge $max_attempts ]; then
         echo "❌ Database failed to start after $max_attempts attempts"
