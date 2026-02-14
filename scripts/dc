@@ -24,12 +24,52 @@ DOCKER_BIN="$(command -v docker 2>/dev/null || true)"
   exit 127
 }
 
+show_usage() {
+  cat <<'EOF'
+Usage: dc [docker compose args]
+
+Wrapper around `docker compose` using:
+  --project-name valueos
+  --project-directory <repo-root>
+  -f ops/compose/compose.yml
+
+Env files:
+  * ops/env/.env.local      (optional app-level env vars)
+  * ops/env/.env.ports      (preferred deterministic port bindings)
+  * .env.ports              (legacy fallback)
+  * ops/env/.env.ports.example (final fallback)
+
+Profiles:
+  * You may pass `--profile <name>` directly; those flags are forwarded unchanged.
+  * If you do NOT pass a profile on the CLI and VALUEOS_PROFILES is set,
+    its comma-separated values are forwarded as `--profile` flags.
+
+Compose overlays:
+  * If VALUEOS_PROFILES contains "supabase", the supabase overlay compose file is added:
+      ops/compose/profiles/supabase.yml
+  * If VALUEOS_PROFILES contains "observability", the observability overlay compose file is added:
+      ops/compose/profiles/observability.yml
+
+Examples:
+  dc up -d
+  VALUEOS_PROFILES=observability dc up -d
+  dc --profile validate up -d
+  VALUEOS_PROFILES=supabase,observability dc up -d
+EOF
+}
+
+if [[ "${1:-}" == "help" || "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  show_usage
+  exit 0
+fi
+
 compose_args=(
   --project-name valueos
   --project-directory "${ROOT}"
   -f "${COMPOSE_FILE}"
 )
 
+# Add optional overlay compose files based on VALUEOS_PROFILES.
 if [[ ",${VALUEOS_PROFILES:-}," == *",supabase,"* ]]; then
   compose_args+=( -f "${SUPABASE_PROFILE_COMPOSE_FILE}" )
 fi
@@ -38,6 +78,7 @@ if [[ ",${VALUEOS_PROFILES:-}," == *",observability,"* ]]; then
   compose_args+=( -f "${OBSERVABILITY_PROFILE_COMPOSE_FILE}" )
 fi
 
+# If the caller explicitly sets a profile flag, don't auto-add profiles.
 has_profile_arg=false
 for arg in "$@"; do
   if [[ "${arg}" == "--profile" || "${arg}" == --profile=* ]]; then
@@ -50,15 +91,10 @@ if [[ "${has_profile_arg}" == "false" ]]; then
   profiles=()
   if [[ -n "${VALUEOS_PROFILES:-}" ]]; then
     IFS=',' read -r -a profiles <<< "${VALUEOS_PROFILES}"
-  elif [[ -n "${DEVCONTAINER:-}" || -n "${REMOTE_CONTAINERS:-}" || -n "${CODESPACES:-}" ]]; then
-    profiles=("devcontainer")
-  elif [[ -f "/.dockerenv" && -d "${ROOT}/.devcontainer" ]]; then
-    profiles=("devcontainer")
-  else
-    profiles=("dev")
   fi
 
   for profile in "${profiles[@]}"; do
+    profile="$(echo "${profile}" | xargs)"
     if [[ -n "${profile}" ]]; then
       compose_args+=(--profile "${profile}")
     fi
@@ -80,3 +116,4 @@ elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
+
