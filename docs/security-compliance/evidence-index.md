@@ -44,3 +44,16 @@ Output path:
 - `compliance/evidence-packs/<year>-Q<quarter>/evidence-pack-<timestamp>/`
 
 This export includes a manifest and hash ledger for SOC2/GDPR review packets.
+
+## Governance artifacts (manual/operational)
+
+The following non-CI artifacts are required for governance traceability:
+
+- Vendor annual risk review evidence files (one per in-scope vendor per year).
+- Vendor remediation tracker with action IDs, owners, due dates, and closure evidence.
+- Quarterly risk review summary linked to incident and compliance outputs.
+
+Reference workflows:
+
+- [Vendor Risk Review Workflow](./vendor-risk-review-workflow.md)
+- [Risk Register Process](../processes/risk-register-process.md)
