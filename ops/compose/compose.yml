@@ -1,5 +1,4 @@
-# Canonical compose file for ValueOS core infrastructure.
-# Application services (frontend, backend) run on the host via pnpm.
+# Canonical compose file for ValueOS core services.
 # Optional stacks live in ops/compose/profiles/.
 
 x-common: &common
@@ -11,7 +10,39 @@ x-common: &common
       max-file: "3"
 
 services:
-  # --- Core Infrastructure ---
+  backend:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+    container_name: valueos-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${API_CONTAINER_PORT:-3001}
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}@redis:6379
+    ports:
+      - "${API_PORT:-3001}:${API_CONTAINER_PORT:-3001}"
+
+  frontend:
+    <<: *common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      target: development
+    container_name: valueos-frontend
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${WEB_CONTAINER_PORT:-5173}
+    ports:
+      - "${WEB_PORT:-5173}:${WEB_CONTAINER_PORT:-5173}"
 
   postgres:
     <<: *common
@@ -32,13 +63,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 2G
-        reservations:
-          memory: 512M
 
   redis:
     <<: *common
@@ -60,38 +84,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 1G
-        reservations:
-          memory: 256M
-
-  nats:
-    <<: *common
-    image: nats:2-alpine
-    container_name: valueos-nats
-    command: -DV -m 8222
-    ports:
-      - "${NATS_CLIENT_PORT:-4222}:4222"
-      - "${NATS_MONITOR_PORT:-8222}:8222"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.3"
-          memory: 256M
-        reservations:
-          memory: 64M
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
+
+networks:
+  default:
+    name: ${VALUEOS_NETWORK:-valueos-network}

@@ -1,5 +1,6 @@
-# DEPRECATED — canonical compose files live in ops/compose/.
-# Temporary compatibility shim.
+# LEGACY WRAPPER — canonical compose lives in ops/compose/.
+# Use this wrapper for backward compatibility only.
+# Optional stacks are available under ops/compose/profiles/*.yml.
 
 include:
   - ../ops/compose/compose.yml
