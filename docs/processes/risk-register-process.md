@@ -1,11 +1,22 @@
 # Risk Register Process
 
 **Owner**: Security & Compliance Program
-**Cadence**: Weekly review, monthly executive summary, quarterly control attestation
+**Cadence**: Weekly review, monthly executive summary, quarterly integrated risk + compliance review
 
 ## Purpose
 
-This process defines how ValueOS identifies, classifies, tracks, and mitigates organizational security and compliance risk.
+This process defines how ValueOS identifies, classifies, tracks, and mitigates organizational security, compliance, vendor, and operational risks. It also defines quarterly review outputs tied to incident and compliance evidence streams.
+
+## Inputs and Trigger Sources
+
+Risk intake must include (at minimum):
+
+- Incident postmortems and corrective actions.
+- Vulnerability disclosures (including bug bounty/CVD submissions).
+- Internal/external audit findings.
+- Compliance evidence exceptions and control test failures.
+- Architecture/security review outcomes.
+- Vendor risk review findings.
 
 ## Risk Register Minimum Fields
 
@@ -19,10 +30,13 @@ Every risk entry must include the following fields:
 - **Likelihood** (Rare, Unlikely, Possible, Likely, Almost Certain)
 - **Impact** (Minor, Moderate, Major, Severe)
 - **Risk Owner** (single accountable person)
+- **Source** (Incident, Audit, CVD, Vendor Review, Compliance Test, Other)
 - **Created Date**
 - **Target Due Date** (for mitigation or accepted exception review)
 - **Current Status** (Open, In Progress, Mitigated, Accepted, Closed)
 - **Mitigation Plan** (specific controls/actions)
+- **Linked Incident ID(s)** (if applicable)
+- **Linked Compliance Evidence ID(s)** (if applicable)
 - **Mitigation Evidence** (ticket links, runbook updates, test evidence)
 - **Residual Risk** (post-mitigation severity)
 - **Last Reviewed Date**
@@ -39,7 +53,6 @@ Every risk entry must include the following fields:
 ## Workflow
 
 1. **Intake**
-   - Sources: incident reviews, vulnerability disclosures, pentests, audits, architecture reviews, and vendor assessments.
    - Security triage creates/updates risk register entries within 2 business days of identification.
 2. **Assessment**
    - Security assigns provisional severity and validates likelihood/impact.
@@ -53,6 +66,32 @@ Every risk entry must include the following fields:
 5. **Validation and Closure**
    - Security verifies mitigation evidence and determines residual risk.
    - Risk can be closed only when evidence is attached and reviewer sign-off is recorded.
+
+## Quarterly Integrated Review Process
+
+Quarterly review is mandatory and links risk posture to incident and compliance outputs.
+
+### Required preparation artifacts
+
+- Incident summary for quarter (including Sev1/Sev2 corrective action status).
+- Compliance evidence summary (control failures, exceptions, unresolved attestations).
+- Vendor review remediation status for Critical/High vendors.
+- Open-risk aging and overdue-risk report.
+
+### Quarterly review steps
+
+1. Reconcile newly opened risks against incident and compliance outputs.
+2. Validate closure evidence quality for risks closed during the quarter.
+3. Re-score residual risk where controls changed materially.
+4. Confirm owner/due-date completeness for all open risks.
+5. Approve quarterly remediation priorities for next quarter.
+
+### Quarterly outputs
+
+- Signed quarterly risk review summary.
+- Top residual risk list with owner commitments.
+- Exception register updates (accepted risks + expiry dates).
+- Compliance-ready risk posture snapshot for audits/customer requests.
 
 ## Mitigation Tracking Requirements
 
@@ -68,7 +107,7 @@ Every risk entry must include the following fields:
 
 - **Weekly**: Open-risk review with owners (focus: overdue and Critical/High).
 - **Monthly**: Trend report (new, closed, overdue, by severity/category).
-- **Quarterly**: Board/compliance-ready summary with top residual risks and mitigation progress.
+- **Quarterly**: Board/compliance-ready summary with top residual risks, incident linkage, and control exception status.
 
 ## Exit Criteria for a Healthy Register
 
