@@ -6,12 +6,14 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { resolveMode } from "./lib/mode.js";
+import { composeCommand, parseComposeProfiles } from "./lib/compose.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "../..");
 
 const args = process.argv.slice(2);
+const composeProfiles = parseComposeProfiles(args);
 let mode = "local";
 try {
   mode = resolveMode(args);
@@ -83,41 +85,35 @@ function createBundle() {
   }
 
   try {
-    const ps = run(
-      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml ps",
-      { silent: true }
-    );
-    writeFileSafe(path.join(bundleDir, "compose-dev-ps.txt"), ps);
+    const { command: dockerPsCommand } = composeCommand("ps", { mode: "docker", profiles: composeProfiles });
+    const ps = run(dockerPsCommand, { silent: true });
+    writeFileSafe(path.join(bundleDir, "compose-docker-ps.txt"), ps);
   } catch (error) {
     writeFileSafe(
-      path.join(bundleDir, "compose-dev-ps.txt"),
-      error.stdout || error.message || "compose dev ps failed"
+      path.join(bundleDir, "compose-docker-ps.txt"),
+      error.stdout || error.message || "compose docker ps failed"
     );
   }
 
   try {
-    const depsPs = run(
-      "docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml ps",
-      { silent: true }
-    );
-    writeFileSafe(path.join(bundleDir, "compose-deps-ps.txt"), depsPs);
+    const { command: localPsCommand } = composeCommand("ps", { mode: "local", profiles: composeProfiles });
+    const depsPs = run(localPsCommand, { silent: true });
+    writeFileSafe(path.join(bundleDir, "compose-local-ps.txt"), depsPs);
   } catch (error) {
     writeFileSafe(
-      path.join(bundleDir, "compose-deps-ps.txt"),
-      error.stdout || error.message || "compose deps ps failed"
+      path.join(bundleDir, "compose-local-ps.txt"),
+      error.stdout || error.message || "compose local ps failed"
     );
   }
 
   try {
-    const logs = run(
-      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml logs --tail 50",
-      { silent: true }
-    );
-    writeFileSafe(path.join(bundleDir, "compose-dev-logs.txt"), logs);
+    const { command: logsCommand } = composeCommand("logs", { mode: "docker", profiles: composeProfiles, extraArgs: ["--tail", "50"] });
+    const logs = run(logsCommand, { silent: true });
+    writeFileSafe(path.join(bundleDir, "compose-docker-logs.txt"), logs);
   } catch (error) {
     writeFileSafe(
-      path.join(bundleDir, "compose-dev-logs.txt"),
-      error.stdout || error.message || "compose dev logs failed"
+      path.join(bundleDir, "compose-docker-logs.txt"),
+      error.stdout || error.message || "compose docker logs failed"
     );
   }
 

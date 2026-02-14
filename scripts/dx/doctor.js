@@ -16,6 +16,7 @@ import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort, formatPortsEnv, writePortsEnvFile } from "./ports.js";
 import { resolveSupabaseMode, extractUrlHost, isLocalHost } from "./lib/supabase-mode.js";
 import { isDevContainer, resolveDockerHostGateway } from "./lib/runtime.js";
+import { composeCommand, parseComposeProfiles } from "./lib/compose.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,7 @@ const opsEnvPortsPath = path.join(opsEnvDir, ".env.ports");
 config({ path: opsEnvLocalPath });
 
 const args = process.argv.slice(2);
+const composeProfiles = parseComposeProfiles(args);
 let mode;
 try {
   mode = resolveMode(args);
@@ -692,347 +694,49 @@ function checkWslSettings() {
 }
 
 function checkComposeState() {
-  let fullRunning = [];
-  let depsRunning = [];
+  let dockerRunning = [];
+  let localRunning = [];
 
   if (commandExists("docker")) {
     try {
-      fullRunning = runCommand(
-        'docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml ps --filter "status=running" --services',
-        {
-          stdio: "pipe",
-        }
-      )
-        .trim()
-        .split("\n")
-        .filter(Boolean);
+      const { command } = composeCommand("ps", {
+        mode: "docker",
+        profiles: composeProfiles,
+        extraArgs: ["--filter", "status=running", "--services"],
+      });
+      dockerRunning = runCommand(command, { stdio: "pipe" }).trim().split("\n").filter(Boolean);
     } catch {
-      fullRunning = [];
+      dockerRunning = [];
     }
 
     try {
-      depsRunning = runCommand(
-        'docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml ps --filter "status=running" --services',
-        {
-          stdio: "pipe",
-        }
-      )
-        .trim()
-        .split("\n")
-        .filter(Boolean);
+      const { command } = composeCommand("ps", {
+        mode: "local",
+        profiles: composeProfiles,
+        extraArgs: ["--filter", "status=running", "--services"],
+      });
+      localRunning = runCommand(command, { stdio: "pipe" }).trim().split("\n").filter(Boolean);
     } catch {
-      depsRunning = [];
+      localRunning = [];
     }
   }
 
-  if (mode === "local" && fullRunning.length > 0) {
+  if (mode === "local" && dockerRunning.length > 0) {
     reportFailure(
       "Full Docker stack already running",
-      `Running services: ${fullRunning.join(", ")}`,
+      `Running services: ${dockerRunning.join(", ")}`,
       "Stop it with: pnpm run dx:down (or use pnpm run dx:docker)"
     );
   }
 
-  if (mode === "docker" && depsRunning.length > 0) {
+  if (mode === "docker" && localRunning.length > 0) {
     reportFailure(
       "Local deps already running",
-      `Running services: ${depsRunning.join(", ")}`,
+      `Running services: ${localRunning.join(", ")}`,
       "Stop it with: pnpm run dx:down (or use pnpm run dx)"
     );
   }
 }
-
-function checkDockerContainerHealth() {
-  if (!commandExists("docker")) {
-    return;
-  }
-
-  let containers = [];
-  try {
-    containers = runCommand('docker ps -a --format "{{.ID}}\t{{.Names}}"')
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => {
-        const [id, name] = line.split("\t");
-        return { id, name };
-      });
-  } catch {
-    return;
-  }
-
-  if (containers.length === 0) {
-    return;
-  }
-
-  const unhealthy = [];
-  const restartLoops = [];
-  const logSnippets = [];
-
-  containers.forEach(({ id, name }) => {
-    try {
-      const statusLine = runCommand(
-        `docker inspect --format "{{.State.Status}}\t{{.State.RestartCount}}\t{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}" ${id}`
-      )
-        .trim()
-        .split("\t");
-
-      const [status, restartCountRaw, healthStatus] = statusLine;
-      const restartCount = Number(restartCountRaw);
-      const isRestarting = status === "restarting";
-      if (healthStatus === "unhealthy") {
-        unhealthy.push(name);
-        unhealthyContainers.add(name);
-      }
-      if (isRestarting || restartCount > 1) {
-        const detail = `${name} (restarts: ${Number.isNaN(restartCount) ? "unknown" : restartCount}${isRestarting ? ", restarting" : ""})`;
-        restartLoops.push(detail);
-        restartingContainers.add(name);
-      }
-    } catch {
-      // Ignore containers that cannot be inspected.
-    }
-  });
-
-  if (unhealthy.length === 0 && restartLoops.length === 0) {
-    return;
-  }
-
-  const containersToLog = [...new Set([...unhealthy, ...restartLoops.map((d) => d.split(" ")[0])])];
-  containersToLog.forEach((name) => {
-    try {
-      const logs = runCommand(`docker logs --tail 50 ${name}`);
-      logSnippets.push(`--- Logs for ${name} (last 50 lines) ---\n${logs}`);
-    } catch {
-      logSnippets.push(`--- Logs for ${name} unavailable ---`);
-    }
-  });
-
-  const detailParts = [];
-  if (unhealthy.length > 0) {
-    detailParts.push(`Unhealthy containers: ${unhealthy.join(", ")}.`);
-  }
-  if (restartLoops.length > 0) {
-    detailParts.push(`Repeated restarts detected: ${restartLoops.join(", ")}.`);
-  }
-  if (logSnippets.length > 0) {
-    detailParts.push(`\n${logSnippets.join("\n")}`);
-  }
-
-  reportFailure(
-    "Docker containers unhealthy or restarting",
-    detailParts.join(" "),
-    "Run: pnpm run dx:reset"
-  );
-}
-
-function printToolVersions() {
-  console.log("\n🧰 Tool versions:");
-  console.log(`  Node:     ${process.version}`);
-
-  if (commandExists("pnpm")) {
-    try {
-      console.log(`  pnpm:     ${runCommand("pnpm -v").trim()}`);
-    } catch {
-      console.log("  pnpm:     unknown (failed to execute)");
-    }
-  } else {
-    console.log("  pnpm:     missing");
-  }
-
-  if (commandExists("docker")) {
-    try {
-      console.log(`  Docker:   ${runCommand("docker --version").trim()}`);
-      console.log(`  Compose:  ${runCommand("docker compose version --short").trim()}`);
-    } catch {
-      console.log("  Docker:   unknown (failed to execute)");
-    }
-  } else {
-    console.log("  Docker:   missing");
-  }
-  console.log("");
-}
-
-function printFailureLogs() {
-  if (!commandExists("docker")) {
-    return;
-  }
-
-  const targets = new Set([...unhealthyContainers, ...restartingContainers]);
-  if (targets.size === 0) {
-    return;
-  }
-
-  console.log("\n🧾 Recent container logs (tail 80):");
-  targets.forEach((name) => {
-    try {
-      const output = runCommand(`docker logs --tail 80 ${name}`, { stdio: "pipe" });
-      console.log(`\n--- ${name} ---\n${output.trim()}`);
-    } catch {
-      console.log(`\n--- ${name} ---\nUnable to fetch logs.`);
-    }
-  });
-}
-
-function checkSupabase() {
-  if (supabaseMode.mode !== "local") {
-    return;
-  }
-
-  if (!commandExists("supabase")) {
-    reportFailure(
-      "Supabase CLI missing",
-      "Supabase URL is local but CLI is not installed.",
-      "Install with: pnpm install -g supabase (or set DX_SKIP_SUPABASE=1 to skip)"
-    );
-    return;
-  }
-
-  // Check if Supabase is running
-  let supabaseRunning = false;
-  let supabaseStatus = "";
-  try {
-    supabaseStatus = runCommand("supabase status", { stdio: "pipe" });
-    supabaseRunning = supabaseStatus.includes("API URL") && !supabaseStatus.includes("not running");
-  } catch {
-    supabaseRunning = false;
-  }
-
-  if (!supabaseRunning) {
-    reportFailure(
-      "Supabase local not running",
-      `Expected Supabase at http://localhost:${supabaseApiPort}`,
-      "Start it with: supabase start (or pnpm run dx will start it automatically)"
-    );
-    return;
-  }
-
-  // Check Supabase API health
-  const healthBase =
-    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || `http://localhost:${supabaseApiPort}`;
-  const healthUrl = `${healthBase.replace(/\/$/, "")}/rest/v1/`;
-  try {
-    runCommand(`curl -sf --max-time 5 "${healthUrl}" > /dev/null`, {
-      stdio: "pipe",
-    });
-  } catch {
-    reportFailure(
-      "Supabase API not responding",
-      `Supabase is running but API at ${healthUrl} is not responding.`,
-      "Try: supabase stop && supabase start"
-    );
-    return;
-  }
-
-  // Verify env URLs point to local Supabase
-  const backendSupabaseUrl = process.env.SUPABASE_URL || "";
-  if (backendSupabaseUrl) {
-    const backendHost = extractUrlHost(backendSupabaseUrl);
-    if (isLocalHost(backendHost, localHosts)) {
-      return;
-    }
-    reportFailure(
-      "Backend Supabase URL mismatch",
-      `SUPABASE_URL points to ${backendSupabaseUrl} but local Supabase is running.`,
-      "Set SUPABASE_URL=http://localhost:54321 in ops/env/.env.local (or use the Docker host gateway in DevContainers)."
-    );
-  }
-}
-
-function checkSupabaseMigrations() {
-  if (supabaseMode.mode !== "local" || !commandExists("supabase")) {
-    return;
-  }
-
-  // Check migration status
-  try {
-    const migrationList = runCommand("supabase migration list 2>/dev/null || echo 'unavailable'", {
-      stdio: "pipe",
-    });
-
-    if (migrationList.includes("unavailable")) {
-      return; // Can't check migrations
-    }
-
-    // Count pending migrations
-    const lines = migrationList.split("\n").filter((line) => line.trim());
-    const pendingMigrations = lines.filter(
-      (line) =>
-        line.includes("not applied") ||
-        line.includes("pending") ||
-        (line.includes("│") && !line.includes("applied"))
-    );
-
-    if (pendingMigrations.length > 0) {
-      reportFailure(
-        "Pending database migrations",
-        `${pendingMigrations.length} migration(s) not applied to local database.`,
-        "Run: pnpm run db:push (or supabase db push)"
-      );
-    }
-  } catch {
-    // Migration check failed, skip
-  }
-}
-
-function checkSupabaseSchema() {
-  // Skip if not using local Supabase or in docker mode
-  if (supabaseMode.mode !== "local" || mode === "docker" || !commandExists("supabase")) {
-    return;
-  }
-
-  // Check for schema drift using supabase db diff
-  try {
-    const diff = runCommand("supabase db diff --use-migra 2>/dev/null || echo ''", {
-      stdio: "pipe",
-    });
-
-    // If diff output contains CREATE/ALTER/DROP statements, there's drift
-    const hasDrift =
-      diff.trim().length > 0 &&
-      (diff.includes("CREATE") || diff.includes("ALTER") || diff.includes("DROP"));
-
-    if (hasDrift) {
-      const lineCount = diff.split("\n").filter((l) => l.trim()).length;
-      reportFailure(
-        "Database schema drift detected",
-        `Local database differs from migrations (${lineCount} changes).`,
-        "Run: pnpm run db:reset to rebuild from migrations, or pnpm run db:push to apply pending changes"
-      );
-    }
-  } catch {
-    // Schema diff not available or failed, skip
-  }
-
-  // Check that generated types are up to date
-  const typesPath = path.join(projectRoot, "src/types/supabase.ts");
-  const migrationsDir = path.join(projectRoot, "supabase/migrations");
-
-  if (fs.existsSync(typesPath) && fs.existsSync(migrationsDir)) {
-    try {
-      const typesStat = fs.statSync(typesPath);
-      const migrations = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
-
-      // Check if any migration is newer than types file
-      const newerMigrations = migrations.filter((m) => {
-        const migrationPath = path.join(migrationsDir, m);
-        const migrationStat = fs.statSync(migrationPath);
-        return migrationStat.mtime > typesStat.mtime;
-      });
-
-      if (newerMigrations.length > 0) {
-        reportFailure(
-          "Supabase types may be outdated",
-          `${newerMigrations.length} migration(s) newer than generated types.`,
-          "Run: pnpm run db:types to regenerate TypeScript types"
-        );
-      }
-    } catch {
-      // File stat failed, skip
-    }
-  }
-}
-
 function checkEnvModeConsistency() {
   if (!fs.existsSync(opsEnvLocalPath)) {
     return;
@@ -1088,10 +792,12 @@ function checkMigrationDrift() {
 
   // Only check if postgres container is running
   try {
-    runCommand(
-      'docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml ps postgres --filter "status=running"',
-      { stdio: "pipe" }
-    );
+    const { command } = composeCommand("ps", {
+      mode: "local",
+      profiles: composeProfiles,
+      extraArgs: ["postgres", "--filter", "status=running"],
+    });
+    runCommand(command, { stdio: "pipe" });
   } catch {
     return; // Postgres not running, skip migration check
   }

@@ -12,6 +12,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { resolveMode } from "./lib/mode.js";
 import { loadPorts, resolvePort, writePortsEnvFile } from "./ports.js";
+import { composeCommand, parseComposeProfiles } from "./lib/compose.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -209,15 +210,17 @@ function runCommand(name, command) {
   });
 }
 
-function getRunningComposeServices(composeFile) {
+function getRunningComposeServices(mode, profiles = []) {
   try {
-    const output = execSync(
-      `docker compose --env-file ops/env/.env.ports -f ${composeFile} ps --status running --services`,
-      {
-        cwd: projectRoot,
-        encoding: "utf8",
-      }
-    );
+    const { command } = composeCommand("ps", {
+      mode,
+      profiles,
+      extraArgs: ["--status", "running", "--services"],
+    });
+    const output = execSync(command, {
+      cwd: projectRoot,
+      encoding: "utf8",
+    });
     return output.trim().split("\n").filter(Boolean);
   } catch {
     return [];
@@ -266,18 +269,17 @@ async function main() {
     process.exit(1);
   }
 
-  const fullComposeFile = "infra/docker/docker-compose.dev.yml";
-  const depsComposeFile = "docker-compose.deps.yml";
-  const composeFile = mode === "docker" ? fullComposeFile : depsComposeFile;
+  const composeProfiles = parseComposeProfiles(process.argv.slice(2));
+  const composeFile = "ops/compose";
 
   ensurePortsEnvFile();
   assertNoActiveDx();
 
-  const fullRunning = getRunningComposeServices(fullComposeFile);
-  const depsRunning = getRunningComposeServices(depsComposeFile);
+  const dockerRunning = getRunningComposeServices("docker", composeProfiles);
+  const localRunning = getRunningComposeServices("local", composeProfiles);
   const runningSummary = [
-    `full=${fullRunning.length ? fullRunning.join(", ") : "none"}`,
-    `deps=${depsRunning.length ? depsRunning.join(", ") : "none"}`,
+    `docker=${dockerRunning.length ? dockerRunning.join(", ") : "none"}`,
+    `local=${localRunning.length ? localRunning.join(", ") : "none"}`,
   ].join("; ");
 
   console.log(
@@ -308,7 +310,7 @@ async function main() {
   process.on("exit", clearDxState);
 
   if (mode === "docker") {
-    if (fullRunning.length > 0) {
+    if (dockerRunning.length > 0) {
       console.log(
         formatLog("dx", "Full Docker stack is already running.", colors.green)
       );
@@ -318,11 +320,11 @@ async function main() {
       process.exit(0);
     }
 
-    if (depsRunning.length > 0) {
+    if (localRunning.length > 0) {
       console.error(
         formatLog(
           "dx",
-          `Local deps are running (${depsRunning.join(", ")}). Stop them with "pnpm run dx:down".`,
+          `Local deps are running (${localRunning.join(", ")}). Stop them with "pnpm run dx:down".`,
           colors.yellow
         )
       );
@@ -365,10 +367,12 @@ async function main() {
       mode,
       startedAt: new Date().toISOString(),
     });
-    await runCommand(
-      "docker",
-      "docker compose --env-file ops/env/.env.ports -f infra/docker/docker-compose.dev.yml up -d"
-    );
+    const { command: composeUpCommand } = composeCommand("up", {
+      mode: "docker",
+      profiles: composeProfiles,
+      extraArgs: ["-d", "--build", "--pull=missing"],
+    });
+    await runCommand("docker", composeUpCommand);
     console.log("\n" + "=".repeat(60));
     console.log("✅ Docker services are running!");
     console.log("=".repeat(60) + "\n");
@@ -377,11 +381,11 @@ async function main() {
   }
 
   // Start Docker dependency services first
-  if (fullRunning.length > 0) {
+  if (dockerRunning.length > 0) {
     console.error(
       formatLog(
         "dx",
-        `Full Docker stack already running (${fullRunning.join(", ")}). Stop it with "pnpm run dx:down" or use "pnpm run dx:docker".`,
+        `Full Docker stack already running (${dockerRunning.join(", ")}). Stop it with "pnpm run dx:down" or use "pnpm run dx:docker".`,
         colors.yellow
       )
     );
@@ -389,10 +393,12 @@ async function main() {
   }
 
   writeDxLock({ mode, composeFile, createdAt: new Date().toISOString() });
-  await runCommand(
-    "docker",
-    "docker compose --env-file ops/env/.env.ports -f docker-compose.deps.yml up -d"
-  );
+  const { command: composeDepsUpCommand } = composeCommand("up", {
+    mode: "local",
+    profiles: composeProfiles,
+    extraArgs: ["-d"],
+  });
+  await runCommand("docker", composeDepsUpCommand);
 
   const conflicts = [];
   if (isDockerPortPublished(backendPort)) {
