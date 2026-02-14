@@ -11,6 +11,7 @@ import { llmCache } from "./LLMCache.js"
 import { llmCostTracker } from "./LLMCostTracker.js"
 import { costGovernance } from "./CostGovernanceService.js"
 import { ExternalCircuitBreaker } from "./ExternalCircuitBreaker.js"
+import { assertModelAllowed } from '../config/models.js'
 
 export interface LLMRequest {
   prompt: string;
@@ -192,6 +193,8 @@ export class LLMFallbackService {
       request.model = (getEnvVar('TOGETHER_PRIMARY_MODEL_NAME') as string) || request.model || 'gpt-4o-mini';
     }
 
+    assertModelAllowed('together_ai', request.model);
+
     // Check cache first
     const cached = await llmCache.get(request.prompt, request.model);
     if (cached) {
@@ -275,6 +278,7 @@ export class LLMFallbackService {
     // Primary exhausted — attempt secondary if enabled/configured
     if (fallbackEnabled && secondaryModel) {
       try {
+        assertModelAllowed('together_ai', String(secondaryModel));
         const secondaryReq = { ...request, model: String(secondaryModel) };
         const secResp = await this.circuitBreaker.execute(
           this.togetherChatBreakerKey,
@@ -317,6 +321,8 @@ export class LLMFallbackService {
   async *streamRequest(
     request: LLMRequest
   ): AsyncGenerator<{ content: string; done: boolean }> {
+    assertModelAllowed('together_ai', request.model);
+
     // Check cache first
     const cached = await llmCache.get(request.prompt, request.model);
     if (cached) {

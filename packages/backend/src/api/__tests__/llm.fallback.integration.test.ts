@@ -40,6 +40,43 @@ describe('LLM API integration — fallback behavior (Together)', () => {
     );
   }
 
+
+  it('POST /api/llm/chat - approved model passes allowlist validation', async () => {
+    vi.stubEnv('TOGETHER_API_KEY', 'test-key');
+
+    (globalThis as any).fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'approved-response' } }],
+          usage: { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 },
+        }),
+      })
+    );
+
+    const token = makeAuthToken();
+
+    const resp = await request(app)
+      .post('/api/llm/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ prompt: 'hello', model: 'primary-model' });
+
+    expect(resp.status).toBe(200);
+    expect(resp.body.data.model).toBe('primary-model');
+  });
+
+  it('POST /api/llm/chat - denied model hard fails with MODEL_DENIED', async () => {
+    const token = makeAuthToken();
+
+    const resp = await request(app)
+      .post('/api/llm/chat')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ prompt: 'hello', model: 'totally-unknown-model' });
+
+    expect(resp.status).toBe(403);
+    expect(resp.body.code).toBe('MODEL_DENIED');
+    expect(resp.body).toHaveProperty('policyVersion');
+  });
   it('POST /api/llm/chat - primary 5xx -> fallback to secondary and returns secondary model', async () => {
     vi.stubEnv('TOGETHER_API_KEY', 'test-key');
     vi.stubEnv('TOGETHER_PRIMARY_MODEL_NAME', 'primary-model');
