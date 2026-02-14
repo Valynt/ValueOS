@@ -70,7 +70,7 @@ jobs:
 
       - name: Enforce frozen backend duplicate tree
         run: pnpm check:frozen-backend-duplicate-tree
-        
+
       - name: Guard browser provider secrets
         run: pnpm check:browser-provider-secrets
 
@@ -107,15 +107,32 @@ jobs:
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
+      # Resolved merge: run BOTH (they are complementary) and keep the artifact.
+      - name: Supabase tenant controls guard
+        run: node scripts/ci/check-supabase-tenant-controls.mjs
+
       - name: Security baseline verification
         run: node scripts/ci/security-baseline-verification.mjs
+
+      - name: Write security controls summary artifact
+        if: success()
+        run: node scripts/ci/write-security-controls-summary.mjs
+
+      - name: Upload security controls summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-controls-${{ github.sha }}
+          path: artifacts/security-controls/security-controls-${{ github.sha }}.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
 
       - name: Critical architecture migrations gate
         run: node scripts/ci/verify-critical-architecture-migrations.mjs
-        
+
       - name: Kubernetes secrets hygiene
         run: node scripts/ci/check-k8s-secrets-hygiene.mjs
 

@@ -60,22 +60,46 @@ ALTER TABLE public.provenance_records ENABLE ROW LEVEL SECURITY;
 
 -- Add RLS Policies (tenant-scoped)
 CREATE POLICY "Saga transitions are tenant-scoped" ON public.saga_transitions
-    FOR ALL USING (
+    FOR ALL TO authenticated USING (
         EXISTS (
             SELECT 1 FROM public.cases
             WHERE cases.id = saga_transitions.value_case_id
-            AND cases.organization_id = (auth.jwt() ->> 'organization_id')::UUID
+            AND cases.organization_id::text = ANY(public.get_user_tenant_ids(auth.uid()))
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.cases
+            WHERE cases.id = saga_transitions.value_case_id
+            AND cases.organization_id::text = ANY(public.get_user_tenant_ids(auth.uid()))
         )
     );
 
+CREATE POLICY saga_transitions_service_role ON public.saga_transitions
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
+
 CREATE POLICY "Evidence items are tenant-scoped" ON public.evidence_items
-    FOR ALL USING (organization_id = (auth.jwt() ->> 'organization_id')::UUID);
+    FOR ALL TO authenticated USING (organization_id::text = ANY(public.get_user_tenant_ids(auth.uid())))
+    WITH CHECK (organization_id::text = ANY(public.get_user_tenant_ids(auth.uid())));
+
+CREATE POLICY evidence_items_service_role ON public.evidence_items
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 CREATE POLICY "Provenance records are tenant-scoped" ON public.provenance_records
-    FOR ALL USING (
+    FOR ALL TO authenticated USING (
         EXISTS (
             SELECT 1 FROM public.cases
             WHERE cases.id = provenance_records.value_case_id
-            AND cases.organization_id = (auth.jwt() ->> 'organization_id')::UUID
+            AND cases.organization_id::text = ANY(public.get_user_tenant_ids(auth.uid()))
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.cases
+            WHERE cases.id = provenance_records.value_case_id
+            AND cases.organization_id::text = ANY(public.get_user_tenant_ids(auth.uid()))
         )
     );
+
+CREATE POLICY provenance_records_service_role ON public.provenance_records
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
