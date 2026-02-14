@@ -13,6 +13,8 @@ export interface ValidationResult {
   warnings: string[];
 }
 
+// Database env precedence: prefer DATABASE_URL everywhere.
+// Legacy DB_* atomics are deprecated and should only be used in explicit fallback paths.
 const REQUIRED_VARS = [
   { name: "DATABASE_URL", fix: "Run: pnpm run dx:env --mode local --force" },
   { name: "SUPABASE_URL", fix: "Run: pnpm run dx:env --mode local --force" },

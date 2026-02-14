@@ -321,6 +321,7 @@ Compose image pull instead of build
 - **Backend:** `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
 - **Frontend:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 - **Invariants:** Missing required variables must cause an immediate crash on startup.
+- **Migration note:** `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_URL` are deprecated for backend runtime config. Prefer `DATABASE_URL`; `DB_URL` may be temporarily derived from `DATABASE_URL` only for legacy compatibility.
 
 ## 4. Database & Migration Contracts
 
