@@ -1,5 +1,5 @@
 # LEGACY WRAPPER — canonical compose lives in ops/compose/.
-# Use this wrapper for backward compatibility only.
+# Thin passthrough wrapper for backward compatibility only.
 # Optional stacks are available under ops/compose/profiles/*.yml.
 
 include:
