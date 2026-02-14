@@ -111,7 +111,7 @@ export function getSupabaseConfig(): {
   const serviceRoleKey =
     getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY");
   const config: { url: string; anonKey: string; serviceRoleKey?: string } = {
-    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_PUBLIC_URL") || getEnvVar("SUPABASE_URL") || getEnvVar("SUPABASE_INTERNAL_URL") || "",
     anonKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
   };
   if (serviceRoleKey) {
@@ -145,7 +145,7 @@ export function getLLMCostTrackerConfig(): {
   tableName: string;
 } {
   return {
-    supabaseUrl: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_URL") || "",
+    supabaseUrl: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_PUBLIC_URL") || getEnvVar("SUPABASE_URL") || getEnvVar("SUPABASE_INTERNAL_URL") || "",
     supabaseKey: getEnvVar("VITE_SUPABASE_ANON_KEY") || getEnvVar("SUPABASE_ANON_KEY") || "",
     tableName: getEnvVar("LLM_COST_TABLE_NAME") || "llm_costs",
   };

@@ -33,6 +33,9 @@ services:
       dockerfile: infra/docker/Dockerfile.backend
     profiles: ["runtime-docker"]
     ports: ["${API_PORT:-3001}:3001"]
+    environment:
+      SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
+      SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
     depends_on: [postgres, redis, kafka, schema-registry]
 
   worker:
@@ -41,6 +44,9 @@ services:
       dockerfile: infra/docker/Dockerfile.backend
     profiles: ["runtime-docker"]
     command: ["pnpm", "--filter", "@valueos/backend", "run", "worker:dev"]
+    environment:
+      SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
+      SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
     depends_on: [redis]
 
   frontend:
@@ -48,6 +54,11 @@ services:
       context: ../..
       dockerfile: infra/docker/Dockerfile.frontend
       target: development
+      args:
+        VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
     profiles: ["runtime-docker"]
     ports: ["${WEB_PORT:-5173}:5173"]
+    environment:
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
+      VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
     depends_on: [backend]
