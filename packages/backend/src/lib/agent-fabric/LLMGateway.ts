@@ -21,6 +21,7 @@ import {
   enforceModelPolicy,
   recordPolicyAuditEvent,
 } from '../../services/policy/PolicyEnforcement.js';
+import { assertModelAllowed } from '../../config/models.js';
 
 export interface LLMGatewayConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom' | 'together';
@@ -150,6 +151,10 @@ export class LLMGateway {
     request: LLMRequest,
     startTime: number
   ): Promise<LLMResponse> {
+    if (this.config.provider === 'together') {
+      return this.executeTogetherCompletion(request, startTime);
+    }
+
     return {
       id: `llm_${Date.now()}`,
       model: request.model || this.config.model,
@@ -165,6 +170,138 @@ export class LLMGateway {
         duration_ms: Date.now() - startTime,
       },
     };
+  }
+
+  protected async executeTogetherCompletion(
+    request: LLMRequest,
+    startTime: number
+  ): Promise<LLMResponse> {
+    const model = request.model || this.config.model;
+    assertModelAllowed('together_ai', model);
+
+    const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
+    if (!togetherApiKey) {
+      throw new Error('Together.ai API key not configured');
+    }
+
+    const response = await fetch('https://api.together.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: request.messages,
+        max_tokens: request.max_tokens || this.config.max_tokens || 1000,
+        temperature: request.temperature || this.config.temperature || 0.7,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout_ms || 25000),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return {
+      id: data.id || `llm_${Date.now()}`,
+      model,
+      content: data.choices?.[0]?.message?.content || '',
+      finish_reason: data.choices?.[0]?.finish_reason || 'stop',
+      usage: {
+        prompt_tokens: data.usage?.prompt_tokens || 0,
+        completion_tokens: data.usage?.completion_tokens || 0,
+        total_tokens: data.usage?.total_tokens || 0,
+      },
+      metadata: {
+        ...(request.metadata || {}),
+        duration_ms: Date.now() - startTime,
+      },
+    };
+  }
+
+  async *completeRawStream(
+    request: LLMRequest
+  ): AsyncGenerator<{ content: string; done: boolean; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+    if (this.config.provider !== 'together') {
+      throw new Error('Raw streaming is only implemented for the Together provider.');
+    }
+
+    const model = request.model || this.config.model;
+    assertModelAllowed('together_ai', model);
+
+    const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
+    if (!togetherApiKey) {
+      throw new Error('Together.ai API key not configured');
+    }
+
+    const response = await fetch('https://api.together.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: request.messages,
+        max_tokens: request.max_tokens || this.config.max_tokens || 1000,
+        temperature: request.temperature || this.config.temperature || 0.7,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+          const dataStr = trimmed.slice(6);
+          if (dataStr === '[DONE]') continue;
+
+          const data = JSON.parse(dataStr);
+          if (data.usage) {
+            usage = {
+              prompt_tokens: data.usage.prompt_tokens || 0,
+              completion_tokens: data.usage.completion_tokens || 0,
+              total_tokens: data.usage.total_tokens || 0,
+            };
+          }
+
+          const content = data.choices?.[0]?.delta?.content || '';
+          if (content) {
+            yield { content, done: false };
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    yield { content: '', done: true, usage };
   }
 
   async complete(request: LLMRequest): Promise<LLMResponse> {
