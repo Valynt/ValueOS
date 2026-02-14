@@ -1,0 +1,35 @@
+{
+  "requiredControls": [
+    {
+      "id": "ARCH-001",
+      "name": "tenant_scope_rls",
+      "migration": "20260213000001_academy_tenant_scope_rls.sql"
+    },
+    {
+      "id": "ARCH-006",
+      "name": "baseline_schema",
+      "migration": "20260213000002_baseline_schema.sql"
+    },
+    {
+      "id": "ARCH-007",
+      "name": "tenant_uuid_canonicalization",
+      "migration": "20260213000004_tenant_uuid_canonicalization.sql"
+    }
+  ],
+  "baselineEnvironments": {
+    "local": {
+      "appliedMigrations": [
+        "20260213000001_academy_tenant_scope_rls.sql",
+        "20260213000002_baseline_schema.sql",
+        "20260213000004_tenant_uuid_canonicalization.sql"
+      ]
+    },
+    "ci": {
+      "appliedMigrations": [
+        "20260213000001_academy_tenant_scope_rls.sql",
+        "20260213000002_baseline_schema.sql",
+        "20260213000004_tenant_uuid_canonicalization.sql"
+      ]
+    }
+  }
+}
