@@ -1,0 +1,8 @@
+{
+  "version": "2026-02-14",
+  "agent": "opportunity-agent",
+  "allowedModels": ["gpt-4o-mini"],
+  "allowedTools": ["web_search", "document_lookup"],
+  "maxTokens": 6000,
+  "maxCostUsd": 1
+}

@@ -67,6 +67,7 @@ import { validateEnvOrThrow } from "./config/validateEnv.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { registerDevRoutes } from "./routes/devRoutes.js";
+import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -114,6 +115,9 @@ import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";
 import { logger } from "./lib/logger.js";
 const WS_POLICY_VIOLATION_CODE = 1008;
+
+getAgentPolicyService();
+logger.info('[Instrumentation] Agent policy validation passed');
 
 const app = express();
 // Trust only the first proxy hop (e.g. ALB/Caddy/Traefik).
