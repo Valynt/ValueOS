@@ -6,23 +6,33 @@ This directory contains deployment and operational infrastructure for the ValueO
 
 Use this inventory as the source of truth for where to run Compose, Kubernetes, and Terraform targets.
 
+## Active vs deprecated infra manifest registry
+
+This registry is enforced in CI (`scripts/ci/check-infra-manifest-registry.mjs`) to block new references to deprecated paths.
+
+<!-- infra-manifest-registry:start -->
+| Path | Status | Replacement | Notes |
+| --- | --- | --- | --- |
+| `infra/docker/docker-compose.dev.yml` | Active | n/a | Primary local development compose stack. |
+| `infra/docker/docker-compose.staging.yml` | Active | n/a | Staging compose entry point. |
+| `infra/docker/docker-compose.prod.yml` | Active | n/a | Production compose entry point. |
+| `infra/docker/docker-compose.observability.yml` | Active | n/a | Canonical LGTM observability stack. |
+| `infra/docker-compose.observability.yml` | Deprecated | `infra/docker/docker-compose.observability.yml` | Legacy root-level observability compose file retained for historical context only. |
+| `infra/terraform/` | Active | n/a | Canonical shared Terraform root. |
+| `infra/terraform-new/` | Active | n/a | Canonical next-generation Terraform root. |
+| `infra/k8s/base/` | Active | n/a | Canonical base Kubernetes workload manifests. |
+<!-- infra-manifest-registry:end -->
+
 ### Docker Compose targets
 
 | Target | Path | Owner | Purpose | Status |
 | --- | --- | --- | --- | --- |
-| Dev stack | `infra/docker/docker-compose.dev.yml` | Platform / DevOps | Full local stack (frontend, backend, postgres, redis, etc.) for development. | Active |
-| Dev + Caddy | `infra/docker/docker-compose.caddy.yml` | Platform / DevOps | Dev stack with Caddy reverse proxy for same-origin routing. | Active |
-| Staging | `infra/docker/docker-compose.staging.yml` | Platform / DevOps | Staging-like stack with TLS-aware routing and build outputs. | Active |
-| Production | `infra/docker/docker-compose.prod.yml` | Platform / DevOps | Production compose bundle with TLS and hardened settings. | Active |
-| High availability | `infra/docker/docker-compose.ha.yml` | Platform / DevOps | HA variant for redundancy and scaling experiments. | Active |
-| Test | `infra/docker/docker-compose.test.yml` | Platform / DevOps | Compose stack for integration and CI tests. | Active |
-| Base compose | `infra/docker/docker-compose.yml` | Platform / DevOps | Shared base services referenced by overlays and docs. | Active |
-| mTLS overlay | `infra/docker-compose.mtls.yml` | Platform / Security | mTLS overlay that layers on top of the dev stack. | Active |
-| Observability (PGLT) | `infra/docker/docker-compose.observability.yml` | Platform / DevOps | PGLT (Prometheus, Grafana, Loki, Tempo) + OTel Collector, Promtail, node-exporter. | Active |
-| Dependency services | `docker-compose.deps.yml` | Developer Experience | Minimal postgres/redis dependencies for app dev. | Active |
-| Scripts helper stack | `scripts/docker-compose.yml` | Platform / DevOps | Helper stack used by automation scripts. | Active |
-| GitHub code optimizer | `packages/services/github-code-optimizer/docker-compose.yml` | Integrations | Service-local compose for the GitHub optimizer. | Active |
-| Blueprint sample | `docs/engineering/blueprint/infra/docker-compose.yml` | Platform / Docs | Reference compose used by the engineering blueprint. | Reference |
+| Canonical base | `ops/compose/compose.yml` | Platform / DevOps | Single runtime base for local infrastructure (postgres/redis/nats). | Active |
+| Studio profile | `ops/compose/profiles/studio.yml` | Platform / DevOps | Optional Supabase/Studio stack (auth/rest/realtime/storage/kong/studio). | Active |
+| Devcontainer profile | `ops/compose/profiles/devcontainer.yml` | Developer Experience | Optional devcontainer services and agent placeholders. | Active |
+| Observability profile | `ops/compose/profiles/observability.yml` | Platform / DevOps | Optional observability and streaming tooling. | Active |
+| Runtime docker profile | `ops/compose/profiles/runtime-docker.yml` | Platform / DevOps | Optional full containerized runtime for DX docker mode. | Active |
+| Legacy `infra/docker/docker-compose*.yml` files | `infra/docker/*.yml` | Platform / DevOps | Compatibility include shims only; no service definitions allowed. | Deprecated |
 
 ### Kubernetes targets
 
@@ -46,7 +56,8 @@ Use this inventory as the source of truth for where to run Compose, Kubernetes, 
 
 ## Duplicates & deprecations
 
-- **Observability compose files** overlap in purpose. Use `infra/docker/docker-compose.observability.yml` for LGTM going forward and treat `infra/docker-compose.observability.yml` as deprecated. The legacy file is retained for backward reference only.
+- Compose service definitions now belong only under `ops/compose/`.
+- Any `docker-compose*.yml` outside `ops/compose/` should be a thin `include:` compatibility shim.
 
 ## Directory Structure
 

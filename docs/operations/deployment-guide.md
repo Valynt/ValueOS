@@ -1,3 +1,14 @@
+---
+title: Deployment Guide (Legacy Consolidated)
+owner: team-platform
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: deprecated
+---
+
+> [!WARNING]
+> **DEPRECATED**: Use the authoritative runbook in `docs/operations/runbooks/` instead.
+
 # Deployment Guide (Legacy Consolidated)
 
 This document has been split.

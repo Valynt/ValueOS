@@ -2,61 +2,55 @@
 
 ## Coordinated Vulnerability Disclosure
 
-ValueOS welcomes responsible security research and follows a coordinated vulnerability disclosure process.
+If you discover a security vulnerability in ValueOS, please report it privately so we can investigate and remediate it before public disclosure.
 
-- Report suspected vulnerabilities privately through **security@valueos.com**.
-- Do **not** disclose vulnerability details publicly until ValueOS confirms remediation or provides disclosure guidance.
-- Include reproducibility details (affected endpoint/service, impact, prerequisites, proof of concept, and suggested remediation if available).
-- Encrypt sensitive report details when possible (PGP key available on request).
+### Report channel
 
-## Reporting SLA
+- Email: **security@valueos.ai**
+- Subject line: `Security Disclosure: <short title>`
+- Include affected component(s), impact, reproduction steps, and any proof-of-concept.
 
-ValueOS targets the following service levels for incoming reports:
+If encrypted exchange is required, note that in your report and we will provide a secure channel for follow-up.
 
-1. **Acknowledgement**: within **1 business day**.
-2. **Initial triage decision** (valid / need more information / out of scope): within **3 business days**.
-3. **Severity assessment and owner assignment**: within **5 business days**.
-4. **Status updates**: at least every **5 business days** until closure.
-5. **Remediation target windows** (from validation date):
-   - **Critical**: 7 calendar days
-   - **High**: 30 calendar days
-   - **Medium**: 90 calendar days
-   - **Low**: next planned release cycle
+## Response and SLA
 
-If remediation requires an exception, the assigned risk owner must document compensating controls and revised due date in the risk register.
+We follow these target service levels for coordinated disclosure:
 
-## Safe Harbor
+- **Acknowledgement**: within **1 business day**.
+- **Initial triage decision**: within **3 business days**.
+- **Remediation plan**: within **7 business days** for confirmed issues.
+- **Status updates**: at least **weekly** until closure.
 
-When acting in good faith under this policy, ValueOS considers your activities authorized and will not pursue legal action for:
+Complex issues may require more time; if so, we will communicate scope and revised timelines.
 
-- Testing against systems you own or are explicitly authorized to test.
-- Reasonable, non-destructive testing that avoids privacy violations, data exfiltration, and service degradation.
-- Prompt reporting of discovered issues without extortion, ransom demands, or unauthorized disclosure.
+## Severity handling
 
-Researchers must:
+Severity is assessed using CVSS-informed impact and exploitability criteria and mapped to internal priorities:
 
-- Avoid intentional disruption (DoS/DDoS), social engineering, phishing, physical attacks, and malware deployment.
-- Stop testing and notify ValueOS immediately if sensitive data is exposed.
-- Provide ValueOS a reasonable remediation period before public disclosure.
+- **Critical (P0)**: active exploitation, tenant data compromise, auth bypass, or RCE. Immediate mitigation and emergency release workflow.
+- **High (P1)**: significant confidentiality/integrity/availability risk without full critical blast radius. Prioritized patch release.
+- **Medium (P2)**: meaningful but constrained risk. Scheduled fix in normal release cadence.
+- **Low (P3)**: low exploitability or limited impact. Backlog with documented risk acceptance when appropriate.
 
-## Scope and Exclusions
+Public disclosure timing is coordinated with the reporter after a fix or mitigating control is available.
 
-In-scope targets include ValueOS-managed production services and APIs unless otherwise documented.
+## Safe harbor
 
-Out of scope:
+We support good-faith security research. For activities consistent with this policy, ValueOS will not pursue legal action against researchers who:
 
-- Third-party services not controlled by ValueOS.
-- Vulnerabilities requiring privileged physical access.
-- Best-practice findings without demonstrable security impact.
+- Avoid privacy violations, data destruction, service disruption, and social engineering.
+- Test only against accounts/data they own or have explicit permission to access.
+- Do not exfiltrate, alter, or retain customer data beyond what is minimally necessary to demonstrate the issue.
+- Provide us a reasonable opportunity to remediate before public disclosure.
 
-## Preferred Report Template
+Out-of-scope or malicious activity (e.g., extortion, denial of service, or unauthorized persistence) is not covered by safe harbor.
 
-- Reporter name/handle and contact method
-- Affected asset(s)
-- Vulnerability type and severity estimate
-- Reproduction steps
-- Impact statement
-- Proof-of-concept artifacts (logs/screenshots)
-- Suggested fix or mitigation
+## Preferred report template
 
-Thank you for helping keep ValueOS and its customers secure.
+Please include:
+
+1. Vulnerability type and affected location.
+2. Preconditions and attack path.
+3. Reproduction steps and expected vs actual behavior.
+4. Security impact and affected assets/tenants.
+5. Suggested remediation (if available).

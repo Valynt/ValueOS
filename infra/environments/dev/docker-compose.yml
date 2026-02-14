@@ -1,12 +1,5 @@
-version: "3.9"
+# DEPRECATED — canonical compose files live in ops/compose/.
+# Temporary compatibility shim.
 
-services:
-  backend:
-    build:
-      context: ../../..
-      dockerfile: infra/environments/dev/Dockerfile.backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ../../../src:/app/src
-    command: python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+include:
+  - ../../../ops/compose/compose.yml

@@ -1,0 +1,18 @@
+# Optional Caddy reverse proxy for local DX.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["caddy"]
+    ports:
+      - "${CADDY_HTTP_PORT:-8080}:80"
+      - "${CADDY_HTTPS_PORT:-8443}:443"
+      - "${CADDY_ADMIN_PORT:-2019}:2019"
+    volumes:
+      - ../../infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+    driver: local

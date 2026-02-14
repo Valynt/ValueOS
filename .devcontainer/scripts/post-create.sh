@@ -6,6 +6,20 @@ set -euo pipefail
 
 echo "🔧 Running post-create setup..."
 
+# Load canonical port/env inputs
+if [ -f .env.ports ]; then
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.ports | xargs)
+elif [ -f .env.ports.example ]; then
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.ports.example | xargs)
+fi
+
+if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.local | xargs)
+fi
+
 # =============================================================================
 # BUILD VERIFICATION
 # =============================================================================
@@ -29,7 +43,7 @@ fi
 echo "🏥 Running health checks..."
 
 # Check PostgreSQL
-if PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-54323}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT version();" > /dev/null 2>&1; then
+if PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT version();" > /dev/null 2>&1; then
     echo "✅ PostgreSQL is healthy"
 else
     echo "⚠️  PostgreSQL health check failed"

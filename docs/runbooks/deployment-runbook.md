@@ -1,3 +1,14 @@
+---
+title: Deployment Runbook
+owner: team-platform
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: deprecated
+---
+
+> [!WARNING]
+> **DEPRECATED**: Use [`docs/operations/runbooks/deployment-runbook.md`](../operations/runbooks/deployment-runbook.md) as the authoritative deployment runbook.
+
 # Deployment Runbook
 
 **Last Updated**: 2026-02-08

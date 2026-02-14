@@ -7,7 +7,7 @@
 
 import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
-import { LLMCostTracker } from "../../services/LLMCostTracker";
+import { llmCostTracker } from "../../services/LLMCostTracker";
 
 // ============================================================================
 // Provider Types
@@ -15,12 +15,20 @@ import { LLMCostTracker } from "../../services/LLMCostTracker";
 
 export type LLMProvider = "openai" | "anthropic" | "together" | "replicate";
 
-export interface LLMRequest {
+type LLMTenantMetadata =
+  | {
+      tenantId: string;
+      tenant_id?: string;
+    }
+  | {
+      tenantId?: string;
+      tenant_id: string;
+    };
+
+export type LLMRequest = LLMTenantMetadata & {
   id?: string;
   provider: LLMProvider;
   model: string;
-  tenantId: string;
-  tenant_id?: string;
   userId?: string;
   sessionId?: string;
   messages: Array<{
@@ -31,7 +39,7 @@ export interface LLMRequest {
   maxTokens?: number;
   stopSequences?: string[];
   metadata?: Record<string, unknown>;
-}
+};
 
 export interface LLMResponse {
   id: string;
@@ -268,9 +276,12 @@ class AnthropicProvider extends BaseLLMProvider {
 export class LLMGateway {
   private providers: Map<LLMProvider, BaseLLMProvider> = new Map();
   private defaultProvider: LLMProvider = "openai";
-  private costTracker: LLMCostTracker;
+  private costTracker: Pick<typeof llmCostTracker, "trackUsage">;
 
-  constructor(configs: Record<LLMProvider, LLMProviderConfig>, costTracker?: LLMCostTracker) {
+  constructor(
+    configs: Record<LLMProvider, LLMProviderConfig>,
+    costTracker: Pick<typeof llmCostTracker, "trackUsage"> = llmCostTracker,
+  ) {
     // Initialize providers
     if (configs.openai) {
       this.providers.set("openai", new OpenAIProvider(configs.openai));
@@ -285,19 +296,22 @@ export class LLMGateway {
       defaultProvider: this.defaultProvider,
     });
 
-    this.costTracker = costTracker ?? new LLMCostTracker();
+    this.costTracker = costTracker;
   }
 
   async execute(request: LLMRequest): Promise<LLMResponse> {
-    const tenantId = request.tenantId ?? request.tenant_id;
+    const tenantId = (request.tenantId ?? request.tenant_id)?.trim();
     if (!tenantId) {
-      throw new Error("TENANT_ID_REQUIRED: LLM requests require an explicit tenantId");
+      throw new Error(
+        "TENANT_ID_REQUIRED: LLM requests require tenant metadata via tenantId or tenant_id",
+      );
     }
 
     const enrichedRequest: LLMRequest = {
       id: uuidv4(),
       ...request,
       tenantId,
+      tenant_id: tenantId,
     };
 
     const provider = this.providers.get(request.provider);

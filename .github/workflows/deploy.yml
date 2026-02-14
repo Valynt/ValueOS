@@ -20,11 +20,24 @@ on:
         required: false
         default: false
         type: boolean
+      skip_tests_reason:
+        description: "Emergency rationale for bypassing tests"
+        required: false
+        type: string
+      incident_ticket_id:
+        description: "Incident ticket ID (required when skipping tests)"
+        required: false
+        type: string
+      post_deploy_validation_checklist:
+        description: "Post-deploy validation checklist (required when skipping tests)"
+        required: false
+        type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   id-token: write
+  issues: write
 
 env:
   REGISTRY: ghcr.io
@@ -34,31 +47,26 @@ env:
   SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
-  # ──────────────────────────────────────────────────────────────────────────
-  # 1. Quality gate — must pass before any deploy
-  # ──────────────────────────────────────────────────────────────────────────
-  quality-gate:
-    name: Quality Gate
+  # Guardrail: if tests are bypassed, require environment approval + evidence fields.
+  emergency-test-bypass-approval:
+    name: Emergency Test Bypass Approval
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'schedule' && !inputs.skip_tests }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
+    environment:
+      name: emergency-test-bypass
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint + Typecheck + Test
+      - name: Validate emergency bypass request
+        env:
+          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          SKIP_TESTS_REASON: ${{ inputs.skip_tests_reason }}
+          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
         run: |
-          npx turbo run lint typecheck test
+          set -euo pipefail
+
+          if [ -z "${INCIDENT_TICKET_ID}" ]; then
+            echo "incident_ticket_id is required when skip_tests=true" >&2
+            exit 1
+  # and may always depend on emergency-skip-audit for evidence capture.
 
   # ──────────────────────────────────────────────────────────────────────────
   # 2. Build and push container images
@@ -66,14 +74,13 @@ jobs:
   build-images:
     name: Build Backend Runtime Image
     runs-on: ubuntu-latest
-    needs: [quality-gate]
-    if: github.event_name != 'schedule' && always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
-    outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
-      image_digest: ${{ steps.build.outputs.digest }}
-      image_ref: ${{ steps.image-ref.outputs.image_ref }}
-    steps:
-      - uses: actions/checkout@v4
+    needs: [quality-gate, emergency-test-bypass-approval, emergency-skip-audit]
+    if: >
+      github.event_name != 'schedule' &&
+      always() &&
+      (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped') &&
+      (needs.emergency-test-bypass-approval.result == 'success' || needs.emergency-test-bypass-approval.result == 'skipped') &&
+      (needs.emergency-skip-audit.result == 'success' || needs.emergency-skip-audit.result == 'skipped')
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -202,7 +209,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [build-images, verify-supply-chain]
+    needs: [build-images, verify-supply-chain, emergency-skip-audit]
     if: github.event_name != 'schedule'
     environment:
       name: staging
@@ -245,6 +252,41 @@ jobs:
           done
           echo "Staging health check failed"
           exit 1
+
+
+      - name: Capture staging operational verification artifact
+        env:
+          INCIDENT_REFERENCE: ${{ needs.emergency-skip-audit.outputs.incident_reference }}
+          SKIP_TESTS: ${{ needs.emergency-skip-audit.outputs.skip_tests }}
+          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          artifact = {
+            "environment": "staging",
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "image_ref": os.environ.get("IMAGE_REF", ""),
+            "health_check": {"endpoint": "https://staging.valueos.app/health", "status": "passed"},
+            "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
+            "key_metrics": {"load_test": "infra/testing/load-test.k6.js", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"},
+            "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
+          }
+
+          with open("post-deploy-verification-staging-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
+            json.dump(artifact, handle, indent=2)
+          PY
+
+      - name: Upload staging operational verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-verification-staging-${{ github.run_id }}
+          path: post-deploy-verification-staging-${{ github.run_id }}.json
 
       - name: Run load test against staging
         uses: grafana/k6-action@v0.3.1
@@ -296,7 +338,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [deploy-staging, preprod-slo-guard, build-images, verify-supply-chain]
+    needs: [deploy-staging, preprod-slo-guard, build-images, verify-supply-chain, emergency-skip-audit]
     if: github.event_name != 'schedule' && github.ref == 'refs/heads/main' && (inputs.environment == 'production' || github.event_name == 'push')
     environment:
       name: production
@@ -345,6 +387,41 @@ jobs:
           done
           echo "Production health check failed — consider rollback"
           exit 1
+
+
+      - name: Capture production operational verification artifact
+        env:
+          INCIDENT_REFERENCE: ${{ needs.emergency-skip-audit.outputs.incident_reference }}
+          SKIP_TESTS: ${{ needs.emergency-skip-audit.outputs.skip_tests }}
+          IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          artifact = {
+            "environment": "production",
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "sha": "${{ github.sha }}",
+            "image_ref": os.environ.get("IMAGE_REF", ""),
+            "health_check": {"endpoint": "https://app.valueos.app/health", "status": "passed"},
+            "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
+            "key_metrics": {"preprod_slo_guard": "passed", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"},
+            "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
+          }
+
+          with open("post-deploy-verification-production-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
+            json.dump(artifact, handle, indent=2)
+          PY
+
+      - name: Upload production operational verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-verification-production-${{ github.run_id }}
+          path: post-deploy-verification-production-${{ github.run_id }}.json
 
 
   weekly-reliability-report:
@@ -444,3 +521,42 @@ jobs:
           kubectl -n valynt patch service backend-active \
             -p '{"spec":{"selector":{"slot":"blue"}}}'
           echo "Rolled back to blue slot"
+
+
+  create-deferred-validation-task:
+    name: Create Deferred Validation Follow-up Task
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.deploy-production.result == 'success' }}
+    steps:
+      - name: Create follow-up issue for deferred validation execution
+        uses: actions/github-script@v7
+        env:
+          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Emergency deployment bypassed test gate. Run deferred validations immediately.',
+              '',
+              `- Incident ticket: ${process.env.INCIDENT_TICKET_ID}`,
+              `- Workflow run: ${runUrl}`,
+              '',
+              '## Required post-deploy validation checklist',
+              process.env.POST_DEPLOY_VALIDATION_CHECKLIST,
+              '',
+              '- [ ] Validation execution started immediately',
+              '- [ ] Validation results linked back to this issue',
+              '- [ ] Incident timeline updated with validation outcomes'
+            ].join('\n');
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Deferred validations required after emergency deploy (${process.env.INCIDENT_TICKET_ID})`,
+              body,
+              labels: ['deployment', 'urgent', 'deferred-validation']
+            });
+
+            core.info(`Created follow-up issue #${issue.data.number}`);

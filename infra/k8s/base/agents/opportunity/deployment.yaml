@@ -6,6 +6,9 @@ metadata:
     app: opportunity-agent
     component: agent
     tier: backend
+    app.kubernetes.io/name: opportunity-agent
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/part-of: valynt
   annotations:
     valynt.io/llm-usage-limit: "200.00" # Monthly USD limit for this agent
     valynt.io/cost-center: "agent-opportunity"
@@ -21,6 +24,9 @@ spec:
         app: opportunity-agent
         component: agent
         tier: backend
+        app.kubernetes.io/name: opportunity-agent
+        app.kubernetes.io/component: agent
+        app.kubernetes.io/part-of: valynt
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"

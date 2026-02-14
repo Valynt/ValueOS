@@ -1,17 +1,21 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const PERSONALIZATION_STORAGE_KEY = "valynt_personalization_v1";
 const MAX_RECENT_SEARCHES = 5;
 
 interface PersonalizationState {
   routeUsage: Record<string, number>;
+  featureUsage: Record<string, number>;
   recentSearches: string[];
 }
 
 const DEFAULT_STATE: PersonalizationState = {
   routeUsage: {},
+  featureUsage: {},
   recentSearches: [],
 };
+
+const PERSONALIZATION_UPDATED_EVENT = "valynt:personalization:updated";
 
 function loadPersonalizationState(): PersonalizationState {
   try {
@@ -21,6 +25,7 @@ function loadPersonalizationState(): PersonalizationState {
     const parsed = JSON.parse(raw) as Partial<PersonalizationState>;
     return {
       routeUsage: parsed.routeUsage ?? {},
+      featureUsage: parsed.featureUsage ?? {},
       recentSearches: Array.isArray(parsed.recentSearches) ? parsed.recentSearches : [],
     };
   } catch {
@@ -31,6 +36,7 @@ function loadPersonalizationState(): PersonalizationState {
 function persistPersonalizationState(state: PersonalizationState) {
   try {
     localStorage.setItem(PERSONALIZATION_STORAGE_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent(PERSONALIZATION_UPDATED_EVENT));
   } catch {
     // Best-effort persistence
   }
@@ -38,6 +44,25 @@ function persistPersonalizationState(state: PersonalizationState) {
 
 export function useNavigationPersonalization() {
   const [state, setState] = useState<PersonalizationState>(() => loadPersonalizationState());
+
+  useEffect(() => {
+    const syncState = () => {
+      setState(loadPersonalizationState());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key && event.key !== PERSONALIZATION_STORAGE_KEY) return;
+      syncState();
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(PERSONALIZATION_UPDATED_EVENT, syncState);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(PERSONALIZATION_UPDATED_EVENT, syncState);
+    };
+  }, []);
 
   const trackRouteVisit = useCallback((path: string) => {
     if (!path) return;
@@ -48,6 +73,24 @@ export function useNavigationPersonalization() {
         routeUsage: {
           ...prev.routeUsage,
           [path]: (prev.routeUsage[path] ?? 0) + 1,
+        },
+      };
+
+      persistPersonalizationState(next);
+      return next;
+    });
+  }, []);
+
+  const trackFeatureUsage = useCallback((feature: string) => {
+    const normalized = feature.trim();
+    if (!normalized) return;
+
+    setState((prev) => {
+      const next: PersonalizationState = {
+        ...prev,
+        featureUsage: {
+          ...prev.featureUsage,
+          [normalized]: (prev.featureUsage[normalized] ?? 0) + 1,
         },
       };
 
@@ -82,6 +125,13 @@ export function useNavigationPersonalization() {
     [state.routeUsage]
   );
 
+  const getFeatureUsageCount = useCallback(
+    (feature: string) => {
+      return state.featureUsage[feature] ?? 0;
+    },
+    [state.featureUsage]
+  );
+
   const frequentRouteSet = useMemo(() => {
     const sorted = Object.entries(state.routeUsage)
       .sort((a, b) => b[1] - a[1])
@@ -94,10 +144,13 @@ export function useNavigationPersonalization() {
 
   return {
     routeUsage: state.routeUsage,
+    featureUsage: state.featureUsage,
     recentSearches: state.recentSearches,
     trackRouteVisit,
+    trackFeatureUsage,
     trackSearch,
     getUsageCount,
+    getFeatureUsageCount,
     frequentRouteSet,
   };
 }

@@ -1,13 +1,6 @@
-services:
-  devcontainer:
-    build:
-      context: ..
-      dockerfile: Dockerfile.dev
-    command: sleep infinity
-    volumes:
-      - ..:/workspaces/ValueOS:cached
-    environment:
-      NODE_ENV: development
-    # optional: if you need docker from inside the container
-    # volumes:
-    #   - /var/run/docker.sock:/var/run/docker.sock
+# DEPRECATED — canonical compose files live in ops/compose/.
+# Temporary compatibility shim.
+
+include:
+  - ../ops/compose/compose.yml
+  - ../ops/compose/profiles/devcontainer.yml

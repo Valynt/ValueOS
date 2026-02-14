@@ -19,11 +19,12 @@ const { secureTokenManager } = await import("./SecureTokenManager");
 describe("ValyntApp secureTokenManager", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     vi.clearAllMocks();
   });
 
   it("does not persist raw session token material to localStorage", () => {
-    const setItemSpy = vi.spyOn(localStorage, "setItem");
+    const setItemSpy = vi.spyOn(sessionStorage, "setItem");
 
     secureTokenManager.storeSession({
       access_token: "access-token-secret",
@@ -56,7 +57,7 @@ describe("ValyntApp secureTokenManager", () => {
       },
     } as any);
 
-    const initialFingerprint = localStorage.getItem(
+    const initialFingerprint = sessionStorage.getItem(
       "valynt.auth.refresh.fingerprint",
     );
 
@@ -70,14 +71,14 @@ describe("ValyntApp secureTokenManager", () => {
       },
     } as any);
 
-    const rotatedFingerprint = localStorage.getItem(
+    const rotatedFingerprint = sessionStorage.getItem(
       "valynt.auth.refresh.fingerprint",
     );
 
     expect(initialFingerprint).not.toBeNull();
     expect(rotatedFingerprint).not.toBeNull();
     expect(rotatedFingerprint).not.toEqual(initialFingerprint);
-    expect(localStorage.getItem("valynt.auth.state")).not.toBeNull();
+    expect(sessionStorage.getItem("valynt.auth.state")).not.toBeNull();
   });
 
   it("does not persist state when refresh tokens are missing", () => {
@@ -91,7 +92,7 @@ describe("ValyntApp secureTokenManager", () => {
       },
     } as any);
 
-    expect(localStorage.getItem("valynt.auth.state")).toBeNull();
+    expect(sessionStorage.getItem("valynt.auth.state")).toBeNull();
   });
 
   it("signs out when refresh tokens rotate without a refresh event", async () => {
@@ -125,9 +126,43 @@ describe("ValyntApp secureTokenManager", () => {
     });
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem("valynt.auth.state")).toBeNull();
+    expect(sessionStorage.getItem("valynt.auth.state")).toBeNull();
     expect(
-      localStorage.getItem("valynt.auth.refresh.fingerprint"),
+      sessionStorage.getItem("valynt.auth.refresh.fingerprint"),
     ).toBeNull();
+  });
+
+  it("signs out when TOKEN_REFRESHED reuses the same refresh token", async () => {
+    let authCallback: ((event: string, session: any) => void) | undefined;
+
+    mockOnAuthStateChange.mockImplementation((callback) => {
+      authCallback = callback;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    await secureTokenManager.initialize();
+
+    authCallback?.("SIGNED_IN", {
+      access_token: "access-token-1",
+      refresh_token: "refresh-token-1",
+      expires_at: 1735689600,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    });
+
+    authCallback?.("TOKEN_REFRESHED", {
+      access_token: "access-token-2",
+      refresh_token: "refresh-token-1",
+      expires_at: 1735689700,
+      user: {
+        id: "user-123",
+        email: "user@example.com",
+      },
+    });
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("valynt.auth.state")).toBeNull();
   });
 });

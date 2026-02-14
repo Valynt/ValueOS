@@ -1,3 +1,14 @@
+---
+title: Testing Operations (Legacy Consolidated)
+owner: team-quality
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: deprecated
+---
+
+> [!WARNING]
+> **DEPRECATED**: Use the authoritative runbook in `docs/operations/runbooks/` instead.
+
 # Testing Operations (Legacy Consolidated)
 
 This document has been split.

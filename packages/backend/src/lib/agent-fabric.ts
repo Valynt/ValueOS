@@ -46,6 +46,12 @@ export class AgentFabric {
   }
 
   async processUserInput(userInput: string): Promise<AgentFabricResult> {
+    if (isProductionBuild() || process.env.AGENT_FABRIC_ALLOW_STUB !== "true") {
+      throw new Error(
+        "AgentFabric stub is disabled. Set AGENT_FABRIC_ALLOW_STUB=true only for local non-production usage.",
+      );
+    }
+
     const hypothesis = ValueHypothesisSchema.parse({
       id: "hyp-1",
       description: userInput,
@@ -103,4 +109,8 @@ export class AgentFabric {
       },
     };
   }
+}
+
+function isProductionBuild(): boolean {
+  return process.env.NODE_ENV === "production";
 }
