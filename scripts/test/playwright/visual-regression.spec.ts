@@ -206,3 +206,66 @@ test.describe("Visual Regression - Dark/Light Theme", () => {
     await expect(page).toHaveScreenshot("home-light-theme.png", screenshotOptions);
   });
 });
+
+function pseudoLocalizeText(text: string): string {
+  const map: Record<string, string> = {
+    a: "à", e: "ë", i: "ï", o: "ô", u: "ü", A: "Â", E: "Ë", I: "Ï", O: "Ö", U: "Û",
+  };
+  const accented = text
+    .split("")
+    .map((char) => map[char] ?? char)
+    .join("");
+  return `[!! ${accented}${"~".repeat(Math.max(4, Math.ceil(text.length * 0.35)))} !!]`;
+}
+
+test.describe("Visual Regression - Localization Overflow", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  async function applyPseudoLocalization(page: import("@playwright/test").Page) {
+    await page.evaluate(({ pseudoLocalizeTextSource }) => {
+      const pseudoFn = new Function(`return (${pseudoLocalizeTextSource});`)() as (text: string) => string;
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const textNodes: Text[] = [];
+
+      let current = walker.nextNode();
+      while (current) {
+        const textNode = current as Text;
+        const value = textNode.nodeValue?.trim();
+        if (value) textNodes.push(textNode);
+        current = walker.nextNode();
+      }
+
+      for (const node of textNodes) {
+        if (!node.nodeValue) continue;
+        node.nodeValue = pseudoFn(node.nodeValue);
+      }
+    }, { pseudoLocalizeTextSource: pseudoLocalizeText.toString() });
+  }
+
+  for (const workflow of [
+    { name: "login", path: "/login" },
+    { name: "home", path: "/home" },
+    { name: "deals", path: "/deals" },
+  ]) {
+    test(`${workflow.name} - pseudo-locale has no horizontal overflow`, async ({ page }) => {
+      await page.goto(workflow.path);
+      await page.waitForLoadState("networkidle");
+      await applyPseudoLocalization(page);
+
+      const overflows = await page.evaluate(() => {
+        const candidates = [document.documentElement, document.body, ...Array.from(document.querySelectorAll("main, section, article, [role='main']"))];
+        return candidates
+          .map((el) => ({
+            tag: el.tagName,
+            className: el.className,
+            scrollWidth: el.scrollWidth,
+            clientWidth: el.clientWidth,
+          }))
+          .filter((entry) => entry.scrollWidth - entry.clientWidth > 1);
+      });
+
+      expect(overflows, `Overflow detected in ${workflow.name}: ${JSON.stringify(overflows)}`).toEqual([]);
+      await expect(page).toHaveScreenshot(`pseudo-loc-${workflow.name}-desktop.png`, screenshotOptions);
+    });
+  }
+});

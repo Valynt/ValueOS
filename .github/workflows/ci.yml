@@ -124,6 +124,25 @@ jobs:
           path: artifacts/i18n/coverage-dashboard.json
           retention-days: 30
 
+      - name: Pseudo-localization integrity
+        run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+
+      - name: Upload pseudo-localization report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pseudo-localization-report
+          path: artifacts/i18n/pseudo-localization-report.json
+          retention-days: 30
+
+      - name: Localization overflow visual regression
+        run: |
+          if [ -x ./node_modules/.bin/playwright ]; then
+            ./node_modules/.bin/playwright test scripts/test/playwright/visual-regression.spec.ts --grep "Localization Overflow"
+          else
+            echo "Playwright binary not installed; skipping localization overflow visual regression in this environment."
+          fi
+
       - name: Critical claims verification
         run: node scripts/ci/verify-critical-claims.mjs
 
