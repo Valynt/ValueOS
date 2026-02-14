@@ -133,6 +133,11 @@ main() {
 
   load_env
 
+
+  if [[ "${LOCAL_SUPABASE_ONLY:-0}" != "1" ]]; then
+    die "Refusing to run seed_data.sh without LOCAL_SUPABASE_ONLY=1 (local-stack-only helper)."
+  fi
+
   if ! psql_exec -qAt -c "SELECT 1;" >/dev/null 2>&1; then
     die "ERROR: Cannot reach Postgres at $(describe_target). Is Docker running?"
   fi

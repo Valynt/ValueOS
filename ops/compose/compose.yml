@@ -32,7 +32,7 @@ services:
       PORT: ${API_PORT:-8000}
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
       REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}@redis:6379
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${VITE_PORT:-5173}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${WEB_PORT:-5173}}
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
 
@@ -47,9 +47,15 @@ services:
       - backend
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${VITE_PORT:-5173}
+      PORT: ${WEB_CONTAINER_PORT:-5173}
+      VITE_HOST: 0.0.0.0
+      VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}
+      VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
+      VITE_HMR_CLIENT_PORT: ${VITE_HMR_CLIENT_PORT:-24678}
+      VITE_USE_POLLING: ${VITE_USE_POLLING:-false}
     ports:
-      - "${VITE_PORT:-5173}:${VITE_PORT:-5173}"
+      - "${WEB_PORT:-5173}:${WEB_CONTAINER_PORT:-5173}"
+      - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
 
   postgres:
     <<: *common
@@ -101,3 +107,4 @@ volumes:
 networks:
   default:
     name: ${VALUEOS_NETWORK:-valueos-network}
+

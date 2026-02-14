@@ -1,7 +1,4 @@
 # Full containerized app runtime for DX docker mode.
-
-services:
-  zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     profiles: ["runtime-docker"]
     environment:
@@ -59,8 +56,15 @@ services:
       args:
         VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
     profiles: ["runtime-docker"]
-    ports: ["${VITE_PORT:-5173}:${VITE_PORT:-5173}"]
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+      - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
     environment:
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
       VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
+      VITE_HOST: 0.0.0.0
+      VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}
+      VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
+      VITE_HMR_CLIENT_PORT: ${VITE_HMR_CLIENT_PORT:-24678}
+      VITE_USE_POLLING: ${VITE_USE_POLLING:-true}
     depends_on: [backend]

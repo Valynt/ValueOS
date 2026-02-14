@@ -11,6 +11,11 @@
  */
 
 import { logger } from '../utils/logger.js'
+import {
+  enforceToolPolicy,
+  PolicyEnforcementError,
+  recordPolicyAuditEvent,
+} from './policy/PolicyEnforcement.js';
 
 /**
  * JSON Schema for tool parameters
@@ -209,12 +214,16 @@ export class ToolRegistry {
 
     // Execute tool
     const startTime = Date.now();
-    
+    const agentType = context?.agentType;
+
     try {
+      const { policyVersion } = enforceToolPolicy(agentType, toolName);
+
       logger.info('Executing tool', {
         toolName,
         userId: context?.userId,
         workflowId: context?.workflowId,
+        policyVersion,
       });
 
       const result = await tool.execute(params, context);
@@ -235,10 +244,21 @@ export class ToolRegistry {
         metadata: {
           ...result.metadata,
           duration,
+          policyVersion,
         },
       };
     } catch (error) {
       const duration = Date.now() - startTime;
+
+      if (error instanceof PolicyEnforcementError) {
+        recordPolicyAuditEvent({
+          eventType: 'tool_denied',
+          agentType: agentType ?? 'default',
+          policyVersion: String(error.details.policyVersion ?? 'unknown'),
+          metadata: { toolName, duration, code: error.code },
+        });
+        throw error;
+      }
 
       logger.error('Tool execution failed', {
         toolName,

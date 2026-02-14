@@ -994,10 +994,20 @@ pnpm run dx
 - Everything runs in Docker containers
 - Services communicate via Docker network DNS
 - URLs use service names (e.g., `backend:3001`)
+- Frontend dev server binds to `0.0.0.0` for container access
+- HMR is exposed on a dedicated port (`VITE_HMR_PORT`, default `24678`)
+- Polling-based watch is enabled by default for reliability on mounted volumes (`VITE_USE_POLLING=true`)
 
 ```bash
 pnpm run dx:docker
 ```
+
+> **Mode tradeoff note:** Docker mode prioritizes cross-platform reliability (especially Docker Desktop + WSL2 file mounts) over raw hot-reload speed. Polling-based watchers can consume more CPU and make reload latency slightly higher. If you want the fastest iteration loop on a stable host setup, switch back to local mode:
+>
+> ```bash
+> pnpm run dx:env -- --mode local --force
+> pnpm run dx
+> ```
 
 ## Generated Files
 
@@ -1025,6 +1035,17 @@ pnpm run dx:docker  # Docker mode
 ## Troubleshooting
 For a single, canonical list of symptoms → causes → fixes, see
 [Common Issues + Fixes](getting-started/troubleshooting.md).
+
+### Runtime mode quick triage
+- **Symptom: UI changes do not reload**
+  - Verify `VITE_HMR_PORT` is published and not blocked by another process.
+  - In Docker mode, keep `VITE_HOST=0.0.0.0` so the dev server is reachable from outside the container.
+- **Symptom: reload works intermittently / stale builds**
+  - Enable polling watchers in Docker mode (`VITE_USE_POLLING=true`) and restart the frontend container.
+  - If you do not need containerized app runtime, switch to local mode for direct host file watching.
+- **Symptom: high CPU while editing files**
+  - Polling watchers trade CPU for reliability on mounted volumes.
+  - Prefer local mode for lower watcher overhead, or tune polling interval in frontend config if needed.
 
 ## For Contributors
 
