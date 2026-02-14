@@ -158,6 +158,7 @@
     "down": "docker compose down -v",
     "lint": "eslint .",
     "check:service-duplicates": "node scripts/check-service-duplicate-filenames.mjs",
-    "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs"
+    "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs",
+    "check:module-boundaries": "node scripts/ci/check-module-boundaries.mjs"
   }
 }

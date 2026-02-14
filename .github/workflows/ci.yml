@@ -71,6 +71,9 @@ jobs:
       - name: Check service duplicate filenames
         run: pnpm check:service-duplicates
 
+      - name: Check module boundaries
+        run: pnpm check:module-boundaries
+
       - name: Lint
         run: npx turbo run lint
 
