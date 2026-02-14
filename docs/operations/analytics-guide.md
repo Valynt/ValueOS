@@ -538,3 +538,21 @@ For issues or questions:
 - **On-call**: PagerDuty escalation for critical issues
 
 ---
+## Engineering Readiness Dashboards (Accessibility, i18n, UX Performance)
+
+The CI pipeline now publishes three release-readiness metrics artifacts that should be linked from engineering dashboards for every release candidate:
+
+1. **Accessibility severity budget metrics**: `artifacts/accessibility/a11y-severity-metrics.json`
+   - WCAG severity budget policy: `critical = 0`, `serious = 0` (hard fail in CI).
+2. **Localization readiness metrics**: `artifacts/i18n/coverage-dashboard.json`
+   - Enforces key completeness across required locales and coverage thresholds from `.github/metrics/i18n-budget.json`.
+3. **UX performance budget metrics**: `artifacts/performance/ux-performance-metrics.json`
+   - Enforces initial bundle and route-level load budgets from `.github/metrics/ux-performance-budgets.json`.
+
+Recommended dashboard tiles:
+
+- `a11y_critical_violations`, `a11y_serious_violations`
+- `i18n_total_missing_keys`, `i18n_locales_below_threshold`
+- `ux_initial_bundle_kib`, `ux_route_budget_failures`
+
+These metrics are expected in the release evidence bundle and must be reviewed during release Go/No-Go.

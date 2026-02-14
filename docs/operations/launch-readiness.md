@@ -73,6 +73,9 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Feature flags transitioned (`beta_*` removed or mapped to `ga_*`).
 - [ ] Backup stored and verified.
 - [ ] Stakeholder communications sent (pre/post).
+- [ ] Accessibility severity budget report reviewed (`artifacts/accessibility/a11y-severity-metrics.json`) with `critical=0` and `serious=0`.
+- [ ] Localization coverage report reviewed (`artifacts/i18n/coverage-dashboard.json`) with required locales complete.
+- [ ] UX performance budget report reviewed (`artifacts/performance/ux-performance-metrics.json`) with initial and route budgets passing.
 - [ ] Launch Readiness Dashboard reviewed and archived in the release packet.
 
 ---

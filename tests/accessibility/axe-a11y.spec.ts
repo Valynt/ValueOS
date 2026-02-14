@@ -24,6 +24,20 @@ for (const page of PAGES) {
         .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
         .analyze();
 
+      const impactCounts = results.violations.reduce(
+        (acc, violation) => {
+          const impact = violation.impact ?? "unknown";
+          acc[impact] = (acc[impact] ?? 0) + violation.nodes.length;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      test.info().annotations.push({
+        type: "a11y-impact-counts",
+        description: JSON.stringify(impactCounts),
+      });
+
       const serious = results.violations.filter(
         (v) => v.impact === "serious" || v.impact === "critical"
       );

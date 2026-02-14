@@ -61,6 +61,14 @@ jobs:
             --metrics-out artifacts/accessibility/a11y-metrics.json \
             --summary-out artifacts/accessibility/a11y-trend-summary.md
 
+      - name: Enforce WCAG severity budgets
+        if: always()
+        run: |
+          node scripts/ci/check-a11y-severity-budget.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --budget .github/metrics/a11y-severity-budget.json \
+            --metrics-out artifacts/accessibility/a11y-severity-metrics.json
+
       - name: Upload a11y HTML report
         if: always()
         uses: actions/upload-artifact@v4
@@ -77,5 +85,6 @@ jobs:
           path: |
             artifacts/accessibility/playwright-report.json
             artifacts/accessibility/a11y-metrics.json
+            artifacts/accessibility/a11y-severity-metrics.json
             artifacts/accessibility/a11y-trend-summary.md
           retention-days: 30

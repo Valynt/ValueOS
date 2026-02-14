@@ -1,0 +1,22 @@
+{
+  "initialBundle": {
+    "maxKiB": 1500
+  },
+  "routeBudgets": [
+    {
+      "route": "/",
+      "sourceIncludes": "src/main.tsx",
+      "maxKiB": 1500
+    },
+    {
+      "route": "/dashboard",
+      "sourceIncludes": "src/pages/app/DashboardPage.tsx",
+      "maxKiB": 800
+    },
+    {
+      "route": "/auth/login",
+      "sourceIncludes": "src/pages/auth/LoginPage.tsx",
+      "maxKiB": 600
+    }
+  ]
+}

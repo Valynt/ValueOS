@@ -114,7 +114,7 @@ jobs:
         run: node scripts/ci/check-k8s-secrets-hygiene.mjs
 
       - name: i18n key integrity
-        run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
+        run: node scripts/ci/check-i18n-keys.mjs --budget .github/metrics/i18n-budget.json --json-out artifacts/i18n/coverage-dashboard.json
 
       - name: Upload i18n coverage dashboard
         if: always()
@@ -135,6 +135,17 @@ jobs:
 
       - name: Build
         run: npx turbo run build
+
+      - name: UX performance budgets
+        run: node scripts/ci/check-ux-performance-budgets.mjs --budget .github/metrics/ux-performance-budgets.json --metrics-out artifacts/performance/ux-performance-metrics.json
+
+      - name: Upload UX performance dashboard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ux-performance-dashboard
+          path: artifacts/performance/ux-performance-metrics.json
+          retention-days: 30
 
       - name: Unit test suite with coverage thresholds
         run: npx vitest run --coverage

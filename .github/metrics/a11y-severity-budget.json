@@ -1,0 +1,9 @@
+{
+  "wcagStandard": "WCAG 2.2 AA",
+  "maxViolationsByImpact": {
+    "critical": 0,
+    "serious": 0,
+    "moderate": 10,
+    "minor": 20
+  }
+}

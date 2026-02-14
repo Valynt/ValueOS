@@ -1,0 +1,5 @@
+{
+  "requiredLocales": ["en", "es"],
+  "minimumCoveragePercent": 100,
+  "maxTotalMissingKeys": 0
+}

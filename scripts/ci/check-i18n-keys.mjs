@@ -24,17 +24,35 @@ const SRC_DIRS = ["apps/ValyntApp/src", "apps/VOSAcademy/src"];
 const cliArgs = process.argv.slice(2);
 const jsonOutPath = getArgValue(cliArgs, "--json-out");
 const minCoverageArg = getArgValue(cliArgs, "--min-coverage");
+const budgetArg = getArgValue(cliArgs, "--budget");
+const budgetPath = resolve(ROOT, budgetArg ?? ".github/metrics/i18n-budget.json");
+
+let hasErrors = false;
+let hasWarnings = false;
+let budget = {};
+if (existsSync(budgetPath)) {
+  try {
+    budget = JSON.parse(readFileSync(budgetPath, "utf-8"));
+  } catch (error) {
+    console.error(`  ❌ Failed to parse i18n budget file ${budgetPath}: ${error.message}`);
+    hasErrors = true;
+  }
+}
 
 const parsedMinCoverage = Number.parseInt(
-  minCoverageArg ?? process.env.I18N_MIN_COVERAGE_PERCENT ?? `${DEFAULT_MIN_COVERAGE_PERCENT}`,
+  minCoverageArg
+    ?? process.env.I18N_MIN_COVERAGE_PERCENT
+    ?? `${budget.minimumCoveragePercent ?? DEFAULT_MIN_COVERAGE_PERCENT}`,
   10
 );
 const MIN_COVERAGE_PERCENT = Number.isNaN(parsedMinCoverage)
   ? DEFAULT_MIN_COVERAGE_PERCENT
   : parsedMinCoverage;
+const REQUIRED_LOCALES = Array.isArray(budget.requiredLocales) ? budget.requiredLocales : [];
+const MAX_TOTAL_MISSING_KEYS = Number.isFinite(budget.maxTotalMissingKeys)
+  ? budget.maxTotalMissingKeys
+  : 0;
 
-let hasErrors = false;
-let hasWarnings = false;
 const dashboard = {
   sourceLocale: SOURCE_LOCALE,
   minimumCoveragePercent: MIN_COVERAGE_PERCENT,
@@ -46,6 +64,8 @@ const dashboard = {
     localesBelowThreshold: 0,
     unusedKeys: 0,
   },
+  requiredLocales: REQUIRED_LOCALES,
+  maxTotalMissingKeys: MAX_TOTAL_MISSING_KEYS,
   status: "pass",
   generatedAt: new Date().toISOString(),
 };
@@ -121,6 +141,14 @@ for (const i18nRelDir of I18N_DIRS) {
     console.error(`  ❌ Source locale "${SOURCE_LOCALE}" not found in ${i18nRelDir}`);
     hasErrors = true;
     continue;
+  }
+
+
+  for (const requiredLocale of REQUIRED_LOCALES) {
+    if (!locales.includes(requiredLocale)) {
+      console.error(`  ❌ Required locale "${requiredLocale}" is missing in ${i18nRelDir}`);
+      hasErrors = true;
+    }
   }
 
   const sourceKeys = loadLocaleKeys(join(i18nDir, SOURCE_LOCALE));
@@ -200,6 +228,11 @@ if (usedKeys.size > 0) {
 }
 
 console.log("");
+
+if (dashboard.totals.missingKeys > MAX_TOTAL_MISSING_KEYS) {
+  console.error(`❌ Total missing keys ${dashboard.totals.missingKeys} exceeded budget ${MAX_TOTAL_MISSING_KEYS}`);
+  hasErrors = true;
+}
 
 if (hasErrors) {
   console.error("❌ i18n key check failed");
