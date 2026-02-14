@@ -127,6 +127,16 @@ jobs:
       - name: Critical claims verification
         run: node scripts/ci/verify-critical-claims.mjs
 
+      - name: OpenAPI breaking-change detector
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci/check-openapi-breaking-changes.mjs
+
+      - name: Infra manifest registry guard
+        run: node scripts/ci/check-infra-manifest-registry.mjs
+
+      - name: Kubernetes architecture conformance
+        run: node scripts/ci/check-k8s-architecture-conformance.mjs
+
       - name: Versioned router compatibility tests
         run: pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts apps/ValyntApp/src/backend/__tests__/versioning.contract.test.ts
 

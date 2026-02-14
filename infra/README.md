@@ -6,6 +6,23 @@ This directory contains deployment and operational infrastructure for the ValueO
 
 Use this inventory as the source of truth for where to run Compose, Kubernetes, and Terraform targets.
 
+## Active vs deprecated infra manifest registry
+
+This registry is enforced in CI (`scripts/ci/check-infra-manifest-registry.mjs`) to block new references to deprecated paths.
+
+<!-- infra-manifest-registry:start -->
+| Path | Status | Replacement | Notes |
+| --- | --- | --- | --- |
+| `infra/docker/docker-compose.dev.yml` | Active | n/a | Primary local development compose stack. |
+| `infra/docker/docker-compose.staging.yml` | Active | n/a | Staging compose entry point. |
+| `infra/docker/docker-compose.prod.yml` | Active | n/a | Production compose entry point. |
+| `infra/docker/docker-compose.observability.yml` | Active | n/a | Canonical LGTM observability stack. |
+| `infra/docker-compose.observability.yml` | Deprecated | `infra/docker/docker-compose.observability.yml` | Legacy root-level observability compose file retained for historical context only. |
+| `infra/terraform/` | Active | n/a | Canonical shared Terraform root. |
+| `infra/terraform-new/` | Active | n/a | Canonical next-generation Terraform root. |
+| `infra/k8s/base/` | Active | n/a | Canonical base Kubernetes workload manifests. |
+<!-- infra-manifest-registry:end -->
+
 ### Docker Compose targets
 
 | Target | Path | Owner | Purpose | Status |
