@@ -20,11 +20,24 @@ on:
         required: false
         default: false
         type: boolean
+      skip_tests_reason:
+        description: "Emergency rationale for bypassing tests"
+        required: false
+        type: string
+      incident_ticket_id:
+        description: "Incident ticket ID (required when skipping tests)"
+        required: false
+        type: string
+      post_deploy_validation_checklist:
+        description: "Post-deploy validation checklist (required when skipping tests)"
+        required: false
+        type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   id-token: write
+  issues: write
 
 env:
   REGISTRY: ghcr.io
@@ -34,6 +47,65 @@ env:
   SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
+  emergency-test-bypass-approval:
+    name: Emergency Test Bypass Approval
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
+    environment:
+      name: emergency-test-bypass
+    steps:
+      - name: Validate emergency bypass request
+        env:
+          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          SKIP_TESTS_REASON: ${{ inputs.skip_tests_reason }}
+          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${INCIDENT_TICKET_ID}" ]; then
+            echo "incident_ticket_id is required when skip_tests=true"
+            exit 1
+          fi
+
+          if [ -z "${SKIP_TESTS_REASON}" ]; then
+            echo "skip_tests_reason is required when skip_tests=true"
+            exit 1
+          fi
+
+          if [ -z "${POST_DEPLOY_VALIDATION_CHECKLIST}" ]; then
+            echo "post_deploy_validation_checklist is required when skip_tests=true"
+            exit 1
+          fi
+
+      - name: Generate emergency bypass audit log
+        env:
+          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          SKIP_TESTS_REASON: ${{ inputs.skip_tests_reason }}
+          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
+        run: |
+          set -euo pipefail
+          cat > emergency-test-bypass-audit.json <<AUDIT
+          {
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "repository": "${{ github.repository }}",
+            "requester": "${{ github.triggering_actor || github.actor }}",
+            "approved_by": "${{ github.actor }}",
+            "incident_ticket_id": "${INCIDENT_TICKET_ID}",
+            "bypass_reason": "${SKIP_TESTS_REASON}",
+            "post_deploy_validation_checklist": "${POST_DEPLOY_VALIDATION_CHECKLIST}",
+            "approved_environment": "emergency-test-bypass",
+            "timestamp_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          AUDIT
+
+      - name: Upload emergency bypass audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-test-bypass-audit-${{ github.run_id }}
+          path: emergency-test-bypass-audit.json
+
   # ──────────────────────────────────────────────────────────────────────────
   # 1. Quality gate — must pass before any deploy
   # ──────────────────────────────────────────────────────────────────────────
@@ -66,8 +138,8 @@ jobs:
   build-images:
     name: Build Backend Runtime Image
     runs-on: ubuntu-latest
-    needs: [quality-gate]
-    if: github.event_name != 'schedule' && always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
+    needs: [quality-gate, emergency-test-bypass-approval]
+    if: github.event_name != 'schedule' && always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped') && (needs.emergency-test-bypass-approval.result == 'success' || needs.emergency-test-bypass-approval.result == 'skipped')
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
       image_digest: ${{ steps.build.outputs.digest }}
@@ -444,3 +516,42 @@ jobs:
           kubectl -n valynt patch service backend-active \
             -p '{"spec":{"selector":{"slot":"blue"}}}'
           echo "Rolled back to blue slot"
+
+
+  create-deferred-validation-task:
+    name: Create Deferred Validation Follow-up Task
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.deploy-production.result == 'success' }}
+    steps:
+      - name: Create follow-up issue for deferred validation execution
+        uses: actions/github-script@v7
+        env:
+          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'Emergency deployment bypassed test gate. Run deferred validations immediately.',
+              '',
+              `- Incident ticket: ${process.env.INCIDENT_TICKET_ID}`,
+              `- Workflow run: ${runUrl}`,
+              '',
+              '## Required post-deploy validation checklist',
+              process.env.POST_DEPLOY_VALIDATION_CHECKLIST,
+              '',
+              '- [ ] Validation execution started immediately',
+              '- [ ] Validation results linked back to this issue',
+              '- [ ] Incident timeline updated with validation outcomes'
+            ].join('\n');
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Deferred validations required after emergency deploy (${process.env.INCIDENT_TICKET_ID})`,
+              body,
+              labels: ['deployment', 'urgent', 'deferred-validation']
+            });
+
+            core.info(`Created follow-up issue #${issue.data.number}`);
