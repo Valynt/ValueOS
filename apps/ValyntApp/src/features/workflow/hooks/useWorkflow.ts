@@ -79,8 +79,24 @@ export function useWorkflow(_workflowId?: string) {
 
   const executeWorkflow = useCallback(async () => {
     if (!workflow) return;
-    setWorkflow((prev) => (prev ? { ...prev, status: "active" } : null));
-    // TODO: Implement actual execution
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await api.executeWorkflow({ workflowId: workflow.id });
+
+      if (!response.success) {
+        throw new Error(response.error?.message || "Failed to execute workflow");
+      }
+
+      setWorkflow((prev) => (prev ? { ...prev, status: "active", updatedAt: new Date().toISOString() } : null));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to execute workflow";
+      setError(message);
+      setWorkflow((prev) => (prev ? { ...prev, status: "failed", updatedAt: new Date().toISOString() } : null));
+    } finally {
+      setIsLoading(false);
+    }
   }, [workflow]);
 
   return {

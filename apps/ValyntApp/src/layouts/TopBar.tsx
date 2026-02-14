@@ -14,11 +14,19 @@ interface TopBarProps {
 
 const DEFAULT_SEARCH_PLACEHOLDER = "Search opportunities, models, agents...";
 
-function getPlanLabel(companySize: string | null | undefined): string {
-  if (companySize === "enterprise") return "Enterprise";
-  if (companySize === "mid_market") return "Growth";
-  if (companySize === "smb") return "Starter";
-  return "Standard";
+function normalizePlanLabel(value: string | null | undefined): string {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return "Standard";
+
+  if (["enterprise", "enterprise_plan"].includes(normalized)) return "Enterprise";
+  if (["mid_market", "growth", "pro"].includes(normalized)) return "Growth";
+  if (["smb", "starter", "basic", "free"].includes(normalized)) return "Starter";
+
+  return normalized
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((chunk) => chunk[0].toUpperCase() + chunk.slice(1))
+    .join(" ");
 }
 
 function getInitials(name: string): string {
@@ -39,29 +47,58 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
   const { user } = useAuth();
   const { currentTenant } = useTenant();
   const { companyContext } = useCompanyValueContext();
-  const { recentSearches, trackSearch } = useNavigationPersonalization();
+  const { recentSearches, trackSearch, trackFeatureUsage } = useNavigationPersonalization();
 
-  const orgName =
-    companyContext?.context.company_name ||
-    currentTenant?.name ||
-    user?.user_metadata?.org_name ||
-    "Value Org";
+  const orgName = useMemo(() => {
+    const authMeta = user?.user_metadata as Record<string, unknown> | undefined;
+
+    const candidates = [
+      companyContext?.context.company_name,
+      currentTenant?.name,
+      typeof authMeta?.organization_name === "string" ? authMeta.organization_name : null,
+      typeof authMeta?.org_name === "string" ? authMeta.org_name : null,
+      typeof authMeta?.company_name === "string" ? authMeta.company_name : null,
+    ];
+
+    return candidates.find((entry) => typeof entry === "string" && entry.trim().length > 0)?.trim() ?? "Value Org";
+  }, [companyContext?.context.company_name, currentTenant?.name, user?.user_metadata]);
+
+  const planLabel = useMemo(() => {
+    const authMeta = user?.user_metadata as Record<string, unknown> | undefined;
+    const metadata = companyContext?.context.metadata;
+
+    const planFromCompanyMetadata =
+      metadata && typeof metadata === "object" && typeof metadata.plan === "string"
+        ? metadata.plan
+        : null;
+
+    const candidates = [
+      planFromCompanyMetadata,
+      companyContext?.context.company_size,
+      currentTenant?.role,
+      typeof authMeta?.plan === "string" ? authMeta.plan : null,
+      typeof authMeta?.subscription_plan === "string" ? authMeta.subscription_plan : null,
+    ];
+
+    return normalizePlanLabel(candidates.find((entry) => typeof entry === "string" && entry.trim().length > 0));
+  }, [companyContext?.context.company_size, companyContext?.context.metadata, currentTenant?.role, user?.user_metadata]);
 
   const orgInitials = getInitials(orgName);
-  const planLabel = getPlanLabel(companyContext?.context.company_size);
 
   const personalizedPlaceholder = useMemo(() => {
     const recent = recentSearches[0];
-    if (recent) {
-      return `Continue with "${recent}"`;
-    }
+    if (recent) return `Continue with "${recent}"`;
 
     if (companyContext?.context.industry) {
       return `Search ${companyContext.context.industry} opportunities, models, agents...`;
     }
 
+    if (orgName !== "Value Org") {
+      return `Search in ${orgName} workspace...`;
+    }
+
     return DEFAULT_SEARCH_PLACEHOLDER;
-  }, [companyContext?.context.industry, recentSearches]);
+  }, [companyContext?.context.industry, orgName, recentSearches]);
 
   const recentSuggestions = useMemo(() => {
     return recentSearches.slice(0, 3);
@@ -70,7 +107,9 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
   const submitSearch = () => {
     const trimmed = query.trim();
     if (!trimmed) return;
+
     trackSearch(trimmed);
+    trackFeatureUsage("search");
   };
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -152,6 +191,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
                 onClick={() => {
                   setQuery(suggestion);
                   trackSearch(suggestion);
+                  trackFeatureUsage("search");
                 }}
               >
                 {suggestion}
@@ -166,6 +206,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         {/* Notifications */}
         <button
           aria-label="Open notifications"
+          onClick={() => trackFeatureUsage("notifications")}
           className="relative min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-zinc-100 transition-colors inline-flex items-center justify-center"
         >
           <Bell className="w-[18px] h-[18px] text-zinc-500" />
@@ -175,7 +216,10 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         {/* Agent quick action */}
         <button
           type="button"
-          onClick={onAgentOpen}
+          onClick={() => {
+            trackFeatureUsage("ask_agent");
+            onAgentOpen?.();
+          }}
           className="flex items-center justify-center gap-2 px-3 sm:px-4 min-h-11 bg-zinc-950 text-white rounded-xl text-[13px] font-medium hover:bg-zinc-800 transition-colors whitespace-nowrap"
         >
           <Sparkles className="w-4 h-4" />

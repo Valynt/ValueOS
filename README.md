@@ -122,7 +122,7 @@ See [docs/architecture/](docs/architecture/) for detailed design documents.
 - **Secrets**: Vault / AWS Secrets Manager via External Secrets Operator. No secrets in code or config.
 - **RLS**: All tenant-scoped tables enforce row-level security. Dedicated CI check validates policies.
 
-See [docs/security-compliance/](docs/security-compliance/) for the full security overview and compliance guide.
+See [docs/security-compliance/](docs/security-compliance/) for the full security overview and compliance guide, and review [SECURITY.md](SECURITY.md) for coordinated vulnerability disclosure.
 
 ## Documentation
 

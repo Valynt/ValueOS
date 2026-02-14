@@ -6,6 +6,9 @@ review_cadence: monthly
 last_reviewed: 2026-02-13
 tags: [runbook, operations, deployment, ownership:team-platform, cadence:monthly]
 source_reference: ../reference/deployment-reference.generated.md
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
 ---
 
 # Deployment Runbook

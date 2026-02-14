@@ -1,27 +1,5 @@
-services:
-  llm:
-    build:
-      context: .
-      dockerfile: Dockerfile.vllm
-    container_name: codex53-local
-    ports:
-      - "${CODEX53_PORT:-8000}:8000"
-    environment:
-      NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-      HUGGING_FACE_HUB_TOKEN: "${HUGGING_FACE_HUB_TOKEN:-}"
-    volumes:
-      - "${HF_CACHE_DIR:-./.hf-cache}:/root/.cache/huggingface"
-    gpus: all
-    shm_size: "16gb"
-    restart: unless-stopped
-    command: >
-      python -m vllm.entrypoints.openai.api_server
-      --host 0.0.0.0
-      --port 8000
-      --model ${MODEL_ID:-Qwen/Qwen2.5-Coder-32B-Instruct}
-      --served-model-name ${SERVED_MODEL_NAME:-codex53-local}
-      --max-model-len ${MAX_MODEL_LEN:-32768}
-      --gpu-memory-utilization ${GPU_MEMORY_UTILIZATION:-0.92}
-      --max-num-seqs ${MAX_NUM_SEQS:-16}
-      --enable-prefix-caching
+# DEPRECATED — canonical compose files live in ops/compose/.
+# Temporary compatibility shim.
+
+include:
+  - ../../ops/compose/compose.yml

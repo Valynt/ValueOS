@@ -1,3 +1,6 @@
+# DEPRECATED: Accessibility checks were consolidated into ci.yml (job: accessibility-audit).
+# This file is intentionally disabled (suffix .disabled) and retained for audit history.
+
 name: Accessibility
 
 on:
