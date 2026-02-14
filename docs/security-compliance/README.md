@@ -7,6 +7,9 @@
 ## Documents in this Category
 
 - [Audit Logging](./audit-logging.md)
+- [Vendor Risk Review Workflow](./vendor-risk-review-workflow.md)
+- [Trust Center Package](./trust-center.md)
+- [Bug Bounty and CVD Program](./bug-bounty-cvd-program.md)
 - [Compliance Guide](./compliance-guide.md)
 - [Control Summaries (Customer-Facing)](./control-summaries.md)
 - [Data Ownership Statement](./data-ownership-statement.md)
@@ -19,4 +22,4 @@
 
 ---
 
-**Total Documents**: 9
+**Total Documents**: 11

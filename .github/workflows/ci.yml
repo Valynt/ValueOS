@@ -80,6 +80,9 @@ jobs:
       - name: Check module boundaries
         run: pnpm check:module-boundaries
 
+      - name: Check runtime sentinels
+        run: pnpm check:runtime-sentinels
+
       - name: Lint
         run: npx turbo run lint
 
@@ -115,6 +118,9 @@ jobs:
         
       - name: Kubernetes secrets hygiene
         run: node scripts/ci/check-k8s-secrets-hygiene.mjs
+
+      - name: Ops metadata policy (manifests/runbooks)
+        run: bash scripts/ci/check-ops-metadata.sh
 
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json

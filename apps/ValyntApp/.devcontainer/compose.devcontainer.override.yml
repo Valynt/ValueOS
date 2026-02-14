@@ -1,9 +1,5 @@
-services:
-  valyntapp-dev:
-    image: node:20-slim
-    command: sleep infinity
-    volumes:
-      - ../../..:/workspaces/ValueOS:cached
-    working_dir: /workspaces/ValueOS/apps/ValyntApp
-    environment:
-      NODE_ENV: development
+# DEPRECATED — canonical compose files live in ops/compose/.
+# Temporary compatibility shim.
+
+include:
+  - ../../../ops/compose/compose.yml

@@ -1,0 +1,53 @@
+# Full containerized app runtime for DX docker mode.
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    profiles: ["runtime-docker"]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports: ["2181:2181"]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    profiles: ["runtime-docker"]
+    depends_on: [zookeeper]
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    profiles: ["runtime-docker"]
+    depends_on: [kafka]
+    ports: ["8081:8081"]
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+    profiles: ["runtime-docker"]
+    ports: ["${API_PORT:-3001}:3001"]
+    depends_on: [postgres, redis, kafka, schema-registry]
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+    profiles: ["runtime-docker"]
+    command: ["pnpm", "--filter", "@valueos/backend", "run", "worker:dev"]
+    depends_on: [redis]
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      target: development
+    profiles: ["runtime-docker"]
+    ports: ["${WEB_PORT:-5173}:5173"]
+    depends_on: [backend]
