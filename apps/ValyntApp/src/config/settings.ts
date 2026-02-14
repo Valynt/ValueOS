@@ -86,7 +86,7 @@ const readEnv = (key: string, fallback?: string) => {
 };
 
 const resolvedEnv = {
-  VITE_SUPABASE_URL: readEnv("VITE_SUPABASE_URL") || readEnv("SUPABASE_URL"),
+  VITE_SUPABASE_URL: readEnv("VITE_SUPABASE_URL") || readEnv("SUPABASE_PUBLIC_URL") || readEnv("SUPABASE_URL") || readEnv("SUPABASE_INTERNAL_URL"),
   VITE_SUPABASE_ANON_KEY:
     readEnv("VITE_SUPABASE_ANON_KEY") || readEnv("SUPABASE_ANON_KEY"),
   VITE_APP_URL: readEnv("VITE_APP_URL"),
