@@ -54,11 +54,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: TS any ratchet
         run: bash scripts/ts-any-ratchet.sh
 
       - name: TS error package ratchet
         run: node scripts/ci/ts-error-ratchet.mjs
+
+      - name: Debt policy ratchet
+        run: node scripts/debt/inventory.mjs
 
       - name: Debt policy ratchet
         run: node scripts/debt/inventory.mjs
@@ -307,6 +313,30 @@ jobs:
       - name: No IaC files present
         if: steps.detect.outputs.has_infra != 'true'
         run: echo "No files found under infra/, skipping IaC scan."
+
+  ts-any-package-ratchet:
+    name: TS Any Package Ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce TS any global and per-package ratchet
+        run: bash scripts/ts-any-ratchet.sh
 
   codeql:
     name: CodeQL Analysis
