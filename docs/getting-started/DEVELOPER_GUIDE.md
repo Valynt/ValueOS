@@ -132,25 +132,28 @@ The dev container automatically provisions:
 ### Service Configuration
 
 ```yaml
-# .devcontainer/docker-compose.devcontainer.yml (excerpt)
+# ops/compose/devcontainer.yml (excerpt)
 services:
-  app:
-    build: ..
-    environment:
-      SUPABASE_URL: http://kong:8000
-      # CRITICAL: sslmode=disable required - container postgres has no TLS
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
-      REDIS_URL: redis://redis:6379
+  dev:
+    build:
+      context: ../..
+      dockerfile: .devcontainer/Dockerfile.optimized
+    volumes:
+      - ../..:/workspaces/ValueOS:cached
+    command: sleep infinity
+```
 
+```yaml
+# ops/compose/profiles/supabase.yml (excerpt)
+services:
   db:
-    image: supabase/postgres:15.1.0.117
+    image: supabase/postgres:15.1.1.78
     environment:
       POSTGRES_PASSWORD: postgres
 
   kong:
-    # NOTE: Kong declarative config is baked into the image (no host bind-mounts)
     build:
-      context: ./kong
+      context: ../../../.devcontainer/kong
       dockerfile: Dockerfile
     environment:
       KONG_DATABASE: "off"

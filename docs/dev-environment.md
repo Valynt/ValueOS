@@ -94,14 +94,17 @@ This split caused:
 
 ## 6. Source of Truth
 
-| File                                            | Responsibility                  |
-| ----------------------------------------------- | ------------------------------- |
-| `.devcontainer/devcontainer.json`               | Entry point, VS Code attachment |
-| `.devcontainer/docker-compose.devcontainer.yml` | Entire local stack              |
-| `.devcontainer/Dockerfile.optimized`            | App tooling image               |
-| `.deps_installed`                               | Install marker (generated)      |
+| File                                          | Responsibility                          |
+| --------------------------------------------- | --------------------------------------- |
+| `.devcontainer/devcontainer.json`             | Entry point, VS Code attachment         |
+| `ops/compose/compose.yml`                     | Base stack (backend/frontend/redis)     |
+| `ops/compose/profiles/supabase.yml`           | Supabase services (db/auth/rest/etc.)   |
+| `ops/compose/profiles/observability.yml`      | Optional observability services         |
+| `ops/compose/devcontainer.yml`                | Devcontainer shell service              |
+| `.devcontainer/Dockerfile.optimized`          | App tooling image                       |
+| `.deps_installed`                             | Install marker (generated)              |
 
-There is no separate "dev env" compose for local development.
+Compose is layered: devcontainer.json references the base, optional profiles, and the dev shell.
 
 ## 7. Docker Compose Design
 
@@ -109,7 +112,9 @@ There is no separate "dev env" compose for local development.
 
 **Mandatory (default profile):**
 
-- `app` – ValueOS devcontainer service
+- `dev` – ValueOS devcontainer service
+- `backend` – API server
+- `frontend` – UI dev server
 - `db` – Supabase Postgres
 - `auth` – Supabase GoTrue
 - `rest` – PostgREST
@@ -122,7 +127,7 @@ There is no separate "dev env" compose for local development.
 **Optional profiles:**
 
 - `studio` – Supabase Studio UI
-- `debug` – Publishes DB/Redis ports to host
+- `observability` – Grafana/Loki/Tempo/Prometheus
 
 ### Networking
 
@@ -135,7 +140,7 @@ Named volumes:
 
 - `postgres-data`
 - `storage-data`
-- `redis-data`
+- `redis_data`
 - `pnpm-store` (for performance)
 
 ## 8. Devcontainer Responsibilities

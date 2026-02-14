@@ -1,96 +1,12 @@
-###############################################################################
-# ValueOS DevContainer Docker Compose
-#
-# This file defines all services needed for local development.
-# Key invariants:
-#   - All services use the same JWT_SECRET for token validation
-#   - Startup order is gated by health checks
-#   - Services communicate via Docker DNS (no localhost inside containers)
-#   - Migrations run after DB is healthy, before app is ready
-###############################################################################
-
 volumes:
   postgres-data:
-  redis-data:
   storage-data:
-  pnpm-store:
-  node_modules:
-  vite-cache:
 
 networks:
   valueos-network:
     driver: bridge
 
 services:
-  ###########################################################################
-  # Application Container
-  ###########################################################################
-  app:
-    build:
-      context: ..
-      dockerfile: .devcontainer/Dockerfile.optimized
-      args:
-        NODE_VERSION: "20"
-    volumes:
-      - ..:/workspaces/ValueOS:cached
-      # Fix: Mount to vscode user home to allow access to persisted store
-      - pnpm-store:/home/vscode/.local/share/pnpm
-      # Fix: Prevent bind mount from hiding image-installed node_modules
-      - node_modules:/workspaces/ValueOS/node_modules
-      # Optional: persist Vite/Storybook cache between rebuilds
-      - vite-cache:/workspaces/ValueOS/.cache
-    working_dir: /workspaces/ValueOS
-    env_file:
-      - .env.dev
-    command: sleep infinity
-    networks:
-      - valueos-network
-    environment:
-      # Core service URLs (Docker internal DNS)
-      REDIS_URL: redis://redis:6379
-      SUPABASE_URL: http://kong:8000
-      # CRITICAL: sslmode=disable required - container postgres has no TLS
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
-      SHADOW_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres_shadow?sslmode=disable
-      # JWT keys (aligned with all services)
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzA2NzQ1NjAwLCJleHAiOjE4NjQ1MTIwMDB9.d-kmeoRU5c053mXKcFaY2SfiauyJPL6S9nqlTh191cE}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDY3NDU2MDAsImV4cCI6MTg2NDUxMjAwMH0.kzgm3XUHH2lZqaKCX7iqlUlsNvUZu6Ny5_STx2fIPJI}
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
-      # Dev flags
-      NODE_ENV: development
-      DEV_SEED: ${DEV_SEED:-0}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kong:
-        condition: service_healthy
-      auth:
-        condition: service_healthy
-      rest-healthcheck:
-        condition: service_healthy
-
-  ###########################################################################
-  # Redis Cache
-  ###########################################################################
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - redis-data:/data
-    networks:
-      - valueos-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 5s
-
-  ###########################################################################
-  # PostgreSQL Database (Supabase-compatible)
-  ###########################################################################
   db:
     image: supabase/postgres:15.1.1.78
     command: >
@@ -107,7 +23,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+      - ../../../.devcontainer/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - valueos-network
     healthcheck:
@@ -117,12 +33,9 @@ services:
       retries: 10
       start_period: 10s
 
-  ###########################################################################
-  # Kong API Gateway
-  ###########################################################################
   kong:
     build:
-      context: ./kong
+      context: ../../../.devcontainer/kong
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
@@ -153,9 +66,6 @@ services:
       storage:
         condition: service_started
 
-  ###########################################################################
-  # GoTrue Authentication Service
-  ###########################################################################
   auth:
     image: supabase/gotrue:v2.143.0
     restart: unless-stopped
@@ -163,7 +73,6 @@ services:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       GOTRUE_DB_DRIVER: postgres
-      # CRITICAL: sslmode=disable required - container postgres has no TLS
       GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres?sslmode=disable&search_path=auth,public,extensions
       GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:5173}
       GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:5173,http://localhost:3001}
@@ -186,14 +95,10 @@ services:
       db:
         condition: service_healthy
 
-  ###########################################################################
-  # PostgREST API
-  ###########################################################################
   rest:
     image: postgrest/postgrest:v12.0.2
     restart: unless-stopped
     environment:
-      # CRITICAL: sslmode=disable required - container postgres has no TLS
       PGRST_DB_URI: postgresql://authenticator:postgres@db:5432/postgres?sslmode=disable
       PGRST_DB_SCHEMAS: public,storage,graphql_public
       PGRST_DB_ANON_ROLE: anon
@@ -213,9 +118,6 @@ services:
       db:
         condition: service_healthy
 
-  ###########################################################################
-  # PostgREST Health Check Proxy
-  ###########################################################################
   rest-healthcheck:
     image: curlimages/curl:8.5.0
     restart: unless-stopped
@@ -241,9 +143,6 @@ services:
     depends_on:
       - rest
 
-  ###########################################################################
-  # Realtime Service
-  ###########################################################################
   realtime:
     image: supabase/realtime:v2.25.50
     restart: unless-stopped
@@ -271,9 +170,6 @@ services:
       db:
         condition: service_healthy
 
-  ###########################################################################
-  # Storage Service
-  ###########################################################################
   storage:
     image: supabase/storage-api:v0.46.4
     restart: unless-stopped
@@ -305,9 +201,6 @@ services:
       rest-healthcheck:
         condition: service_healthy
 
-  ###########################################################################
-  # Postgres Meta
-  ###########################################################################
   meta:
     image: supabase/postgres-meta:v0.80.0
     restart: unless-stopped
@@ -324,9 +217,6 @@ services:
       db:
         condition: service_healthy
 
-  ###########################################################################
-  # Supabase Studio
-  ###########################################################################
   studio:
     image: supabase/studio:latest
     restart: unless-stopped

@@ -53,15 +53,18 @@ else
 fi
 
 # Determine Compose File
-COMPOSE_FILE=""
-if [[ -f "$PROJECT_ROOT/.devcontainer/docker-compose.devcontainer.yml" ]]; then
-    COMPOSE_FILE="$PROJECT_ROOT/.devcontainer/docker-compose.devcontainer.yml"
-elif [[ -f "$PROJECT_ROOT/docker-compose.yml" ]]; then
-    COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml"
+COMPOSE_FILES=()
+if [[ -f "$PROJECT_ROOT/ops/compose/compose.yml" ]]; then
+    COMPOSE_FILES+=("$PROJECT_ROOT/ops/compose/compose.yml")
+    COMPOSE_FILES+=("$PROJECT_ROOT/ops/compose/profiles/supabase.yml")
+    COMPOSE_FILES+=("$PROJECT_ROOT/ops/compose/profiles/observability.yml")
+    COMPOSE_FILES+=("$PROJECT_ROOT/ops/compose/devcontainer.yml")
 fi
 
-if [[ -n "$COMPOSE_FILE" ]]; then
-    COMPOSE_CMD="$COMPOSE_CMD -f $COMPOSE_FILE"
+if [[ ${#COMPOSE_FILES[@]} -gt 0 ]]; then
+    for file in "${COMPOSE_FILES[@]}"; do
+        COMPOSE_CMD="$COMPOSE_CMD -f $file"
+    done
 fi
 
 section() {

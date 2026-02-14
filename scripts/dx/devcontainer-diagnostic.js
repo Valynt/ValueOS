@@ -19,14 +19,23 @@ const projectRoot = path.resolve(__dirname, "../..");
 
 const devcontainerDir = path.join(projectRoot, ".devcontainer");
 const devcontainerJsonPath = path.join(devcontainerDir, "devcontainer.json");
-const composeFilePath = path.join(devcontainerDir, "docker-compose.devcontainer.yml");
+const composeFiles = [
+  path.join(projectRoot, "ops/compose/compose.yml"),
+  path.join(projectRoot, "ops/compose/profiles/supabase.yml"),
+  path.join(projectRoot, "ops/compose/profiles/observability.yml"),
+  path.join(projectRoot, "ops/compose/devcontainer.yml"),
+];
+const devcontainerComposePath = composeFiles[composeFiles.length - 1];
 
 // Required Inputs Check
 function checkRequiredInputs() {
   const missing = [];
   if (!fs.existsSync(devcontainerJsonPath)) missing.push(".devcontainer/devcontainer.json");
-  if (!fs.existsSync(composeFilePath))
-    missing.push(".devcontainer/docker-compose.devcontainer.yml");
+  composeFiles.forEach((composeFile) => {
+    if (!fs.existsSync(composeFile)) {
+      missing.push(path.relative(projectRoot, composeFile));
+    }
+  });
 
   if (missing.length > 0) {
     console.error("Missing required inputs:");
@@ -36,7 +45,8 @@ function checkRequiredInputs() {
 
   // Check if docker compose config works
   try {
-    execSync(`docker compose -f ${composeFilePath} config`, { stdio: "pipe" });
+    const composeArgs = composeFiles.map((file) => `-f ${file}`).join(" ");
+    execSync(`docker compose ${composeArgs} config`, { stdio: "pipe" });
   } catch (error) {
     console.error("docker compose config failed:");
     console.error(error.stdout?.toString() || error.message);
@@ -74,7 +84,7 @@ function establishGroundTruth() {
 
   if (hasDockerComposeFile) {
     console.log("- Effective build context: Defined by compose file");
-    const composeContent = fs.readFileSync(composeFilePath, "utf8");
+    const composeContent = fs.readFileSync(devcontainerComposePath, "utf8");
     const hasWorkingDir = composeContent.includes("working_dir");
     console.log(
       `- Container WORKDIR: ${hasWorkingDir ? "Explicitly set" : "Not explicitly set (BAD)"}`
@@ -178,8 +188,13 @@ function produceFix() {
     // Canonical devcontainer.json
     const canonicalDevcontainerJson = {
       name: "ValueOS Dev Container",
-      dockerComposeFile: "docker-compose.devcontainer.yml",
-      service: "app",
+      dockerComposeFile: [
+        "../ops/compose/compose.yml",
+        "../ops/compose/profiles/supabase.yml",
+        "../ops/compose/profiles/observability.yml",
+        "../ops/compose/devcontainer.yml",
+      ],
+      service: "dev",
       workspaceFolder: "/workspaces/ValueOS",
       shutdownAction: "stopCompose",
       postCreateCommand: devcontainerJson.postCreateCommand,
@@ -208,7 +223,9 @@ function produceFix() {
 function verificationSteps() {
   console.log("\n## Verification Steps");
   console.log("### Commands");
-  console.log("1. docker compose -f .devcontainer/docker-compose.devcontainer.yml config");
+  console.log(
+    "1. docker compose -f ops/compose/compose.yml -f ops/compose/profiles/supabase.yml -f ops/compose/profiles/observability.yml -f ops/compose/devcontainer.yml config"
+  );
   console.log("2. Rebuild devcontainer in VS Code");
   console.log("3. Verify workspace root is /workspaces/ValueOS");
   console.log("4. Check tool availability: node, pnpm, docker");
