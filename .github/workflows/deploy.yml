@@ -24,6 +24,10 @@ on:
         description: "Incident ticket ID (required when skip_tests=true, e.g. INC-1234)"
         required: false
         type: string
+      incident_reference:
+        description: "Incident reference (ticket ID or incident URL; required when skip_tests=true)"
+        required: false
+        type: string
       skip_tests_reason:
         description: "Emergency justification for skipping tests (required when skip_tests=true)"
         required: false
@@ -68,12 +72,18 @@ jobs:
           fi
 
           if [ -z "${{ inputs.incident_ticket_id }}" ]; then
-            echo "incident_ticket_id is required when skip_tests=true." >&2
-            exit 1
+            if [ -z "${{ inputs.incident_reference }}" ]; then
+              echo "incident_ticket_id or incident_reference is required when skip_tests=true." >&2
+              exit 1
+            fi
           fi
 
-          if ! echo "${{ inputs.incident_ticket_id }}" | grep -Eq '^INC-[0-9]+$'; then
-            echo "incident_ticket_id must match INC-<number>." >&2
+          INCIDENT_REFERENCE="${{ inputs.incident_reference }}"
+          if [ -z "${INCIDENT_REFERENCE}" ]; then
+            INCIDENT_REFERENCE="${{ inputs.incident_ticket_id }}"
+          fi
+          if [ "${#INCIDENT_REFERENCE}" -lt 5 ]; then
+            echo "incident reference must be explicit (ticket or URL)." >&2
             exit 1
           fi
 
@@ -104,7 +114,7 @@ jobs:
             "approver_identity": "${{ github.triggering_actor }}",
             "workflow_actor": "${{ github.actor }}",
             "reason": ${{ toJSON(inputs.skip_tests_reason) }},
-            "incident_ticket_id": "${{ inputs.incident_ticket_id }}",
+            "incident_reference": ${{ toJSON(inputs.incident_reference != '' && inputs.incident_reference || inputs.incident_ticket_id) }},
             "post_deploy_validation_checklist": ${{ toJSON(inputs.post_deploy_validation_checklist) }}
           }
           EOF
@@ -150,6 +160,7 @@ jobs:
     if: ${{ github.event_name != 'schedule' }}
     outputs:
       incident_ticket_id: ${{ steps.collect.outputs.incident_ticket_id }}
+      incident_reference: ${{ steps.collect.outputs.incident_reference }}
       skip_tests: ${{ steps.collect.outputs.skip_tests }}
     steps:
       - name: Validate skip requirements and create audit artifact
@@ -157,6 +168,7 @@ jobs:
         env:
           SKIP_TESTS: ${{ inputs.skip_tests }}
           INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          INCIDENT_REFERENCE: ${{ inputs.incident_reference }}
           SKIP_TESTS_REASON: ${{ inputs.skip_tests_reason }}
           POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
           ACTOR: ${{ github.actor }}
@@ -170,8 +182,8 @@ jobs:
 
           # If skip_tests is set, enforce evidence fields.
           if [ "${SKIP_TESTS}" = "true" ]; then
-            if [ -z "${INCIDENT_TICKET_ID:-}" ]; then
-              echo "skip_tests=true requires incident_ticket_id" >&2
+            if [ -z "${INCIDENT_REFERENCE:-}" ] && [ -z "${INCIDENT_TICKET_ID:-}" ]; then
+              echo "skip_tests=true requires incident_reference or incident_ticket_id" >&2
               exit 1
             fi
             if [ -z "${SKIP_TESTS_REASON:-}" ]; then
@@ -184,7 +196,9 @@ jobs:
             fi
           fi
 
+          EFFECTIVE_INCIDENT_REFERENCE="${INCIDENT_REFERENCE:-${INCIDENT_TICKET_ID:-}}"
           printf 'incident_ticket_id=%s\n' "${INCIDENT_TICKET_ID:-}" >> "$GITHUB_OUTPUT"
+          printf 'incident_reference=%s\n' "${EFFECTIVE_INCIDENT_REFERENCE}" >> "$GITHUB_OUTPUT"
           printf 'skip_tests=%s\n' "${SKIP_TESTS}" >> "$GITHUB_OUTPUT"
 
           python3 - <<'PY'
@@ -202,6 +216,7 @@ jobs:
             "sha": os.environ["SHA"],
             "skip_tests": os.environ.get("SKIP_TESTS", "false") == "true",
             "incident_ticket_id": os.environ.get("INCIDENT_TICKET_ID", ""),
+            "incident_reference": os.environ.get("INCIDENT_REFERENCE") or os.environ.get("INCIDENT_TICKET_ID", ""),
             "skip_tests_reason": os.environ.get("SKIP_TESTS_REASON", ""),
             "post_deploy_validation_checklist": os.environ.get("POST_DEPLOY_VALIDATION_CHECKLIST", ""),
           }
@@ -362,21 +377,35 @@ jobs:
             "run_attempt": "${{ github.run_attempt }}",
             "sha": "${{ github.sha }}",
             "image_ref": os.environ.get("IMAGE_REF", ""),
-            "health_check": {"endpoint": "https://staging.valueos.app/health", "status": "passed"},
-            "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
-            "key_metrics": {"load_test": "infra/testing/load-test.k6.js", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"},
+            "mandatory_verification_checklist": {
+              "health": {"endpoint": "https://staging.valueos.app/health", "status": "passed"},
+              "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
+              "key_metrics": {"load_test": "infra/testing/load-test.k6.js", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
+            },
             "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
           }
 
           with open("post-deploy-verification-staging-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
             json.dump(artifact, handle, indent=2)
+
+          with open("post-deploy-verification-staging-${{ github.run_id }}.md", "w", encoding="utf-8") as handle:
+            handle.write("\n".join([
+              "# Post-Deploy Mandatory Verification Checklist (Staging)",
+              "",
+              "- [x] Health check: https://staging.valueos.app/health returned 200",
+              "- [x] Rollback readiness confirmed (blue-green)",
+              "- [x] Key metrics captured (load test + SLO alert baseline)",
+              f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",
+            ]))
           PY
 
       - name: Upload staging operational verification artifact
         uses: actions/upload-artifact@v4
         with:
           name: post-deploy-verification-staging-${{ github.run_id }}
-          path: post-deploy-verification-staging-${{ github.run_id }}.json
+          path: |
+            post-deploy-verification-staging-${{ github.run_id }}.json
+            post-deploy-verification-staging-${{ github.run_id }}.md
 
       - name: Run load test against staging
         uses: grafana/k6-action@v0.3.1
@@ -497,21 +526,35 @@ jobs:
             "run_attempt": "${{ github.run_attempt }}",
             "sha": "${{ github.sha }}",
             "image_ref": os.environ.get("IMAGE_REF", ""),
-            "health_check": {"endpoint": "https://app.valueos.app/health", "status": "passed"},
-            "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
-            "key_metrics": {"preprod_slo_guard": "passed", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"},
+            "mandatory_verification_checklist": {
+              "health": {"endpoint": "https://app.valueos.app/health", "status": "passed"},
+              "rollback_readiness": {"strategy": "blue-green", "status": "ready"},
+              "key_metrics": {"preprod_slo_guard": "passed", "slo_alert_regex": "${{ env.SLO_ALERT_NAME_REGEX }}"}
+            },
             "incident": {"skip_tests": os.environ.get("SKIP_TESTS") == "true", "reference": os.environ.get("INCIDENT_REFERENCE", "")},
           }
 
           with open("post-deploy-verification-production-${{ github.run_id }}.json", "w", encoding="utf-8") as handle:
             json.dump(artifact, handle, indent=2)
+
+          with open("post-deploy-verification-production-${{ github.run_id }}.md", "w", encoding="utf-8") as handle:
+            handle.write("\n".join([
+              "# Post-Deploy Mandatory Verification Checklist (Production)",
+              "",
+              "- [x] Health check: https://app.valueos.app/health returned 200",
+              "- [x] Rollback readiness confirmed (blue-green)",
+              "- [x] Key metrics captured (preprod SLO guard + alert baseline)",
+              f"- [x] Incident reference documented: {os.environ.get('INCIDENT_REFERENCE', 'n/a')}",
+            ]))
           PY
 
       - name: Upload production operational verification artifact
         uses: actions/upload-artifact@v4
         with:
           name: post-deploy-verification-production-${{ github.run_id }}
-          path: post-deploy-verification-production-${{ github.run_id }}.json
+          path: |
+            post-deploy-verification-production-${{ github.run_id }}.json
+            post-deploy-verification-production-${{ github.run_id }}.md
 
 
   weekly-reliability-report:

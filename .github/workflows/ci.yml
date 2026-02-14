@@ -139,6 +139,15 @@ jobs:
       - name: Ops metadata policy (manifests/runbooks)
         run: bash scripts/ci/check-ops-metadata.sh
 
+      - name: Upload ops metadata report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-metadata-report-${{ github.run_id }}
+          path: artifacts/ops-metadata/ops-metadata-report.jsonl
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
 
