@@ -104,6 +104,22 @@ jobs:
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
+      - name: Supabase tenant controls guard
+        run: node scripts/ci/check-supabase-tenant-controls.mjs
+
+      - name: Write security controls summary artifact
+        if: success()
+        run: node scripts/ci/write-security-controls-summary.mjs
+
+      - name: Upload security controls summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-controls-${{ github.sha }}
+          path: artifacts/security-controls/security-controls-${{ github.sha }}.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
 
