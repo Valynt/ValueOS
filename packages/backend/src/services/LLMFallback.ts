@@ -64,7 +64,7 @@ export class LLMFallbackService {
     halfOpenMaxProbes: 1,
   };
   private stats = {
-    togetherAI: { calls: 0, failures: 0 },
+    togetherAI: { calls: 0, failures: 0, fallbacks: 0 },
     cache: { hits: 0, misses: 0 },
   };
 
@@ -187,6 +187,11 @@ export class LLMFallbackService {
    * Process LLM request with circuit breaker
    */
   async processRequest(request: LLMRequest): Promise<LLMResponse> {
+    // Default model to configured Together primary if caller omitted it
+    if (!request.model) {
+      request.model = (getEnvVar('TOGETHER_PRIMARY_MODEL_NAME') as string) || request.model || 'gpt-4o-mini';
+    }
+
     // Check cache first
     const cached = await llmCache.get(request.prompt, request.model);
     if (cached) {
@@ -230,18 +235,80 @@ export class LLMFallbackService {
       model: request.model,
     });
 
-    // Call Together.ai with circuit breaker
-    try {
-      const response = await this.circuitBreaker.execute(
-        this.togetherChatBreakerKey,
-        () => this.callTogetherAI(request),
-        { config: this.breakerConfig }
-      );
-      return response;
-    } catch (error) {
-      logger.error("Together.ai request failed", error as Error);
-      throw new Error("LLM provider unavailable. Please try again later.");
+    // Primary retry + optional secondary fallback
+    const primaryModel = request.model;
+    const primaryMaxRetries = Number(getEnvVar('LLM_FALLBACK_MAX_ATTEMPTS') || '1');
+    const retryBackoffMs = Number(getEnvVar('LLM_RETRY_BACKOFF_MS') || '200');
+    const fallbackEnabled = getEnvVar('LLM_FALLBACK_ENABLED', { defaultValue: 'true' }) !== 'false';
+    const secondaryModel = getEnvVar('TOGETHER_SECONDARY_MODEL_NAME');
+
+    let lastError: any = null;
+
+    const isTransient = (err: any) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      return /timeout|ETIMEDOUT|429|5\d{2}|rate limit/i.test(msg);
+    };
+
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    // Try primary with retries
+    for (let attempt = 0; attempt <= primaryMaxRetries; attempt++) {
+      try {
+        const resp = await this.circuitBreaker.execute(
+          this.togetherChatBreakerKey,
+          () => this.callTogetherAI(request),
+          { config: this.breakerConfig }
+        );
+
+        // annotate metadata
+        resp.metadata = { ...(resp.metadata || {}), retry_attempts: attempt, model_used: request.model, fallback_triggered: false };
+        return resp;
+      } catch (err) {
+        lastError = err;
+        // if non-transient or we've exhausted attempts, break to fallback logic
+        if (!isTransient(err) || attempt === primaryMaxRetries) break;
+        const jitter = Math.floor(Math.random() * retryBackoffMs);
+        await sleep(retryBackoffMs + jitter);
+      }
     }
+
+    // Primary exhausted — attempt secondary if enabled/configured
+    if (fallbackEnabled && secondaryModel) {
+      try {
+        const secondaryReq = { ...request, model: String(secondaryModel) };
+        const secResp = await this.circuitBreaker.execute(
+          this.togetherChatBreakerKey,
+          () => this.callTogetherAI(secondaryReq),
+          { config: this.breakerConfig }
+        );
+
+        // Track fallback usage
+        this.stats.togetherAI.fallbacks = (this.stats.togetherAI.fallbacks || 0) + 1;
+
+        secResp.metadata = {
+          ...(secResp.metadata || {}),
+          fallback_triggered: true,
+          fallback_reason: lastError instanceof Error ? lastError.message : String(lastError),
+          model_used: secondaryReq.model,
+          retry_attempts: primaryMaxRetries,
+        };
+
+        logger.warn('LLMFallback used secondary model after primary failures', {
+          primary: primaryModel,
+          secondary: secondaryReq.model,
+          fallback_reason: secResp.metadata?.fallback_reason,
+        });
+
+        return secResp;
+      } catch (secErr) {
+        logger.error('Together.ai secondary fallback failed', secErr as Error);
+        throw new Error('LLM provider unavailable. Please try again later.');
+      }
+    }
+
+    logger.error('Together.ai request failed (primary exhausted, no fallback available)', lastError as Error);
+    throw new Error('LLM provider unavailable. Please try again later.');
+  }
   }
 
   /**
@@ -467,7 +534,7 @@ export class LLMFallbackService {
             : chatMetrics.state,
         failures: chatMetrics.failedRequests,
         successes: chatMetrics.successfulRequests,
-        fallbacks: 0,
+        fallbacks: this.stats.togetherAI.fallbacks || 0,
         rejects: 0,
         fires: chatMetrics.totalRequests,
         calls: this.stats.togetherAI.calls,

@@ -2,7 +2,7 @@
 set -e
 
 # CONFIGURATION
-MIGRATIONS_DIR="infra/postgres/migrations"
+MIGRATIONS_DIR="infra/supabase/supabase/migrations"
 DB_HOST="${DB_HOST:-localhost}"
 DB_USER="${DB_USER:-postgres}"
 DB_PASSWORD="${DB_PASSWORD:-dev_password}"

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Deterministic Supabase local health check that does NOT rely on `supabase status`.
-# Works even when container names are customized (e.g., valueos-db, valueos-kong, ...).
+# Deterministic Supabase interface contract validator.
+# Verifies expected compose services and host endpoints rather than container implementation details.
 
-PREFIX="${DX_SUPABASE_PREFIX:-valueos}"
-DB_CTN="${DX_SUPABASE_DB_CONTAINER:-${PREFIX}-db}"
-KONG_CTN="${DX_SUPABASE_KONG_CONTAINER:-${PREFIX}-kong}"
-AUTH_CTN="${DX_SUPABASE_AUTH_CONTAINER:-${PREFIX}-auth}"
-STUDIO_CTN="${DX_SUPABASE_STUDIO_CONTAINER:-${PREFIX}-studio}"
+COMPOSE_FILES_CSV="${DX_SUPABASE_COMPOSE_FILES:-ops/compose/compose.yml,ops/compose/profiles/supabase.yml}"
+DB_SERVICE="${DX_SUPABASE_DB_SERVICE:-postgres}"
+API_SERVICE="${DX_SUPABASE_API_SERVICE:-rest}"
+AUTH_SERVICE="${DX_SUPABASE_AUTH_SERVICE:-auth}"
+STUDIO_SERVICE="${DX_SUPABASE_STUDIO_SERVICE:-studio}"
 
-# Optional: expected host ports (if you want strict enforcement)
-EXPECT_API_PORT="${DX_SUPABASE_EXPECT_API_PORT:-54321}"
-EXPECT_STUDIO_PORT="${DX_SUPABASE_EXPECT_STUDIO_PORT:-54323}"
+SUPABASE_API_PORT="${SUPABASE_API_PORT:-${DX_SUPABASE_EXPECT_API_PORT:-54321}}"
+AUTH_PORT="${AUTH_PORT:-${DX_SUPABASE_EXPECT_AUTH_PORT:-9999}}"
+STUDIO_PORT="${STUDIO_PORT:-${DX_SUPABASE_EXPECT_STUDIO_PORT:-54324}}"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 warn() { echo "WARN: $*" >&2; }
@@ -27,54 +27,72 @@ need_cmd grep
 need_cmd tail
 need_cmd curl
 
+compose_files=()
+IFS=',' read -r -a raw_compose_files <<< "$COMPOSE_FILES_CSV"
+for raw in "${raw_compose_files[@]}"; do
+  file="$(echo "$raw" | sed 's/^ *//; s/ *$//')"
+  [[ -n "$file" ]] || continue
+  [[ -f "$file" ]] || fail "Compose file not found: $file (set DX_SUPABASE_COMPOSE_FILES to override)"
+  compose_files+=("-f" "$file")
+done
+[[ ${#compose_files[@]} -gt 0 ]] || fail "No compose files configured via DX_SUPABASE_COMPOSE_FILES"
+
+compose() {
+  docker compose "${compose_files[@]}" "$@"
+}
+
+service_exists() {
+  local service="$1"
+  compose ps --all --services 2>/dev/null | grep -Fx "$service" >/dev/null 2>&1
+}
+
+service_running() {
+  local service="$1"
+  compose ps --services --status running 2>/dev/null | grep -Fx "$service" >/dev/null 2>&1
+}
+
 echo "Supabase Doctor"
-echo "  prefix: ${PREFIX}"
-echo "  db:     ${DB_CTN}"
-echo "  kong:   ${KONG_CTN}"
-echo "  auth:   ${AUTH_CTN}"
-echo "  studio: ${STUDIO_CTN}"
+echo "  compose files: ${COMPOSE_FILES_CSV}"
+echo "  db service:    ${DB_SERVICE}"
+echo "  api service:   ${API_SERVICE}"
+echo "  auth service:  ${AUTH_SERVICE}"
+echo "  studio service:${STUDIO_SERVICE}"
+echo "  auth endpoint: http://localhost:${AUTH_PORT}"
+echo "  api endpoint:  http://localhost:${SUPABASE_API_PORT}"
 echo
 
-# Basic container existence
-for c in "$DB_CTN" "$KONG_CTN" "$AUTH_CTN"; do
-  docker inspect "$c" >/dev/null 2>&1 || fail "Container not found: $c"
+for s in "$DB_SERVICE" "$API_SERVICE" "$AUTH_SERVICE"; do
+  service_exists "$s" || fail "Service not found in compose files: $s"
+  service_running "$s" || fail "Service not running: $s"
 done
 
-# Optional: studio might not exist in some setups; treat as non-fatal
-if ! docker inspect "$STUDIO_CTN" >/dev/null 2>&1; then
-  warn "Studio container not found: $STUDIO_CTN (continuing)"
+if service_exists "$STUDIO_SERVICE"; then
+  service_running "$STUDIO_SERVICE" || warn "Studio service exists but is not running: $STUDIO_SERVICE"
+else
+  warn "Studio service not found in compose files: $STUDIO_SERVICE (continuing)"
 fi
 
-# Status + health summary
-echo "Container status:"
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "^(NAMES|${PREFIX}-)" || true
+echo "Compose service status:"
+compose ps "$DB_SERVICE" "$API_SERVICE" "$AUTH_SERVICE" "$STUDIO_SERVICE" 2>/dev/null || compose ps
+
 echo
 
-# DB readiness (runs inside db container, no host psql required)
 echo "DB readiness:"
-docker exec -i "$DB_CTN" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "select version(); select 1;" >/dev/null \
+compose exec -T "$DB_SERVICE" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "select version(); select 1;" >/dev/null \
   && ok "DB responds to SQL" \
   || fail "DB did not respond to SQL"
 echo
 
-# Recent logs (tail for fast signal)
 echo "Recent logs (last 10m, tail 200):"
-for c in "$DB_CTN" "$AUTH_CTN" "$KONG_CTN"; do
-  echo "---- $c ----"
-  docker logs "$c" --since 10m | tail -n 200 || true
+for s in "$DB_SERVICE" "$AUTH_SERVICE" "$API_SERVICE"; do
+  echo "---- $s ----"
+  compose logs "$s" --since 10m 2>/dev/null | tail -n 200 || true
 done
-if docker inspect "$STUDIO_CTN" >/dev/null 2>&1; then
-  echo "---- $STUDIO_CTN ----"
-  docker logs "$STUDIO_CTN" --since 10m | tail -n 200 || true
+if service_exists "$STUDIO_SERVICE"; then
+  echo "---- $STUDIO_SERVICE ----"
+  compose logs "$STUDIO_SERVICE" --since 10m 2>/dev/null | tail -n 200 || true
 fi
 echo
-
-# Discover published host ports (if any) and probe them.
-discover_host_port() {
-  local ctn="$1"
-  local internal_port="$2"  # e.g. "8000/tcp"
-  docker port "$ctn" "$internal_port" 2>/dev/null | head -n 1 | awk -F: '{print $2}' | tr -d '[:space:]'
-}
 
 probe_http() {
   local label="$1"
@@ -87,18 +105,15 @@ probe_http() {
   ok "${label} reachable (${code}): ${url}"
 }
 
-# Kong / API: by default, Supabase API is served via Kong.
 echo "HTTP probes:"
+probe_http "Auth" "http://localhost:${AUTH_PORT}/health"
+probe_http "Supabase API" "http://localhost:${SUPABASE_API_PORT}"
 
-# If you want strict enforcement of specific ports from config.toml:
-probe_http "Kong/API" "http://localhost:${EXPECT_API_PORT}" || exit 1
-
-if docker inspect "$STUDIO_CTN" >/dev/null 2>&1; then
-  probe_http "Studio" "http://localhost:${EXPECT_STUDIO_PORT}" || exit 1
+if service_exists "$STUDIO_SERVICE" && service_running "$STUDIO_SERVICE"; then
+  probe_http "Studio" "http://localhost:${STUDIO_PORT}"
 else
-  warn "Skipping Studio probe; container not present."
+  warn "Skipping Studio probe; service not present/running."
 fi
 
 echo
 ok "All deterministic checks passed."
-
