@@ -1,0 +1,64 @@
+# Devcontainer optional stack. Activate with: docker compose --profile devcontainer up
+
+services:
+  dev:
+    image: node:20-slim
+    profiles: ["devcontainer"]
+    command: sleep infinity
+    working_dir: /workspaces/ValueOS
+    volumes:
+      - ../..:/workspaces/ValueOS:cached
+      - pnpm-store:/home/node/.local/share/pnpm
+    environment:
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: node:20-slim
+    profiles: ["devcontainer"]
+    working_dir: /workspaces/ValueOS
+    command: ["bash", "-lc", "pnpm --filter @valueos/frontend dev --host 0.0.0.0 --port 5173"]
+    volumes:
+      - ../..:/workspaces/ValueOS:cached
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+
+  opportunity-agent:
+    image: node:20-slim
+    profiles: ["devcontainer"]
+    working_dir: /workspaces/ValueOS
+    command: ["bash", "-lc", "echo opportunity-agent profile placeholder && sleep infinity"]
+    volumes:
+      - ../..:/workspaces/ValueOS:cached
+
+  target-agent:
+    image: node:20-slim
+    profiles: ["devcontainer"]
+    working_dir: /workspaces/ValueOS
+    command: ["bash", "-lc", "echo target-agent profile placeholder && sleep infinity"]
+    volumes:
+      - ../..:/workspaces/ValueOS:cached
+
+  realization-agent:
+    image: node:20-slim
+    profiles: ["devcontainer"]
+    working_dir: /workspaces/ValueOS
+    command: ["bash", "-lc", "echo realization-agent profile placeholder && sleep infinity"]
+    volumes:
+      - ../..:/workspaces/ValueOS:cached
+
+  expansion-agent:
+    image: node:20-slim
+    profiles: ["devcontainer"]
+    working_dir: /workspaces/ValueOS
+    command: ["bash", "-lc", "echo expansion-agent profile placeholder && sleep infinity"]
+    volumes:
+      - ../..:/workspaces/ValueOS:cached
+
+volumes:
+  pnpm-store:
+    driver: local
