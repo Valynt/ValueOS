@@ -1,3 +1,11 @@
+---
+title: Testing Operations Reference (Generated)
+owner: team-quality
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Testing Operations Reference (Generated)
 
 > Generated reference companion for the testing operations runbook.

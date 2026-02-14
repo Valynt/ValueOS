@@ -6,6 +6,9 @@ review_cadence: biweekly
 last_reviewed: 2026-02-13
 tags: [runbook, operations, testing, ownership:team-quality, cadence:biweekly]
 source_reference: ../reference/testing-operations-reference.generated.md
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
 ---
 
 # Testing Operations Runbook

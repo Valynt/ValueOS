@@ -1,0 +1,7 @@
+[
+  { "date": "2026-01-09", "scenario": "api-outage", "owner": "team-sre", "mttrMinutes": 14, "sloTargetMinutes": 20 },
+  { "date": "2026-01-23", "scenario": "db-failover", "owner": "team-platform", "mttrMinutes": 22, "sloTargetMinutes": 25 },
+  { "date": "2026-02-06", "scenario": "queue-backlog", "owner": "team-sre", "mttrMinutes": 17, "sloTargetMinutes": 20 },
+  { "date": "2026-02-20", "scenario": "auth-provider-latency", "owner": "team-platform", "mttrMinutes": 15, "sloTargetMinutes": 20 },
+  { "date": "2026-03-06", "scenario": "webhook-retry-storm", "owner": "team-sre", "mttrMinutes": 12, "sloTargetMinutes": 20 }
+]
