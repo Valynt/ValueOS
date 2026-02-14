@@ -8,6 +8,12 @@
 
 ## Required Environment Variables
 
+Start from the production template and then fill in the values for your environment:
+
+```bash
+cp ops/env/.env.production.template .env.production
+```
+
 Create a `.env.production` file (or set these in your hosting platform):
 
 ```bash
@@ -78,6 +84,8 @@ curl -s https://app.yourdomain.com/api/health/ready
 
 1. Run migrations against your Supabase project:
    ```bash
+   # Use ops/env/.env.production.template as the starting point for provisioning
+   # and export DATABASE_URL before running the command.
    cd infra/supabase/supabase
    supabase db push --db-url "$DATABASE_URL"
    ```
@@ -113,4 +121,3 @@ pnpm run build
 3. **Rotate certificates safely** by publishing new CA bundles before server cert rotation; keep overlap until all workloads restart with the updated trust bundle.
 4. **Validate before cutover** using a one-off container check (e.g., `openssl s_client -connect redis-host:6379 -servername redis-host -CAfile /run/secrets/redis-ca.crt`).
 5. **Postgres trust chain:** if provider requires custom CA, append `sslrootcert=<path>` to Postgres URL and mount that CA bundle similarly.
-
