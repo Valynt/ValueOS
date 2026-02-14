@@ -640,3 +640,65 @@ jobs:
           name: i18n-release-coverage-dashboard
           path: artifacts/i18n/release-coverage-dashboard.json
           retention-days: 90
+
+  accessibility-audit:
+    name: WCAG 2.2 AA Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright + axe-core
+        run: |
+          pnpm add -D @playwright/test @axe-core/playwright --filter .
+          npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npx turbo run build --filter=ValyntApp
+
+      - name: Run accessibility tests
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
+        run: npx playwright test tests/accessibility/axe-a11y.spec.ts --reporter=html,json --output=artifacts/accessibility
+
+      - name: Build accessibility trend metrics
+        if: always()
+        run: |
+          node scripts/ci/a11y-trend-gate.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --baseline .github/metrics/accessibility-baseline.json \
+            --metrics-out artifacts/accessibility/a11y-metrics.json \
+            --summary-out artifacts/accessibility/a11y-trend-summary.md
+
+      - name: Upload a11y HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload a11y trend artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-trend
+          path: |
+            artifacts/accessibility/playwright-report.json
+            artifacts/accessibility/a11y-metrics.json
+            artifacts/accessibility/a11y-trend-summary.md
+          retention-days: 30

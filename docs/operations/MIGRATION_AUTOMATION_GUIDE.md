@@ -1,3 +1,11 @@
+---
+title: Supabase Migration Automation Guide
+owner: team-operations
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Supabase Migration Automation Guide
 
 Complete guide for automated database migration management in the ValueOS development environment.

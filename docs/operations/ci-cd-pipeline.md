@@ -1,3 +1,11 @@
+---
+title: Ci Cd Pipeline
+owner: team-platform
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Ci Cd Pipeline
 
 **Last Updated**: 2026-02-13
