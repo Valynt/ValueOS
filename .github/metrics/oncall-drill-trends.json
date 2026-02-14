@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-02-14T19:58:27.144Z",
+  "totalDrills": 5,
+  "latestMonth": "2026-03",
+  "trend": "improving",
+  "mttrDelta": -4,
+  "monthly": [
+    {
+      "month": "2026-01",
+      "drillCount": 2,
+      "avgMttrMinutes": 18,
+      "avgSloTargetMinutes": 22.5,
+      "sloAttainmentPercent": 100
+    },
+    {
+      "month": "2026-02",
+      "drillCount": 2,
+      "avgMttrMinutes": 16,
+      "avgSloTargetMinutes": 20,
+      "sloAttainmentPercent": 100
+    },
+    {
+      "month": "2026-03",
+      "drillCount": 1,
+      "avgMttrMinutes": 12,
+      "avgSloTargetMinutes": 20,
+      "sloAttainmentPercent": 100
+    }
+  ]
+}

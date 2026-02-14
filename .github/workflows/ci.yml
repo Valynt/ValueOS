@@ -70,7 +70,7 @@ jobs:
 
       - name: Enforce frozen backend duplicate tree
         run: pnpm check:frozen-backend-duplicate-tree
-        
+
       - name: Guard browser provider secrets
         run: pnpm check:browser-provider-secrets
 
@@ -79,6 +79,9 @@ jobs:
 
       - name: Check module boundaries
         run: pnpm check:module-boundaries
+
+      - name: Check runtime sentinels
+        run: pnpm check:runtime-sentinels
 
       - name: Lint
         run: npx turbo run lint
@@ -104,14 +107,37 @@ jobs:
       - name: Security anti-pattern guard
         run: node scripts/ci/check-security-antipatterns.mjs
 
+      # Resolved merge: run BOTH (they are complementary) and keep the artifact.
+      - name: Supabase tenant controls guard
+        run: node scripts/ci/check-supabase-tenant-controls.mjs
+
+      - name: Security baseline verification
+        run: node scripts/ci/security-baseline-verification.mjs
+
+      - name: Write security controls summary artifact
+        if: success()
+        run: node scripts/ci/write-security-controls-summary.mjs
+
+      - name: Upload security controls summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-controls-${{ github.sha }}
+          path: artifacts/security-controls/security-controls-${{ github.sha }}.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Migration file hygiene
         run: node scripts/ci/check-migration-hygiene.mjs
 
       - name: Critical architecture migrations gate
         run: node scripts/ci/verify-critical-architecture-migrations.mjs
-        
+
       - name: Kubernetes secrets hygiene
         run: node scripts/ci/check-k8s-secrets-hygiene.mjs
+
+      - name: Ops metadata policy (manifests/runbooks)
+        run: bash scripts/ci/check-ops-metadata.sh
 
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
@@ -124,8 +150,37 @@ jobs:
           path: artifacts/i18n/coverage-dashboard.json
           retention-days: 30
 
+      - name: Pseudo-localization integrity
+        run: node scripts/ci/check-pseudo-localization.mjs --json-out artifacts/i18n/pseudo-localization-report.json
+
+      - name: Upload pseudo-localization report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pseudo-localization-report
+          path: artifacts/i18n/pseudo-localization-report.json
+          retention-days: 30
+
+      - name: Localization overflow visual regression
+        run: |
+          if [ -x ./node_modules/.bin/playwright ]; then
+            ./node_modules/.bin/playwright test scripts/test/playwright/visual-regression.spec.ts --grep "Localization Overflow"
+          else
+            echo "Playwright binary not installed; skipping localization overflow visual regression in this environment."
+          fi
+
       - name: Critical claims verification
         run: node scripts/ci/verify-critical-claims.mjs
+
+      - name: OpenAPI breaking-change detector
+        if: github.event_name == 'pull_request'
+        run: node scripts/ci/check-openapi-breaking-changes.mjs
+
+      - name: Infra manifest registry guard
+        run: node scripts/ci/check-infra-manifest-registry.mjs
+
+      - name: Kubernetes architecture conformance
+        run: node scripts/ci/check-k8s-architecture-conformance.mjs
 
       - name: Versioned router compatibility tests
         run: pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts apps/ValyntApp/src/backend/__tests__/versioning.contract.test.ts
@@ -640,3 +695,65 @@ jobs:
           name: i18n-release-coverage-dashboard
           path: artifacts/i18n/release-coverage-dashboard.json
           retention-days: 90
+
+  accessibility-audit:
+    name: WCAG 2.2 AA Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright + axe-core
+        run: |
+          pnpm add -D @playwright/test @axe-core/playwright --filter .
+          npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npx turbo run build --filter=ValyntApp
+
+      - name: Run accessibility tests
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/accessibility/playwright-report.json
+        run: npx playwright test tests/accessibility/axe-a11y.spec.ts --reporter=html,json --output=artifacts/accessibility
+
+      - name: Build accessibility trend metrics
+        if: always()
+        run: |
+          node scripts/ci/a11y-trend-gate.mjs \
+            --report artifacts/accessibility/playwright-report.json \
+            --baseline .github/metrics/accessibility-baseline.json \
+            --metrics-out artifacts/accessibility/a11y-metrics.json \
+            --summary-out artifacts/accessibility/a11y-trend-summary.md
+
+      - name: Upload a11y HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload a11y trend artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-trend
+          path: |
+            artifacts/accessibility/playwright-report.json
+            artifacts/accessibility/a11y-metrics.json
+            artifacts/accessibility/a11y-trend-summary.md
+          retention-days: 30

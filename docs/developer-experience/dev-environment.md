@@ -60,7 +60,7 @@ Health signals
 
 Primary config
 - `Dockerfile.dev`
-- `compose.devcontainer.override.yml`
+- `ops/compose/profiles/devcontainer.yml`
 - `.devcontainer/devcontainer.json`
 
 ---
@@ -446,7 +446,7 @@ This split caused:
 | File                                            | Responsibility                  |
 | ----------------------------------------------- | ------------------------------- |
 | `.devcontainer/devcontainer.json`               | Entry point, VS Code attachment |
-| `.devcontainer/docker-compose.devcontainer.yml` | Entire local stack              |
+| `ops/compose/compose.yml + ops/compose/profiles/devcontainer.yml` | Entire local stack              |
 | `.devcontainer/Dockerfile.optimized`            | App tooling image               |
 | `.deps_installed`                               | Install marker (generated)      |
 

@@ -29,7 +29,7 @@ echo
 
 echo "-- Effective compose services (if docker socket available)"
 if command -v docker >/dev/null 2>&1; then
-  docker compose -f compose.yml -f .devcontainer/compose.devcontainer.override.yml config --services 2>/dev/null | sort || true
+  docker compose --env-file .env.ports -f .devcontainer/docker-compose.devcontainer.yml config --services 2>/dev/null | sort || true
 else
   echo "docker not available inside container"
 fi

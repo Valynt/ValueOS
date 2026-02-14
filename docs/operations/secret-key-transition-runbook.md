@@ -1,3 +1,11 @@
+---
+title: Secret Key Transition Runbook
+owner: team-operations
+escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
+review_date: 2026-05-31
+status: active
+---
+
 # Secret Key Transition Runbook
 
 ## Goal

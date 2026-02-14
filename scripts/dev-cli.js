@@ -9,6 +9,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 
+const COMPOSE_BASE_FILE = "ops/compose/compose.yml";
+const COMPOSE_DOCKER_RUNTIME_FILES = [
+  COMPOSE_BASE_FILE,
+  "ops/compose/profiles/runtime-docker.yml",
+];
+
+function composeArgs(files) {
+  return files.map((file) => `-f ${file}`).join(" ");
+}
+
 process.env.PATH = `${path.join(projectRoot, "node_modules", ".bin")}${path.delimiter}${process.env.PATH}`;
 
 const rawArgs = process.argv.slice(2);
@@ -295,10 +305,9 @@ async function main() {
   if (command === "logs") {
     logIgnoredFlags("logs");
     ensureDocker();
-    const composeFile =
-      mode === "docker" ? "infra/docker/docker-compose.dev.yml" : "docker-compose.deps.yml";
+    const composeFiles = mode === "docker" ? COMPOSE_DOCKER_RUNTIME_FILES : [COMPOSE_BASE_FILE];
     run(
-      `docker compose --env-file ops/env/.env.ports -f ${composeFile} logs -f${service ? ` ${service}` : ""}`
+      `docker compose --env-file ops/env/.env.ports ${composeArgs(composeFiles)} logs -f${service ? ` ${service}` : ""}`
     );
     return;
   }

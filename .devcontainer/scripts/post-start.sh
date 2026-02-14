@@ -7,6 +7,20 @@ set -euo pipefail
 
 echo "🚀 Running post-start checks..."
 
+# Load canonical port/env inputs
+if [ -f .env.ports ]; then
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.ports | xargs)
+elif [ -f .env.ports.example ]; then
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.ports.example | xargs)
+fi
+
+if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
+    export $(grep -v '^#' .env.local | xargs)
+fi
+
 # Run framework-level backing services health checks
 if [ -f pragmatic-reproducibility/scripts/healthcheck-services.sh ]; then
     bash pragmatic-reproducibility/scripts/healthcheck-services.sh
@@ -40,7 +54,7 @@ check_service() {
 }
 
 # Check core services
-check_service "PostgreSQL" "PGPASSWORD='${POSTGRES_PASSWORD:-valueos_dev}' psql -h localhost -p ${POSTGRES_PORT:-54323} -U ${POSTGRES_USER:-valueos} -d ${POSTGRES_DB:-valueos_dev} -c 'SELECT 1'"
+check_service "PostgreSQL" "PGPASSWORD='${POSTGRES_PASSWORD:-valueos_dev}' psql -h localhost -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER:-valueos} -d ${POSTGRES_DB:-valueos_dev} -c 'SELECT 1'"
 check_service "Redis" "redis-cli -h localhost -p ${REDIS_PORT:-6379} -a '${REDIS_PASSWORD:-valueos_dev}' ping"
 check_service "Kong" "curl -f http://localhost:8001/"
 check_service "Supabase Auth" "curl -f http://localhost:9999/health"
@@ -68,7 +82,7 @@ echo "  Kong Gateway:      http://localhost:8000"
 echo "  Kong Admin:        http://localhost:8001"
 echo "  PostgREST API:     http://localhost:3000"
 echo "  Supabase Auth:     http://localhost:9999"
-echo "  PostgreSQL:        localhost:54323"
+echo "  PostgreSQL:        localhost:${POSTGRES_PORT:-5432}"
 echo "  Redis:             localhost:6379"
 
 if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
@@ -97,7 +111,7 @@ echo "  pnpm format           - Format code"
 echo ""
 echo "  Database:"
 echo "  bash infra/scripts/apply_migrations.sh  - Apply migrations"
-echo "  psql -h localhost -p 54323 -U valueos -d valueos_dev  - Connect to DB"
+echo "  psql -h localhost -p ${POSTGRES_PORT:-5432} -U valueos -d valueos_dev  - Connect to DB"
 echo ""
 
 # =============================================================================
