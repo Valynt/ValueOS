@@ -113,6 +113,9 @@ jobs:
       - name: Kubernetes secrets hygiene
         run: node scripts/ci/check-k8s-secrets-hygiene.mjs
 
+      - name: Ops metadata policy (manifests + runbooks)
+        run: node scripts/ci/check-ops-metadata.mjs
+
       - name: i18n key integrity
         run: node scripts/ci/check-i18n-keys.mjs --json-out artifacts/i18n/coverage-dashboard.json
 

@@ -1,6 +1,6 @@
 # Incident Response
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-14
 
 **Consolidated from 1 source documents**
 
@@ -84,3 +84,18 @@ If all else fails:
 ```
 
 ---
+
+## Evidence Flow (Automation)
+
+To preserve a complete operational audit trail for incidents and emergency changes, capture the following automated evidence artifacts in the incident record:
+
+1. **Deployment skip-test audit artifact** (`skip-test-audit-<run_id>` from `.github/workflows/deploy.yml`)
+   - Confirms whether `skip_tests` was used.
+   - Includes mandatory incident ticket/reference when bypassing tests.
+2. **Post-deploy verification checklist artifact** (`post-deploy-verification-<run_id>` from `.github/workflows/deploy.yml`)
+   - Includes health verification, rollback readiness, and key metric checks.
+3. **Periodic access review automation output**
+   - Attach the latest quarterly `compliance-evidence-bundle-<run_id>` artifact from `.github/workflows/compliance-evidence-export.yml`.
+   - Include evidence package metadata showing the run ID, date, and access-review attestation references in the incident timeline.
+
+When documenting an incident, link all three artifact classes in the incident ticket to support post-incident review and governance audits.

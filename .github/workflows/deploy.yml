@@ -20,6 +20,10 @@ on:
         required: false
         default: false
         type: boolean
+      incident_reference:
+        description: "Incident ticket/reference (required when skip_tests is enabled)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -34,6 +38,59 @@ env:
   SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
+  skip-tests-policy:
+    name: Skip Tests Policy Audit
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    outputs:
+      skip_tests: ${{ steps.audit.outputs.skip_tests }}
+      incident_reference: ${{ steps.audit.outputs.incident_reference }}
+    steps:
+      - name: Validate skip-test policy and produce audit record
+        id: audit
+        env:
+          SKIP_TESTS: ${{ inputs.skip_tests || false }}
+          INCIDENT_REFERENCE: ${{ inputs.incident_reference || '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+
+          if [ "${SKIP_TESTS}" = "true" ] && [ -z "${INCIDENT_REFERENCE}" ]; then
+            echo "incident_reference is required when skip_tests is true" >&2
+            exit 1
+          fi
+
+          if [ -n "${INCIDENT_REFERENCE}" ] && ! printf '%s' "${INCIDENT_REFERENCE}" | grep -Eq '(^((INC|SEV|CHG|JIRA|OPS)-[0-9]+)$)|(^https?://)'; then
+            echo "incident_reference must be a ticket-like reference (e.g. INC-1234) or URL" >&2
+            exit 1
+          fi
+
+          cat > audit/skip-tests-audit.json <<JSON
+          {
+            "repository": "${{ github.repository }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "actor": "${{ github.actor }}",
+            "event_name": "${{ github.event_name }}",
+            "ref": "${{ github.ref }}",
+            "sha": "${{ github.sha }}",
+            "skip_tests": "${SKIP_TESTS}",
+            "incident_reference": "${INCIDENT_REFERENCE}",
+            "recorded_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+
+          echo "skip_tests=${SKIP_TESTS}" >> "$GITHUB_OUTPUT"
+          echo "incident_reference=${INCIDENT_REFERENCE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload skip-test audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: skip-test-audit-${{ github.run_id }}
+          path: audit/skip-tests-audit.json
+          retention-days: 365
+
   # ──────────────────────────────────────────────────────────────────────────
   # 1. Quality gate — must pass before any deploy
   # ──────────────────────────────────────────────────────────────────────────
@@ -66,8 +123,8 @@ jobs:
   build-images:
     name: Build Backend Runtime Image
     runs-on: ubuntu-latest
-    needs: [quality-gate]
-    if: github.event_name != 'schedule' && always() && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
+    needs: [skip-tests-policy, quality-gate]
+    if: github.event_name != 'schedule' && always() && needs.skip-tests-policy.result == 'success' && (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped')
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
       image_digest: ${{ steps.build.outputs.digest }}
@@ -345,6 +402,71 @@ jobs:
           done
           echo "Production health check failed — consider rollback"
           exit 1
+
+      - name: Build post-deploy verification checklist
+        id: post-deploy-checklist
+        continue-on-error: true
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_PRODUCTION_URL }}
+          PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p audit/post-deploy
+
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://app.valueos.app/health || true)
+          if [ "${HEALTH_STATUS}" = "200" ]; then HEALTH_CHECK="PASS"; else HEALTH_CHECK="FAIL"; fi
+
+          ROLLBACK_SLOT=$(kubectl -n valynt get service backend-active -o jsonpath='{.spec.selector.slot}' || true)
+          if [ -n "${ROLLBACK_SLOT}" ]; then ROLLBACK_READY="PASS"; else ROLLBACK_READY="FAIL"; fi
+
+          METRICS_CHECK="FAIL"
+          API_AVAILABILITY="n/a"
+          if [ -n "${PROMETHEUS_URL:-}" ]; then
+            AUTH_HEADER=()
+            if [ -n "${PROMETHEUS_TOKEN:-}" ]; then
+              AUTH_HEADER=(-H "Authorization: Bearer ${PROMETHEUS_TOKEN}")
+            fi
+            API_AVAILABILITY=$(curl -fsSL "${AUTH_HEADER[@]}" --get --data-urlencode 'query=slo:api_availability:ratio_rate1h' "${PROMETHEUS_URL%/}/api/v1/query" | jq -r '.data.result[0].value[1] // "n/a"' || true)
+            if [ "${API_AVAILABILITY}" != "n/a" ]; then
+              METRICS_CHECK="PASS"
+            fi
+          fi
+
+          cat > audit/post-deploy/verification-checklist.md <<EOF
+          # Post-Deploy Mandatory Verification Checklist
+
+          - [${HEALTH_CHECK}] Health endpoint responds with HTTP 200 (`/health`)
+          - [${ROLLBACK_READY}] Rollback readiness confirmed (active slot: ${ROLLBACK_SLOT:-unknown})
+          - [${METRICS_CHECK}] Key metrics verified (API availability 1h ratio: ${API_AVAILABILITY})
+
+          ## Metadata
+          - Workflow run: ${{ github.run_id }}
+          - Commit: ${{ github.sha }}
+          - Verified at (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+
+          if [ "${HEALTH_CHECK}" = "PASS" ] && [ "${ROLLBACK_READY}" = "PASS" ] && [ "${METRICS_CHECK}" = "PASS" ]; then
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Upload post-deploy verification artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-verification-${{ github.run_id }}
+          path: audit/post-deploy/verification-checklist.md
+          retention-days: 365
+
+      - name: Enforce post-deploy verification
+        if: always()
+        run: |
+          if [ "${{ steps.post-deploy-checklist.outputs.status }}" != "pass" ]; then
+            echo "Mandatory post-deploy verification checklist failed" >&2
+            exit 1
+          fi
 
 
   weekly-reliability-report:
