@@ -42,6 +42,25 @@ provider "aws" {
   }
 }
 
+
+variable "aws_region" {
+  description = "AWS region for staging environment resources"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "db_master_password" {
+  description = "Staging RDS master password loaded from secure Terraform backend/TF_VAR_db_master_password"
+  type        = string
+  sensitive   = true
+}
+
+variable "staging_app_secrets" {
+  description = "JSON string for staging app secrets provisioned from secure backend, Vault, or pre-existing AWS Secrets Manager material"
+  type        = string
+  sensitive   = true
+}
+
 # Data Sources
 data "aws_availability_zones" "available" {
   state = "available"
@@ -358,7 +377,7 @@ resource "aws_db_instance" "staging" {
 
   db_name  = "valuecanvas_staging"
   username = "staging_user"
-  password = "staging_secure_password_123"
+  password = var.db_master_password
 
   vpc_security_group_ids = [aws_security_group.staging_db.id]
   db_subnet_group_name   = aws_db_subnet_group.staging.name
@@ -538,14 +557,7 @@ resource "aws_secretsmanager_secret" "staging" {
 resource "aws_secretsmanager_secret_version" "staging" {
   secret_id = aws_secretsmanager_secret.staging.id
   
-  secret_string = jsonencode({
-    database_url      = aws_db_instance.staging.endpoint
-    redis_endpoint    = aws_elasticache_replication_group.staging.primary_endpoint_address
-    jwt_secret        = "staging_jwt_secret_change_in_production"
-    together_api_key  = "staging_together_api_key"
-    supabase_url      = "https://staging.supabase.co"
-    supabase_anon_key = "staging_supabase_anon_key"
-  })
+  secret_string = var.staging_app_secrets
 }
 
 # CloudWatch Alarms

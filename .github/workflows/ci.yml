@@ -309,6 +309,7 @@ jobs:
           directory: infra
           quiet: true
           soft_fail: false
+          external_checks_dir: .checkov/custom_policies
 
       - name: No IaC files present
         if: steps.detect.outputs.has_infra != 'true'
