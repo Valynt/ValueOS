@@ -43,6 +43,7 @@ SEED=false
 ENABLE_STUDIO=false
 SKIP_MIGRATIONS=false
 VERBOSE=false
+START_DEV_SERVER=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -62,14 +63,19 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
+        --start-dev-server)
+            START_DEV_SERVER=true
+            shift
+            ;;
         --help|-h)
-            echo "Usage: $0 [--seed] [--studio] [--skip-migrations] [--verbose]"
+            echo "Usage: $0 [--seed] [--studio] [--skip-migrations] [--verbose] [--start-dev-server]"
             echo ""
             echo "Options:"
             echo "  --seed             Run database seed after migrations"
             echo "  --studio           Enable Supabase Studio on port 54323"
             echo "  --skip-migrations  Skip database migrations"
             echo "  --verbose          Show detailed output"
+            echo "  --start-dev-server Run pnpm dev after readiness + migrations"
             exit 0
             ;;
         *)
@@ -134,7 +140,7 @@ fi
 
 # Runtime service names differ between host-compose and devcontainer sibling services.
 if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
-    DB_SERVICE="${DB_SERVICE:-db}"
+    DB_SERVICE="${DB_SERVICE:-postgres}"
     APP_HEALTH_URL_PRIMARY="${APP_HEALTH_URL_PRIMARY:-http://rest:3000/}"
     APP_HEALTH_URL_FALLBACK="${APP_HEALTH_URL_FALLBACK:-http://kong:8000/rest/v1/}"
 else
@@ -222,10 +228,10 @@ wait_for_db() {
             fi
         else
             # Use network connectivity check when inside devcontainer
-            # RESOLUTION: Using codex logic here as it robustly falls back to 'db' 
-            if pg_isready -h "${DB_HOST:-db}" -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
+            # Use postgres DNS on the compose network for direct readiness checks
+            if pg_isready -h "${DB_HOST:-postgres}" -U postgres -d valuecanvas_dev &> /dev/null 2>&1; then
                 return 0
-            elif nc -z "${DB_HOST:-db}" 5432 &> /dev/null 2>&1; then
+            elif nc -z "${DB_HOST:-postgres}" 5432 &> /dev/null 2>&1; then
                 # Fallback to netcat if pg_isready not available
                 return 0
             elif curl -s --max-time 2 "$APP_HEALTH_URL_PRIMARY" &> /dev/null 2>&1; then
@@ -252,6 +258,42 @@ else
     exit 3
 fi
 
+###############################################################################
+# Step 3b: Wait for Cache Health
+###############################################################################
+log STEP "3b/6 Waiting for Redis"
+
+wait_for_redis() {
+    local elapsed=0
+    while [[ $elapsed -lt $DB_TIMEOUT ]]; do
+        if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
+            if $COMPOSE_CMD exec -T redis redis-cli ping &> /dev/null; then
+                return 0
+            fi
+        else
+            if redis-cli -h "${REDIS_HOST:-redis}" -p "${REDIS_PORT:-6379}" ping &> /dev/null 2>&1; then
+                return 0
+            elif nc -z "${REDIS_HOST:-redis}" "${REDIS_PORT:-6379}" &> /dev/null 2>&1; then
+                return 0
+            fi
+        fi
+        sleep $HEALTH_CHECK_INTERVAL
+        elapsed=$((elapsed + HEALTH_CHECK_INTERVAL))
+    done
+    return 1
+}
+
+if wait_for_redis; then
+    log SUCCESS "Redis is healthy"
+else
+    log ERROR "Redis did not become healthy within ${DB_TIMEOUT}s"
+    if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
+        $COMPOSE_CMD logs redis --tail=50 >> "$LOG_FILE" 2>&1
+    fi
+    exit 3
+fi
+
+
 # Ensure shadow database exists
 log INFO "Ensuring shadow database exists..."
 if [[ "$DOCKER_AVAILABLE" == "true" ]]; then
@@ -260,7 +302,7 @@ else
     # Use psql directly if available, otherwise skip
     if command -v psql &> /dev/null; then
         # RESOLUTION: Using codex logic for variable expansion consistency
-        PGPASSWORD=postgres psql -h "${DB_HOST:-db}" -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
+        PGPASSWORD=postgres psql -h "${DB_HOST:-postgres}" -U postgres -c "SELECT 'CREATE DATABASE postgres_shadow' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'postgres_shadow')\\gexec" >> "$LOG_FILE" 2>&1 || true
     else
         log INFO "psql not available, shadow DB creation skipped (will be created on first migration)"
     fi
@@ -283,8 +325,8 @@ else
     # but used the specific DB credentials from 'main' (valuecanvas_dev) 
     # to avoid accidentally migrating the system 'postgres' DB.
     if [[ "$INSIDE_DEVCONTAINER" == "true" ]]; then
-        export PGHOST="${DB_HOST:-db}"
-        export DB_HOST="${DB_HOST:-db}"
+        export PGHOST="${DB_HOST:-postgres}"
+        export DB_HOST="${DB_HOST:-postgres}"
     else
         export PGHOST="${DB_HOST:-postgres}"
         export DB_HOST="${DB_HOST:-postgres}"
@@ -375,5 +417,11 @@ echo -e "${GREEN}║  ${NC}View logs:        ${YELLOW}./scripts/dc logs -f${NC}$
 echo -e "${GREEN}║  ${NC}Diagnostics:      ${YELLOW}bash scripts/dev/diagnostics.sh${NC}${GREEN}         ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
+
+if [[ "$START_DEV_SERVER" == "true" ]]; then
+    log STEP "Runtime Starting Dev Server"
+    cd "$PROJECT_ROOT"
+    exec pnpm dev
+fi
 
 exit 0
