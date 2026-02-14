@@ -1,5 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-echo "🔄 Running canonical migration runner (infra/scripts/apply_migrations.sh)"
-exec bash infra/scripts/apply_migrations.sh "$@"
+echo "🔄 Running canonical migration runner (scripts/db/apply-migrations.sh)"
+exec bash scripts/db/apply-migrations.sh "$@"

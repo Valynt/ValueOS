@@ -17,9 +17,9 @@ for i in {1..60}; do
   sleep 1
 done
 
-echo "[rls-coverage] Applying authoritative migrations from infra/postgres/migrations"
-DB_HOST="$PGHOST" DB_USER="$PGUSER" DB_PASSWORD="$PGPASSWORD" DB_NAME="$PGDATABASE" \
-  bash infra/scripts/apply_migrations.sh
+echo "[rls-coverage] Applying authoritative migrations from infra/supabase/supabase/migrations"
+DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+  bash scripts/db/apply-migrations.sh
 
 echo "[rls-coverage] Running CI-blocking RLS lint harness"
 psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \

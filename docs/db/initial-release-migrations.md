@@ -51,7 +51,7 @@ Active deterministic plan:
 
 Design rules enforced:
 
-- explicit ordering by filename + script-level ordered manifest
+- stable filename ordering in the canonical migration runner (`scripts/db/apply-migrations.sh`)
 - strict error handling (`set -euo pipefail`, `psql -v ON_ERROR_STOP=1 -X`)
 - explicit `search_path` and session defaults in the baseline header
 - pre-release history archived (auditability preserved)
@@ -61,7 +61,7 @@ Design rules enforced:
 ### One-command apply (generic runner)
 
 ```bash
-DIRECT_DATABASE_URL=postgresql://<user>:<pass>@<host>:<port>/<db> pnpm db:migrate
+DATABASE_URL=postgresql://<user>:<pass>@<host>:<port>/<db> bash scripts/db/apply-migrations.sh
 ```
 
 ### Supabase path
@@ -99,7 +99,7 @@ ORDER BY tablename, policyname;
 ### Drift check (fresh apply vs snapshot)
 
 ```bash
-pg_dump --schema-only --no-owner --no-privileges "$DIRECT_DATABASE_URL" > /tmp/fresh_schema.sql
+pg_dump --schema-only --no-owner --no-privileges "$DATABASE_URL" > /tmp/fresh_schema.sql
 diff -u docs/db/schema_snapshot.sql /tmp/fresh_schema.sql
 ```
 
@@ -108,13 +108,11 @@ Expected: no meaningful schema diff (ignoring environment comments).
 ## Adding future migrations
 
 1. Add a new file in `infra/supabase/supabase/migrations/` with a strictly increasing numeric prefix.
-2. Append the filename to explicit migration plans in:
-   - `scripts/migrate.sh`
-   - `infra/supabase/supabase/scripts/apply_migrations.sh`
+2. The canonical runner automatically discovers and applies top-level `.sql` files in stable sorted filename order.
 3. Re-run migration verification and refresh `docs/db/schema_snapshot.sql`.
 
 ## Risk notes
 
 - This refactor intentionally preserves final effective schema by consolidating historical SQL into a single baseline artifact; no schema redesign was performed.
-- Environments that previously relied on implicit glob discovery should now use the explicit migration plan runners.
+- Use the canonical runner in all environments to keep ordering and behavior consistent.
 - If your CI applies migrations using raw `supabase db push`, ensure only intended SQL files remain in the active migrations folder.

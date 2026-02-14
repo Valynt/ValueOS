@@ -38,4 +38,4 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-exec bash "$PROJECT_ROOT/infra/scripts/apply_migrations.sh" "${FORWARD_ARGS[@]}"
+exec bash "$PROJECT_ROOT/scripts/db/apply-migrations.sh" "${FORWARD_ARGS[@]}"

@@ -40,7 +40,7 @@ set -a; source "$ROOT/.env"; source "$ROOT/.env.ports"; set +a
 echo "Mode: $MODE"
 
 echo "1) Running migrations"
-"$ROOT/scripts/migrate.sh"
+"$ROOT/scripts/db/apply-migrations.sh"
 
 COMPOSE_FILE="$ROOT/infra/docker/docker-compose.dev.yml"
 

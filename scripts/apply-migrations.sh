@@ -1,5 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-# Canonical migration entrypoint wrapper.
-exec bash infra/scripts/apply_migrations.sh "$@"
+exec bash scripts/db/apply-migrations.sh "$@"
