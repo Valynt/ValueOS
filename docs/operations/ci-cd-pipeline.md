@@ -77,9 +77,9 @@ Architecture & operational notes:
 - Runs-on: `ubuntu-latest`
 - Integration runner uses GitHub Actions services: Postgres 15 & Redis 7
 - Use `$GITHUB_ENV` to set `DATABASE_URL` and `REDIS_URL`
-- RLS tests run against a local, ephemeral Supabase stack started via `pnpm supabase start`
-- No production keys are required; the CLI supplies local anon/service keys
-- CI sets `SUPABASE_DB_PASSWORD=postgres` to align with the default local stack credentials
+- Cloud migration/deploy jobs must target linked hosted Supabase projects and must not require `infra/supabase/config.toml` or local stack state.
+- Local Supabase stack usage in CI is optional and allowed only for explicitly scoped checks (for example RLS simulation jobs), with `LOCAL_SUPABASE_ONLY=1` set in that job.
+- No production keys are required for local simulation jobs; the CLI can supply local anon/service keys when those optional jobs are enabled.
 - Upload artifacts from integration & E2E runs into `test-results/` and `playwright-report/`
 - Retention: 14–30 days based on artifact size and workflow cost
 
