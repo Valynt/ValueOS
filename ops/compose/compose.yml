@@ -1,14 +1,10 @@
 # Canonical compose file for ValueOS core services.
 # Optional stacks live in ops/compose/profiles/.
-#
-# Core stack includes:
-# - backend
-# - frontend
-# - redis
-# - postgres (minimal local DB service)
 
 x-common: &common
   restart: unless-stopped
+  env_file:
+    - ../../ops/env/.env.local
   logging:
     driver: "json-file"
     options:
@@ -28,12 +24,21 @@ services:
       redis:
         condition: service_healthy
     environment:
+      APP_ENV: ${APP_ENV:-local}
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${API_CONTAINER_PORT:-8000}
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
-      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}@redis:6379
+      PORT: ${BACKEND_PORT:-8000}
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT:-5173}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-5173}}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${PGUSER:-postgres}:${PGPASSWORD:-postgres}@postgres:5432/${PGDATABASE:-valueos}}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in ops/env/.env.local}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in ops/env/.env.local}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in ops/env/.env.local}
+      SUPABASE_PROJECT_REF: ${SUPABASE_PROJECT_REF:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      NATS_URL: ${NATS_URL:-nats://nats:4222}
     ports:
-      - "${API_PORT:-8000}:${API_CONTAINER_PORT:-8000}"
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
 
   frontend:
     <<: *common
@@ -45,15 +50,22 @@ services:
     depends_on:
       - backend
     environment:
+      APP_ENV: ${APP_ENV:-local}
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${WEB_CONTAINER_PORT:-5173}
+      FRONTEND_PORT: ${FRONTEND_PORT:-5173}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT:-5173}}
+      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://localhost:${BACKEND_PORT:-8000}}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      VITE_SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in ops/env/.env.local}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in ops/env/.env.local}
       VITE_HOST: 0.0.0.0
       VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}
       VITE_HMR_PORT: ${VITE_HMR_PORT:-24678}
       VITE_HMR_CLIENT_PORT: ${VITE_HMR_CLIENT_PORT:-24678}
       VITE_USE_POLLING: ${VITE_USE_POLLING:-false}
     ports:
-      - "${WEB_PORT:-${VITE_PORT:-5173}}:${WEB_CONTAINER_PORT:-5173}"
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}"
       - "${VITE_HMR_PORT:-24678}:${VITE_HMR_PORT:-24678}"
 
   postgres:
@@ -61,16 +73,16 @@ services:
     image: postgres:15-alpine
     container_name: valueos-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
+      POSTGRES_DB: ${PGDATABASE:-valueos}
+      POSTGRES_USER: ${PGUSER:-postgres}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in ops/env/.env.local}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${PGPORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -83,7 +95,6 @@ services:
     command: >-
       redis-server
       --appendonly yes
-      --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
     ports:
@@ -91,7 +102,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in your local env file before starting compose}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

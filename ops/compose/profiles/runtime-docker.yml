@@ -30,8 +30,9 @@ services:
   backend:
     profiles: ["runtime-docker"]
     environment:
-      SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
-      SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
     depends_on:
       kafka:
         condition: service_started
@@ -45,13 +46,20 @@ services:
     profiles: ["runtime-docker"]
     command: ["pnpm", "--filter", "@valueos/backend", "run", "worker:dev"]
     environment:
-      SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
-      SUPABASE_URL: ${SUPABASE_INTERNAL_URL:-http://kong:8000}
+      APP_ENV: ${APP_ENV:-cloud-dev}
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     depends_on: [redis]
 
   frontend:
     profiles: ["runtime-docker"]
     environment:
-      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
-      VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:${SUPABASE_API_PORT:-54321}}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      VITE_SUPABASE_URL: ${SUPABASE_URL}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       VITE_USE_POLLING: ${VITE_USE_POLLING:-true}

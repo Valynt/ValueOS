@@ -21,10 +21,10 @@ function getFlagValue(flag) {
 }
 
 function resolveMode() {
-  const explicitMode = getFlagValue("--mode") || process.env.npm_config_mode || process.env.DX_MODE;
+  const explicitMode = getFlagValue("--mode") || process.env.npm_config_mode || process.env.APP_ENV;
   const mode = (explicitMode || "local").toLowerCase();
-  if (!["local", "docker"].includes(mode)) {
-    console.error(`❌ Unsupported mode '${mode}'. Use --mode local or --mode docker.`);
+  if (!["local", "cloud-dev"].includes(mode)) {
+    console.error(`❌ Unsupported mode '${mode}'. Use --mode local or --mode cloud-dev.`);
     process.exit(1);
   }
   return mode;
@@ -56,9 +56,10 @@ function ensureDocker() {
   }
 }
 
-function loadEnvFiles() {
+function loadEnvFiles(mode) {
   const env = { ...process.env };
   const candidates = [
+    path.join(projectRoot, "ops", "env", `.env.${mode}`),
     path.join(projectRoot, "ops", "env", ".env.local"),
     path.join(projectRoot, ".env.local"),
     path.join(projectRoot, ".env"),
@@ -82,33 +83,41 @@ function loadEnvFiles() {
 }
 
 function ensureRequiredEnv(mode) {
-  const env = loadEnvFiles();
-  const required = ["POSTGRES_PASSWORD", "REDIS_PASSWORD"];
+  const env = loadEnvFiles(mode);
+  const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "BACKEND_PORT", "FRONTEND_PORT"];
+  if (mode === "cloud-dev") required.push("SUPABASE_PROJECT_REF");
+
   const missing = required.filter((name) => !env[name]);
+  if (!env.DATABASE_URL && !(env.PGHOST && env.PGPORT && env.PGDATABASE && env.PGUSER && env.PGPASSWORD)) {
+    missing.push("DATABASE_URL");
+  }
 
   if (missing.length > 0) {
     console.error(`❌ Missing required env var(s) for dx:${command} --mode ${mode}: ${missing.join(", ")}`);
-    console.error("   Fix: set them in ops/env/.env.local (preferred) or export them in your shell.");
+    console.error(`   Expected file: ops/env/.env.${mode}`);
+    console.error(`   Fix: cp ops/env/.env.local.example ops/env/.env.${mode} and populate missing values.`);
     process.exit(1);
   }
 }
 
-function composeBaseArgs() {
+function composeBaseArgs(mode) {
+  const modeFile = path.join("ops", "env", `.env.${mode}`);
   const envLocal = path.join("ops", "env", ".env.local");
   const envPorts = path.join("ops", "env", ".env.ports");
   const args = ["--project-directory ."];
+  if (fs.existsSync(path.join(projectRoot, modeFile))) args.push(`--env-file ${modeFile}`);
   if (fs.existsSync(path.join(projectRoot, envLocal))) args.push(`--env-file ${envLocal}`);
   if (fs.existsSync(path.join(projectRoot, envPorts))) args.push(`--env-file ${envPorts}`);
   args.push("-f ops/compose/compose.yml");
   return args.join(" ");
 }
 
-function waitForHealthy(services, timeoutMs = 120000) {
+function waitForHealthy(services, mode, timeoutMs = 120000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     let allHealthy = true;
     for (const service of services) {
-      const id = runCapture(`docker compose ${composeBaseArgs()} ps -q ${service}`);
+      const id = runCapture(`docker compose ${composeBaseArgs(mode)} ps -q ${service}`);
       if (!id) {
         allHealthy = false;
         break;
@@ -129,52 +138,37 @@ function waitForHealthy(services, timeoutMs = 120000) {
   process.exit(1);
 }
 
-function upLocal() {
+function upLocal(mode) {
   console.log("▶ dx:up local | profile: deps (postgres, redis)");
-  run(`node scripts/dx/doctor.js --mode local --soft`);
-  run(`docker compose ${composeBaseArgs()} up -d postgres redis`);
-
-  const postgresPort = process.env.POSTGRES_PORT || "5432";
-  const redisPort = process.env.REDIS_PORT || "6379";
+  run(`docker compose ${composeBaseArgs(mode)} up -d postgres redis`);
   console.log("✓ Dependencies started");
-  console.log(`  - postgres: localhost:${postgresPort}`);
-  console.log(`  - redis:    localhost:${redisPort}`);
-  console.log("Next steps:");
-  console.log("  1) pnpm --filter @valueos/backend dev");
-  console.log("  2) pnpm --filter valynt-app dev");
 }
 
-function upDocker() {
-  console.log("▶ dx:up docker | profile: runtime-docker + deps");
-  run(`node scripts/dx/doctor.js --mode docker --soft`);
-  const cmd = `docker compose ${composeBaseArgs()} -f ops/compose/profiles/runtime-docker.yml --profile runtime-docker up -d postgres redis zookeeper kafka schema-registry backend worker frontend`;
+function upCloudDev(mode) {
+  console.log("▶ dx:up cloud-dev | profile: runtime-docker + deps");
+  const cmd = `docker compose ${composeBaseArgs(mode)} -f ops/compose/profiles/runtime-docker.yml --profile runtime-docker up -d postgres redis zookeeper kafka schema-registry backend worker frontend`;
   run(cmd);
-  waitForHealthy(["postgres", "redis", "backend", "frontend"]);
+  waitForHealthy(["postgres", "redis", "backend", "frontend"], mode);
 
-  const webPort = process.env.WEB_PORT || "5173";
-  const apiPort = process.env.API_PORT || "3001";
-  const pgPort = process.env.POSTGRES_PORT || "5432";
-  const redisPort = process.env.REDIS_PORT || "6379";
+  const env = loadEnvFiles(mode);
   console.log("✓ Runtime stack healthy");
-  console.log(`  - frontend: http://localhost:${webPort}`);
-  console.log(`  - backend:  http://localhost:${apiPort}`);
-  console.log(`  - postgres: localhost:${pgPort}`);
-  console.log(`  - redis:    localhost:${redisPort}`);
+  console.log(`  - frontend: http://localhost:${env.FRONTEND_PORT}`);
+  console.log(`  - backend:  http://localhost:${env.BACKEND_PORT}`);
 }
 
-function downLocal() {
+function downLocal(mode) {
   console.log("▶ dx:down local | stopping deps resources");
-  run(`docker compose ${composeBaseArgs()} stop postgres redis`);
-  run(`docker compose ${composeBaseArgs()} rm -f postgres redis`);
+  run(`docker compose ${composeBaseArgs(mode)} stop postgres redis`);
+  run(`docker compose ${composeBaseArgs(mode)} rm -f postgres redis`);
   console.log("✓ Stopped local deps resources (postgres, redis)");
 }
 
-function downDocker() {
-  console.log("▶ dx:down docker | stopping runtime-docker + deps resources");
-  const cmdBase = `docker compose ${composeBaseArgs()} -f ops/compose/profiles/runtime-docker.yml --profile runtime-docker`;
+function downCloudDev(mode) {
+  console.log("▶ dx:down cloud-dev | stopping runtime resources");
+  const cmdBase = `docker compose ${composeBaseArgs(mode)} -f ops/compose/profiles/runtime-docker.yml --profile runtime-docker`;
   run(`${cmdBase} stop frontend backend worker schema-registry kafka zookeeper postgres redis`);
   run(`${cmdBase} rm -f frontend backend worker schema-registry kafka zookeeper postgres redis`);
-  console.log("✓ Stopped docker runtime resources (runtime-docker + deps)");
+  console.log("✓ Stopped cloud-dev docker resources");
 }
 
 function main() {
@@ -183,14 +177,14 @@ function main() {
   ensureRequiredEnv(mode);
 
   if (command === "up") {
-    if (mode === "local") upLocal();
-    else upDocker();
+    if (mode === "local") upLocal(mode);
+    else upCloudDev(mode);
     return;
   }
 
   if (command === "down") {
-    if (mode === "local") downLocal();
-    else downDocker();
+    if (mode === "local") downLocal(mode);
+    else downCloudDev(mode);
     return;
   }
 
