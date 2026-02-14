@@ -145,20 +145,98 @@ export class LLMGateway {
     request: LLMRequest,
     startTime: number
   ): Promise<LLMResponse> {
+    const response = await this.invokeProvider(request);
     return {
-      id: `llm_${Date.now()}`,
-      model: request.model || this.config.model,
-      content: 'LLM Gateway placeholder response',
-      finish_reason: 'stop',
-      usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
-      },
+      ...response,
       metadata: {
+        ...(response.metadata || {}),
         ...(request.metadata || {}),
         duration_ms: Date.now() - startTime,
       },
+    };
+  }
+
+  private async invokeProvider(request: LLMRequest): Promise<LLMResponse> {
+    if (this.config.provider === 'together') {
+      return this.callTogetherProvider(request);
+    }
+
+    if (this.config.provider === 'openai') {
+      return this.callOpenAIProvider(request);
+    }
+
+    throw new Error(`Unsupported provider adapter: ${this.config.provider}`);
+  }
+
+  private async callTogetherProvider(request: LLMRequest): Promise<LLMResponse> {
+    const togetherApiKey = getEnvVar('TOGETHER_API_KEY');
+    if (!togetherApiKey) {
+      throw new Error('Together.ai API key not configured');
+    }
+
+    const response = await fetch('https://api.together.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: request.model || this.config.model,
+        messages: request.messages,
+        max_tokens: request.max_tokens ?? this.config.max_tokens,
+        temperature: request.temperature ?? this.config.temperature,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout_ms ?? 25000),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Together.ai API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return {
+      id: data.id ?? `together_${Date.now()}`,
+      model: data.model ?? request.model ?? this.config.model,
+      content: data.choices?.[0]?.message?.content ?? '',
+      finish_reason: data.choices?.[0]?.finish_reason ?? 'stop',
+      usage: data.usage,
+    };
+  }
+
+  private async callOpenAIProvider(request: LLMRequest): Promise<LLMResponse> {
+    const openAIKey = getEnvVar('OPENAI_API_KEY');
+    if (!openAIKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openAIKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: request.model || this.config.model,
+        messages: request.messages,
+        max_tokens: request.max_tokens ?? this.config.max_tokens,
+        temperature: request.temperature ?? this.config.temperature,
+      }),
+      signal: AbortSignal.timeout(this.config.timeout_ms ?? 25000),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    return {
+      id: data.id ?? `openai_${Date.now()}`,
+      model: data.model ?? request.model ?? this.config.model,
+      content: data.choices?.[0]?.message?.content ?? '',
+      finish_reason: data.choices?.[0]?.finish_reason ?? 'stop',
+      usage: data.usage,
     };
   }
 

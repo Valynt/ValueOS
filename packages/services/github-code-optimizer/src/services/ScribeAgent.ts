@@ -6,9 +6,9 @@ export class ScribeAgent extends BaseAgent {
   private openai: OpenAI;
   private octokit: Octokit;
 
-  constructor(openaiApiKey: string, githubToken: string) {
+  constructor(_openaiApiKey: string, githubToken: string) {
     super();
-    this.openai = new OpenAI({ apiKey: openaiApiKey });
+    this.openai = new OpenAI();
     this.octokit = new Octokit({ auth: githubToken });
   }
 
