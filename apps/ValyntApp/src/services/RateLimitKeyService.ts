@@ -156,7 +156,9 @@ export class RateLimitKeyService {
     // Priority: context > request > undefined
     return context?.tenantId ||
            (req as any).tenantId ||
-           req.headers['x-tenant-id'] as string ||
+           ((req as any).serviceIdentityVerified === true
+             ? req.headers['x-tenant-id'] as string
+             : undefined) ||
            undefined;
   }
 
@@ -180,10 +182,8 @@ export class RateLimitKeyService {
     req: Request,
     context?: Partial<RateLimitKeyContext>
   ): string | undefined {
-    // Priority: context > request headers > connection > undefined
+    // Priority: context > trusted request address > connection > undefined
     return context?.ip ||
-           req.headers['x-forwarded-for'] as string ||
-           req.headers['x-real-ip'] as string ||
            req.ip ||
            req.socket.remoteAddress ||
            undefined;

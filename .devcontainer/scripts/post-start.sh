@@ -7,6 +7,11 @@ set -euo pipefail
 
 echo "🚀 Running post-start checks..."
 
+# Run framework-level backing services health checks
+if [ -f pragmatic-reproducibility/scripts/healthcheck-services.sh ]; then
+    bash pragmatic-reproducibility/scripts/healthcheck-services.sh
+fi
+
 # =============================================================================
 # SERVICE HEALTH MONITORING
 # =============================================================================

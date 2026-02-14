@@ -34,7 +34,12 @@ export const tenantContextStorage = new AsyncLocalStorage<TCTPayload>();
 
 type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-lookup" | "request" | "none";
 
-const resolveRoles = (user: any): string[] => {
+type TenantContextUser = {
+  role?: string | string[];
+  app_metadata?: { roles?: unknown; tier?: string };
+};
+
+const resolveRoles = (user: TenantContextUser | undefined): string[] => {
   const directRole = user?.role;
   if (Array.isArray(directRole)) {
     return directRole.filter((role) => typeof role === "string");

@@ -110,14 +110,17 @@ function getTenantId(req: Request): string {
   const tenantId = (req as { tenantId?: string }).tenantId;
   if (tenantId) return tenantId;
 
+  if ((req as { serviceIdentityVerified?: boolean }).serviceIdentityVerified !== true) {
+    return "global";
+  }
+
   const header = req.headers["x-tenant-id"];
   if (typeof header === "string") return header;
   return "global";
 }
 
 function getClientIp(req: Request): string {
-  const forwarded = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0];
-  return forwarded || req.ip || req.socket.remoteAddress || "unknown";
+  return req.ip || req.socket.remoteAddress || "unknown";
 }
 
 function sanitizeIdentifier(value: string): string {
@@ -176,7 +179,9 @@ async function consumeTokenBucket(
  */
 export function getRateLimitKey(req: Request): string {
   const tenantId = (req as { tenantId?: string }).tenantId;
-  const headerTenant = req.headers["x-tenant-id"];
+  const allowHeaderTenant =
+    (req as { serviceIdentityVerified?: boolean }).serviceIdentityVerified === true;
+  const headerTenant = allowHeaderTenant ? req.headers["x-tenant-id"] : undefined;
   const resolvedTenant =
     tenantId || (typeof headerTenant === "string" ? headerTenant : undefined);
   const userId = getUserId(req);

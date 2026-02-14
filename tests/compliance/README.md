@@ -211,21 +211,16 @@ npm test -- tests/compliance --coverage
 
 ## Known Issues
 
-### ⚠️ Database Setup Issues
+### ✅ Database Setup Baseline (resolved)
 
-**Problem:** Test infrastructure fails with database schema errors:
-```
-error: null value in column "slug" of relation "organizations" violates not-null constraint
-```
+The previous test infrastructure blocker around missing tenant/organization slugs has been remediated by standardizing tenant fixtures to always include `slug` in helper-created records (`tests/test-utils.ts`).
 
-**Impact:** Tests cannot run until database setup is fixed
+**Current expectation for CI/local:**
+1. Ensure Supabase env vars are present (`VITE_SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, optional anon key).
+2. Run compliance suites against migrated schema.
+3. Consume generated JUnit/JSON reports from `reports/compliance/`.
 
-**Resolution Required:**
-1. Fix `src/test/testcontainers-global-setup.ts` to handle missing `slug` column
-2. Update `src/test/test-db-schema.sql` to include proper defaults
-3. Ensure all migrations run successfully
-
-**Workaround:** Tests are syntactically correct and will pass once database setup is fixed
+If environment variables are absent, selected suites self-skip by design and CI merge gating prevents silent pass for required suites.
 
 ---
 

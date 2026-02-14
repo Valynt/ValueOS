@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-slo-rules
+  namespace: monitoring
+data:
+  slo-rules.yaml: |
+    groups:
+      - name: valueos_slo_recording
+        interval: 30s
+        rules:
+          # SLO targets
+          - record: slo:target:api_availability
+            expr: vector(0.999)
+
+          - record: slo:target:api_latency_p95
+            expr: vector(0.95)
+
+          - record: slo:target:auth_success
+            expr: vector(0.995)
+
+          - record: slo:target:queue_health
+            expr: vector(0.99)
+
+          # API availability SLI (non-5xx over total)
+          - record: slo:api_availability:ratio_rate5m
+            expr: |
+              sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total{job="valueos-api"}[5m]))
+
+          - record: slo:api_availability:ratio_rate1h
+            expr: |
+              sum(rate(http_requests_total{job="valueos-api",code!~"5.."}[1h]))
+              /
+              sum(rate(http_requests_total{job="valueos-api"}[1h]))
+
+          - record: slo:api_availability:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:api_availability:ratio_rate5m) / (1 - slo:target:api_availability)
+
+          - record: slo:api_availability:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:api_availability:ratio_rate1h) / (1 - slo:target:api_availability)
+
+          # API latency SLI (P95 under 300ms)
+          - record: slo:api_latency:good_rate5m
+            expr: |
+              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[5m]))
+              /
+              sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[5m]))
+
+          - record: slo:api_latency:good_rate1h
+            expr: |
+              sum(rate(http_server_request_duration_seconds_bucket{job="valueos-api",le="0.3"}[1h]))
+              /
+              sum(rate(http_server_request_duration_seconds_count{job="valueos-api"}[1h]))
+
+          - record: slo:api_latency:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:api_latency:good_rate5m) / (1 - slo:target:api_latency_p95)
+
+          - record: slo:api_latency:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:api_latency:good_rate1h) / (1 - slo:target:api_latency_p95)
+
+          # Auth success SLI
+          - record: slo:auth_success:ratio_rate5m
+            expr: |
+              sum(rate(auth_attempts_total{job="valueos-api",result="success"}[5m]))
+              /
+              sum(rate(auth_attempts_total{job="valueos-api"}[5m]))
+
+          - record: slo:auth_success:ratio_rate1h
+            expr: |
+              sum(rate(auth_attempts_total{job="valueos-api",result="success"}[1h]))
+              /
+              sum(rate(auth_attempts_total{job="valueos-api"}[1h]))
+
+          - record: slo:auth_success:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:auth_success:ratio_rate5m) / (1 - slo:target:auth_success)
+
+          - record: slo:auth_success:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:auth_success:ratio_rate1h) / (1 - slo:target:auth_success)
+
+          # Queue health SLI (queue depth and age within thresholds)
+          - record: slo:queue_health:ratio_rate5m
+            expr: |
+              avg_over_time((queue_depth{job="valueos-worker",queue="default"} < bool 100)[5m:])
+              *
+              avg_over_time((queue_oldest_message_age_seconds{job="valueos-worker",queue="default"} < bool 120)[5m:])
+
+          - record: slo:queue_health:ratio_rate1h
+            expr: |
+              avg_over_time((queue_depth{job="valueos-worker",queue="default"} < bool 100)[1h:])
+              *
+              avg_over_time((queue_oldest_message_age_seconds{job="valueos-worker",queue="default"} < bool 120)[1h:])
+
+          - record: slo:queue_health:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:queue_health:ratio_rate5m) / (1 - slo:target:queue_health)
+
+          - record: slo:queue_health:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:queue_health:ratio_rate1h) / (1 - slo:target:queue_health)
+
+      - name: valueos_slo_burn_rate_alerts
+        interval: 30s
+        rules:
+          - alert: ApiAvailabilitySLOBurnRateTooHigh
+            expr: |
+              slo:api_availability:error_budget_burn_rate5m > 14.4
+              and
+              slo:api_availability:error_budget_burn_rate1h > 14.4
+            for: 5m
+            labels:
+              severity: critical
+              slo: api-availability
+            annotations:
+              summary: "API availability error budget burn rate is critically high"
+              description: "API availability burn-rate exceeded 14.4x in 5m and 1h windows"
+
+          - alert: ApiLatencySLOBurnRateTooHigh
+            expr: |
+              slo:api_latency:error_budget_burn_rate5m > 14.4
+              and
+              slo:api_latency:error_budget_burn_rate1h > 14.4
+            for: 5m
+            labels:
+              severity: critical
+              slo: api-latency
+            annotations:
+              summary: "API latency error budget burn rate is critically high"
+              description: "API latency burn-rate exceeded 14.4x in 5m and 1h windows"
+
+          - alert: AuthSuccessSLOBurnRateTooHigh
+            expr: |
+              slo:auth_success:error_budget_burn_rate5m > 14.4
+              and
+              slo:auth_success:error_budget_burn_rate1h > 14.4
+            for: 5m
+            labels:
+              severity: critical
+              slo: auth-success
+            annotations:
+              summary: "Auth success error budget burn rate is critically high"
+              description: "Auth success burn-rate exceeded 14.4x in 5m and 1h windows"
+
+          - alert: QueueHealthSLOBurnRateTooHigh
+            expr: |
+              slo:queue_health:error_budget_burn_rate5m > 14.4
+              and
+              slo:queue_health:error_budget_burn_rate1h > 14.4
+            for: 5m
+            labels:
+              severity: critical
+              slo: queue-health
+            annotations:
+              summary: "Queue health error budget burn rate is critically high"
+              description: "Queue health burn-rate exceeded 14.4x in 5m and 1h windows"

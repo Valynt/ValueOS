@@ -1,5 +1,5 @@
 # Caddyfile for ValueOS Development Environment
-# Reverse proxy configuration for routing traffic to services
+# Single ingress entrypoint with path-based routing to internal services
 
 {
     # Global options
@@ -12,21 +12,43 @@
     }
 }
 
-# Frontend Application
-:80 {
+# Primary ingress (host-exposed via 80/443 only)
+:80, :443 {
     # Health check endpoint
     handle /health {
         respond "OK" 200
     }
 
+    # Supabase API via Kong
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy kong:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Supabase Studio
+    handle /studio/* {
+        uri strip_prefix /studio
+        reverse_proxy studio:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
     # Frontend routes
-    handle /* {
+    handle {
         reverse_proxy frontend:3001 {
             header_up Host {host}
             header_up X-Real-IP {remote}
             header_up X-Forwarded-For {remote}
             header_up X-Forwarded-Proto {scheme}
-            
+
             health_uri /
             health_interval 30s
             health_timeout 10s
@@ -34,53 +56,6 @@
     }
 
     # Logging
-    log {
-        output stdout
-        format json
-    }
-}
-
-# API Gateway (Kong)
-:8000 {
-    reverse_proxy kong:8000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote}
-        header_up X-Forwarded-For {remote}
-        header_up X-Forwarded-Proto {scheme}
-        
-        health_uri /
-        health_interval 30s
-        health_timeout 10s
-    }
-
-    log {
-        output stdout
-        format json
-    }
-}
-
-# Supabase Studio
-:54324 {
-    reverse_proxy studio:3000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote}
-        header_up X-Forwarded-For {remote}
-        header_up X-Forwarded-Proto {scheme}
-    }
-
-    log {
-        output stdout
-        format json
-    }
-}
-
-# Agent Fabric Monitoring (optional)
-:8222 {
-    reverse_proxy nats:8222 {
-        header_up Host {host}
-        header_up X-Real-IP {remote}
-    }
-
     log {
         output stdout
         format json

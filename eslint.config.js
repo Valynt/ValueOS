@@ -442,6 +442,70 @@ const backendServiceAuthOverrides = {
   },
 };
 
+
+
+const appModuleBoundaryOverrides = {
+  files: ["apps/ValyntApp/src/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: [
+              "@valueos/*/src/*",
+              "@valueos/*/*/src/*",
+              "@valueos/agents/*/*",
+              "packages/*/src/*",
+            ],
+            message:
+              "Valynt app must only consume package public entrypoints. Do not import package internals.",
+          },
+          {
+            group: [
+              "../../../packages/*",
+              "../../../../packages/*",
+              "../../../../../packages/*",
+            ],
+            message:
+              "Valynt app cannot import packages through relative paths. Use workspace package specifiers.",
+          },
+        ],
+      },
+    ],
+  },
+};
+
+const backendModuleBoundaryOverrides = {
+  files: ["packages/backend/src/**/*.{ts,tsx,js,jsx}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: [
+              "apps/ValyntApp/*",
+              "../../apps/ValyntApp/*",
+              "../../../apps/ValyntApp/*",
+            ],
+            message: "Backend modules must not import application-layer code from apps/ValyntApp.",
+          },
+          {
+            group: [
+              "../lib/agent-fabric",
+              "../lib/agent-fabric.ts",
+              "./lib/agent-fabric",
+              "./lib/agent-fabric.ts",
+            ],
+            message:
+              "Use @valueos/agents package APIs directly instead of backend-local agent-fabric entrypoints.",
+          },
+        ],
+      },
+    ],
+  },
+};
 // Config files override - disable type-aware rules and project
 const configOverrides = {
   files: [
@@ -497,6 +561,8 @@ export default [
   srcOverrides,
   envOverrides,
   moduleBoundaryOverrides,
+  appModuleBoundaryOverrides,
+  backendModuleBoundaryOverrides,
   testcafeOverrides,
   ...storybook.configs["flat/recommended"],
 ];

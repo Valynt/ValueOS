@@ -11,9 +11,9 @@ describe('createSecureRouter', () => {
     expect(hasMiddleware(router, 'securityHeadersMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'serviceIdentityMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'requestSanitizationMiddleware')).toBe(true);
+    expect(hasMiddleware(router, 'csrfTokenMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'csrfProtectionMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'sessionTimeoutMiddleware')).toBe(true);
     expect(hasMiddleware(router, 'rateLimiter')).toBe(true);
   });
 });
-
