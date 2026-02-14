@@ -44,7 +44,7 @@ Prevention: Import validation runs in CI via `.github/workflows/dx-e2e.yml`.
 Symptoms:
 
 - DX startup fails with "address already in use"
-- Services can't bind to required ports (3001, 5173, 5432, 6379, 54321-54323)
+- Services can't bind to required ports (8000, 5173, 5432, 6379, 54321-54323)
 
 
 Root Cause:
@@ -98,7 +98,7 @@ cat .dx-trace.log | grep ERROR
 cat .env.local | grep DATABASE_URL
 
 # Test backend directly
-curl -v http://localhost:3001/health
+curl -v http://localhost:8000/health
 ```
 
 
@@ -131,7 +131,7 @@ docker ps | grep postgres
 docker logs valueos-postgres
 
 # Restart postgres
-docker compose -f docker-compose.deps.yml up -d postgres
+pnpm run dx up --mode local
 
 # Test connection
 PGPASSWORD=dev_password psql -h localhost -p 5432 -U postgres -d valuecanvas_dev -c 'SELECT 1'
@@ -167,7 +167,7 @@ lsof -ti:54322 | xargs kill -9
 # Hard reset Supabase
 cd infra/supabase
 supabase stop --workdir . || true
-docker compose -f docker-compose.yml down -v --remove-orphans
+pnpm run dx:down
 supabase start --workdir . --debug
 
 # Check Supabase status
@@ -335,12 +335,12 @@ Fix:
 docker ps -a | grep supabase
 
 # View logs
-docker compose -f infra/supabase/docker-compose.yml logs --tail=100
+pnpm run dx:logs
 
 # Hard reset (WARNING: deletes local data)
 cd infra/supabase
 supabase stop --workdir . || true
-docker compose -f docker-compose.yml down -v --remove-orphans
+pnpm run dx:down
 docker volume prune -f
 supabase start --workdir . --debug
 ```

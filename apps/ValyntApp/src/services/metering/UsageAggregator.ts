@@ -3,16 +3,13 @@
  * Runs as background job to aggregate usage events into batches
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase';
 import { BillingMetric } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'UsageAggregator' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabase = createServerSupabaseClient();
 
 class UsageAggregator {
   /**

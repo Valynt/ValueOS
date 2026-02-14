@@ -7,6 +7,8 @@
   "types": "dist/server.d.ts",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "worker:dev": "tsx src/workers/workerMain.ts",
+    "worker": "node dist/workers/workerMain.js",
     "build": "echo 'Backend runs via tsx at runtime; no compile step needed'",
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",

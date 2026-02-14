@@ -6,10 +6,18 @@ import { getEnvVar, setEnvVar } from '../../lib/env';
 const isServer = typeof window === 'undefined';
 
 const SECRET_KEY_MAPPING: Record<string, string> = {
-  SUPABASE_SERVICE_KEY:
-    getEnvVar('SUPABASE_SERVICE_KEY_SECRET_NAME') || 'supabase-service-key',
+  SUPABASE_SERVICE_ROLE_KEY:
+    getEnvVar('SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME') || 'supabase-service-key',
   REDIS_URL: getEnvVar('REDIS_URL_SECRET_NAME') || 'redis-url',
   DATABASE_URL: getEnvVar('DATABASE_URL_SECRET_NAME') || 'database-url',
+};
+
+const assertNoDeprecatedSecretAliases = (): void => {
+  if (getEnvVar('SUPABASE_SERVICE_KEY_SECRET_NAME')) {
+    throw new Error(
+      'SUPABASE_SERVICE_KEY_SECRET_NAME is deprecated. Use SUPABASE_SERVICE_ROLE_KEY_SECRET_NAME instead.'
+    );
+  }
 };
 
 function normalizeSecret(secret: SecretValue, envKey: string): string | undefined {
@@ -27,6 +35,8 @@ export async function hydrateServerSecretsFromManager(): Promise<Record<string, 
   if (!isServer) {
     return {};
   }
+
+  assertNoDeprecatedSecretAliases();
 
   if (getEnvVar('SECRETS_MANAGER_ENABLED') !== 'true') {
     logger.info('Secrets manager hydration skipped (SECRETS_MANAGER_ENABLED not true)');

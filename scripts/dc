@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Docker Compose wrapper for ValueOS infrastructure orchestration only.
+# Application services should run via package scripts unless explicitly using the legacy stack.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-COMPOSE_FILE="${ROOT}/scripts/docker-compose.yml"
+COMPOSE_FILE="${ROOT}/ops/compose/compose.yml"
 APP_ENV_FILE="${ROOT}/ops/env/.env.local"
+SUPABASE_PROFILE_COMPOSE_FILE="${ROOT}/ops/compose/profiles/supabase.yml"
+OBSERVABILITY_PROFILE_COMPOSE_FILE="${ROOT}/ops/compose/profiles/observability.yml"
 
 ENV_FILE="${ROOT}/ops/env/.env.ports"
 LEGACY_ENV_FILE="${ROOT}/.env.ports"
@@ -19,36 +24,37 @@ DOCKER_BIN="$(command -v docker 2>/dev/null || true)"
   exit 127
 }
 
-compose_args=(
-  --project-name valueos
-  --project-directory "${ROOT}"
-  -f "${COMPOSE_FILE}"
-)
-
 show_usage() {
   cat <<'EOF'
 Usage: dc [docker compose args]
 
 Wrapper around `docker compose` using:
-  -f scripts/docker-compose.yml
   --project-name valueos
   --project-directory <repo-root>
+  -f ops/compose/compose.yml
+
+Env files:
+  * ops/env/.env.local      (optional app-level env vars)
+  * ops/env/.env.ports      (preferred deterministic port bindings)
+  * .env.ports              (legacy fallback)
+  * ops/env/.env.ports.example (final fallback)
 
 Profiles:
-  supabase        Base local stack from scripts/docker-compose.yml (default compose services; no --profile required)
-  observability   Optional profile from scripts/docker-compose.yml (prometheus, grafana)
-  validate        Optional profile from scripts/docker-compose.yml (build-validator)
-  devcontainer    Optional profile when available via compose overrides (passed through when explicitly set)
+  * You may pass `--profile <name>` directly; those flags are forwarded unchanged.
+  * If you do NOT pass a profile on the CLI and VALUEOS_PROFILES is set,
+    its comma-separated values are forwarded as `--profile` flags.
 
-How profile selection works:
-  * CLI `--profile` always wins and is passed through unchanged.
-  * If CLI does not set a profile and VALUEOS_PROFILES is set, its comma-separated values are forwarded as --profile flags.
-  * Otherwise no --profile flag is added.
+Compose overlays:
+  * If VALUEOS_PROFILES contains "supabase", the supabase overlay compose file is added:
+      ops/compose/profiles/supabase.yml
+  * If VALUEOS_PROFILES contains "observability", the observability overlay compose file is added:
+      ops/compose/profiles/observability.yml
 
 Examples:
-  dc up
+  dc up -d
   VALUEOS_PROFILES=observability dc up -d
-  dc --profile validate run --rm build-validator
+  dc --profile validate up -d
+  VALUEOS_PROFILES=supabase,observability dc up -d
 EOF
 }
 
@@ -57,6 +63,22 @@ if [[ "${1:-}" == "help" || "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
+compose_args=(
+  --project-name valueos
+  --project-directory "${ROOT}"
+  -f "${COMPOSE_FILE}"
+)
+
+# Add optional overlay compose files based on VALUEOS_PROFILES.
+if [[ ",${VALUEOS_PROFILES:-}," == *",supabase,"* ]]; then
+  compose_args+=( -f "${SUPABASE_PROFILE_COMPOSE_FILE}" )
+fi
+
+if [[ ",${VALUEOS_PROFILES:-}," == *",observability,"* ]]; then
+  compose_args+=( -f "${OBSERVABILITY_PROFILE_COMPOSE_FILE}" )
+fi
+
+# If the caller explicitly sets a profile flag, don't auto-add profiles.
 has_profile_arg=false
 for arg in "$@"; do
   if [[ "${arg}" == "--profile" || "${arg}" == --profile=* ]]; then
@@ -72,6 +94,7 @@ if [[ "${has_profile_arg}" == "false" ]]; then
   fi
 
   for profile in "${profiles[@]}"; do
+    profile="$(echo "${profile}" | xargs)"
     if [[ -n "${profile}" ]]; then
       compose_args+=(--profile "${profile}")
     fi
@@ -93,3 +116,4 @@ elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
+

@@ -40,3 +40,6 @@ Notes & troubleshooting:
 - If CI time becomes a concern, run the full apply+rollback job only on PRs that add migrations and schedule nightly full runs.
 
 Contact: Mention this README in migration PRs or ping the infra team for questions.
+
+
+- `validate-secret-key-contract.mjs` — validates canonical secret key names across Kubernetes ExternalSecrets and environment/compose definitions; fails on deprecated aliases.

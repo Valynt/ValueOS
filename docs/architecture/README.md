@@ -13,8 +13,9 @@
 - [Frontend Architecture](./frontend-architecture.md)
 - [Infrastructure Architecture](./infrastructure-architecture.md)
 - [Memory First Architecture](./memory-first-architecture.md)
+- [Module Ownership and Boundaries](./module-ownership-boundaries.md)
 - [Security Architecture](./security-architecture.md)
 
 ---
 
-**Total Documents**: 8
+**Total Documents**: 9
