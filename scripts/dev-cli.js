@@ -111,11 +111,29 @@ function ensureNodeVersion() {
 
   const expected = fs.readFileSync(nvmrcPath, "utf8").trim().replace(/^v/, "");
   const actual = process.versions.node;
+  if (expected) {
+    const parse = (v) => v.split(".").map((n) => parseInt(n, 10) || 0);
+    const cmp = (a, b) => {
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const av = a[i] || 0;
+        const bv = b[i] || 0;
+        if (av > bv) return 1;
+        if (av < bv) return -1;
+      }
+      return 0;
+    };
 
-  if (expected && expected !== actual) {
-    console.error(`❌ Node ${expected} required but found ${actual}.`);
-    console.error("   Fix: install the pinned version (nvm install && nvm use) or update .nvmrc.");
-    process.exit(1);
+    const expectedParts = parse(expected);
+    const actualParts = parse(actual);
+
+    if (cmp(actualParts, expectedParts) < 0) {
+      console.error(`❌ Node ${expected} required but found ${actual}.`);
+      console.error("   Fix: install the pinned version (nvm install && nvm use) or update .nvmrc.");
+      process.exit(1);
+    }
+    if (cmp(actualParts, expectedParts) > 0) {
+      console.warn(`⚠️  Node ${actual} found which is newer than pinned ${expected}; continuing.`);
+    }
   }
 }
 

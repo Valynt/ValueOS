@@ -8,7 +8,7 @@
 
 set -e
 
-MIGRATIONS_DIR="infra/postgres/migrations"
+MIGRATIONS_DIR="infra/supabase/supabase/migrations"
 
 echo "╔══════════════════════════════════════════════════════════════════════╗"
 echo "║           Database Migration Linter                                  ║"
@@ -176,7 +176,7 @@ for file in "$MIGRATIONS_DIR"/*.sql; do
             check_warn "Unmatched parentheses in $(basename $file): $OPEN_PARENS open, $CLOSE_PARENS close"
             SYNTAX_ISSUES=$((SYNTAX_ISSUES + 1))
         fi
-        
+
         # Check for missing semicolons at end of statements
         if ! tail -1 "$file" | grep -q ";"; then
             check_warn "Missing semicolon at end of $(basename $file)"

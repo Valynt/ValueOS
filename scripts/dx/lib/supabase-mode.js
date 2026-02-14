@@ -42,6 +42,14 @@ export function resolveSupabaseMode({ env = process.env, localHosts = [], networ
   const force = normalizeFlag(env.DX_FORCE_SUPABASE);
   const skip = normalizeFlag(env.DX_SKIP_SUPABASE);
   const localFlag = normalizeFlag(env.DX_SUPABASE_LOCAL);
+  const explicitMode = env.DX_SUPABASE_MODE ? String(env.DX_SUPABASE_MODE).trim().toLowerCase() : null;
+
+  // Explicit override via DX_SUPABASE_MODE takes highest precedence
+  if (explicitMode) {
+    if (explicitMode === "local") return { mode: "local", reason: "explicit-mode" };
+    if (explicitMode === "cloud") return { mode: "cloud", reason: "explicit-mode" };
+    if (explicitMode === "skip") return { mode: "skip", reason: "explicit-mode" };
+  }
 
   if (force === true || localFlag === true) {
     return { mode: "local", reason: "forced" };

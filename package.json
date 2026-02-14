@@ -98,6 +98,7 @@
     "@vitest/coverage-v8": "^4.0.17",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
+    "dotenv": "^16.1.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.5.0",
@@ -153,6 +154,8 @@
     "lint": "eslint .",
     "check:service-duplicates": "node scripts/check-service-duplicate-filenames.mjs",
     "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs",
-    "check:browser-provider-secrets": "node scripts/ci/check-browser-provider-secrets.mjs"
+    "dx": "node scripts/dev-cli.js",
+    "dx:up": "pnpm run dx -- up",
+    "dx:down": "pnpm run dx -- down"
   }
 }
