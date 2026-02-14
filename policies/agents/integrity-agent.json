@@ -1,0 +1,8 @@
+{
+  "version": "2026-02-14",
+  "agent": "integrity-agent",
+  "allowedModels": ["gpt-4o", "gpt-4o-mini"],
+  "allowedTools": ["document_lookup", "calculator"],
+  "maxTokens": 4000,
+  "maxCostUsd": 0.75
+}

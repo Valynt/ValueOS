@@ -16,6 +16,11 @@ import {
 import { getTracer } from '../../config/telemetry.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { getEnvVar } from '@shared/lib/env';
+import {
+  enforceBudgetPolicy,
+  enforceModelPolicy,
+  recordPolicyAuditEvent,
+} from '../../services/policy/PolicyEnforcement.js';
 
 export interface LLMGatewayConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom' | 'together';
@@ -173,6 +178,7 @@ export class LLMGateway {
       metadata.organizationId ??
       metadata.organization_id;
     const sessionId = metadata.sessionId ?? metadata.session_id;
+    const agentType = String((metadata as any).agentType || 'default');
 
     if (!tenantId) {
       const error = new Error(
@@ -186,12 +192,25 @@ export class LLMGateway {
     }
 
     try {
+      const modelPolicy = enforceModelPolicy(agentType, model);
+      const estimatedPromptTokens = this.estimateTokens(request.messages);
+      const estimatedCompletionTokens = request.max_tokens ?? this.config.max_tokens ?? 0;
+      const estimatedCostUsd = this.estimateCostUsd(
+        estimatedPromptTokens,
+        estimatedCompletionTokens,
+        model
+      );
+      const budgetPolicy = enforceBudgetPolicy(agentType, {
+        totalTokens: estimatedPromptTokens + estimatedCompletionTokens,
+        estimatedCostUsd,
+      });
+
       // Get routing decision
       const routingDecision = await this.costAwareRouter.routeRequest({
         tenantId,
-        agentType: (metadata as any).agentType || 'unknown',
+        agentType,
         priority: (metadata as any).priority || 'medium',
-        tokenEstimate: this.estimateTokens(request.messages),
+        tokenEstimate: estimatedPromptTokens,
         sessionId,
       });
 
@@ -208,7 +227,11 @@ export class LLMGateway {
           content: fallbackResponse,
           finish_reason: 'stop',
           usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-          metadata: { ...metadata, fallback: true },
+          metadata: {
+            ...metadata,
+            fallback: true,
+            policyVersion: modelPolicy.policyVersion,
+          },
         };
       }
 
@@ -285,6 +308,11 @@ export class LLMGateway {
                 request.model || modelUsed
               );
 
+              enforceBudgetPolicy(agentType, {
+                totalTokens: primaryResult.usage?.total_tokens || 0,
+                estimatedCostUsd: costUsd,
+              });
+
               span.setAttributes({
                 'llm.prompt_tokens': primaryResult.usage?.prompt_tokens || 0,
                 'llm.completion_tokens': primaryResult.usage?.completion_tokens || 0,
@@ -325,6 +353,7 @@ export class LLMGateway {
                 fallback_triggered: true,
                 fallback_reason: fallbackReason,
                 retry_attempts: retryAttempts,
+                policyVersion: budgetPolicy.policyVersion,
               };
 
               span.setAttributes({ 'llm.latency_ms': Date.now() - startTime });
@@ -348,6 +377,16 @@ export class LLMGateway {
       );
 
       const latencyMs = Date.now() - startTime;
+      const policyVersion = modelPolicy.policyVersion;
+      response.metadata = { ...(response.metadata || {}), policyVersion };
+
+      recordPolicyAuditEvent({
+        eventType: 'llm_call',
+        agentType,
+        policyVersion,
+        metadata: { model, tenantId, totalTokens: response.usage?.total_tokens || 0 },
+      });
+
       void this.costTracker.trackUsage({
         userId,
         tenantId,
