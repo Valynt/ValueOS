@@ -1,3 +1,10 @@
+-- ValueOS canonical schema snapshot
+-- Source migration directory: infra/supabase/supabase/migrations
+-- Deterministic source files (in order):
+--   1) 00000000000000_initial_release_baseline.sql
+--   2) 00000000000001_initial_seed_minimal.sql
+-- Regenerate by applying the deterministic migration plan, then exporting schema-only SQL.
+
 -- initial release baseline for ValueOS
 -- assembled from pre-release migrations archived under migrations_archive/2026-03-pre-initial-release
 -- deterministic order reflects historical application sequence
