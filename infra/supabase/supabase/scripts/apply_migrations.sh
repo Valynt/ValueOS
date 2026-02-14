@@ -13,6 +13,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 MIGRATIONS_DIR="${PROJECT_ROOT}/infra/supabase/supabase/migrations"
 
+MIGRATION_PLAN=(
+    "00000000000000_initial_release_baseline.sql"
+    "00000000000001_initial_seed_minimal.sql"
+)
+
 # Database connection parameters
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-54323}"
@@ -261,13 +266,13 @@ main() {
     local pending_count=0
     local failed_count=0
 
-    for migration_file in "$MIGRATIONS_DIR"/*.sql; do
-        if [ ! -f "$migration_file" ]; then
-            continue
-        fi
+    for migration_name in "${MIGRATION_PLAN[@]}"; do
+        local migration_file="$MIGRATIONS_DIR/$migration_name"
 
-        local migration_name
-        migration_name=$(basename "$migration_file")
+        if [ ! -f "$migration_file" ]; then
+            log_error "Migration listed in plan is missing: $migration_file"
+            exit 1
+        fi
 
         # Check if already applied
         if echo "$applied_migrations" | grep -q "$migration_name"; then
