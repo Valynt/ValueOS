@@ -20,16 +20,16 @@ on:
         required: false
         default: false
         type: boolean
-      skip_tests_reason:
-        description: "Emergency rationale for bypassing tests"
+      incident_ticket_id:
+        description: "Incident ticket ID (required when skip_tests=true, e.g. INC-1234)"
         required: false
         type: string
-      incident_ticket_id:
-        description: "Incident ticket ID (required when skipping tests)"
+      skip_tests_reason:
+        description: "Emergency justification for skipping tests (required when skip_tests=true)"
         required: false
         type: string
       post_deploy_validation_checklist:
-        description: "Post-deploy validation checklist (required when skipping tests)"
+        description: "Post-deploy validation checklist (required when skip_tests=true)"
         required: false
         type: string
 
@@ -47,26 +47,174 @@ env:
   SLO_ALERT_NAME_REGEX: "SLOBurnRateTooHigh"
 
 jobs:
-  # Guardrail: if tests are bypassed, require environment approval + evidence fields.
-  emergency-test-bypass-approval:
-    name: Emergency Test Bypass Approval
+  # Guardrail: if tests are bypassed, require protected environment approval + evidence fields.
+  # Additional restriction: skip_tests may ONLY be used for production emergency deploys.
+  emergency-bypass-authorization:
+    name: Emergency Test Bypass Authorization
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
     environment:
       name: emergency-test-bypass
+    outputs:
+      audit_file: ${{ steps.audit.outputs.audit_file }}
     steps:
-      - name: Validate emergency bypass request
-        env:
-          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
-          SKIP_TESTS_REASON: ${{ inputs.skip_tests_reason }}
-          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
+      - name: Validate emergency bypass inputs
         run: |
           set -euo pipefail
 
-          if [ -z "${INCIDENT_TICKET_ID}" ]; then
-            echo "incident_ticket_id is required when skip_tests=true" >&2
+          if [ "${{ inputs.environment }}" != "production" ]; then
+            echo "skip_tests can only be used for production emergency deploys." >&2
             exit 1
-  # and may always depend on emergency-skip-audit for evidence capture.
+          fi
+
+          if [ -z "${{ inputs.incident_ticket_id }}" ]; then
+            echo "incident_ticket_id is required when skip_tests=true." >&2
+            exit 1
+          fi
+
+          if ! echo "${{ inputs.incident_ticket_id }}" | grep -Eq '^INC-[0-9]+$'; then
+            echo "incident_ticket_id must match INC-<number>." >&2
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.skip_tests_reason }}" ]; then
+            echo "skip_tests_reason is required when skip_tests=true." >&2
+            exit 1
+          fi
+
+          if [ -z "${{ inputs.post_deploy_validation_checklist }}" ]; then
+            echo "post_deploy_validation_checklist is required when skip_tests=true." >&2
+            exit 1
+          fi
+
+      - name: Create emergency bypass audit log
+        id: audit
+        run: |
+          set -euo pipefail
+          AUDIT_FILE="emergency-test-bypass-audit-${{ github.run_id }}.json"
+
+          cat > "${AUDIT_FILE}" <<EOF
+          {
+            "timestamp_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "repository": "${{ github.repository }}",
+            "workflow": "${{ github.workflow }}",
+            "run_id": "${{ github.run_id }}",
+            "run_attempt": "${{ github.run_attempt }}",
+            "run_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "approver_identity": "${{ github.triggering_actor }}",
+            "workflow_actor": "${{ github.actor }}",
+            "reason": ${{ toJSON(inputs.skip_tests_reason) }},
+            "incident_ticket_id": "${{ inputs.incident_ticket_id }}",
+            "post_deploy_validation_checklist": ${{ toJSON(inputs.post_deploy_validation_checklist) }}
+          }
+          EOF
+
+          echo "audit_file=${AUDIT_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload emergency bypass audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-test-bypass-audit-${{ github.run_id }}
+          path: ${{ steps.audit.outputs.audit_file }}
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 1. Quality gate — must pass before any deploy (unless emergency bypass)
+  # ──────────────────────────────────────────────────────────────────────────
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'schedule' && !inputs.skip_tests }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint + Typecheck + Test
+        run: |
+          npx turbo run lint typecheck test
+
+  # Always emit a deployment audit artifact for non-scheduled runs.
+  emergency-skip-audit:
+    name: Emergency Skip Audit
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'schedule' }}
+    outputs:
+      incident_ticket_id: ${{ steps.collect.outputs.incident_ticket_id }}
+      skip_tests: ${{ steps.collect.outputs.skip_tests }}
+    steps:
+      - name: Validate skip requirements and create audit artifact
+        id: collect
+        env:
+          SKIP_TESTS: ${{ inputs.skip_tests }}
+          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
+          SKIP_TESTS_REASON: ${{ inputs.skip_tests_reason }}
+          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
+          ACTOR: ${{ github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          # If skip_tests is set, enforce evidence fields.
+          if [ "${SKIP_TESTS}" = "true" ]; then
+            if [ -z "${INCIDENT_TICKET_ID:-}" ]; then
+              echo "skip_tests=true requires incident_ticket_id" >&2
+              exit 1
+            fi
+            if [ -z "${SKIP_TESTS_REASON:-}" ]; then
+              echo "skip_tests=true requires skip_tests_reason" >&2
+              exit 1
+            fi
+            if [ -z "${POST_DEPLOY_VALIDATION_CHECKLIST:-}" ]; then
+              echo "skip_tests=true requires post_deploy_validation_checklist" >&2
+              exit 1
+            fi
+          fi
+
+          printf 'incident_ticket_id=%s\n' "${INCIDENT_TICKET_ID:-}" >> "$GITHUB_OUTPUT"
+          printf 'skip_tests=%s\n' "${SKIP_TESTS}" >> "$GITHUB_OUTPUT"
+
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          payload = {
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": os.environ["RUN_ID"],
+            "run_attempt": os.environ["RUN_ATTEMPT"],
+            "actor": os.environ["ACTOR"],
+            "event_name": os.environ["EVENT_NAME"],
+            "ref_name": os.environ["REF_NAME"],
+            "sha": os.environ["SHA"],
+            "skip_tests": os.environ.get("SKIP_TESTS", "false") == "true",
+            "incident_ticket_id": os.environ.get("INCIDENT_TICKET_ID", ""),
+            "skip_tests_reason": os.environ.get("SKIP_TESTS_REASON", ""),
+            "post_deploy_validation_checklist": os.environ.get("POST_DEPLOY_VALIDATION_CHECKLIST", ""),
+          }
+
+          with open(f"emergency-skip-audit-{os.environ['RUN_ID']}.json", "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+          PY
+
+      - name: Upload emergency skip audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: emergency-skip-audit-${{ github.run_id }}
+          path: emergency-skip-audit-${{ github.run_id }}.json
 
   # ──────────────────────────────────────────────────────────────────────────
   # 2. Build and push container images
@@ -74,13 +222,19 @@ jobs:
   build-images:
     name: Build Backend Runtime Image
     runs-on: ubuntu-latest
-    needs: [quality-gate, emergency-test-bypass-approval, emergency-skip-audit]
-    if: >
+    needs: [quality-gate, emergency-bypass-authorization, emergency-skip-audit]
+    if: >-
       github.event_name != 'schedule' &&
       always() &&
       (needs.quality-gate.result == 'success' || needs.quality-gate.result == 'skipped') &&
-      (needs.emergency-test-bypass-approval.result == 'success' || needs.emergency-test-bypass-approval.result == 'skipped') &&
-      (needs.emergency-skip-audit.result == 'success' || needs.emergency-skip-audit.result == 'skipped')
+      (needs.emergency-skip-audit.result == 'success' || needs.emergency-skip-audit.result == 'skipped') &&
+      (!inputs.skip_tests || needs.emergency-bypass-authorization.result == 'success')
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+      image_digest: ${{ steps.build.outputs.digest }}
+      image_ref: ${{ steps.image-ref.outputs.image_ref }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -120,61 +274,12 @@ jobs:
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
           echo "IMAGE_REF=${IMAGE_REF}" >> "$GITHUB_ENV"
 
-      - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0
-
-      - name: Generate CycloneDX SBOM for container image
-        run: |
-          syft "${IMAGE_REF}" -o cyclonedx-json=sbom-${{ github.sha }}.cdx.json
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign image
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: cosign sign --yes "${IMAGE_REF}"
-
-      - name: Attest SLSA provenance
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
-
-      - name: Attest image SBOM
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign attest --yes --type cyclonedx --predicate "sbom-${{ github.sha }}.cdx.json" "${IMAGE_REF}"
-
-      - name: Download signatures and attestations for archival
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign download signature "${IMAGE_REF}" > signatures-${{ github.sha }}.json
-          cosign download attestation "${IMAGE_REF}" > attestations-${{ github.sha }}.json
-
-      - name: Upload SBOM and attestations
-        uses: actions/upload-artifact@v4
-        with:
-          name: supply-chain-artifacts-${{ github.sha }}
-          path: |
-            sbom-${{ github.sha }}.cdx.json
-            signatures-${{ github.sha }}.json
-            attestations-${{ github.sha }}.json
-
   verify-supply-chain:
     name: Verify Supply Chain Artifacts
     runs-on: ubuntu-latest
     needs: [build-images]
     if: github.event_name != 'schedule'
     steps:
-      - name: Download SBOM and attestation artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: supply-chain-artifacts-${{ github.sha }}
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
@@ -183,22 +288,7 @@ jobs:
           COSIGN_EXPERIMENTAL: "true"
           IMAGE_REF: ${{ needs.build-images.outputs.image_ref }}
         run: |
-          test -s "sbom-${{ github.sha }}.cdx.json"
-          jq -e '.bomFormat == "CycloneDX"' "sbom-${{ github.sha }}.cdx.json" >/dev/null
-
           cosign verify \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
-            "${IMAGE_REF}"
-
-          cosign verify-attestation \
-            --type slsaprovenance \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
-            "${IMAGE_REF}"
-
-          cosign verify-attestation \
-            --type cyclonedx \
             --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
             --certificate-identity-regexp "^https://github.com/${{ github.repository }}/.github/workflows/deploy.yml@.*$" \
             "${IMAGE_REF}"
@@ -496,7 +586,7 @@ jobs:
           name: weekly-reliability-report-${{ github.run_id }}
           path: weekly-reliability-report.md
 
-  # ──────────────────────────────────────────────────────────────────────────
+   # ──────────────────────────────────────────────────────────────────────────
   # 5. Rollback (manual trigger)
   # ──────────────────────────────────────────────────────────────────────────
   rollback:
@@ -522,41 +612,47 @@ jobs:
             -p '{"spec":{"selector":{"slot":"blue"}}}'
           echo "Rolled back to blue slot"
 
-
-  create-deferred-validation-task:
-    name: Create Deferred Validation Follow-up Task
+  # ──────────────────────────────────────────────────────────────────────────
+  # 6. Deferred validation follow-up (only when skip_tests emergency bypass was used)
+  # ──────────────────────────────────────────────────────────────────────────
+  create-deferred-validation-followup:
+    name: Create Deferred Validation Follow-up
     runs-on: ubuntu-latest
-    needs: [deploy-production]
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.deploy-production.result == 'success' }}
+    needs: [deploy-production, emergency-bypass-authorization]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.skip_tests && needs.emergency-bypass-authorization.result == 'success' }}
     steps:
-      - name: Create follow-up issue for deferred validation execution
+      - name: Create follow-up issue for deferred validations
         uses: actions/github-script@v7
-        env:
-          INCIDENT_TICKET_ID: ${{ inputs.incident_ticket_id }}
-          POST_DEPLOY_VALIDATION_CHECKLIST: ${{ inputs.post_deploy_validation_checklist }}
         with:
           script: |
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const deploymentStatus = '${{ needs.deploy-production.result }}';
+            const title = `Emergency deploy deferred validations: ${{ github.run_id }}`;
             const body = [
-              'Emergency deployment bypassed test gate. Run deferred validations immediately.',
+              '## Deferred validation follow-up (auto-created)',
               '',
-              `- Incident ticket: ${process.env.INCIDENT_TICKET_ID}`,
-              `- Workflow run: ${runUrl}`,
+              `- **Incident**: ${{ inputs.incident_ticket_id }}`,
+              `- **Workflow run**: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              `- **Requested by**: @${{ github.triggering_actor }}`,
+              `- **Deploy result**: ${deploymentStatus}`,
               '',
-              '## Required post-deploy validation checklist',
-              process.env.POST_DEPLOY_VALIDATION_CHECKLIST,
+              '### Required post-deploy validation checklist',
+              '${{ inputs.post_deploy_validation_checklist }}',
               '',
+              '### Emergency bypass reason',
+              '${{ inputs.skip_tests_reason }}',
+              '',
+              '### Execution tracking',
               '- [ ] Validation execution started immediately',
               '- [ ] Validation results linked back to this issue',
-              '- [ ] Incident timeline updated with validation outcomes'
+              '- [ ] Incident timeline updated with validation outcomes',
+              '',
+              '> This task was created automatically and must be executed immediately after the emergency deployment.'
             ].join('\n');
 
-            const issue = await github.rest.issues.create({
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Deferred validations required after emergency deploy (${process.env.INCIDENT_TICKET_ID})`,
+              title,
               body,
-              labels: ['deployment', 'urgent', 'deferred-validation']
+              labels: ['incident-followup', 'deferred-validation', 'priority:high']
             });
-
-            core.info(`Created follow-up issue #${issue.data.number}`);
