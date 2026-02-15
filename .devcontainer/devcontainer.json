@@ -60,22 +60,31 @@
     "COREPACK_HOME": "/home/vscode/.cache/corepack",
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     "XDG_CACHE_HOME": "/home/vscode/.cache",
-    "VERSIONS_FILE": ".devcontainer/versions.json"
+    "VERSIONS_FILE": ".devcontainer/versions.json",
+    "WORKSPACE_FOLDER": "/workspaces/ValueOS"
   },
   "remoteUser": "vscode",
-  "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
-  "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
+  "onCreateCommand": "bash /workspaces/ValueOS/.devcontainer/scripts/on-create.sh",
+  "postCreateCommand": "bash /workspaces/ValueOS/.devcontainer/scripts/post-create.sh",
+  "postStartCommand": "bash /workspaces/ValueOS/.devcontainer/scripts/post-start.sh",
   "copy": [
     {
       "from": ".devcontainer/scripts/on-create.sh",
-      "to": "/home/vscode/.devcontainer/scripts/on-create.sh"
+      "to": "/workspaces/ValueOS/.devcontainer/scripts/on-create.sh"
+    },
+    {
+      "from": ".devcontainer/scripts/post-create.sh",
+      "to": "/workspaces/ValueOS/.devcontainer/scripts/post-create.sh"
+    },
+    {
+      "from": ".devcontainer/scripts/post-start.sh",
+      "to": "/workspaces/ValueOS/.devcontainer/scripts/post-start.sh"
     }
   ],
   "postStart": {
     "command": [
-      "/bin/sh",
-      ".devcontainer/scripts/post-start.sh"
+      "bash",
+      "/workspaces/ValueOS/.devcontainer/scripts/post-start.sh"
     ]
   }
 }

@@ -1,24 +1,88 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
+
+# Source shared environment setup
+source ".devcontainer/scripts/env.sh"
+
+log()  { printf '[post-create] %s\n' "$*" >&2; }
+die()  { printf '[post-create][ERROR] %s\n' "$*" >&2; exit 1; }
+
+: "${WORKSPACE_FOLDER:?WORKSPACE_FOLDER is not set}"
+[[ -d "$WORKSPACE_FOLDER" ]] || die "Workspace not found: $WORKSPACE_FOLDER"
+cd "$WORKSPACE_FOLDER" || die "Failed to cd into workspace: $WORKSPACE_FOLDER"
 
 # post-create.sh
 # Runs after on-create, performs additional setup tasks
 
-echo "🔧 Running post-create setup..."
+log "Running post-create setup..."
 
-# Load canonical port/env inputs
-if [ -f .env.ports ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.ports | xargs)
-elif [ -f .env.ports.example ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.ports.example | xargs)
+# Load environment variables
+load_environment
+
+# Verify pnpm setup
+verify_pnpm
+
+# =============================================================================
+# BUILD VERIFICATION
+# =============================================================================
+
+log "Verifying build configuration..."
+
+# Check if TypeScript config is valid
+if [ -f tsconfig.json ]; then
+    log "TypeScript configuration found"
 fi
 
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
+# Check if package.json exists
+if [ -f package.json ]; then
+    log "Package configuration found"
 fi
+
+# =============================================================================
+# HEALTH CHECKS
+# =============================================================================
+
+log "Running health checks..."
+
+# Database health check
+database_health_check
+
+# Check Redis
+if redis-cli -h localhost -p "${REDIS_PORT:-6379}" -a "${REDIS_PASSWORD:-valueos_dev}" ping > /dev/null 2>&1; then
+    log "Redis is healthy"
+else
+    log "Redis health check failed"
+fi
+
+# Check Kong
+if curl -f http://localhost:8001/ > /dev/null 2>&1; then
+    log "Kong is healthy"
+else
+    log "Kong health check failed"
+fi
+
+# =============================================================================
+# SEED DATA (OPTIONAL)
+# =============================================================================
+
+if [ "${SEED_DATABASE:-false}" = "true" ]; then
+    log "Seeding database..."
+
+    if [ -f scripts/seed.sh ]; then
+        bash scripts/seed.sh
+        log "Database seeded"
+    else
+        log "Seed script not found, skipping"
+    fi
+fi
+
+# =============================================================================
+# COMPLETION
+# =============================================================================
+
+log ""
+log "post-create setup completed!"
+log ""
 
 # =============================================================================
 # BUILD VERIFICATION

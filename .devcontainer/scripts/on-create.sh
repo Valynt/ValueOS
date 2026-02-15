@@ -1,11 +1,140 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-# on-create.sh
-# Runs once when the DevContainer is created
-# Performs initial setup and configuration
+# Source shared environment setup
+source ".devcontainer/scripts/env.sh"
 
-echo "🔧 Running on-create setup..."
+log()  { printf '[on-create] %s\n' "$*" >&2; }
+die()  { printf '[on-create][ERROR] %s\n' "$*" >&2; exit 1; }
+
+: "${WORKSPACE_FOLDER:?WORKSPACE_FOLDER is not set}"
+
+# Validate workspace exists and is a directory
+[[ -d "$WORKSPACE_FOLDER" ]] || die "Workspace not found: $WORKSPACE_FOLDER"
+
+# Ensure we can cd into it
+cd "$WORKSPACE_FOLDER" || die "Failed to cd into workspace: $WORKSPACE_FOLDER"
+
+log "Workspace: $(pwd)"
+
+# Optional: sanity checks (useful when WSL + devcontainers gets weird)
+[[ -f ".git/config" ]] || log "Warning: .git/config not found (maybe not a git repo?)"
+[[ -f "package.json" ]] || log "Warning: package.json not found (maybe not a node project root?)"
+
+# Network preflight
+log "Network preflight..."
+curl -fsS --max-time 5 https://api.github.com >/dev/null || die "Network check failed (https://api.github.com)"
+
+# Load environment variables
+load_environment
+
+# Verify pnpm setup
+verify_pnpm
+
+# Database health check
+database_health_check
+
+# Your actual setup steps go here:
+
+# =============================================================================
+# ENVIRONMENT SETUP
+# =============================================================================
+
+# =============================================================================
+# DEPENDENCY INSTALLATION
+# =============================================================================
+
+log "Installing dependencies..."
+
+# Display pinned tool versions
+bash .devcontainer/scripts/toolchain-versions.sh
+
+# Install workspace dependencies
+if [ -f pnpm-lock.yaml ]; then
+    log "Installing pnpm dependencies..."
+    pnpm install --frozen-lockfile || log "pnpm install failed (will retry manually)"
+else
+    log "Installing pnpm dependencies (no lockfile)..."
+    pnpm install
+fi
+
+# =============================================================================
+# DATABASE INITIALIZATION
+# =============================================================================
+
+log "Applying database migrations..."
+
+if [ -f infra/scripts/apply_migrations.sh ]; then
+    bash infra/scripts/apply_migrations.sh
+    log "Migrations applied successfully"
+else
+    log "Migration script not found, skipping"
+fi
+
+# =============================================================================
+# AGENT FABRIC SETUP
+# =============================================================================
+
+if [ "${ENABLE_AGENT_FABRIC:-false}" = "true" ]; then
+    log "Setting up agent fabric..."
+
+    # Wait for NATS to be ready
+    service_health_check "NATS" "curl -f http://localhost:8222/healthz"
+
+    log "Agent fabric ready"
+fi
+
+# =============================================================================
+# DEVELOPMENT TOOLS
+# =============================================================================
+
+log "Setting up development tools..."
+
+# Ensure build-essential is available in the dev environment. It is intentionally
+# installed at create time so the Dockerfile can keep final stage minimal.
+if ! dpkg -s build-essential >/dev/null 2>&1; then
+    log "Installing build-essential for dev environment..."
+    sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential
+fi
+
+# Install global tools if needed
+if ! command -v tsx &> /dev/null; then
+    log "Installing tsx globally..."
+    pnpm add -g tsx
+fi
+
+# Setup git hooks if using husky
+if [ -d .husky ]; then
+    log "Setting up git hooks..."
+    pnpm exec husky install
+fi
+
+# =============================================================================
+# COMPLETION
+# =============================================================================
+
+log ""
+log "Setup completed successfully!"
+log ""
+log "Next steps:"
+log "  1. Review .devcontainer/.env and update as needed"
+log "  2. Run 'pnpm dev' to start the development server"
+log "  3. Open http://localhost:3001 for the frontend"
+log "  4. Open http://localhost:54324 for Supabase Studio"
+log ""
+
+# Ensure required directories exist
+mkdir -p /home/vscode/.devcontainer
+
+# Create placeholder marker files
+touch /home/vscode/.devcontainer/.onCreateCommandMarker
+
+# Set environment variables
+export NODE_ENV=development
+export PNPM_HOME=/home/vscode/.local/share/pnpm
+export COREPACK_HOME=/home/vscode/.cache/corepack
+
+# Your actual setup steps go here:
 
 # =============================================================================
 # ENVIRONMENT SETUP
