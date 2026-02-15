@@ -2,7 +2,10 @@
 
 services:
   dev:
-    image: node:20-slim
+    build:
+      context: ../..
+      dockerfile: .devcontainer/Dockerfile.dev
+    image: valueos/dev:devcontainer
     command: sleep infinity
     working_dir: /workspaces/ValueOS
     volumes:
@@ -15,6 +18,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /opt/devcontainer/scripts/on-create.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   frontend:
     image: node:20-slim
