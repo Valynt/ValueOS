@@ -2,7 +2,7 @@
 
 # RBAC Quick Test Script
 # This script demonstrates assigning roles and testing them locally
-# 
+#
 # Usage: ./test-rbac.sh
 
 set -e
@@ -88,7 +88,7 @@ if [ -f "package.json" ]; then
     if [ -f "src/test/rbac.local.test.ts" ]; then
         echo "Running: pnpm test -- rbac.local.test.ts"
         echo ""
-        
+
         # Try to run the test
         if pnpm test -- rbac.local.test.ts 2>&1; then
             echo ""
