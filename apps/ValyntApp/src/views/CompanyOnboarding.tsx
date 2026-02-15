@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/lib/supabase";
+import { clearOnboardingBypass, markOnboardingBypassed } from "@/lib/onboarding-bypass";
 import {
   useCreateCompanyContext,
   useAddCompetitors,
@@ -113,6 +114,8 @@ export default function CompanyOnboarding() {
 
   const handleSkip = async () => {
     try {
+      markOnboardingBypassed(tenantId);
+
       if (supabase) {
         // Check if a context already exists for this tenant
         const { data: existing } = await supabase
@@ -222,6 +225,7 @@ export default function CompanyOnboarding() {
       if (contextId) {
         await completeOnboarding.mutateAsync();
       }
+      clearOnboardingBypass(tenantId);
       navigate("/dashboard");
     } catch {
       // Demo fallback — navigate anyway
