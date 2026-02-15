@@ -7,7 +7,10 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
-  "editor.rulers": [80, 120],
+  "editor.rulers": [
+    80,
+    120
+  ],
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
   "files.eol": "\n",
@@ -43,7 +46,11 @@
     "typescriptreact"
   ],
   "eslint.codeActionsOnSave.mode": "problems",
-  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
   "eslint.lintTask.enable": true,
   "github.copilot.inlineSuggest.enable": false,
   "eslint.options": {
@@ -89,6 +96,9 @@
   },
   "snyk.advanced.autoSelectOrganization": true,
   "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[json]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   }
 }

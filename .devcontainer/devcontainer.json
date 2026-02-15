@@ -57,6 +57,6 @@
   },
   "remoteUser": "vscode",
   "onCreateCommand": "bash /opt/devcontainer/scripts/on-create.sh",
-  "postCreateCommand": "bash /opt/devcontainer/scripts/post-create.sh",
+  "postCreateCommand": "WORKSPACE_FOLDER=/workspaces/ValueOS bash /opt/devcontainer/scripts/post-create.sh",
   "postStartCommand": "bash /opt/devcontainer/scripts/post-start.sh"
 }
