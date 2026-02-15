@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Source shared environment setup
-source ".devcontainer/scripts/env.sh"
+# Source shared environment setup (prefer env-setup.sh)
+# shellcheck source=/dev/null
+if [[ -f .devcontainer/scripts/env-setup.sh ]]; then
+    source ".devcontainer/scripts/env-setup.sh"
+elif [[ -f .devcontainer/scripts/env.sh ]]; then
+    source ".devcontainer/scripts/env.sh"
+fi
 
 log()  { printf '[post-create] %s\n' "$*" >&2; }
 die()  { printf '[post-create][ERROR] %s\n' "$*" >&2; exit 1; }
@@ -29,6 +34,12 @@ fi
 
 if [ ! -d ".devcontainer/scripts" ]; then
   die "Missing .devcontainer/scripts in workspace (${WORKSPACE_FOLDER}/.devcontainer/scripts) — expected devcontainer scripts to be present"
+fi
+
+# Ensure devcontainer scripts are executable (safe, idempotent)
+if [ -d .devcontainer/scripts ]; then
+    log "Making .devcontainer/scripts/*.sh executable"
+    find .devcontainer/scripts -type f -name "*.sh" -exec chmod +x {} + || warn "chmod on .devcontainer/scripts failed"
 fi
 
 # Load environment variables

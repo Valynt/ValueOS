@@ -1,3 +1,4 @@
+die()  { printf '[env-setup][ERROR] %s\n' "$*" >&2; exit 1; }
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -9,27 +10,23 @@ die()  { printf '[env-setup][ERROR] %s\n' "$*" >&2; exit 1; }
 
 # Load canonical port/env inputs
 load_environment() {
-    if [ -f .env.ports ]; then
-        log "Loading port configuration from .env.ports..."
-        # shellcheck disable=SC2046
-        export $(grep -v '^#' .env.ports | xargs)
-    elif [ -f .env.ports.example ]; then
-        log "Loading fallback port configuration from .env.ports.example..."
-        # shellcheck disable=SC2046
-        export $(grep -v '^#' .env.ports.example | xargs)
-    fi
+    # Helper function to load environment variables from a file
+    load_env_file() {
+        local file="$1"
+        if [ -f "$file" ]; then
+            log "Loading environment from $file..."
+            while IFS= read -r line || [ -n "$line" ]; do
+                # Skip empty lines and comments
+                [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+                # Export the variable
+                export "$line"
+            done < "$file"
+        fi
+    }
 
-    if [ -f .env.local ]; then
-        log "Loading local secrets from .env.local..."
-        # shellcheck disable=SC2046
-        export $(grep -v '^#' .env.local | xargs)
-    fi
-
-    if [ -f .devcontainer/.env ]; then
-        log "Loading devcontainer overrides from .devcontainer/.env..."
-        # shellcheck disable=SC2046
-        export $(grep -v '^#' .devcontainer/.env | xargs)
-    fi
+    load_env_file ".env.ports" || load_env_file ".env.ports.example"
+    load_env_file ".env.local"
+    load_env_file ".devcontainer/.env"
 }
 
 # Verify Corepack pnpm setup
@@ -37,15 +34,7 @@ verify_pnpm() {
     local pnpm_version="9.15.0"
 
     if [ -f .devcontainer/versions.json ]; then
-        detected_pnpm_version=$(python3 - <<'PY'
-import json
-from pathlib import Path
-versions = Path('.devcontainer/versions.json')
-if versions.exists():
-    data = json.loads(versions.read_text())
-    print(data.get('pnpm', ''))
-PY
-)
+        detected_pnpm_version=$(sed -n 's/.*"pnpm"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' .devcontainer/versions.json)
         if [ -n "${detected_pnpm_version}" ]; then
             pnpm_version="${detected_pnpm_version}"
         fi
@@ -66,6 +55,8 @@ PY
 }
 
 # Database health check
+# Note: PGPASSWORD is used for authentication. In production environments,
+# consider using .pgpass file or connection service files for better security.
 database_health_check() {
     local max_attempts=30
     local attempt=0
@@ -75,6 +66,10 @@ database_health_check() {
     # Parse DATABASE_URL to get connection details
     parse_database_url() {
         local url="$1"
+        # Validate URL format
+        if [[ ! "$url" =~ ^postgresql:// ]]; then
+            die "Invalid DATABASE_URL format: must start with postgresql://"
+        fi
         # Remove postgresql://
         local without_proto="${url#postgresql://}"
         # Extract user:pass
@@ -87,6 +82,11 @@ database_health_check() {
         local port_db="${host_port_db#*:}"
         DB_PORT="${port_db%%/*}"
         DB_NAME="${port_db#*/}"
+
+        # Validate extracted values
+        if [ -z "$DB_USER" ] || [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ]; then
+            die "Failed to parse DATABASE_URL: missing required components"
+        fi
     }
 
     if [ -n "${DATABASE_URL:-}" ]; then
@@ -142,6 +142,3 @@ service_health_check() {
         fi
         return 0
 }
-
-# Make script executable
-chmod +x "$0"

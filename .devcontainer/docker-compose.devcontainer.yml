@@ -3,5 +3,5 @@
 #   docker compose --env-file .env.ports -f .devcontainer/docker-compose.devcontainer.yml <cmd>
 
 include:
-  - docker-compose.yml
-  - ops/compose/profiles/devcontainer.yml
+  - ../docker-compose.yml
+  - ../ops/compose/profiles/devcontainer.yml

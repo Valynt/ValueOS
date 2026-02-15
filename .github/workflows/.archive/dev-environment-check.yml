@@ -111,6 +111,14 @@ jobs:
             fi
           done
 
+      - name: Make scripts executable (prep)
+        run: |
+          for script in .devcontainer/scripts/*.sh scripts/dev-automation/*.sh; do
+            if [ -f "$script" ]; then
+              chmod +x "$script" || true
+            fi
+          done
+
       - name: Check script permissions
         run: |
           # Ensure scripts are executable

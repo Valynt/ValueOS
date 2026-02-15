@@ -1,17 +1,9 @@
 {
   "name": "ValueOS Development Environment",
-  "dockerComposeFile": ".devcontainer/docker-compose.devcontainer.yml",
+  "dockerComposeFile": "docker-compose.devcontainer.yml",
   "service": "dev",
   "shutdownAction": "stopCompose",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  "build": {
-    "dockerfile": "Dockerfile.dev",
-    "context": "..",
-    "args": {
-      "NODE_VERSION": "20.19.0",
-      "PNPM_VERSION": "9.15.0"
-    }
-  },
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker": {
       "version": "latest"
@@ -64,40 +56,7 @@
     "WORKSPACE_FOLDER": "${containerWorkspaceFolder}"
   },
   "remoteUser": "vscode",
-  "onCreateCommand": "bash -lc 'set -euo pipefail; log(){ printf "[onCreate
-  ] %s\\n" "$*" >&2; }; warn(){ printf "[onCreate
-  ][WARN
-  ] %s\\n" "$*" >&2; }; WS="${containerWorkspaceFolder:-/workspaces/ValueOS
-  }"; SCRIPT=\"${containerWorkspaceFolder:-/workspaces/ValueOS}/.devcontainer/scripts/on-create.sh\"; log "WORKSPACE_FOLDER=${WS
-  }"; whoami || true; pwd || true; if [ -d /workspaces ]; then log "/workspaces exists"; else warn "/workspaces does NOT exist (workspace mount may not be ready yet)"; fi; if [ -d "${WS
-  }" ]; then log "Workspace dir exists: ${WS
-  }"; else warn "Workspace dir missing: ${WS
-  }"; fi; if [ -d "${WS
-  }/.devcontainer/scripts" ]; then log ".devcontainer/scripts exists: listing: "; ls -la "${WS
-  }/.devcontainer/scripts" || true; else warn ".devcontainer/scripts not present"; fi; mount | grep -E "/workspaces" || true; if [ -x "${SCRIPT
-  }" ]; then log "Found workspace on-create script at ${SCRIPT
-  }; running (non-fatal)"; bash "${SCRIPT
-  }" || warn "Workspace on-create script failed (continuing)"; else log "Workspace on-create script not found — continuing"; fi'",
-  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/scripts/post-create.sh",
-  "postStartCommand": "bash ${containerWorkspaceFolder}/.devcontainer/scripts/post-start.sh",
-  "copy": [
-    {
-      "from": ".devcontainer/scripts/on-create.sh",
-      "to": "${containerWorkspaceFolder}/.devcontainer/scripts/on-create.sh"
-    },
-    {
-      "from": ".devcontainer/scripts/post-create.sh",
-      "to": "${containerWorkspaceFolder}/.devcontainer/scripts/post-create.sh"
-    },
-    {
-      "from": ".devcontainer/scripts/post-start.sh",
-      "to": "${containerWorkspaceFolder}/.devcontainer/scripts/post-start.sh"
-    }
-  ],
-  "postStart": {
-    "command": [
-      "bash",
-      "${containerWorkspaceFolder}/.devcontainer/scripts/post-start.sh"
-    ]
-  }
+  "onCreateCommand": "bash /opt/devcontainer/scripts/on-create.sh",
+  "postCreateCommand": "bash /opt/devcontainer/scripts/post-create.sh",
+  "postStartCommand": "bash /opt/devcontainer/scripts/post-start.sh"
 }

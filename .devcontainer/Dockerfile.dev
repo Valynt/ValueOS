@@ -65,6 +65,10 @@ RUN set -eux; \
     rm -f /tmp/terraform.zip; \
     terraform version | head -n 1
 
+# Copy devcontainer scripts into image
+COPY .devcontainer/scripts/ /opt/devcontainer/scripts/
+RUN chmod +x /opt/devcontainer/scripts/*.sh
+
 # Copy ensure-pnpm.js for preinstall
 COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
 
