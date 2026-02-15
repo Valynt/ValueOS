@@ -3,7 +3,7 @@
 services:
   dev:
     build:
-      context: ../..
+      context: /home/winwos/ValueOS
       dockerfile: .devcontainer/Dockerfile.dev
     image: valueos/dev:devcontainer
     command: sleep infinity
