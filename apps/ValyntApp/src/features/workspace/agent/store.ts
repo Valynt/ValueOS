@@ -6,13 +6,12 @@
  */
 
 import { create } from "zustand";
+import { createIntegrityValidationService } from "@services/IntegrityValidationService";
 import {
-  IntegrityValidationService,
   ValidationLevel,
   ContentType,
-} from "../../services/IntegrityValidationService";
+} from "@services/IntegrityValidationService";
 import type {
-import { logger } from "../../../lib/logger";
   AgentPhase,
   AgentEvent,
   Artifact,
@@ -21,6 +20,7 @@ import { logger } from "../../../lib/logger";
   PlanAssumption,
   ClarifyOption,
 } from "./types";
+import { logger } from "../../../lib/logger";
 
 export interface AgentState {
   // Current phase
@@ -129,10 +129,10 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   ...initialState,
 
   processEvent: (event: AgentEvent) => {
-    set(async (state) => {
+    const processEventAsync = async () => {
       // Integrity validation on phase change
       if (event.type === "phase_changed") {
-        const integrityService = new IntegrityValidationService(undefined as any, "", "");
+        const integrityService = createIntegrityValidationService(undefined as any, "", "");
         await integrityService.validateIntegrity({
           content: { reasoning: [event.payload.reason || ""], confidence: undefined },
           contentType: ContentType.AGENT_REASONING,
@@ -145,16 +145,16 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
       switch (event.type) {
         case "phase_changed":
           return {
-            ...state,
+            ...get(),
             phase: event.payload.to,
-            error: event.payload.to !== "idle" ? null : state.error,
+            error: event.payload.to !== "idle" ? null : get().error,
           };
 
         case "checkpoint_created":
           return {
-            ...state,
+            ...get(),
             checkpoints: [
-              ...state.checkpoints,
+              ...get().checkpoints,
               {
                 id: event.payload.checkpointId,
                 label: event.payload.label,
@@ -165,26 +165,26 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
           };
 
         case "tool_started": {
-          const stepIndex = state.steps.findIndex((s) => s.id === event.payload.toolId);
-          if (stepIndex < 0) return state;
-          const newSteps: WorkflowStepState[] = state.steps.map((step, idx) =>
+          const stepIndex = get().steps.findIndex((s) => s.id === event.payload.toolId);
+          if (stepIndex < 0) return get();
+          const newSteps: WorkflowStepState[] = get().steps.map((step, idx) =>
             idx === stepIndex
               ? { ...step, status: "running" as const, startedAt: event.timestamp }
               : step
           );
-          return { ...state, steps: newSteps };
+          return { ...get(), steps: newSteps };
         }
 
         case "tool_finished": {
-          const stepIdx = state.steps.findIndex((s) => s.id === event.payload.toolId);
-          if (stepIdx < 0) return state;
+          const stepIdx = get().steps.findIndex((s) => s.id === event.payload.toolId);
+          if (stepIdx < 0) return get();
           const newStatus =
             event.payload.status === "success"
               ? ("completed" as const)
               : event.payload.status === "error"
                 ? ("error" as const)
                 : ("skipped" as const);
-          const newSteps: WorkflowStepState[] = state.steps.map((step, idx) =>
+          const newSteps: WorkflowStepState[] = get().steps.map((step, idx) =>
             idx === stepIdx
               ? {
                   ...step,
@@ -194,23 +194,23 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
                 }
               : step
           );
-          return { ...state, steps: newSteps };
+          return { ...get(), steps: newSteps };
         }
 
         case "artifact_proposed":
           return {
-            ...state,
-            artifacts: { ...state.artifacts, [event.payload.artifact.id]: event.payload.artifact },
-            activeArtifactId: state.activeArtifactId || event.payload.artifact.id,
+            ...get(),
+            artifacts: { ...get().artifacts, [event.payload.artifact.id]: event.payload.artifact },
+            activeArtifactId: get().activeArtifactId || event.payload.artifact.id,
           };
 
         case "artifact_updated": {
-          const artifact = state.artifacts[event.payload.artifactId];
-          if (!artifact) return state;
+          const artifact = get().artifacts[event.payload.artifactId];
+          if (!artifact) return get();
           return {
-            ...state,
+            ...get(),
             artifacts: {
-              ...state.artifacts,
+              ...get().artifacts,
               [event.payload.artifactId]: {
                 ...artifact,
                 ...event.payload.changes,
@@ -223,46 +223,46 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
         case "message_delta":
           if (event.payload.done) {
             // Finalize message
-            const msgIndex = state.messages.findIndex((m) => m.id === state.streamingMessageId);
+            const msgIndex = get().messages.findIndex((m) => m.id === get().streamingMessageId);
             if (msgIndex >= 0) {
-              const newMessages: ConversationMessage[] = state.messages.map((msg, idx) =>
-                idx === msgIndex ? { ...msg, content: state.streamingContent } : msg
+              const newMessages: ConversationMessage[] = get().messages.map((msg, idx) =>
+                idx === msgIndex ? { ...msg, content: get().streamingContent } : msg
               );
               return {
-                ...state,
+                ...get(),
                 messages: newMessages,
                 streamingMessageId: null,
                 streamingContent: "",
                 isStreaming: false,
               };
             }
-            return { ...state, streamingMessageId: null, streamingContent: "", isStreaming: false };
+            return { ...get(), streamingMessageId: null, streamingContent: "", isStreaming: false };
           } else {
             // Start or continue streaming
-            if (!state.streamingMessageId || state.streamingMessageId !== event.payload.messageId) {
+            if (!get().streamingMessageId || get().streamingMessageId !== event.payload.messageId) {
               // New message
               const newMessage: ConversationMessage = {
                 id: event.payload.messageId,
-                role: "agent",
+                role: "agent" as const,
                 content: "",
                 timestamp: event.timestamp,
               };
               return {
-                ...state,
+                ...get(),
                 streamingMessageId: event.payload.messageId,
                 streamingContent: event.payload.delta,
                 isStreaming: true,
-                messages: [...state.messages, newMessage],
+                messages: [...get().messages, newMessage],
               };
             } else {
               // Continue streaming
-              return { ...state, streamingContent: state.streamingContent + event.payload.delta };
+              return { ...get(), streamingContent: get().streamingContent + event.payload.delta };
             }
           }
 
         case "clarify_question":
           return {
-            ...state,
+            ...get(),
             phase: "clarify" as const,
             pendingQuestion: {
               questionId: event.payload.questionId,
@@ -275,7 +275,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
 
         case "plan_proposed":
           return {
-            ...state,
+            ...get(),
             phase: "plan" as const,
             planId: event.payload.planId,
             steps: event.payload.steps.map((step) => ({
@@ -288,21 +288,22 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
 
         case "error":
           return {
-            ...state,
+            ...get(),
             error: {
               code: event.payload.code,
               message: event.payload.message,
               recoverable: event.payload.recoverable,
               suggestions: event.payload.suggestions,
             },
-            isStreaming: event.payload.recoverable ? state.isStreaming : false,
-            phase: event.payload.recoverable ? state.phase : "idle",
+            isStreaming: event.payload.recoverable ? get().isStreaming : false,
+            phase: event.payload.recoverable ? get().phase : "idle",
           };
 
         default:
-          return state;
+          return get();
       }
-    });
+    };
+    return processEventAsync();
   },
 
   sendMessage: (content: string) => {

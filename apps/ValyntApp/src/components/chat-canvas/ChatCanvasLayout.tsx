@@ -22,11 +22,11 @@ import { useCanvasState } from "@/hooks/useCanvasState";
 
 // Canvas Layer
 import {
-import { logger } from "../../lib/logger";
   ValueSummaryCard,
   AgentResponseCard,
   ChatInput,
 } from "@/components/canvas";
+import { logger } from "../../lib/logger";
 
 // Mock data for demonstration
 const mockCases: ValueCase[] = [

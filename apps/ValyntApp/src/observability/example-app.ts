@@ -3,12 +3,11 @@
  */
 
 import express, { Request, Response, NextFunction } from "express";
-import {
 import { logger } from "../lib/logger";
+import {
   initializeTelemetry,
   getTracer,
   Metrics,
-  logger,
   withSpan,
   getTraceContext,
 } from "./instrumentation";
