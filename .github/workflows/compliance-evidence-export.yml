@@ -76,7 +76,7 @@ jobs:
         continue-on-error: true
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           npx vitest run tests/compliance/dsr-workflow.test.ts --reporter=json --outputFile=evidence/privacy/dsr-workflow.json
 
@@ -84,7 +84,7 @@ jobs:
         continue-on-error: true
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           npx vitest run tests/security/rls-tenant-isolation.test.ts --reporter=json --outputFile=evidence/rls/rls-validation.json

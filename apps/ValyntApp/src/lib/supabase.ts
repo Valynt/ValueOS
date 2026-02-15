@@ -15,13 +15,11 @@ const getEnv = (key: string): string | undefined => {
 
 const supabaseUrl = getEnv("VITE_SUPABASE_URL");
 const supabaseAnonKey = getEnv("VITE_SUPABASE_ANON_KEY");
-const supabaseServiceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
 
 logger.info(`${logPrefix} Initializing clients...`);
 logger.info(`${logPrefix} Runtime: ${isBrowser ? "browser" : "node"}`);
 logger.info(`${logPrefix} URL configured: ${supabaseUrl ? "YES" : "NO"}`);
 logger.info(`${logPrefix} Anon key configured: ${supabaseAnonKey ? "YES" : "NO"}`);
-logger.info(`${logPrefix} Service role key configured: ${supabaseServiceRoleKey ? "YES" : "NO"}`);
 
 let browserClient: ReturnType<typeof createClient> | null = null;
 let serviceRoleClient: ReturnType<typeof createClient> | null = null;
@@ -63,6 +61,9 @@ export function createServerSupabaseClient() {
   if (isBrowser) {
     throw new Error("createServerSupabaseClient() is only available in Node/server runtime.");
   }
+
+  // Lazy-evaluate service role key to prevent browser bundle inclusion
+  const supabaseServiceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     const diagnostics = [
