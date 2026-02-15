@@ -16,11 +16,48 @@ cd "$WORKSPACE_FOLDER" || die "Failed to cd into workspace: $WORKSPACE_FOLDER"
 
 log "Running post-create setup..."
 
+# --- Preflight (fail loudly if workspace not mounted correctly) ---
+if [ ! -d "$WORKSPACE_FOLDER" ]; then
+  die "Workspace not found: $WORKSPACE_FOLDER"
+fi
+
+cd "$WORKSPACE_FOLDER" || die "Failed to cd into workspace: $WORKSPACE_FOLDER"
+
+if [ ! -d ".git" ]; then
+  die "Missing .git in workspace (${WORKSPACE_FOLDER}) — post-create expects a mounted repository"
+fi
+
+if [ ! -d ".devcontainer/scripts" ]; then
+  die "Missing .devcontainer/scripts in workspace (${WORKSPACE_FOLDER}/.devcontainer/scripts) — expected devcontainer scripts to be present"
+fi
+
 # Load environment variables
 load_environment
 
 # Verify pnpm setup
 verify_pnpm
+
+# Install workspace dependencies (moved from on-create)
+log "Installing workspace dependencies (post-create)..."
+if [ -f pnpm-lock.yaml ]; then
+  log "Installing pnpm dependencies (frozen lockfile)"
+  pnpm install --frozen-lockfile || die "pnpm install failed"
+else
+  log "Installing pnpm dependencies (no lockfile)"
+  pnpm install || die "pnpm install failed"
+fi
+
+# Ensure global dev tools (safe to run after pnpm available)
+if ! command -v tsx &> /dev/null; then
+  log "Installing tsx globally..."
+  pnpm add -g tsx || warn "failed to install tsx globally"
+fi
+
+# Setup git hooks if using husky
+if [ -d .husky ]; then
+  log "Setting up git hooks..."
+  pnpm exec husky install || warn "husky install failed"
+fi
 
 # =============================================================================
 # BUILD VERIFICATION
@@ -46,6 +83,14 @@ log "Running health checks..."
 
 # Database health check
 database_health_check
+
+# Apply DB migrations (post-create is the right place)
+if [ -f infra/scripts/apply_migrations.sh ]; then
+  log "Applying database migrations (post-create)..."
+  bash infra/scripts/apply_migrations.sh || warn "apply_migrations.sh failed (continuing)"
+else
+  log "No infra/scripts/apply_migrations.sh found — skipping migrations"
+fi
 
 # Check Redis
 if redis-cli -h localhost -p "${REDIS_PORT:-6379}" -a "${REDIS_PASSWORD:-valueos_dev}" ping > /dev/null 2>&1; then
