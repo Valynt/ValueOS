@@ -61,7 +61,7 @@
     "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
     "XDG_CACHE_HOME": "/home/vscode/.cache",
     "VERSIONS_FILE": ".devcontainer/versions.json",
-    "WORKSPACE_FOLDER": "/workspaces/ValueOS"
+    "WORKSPACE_FOLDER": "${containerWorkspaceFolder}"
   },
   "remoteUser": "vscode",
   "onCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/scripts/on-create.sh",
