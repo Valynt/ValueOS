@@ -94,5 +94,5 @@ Before creating new migrations:
 
 ---
 
-**Created**: 2025-12-26  
+**Created**: 2025-12-26
 **Status**: In Progress (2/11 migrations applied)

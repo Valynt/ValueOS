@@ -146,6 +146,6 @@ All documentation is in `${WORKSPACE_FOLDER:-/workspaces/ValueOS}/infra/supabase
 
 ---
 
-**Last Updated**: 2025-12-26  
-**Status**: Partially Complete - 8 migrations remaining  
+**Last Updated**: 2025-12-26
+**Status**: Partially Complete - 8 migrations remaining
 **Next Action**: Fix column dependencies and apply remaining migrations
