@@ -3,13 +3,13 @@
 services:
   dev:
     build:
-      context: /home/winwos/ValueOS
+      context: ../../../
       dockerfile: .devcontainer/Dockerfile.dev
     image: valueos/dev:devcontainer
     command: sleep infinity
     working_dir: /workspaces/ValueOS
     volumes:
-      - ../..:/workspaces/ValueOS:cached
+      - ../../../:/workspaces/ValueOS:cached
       - pnpm-store:/home/node/.local/share/pnpm
     environment:
       NODE_ENV: development

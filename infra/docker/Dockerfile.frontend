@@ -52,7 +52,13 @@ COPY --from=prune /workspace/out/full/ ./
 RUN pnpm --filter valynt-app build \
     && test -f apps/ValyntApp/dist/index.html
 
-# Stage 5: runtime
+# Stage 5: development
+FROM deps AS development
+WORKDIR /workspace
+COPY --from=prune /workspace/out/full/ ./
+CMD ["pnpm", "--filter", "@valueos/frontend", "dev", "--host", "0.0.0.0", "--port", "5173"]
+
+# Stage 6: runtime
 FROM ${NGINX_IMAGE} AS runtime
 RUN addgroup -g 1001 -S nginx-app \
     && adduser -u 1001 -S nginx-app -G nginx-app
