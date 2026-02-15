@@ -64,7 +64,7 @@
     "WORKSPACE_FOLDER": "${containerWorkspaceFolder}"
   },
   "remoteUser": "vscode",
-  "onCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/scripts/on-create.sh",
+  "onCreateCommand": "sh -c 'if [ -x \"${containerWorkspaceFolder}/.devcontainer/scripts/on-create.sh\" ]; then bash \"${containerWorkspaceFolder}/.devcontainer/scripts/on-create.sh\"; else echo \"[devcontainer] on-create.sh not found — skipping\"; fi'",
   "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/scripts/post-create.sh",
   "postStartCommand": "bash ${containerWorkspaceFolder}/.devcontainer/scripts/post-start.sh",
   "copy": [
