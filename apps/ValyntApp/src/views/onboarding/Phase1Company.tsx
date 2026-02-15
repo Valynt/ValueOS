@@ -5,10 +5,20 @@ import type { OnboardingPhase1Input } from "@/hooks/company-context/types";
 import type { ResearchJob, ResearchSuggestion } from "@/hooks/company-context/types";
 
 interface Props {
-  onNext: (data: OnboardingPhase1Input, researchJobId?: string) => void;
+  onNext: (
+    data: OnboardingPhase1Input,
+    researchJobId?: string,
+    options?: { fastTrack: boolean }
+  ) => void;
   researchJob?: ResearchJob | null;
   researchSuggestions?: ResearchSuggestion[];
-  onStartResearch?: (website: string, industry: string, companySize: string | null, salesMotion: string | null) => void;
+  onStartResearch?: (
+    website: string,
+    industry: string,
+    companySize: string | null,
+    salesMotion: string | null,
+    ticker?: string
+  ) => void;
   isResearching?: boolean;
 }
 
@@ -19,6 +29,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
   const [ticker, setTicker] = useState("");
   const [companySize, setCompanySize] = useState<OnboardingPhase1Input["company_size"]>(null);
   const [salesMotion, setSalesMotion] = useState<OnboardingPhase1Input["sales_motion"]>(null);
+  const [fastTrackMode, setFastTrackMode] = useState(true);
   const [products, setProducts] = useState<OnboardingPhase1Input["products"]>([
     { name: "", description: "", product_type: "platform" },
   ]);
@@ -65,6 +76,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
         products: products.filter((p) => p.name.trim().length > 0),
       },
       researchJob?.id,
+      { fastTrack: fastTrackMode },
     );
   };
 
@@ -207,6 +219,36 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
       {/* Auto-fill from website */}
       {onStartResearch && (
         <div className="space-y-3">
+          <div className="p-4 rounded-xl border border-zinc-200 bg-white">
+            <button
+              type="button"
+              onClick={() => setFastTrackMode((prev) => !prev)}
+              className="w-full flex items-start justify-between gap-3 text-left"
+            >
+              <div>
+                <p className="text-[13px] font-semibold text-zinc-900">Fast-track onboarding</p>
+                <p className="text-[12px] text-zinc-500 mt-1">
+                  Use an AI research agent to scan your website and public signals, then preload competitors,
+                  personas, and claims so you can review and launch faster.
+                </p>
+              </div>
+              <span
+                className={cn(
+                  "mt-0.5 inline-flex h-6 min-w-11 items-center rounded-full p-1 transition-colors",
+                  fastTrackMode ? "bg-zinc-900" : "bg-zinc-300"
+                )}
+                aria-label="Toggle fast-track onboarding"
+              >
+                <span
+                  className={cn(
+                    "h-4 w-4 rounded-full bg-white transition-transform",
+                    fastTrackMode ? "translate-x-5" : "translate-x-0"
+                  )}
+                />
+              </span>
+            </button>
+          </div>
+
           {!researchJob && (
             <button
               onClick={handleAutoFill}
@@ -219,7 +261,7 @@ export function Phase1Company({ onNext, researchJob, researchSuggestions, onStar
               )}
             >
               <Sparkles className="w-4 h-4" />
-              Auto-fill from website
+              {fastTrackMode ? "Run AI fast-track research" : "Auto-fill from website"}
             </button>
           )}
 

@@ -150,9 +150,10 @@ export default function CompanyOnboarding() {
     navigate("/dashboard");
   };
 
-  const handlePhase1 = async (data: OnboardingPhase1Input, jobId?: string) => {
+  const handlePhase1 = async (data: OnboardingPhase1Input, jobId?: string, options?: { fastTrack: boolean }) => {
     setPhase1Data(data);
     if (jobId) setResearchJobId(jobId);
+    const shouldFastTrack = options?.fastTrack && !!jobId && researchJob?.status === "completed";
     try {
       if (contextId) {
         // Context already created during research — update it
@@ -181,14 +182,14 @@ export default function CompanyOnboarding() {
             );
           }
         }
-        setPhase(2);
+        setPhase(shouldFastTrack ? 5 : 2);
       } else {
         const ctx = await createContext.mutateAsync(data);
         setContextId(ctx.id);
-        setPhase(2);
+        setPhase(shouldFastTrack ? 5 : 2);
       }
     } catch {
-      setPhase(2);
+      setPhase(shouldFastTrack ? 5 : 2);
     }
   };
 
