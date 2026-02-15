@@ -73,15 +73,15 @@ Two migrations share timestamp `20260111000000`:
 
 ```bash
 # Remove backup file
-rm /workspaces/ValueOS/supabase/migrations/20241123150000_add_semantic_memory.sql.bak
+rm ${WORKSPACE_FOLDER:-/workspaces/ValueOS}/supabase/migrations/20241123150000_add_semantic_memory.sql.bak
 
 # Rename duplicate timestamp
-mv /workspaces/ValueOS/supabase/migrations/20260111000000_add_tenant_isolation_to_match_memory.sql \
-   /workspaces/ValueOS/supabase/migrations/20260111000001_add_tenant_isolation_to_match_memory.sql
+mv ${WORKSPACE_FOLDER:-/workspaces/ValueOS}/supabase/migrations/20260111000000_add_tenant_isolation_to_match_memory.sql \
+   ${WORKSPACE_FOLDER:-/workspaces/ValueOS}/supabase/migrations/20260111000001_add_tenant_isolation_to_match_memory.sql
 
 # Apply remaining migrations
 export SUPABASE_ACCESS_TOKEN="your-token"
-cd /workspaces/ValueOS
+cd ${WORKSPACE_FOLDER:-/workspaces/ValueOS}
 printf "Y\n" | supabase db push --include-all
 ```
 
@@ -103,7 +103,7 @@ npm run test:integration
 
 ## 📚 Documentation Created
 
-All documentation is in `/workspaces/ValueOS/infra/supabase/`:
+All documentation is in `${WORKSPACE_FOLDER:-/workspaces/ValueOS}/infra/supabase/`:
 
 1. **SETUP_SUMMARY.md** - Overall setup status and progress
 2. **MIGRATION_FIX.md** - Details on dependency fixes

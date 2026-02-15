@@ -39,7 +39,7 @@ Created migration `20241120000000_create_user_tenants.sql` which:
 
 ```bash
 export SUPABASE_ACCESS_TOKEN="your-token-here"
-cd /workspaces/ValueOS
+cd ${WORKSPACE_FOLDER:-/workspaces/ValueOS}
 ./infra/supabase/apply-pending-migrations.sh
 ```
 
@@ -48,7 +48,7 @@ cd /workspaces/ValueOS
 ```bash
 export SUPABASE_ACCESS_TOKEN="your-token-here"
 export PATH="$HOME/.local/bin:$PATH"
-cd /workspaces/ValueOS
+cd ${WORKSPACE_FOLDER:-/workspaces/ValueOS}
 supabase db push --include-all
 # When prompted, type 'Y' and press Enter
 ```
@@ -88,11 +88,11 @@ supabase db push   # Apply all migrations
 
 ## Files Created/Modified
 
-1. `/workspaces/ValueOS/supabase/migrations/20241120000000_create_user_tenants.sql` - NEW
+1. `${WORKSPACE_FOLDER:-/workspaces/ValueOS}/supabase/migrations/20241120000000_create_user_tenants.sql` - NEW
    - Core tenant and user-tenant relationship tables
-2. `/workspaces/ValueOS/infra/supabase/setup-fixed.sh` - NEW
+2. `${WORKSPACE_FOLDER:-/workspaces/ValueOS}/infra/supabase/setup-fixed.sh` - NEW
    - Automated setup script with error handling
-3. `/workspaces/ValueOS/infra/supabase/MIGRATION_FIX.md` - NEW (this file)
+3. `${WORKSPACE_FOLDER:-/workspaces/ValueOS}/infra/supabase/MIGRATION_FIX.md` - NEW (this file)
    - Documentation of the fix
 
 ## Verification

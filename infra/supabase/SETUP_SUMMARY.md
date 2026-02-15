@@ -40,7 +40,7 @@ Run this command:
 
 ```bash
 export SUPABASE_ACCESS_TOKEN="your-token"
-cd /workspaces/ValueOS
+cd ${WORKSPACE_FOLDER:-/workspaces/ValueOS}
 printf "Y\n" | supabase db push --include-all
 ```
 

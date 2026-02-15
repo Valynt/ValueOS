@@ -132,7 +132,7 @@ Due to migration history synchronization issues, these migrations are pending:
 
 ```bash
 export SUPABASE_ACCESS_TOKEN="sbp_4d0537d35652d74db73f08ea849883070e8e9a21"
-cd /workspaces/ValueOS
+cd ${WORKSPACE_FOLDER:-/workspaces/ValueOS}
 
 # Repair migration history
 supabase migration repair --status applied 20251213
