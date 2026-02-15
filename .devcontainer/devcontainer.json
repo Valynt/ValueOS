@@ -1,5 +1,9 @@
 {
   "name": "ValueOS Development Environment",
+  "dockerComposeFile": ".devcontainer/docker-compose.devcontainer.yml",
+  "service": "dev",
+  "shutdownAction": "stopCompose",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "build": {
     "dockerfile": "Dockerfile.dev",
     "context": "..",
@@ -61,5 +65,17 @@
   "remoteUser": "vscode",
   "onCreateCommand": "bash .devcontainer/scripts/on-create.sh",
   "postCreateCommand": "bash .devcontainer/scripts/post-create.sh",
-  "postStartCommand": "bash .devcontainer/scripts/post-start.sh"
+  "postStartCommand": "bash .devcontainer/scripts/post-start.sh",
+  "copy": [
+    {
+      "from": ".devcontainer/scripts/on-create.sh",
+      "to": "/home/vscode/.devcontainer/scripts/on-create.sh"
+    }
+  ],
+  "postStart": {
+    "command": [
+      "/bin/sh",
+      ".devcontainer/scripts/post-start.sh"
+    ]
+  }
 }

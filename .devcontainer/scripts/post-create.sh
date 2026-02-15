@@ -61,8 +61,40 @@ fi
 
 echo "🏥 Running health checks..."
 
+# Parse DATABASE_URL to get connection details
+parse_database_url() {
+    local url="$1"
+    # Remove postgresql://
+    local without_proto="${url#postgresql://}"
+    # Extract user:pass
+    local user_pass="${without_proto%%@*}"
+    DB_USER="${user_pass%%:*}"
+    DB_PASS="${user_pass#*:}"
+    # Extract host:port/db
+    local host_port_db="${without_proto#*@}"
+    DB_HOST="${host_port_db%%:*}"
+    local port_db="${host_port_db#*:}"
+    DB_PORT="${port_db%%/*}"
+    DB_NAME="${port_db#*/}"
+}
+
+if [ -n "${DATABASE_URL:-}" ]; then
+    parse_database_url "$DATABASE_URL"
+    DB_HOST="${DB_HOST:-localhost}"
+    DB_PORT="${DB_PORT:-5432}"
+    DB_USER="${DB_USER:-postgres}"
+    DB_PASS="${DB_PASS:-valueos_dev}"
+    DB_NAME="${DB_NAME:-valueos_dev}"
+else
+    DB_HOST="${POSTGRES_HOST:-localhost}"
+    DB_PORT="${POSTGRES_PORT:-5432}"
+    DB_USER="${POSTGRES_USER:-valueos}"
+    DB_PASS="${POSTGRES_PASSWORD:-valueos_dev}"
+    DB_NAME="${POSTGRES_DB:-valueos_dev}"
+fi
+
 # Check PostgreSQL
-if PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT version();" > /dev/null 2>&1; then
+if PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT version();" > /dev/null 2>&1; then
     echo "✅ PostgreSQL is healthy"
 else
     echo "⚠️  PostgreSQL health check failed"
@@ -88,7 +120,7 @@ fi
 
 if [ "${SEED_DATABASE:-false}" = "true" ]; then
     echo "🌱 Seeding database..."
-    
+
     if [ -f scripts/seed.sh ]; then
         bash scripts/seed.sh
         echo "✅ Database seeded"

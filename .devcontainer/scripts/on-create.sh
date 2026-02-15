@@ -90,10 +90,42 @@ fi
 
 echo "🗄️  Waiting for database to be ready..."
 
+# Parse DATABASE_URL to get connection details
+parse_database_url() {
+    local url="$1"
+    # Remove postgresql://
+    local without_proto="${url#postgresql://}"
+    # Extract user:pass
+    local user_pass="${without_proto%%@*}"
+    DB_USER="${user_pass%%:*}"
+    DB_PASS="${user_pass#*:}"
+    # Extract host:port/db
+    local host_port_db="${without_proto#*@}"
+    DB_HOST="${host_port_db%%:*}"
+    local port_db="${host_port_db#*:}"
+    DB_PORT="${port_db%%/*}"
+    DB_NAME="${port_db#*/}"
+}
+
+if [ -n "${DATABASE_URL:-}" ]; then
+    parse_database_url "$DATABASE_URL"
+    DB_HOST="${DB_HOST:-localhost}"
+    DB_PORT="${DB_PORT:-5432}"
+    DB_USER="${DB_USER:-postgres}"
+    DB_PASS="${DB_PASS:-valueos_dev}"
+    DB_NAME="${DB_NAME:-valueos_dev}"
+else
+    DB_HOST="${POSTGRES_HOST:-localhost}"
+    DB_PORT="${POSTGRES_PORT:-5432}"
+    DB_USER="${POSTGRES_USER:-valueos}"
+    DB_PASS="${POSTGRES_PASSWORD:-valueos_dev}"
+    DB_NAME="${POSTGRES_DB:-valueos_dev}"
+fi
+
 # Wait for PostgreSQL to be ready
 max_attempts=30
 attempt=0
-until PGPASSWORD="${POSTGRES_PASSWORD:-valueos_dev}" psql -h localhost -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER:-valueos}" -d "${POSTGRES_DB:-valueos_dev}" -c "SELECT 1" > /dev/null 2>&1; do
+until PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; do
     attempt=$((attempt + 1))
     if [ $attempt -ge $max_attempts ]; then
         echo "❌ Database failed to start after $max_attempts attempts"
@@ -178,3 +210,14 @@ echo "  2. Run 'pnpm dev' to start the development server"
 echo "  3. Open http://localhost:3001 for the frontend"
 echo "  4. Open http://localhost:54324 for Supabase Studio"
 echo ""
+
+# Ensure required directories exist
+mkdir -p /home/vscode/.devcontainer
+
+# Create placeholder marker files
+touch /home/vscode/.devcontainer/.onCreateCommandMarker
+
+# Set environment variables
+export NODE_ENV=development
+export PNPM_HOME=/home/vscode/.local/share/pnpm
+export COREPACK_HOME=/home/vscode/.cache/corepack

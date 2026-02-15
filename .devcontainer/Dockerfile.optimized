@@ -64,8 +64,8 @@ RUN set -eux; \
 COPY scripts/dx/ensure-pnpm.js ./scripts/dx/ensure-pnpm.js
 
 RUN set -eux; \
-    groupadd --gid "${USER_GID}" "${USERNAME}"; \
-    useradd --uid "${USER_UID}" --gid "${USER_GID}" -m "${USERNAME}"; \
+    if ! getent group "${USERNAME}" >/dev/null 2>&1; then groupadd --gid "${USER_GID}" "${USERNAME}"; fi; \
+    if ! id -u "${USERNAME}" >/dev/null 2>&1; then useradd --uid "${USER_UID}" --gid "${USER_GID}" -m "${USERNAME}"; fi; \
     echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${USERNAME}"; \
     chmod 0440 "/etc/sudoers.d/${USERNAME}"; \
     rm -rf /tmp/* /var/tmp/*
