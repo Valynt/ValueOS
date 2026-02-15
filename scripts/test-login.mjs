@@ -4,6 +4,8 @@
  */
 
 import { chromium } from "playwright";
+import path from "path";
+import fs from "fs";
 
 async function testLogin() {
   console.log("🎭 Starting Playwright login test...\n");
@@ -16,6 +18,9 @@ async function testLogin() {
   const context = await browser.newContext();
   const page = await context.newPage();
 
+  const OUT_DIR = process.env.WORKSPACE_FOLDER ? path.join(process.env.WORKSPACE_FOLDER, "test-results") : path.join(process.cwd(), "test-results");
+  await fs.promises.mkdir(OUT_DIR, { recursive: true });
+
   try {
     // Navigate to login page
     console.log("📍 Navigating to login page...");
@@ -23,7 +28,7 @@ async function testLogin() {
     await page.waitForTimeout(1000);
 
     // Take screenshot before login
-    await page.screenshot({ path: "/workspaces/ValueOS/test-results/login-before.png" });
+    await page.screenshot({ path: path.join(OUT_DIR, "login-before.png") });
     console.log("📸 Screenshot saved: login-before.png");
 
     // Find and fill email field
@@ -38,7 +43,7 @@ async function testLogin() {
     await passwordInput.fill("passw0rd");
 
     // Take screenshot with filled form
-    await page.screenshot({ path: "/workspaces/ValueOS/test-results/login-filled.png" });
+    await page.screenshot({ path: path.join(OUT_DIR, "login-filled.png") });
     console.log("📸 Screenshot saved: login-filled.png");
 
     // Click submit button
@@ -67,7 +72,7 @@ async function testLogin() {
     console.log(`📍 Current URL after login: ${currentUrl}`);
 
     // Take screenshot after login attempt
-    await page.screenshot({ path: "/workspaces/ValueOS/test-results/login-after.png" });
+    await page.screenshot({ path: path.join(OUT_DIR, "login-after.png") });
     console.log("📸 Screenshot saved: login-after.png");
 
     // Check if we're redirected away from login page
@@ -100,7 +105,7 @@ async function testLogin() {
     console.log(`   Final URL: ${currentUrl}`);
   } catch (error) {
     console.error("\n❌ Test failed:", error.message);
-    await page.screenshot({ path: "/workspaces/ValueOS/test-results/login-error.png" });
+    await page.screenshot({ path: path.join(OUT_DIR, "login-error.png") });
   } finally {
     await browser.close();
     console.log("\n🎭 Playwright test complete.");

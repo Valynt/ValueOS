@@ -14,9 +14,9 @@ mount | grep -E "/workspaces" || true
 echo
 
 echo "-- node_modules sanity"
-if [ -d /workspaces/ValueOS/node_modules ]; then
+if [ -d "${WORKSPACE_FOLDER:-/workspaces/ValueOS}/node_modules" ]; then
   echo "node_modules exists:"
-  ls -la /workspaces/ValueOS/node_modules | head -50 || true
+  ls -la "${WORKSPACE_FOLDER:-/workspaces/ValueOS}/node_modules" | head -50 || true
 else
   echo "node_modules missing"
 fi
@@ -44,8 +44,8 @@ fi
 echo
 
 echo "-- Recent setup log"
-if [ -f /workspaces/ValueOS/setup.log ]; then
-  tail -200 /workspaces/ValueOS/setup.log
+if [ -f "${WORKSPACE_FOLDER:-/workspaces/ValueOS}/setup.log" ]; then
+  tail -200 "${WORKSPACE_FOLDER:-/workspaces/ValueOS}/setup.log"
 else
   echo "setup.log not found"
 fi
