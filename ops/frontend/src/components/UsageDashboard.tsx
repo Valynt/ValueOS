@@ -77,72 +77,72 @@ export default function UsageDashboard() {
   const totalQuota = usageSummary.reduce((sum, metric) => sum + (metric.quota || 0), 0)
 
   return (
-    <div className="p-6">
+    <div className="p-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Usage Dashboard</h1>
-        <div className="flex space-x-2">
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+      <div className="flex items-center justify-between mb-12">
+        <h1 className="text-4xl font-light text-gray-900 tracking-tight">Usage Dashboard</h1>
+        <div className="flex space-x-4">
+          <button className="px-6 py-3 bg-white text-gray-700 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-fine transition-all duration-200 font-medium">
             Refresh
           </button>
-          <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+          <button className="px-6 py-3 bg-white text-gray-700 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-fine transition-all duration-200 font-medium">
             Export
           </button>
         </div>
       </div>
 
       {/* Usage Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-3">Total Usage</h3>
-          <div className="text-2xl font-bold text-blue-600">{totalUsage.toLocaleString()}</div>
-          <div className="text-sm text-gray-500 mt-1">of {totalQuota.toLocaleString()} quota</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8">
+          <h3 className="text-lg font-light text-gray-700 mb-4">Total Usage</h3>
+          <div className="text-3xl font-light text-blue-600">{totalUsage.toLocaleString()}</div>
+          <div className="text-sm text-gray-500 mt-2">of {totalQuota.toLocaleString()} quota</div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-3">Usage Percentage</h3>
-          <div className="text-2xl font-bold text-green-600">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8">
+          <h3 className="text-lg font-light text-gray-700 mb-4">Usage Percentage</h3>
+          <div className="text-3xl font-light text-green-600">
             {totalQuota > 0 ? Math.round((totalUsage / totalQuota) * 100) : 0}%
           </div>
-          <div className="text-sm text-gray-500 mt-1">of available quota</div>
+          <div className="text-sm text-gray-500 mt-2">of available quota</div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-3">Upcoming Invoice</h3>
-          <div className="text-2xl font-bold text-purple-600">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8">
+          <h3 className="text-lg font-light text-gray-700 mb-4">Upcoming Invoice</h3>
+          <div className="text-3xl font-light text-purple-600">
             ${upcomingInvoice.total.toFixed(2)}
           </div>
-          <div className="text-sm text-gray-500 mt-1">estimated this month</div>
+          <div className="text-sm text-gray-500 mt-2">estimated this month</div>
         </div>
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
         {/* Usage Trends Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">Usage Trends (Last 30 Days)</h3>
-          <ResponsiveContainer width="100%" height={300}>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8">
+          <h3 className="text-lg font-light text-gray-700 mb-6">Usage Trends (Last 30 Days)</h3>
+          <ResponsiveContainer width="100%" height={320}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="date" stroke="#64748b" />
+              <YAxis stroke="#64748b" />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="tokens" stroke="#8884d8" name="Tokens" />
-              <Line type="monotone" dataKey="apiCalls" stroke="#82ca9d" name="API Calls" />
-              <Line type="monotone" dataKey="executions" stroke="#ffc658" name="Executions" />
+              <Line type="monotone" dataKey="tokens" stroke="#8884d8" name="Tokens" strokeWidth={1.5} />
+              <Line type="monotone" dataKey="apiCalls" stroke="#82ca9d" name="API Calls" strokeWidth={1.5} />
+              <Line type="monotone" dataKey="executions" stroke="#ffc658" name="Executions" strokeWidth={1.5} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Quota Usage Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">Quota Usage by Metric</h3>
-          <ResponsiveContainer width="100%" height={300}>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8">
+          <h3 className="text-lg font-light text-gray-700 mb-6">Quota Usage by Metric</h3>
+          <ResponsiveContainer width="100%" height={320}>
             <LineChart data={usageSummary}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="metric" />
-              <YAxis />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="metric" stroke="#64748b" />
+              <YAxis stroke="#64748b" />
               <Tooltip />
               <Legend />
               {usageSummary.map((metric, index) => (
@@ -152,6 +152,7 @@ export default function UsageDashboard() {
                   dataKey="usage"
                   stroke={getMetricColor(metric.metric)}
                   name={metric.metric}
+                  strokeWidth={1.5}
                 />
               ))}
             </LineChart>
@@ -160,9 +161,9 @@ export default function UsageDashboard() {
       </div>
 
       {/* Quota Status */}
-      <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <h3 className="text-lg font-semibold mb-4">Quota Status</h3>
-        <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8 mb-12">
+        <h3 className="text-lg font-light text-gray-700 mb-8">Quota Status</h3>
+        <div className="space-y-6">
           {Object.entries(entitlements.quotas).map(([metric, quota]) => {
             const usage = entitlements.usage[metric] || 0
             const percentage = quota > 0 ? Math.round((usage / quota) * 100) : 0
@@ -170,14 +171,14 @@ export default function UsageDashboard() {
             const isWarning = percentage >= 70
 
             return (
-              <div key={metric} className="flex items-center justify-between p-3 rounded-lg">
+              <div key={metric} className="flex items-center justify-between p-5 rounded-lg border border-gray-150">
                 <div className="flex-1">
-                  <div className="font-medium">{formatMetricName(metric)}</div>
-                  <div className="text-sm text-gray-500">
+                  <div className="font-medium text-gray-700">{formatMetricName(metric)}</div>
+                  <div className="text-sm text-gray-500 mt-1">
                     {usage.toLocaleString()} / {quota.toLocaleString()} ({percentage}%)
                   </div>
                 </div>
-                <div className={`w-32 h-2 rounded-full bg-${isCritical ? 'red' : isWarning ? 'yellow' : 'green'}-200`}
+                <div className="w-40 h-2 rounded-full bg-gray-200 overflow-hidden"
                   style={{ background: `linear-gradient(90deg, ${isCritical ? '#fecaca' : isWarning ? '#fbbf24' : '#10b981'} ${percentage}%, #e5e7eb 0%)` }}>
                 </div>
               </div>
@@ -188,15 +189,15 @@ export default function UsageDashboard() {
 
       {/* Recent Alerts */}
       {entitlements.alerts.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4 text-red-600">Recent Alerts</h3>
-          <div className="space-y-2">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8 mb-12">
+          <h3 className="text-lg font-light text-red-600 mb-6">Recent Alerts</h3>
+          <div className="space-y-4">
             {entitlements.alerts.map((alert, index) => (
-              <div key={index} className="flex items-start space-x-2">
+              <div key={index} className="flex items-start space-x-3 p-4 bg-red-25 rounded-lg border border-red-150">
                 <div className="flex-shrink-0">
-                  <div className="w-2 h-2 bg-red-500 rounded-full mt-1"></div>
+                  <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
                 </div>
-                <p className="text-sm text-red-600">{alert}</p>
+                <p className="text-sm text-red-700">{alert}</p>
               </div>
             ))}
           </div>
@@ -204,27 +205,27 @@ export default function UsageDashboard() {
       )}
 
       {/* Invoice Preview */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold mb-4">Upcoming Invoice Preview</h3>
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="font-medium">Total Amount:</div>
-              <div className="text-2xl font-bold text-purple-600">${upcomingInvoice.total.toFixed(2)}</div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-fine p-8">
+        <h3 className="text-lg font-light text-gray-700 mb-8">Upcoming Invoice Preview</h3>
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-6 bg-gray-25 rounded-lg border border-gray-150">
+              <div className="font-medium text-gray-700 mb-2">Total Amount:</div>
+              <div className="text-3xl font-light text-purple-600">${upcomingInvoice.total.toFixed(2)}</div>
             </div>
-            <div>
-              <div className="font-medium">Plan Tier:</div>
-              <div className="text-lg font-semibold">{pricingVersion.planTier}</div>
+            <div className="p-6 bg-gray-25 rounded-lg border border-gray-150">
+              <div className="font-medium text-gray-700 mb-2">Plan Tier:</div>
+              <div className="text-xl font-light text-gray-900">{pricingVersion.planTier}</div>
             </div>
           </div>
 
-          <div className="border-t pt-4">
-            <h4 className="font-medium mb-2">Line Items:</h4>
-            <div className="space-y-2">
+          <div className="border-t border-gray-200 pt-8">
+            <h4 className="font-medium text-gray-700 mb-6">Line Items:</h4>
+            <div className="space-y-4">
               {upcomingInvoice.lineItems.map((item, index) => (
-                <div key={index} className="flex justify-between">
-                  <span className="text-sm">{item.description}</span>
-                  <span className="text-sm font-medium">${item.amount.toFixed(2)}</span>
+                <div key={index} className="flex justify-between p-4 bg-gray-25 rounded-lg border border-gray-150">
+                  <span className="text-sm text-gray-700">{item.description}</span>
+                  <span className="text-sm font-medium text-gray-900">${item.amount.toFixed(2)}</span>
                 </div>
               ))}
             </div>
