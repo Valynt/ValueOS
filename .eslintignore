@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.next/
+.cache/
+.turbo/
+coverage/
+*.min.js
+*.min.css

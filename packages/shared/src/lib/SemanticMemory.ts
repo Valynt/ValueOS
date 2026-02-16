@@ -47,11 +47,11 @@ export interface SemanticSearchResult {
 }
 
 export class SemanticMemoryService {
-  private _supabase: ReturnType<typeof createClient> | null = null;
+  private _supabase: any = null;
   private embeddingModel = "togethercomputer/m2-bert-80M-8k-retrieval"; // Together AI embedding model
   private embeddingDimension = 768;
 
-  private get supabase(): ReturnType<typeof createClient> {
+  private get supabase(): any {
     if (!this._supabase) {
       this._supabase = createServerSupabaseClient();
     }
@@ -69,10 +69,10 @@ export class SemanticMemoryService {
 
     const chunks: string[] = [];
     const separators = ["\n##", "\n#", "\n\n", "\n", ". ", " ", ""];
-    
+
     const splitRecursive = (currentText: string, separatorIdx: number): string[] => {
       if (currentText.length <= size) return [currentText];
-      
+
       const separator = separators[separatorIdx];
       if (separator === undefined) return [currentText.substring(0, size)]; // Fallback to hard cut
 
@@ -85,7 +85,7 @@ export class SemanticMemoryService {
           currentChunk += (currentChunk ? separator : '') + part;
         } else {
           if (currentChunk) result.push(currentChunk);
-          
+
           if (part.length > size) {
             // Part itself is too big, recurse with next separator
             result.push(...splitRecursive(part, separatorIdx + 1));
@@ -95,23 +95,27 @@ export class SemanticMemoryService {
           }
         }
       }
-      
+
       if (currentChunk) result.push(currentChunk);
       return result;
     };
 
     const initialChunks = splitRecursive(text, 0);
-    
+
     // Apply overlap
     if (overlap > 0 && initialChunks.length > 1) {
       for (let i = 0; i < initialChunks.length; i++) {
         let chunk = initialChunks[i];
         if (i > 0) {
           const prevChunk = initialChunks[i - 1];
-          const overlapText = prevChunk.substring(prevChunk.length - overlap);
-          chunk = overlapText + chunk;
+          if (prevChunk) {
+            const overlapText = prevChunk.substring(prevChunk.length - overlap);
+            chunk = overlapText + chunk;
+          }
         }
-        chunks.push(chunk);
+        if (chunk) {
+          chunks.push(chunk);
+        }
       }
       return chunks;
     }
@@ -538,7 +542,7 @@ export class SemanticMemoryService {
       let oldestDate: Date | null = null;
       let newestDate: Date | null = null;
 
-      data?.forEach((row) => {
+      data?.forEach((row: any) => {
         byType[row.type] = (byType[row.type] || 0) + 1;
 
         if (row.metadata?.score !== undefined) {

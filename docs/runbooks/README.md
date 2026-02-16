@@ -11,7 +11,7 @@ status: deprecated
 > [!WARNING]
 > This index is maintained for backward compatibility and contains legacy/deprecated runbooks. Use [`docs/operations/runbooks/`](../operations/runbooks/) for authoritative operator workflows.
 
-**Last Updated**: 2026-02-08
+**Last Updated**: 2026-02-16
 
 ---
 

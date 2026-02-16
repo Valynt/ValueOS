@@ -15,25 +15,25 @@ description: Production deployment checklist and workflow
 1. Run pre-deployment checklist:
 
 ```bash
-npm run deploy:pre-check
+bash scripts/pre-deployment-checklist.sh
 ```
 
 2. Run all tests:
 
 ```bash
-npm run test:all
+pnpm test
 ```
 
 // turbo 3. Build and validate:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 // turbo 4. Security scan:
 
 ```bash
-npm run security:scan:all
+bash scripts/compliance-scan.sh
 ```
 
 ### Phase 2: Transition
@@ -41,7 +41,7 @@ npm run security:scan:all
 5. **🔴 CRITICAL** Create database backup:
 
 ```bash
-pnpm run db:backup
+bash scripts/backup-database.sh
 ```
 
 6. Verify backup:
@@ -63,7 +63,7 @@ bash scripts/deploy-production.sh
 // turbo 9. Verify deployment health:
 
 ```bash
-npm run deploy:validate
+bash scripts/validate-deployment.sh
 ```
 
 10. Run production smoke tests (manual)

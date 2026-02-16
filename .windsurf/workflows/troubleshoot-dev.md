@@ -11,19 +11,21 @@ description: Diagnose and fix development environment issues
 1. Check overall dev environment health:
 
 ```bash
-npm run dev:health
+pnpm run dx:doctor
 ```
 
 // turbo 2. Diagnose network issues:
 
 ```bash
-npm run dev:diagnose
+# Check if services are running on expected ports
+curl -s http://localhost:5173 || echo "Frontend not running"
+curl -s http://localhost:54321/rest/v1/ || echo "Supabase not running"
 ```
 
 // turbo 3. Test ports are available:
 
 ```bash
-npm run dev:test-ports
+netstat -tlnp | grep -E ':5173|:54321|:3001' || echo "Check ports"
 ```
 
 ## Common Fixes
@@ -31,13 +33,15 @@ npm run dev:test-ports
 4. Auto-fix common issues:
 
 ```bash
-npm run dev:auto-fix
+bash scripts/cleanup.sh
 ```
 
 5. Fix port forwarding issues:
 
 ```bash
-npm run dev:fix
+# Restart services
+pnpm run dx:down
+pnpm run dx:up
 ```
 
 ## Supabase Issues
@@ -82,9 +86,9 @@ docker-compose up -d
 
 ```bash
 bash scripts/cleanup.sh
-npm install
+pnpm install
 npx supabase start
-npm run dev
+pnpm --filter valynt-app run dev
 ```
 
 ## Environment Variables

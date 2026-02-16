@@ -92,6 +92,7 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^12.1.0",
     "@eslint/js": "^9.39.2",
     "@types/node": "^20.19.29",
     "@vitejs/plugin-react": "^4.5.2",
@@ -105,6 +106,8 @@
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-storybook": "^10.2.8",
     "globals": "^16.5.0",
+    "js-yaml": "^4.1.1",
+    "lint-staged": "^16.2.7",
     "supabase": "^2.76.8",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
@@ -156,7 +159,7 @@
     "db:migrate": "bash scripts/migrate.sh",
     "up": "docker compose up -d",
     "down": "docker compose down -v",
-    "lint": "eslint .",
+    "lint": "node --max-old-space-size=4096 node_modules/.bin/eslint . --cache",
     "check:service-duplicates": "node scripts/check-service-duplicate-filenames.mjs",
     "check:valynt-services-freeze": "node scripts/enforce-valynt-service-freeze.mjs",
     "check:frozen-backend-duplicate-tree": "node scripts/ci/check-frozen-backend-duplicate-tree.mjs",
@@ -172,5 +175,8 @@
     "dev:frontend": "bash scripts/dev/start-frontend.sh",
     "dev:backend": "bash scripts/dev/start-backend.sh",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": "eslint --fix"
   }
 }

@@ -15,6 +15,15 @@ export { default as BillingMetersCatalog } from "./BillingMetersCatalog.js";
 export { default as PriceVersionService } from "./PriceVersionService.js";
 export { default as EntitlementSnapshotService } from "./EntitlementSnapshotService.js";
 
+// V2: Rating engine
+export { default as RatingEngine } from "./RatingEngine.js";
+export type {
+  RatingContext,
+  RatingResult,
+  RatedLineItem,
+  UsageAggregate,
+} from "./RatingEngine.js";
+
 // V2: Subscription state machine
 export {
   SubscriptionStateMachine,

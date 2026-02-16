@@ -60,9 +60,11 @@ analyticsRouter.post("/web-vitals", express.json(), async (req, res) => {
     // });
 
     res.status(200).json({ success: true });
+    return;
   } catch (error) {
-    logger.error("Failed to process web vitals", { error: error.message });
+    logger.error("Failed to process web vitals", error instanceof Error ? error : undefined);
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 
@@ -82,9 +84,11 @@ analyticsRouter.post("/performance", express.json(), async (req, res) => {
     });
 
     res.status(200).json({ success: true });
+    return;
   } catch (error) {
-    logger.error("Failed to process performance metric", { error: error.message });
+    logger.error("Failed to process performance metric", error instanceof Error ? error : undefined);
     res.status(500).json({ error: "Internal server error" });
+    return;
   }
 });
 

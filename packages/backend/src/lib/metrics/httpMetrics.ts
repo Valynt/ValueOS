@@ -1,4 +1,4 @@
-import client from "prom-client";
+import * as client from "prom-client";
 
 const registry = new client.Registry();
 client.collectDefaultMetrics({ register: registry });

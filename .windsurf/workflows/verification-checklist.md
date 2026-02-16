@@ -15,15 +15,16 @@ description: Verify local development environment setup in ValueOS
 ### 1. Installation
 
 ```bash
-npm install
+pnpm install
 # Expected: "added X packages in Ys"
 ```
 
 ### 2. Environment Setup
 
 ```bash
-pnpm run env:dev
-# Expected: "🔧 Setting up development environment..." + "✅ Updated .env.local with real Supabase keys"
+# Run environment preparation
+bash scripts/env/prepare-frontend-env.sh local
+# Expected: Environment variables set
 ```
 
 ### 3. Clean State
@@ -38,7 +39,7 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
 ### 4. Start Development Stack
 
 ```bash
-pnpm run dx
+pnpm run dx:up
 # Expected: All containers start successfully
 docker ps --format "table {{.Names}}\t{{.Status}}"
 # Expected: valueos-postgres, valueos-redis, valueos-backend, valueos-frontend all "Up X minutes"
@@ -81,14 +82,14 @@ docker exec valueos-redis redis-cli ping
 ### 8. Database Reset
 
 ```bash
-pnpm run db:reset
+npx supabase db reset
 # Expected: Supabase CLI resets local database successfully
 ```
 
 ### 9. Demo User Creation
 
 ```bash
-npm run seed:demo
+tsx scripts/seed-demo-user.ts
 # Expected: "Demo data seeded successfully!" + login credentials
 ```
 
@@ -121,15 +122,15 @@ curl -s -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:3001/api/tenant/
 ### 13. Clean Restart
 
 ```bash
-pnpm run dx:down && pnpm run dx
+pnpm run dx:down && pnpm run dx:up
 # Expected: Same results as initial setup
 ```
 
 ### 14. Comprehensive Health Check
 
 ```bash
-pnpm run dx:check
-# Expected: "🎉 All checks passed! Development environment is ready."
+pnpm run dx:doctor
+# Expected: "All checks passed! Development environment is ready."
 ```
 
 ## 📋 Troubleshooting Commands
@@ -147,9 +148,9 @@ rm -f .dx-lock .dx-state.json
 
 ```bash
 # Validate environment
-pnpm run env:validate
+node scripts/env/validate-env.js
 # Check current environment
-pnpm run env:status
+node scripts/env/validate-env.js
 ```
 
 ### Port Conflicts
@@ -158,7 +159,7 @@ pnpm run env:status
 # Check port usage
 lsof -i :54321 -i :54322 -i :5173 -i :3001
 # Force restart
-pnpm run dx:reset && pnpm run dx
+pnpm run dx:down && pnpm run dx:up
 ```
 
 ### Container Issues
@@ -176,24 +177,24 @@ docker restart valueos-backend
 
 All of the following must pass:
 
-1. ✅ `npm install` succeeds without errors
+1. ✅ `pnpm install` succeeds without errors
 2. ✅ `pnpm run dx:down` leaves no relevant containers running
-3. ✅ `pnpm run dx` starts all services successfully
+3. ✅ `pnpm run dx:up` starts all services successfully
 4. ✅ `curl http://localhost:54321/rest/v1/` returns a response (not connection refused)
 5. ✅ Frontend loads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` correctly
 6. ✅ Login succeeds and session persists across page refreshes
 7. ✅ API calls succeed using the session JWT
 8. ✅ App loads tenant-scoped data without 401/403 errors
-9. ✅ `pnpm run dx:down && pnpm run dx` is repeatable with same results
-10. ✅ `pnpm run dx:check` passes all checks
+9. ✅ `pnpm run dx:down && pnpm run dx:up` is repeatable with same results
+10. ✅ `pnpm run dx:doctor` passes all checks
 
 ## 🚨 Failure Remediation
 
 If any check fails:
 
-1. **Environment Issues**: Run `pnpm run env:dev` to reset environment
-2. **Container Issues**: Run `pnpm run dx:clean && pnpm run dx` for fresh start
-3. **Database Issues**: Run `pnpm run db:reset` to reset database
+1. **Environment Issues**: Run `bash scripts/env/prepare-frontend-env.sh local` to reset environment
+2. **Container Issues**: Run `bash scripts/cleanup.sh && pnpm run dx:up` for fresh start
+3. **Database Issues**: Run `npx supabase db reset` to reset database
 4. **Port Conflicts**: Check for other services using required ports
 5. **Permission Issues**: Ensure Docker daemon is running and user has permissions
 
@@ -203,4 +204,4 @@ If any check fails:
 - Supabase API on 54321, Studio on 54323
 - Frontend on 5173, PostgreSQL on 5432, Redis on 6379
 - All environment variables are validated by `pnpm run dx:doctor`
-- Demo user credentials are displayed after running `npm run seed:demo`
+- Demo user credentials are displayed after running `tsx scripts/seed-demo-user.ts`

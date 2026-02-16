@@ -11,19 +11,20 @@ description: Run all linting and auto-fix issues
 1. Fix ESLint issues:
 
 ```bash
-npm run lint:fix
+pnpm lint -- --fix
 ```
 
 2. Fix CSS/styling issues:
 
 ```bash
-npm run lint:css -- --fix
+# No auto-fix for CSS, run lint to check
+pnpm lint
 ```
 
 3. Check and fix inline styles:
 
 ```bash
-npm run lint:inline-check
+node scripts/check-inline-styles.cjs
 ```
 
 ## Validation
@@ -31,19 +32,19 @@ npm run lint:inline-check
 4. Validate OpenAPI spec:
 
 ```bash
-npm run lint:openapi
+node scripts/validate-openapi.mjs
 ```
 
 5. Validate Tailwind config:
 
 ```bash
-npm run check:tw-config
+node scripts/validate-tailwind-config.js
 ```
 
 6. Run all lints to verify:
 
 ```bash
-npm run lint:all
+pnpm lint
 ```
 
 ## Console Cleanup
@@ -51,7 +52,7 @@ npm run lint:all
 7. Remove debug console.logs:
 
 ```bash
-npm run lint:console
+bash scripts/cleanup-console-logs.sh
 ```
 
 ## Pre-Commit Check
@@ -59,5 +60,5 @@ npm run lint:console
 8. Run all checks that pre-commit would run:
 
 ```bash
-npm run lint && npx tsc --noEmit
+pnpm lint && npx tsc --noEmit
 ```

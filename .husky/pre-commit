@@ -8,3 +8,5 @@ else
   echo "  sudo apt install gitleaks   # Debian/Ubuntu"
   echo "  go install github.com/gitleaks/gitleaks/v8@latest  # Go"
 fi
+
+npx lint-staged

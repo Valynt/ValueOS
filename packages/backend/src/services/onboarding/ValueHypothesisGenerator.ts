@@ -36,17 +36,11 @@ export async function generateValueHypotheses(
     );
 
     const secSnippet = secContextResult
-      .map(r => `[SEC Source: ${r.entry.metadata.source_url || '10-K'}]
-${r.entry.content}`)
-      .join('
-
----
-
-');
+      .map(r => `[SEC Source: ${r.entry.metadata.source_url || '10-K'}]\n${r.entry.content}`)
+      .join('\n\n---\n\n');
 
     // 2. Build Prompt
-    const productList = products.map(p => `- ${p.name}: ${p.description}`).join('
-');
+    const productList = products.map(p => `- ${p.name}: ${p.description}`).join('\n');
     
     const systemPrompt = `
 You are a Value Engineer. Your task is to generate "Value Hypotheses" that connect a company's products to its strategic goals or risks identified in its SEC filings.

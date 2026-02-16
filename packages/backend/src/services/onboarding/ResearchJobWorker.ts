@@ -52,6 +52,25 @@ function computeEntityHash(entityType: string, payload: Record<string, unknown>)
   return hash.digest('hex');
 }
 
+async function updateEntityStatus(supabase: SupabaseClient, jobId: string, entityType: string, status: string) {
+  const { data: job } = await supabase
+    .from('company_research_jobs')
+    .select('entity_status')
+    .eq('id', jobId)
+    .single();
+
+  const entityStatus = (job?.entity_status as Record<string, string>) ?? {};
+  entityStatus[entityType] = status;
+
+  await supabase
+    .from('company_research_jobs')
+    .update({
+      entity_status: entityStatus,
+      progress: entityStatus,
+    })
+    .eq('id', jobId);
+}
+
 /**
  * Process a single research job. Called by the BullMQ worker or directly.
  */
@@ -249,32 +268,6 @@ export async function processResearchJob(
         logger.warn('Value hypothesis generation failed', { error: (hvErr as any).message });
       }
     }
-
-    // ... (rest of the worker logic remains same) ...
-  } catch (err) {
-    // ... (error handling remains same) ...
-  }
-}
-
-async function updateEntityStatus(supabase: SupabaseClient, jobId: string, entityType: string, status: string) {
-  const { data: job } = await supabase
-    .from('company_research_jobs')
-    .select('entity_status')
-    .eq('id', jobId)
-    .single();
-
-  const entityStatus = (job?.entity_status as Record<string, string>) ?? {};
-  entityStatus[entityType] = status;
-
-  await supabase
-    .from('company_research_jobs')
-    .update({
-      entity_status: entityStatus,
-      progress: entityStatus,
-    })
-    .eq('id', jobId);
-}
-
 
     // 4. Write suggestions to DB
     let suggestionsCreated = 0;

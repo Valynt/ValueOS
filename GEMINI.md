@@ -2,7 +2,34 @@
 
 This `GEMINI.md` file provides essential context and protocols for the Gemini CLI to interact effectively with the `ValueOS` project. It outlines conventions, file resolution strategies, and project-specific guidelines.
 
+## Project Overview
+ValueOS is an AI-powered value engineering platform for B2B SaaS. It helps customer success and sales teams quantify, track, and expand business value through a multi-agent orchestration system.
+
+## Repository Layout
+- `apps/ValyntApp/`: Primary web application (React + Vite + Tailwind).
+- `apps/VOSAcademy/`: Training and certification portal.
+- `packages/agents/`: AI agent implementations.
+- `packages/backend/`: Express API server.
+- `packages/components/`: Shared UI component library.
+- `packages/infra/`: Infrastructure utilities and queue abstractions.
+- `packages/integrations/`: Third-party integrations (Stripe, CRM, etc.).
+- `packages/mcp/`: Model Context Protocol tooling.
+- `packages/memory/`: Agent memory and vector store layer.
+- `packages/sdui/`: Server-Driven UI renderer.
+- `packages/shared/`: Shared types, utilities, and constants.
+- `infra/`: Kubernetes, Terraform, Supabase, and observability configs.
+- `conductor/`: Project tracks, plans, and guidelines.
+
+## Key Tech Stack
+- **Frontend:** React, Vite, Tailwind CSS, Radix UI.
+- **Backend:** Node.js (Express), pnpm monorepo with Turborepo.
+- **AI/Agents:** 7-agent fabric, Orchestrator, Memory layer, MCP tools, BullMQ queues.
+- **Infrastructure:** Supabase (Postgres + RLS), Redis, Kafka.
+- **Deployment:** Kubernetes (k8s), Docker Compose.
+- **Security:** TruffleHog, CodeQL, Semgrep, Trivy, Checkov, Gitleaks.
+
 ## Universal File Resolution Protocol
+
 
 **PROTOCOL: How to locate files.**
 To find a file (e.g., "**Product Definition**") within a specific context (Project Root or a specific Track):
@@ -41,4 +68,13 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 
 ## Project-Specific Instructions
 
-(Add any project-specific guidelines or instructions for the Gemini CLI here.)
+### Conductor Extension
+The `conductor` extension is used to manage project tracks and plans. If a user mentions a "plan" or asks about the "plan", refer to `conductor/tracks.md` or the specific track plan at `conductor/tracks/<track_id>/plan.md`.
+
+### Endor Labs Code Security Extension
+The `Endor-Labs-Code-Security` extension integrates with Endor Labs for code analysis and security scanning.
+- **Initialize:** Use "Initialize Endor Labs" to set up.
+- **Scanning:** Use "Scan my project for security vulnerabilities" or "Check dependencies for known CVEs".
+- **Reports:** Use "Generate a security report for this repository".
+- **MCP Server:** This extension uses the `endor-labs` MCP server.
+

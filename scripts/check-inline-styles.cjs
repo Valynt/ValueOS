@@ -2,7 +2,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const root = path.resolve(__dirname, "..", "src");
+const root = path.resolve(__dirname, "..", "apps", "ValyntApp", "src");
 const forbidden = /style\s*=\s*\{|style\s*=\s*"/g;
 const excludedFiles = [
   "ValueCanvas.tsx",

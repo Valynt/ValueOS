@@ -30,6 +30,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy only the files needed to resolve the workspace + lockfile for deterministic installs
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml turbo.json .npmrc* ./
 
+# Copy all workspace packages so pnpm can resolve file: dependencies
+COPY packages ./packages
+
 # Deterministic install with cached pnpm store
 RUN pnpm config set store-dir ${PNPM_STORE_PATH}
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \

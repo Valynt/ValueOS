@@ -11,25 +11,26 @@ description: Run comprehensive security scans on the codebase
 1. Run npm security audit:
 
 ```bash
-npm run security:scan
+npm audit
 ```
 
 2. Run Snyk vulnerability scan (if configured):
 
 ```bash
-npm run security:scan:snyk
+# If Snyk is configured, run snyk test
+snyk test || echo "Snyk not configured"
 ```
 
 3. Check RLS policies:
 
 ```bash
-npm run test:rls
+bash scripts/check-rls-enforcement.sh
 ```
 
 4. Test for data leakage:
 
 ```bash
-npm run test:rls:leakage
+tsx scripts/test-rls-leakage.ts
 ```
 
 ## Deep Security Scan

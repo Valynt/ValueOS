@@ -457,7 +457,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
         data: {
           jobId,
           status: "processing",
-          agentId: requestEvent?.payload?.agentId,
+          agentId: requestEvent?.payload?.agentId ?? 'unknown',
           queuedAt: requestEvent?.timestamp,
           estimatedDuration: "30s",
           message: "Agent request is being processed",
@@ -474,6 +474,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
       error: "Job status check failed",
       message: error instanceof Error ? error.message : "Unknown error",
     });
+    return;
   }
 });
 
@@ -555,7 +556,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
           const requestEvent = events.find((e: any) => e.eventType === "agent.request");
           sendEvent({
             status: "processing",
-            agentId: requestEvent?.payload?.agentId,
+            agentId: requestEvent?.payload?.agentId ?? 'unknown',
             queuedAt: requestEvent?.timestamp,
           });
         }
