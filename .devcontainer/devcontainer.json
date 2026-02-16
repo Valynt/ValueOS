@@ -6,7 +6,7 @@
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker": {
-      "version": "latest"
+      "version": "1.6.5"
     },
     "ghcr.io/devcontainers/features/github-cli": {}
   },
@@ -57,6 +57,6 @@
   },
   "remoteUser": "vscode",
   "onCreateCommand": "bash /opt/devcontainer/scripts/on-create.sh",
-  "postCreateCommand": "WORKSPACE_FOLDER=/workspaces/ValueOS bash /opt/devcontainer/scripts/post-create.sh",
+  "postCreateCommand": "WORKSPACE_FOLDER=${containerWorkspaceFolder} bash /opt/devcontainer/scripts/post-create.sh",
   "postStartCommand": "bash /opt/devcontainer/scripts/post-start.sh"
 }

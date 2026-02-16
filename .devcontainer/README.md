@@ -1,9 +1,24 @@
 # Devcontainer Toolchain Pinning
 
-Toolchain versions for the devcontainer are pinned in `pragmatic-reproducibility/ci/versions.json`.
+Toolchain versions for the devcontainer are pinned in `.devcontainer/versions.json`.
 
 Use this file as the single source of truth for updating pinned versions (for example: `node`, `pnpm`, `kubectl`, and `terraform`). Devcontainer scripts should read from this JSON file instead of hardcoded literals.
 
+## Single bootstrap entrypoint
+
+Devcontainer bring-up is intentionally routed through one script:
+
+- `postCreateCommand` → `.devcontainer/scripts/post-create.sh`
+- `post-create.sh` (thin wrapper) → `.devcontainer/scripts/bootstrap.sh`
+
+`bootstrap.sh` performs deterministic setup in one path:
+
+1. validates workspace and required environment
+2. checks DNS/network basics
+3. activates pinned pnpm via Corepack
+4. installs dependencies
+5. runs migrations in explicit mode (`DX_DB_MODE=local|cloud`)
+6. runs `.devcontainer/scripts/doctor.sh`
 
 ## Environment files
 

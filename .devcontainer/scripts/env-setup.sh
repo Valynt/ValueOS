@@ -56,7 +56,6 @@ load_environment() {
   [[ -f .env.local ]] && load_kv_file ".env.local"
 
   # Devcontainer overrides last
-validate_env
   [[ -f .devcontainer/.env ]] && load_kv_file ".devcontainer/.env"
 }
 
