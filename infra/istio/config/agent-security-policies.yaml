@@ -1,0 +1,109 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: valynt-agents
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-nothing-by-default
+  namespace: valynt-agents
+spec: {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: agent-to-agent-communication
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/valynt-agents/sa/valynt-agent"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/health", "/metrics", "/api/*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: backend-to-agents
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/backend"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/api/*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: prometheus-to-agents
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/prometheus"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/health", "/metrics"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: agent-jwt-validation
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  jwtRules:
+  - issuer: "valueos-issuer"
+    jwksUri: "https://valueos-issuer/.well-known/jwks.json"
+    forwardOriginalToken: true
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: valueos-istio-issuer
+  namespace: istio-system
+spec:
+  ca:
+    secretName: valueos-ca-key-pair
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: valueos-istio-ca
+  namespace: istio-system
+spec:
+  secretName: valueos-ca-key-pair
+  issuerRef:
+    name: valueos-istio-issuer
+    kind: Issuer
+  commonName: valueos-ca
+  dnsNames:
+  - valueos-ca.istio-system.svc.cluster.local

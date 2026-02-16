@@ -7,7 +7,8 @@ source "$SCRIPT_DIR/../lib/require-env.sh"
 
 MODE="${APP_ENV:-${1:-local}}"
 load_mode_env "$MODE"
-validate_mode_env "$MODE"
+# Note: validate_mode_env requires backend secrets, skip for frontend
+# validate_mode_env "$MODE"
 
 export FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 export BACKEND_PORT="${BACKEND_PORT:-8000}"

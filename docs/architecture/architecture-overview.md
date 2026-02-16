@@ -907,16 +907,20 @@ When implemented with canonical events, deterministic rating, an immutable ledge
 
 ValueOS has implemented key components of this blueprint:
 
-| Component                    | Status      | Reference                                                                                            |
-| ---------------------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
-| **Stripe integration**       | Implemented | [`src/services/billing/StripeService.ts`](../../src/services/billing/StripeService.ts)               |
-| **Usage metering**           | Implemented | [`src/services/billing/UsageMeteringService.ts`](../../src/services/billing/UsageMeteringService.ts) |
-| **Invoice preview**          | Implemented | [`src/services/billing/SubscriptionService.ts`](../../src/services/billing/SubscriptionService.ts)   |
-| **Grace period enforcement** | Implemented | [`src/services/metering/GracePeriodService.ts`](../../src/services/metering/GracePeriodService.ts)   |
-| **Webhook retry/DLQ**        | Implemented | [`src/services/billing/WebhookRetryService.ts`](../../src/services/billing/WebhookRetryService.ts)   |
-| **Billing audit log**        | Implemented | Database migration                                                                                   |
-| **Customer dashboards**      | Planned     | Phase 2 roadmap                                                                                      |
-| **Advanced rating engine**   | Planned     | Phase 3 roadmap                                                                                      |
+| Component                    | Status          | Reference                                                                                            |
+| ---------------------------- | --------------- | ---------------------------------------------------------------------------------------------------- |
+| **Stripe integration**       | Implemented     | [`src/services/billing/StripeService.ts`](../../src/services/billing/StripeService.ts)               |
+| **Usage metering**           | Implemented     | [`src/services/billing/UsageMeteringService.ts`](../../src/services/billing/UsageMeteringService.ts) |
+| **Invoice preview**          | Implemented     | [`src/services/billing/SubscriptionService.ts`](../../src/services/billing/SubscriptionService.ts)   |
+| **Grace period enforcement** | Implemented     | [`src/services/metering/GracePeriodService.ts`](../../src/services/metering/GracePeriodService.ts)   |
+| **Webhook retry/DLQ**        | Implemented     | [`src/services/billing/WebhookRetryService.ts`](../../src/services/billing/WebhookRetryService.ts)   |
+| **Billing audit log**        | Implemented     | Database migration                                                                                   |
+| **Billing V2 Foundation**    | **COMPLETED**   | **Phase 0: Tables, pricing versions, entitlement snapshots**                                         |
+| **Deterministic rating engine** | **COMPLETED** | **Phase 0: [`src/services/billing/RatingEngine.ts`](../../src/services/billing/RatingEngine.ts)**    |
+| **Immutable rated ledger**   | **COMPLETED**   | **Phase 0: `rated_ledger` table migration**                                                          |
+| **Idempotent usage ingestion**| **COMPLETED**   | **Phase 0: [`src/api/billing/usage-events.ts`](../../src/api/billing/usage-events.ts)**             |
+| **Customer dashboards**      | Planned         | Phase 2 roadmap                                                                                      |
+| **Advanced rating engine**   | Implemented     | Basic deterministic rating completed                                                                  |
 
 For implementation details, see [`docs/features/billing/IMPLEMENTATION.md`](../features/billing/IMPLEMENTATION.md).
 
