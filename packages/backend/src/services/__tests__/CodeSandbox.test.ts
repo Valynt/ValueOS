@@ -8,11 +8,11 @@ describe('CodeSandbox', () => {
     sandbox = new CodeSandbox();
   });
 
-  it('rejects dynamic execution in production paths', async () => {
+  it('executes safe code in worker sandbox', async () => {
     const result = await sandbox.execute('return 2 + 2;');
 
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('disabled');
+    expect(result.success).toBe(true);
+    expect(result.result).toBe(4);
   });
 
   it('continues to flag dangerous code patterns', () => {
