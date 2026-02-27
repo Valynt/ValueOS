@@ -1,19 +1,22 @@
 /**
  * Entitlements Service
- * Manages usage allowances and entitlement checking
+ *
+ * Usage allowance checking backed by EntitlementSnapshotService and
+ * PriceVersionService. No hardcoded plan quotas — all pricing data
+ * comes from the billing_price_versions table.
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
-import SubscriptionService from './SubscriptionService.js';
-import MetricsCollector from '../metering/MetricsCollector.js';
 import { createLogger } from '../../lib/logger.js';
-import { BillingMetric } from '../../config/billing.js';
+import type { MeterKey, EnforcementMode } from '@shared/types/billing-events';
+import EntitlementSnapshotService from './EntitlementSnapshotService.js';
+import type { EntitlementSnapshot, MeterEntitlement } from './EntitlementSnapshotService.js';
 
 const logger = createLogger({ component: 'EntitlementsService' });
 
-// Grace period configuration
-const GRACE_PERIOD_HOURS = 24; // 24 hours grace period
-const GRACE_PERIOD_MULTIPLIER = 1.1; // 10% overage allowed in grace period
+// Grace period: 24 hours, 10% overage buffer
+const GRACE_PERIOD_HOURS = 24;
+const GRACE_PERIOD_MULTIPLIER = 1.1;
 
 export interface EntitlementCheckResult {
   allowed: boolean;
@@ -21,81 +24,85 @@ export interface EntitlementCheckResult {
   remaining?: number;
   currentUsage?: number;
   quota?: number;
+  enforcement?: EnforcementMode;
   gracePeriodRemaining?: number;
   suggestedAction?: string;
 }
 
-export interface EntitlementSnapshot {
-  id: string;
-  tenant_id: string;
-  snapshot_date: string;
-  plan_tier: string;
-  quotas: Record<BillingMetric, number>;
-  overage_rates: Record<BillingMetric, number>;
-  effective_date: string;
-  expires_at?: string;
+export interface UsageMetricStatus {
+  current: number;
+  quota: number;
+  remaining: number;
+  percentage: number;
+  enforcement: EnforcementMode;
+  status: 'ok' | 'warning' | 'exceeded';
 }
 
 export class EntitlementsService {
   private supabase: SupabaseClient;
+  private snapshotService: EntitlementSnapshotService;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
+    this.snapshotService = new EntitlementSnapshotService(supabase);
   }
 
   /**
-   * Check if usage is allowed for a tenant
+   * Check if usage is allowed for a tenant and meter.
    */
   async checkUsageAllowed(
     tenantId: string,
-    metric: BillingMetric,
+    meterKey: MeterKey,
     units: number = 1,
-    options: {
-      checkGracePeriod?: boolean;
-      snapshotDate?: string;
-    } = {}
+    options: { checkGracePeriod?: boolean } = {}
   ): Promise<EntitlementCheckResult> {
+    const { checkGracePeriod = true } = options;
+
     try {
-      const { checkGracePeriod = true, snapshotDate } = options;
-
-      // Get current usage
-      const currentUsage = await MetricsCollector.getCurrentUsage(tenantId, metric);
-
-      // Get entitlement snapshot
-      const snapshot = await this.getEffectiveEntitlementSnapshot(tenantId, snapshotDate);
-      if (!snapshot) {
+      const entitlement = await this.snapshotService.getMeterEntitlement(tenantId, meterKey);
+      if (!entitlement) {
         return {
           allowed: false,
-          reason: 'No entitlement snapshot found',
-          suggestedAction: 'Contact support'
+          reason: 'No entitlement found for meter',
+          suggestedAction: 'Contact support',
         };
       }
 
-      const quota = snapshot.quotas[metric];
-      if (!quota) {
-        return {
-          allowed: false,
-          reason: `No quota defined for metric: ${metric}`,
-          suggestedAction: 'Contact support'
-        };
+      const currentUsage = await this.getCurrentUsage(tenantId, meterKey);
+      const quota = entitlement.included;
+      // Unlimited quota (represented as -1)
+      if (quota < 0) {
+        return { allowed: true, remaining: Infinity, currentUsage, quota, enforcement: entitlement.enforcement };
       }
 
       const remaining = Math.max(0, quota - currentUsage);
       const wouldExceed = (currentUsage + units) > quota;
 
-      // If within quota, allow
       if (!wouldExceed) {
         return {
           allowed: true,
           remaining: remaining - units,
           currentUsage,
-          quota
+          quota,
+          enforcement: entitlement.enforcement,
         };
       }
 
-      // Check grace period if enabled
-      if (checkGracePeriod) {
-        const graceCheck = await this.checkGracePeriod(tenantId, metric, currentUsage + units, quota);
+      // Overage billing — always allow, charge later
+      if (entitlement.enforcement === 'bill_overage') {
+        return {
+          allowed: true,
+          reason: 'Overage will be billed',
+          remaining: 0,
+          currentUsage,
+          quota,
+          enforcement: entitlement.enforcement,
+        };
+      }
+
+      // Grace-then-lock: check grace period
+      if (entitlement.enforcement === 'grace_then_lock' && checkGracePeriod) {
+        const graceCheck = await this.checkGracePeriod(tenantId, meterKey, currentUsage + units, quota);
         if (graceCheck.allowed) {
           return {
             allowed: true,
@@ -103,210 +110,49 @@ export class EntitlementsService {
             remaining: 0,
             currentUsage,
             quota,
+            enforcement: entitlement.enforcement,
             gracePeriodRemaining: graceCheck.gracePeriodRemaining,
-            suggestedAction: 'Upgrade plan soon'
+            suggestedAction: 'Upgrade plan before grace period expires',
           };
         }
       }
 
-      // Usage would exceed quota
+      // hard_lock or grace expired
       return {
         allowed: false,
-        reason: `Quota exceeded for ${metric}`,
+        reason: `Quota exceeded for ${meterKey}`,
         remaining: 0,
         currentUsage,
         quota,
-        suggestedAction: 'Upgrade plan or wait for reset'
+        enforcement: entitlement.enforcement,
+        suggestedAction: 'Upgrade plan or wait for reset',
       };
     } catch (error) {
-      logger.error('Error checking usage allowance', error as Error, { tenantId, metric });
-      // Fail open on error
+      logger.error('Error checking usage allowance', error as Error, { tenantId, meterKey });
+      // Fail open on error to avoid blocking production traffic
       return { allowed: true };
     }
   }
 
   /**
-   * Check grace period allowance
-   */
-  async checkGracePeriod(
-    tenantId: string,
-    metric: BillingMetric,
-    requestedUsage: number,
-    quota: number
-  ): Promise<{ allowed: boolean; gracePeriodRemaining?: number }> {
-    try {
-      // Check if tenant has been in grace period recently
-      const { data: recentOverages, error } = await this.supabase
-        .from('usage_events')
-        .select('timestamp')
-        .eq('tenant_id', tenantId)
-        .eq('metric', metric)
-        .gt('timestamp', new Date(Date.now() - GRACE_PERIOD_HOURS * 60 * 60 * 1000).toISOString())
-        .gt('quantity', quota); // Overage events
-
-      if (error) {
-        logger.warn('Error checking grace period', error);
-        return { allowed: false };
-      }
-
-      if (!recentOverages || recentOverages.length === 0) {
-        // First time exceeding quota - allow grace period
-        const graceLimit = quota * GRACE_PERIOD_MULTIPLIER;
-        if (requestedUsage <= graceLimit) {
-          return {
-            allowed: true,
-            gracePeriodRemaining: GRACE_PERIOD_HOURS
-          };
-        }
-      }
-
-      // Check if still within grace period window
-      const lastOverage = recentOverages[recentOverages.length - 1];
-      const hoursSinceLastOverage = (Date.now() - new Date(lastOverage.timestamp).getTime()) / (1000 * 60 * 60);
-
-      if (hoursSinceLastOverage < GRACE_PERIOD_HOURS) {
-        const graceLimit = quota * GRACE_PERIOD_MULTIPLIER;
-        if (requestedUsage <= graceLimit) {
-          return {
-            allowed: true,
-            gracePeriodRemaining: GRACE_PERIOD_HOURS - hoursSinceLastOverage
-          };
-        }
-      }
-
-      return { allowed: false };
-    } catch (error) {
-      logger.error('Error in grace period check', error as Error);
-      return { allowed: false };
-    }
-  }
-
-  /**
-   * Get effective entitlement snapshot for tenant
-   */
-  async getEffectiveEntitlementSnapshot(
-    tenantId: string,
-    snapshotDate?: string
-  ): Promise<EntitlementSnapshot | null> {
-    try {
-      const effectiveDate = snapshotDate || new Date().toISOString();
-
-      const { data, error } = await this.supabase
-        .from('entitlement_snapshots')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .lte('effective_date', effectiveDate)
-        .or(`expires_at.is.null,expires_at.gt.${effectiveDate}`)
-        .order('effective_date', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        logger.error('Error getting entitlement snapshot', error);
-        throw error;
-      }
-
-      return data || null;
-    } catch (error) {
-      logger.error('Error in getEffectiveEntitlementSnapshot', error as Error);
-      return null;
-    }
-  }
-
-  /**
-   * Create entitlement snapshot for tenant
-   */
-  async createEntitlementSnapshot(
-    tenantId: string,
-    planTier: string,
-    quotas: Record<BillingMetric, number>,
-    overageRates: Record<BillingMetric, number>,
-    effectiveDate?: string
-  ): Promise<EntitlementSnapshot> {
-    try {
-      const snapshotDate = effectiveDate || new Date().toISOString();
-
-      const { data, error } = await this.supabase
-        .from('entitlement_snapshots')
-        .insert({
-          tenant_id: tenantId,
-          snapshot_date: snapshotDate,
-          plan_tier: planTier,
-          quotas,
-          overage_rates: overageRates,
-          effective_date: snapshotDate
-        })
-        .select()
-        .single();
-
-      if (error) {
-        logger.error('Error creating entitlement snapshot', error);
-        throw error;
-      }
-
-      logger.info('Created entitlement snapshot', { tenantId, snapshotId: data.id });
-      return data;
-    } catch (error) {
-      logger.error('Error in createEntitlementSnapshot', error as Error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update entitlement snapshot (for plan changes)
-   */
-  async updateEntitlementSnapshot(
-    snapshotId: string,
-    updates: Partial<EntitlementSnapshot>
-  ): Promise<EntitlementSnapshot> {
-    try {
-      const { data, error } = await this.supabase
-        .from('entitlement_snapshots')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', snapshotId)
-        .select()
-        .single();
-
-      if (error) {
-        logger.error('Error updating entitlement snapshot', error);
-        throw error;
-      }
-
-      return data;
-    } catch (error) {
-      logger.error('Error in updateEntitlementSnapshot', error as Error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get usage summary with entitlements
+   * Get usage summary with entitlements for all meters.
    */
   async getUsageWithEntitlements(tenantId: string): Promise<{
-    usage: Record<BillingMetric, {
-      current: number;
-      quota: number;
-      remaining: number;
-      percentage: number;
-      status: 'ok' | 'warning' | 'exceeded';
-    }>;
+    usage: Record<string, UsageMetricStatus>;
     snapshot: EntitlementSnapshot | null;
   }> {
     try {
-      const snapshot = await this.getEffectiveEntitlementSnapshot(tenantId);
-
+      const snapshot = await this.snapshotService.getCurrentSnapshot(tenantId);
       if (!snapshot) {
         return { usage: {}, snapshot: null };
       }
 
-      const usage: Record<string, any> = {};
+      const usage: Record<string, UsageMetricStatus> = {};
 
-      for (const [metric, quota] of Object.entries(snapshot.quotas)) {
-        const current = await MetricsCollector.getCurrentUsage(tenantId, metric as BillingMetric);
-        const remaining = Math.max(0, quota - current);
+      for (const [meterKey, entitlement] of Object.entries(snapshot.entitlements)) {
+        const current = await this.getCurrentUsage(tenantId, meterKey as MeterKey);
+        const quota = (entitlement as MeterEntitlement).included;
+        const remaining = quota < 0 ? Infinity : Math.max(0, quota - current);
         const percentage = quota > 0 ? (current / quota) * 100 : 0;
 
         let status: 'ok' | 'warning' | 'exceeded' = 'ok';
@@ -316,12 +162,13 @@ export class EntitlementsService {
           status = 'warning';
         }
 
-        usage[metric] = {
+        usage[meterKey] = {
           current,
           quota,
           remaining,
           percentage: Math.round(percentage * 100) / 100,
-          status
+          enforcement: (entitlement as MeterEntitlement).enforcement,
+          status,
         };
       }
 
@@ -333,103 +180,77 @@ export class EntitlementsService {
   }
 
   /**
-   * Refresh entitlement snapshot from subscription
+   * Check grace period allowance.
    */
-  async refreshEntitlementSnapshot(tenantId: string): Promise<EntitlementSnapshot | null> {
+  async checkGracePeriod(
+    tenantId: string,
+    meterKey: MeterKey,
+    requestedUsage: number,
+    quota: number
+  ): Promise<{ allowed: boolean; gracePeriodRemaining?: number }> {
     try {
-      const subscription = await SubscriptionService.getActiveSubscription(tenantId);
+      const graceWindowStart = new Date(Date.now() - GRACE_PERIOD_HOURS * 60 * 60 * 1000).toISOString();
 
-      if (!subscription) {
-        logger.warn('No active subscription for tenant', { tenantId });
-        return null;
+      const { data: recentOverages, error } = await this.supabase
+        .from('usage_events')
+        .select('timestamp')
+        .eq('tenant_id', tenantId)
+        .eq('metric', meterKey)
+        .gt('timestamp', graceWindowStart)
+        .gt('quantity', quota);
+
+      if (error) {
+        logger.warn('Error checking grace period', error);
+        return { allowed: false };
       }
 
-      // Get plan quotas (this would come from a configuration)
-      const quotas = await this.getPlanQuotas(subscription.plan_tier);
-      const overageRates = await this.getPlanOverageRates(subscription.plan_tier);
+      const graceLimit = quota * GRACE_PERIOD_MULTIPLIER;
 
-      // Create or update snapshot
-      const existingSnapshot = await this.getEffectiveEntitlementSnapshot(tenantId);
-
-      if (existingSnapshot) {
-        return await this.updateEntitlementSnapshot(existingSnapshot.id, {
-          quotas,
-          overage_rates: overageRates,
-          plan_tier: subscription.plan_tier
-        });
-      } else {
-        return await this.createEntitlementSnapshot(
-          tenantId,
-          subscription.plan_tier,
-          quotas,
-          overageRates
-        );
+      if (!recentOverages || recentOverages.length === 0) {
+        // First overage — start grace period
+        if (requestedUsage <= graceLimit) {
+          return { allowed: true, gracePeriodRemaining: GRACE_PERIOD_HOURS };
+        }
+        return { allowed: false };
       }
+
+      // Check if still within grace window
+      const lastOverage = recentOverages[recentOverages.length - 1];
+      const hoursSince = (Date.now() - new Date(lastOverage.timestamp).getTime()) / (1000 * 60 * 60);
+
+      if (hoursSince < GRACE_PERIOD_HOURS && requestedUsage <= graceLimit) {
+        return { allowed: true, gracePeriodRemaining: GRACE_PERIOD_HOURS - hoursSince };
+      }
+
+      return { allowed: false };
     } catch (error) {
-      logger.error('Error refreshing entitlement snapshot', error as Error, { tenantId });
-      return null;
+      logger.error('Error in grace period check', error as Error);
+      return { allowed: false };
     }
   }
 
-  /**
-   * Get plan quotas (placeholder - would be from config)
-   */
-  private async getPlanQuotas(planTier: string): Promise<Record<BillingMetric, number>> {
-    // This would come from a configuration service
-    const planQuotas: Record<string, Record<BillingMetric, number>> = {
-      free: {
-        ai_tokens: 100,
-        api_calls: 1000,
-        agent_executions: 10
-      },
-      starter: {
-        ai_tokens: 10000,
-        api_calls: 50000,
-        agent_executions: 100
-      },
-      professional: {
-        ai_tokens: 100000,
-        api_calls: 500000,
-        agent_executions: 1000
-      },
-      enterprise: {
-        ai_tokens: 1000000,
-        api_calls: 5000000,
-        agent_executions: 10000
-      }
-    };
-
-    return planQuotas[planTier] || planQuotas.free;
-  }
+  // --------------------------------------------------------------------------
+  // Private helpers
+  // --------------------------------------------------------------------------
 
   /**
-   * Get plan overage rates (placeholder - would be from config)
+   * Get current usage for a tenant + meter from usage_quotas.
    */
-  private async getPlanOverageRates(planTier: string): Promise<Record<BillingMetric, number>> {
-    // This would come from a configuration service
-    const overageRates: Record<string, Record<BillingMetric, number>> = {
-      free: {
-        ai_tokens: 0.01,
-        api_calls: 0.001,
-        agent_executions: 0.1
-      },
-      starter: {
-        ai_tokens: 0.009,
-        api_calls: 0.0009,
-        agent_executions: 0.09
-      },
-      professional: {
-        ai_tokens: 0.008,
-        api_calls: 0.0008,
-        agent_executions: 0.08
-      },
-      enterprise: {
-        ai_tokens: 0.007,
-        api_calls: 0.0007,
-        agent_executions: 0.07
-      }
-    };
+  private async getCurrentUsage(tenantId: string, meterKey: MeterKey): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('usage_quotas')
+      .select('current_usage')
+      .eq('tenant_id', tenantId)
+      .eq('metric', meterKey)
+      .order('period_start', { ascending: false })
+      .limit(1)
+      .single();
 
-    return overageRates[planTier] || overageRates.free;
+    if (error && error.code !== 'PGRST116') {
+      logger.warn('Error fetching current usage', error);
+      return 0;
+    }
+
+    return data?.current_usage ?? 0;
   }
 }
