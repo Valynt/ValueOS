@@ -1,15 +1,12 @@
-"use strict";
 /**
  * SOF Opportunity Page Template
  *
  * Extended Opportunity template with System Mapping panel.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSOFOpportunityPage = generateSOFOpportunityPage;
 /**
  * Generate SOF-enhanced Opportunity page
  */
-function generateSOFOpportunityPage(data) {
+export function generateSOFOpportunityPage(data) {
     const sections = [
         // Header
         {
@@ -241,5 +238,5 @@ function generateSOFOpportunityPage(data) {
         },
     };
 }
-exports.default = generateSOFOpportunityPage;
+export default generateSOFOpportunityPage;
 //# sourceMappingURL=sof-opportunity-template.js.map

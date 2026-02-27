@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Dynamic Data Binding Schema for SDUI
  *
@@ -9,21 +8,13 @@
  * Instead of: { value: "$1.2M" }
  * Use: { value: { $bind: "metrics.revenue_uplift", $source: "realization_engine" } }
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EXAMPLE_BINDINGS = exports.DataBindingSchema = void 0;
-exports.isDataBinding = isDataBinding;
-exports.validateDataBinding = validateDataBinding;
-exports.createBinding = createBinding;
-exports.createMetricBinding = createMetricBinding;
-exports.createCurrencyBinding = createCurrencyBinding;
-exports.createPercentageBinding = createPercentageBinding;
-const zod_1 = require("zod");
+import { z } from 'zod';
 /**
  * Zod schema for data binding validation
  */
-exports.DataBindingSchema = zod_1.z.object({
-    $bind: zod_1.z.string().min(1, 'Binding path cannot be empty'),
-    $source: zod_1.z.enum([
+export const DataBindingSchema = z.object({
+    $bind: z.string().min(1, 'Binding path cannot be empty'),
+    $source: z.enum([
         'realization_engine',
         'system_mapper',
         'intervention_designer',
@@ -35,9 +26,9 @@ exports.DataBindingSchema = zod_1.z.object({
         'mcp_tool',
         'realtime_stream',
     ]),
-    $fallback: zod_1.z.any().optional(),
-    $refresh: zod_1.z.number().positive().optional(),
-    $transform: zod_1.z.enum([
+    $fallback: z.any().optional(),
+    $refresh: z.number().positive().optional(),
+    $transform: z.enum([
         'currency',
         'percentage',
         'number',
@@ -53,14 +44,14 @@ exports.DataBindingSchema = zod_1.z.object({
         'max',
         'min',
     ]).optional(),
-    $params: zod_1.z.record(zod_1.z.any()).optional(),
-    $cache: zod_1.z.string().optional(),
-    $cacheTTL: zod_1.z.number().positive().optional(),
+    $params: z.record(z.any()).optional(),
+    $cache: z.string().optional(),
+    $cacheTTL: z.number().positive().optional(),
 });
 /**
  * Type guard to check if a value is a data binding
  */
-function isDataBinding(value) {
+export function isDataBinding(value) {
     return (typeof value === 'object' &&
         value !== null &&
         '$bind' in value &&
@@ -69,13 +60,13 @@ function isDataBinding(value) {
 /**
  * Validate data binding
  */
-function validateDataBinding(value) {
+export function validateDataBinding(value) {
     try {
-        exports.DataBindingSchema.parse(value);
+        DataBindingSchema.parse(value);
         return { valid: true, errors: [] };
     }
     catch (error) {
-        if (error instanceof zod_1.z.ZodError) {
+        if (error instanceof z.ZodError) {
             return {
                 valid: false,
                 errors: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
@@ -87,7 +78,7 @@ function validateDataBinding(value) {
 /**
  * Example bindings for common use cases
  */
-exports.EXAMPLE_BINDINGS = {
+export const EXAMPLE_BINDINGS = {
     // Realization metrics
     revenueUplift: {
         $bind: 'metrics.revenue_uplift',
@@ -164,7 +155,7 @@ exports.EXAMPLE_BINDINGS = {
 /**
  * Helper to create a data binding
  */
-function createBinding(path, source, options) {
+export function createBinding(path, source, options) {
     return {
         $bind: path,
         $source: source,
@@ -174,7 +165,7 @@ function createBinding(path, source, options) {
 /**
  * Helper to create a metric binding
  */
-function createMetricBinding(metricPath, options) {
+export function createMetricBinding(metricPath, options) {
     return createBinding(metricPath, 'realization_engine', {
         $transform: 'number',
         $refresh: 30000,
@@ -184,7 +175,7 @@ function createMetricBinding(metricPath, options) {
 /**
  * Helper to create a currency binding
  */
-function createCurrencyBinding(path, source, options) {
+export function createCurrencyBinding(path, source, options) {
     return createBinding(path, source, {
         $transform: 'currency',
         ...options,
@@ -193,11 +184,11 @@ function createCurrencyBinding(path, source, options) {
 /**
  * Helper to create a percentage binding
  */
-function createPercentageBinding(path, source, options) {
+export function createPercentageBinding(path, source, options) {
     return createBinding(path, source, {
         $transform: 'percentage',
         ...options,
     });
 }
-exports.default = exports.DataBindingSchema;
+export default DataBindingSchema;
 //# sourceMappingURL=DataBindingSchema.js.map

@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Predictive Modeling Service - Financial Forecasting and Trend Analysis
  *
@@ -12,12 +11,10 @@
  * Uses statistical methods and machine learning approaches for
  * reliable financial predictions and risk assessment.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PredictiveModelingService = void 0;
-const Cache_1 = require("../core/Cache");
-const logger_1 = require("../../lib/logger");
-class PredictiveModelingService {
-    cache = (0, Cache_1.getCache)();
+import { getCache } from "../core/Cache";
+import { logger } from "../../lib/logger";
+export class PredictiveModelingService {
+    cache = getCache();
     /**
      * Generate financial forecast using time series analysis
      */
@@ -25,11 +22,11 @@ class PredictiveModelingService {
         const cacheKey = `forecast:${this.generateDataHash(request.historicalData)}:${request.forecastPeriods}`;
         const cachedResult = await this.cache.get(cacheKey);
         if (cachedResult) {
-            logger_1.logger.debug("Using cached forecast result");
+            logger.debug("Using cached forecast result");
             return cachedResult;
         }
         try {
-            logger_1.logger.info("Generating financial forecast", {
+            logger.info("Generating financial forecast", {
                 dataPoints: request.historicalData.values.length,
                 forecastPeriods: request.forecastPeriods,
                 modelType: request.modelType,
@@ -53,7 +50,7 @@ class PredictiveModelingService {
             }
             // Cache the result (Tier 2 - 6 hour TTL for forecasts)
             await this.cache.set(cacheKey, forecast, "tier2");
-            logger_1.logger.info("Forecast generated successfully", {
+            logger.info("Forecast generated successfully", {
                 modelType: forecast.model_info.type,
                 accuracyScore: forecast.model_info.accuracy_score,
                 cagr: forecast.growth_analysis.cagr,
@@ -61,7 +58,7 @@ class PredictiveModelingService {
             return forecast;
         }
         catch (error) {
-            logger_1.logger.error("Forecast generation failed", error instanceof Error ? error : undefined);
+            logger.error("Forecast generation failed", error instanceof Error ? error : undefined);
             throw error;
         }
     }
@@ -72,11 +69,11 @@ class PredictiveModelingService {
         const cacheKey = `anomalies:${this.generateDataHash(request.data)}:${request.sensitivity || "medium"}`;
         const cachedResult = await this.cache.get(cacheKey);
         if (cachedResult) {
-            logger_1.logger.debug("Using cached anomaly detection result");
+            logger.debug("Using cached anomaly detection result");
             return cachedResult;
         }
         try {
-            logger_1.logger.info("Detecting anomalies in time series", {
+            logger.info("Detecting anomalies in time series", {
                 dataPoints: request.data.values.length,
                 sensitivity: request.sensitivity,
                 context: request.context,
@@ -89,14 +86,14 @@ class PredictiveModelingService {
             };
             // Cache the result (Tier 2 - 6 hour TTL)
             await this.cache.set(cacheKey, result, "tier2");
-            logger_1.logger.info("Anomaly detection completed", {
+            logger.info("Anomaly detection completed", {
                 anomalyCount: anomalies.length,
                 riskLevel: assessment.risk_level,
             });
             return result;
         }
         catch (error) {
-            logger_1.logger.error("Anomaly detection failed", error instanceof Error ? error : undefined);
+            logger.error("Anomaly detection failed", error instanceof Error ? error : undefined);
             throw error;
         }
     }
@@ -107,11 +104,11 @@ class PredictiveModelingService {
         const cacheKey = `trends:${this.generateDataHash(request.data)}:${request.analysisType}`;
         const cachedResult = await this.cache.get(cacheKey);
         if (cachedResult) {
-            logger_1.logger.debug("Using cached trend analysis result");
+            logger.debug("Using cached trend analysis result");
             return cachedResult;
         }
         try {
-            logger_1.logger.info("Analyzing trends in financial data", {
+            logger.info("Analyzing trends in financial data", {
                 dataPoints: request.data.values.length,
                 analysisType: request.analysisType,
                 hasComparisonData: !!request.comparisonData?.length,
@@ -130,14 +127,14 @@ class PredictiveModelingService {
             };
             // Cache the result (Tier 2 - 6 hour TTL)
             await this.cache.set(cacheKey, result, "tier2");
-            logger_1.logger.info("Trend analysis completed", {
+            logger.info("Trend analysis completed", {
                 trendDirection: trendSummary.direction,
                 trendStrength: trendSummary.strength,
             });
             return result;
         }
         catch (error) {
-            logger_1.logger.error("Trend analysis failed", error instanceof Error ? error : undefined);
+            logger.error("Trend analysis failed", error instanceof Error ? error : undefined);
             throw error;
         }
     }
@@ -655,5 +652,4 @@ class PredictiveModelingService {
         return this.cache.clear();
     }
 }
-exports.PredictiveModelingService = PredictiveModelingService;
 //# sourceMappingURL=PredictiveModelingService.js.map

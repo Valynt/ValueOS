@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Chat Realization Stage SDUI Template
  *
@@ -7,9 +6,7 @@
  *
  * Phase 3: Stage-specific SDUI generation
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateRealizationPage = generateRealizationPage;
-const uuid_1 = require("uuid");
+import { v4 as uuidv4 } from "uuid";
 /**
  * Generate Realization stage SDUI page
  *
@@ -19,7 +16,7 @@ const uuid_1 = require("uuid");
  * - MilestoneTimeline: Progress tracking
  * - RiskIndicators: At-risk value streams
  */
-function generateRealizationPage(context) {
+export function generateRealizationPage(context) {
     const { content, confidence, reasoning, workflowState, sessionId, traceId } = context;
     const sections = [
         {
@@ -28,7 +25,7 @@ function generateRealizationPage(context) {
             version: 1,
             props: {
                 response: {
-                    id: (0, uuid_1.v4)(),
+                    id: uuidv4(),
                     agentId: "realization",
                     agentName: "Realization Agent",
                     timestamp: new Date().toISOString(),

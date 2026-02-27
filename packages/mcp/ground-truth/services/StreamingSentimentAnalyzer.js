@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Real-Time Sentiment Analysis for Live Financial Events
  *
@@ -10,19 +9,17 @@
  *
  * Optimized for low-latency streaming analysis with incremental processing.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.StreamingSentimentAnalyzer = void 0;
-const SentimentAnalysisService_1 = require("./SentimentAnalysisService");
-const EventBus_1 = require("./EventBus");
-const logger_1 = require("../../lib/logger");
-const Cache_1 = require("../core/Cache");
-class StreamingSentimentAnalyzer {
+import { SentimentAnalysisService, } from "./SentimentAnalysisService";
+import { getEventBus } from "./EventBus";
+import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
+export class StreamingSentimentAnalyzer {
     sentimentService;
-    eventBus = (0, EventBus_1.getEventBus)();
+    eventBus = getEventBus();
     activeSessions = new Map();
-    cache = (0, Cache_1.getCache)();
+    cache = getCache();
     constructor() {
-        this.sentimentService = new SentimentAnalysisService_1.SentimentAnalysisService();
+        this.sentimentService = new SentimentAnalysisService();
         this.setupEventHandlers();
     }
     /**
@@ -58,7 +55,7 @@ class StreamingSentimentAnalyzer {
                 correlationId: sessionId,
             },
         });
-        logger_1.logger.info("Started live sentiment analysis session", {
+        logger.info("Started live sentiment analysis session", {
             sessionId,
             eventType,
             companyName,
@@ -95,7 +92,7 @@ class StreamingSentimentAnalyzer {
         // Cache session results
         await this.cache.set(`sentiment_session:${sessionId}`, session, "tier2");
         this.activeSessions.delete(sessionId);
-        logger_1.logger.info("Ended live sentiment analysis session", {
+        logger.info("Ended live sentiment analysis session", {
             sessionId,
             duration: Date.now() - session.startTime,
             transcriptsProcessed: session.transcriptBuffer.length,
@@ -108,7 +105,7 @@ class StreamingSentimentAnalyzer {
     async processTranscript(transcript) {
         const session = this.activeSessions.get(transcript.sessionId);
         if (!session || !session.active) {
-            logger_1.logger.warn("Transcript received for inactive session", {
+            logger.warn("Transcript received for inactive session", {
                 sessionId: transcript.sessionId,
                 speaker: transcript.speaker,
             });
@@ -119,7 +116,7 @@ class StreamingSentimentAnalyzer {
         session.lastUpdate = Date.now();
         // Perform incremental analysis
         await this.performIncrementalAnalysis(session);
-        logger_1.logger.debug("Processed streaming transcript", {
+        logger.debug("Processed streaming transcript", {
             sessionId: transcript.sessionId,
             speaker: transcript.speaker,
             textLength: transcript.text.length,
@@ -183,7 +180,7 @@ class StreamingSentimentAnalyzer {
             if (session.sentimentHistory.length > 100) {
                 session.sentimentHistory = session.sentimentHistory.slice(-50);
             }
-            logger_1.logger.debug("Sentiment analysis updated", {
+            logger.debug("Sentiment analysis updated", {
                 sessionId: session.sessionId,
                 sentimentScore: sentimentResult.sentiment_score,
                 trend: sentimentTrend,
@@ -191,7 +188,7 @@ class StreamingSentimentAnalyzer {
             });
         }
         catch (error) {
-            logger_1.logger.error("Incremental sentiment analysis failed", error instanceof Error ? error : undefined, {
+            logger.error("Incremental sentiment analysis failed", error instanceof Error ? error : undefined, {
                 sessionId: session.sessionId,
             });
         }
@@ -232,14 +229,14 @@ class StreamingSentimentAnalyzer {
                     priority: "high",
                 },
             });
-            logger_1.logger.info("Final sentiment analysis completed", {
+            logger.info("Final sentiment analysis completed", {
                 sessionId: session.sessionId,
                 finalSentiment: finalSentiment.sentiment_score,
                 confidence: finalSentiment.confidence,
             });
         }
         catch (error) {
-            logger_1.logger.error("Final sentiment analysis failed", error instanceof Error ? error : undefined, {
+            logger.error("Final sentiment analysis failed", error instanceof Error ? error : undefined, {
                 sessionId: session.sessionId,
             });
         }
@@ -375,5 +372,4 @@ class StreamingSentimentAnalyzer {
         };
     }
 }
-exports.StreamingSentimentAnalyzer = StreamingSentimentAnalyzer;
 //# sourceMappingURL=StreamingSentimentAnalyzer.js.map

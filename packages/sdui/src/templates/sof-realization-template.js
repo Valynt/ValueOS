@@ -1,15 +1,12 @@
-"use strict";
 /**
  * SOF Realization Page Template
  *
  * Extended Realization template with Feedback Loop Viewer and System Stability.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSOFRealizationPage = generateSOFRealizationPage;
 /**
  * Generate SOF-enhanced Realization page
  */
-function generateSOFRealizationPage(data) {
+export function generateSOFRealizationPage(data) {
     const activeLoops = data.feedbackLoops?.filter((loop) => loop.realization_stage === "active") || [];
     const closedLoops = data.feedbackLoops?.filter((loop) => loop.closure_status === "closed") || [];
     const sections = [
@@ -345,5 +342,5 @@ function generateSOFRealizationPage(data) {
         },
     };
 }
-exports.default = generateSOFRealizationPage;
+export default generateSOFRealizationPage;
 //# sourceMappingURL=sof-realization-template.js.map

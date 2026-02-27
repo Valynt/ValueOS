@@ -3,25 +3,12 @@
  * Manages invoice storage and retrieval
  */
 
-import { createClient } from "@supabase/supabase-js";
 import StripeService from "./StripeService.js"
 import { Invoice } from "../../types/billing";
 import { createLogger } from "../../lib/logger.js"
+import { supabase } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: "InvoiceService" });
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: any = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn(
-    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
-  );
-}
 
 class InvoiceService {
   private stripe: any;

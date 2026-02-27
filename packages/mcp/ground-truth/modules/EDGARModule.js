@@ -1,4 +1,3 @@
-"use strict";
 /**
  * SEC EDGAR Module - Tier 1 Authoritative Data Source
  *
@@ -8,19 +7,17 @@
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Compliance: SOX, RegTech, Zero-Trust Architecture
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EDGARModule = void 0;
-const BaseModule_1 = require("../core/BaseModule");
-const Cache_1 = require("../core/Cache");
-const types_1 = require("../types");
-const logger_1 = require("../../lib/logger");
+import { BaseModule } from "../core/BaseModule";
+import { getCache } from "../core/Cache";
+import { ErrorCodes, GroundTruthError, } from "../types";
+import { logger } from "../../lib/logger";
 /**
  * EDGAR Module - Tier 1 Canonical Source
  *
  * Implements MCP tool: get_authoritative_financials
  * Node Mapping: [NODE: Tier_1_Canonical], [NODE: EDGAR_API]
  */
-class EDGARModule extends BaseModule_1.BaseModule {
+export class EDGARModule extends BaseModule {
     name = "sec-edgar";
     tier = "tier1";
     description = "SEC EDGAR filing retrieval and extraction - Tier 1 authoritative source";
@@ -36,9 +33,9 @@ class EDGARModule extends BaseModule_1.BaseModule {
         this.baseUrl = edgarConfig.baseUrl || this.baseUrl;
         this.rateLimit = edgarConfig.rateLimit || this.rateLimit;
         if (!this.userAgent.includes("@")) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "SEC requires User-Agent with valid email address");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "SEC requires User-Agent with valid email address");
         }
-        logger_1.logger.info("EDGAR Module initialized", {
+        logger.info("EDGAR Module initialized", {
             baseUrl: this.baseUrl,
             rateLimit: this.rateLimit,
         });
@@ -68,7 +65,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
             const isCIK = /^\d{10}$/.test(identifier);
             const cik = isCIK ? identifier : await this.tickerToCIK(identifier);
             if (!cik) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `Unable to resolve identifier: ${identifier}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `Unable to resolve identifier: ${identifier}`);
             }
             // R1.1: Section extraction
             if (metric === "get_filing_sections") {
@@ -78,7 +75,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
                     filing_type: options?.filing_type || "10-K",
                 });
                 if (filings.length === 0) {
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No filings found for CIK ${cik}`);
+                    throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No filings found for CIK ${cik}`);
                 }
                 const filing = filings[0];
                 const results = [];
@@ -94,7 +91,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
                         }, { section: sectionName, company_name: filing.company_name }));
                     }
                     catch (err) {
-                        logger_1.logger.warn(`Failed to extract section ${sectionName}`, { cik, error: err.message });
+                        logger.warn(`Failed to extract section ${sectionName}`, { cik, error: err.message });
                     }
                 }
                 return results;
@@ -107,7 +104,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
                 date_to: options?.date_to,
             });
             if (filings.length === 0) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No filings found for CIK ${cik}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No filings found for CIK ${cik}`);
             }
             // Get the most recent filing
             const filing = filings[0];
@@ -151,17 +148,17 @@ class EDGARModule extends BaseModule_1.BaseModule {
         await this.enforceRateLimit();
         const { cik, filing_type = "10-K", date_from, date_to } = params;
         if (!cik) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "CIK parameter is required for filing search");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "CIK parameter is required for filing search");
         }
         // Pad CIK to 10 digits
         const paddedCIK = cik.padStart(10, "0");
         // Create cache key
         const cacheKey = `edgar:filings:${paddedCIK}:${filing_type}`;
-        const cache = (0, Cache_1.getCache)();
+        const cache = getCache();
         // Check cache first
         const cachedFilings = await cache.get(cacheKey);
         if (cachedFilings) {
-            logger_1.logger.debug("Using cached EDGAR filings", {
+            logger.debug("Using cached EDGAR filings", {
                 cik: paddedCIK,
                 filing_type,
             });
@@ -178,9 +175,9 @@ class EDGARModule extends BaseModule_1.BaseModule {
             });
             if (!response.ok) {
                 if (response.status === 404) {
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `CIK ${cik} not found in SEC database`);
+                    throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `CIK ${cik} not found in SEC database`);
                 }
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `SEC API returned ${response.status}: ${response.statusText}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `SEC API returned ${response.status}: ${response.statusText}`);
             }
             const data = await response.json();
             const filings = [];
@@ -225,7 +222,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
             filings.sort((a, b) => b.filing_date.localeCompare(a.filing_date));
             // Cache the results (Tier 1 data - long TTL)
             await cache.set(cacheKey, filings, "tier1");
-            logger_1.logger.info("EDGAR filings retrieved", {
+            logger.info("EDGAR filings retrieved", {
                 cik: paddedCIK,
                 filing_type,
                 count: filings.length,
@@ -233,10 +230,10 @@ class EDGARModule extends BaseModule_1.BaseModule {
             return filings;
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch EDGAR data: ${error instanceof Error ? error.message : "Unknown error"}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch EDGAR data: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
     }
     /**
@@ -253,21 +250,21 @@ class EDGARModule extends BaseModule_1.BaseModule {
                 },
             });
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch filing: ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch filing: ${response.status}`);
             }
             const filingText = await response.text();
             // Extract metric using pattern matching
             const extraction = this.extractMetricFromText(filingText, metric);
             if (!extraction) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `Metric ${metric} not found in filing ${filing.accession_number}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `Metric ${metric} not found in filing ${filing.accession_number}`);
             }
             return extraction;
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to extract metric: ${error instanceof Error ? error.message : "Unknown error"}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to extract metric: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
     }
     /**
@@ -342,7 +339,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
                 },
             });
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch ticker mapping: ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch ticker mapping: ${response.status}`);
             }
             const data = await response.json();
             // Find matching ticker
@@ -357,7 +354,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
             return null;
         }
         catch (error) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to convert ticker ${ticker} to CIK: ${error instanceof Error ? error.message : "Unknown error"}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to convert ticker ${ticker} to CIK: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
     }
     /**
@@ -379,7 +376,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
     async extractSection(accessionNumber, section, fileUrl) {
         await this.enforceRateLimit();
         if (!fileUrl) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "File URL required for section extraction");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "File URL required for section extraction");
         }
         try {
             const response = await fetch(fileUrl, {
@@ -388,7 +385,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
                 },
             });
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch filing: ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch filing: ${response.status}`);
             }
             const text = await response.text();
             const sectionPatterns = {
@@ -407,11 +404,11 @@ class EDGARModule extends BaseModule_1.BaseModule {
             };
             const pattern = sectionPatterns[section.toLowerCase()];
             if (!pattern) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Unsupported section: ${section}`);
+                throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unsupported section: ${section}`);
             }
             const startIndex = text.search(pattern.start);
             if (startIndex === -1) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `Could not find start of section: ${section}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `Could not find start of section: ${section}`);
             }
             const remainingText = text.substring(startIndex);
             const endIndex = remainingText.search(pattern.end);
@@ -429,9 +426,9 @@ class EDGARModule extends BaseModule_1.BaseModule {
             };
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError)
+            if (error instanceof GroundTruthError)
                 throw error;
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Section extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Section extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
     }
     /**
@@ -440,8 +437,7 @@ class EDGARModule extends BaseModule_1.BaseModule {
     async extractKeywords(accessionNumber, keywords) {
         // Implementation would search filing for keyword occurrences
         // This is a placeholder for the full implementation
-        throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "Keyword extraction not yet implemented");
+        throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "Keyword extraction not yet implemented");
     }
 }
-exports.EDGARModule = EDGARModule;
 //# sourceMappingURL=EDGARModule.js.map

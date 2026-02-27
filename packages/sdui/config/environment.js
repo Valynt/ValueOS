@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isTest = exports.isProduction = exports.isDevelopment = void 0;
 const env = typeof process !== "undefined" ? process.env.NODE_ENV : "development";
-exports.isDevelopment = env === "development";
-exports.isProduction = env === "production";
-exports.isTest = env === "test";
+export const isDevelopment = env === "development";
+export const isProduction = env === "production";
+export const isTest = env === "test";
 //# sourceMappingURL=environment.js.map

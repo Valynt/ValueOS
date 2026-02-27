@@ -1,4 +1,3 @@
-"use strict";
 /**
  * CRM Context Injection Bridge
  *
@@ -7,12 +6,9 @@
  *
  * Flow: CRM Deal → crm_get_deal_context → ContextInjectionBridge → TemplateDataSource
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ContextInjectionBridge = void 0;
-exports.getContextInjectionBridge = getContextInjectionBridge;
-const logger_1 = require("../../lib/logger");
-const MCPCRMServer_1 = require("./MCPCRMServer");
-class ContextInjectionBridge {
+import { logger } from "../../lib/logger";
+import { getMCPCRMServer } from "./MCPCRMServer";
+export class ContextInjectionBridge {
     tenantId;
     userId;
     crmServer = null;
@@ -40,12 +36,12 @@ class ContextInjectionBridge {
      * Initialize the bridge with CRM connection
      */
     async initialize() {
-        this.crmServer = await (0, MCPCRMServer_1.getMCPCRMServer)(this.tenantId, this.userId);
+        this.crmServer = await getMCPCRMServer(this.tenantId, this.userId);
         // Start auto cleanup if enabled
         if (this.enableAutoCleanup) {
             this.startAutoCleanup();
         }
-        logger_1.logger.info("ContextInjectionBridge initialized", {
+        logger.info("ContextInjectionBridge initialized", {
             tenantId: this.tenantId,
             cacheTTLMs: this.cacheTTLMs,
             enableAutoCleanup: this.enableAutoCleanup,
@@ -60,7 +56,7 @@ class ContextInjectionBridge {
         if (cached && cached.expires > Date.now()) {
             this.cacheStats.hits++;
             cached.lastAccessed = Date.now();
-            logger_1.logger.debug("Using cached deal context", { dealId });
+            logger.debug("Using cached deal context", { dealId });
             return cached.data;
         }
         // Cache miss or expired
@@ -77,7 +73,7 @@ class ContextInjectionBridge {
             include_history: includeHistory,
         });
         if (!result.success || !result.data) {
-            logger_1.logger.warn("Failed to get deal context", {
+            logger.warn("Failed to get deal context", {
                 dealId,
                 error: result.error,
             });
@@ -360,7 +356,7 @@ class ContextInjectionBridge {
         this.cleanupIntervalId = setInterval(() => {
             this.cleanupExpiredEntries();
         }, this.autoCleanupIntervalMs);
-        logger_1.logger.debug("Started cache auto cleanup", {
+        logger.debug("Started cache auto cleanup", {
             intervalMs: this.autoCleanupIntervalMs,
             tenantId: this.tenantId,
         });
@@ -379,7 +375,7 @@ class ContextInjectionBridge {
             }
         }
         if (cleaned > 0) {
-            logger_1.logger.debug("Cleaned up expired cache entries", {
+            logger.debug("Cleaned up expired cache entries", {
                 cleaned,
                 remaining: this.contextCache.size,
                 tenantId: this.tenantId,
@@ -395,7 +391,7 @@ class ContextInjectionBridge {
             const size = this.contextCache.size;
             this.contextCache.clear();
             this.cacheStats.evictions += size;
-            logger_1.logger.info("Cleared entire cache", {
+            logger.info("Cleared entire cache", {
                 tenantId: this.tenantId,
                 entriesCleared: size,
             });
@@ -406,7 +402,7 @@ class ContextInjectionBridge {
             if (this.contextCache.has(options.dealId)) {
                 this.contextCache.delete(options.dealId);
                 this.cacheStats.evictions++;
-                logger_1.logger.debug("Cleared cache for deal", { dealId: options.dealId });
+                logger.debug("Cleared cache for deal", { dealId: options.dealId });
             }
             return;
         }
@@ -421,7 +417,7 @@ class ContextInjectionBridge {
                     cleared++;
                 }
             }
-            logger_1.logger.debug("Cleared old cache entries", {
+            logger.debug("Cleared old cache entries", {
                 cleared,
                 olderThan: options.olderThan,
             });
@@ -450,15 +446,14 @@ class ContextInjectionBridge {
             this.cleanupIntervalId = undefined;
         }
         this.contextCache.clear();
-        logger_1.logger.info("ContextInjectionBridge shutdown", { tenantId: this.tenantId });
+        logger.info("ContextInjectionBridge shutdown", { tenantId: this.tenantId });
     }
 }
-exports.ContextInjectionBridge = ContextInjectionBridge;
 // ============================================================================
 // Factory Function
 // ============================================================================
 const bridgeInstances = new Map();
-async function getContextInjectionBridge(tenantId, userId) {
+export async function getContextInjectionBridge(tenantId, userId) {
     const key = `${tenantId}:${userId}`;
     if (!bridgeInstances.has(key)) {
         const bridge = new ContextInjectionBridge(tenantId, userId);

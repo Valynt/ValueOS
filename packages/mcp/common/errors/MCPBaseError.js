@@ -1,20 +1,13 @@
-"use strict";
 /**
  * MCP Base Error Classes
  *
  * Provides unified error handling across all MCP servers (Financial, CRM, Integrated)
  * with consistent structure, error codes, and metadata.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCPGeneralError = exports.MCPErrorFactory = exports.MCPConfigError = exports.MCPCRMError = exports.MCPFinancialError = exports.MCPBaseError = exports.MCPErrorCodes = void 0;
-exports.isMCPError = isMCPError;
-exports.getErrorCode = getErrorCode;
-exports.getErrorMessage = getErrorMessage;
-exports.createErrorResponse = createErrorResponse;
 // ============================================================================
 // Error Code Constants
 // ============================================================================
-exports.MCPErrorCodes = {
+export const MCPErrorCodes = {
     // General errors
     INVALID_REQUEST: "INVALID_REQUEST",
     UNAUTHORIZED: "UNAUTHORIZED",
@@ -45,7 +38,7 @@ exports.MCPErrorCodes = {
 /**
  * Base MCP Error class with common structure
  */
-class MCPBaseError extends Error {
+export class MCPBaseError extends Error {
     code;
     category;
     metadata;
@@ -94,38 +87,34 @@ class MCPBaseError extends Error {
         return this.metadata.retryAfter ?? 60;
     }
 }
-exports.MCPBaseError = MCPBaseError;
 // ============================================================================
 // Financial Server Errors
 // ============================================================================
-class MCPFinancialError extends MCPBaseError {
+export class MCPFinancialError extends MCPBaseError {
     constructor(code, message, metadata = {}, details, cause) {
         super(code, message, "financial", metadata, details, cause);
     }
 }
-exports.MCPFinancialError = MCPFinancialError;
 // ============================================================================
 // CRM Server Errors
 // ============================================================================
-class MCPCRMError extends MCPBaseError {
+export class MCPCRMError extends MCPBaseError {
     constructor(code, message, metadata = {}, details, cause) {
         super(code, message, "crm", metadata, details, cause);
     }
 }
-exports.MCPCRMError = MCPCRMError;
 // ============================================================================
 // Configuration Errors
 // ============================================================================
-class MCPConfigError extends MCPBaseError {
+export class MCPConfigError extends MCPBaseError {
     constructor(code, message, metadata = {}, details, cause) {
         super(code, message, "config", metadata, details, cause);
     }
 }
-exports.MCPConfigError = MCPConfigError;
 // ============================================================================
 // Error Factory Functions
 // ============================================================================
-class MCPErrorFactory {
+export class MCPErrorFactory {
     /**
      * Create error based on context and code
      */
@@ -144,45 +133,43 @@ class MCPErrorFactory {
     /**
      * Create from existing error with context
      */
-    static fromError(error, code = exports.MCPErrorCodes.INTERNAL_ERROR, context) {
+    static fromError(error, code = MCPErrorCodes.INTERNAL_ERROR, context) {
         return this.create(code, error.message, {
             ...context,
             cause: error,
         });
     }
 }
-exports.MCPErrorFactory = MCPErrorFactory;
 // ============================================================================
 // General Error (fallback)
 // ============================================================================
-class MCPGeneralError extends MCPBaseError {
+export class MCPGeneralError extends MCPBaseError {
     constructor(code, message, metadata = {}, details, cause) {
         super(code, message, "general", metadata, details, cause);
     }
 }
-exports.MCPGeneralError = MCPGeneralError;
 // ============================================================================
 // Utility Functions
 // ============================================================================
 /**
  * Check if error is an MCP error
  */
-function isMCPError(error) {
+export function isMCPError(error) {
     return error instanceof MCPBaseError;
 }
 /**
  * Extract error code from any error
  */
-function getErrorCode(error) {
+export function getErrorCode(error) {
     if (isMCPError(error)) {
         return error.code;
     }
-    return exports.MCPErrorCodes.INTERNAL_ERROR;
+    return MCPErrorCodes.INTERNAL_ERROR;
 }
 /**
  * Extract user-friendly message from any error
  */
-function getErrorMessage(error) {
+export function getErrorMessage(error) {
     if (isMCPError(error)) {
         return error.message;
     }
@@ -191,7 +178,7 @@ function getErrorMessage(error) {
 /**
  * Create standardized error response
  */
-function createErrorResponse(error, requestId) {
+export function createErrorResponse(error, requestId) {
     if (isMCPError(error)) {
         const response = error.toJSON();
         if (requestId) {
@@ -202,7 +189,7 @@ function createErrorResponse(error, requestId) {
     // Handle non-MCP errors
     return {
         error: {
-            code: exports.MCPErrorCodes.INTERNAL_ERROR,
+            code: MCPErrorCodes.INTERNAL_ERROR,
             message: getErrorMessage(error),
             category: "general",
             metadata: {

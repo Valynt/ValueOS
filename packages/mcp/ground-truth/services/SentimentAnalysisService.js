@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Sentiment Analysis Engine - AI-Powered Financial Document Analysis
  *
@@ -11,16 +10,14 @@
  * Uses LLM integration for sophisticated natural language understanding
  * of financial communications and qualitative disclosures.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SentimentAnalysisService = void 0;
-const LLMGateway_1 = require("../../lib/agent-fabric/LLMGateway");
-const logger_1 = require("../../lib/logger");
-const Cache_1 = require("../core/Cache");
-class SentimentAnalysisService {
+import { LLMGateway } from "../../lib/agent-fabric/LLMGateway";
+import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
+export class SentimentAnalysisService {
     llmGateway;
-    cache = (0, Cache_1.getCache)();
+    cache = getCache();
     constructor() {
-        this.llmGateway = new LLMGateway_1.LLMGateway("openai", true); // Use OpenAI for financial analysis
+        this.llmGateway = new LLMGateway("openai", true); // Use OpenAI for financial analysis
     }
     /**
      * Analyze sentiment of financial document
@@ -30,13 +27,13 @@ class SentimentAnalysisService {
         // Check cache first
         const cachedResult = await this.cache.get(cacheKey);
         if (cachedResult) {
-            logger_1.logger.debug("Using cached sentiment analysis", {
+            logger.debug("Using cached sentiment analysis", {
                 documentType: request.documentType,
             });
             return cachedResult;
         }
         try {
-            logger_1.logger.info("Starting sentiment analysis", {
+            logger.info("Starting sentiment analysis", {
                 documentType: request.documentType,
                 contentLength: request.content.length,
                 companyName: request.companyName,
@@ -58,7 +55,7 @@ class SentimentAnalysisService {
             }
             // Cache the result (Tier 2 - 6 hour TTL)
             await this.cache.set(cacheKey, result, "tier2");
-            logger_1.logger.info("Sentiment analysis completed", {
+            logger.info("Sentiment analysis completed", {
                 documentType: request.documentType,
                 overallSentiment: result.overall_sentiment,
                 confidence: result.confidence,
@@ -66,7 +63,7 @@ class SentimentAnalysisService {
             return result;
         }
         catch (error) {
-            logger_1.logger.error("Sentiment analysis failed", error instanceof Error ? error : undefined, {
+            logger.error("Sentiment analysis failed", error instanceof Error ? error : undefined, {
                 documentType: request.documentType,
             });
             throw error;
@@ -355,7 +352,7 @@ Provide a balanced analysis of the document's sentiment, risks, and business out
             };
         }
         catch (error) {
-            logger_1.logger.error("Failed to parse sentiment response", error instanceof Error ? error : undefined, {
+            logger.error("Failed to parse sentiment response", error instanceof Error ? error : undefined, {
                 documentType,
                 contentLength: content.length,
             });
@@ -407,5 +404,4 @@ Provide a balanced analysis of the document's sentiment, risks, and business out
         return this.cache.clear();
     }
 }
-exports.SentimentAnalysisService = SentimentAnalysisService;
 //# sourceMappingURL=SentimentAnalysisService.js.map

@@ -1,19 +1,16 @@
-"use strict";
 /**
  * MCP Configuration Manager
  *
  * Provides centralized configuration management for all MCP servers
  * with environment-aware loading, validation, and hot-reloading.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ConfigurationManager = exports.ConfigurationValidator = void 0;
-const fs_1 = require("fs");
-const path_1 = require("path");
-const logger_1 = require("../../lib/logger");
+import { readFileSync, existsSync, watchFile, unwatchFile } from "fs";
+import { resolve, join } from "path";
+import { logger } from "../../lib/logger";
 // ============================================================================
 // Configuration Validation
 // ============================================================================
-class ConfigurationValidator {
+export class ConfigurationValidator {
     /**
      * Validate base MCP configuration
      */
@@ -95,17 +92,16 @@ class ConfigurationValidator {
         return config;
     }
 }
-exports.ConfigurationValidator = ConfigurationValidator;
 // ============================================================================
 // Configuration Manager
 // ============================================================================
-class ConfigurationManager {
+export class ConfigurationManager {
     static instance;
     configCache = new Map();
     fileWatchers = new Map();
     configDir;
     constructor(configDir) {
-        this.configDir = configDir || (0, path_1.resolve)(process.cwd(), "config");
+        this.configDir = configDir || resolve(process.cwd(), "config");
     }
     static getInstance(configDir) {
         if (!ConfigurationManager.instance) {
@@ -125,7 +121,7 @@ class ConfigurationManager {
         // Determine config file path
         const env = environment || process.env.NODE_ENV || "development";
         const configPath = this.getConfigPath(serverType, env);
-        if (!(0, fs_1.existsSync)(configPath)) {
+        if (!existsSync(configPath)) {
             throw new Error(`Configuration file not found: ${configPath}`);
         }
         try {
@@ -152,7 +148,7 @@ class ConfigurationManager {
             if (validatedConfig.debug && !this.fileWatchers.has(cacheKey)) {
                 this.setupFileWatcher(configPath, cacheKey, serverType, env);
             }
-            logger_1.logger.info(`Configuration loaded successfully`, {
+            logger.info(`Configuration loaded successfully`, {
                 serverType,
                 environment: env,
                 configPath,
@@ -160,7 +156,7 @@ class ConfigurationManager {
             return validatedConfig;
         }
         catch (error) {
-            logger_1.logger.error(`Failed to load configuration`, {
+            logger.error(`Failed to load configuration`, {
                 serverType,
                 environment: env,
                 configPath,
@@ -174,14 +170,14 @@ class ConfigurationManager {
      */
     getConfigPath(serverType, environment) {
         const filename = `${serverType}-${environment}.json`;
-        return (0, path_1.join)(this.configDir, filename);
+        return join(this.configDir, filename);
     }
     /**
      * Load configuration file
      */
     loadConfigFile(configPath) {
         try {
-            const content = (0, fs_1.readFileSync)(configPath, "utf-8");
+            const content = readFileSync(configPath, "utf-8");
             return JSON.parse(content);
         }
         catch (error) {
@@ -196,9 +192,9 @@ class ConfigurationManager {
      */
     setupFileWatcher(configPath, cacheKey, serverType, environment) {
         this.fileWatchers.set(cacheKey, true);
-        (0, fs_1.watchFile)(configPath, async () => {
+        watchFile(configPath, async () => {
             try {
-                logger_1.logger.info(`Configuration file changed, reloading...`, {
+                logger.info(`Configuration file changed, reloading...`, {
                     serverType,
                     environment,
                     configPath,
@@ -207,13 +203,13 @@ class ConfigurationManager {
                 this.configCache.delete(cacheKey);
                 // Reload configuration
                 await this.loadConfig(serverType, environment);
-                logger_1.logger.info(`Configuration reloaded successfully`, {
+                logger.info(`Configuration reloaded successfully`, {
                     serverType,
                     environment,
                 });
             }
             catch (error) {
-                logger_1.logger.error(`Failed to reload configuration`, {
+                logger.error(`Failed to reload configuration`, {
                     serverType,
                     environment,
                     error: error instanceof Error ? error.message : "Unknown error",
@@ -272,10 +268,9 @@ class ConfigurationManager {
         for (const [cacheKey] of this.fileWatchers) {
             const [serverType = "", environment = ""] = cacheKey.split("-");
             const configPath = this.getConfigPath(serverType, environment);
-            (0, fs_1.unwatchFile)(configPath);
+            unwatchFile(configPath);
         }
         this.fileWatchers.clear();
     }
 }
-exports.ConfigurationManager = ConfigurationManager;
 //# sourceMappingURL=ConfigurationManager.js.map

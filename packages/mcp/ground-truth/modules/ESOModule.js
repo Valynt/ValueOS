@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ESOModule = void 0;
 /**
  * Re-export ESOModule from StructuralTruthModule.
  *
@@ -8,6 +5,5 @@ exports.ESOModule = void 0;
  * This file exists so that `@mcp/ground-truth/modules/ESOModule`
  * resolves for consumers that import by class name.
  */
-var StructuralTruthModule_1 = require("./StructuralTruthModule");
-Object.defineProperty(exports, "ESOModule", { enumerable: true, get: function () { return StructuralTruthModule_1.ESOModule; } });
+export { ESOModule } from "./StructuralTruthModule";
 //# sourceMappingURL=ESOModule.js.map

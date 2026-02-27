@@ -1,15 +1,12 @@
-"use strict";
 /**
  * Base Module Implementation
  *
  * Abstract base class for all Ground Truth modules with common functionality
  * for caching, rate limiting, error handling, and provenance tracking.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BaseModule = void 0;
-const types_1 = require("../types");
-const logger_1 = require("../../lib/logger");
-class BaseModule {
+import { ErrorCodes, GroundTruthError, } from '../types';
+import { logger } from '../../lib/logger';
+export class BaseModule {
     config = {};
     initialized = false;
     requestCount = 0;
@@ -17,7 +14,7 @@ class BaseModule {
     async initialize(config) {
         this.config = config;
         this.initialized = true;
-        logger_1.logger.info(`Module ${this.name} initialized`, { tier: this.tier });
+        logger.info(`Module ${this.name} initialized`, { tier: this.tier });
     }
     async healthCheck() {
         return {
@@ -39,11 +36,11 @@ class BaseModule {
         this.lastRequestTime = startTime;
         try {
             if (!this.initialized) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Module ${this.name} not initialized`);
+                throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Module ${this.name} not initialized`);
             }
             const data = await queryFn();
             const executionTime = Date.now() - startTime;
-            logger_1.logger.info(`Module ${this.name} query succeeded`, {
+            logger.info(`Module ${this.name} query succeeded`, {
                 identifier: request.identifier,
                 metric: request.metric,
                 executionTime,
@@ -56,13 +53,13 @@ class BaseModule {
         }
         catch (error) {
             const executionTime = Date.now() - startTime;
-            logger_1.logger.error(`Module ${this.name} query failed`, {
+            logger.error(`Module ${this.name} query failed`, {
                 identifier: request.identifier,
                 metric: request.metric,
                 error: error instanceof Error ? error.message : 'Unknown error',
                 executionTime,
             });
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 return {
                     success: false,
                     error: {
@@ -76,7 +73,7 @@ class BaseModule {
             return {
                 success: false,
                 error: {
-                    code: types_1.ErrorCodes.UPSTREAM_FAILURE,
+                    code: ErrorCodes.UPSTREAM_FAILURE,
                     message: error instanceof Error ? error.message : 'Unknown error',
                 },
                 execution_time_ms: executionTime,
@@ -155,7 +152,7 @@ class BaseModule {
         const timeSinceLastRequest = now - this.lastRequestTime;
         const minInterval = (60 * 1000) / limit; // Convert RPM to milliseconds
         if (timeSinceLastRequest < minInterval) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.RATE_LIMIT_EXCEEDED, `Rate limit exceeded for ${domain}`, { limit, timeSinceLastRequest });
+            throw new GroundTruthError(ErrorCodes.RATE_LIMIT_EXCEEDED, `Rate limit exceeded for ${domain}`, { limit, timeSinceLastRequest });
         }
     }
     /**
@@ -164,10 +161,9 @@ class BaseModule {
     validateRequest(request, requiredFields) {
         for (const field of requiredFields) {
             if (!(field in request) || request[field] === undefined) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Missing required field: ${field}`);
+                throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Missing required field: ${field}`);
             }
         }
     }
 }
-exports.BaseModule = BaseModule;
 //# sourceMappingURL=BaseModule.js.map

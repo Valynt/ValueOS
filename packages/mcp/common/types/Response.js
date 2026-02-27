@@ -1,24 +1,14 @@
-"use strict";
 /**
  * MCP Standardized Response Types
  *
  * Provides unified response format across all MCP servers with consistent
  * structure for success, error, and metadata handling.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCPResponseBuilder = void 0;
-exports.createResponseBuilder = createResponseBuilder;
-exports.createSuccessResponse = createSuccessResponse;
-exports.createErrorResponseFromError = createErrorResponseFromError;
-exports.isSuccessResponse = isSuccessResponse;
-exports.isErrorResponse = isErrorResponse;
-exports.getResponseData = getResponseData;
-exports.getResponseError = getResponseError;
-const MCPBaseError_1 = require("../errors/MCPBaseError");
+import { MCPBaseError, createErrorResponse } from "../errors/MCPBaseError";
 // ============================================================================
 // Response Builder Classes
 // ============================================================================
-class MCPResponseBuilder {
+export class MCPResponseBuilder {
     tool;
     provider;
     requestId;
@@ -113,7 +103,7 @@ class MCPResponseBuilder {
      * Create error response
      */
     error(error, requestId) {
-        if (error instanceof MCPBaseError_1.MCPBaseError) {
+        if (error instanceof MCPBaseError) {
             return {
                 success: false,
                 error: error.toJSON().error,
@@ -125,7 +115,7 @@ class MCPResponseBuilder {
         }
         return {
             success: false,
-            error: (0, MCPBaseError_1.createErrorResponse)(error, requestId || this.metadata.requestId).error,
+            error: createErrorResponse(error, requestId || this.metadata.requestId).error,
             metadata: this.metadata,
         };
     }
@@ -162,20 +152,19 @@ class MCPResponseBuilder {
         };
     }
 }
-exports.MCPResponseBuilder = MCPResponseBuilder;
 // ============================================================================
 // Utility Functions
 // ============================================================================
 /**
  * Create a response builder for tool responses
  */
-function createResponseBuilder(tool, provider, requestId) {
+export function createResponseBuilder(tool, provider, requestId) {
     return new MCPResponseBuilder(tool, provider, requestId);
 }
 /**
  * Create simple success response
  */
-function createSuccessResponse(data, metadata) {
+export function createSuccessResponse(data, metadata) {
     return {
         success: true,
         data,
@@ -188,7 +177,7 @@ function createSuccessResponse(data, metadata) {
 /**
  * Create simple error response
  */
-function createErrorResponseFromError(error, metadata) {
+export function createErrorResponseFromError(error, metadata) {
     const builder = new MCPResponseBuilder();
     if (metadata) {
         // Use builder methods to set metadata instead of direct access
@@ -214,22 +203,22 @@ function createErrorResponseFromError(error, metadata) {
 /**
  * Check if response is successful
  */
-function isSuccessResponse(response) {
+export function isSuccessResponse(response) {
     return response.success === true;
 }
 /**
  * Check if response is an error
  */
-function isErrorResponse(response) {
+export function isErrorResponse(response) {
     return response.success === false;
 }
-function getResponseData(response) {
+export function getResponseData(response) {
     if (isSuccessResponse(response)) {
         return response.data;
     }
     return undefined;
 }
-function getResponseError(response) {
+export function getResponseError(response) {
     if (isErrorResponse(response)) {
         return response.error;
     }

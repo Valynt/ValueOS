@@ -1,12 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.supabase = void 0;
-exports.getSupabaseClient = getSupabaseClient;
-exports.createRequestSupabaseClient = createRequestSupabaseClient;
-exports.getRequestSupabaseClient = getRequestSupabaseClient;
-exports.createServerSupabaseClient = createServerSupabaseClient;
-const supabase_js_1 = require("@supabase/supabase-js");
-const env_1 = require("./env");
+import { createClient } from "@supabase/supabase-js";
+import { getEnvVar, getSupabaseConfig } from "./env";
 // Simple fetch wrapper with retry for transient network/server errors
 const MAX_RETRY_ATTEMPTS = 3;
 const BASE_DELAY_MS = 500;
@@ -39,12 +32,12 @@ const fetchWithRetry = async (input, init) => {
     throw lastError;
 };
 // Client-side configuration - only uses anon key
-const supabaseConfig = (0, env_1.getSupabaseConfig)();
+const supabaseConfig = getSupabaseConfig();
 const supabaseUrl = supabaseConfig.url;
 const supabaseAnonKey = supabaseConfig.anonKey;
 const supabaseServiceRoleKey = supabaseConfig.serviceRoleKey;
-const nodeEnv = (0, env_1.getEnvVar)("NODE_ENV") || (0, env_1.getEnvVar)("VITE_APP_ENV");
-const allowInsecureAnonServerClient = (0, env_1.getEnvVar)("ALLOW_INSECURE_ANON_SERVER_CLIENT") === "true";
+const nodeEnv = getEnvVar("NODE_ENV") || getEnvVar("VITE_APP_ENV");
+const allowInsecureAnonServerClient = getEnvVar("ALLOW_INSECURE_ANON_SERVER_CLIENT") === "true";
 const isServer = typeof window === "undefined";
 const isProduction = nodeEnv === "production";
 if (isServer && isProduction && !supabaseServiceRoleKey) {
@@ -52,7 +45,6 @@ if (isServer && isProduction && !supabaseServiceRoleKey) {
 }
 // Validate required client-side configuration
 let supabase = null;
-exports.supabase = supabase;
 if (supabaseUrl && supabaseAnonKey) {
     const supabaseOptions = {
         db: {
@@ -68,12 +60,13 @@ if (supabaseUrl && supabaseAnonKey) {
         },
     };
     // Client-side Supabase client - safe for browser
-    exports.supabase = supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseAnonKey, supabaseOptions);
+    supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseOptions);
 }
 else {
     console.warn("Supabase client configuration is missing. Billing features will be disabled.");
 }
-function getSupabaseClient() {
+export { supabase };
+export function getSupabaseClient() {
     if (!supabase) {
         throw new Error("Supabase client not configured. Billing features are disabled.");
     }
@@ -91,7 +84,7 @@ function parseBearerToken(header) {
     const token = headerValue.slice(prefix.length).trim();
     return token.length > 0 ? token : null;
 }
-function createRequestSupabaseClient(req) {
+export function createRequestSupabaseClient(req) {
     if (!isServer) {
         throw new Error("Request-scoped Supabase client can only be used server-side");
     }
@@ -118,17 +111,17 @@ function createRequestSupabaseClient(req) {
             fetch: fetchWithRetry,
         },
     };
-    const client = (0, supabase_js_1.createClient)(supabaseUrl, supabaseAnonKey, requestOptions);
+    const client = createClient(supabaseUrl, supabaseAnonKey, requestOptions);
     req.supabase = client;
     req.supabaseUser = req.user ?? null;
     return client;
 }
-function getRequestSupabaseClient(req) {
+export function getRequestSupabaseClient(req) {
     return req.supabase ?? createRequestSupabaseClient(req);
 }
 // Server-side Supabase client - for backend services only
 // This should NEVER be used in client-side code
-function createServerSupabaseClient(serviceKey) {
+export function createServerSupabaseClient(serviceKey) {
     const serverKey = serviceKey || supabaseServiceRoleKey;
     if (!serverKey) {
         if (isProduction || !allowInsecureAnonServerClient) {
@@ -156,6 +149,6 @@ function createServerSupabaseClient(serviceKey) {
         },
     };
     const resolvedKey = serverKey ?? supabaseAnonKey;
-    return (0, supabase_js_1.createClient)(supabaseUrl, resolvedKey, serverOptions);
+    return createClient(supabaseUrl, resolvedKey, serverOptions);
 }
 //# sourceMappingURL=supabase.js.map

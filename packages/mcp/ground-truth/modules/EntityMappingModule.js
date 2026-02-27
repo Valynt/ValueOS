@@ -1,20 +1,17 @@
-"use strict";
 /**
  * Entity Mapping Module - R1.2
  *
  * Provides mapping between company domains, names, tickers, and CIKs.
  * Uses best-effort lookup strategies including SEC company list and LLM reasoning.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EntityMappingModule = void 0;
-const BaseModule_1 = require("../core/BaseModule");
-const types_1 = require("../types");
+import { BaseModule } from "../core/BaseModule";
+import { ErrorCodes, GroundTruthError, } from "../types";
 /**
  * Entity Mapping Module
  *
  * Implements MCP tool: resolve_ticker_from_domain
  */
-class EntityMappingModule extends BaseModule_1.BaseModule {
+export class EntityMappingModule extends BaseModule {
     name = "entity-mapping";
     tier = "tier2"; // Mapping is high-confidence but secondary
     description = "Resolves company identifiers (domain -> ticker -> CIK)";
@@ -63,11 +60,10 @@ class EntityMappingModule extends BaseModule_1.BaseModule {
                 }
             }
             if (!ticker) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `Unable to resolve ticker for domain: ${domain}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `Unable to resolve ticker for domain: ${domain}`);
             }
             return this.createMetric("ticker_resolution", ticker, { source_type: "private-data", extraction_method: "api" }, { domain, resolved_ticker: ticker });
         });
     }
 }
-exports.EntityMappingModule = EntityMappingModule;
 //# sourceMappingURL=EntityMappingModule.js.map

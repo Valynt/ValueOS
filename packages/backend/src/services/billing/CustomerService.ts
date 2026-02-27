@@ -3,23 +3,15 @@
  * Manages Stripe customer creation and mapping to tenants
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import StripeService from './StripeService.js'
 import { BillingCustomer } from '../../types/billing';
 import { createLogger } from '../../lib/logger.js'
+import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'CustomerService' });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-}
+const supabase: SupabaseClient | null = supabaseClient ?? null;
 
 class CustomerService {
   private stripe: Stripe;
@@ -88,9 +80,9 @@ class CustomerService {
 
       if (error) throw error;
 
-      logger.info('Customer created successfully', { 
-        tenantId, 
-        stripeCustomerId: stripeCustomer.id 
+      logger.info('Customer created successfully', {
+        tenantId,
+        stripeCustomerId: stripeCustomer.id
       });
 
       return data;

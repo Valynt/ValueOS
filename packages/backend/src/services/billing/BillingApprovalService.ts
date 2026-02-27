@@ -3,16 +3,11 @@
  * Manages approval workflows for billing operations (Enterprise tier)
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { createLogger } from '../../lib/logger.js';
 import { BaseService } from '../BaseService.js';
+import { supabase } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'BillingApprovalService' });
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 export interface BillingApprovalRequest {
   id: string;

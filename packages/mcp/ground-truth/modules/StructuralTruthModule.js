@@ -1,4 +1,3 @@
-"use strict";
 /**
  * ESOModule - Economic Structure Ontology & VOS-PT-1 MCP Module
  *
@@ -8,39 +7,37 @@
  * - get_value_chain: Trace causal relationships between KPIs
  * - get_similar_traces: Find relevant VMRT examples for reasoning
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ESOModule = exports.StructuralTruthModuleSchema = exports.STRUCTURAL_TRUTH_SCHEMA_FIELDS = void 0;
-const BaseModule_1 = require("../core/BaseModule");
-const zod_1 = require("zod");
-const eso_data_1 = require("@backend/types/eso-data");
-const vos_pt1_seed_1 = require("@backend/types/vos-pt1-seed");
-const eso_1 = require("@backend/types/eso");
+import { BaseModule } from "../core/BaseModule";
+import { z } from "zod";
+import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS, EXTENDED_ESO_EDGES, } from "@backend/types/eso-data";
+import { ALL_VMRT_SEEDS } from "@backend/types/vos-pt1-seed";
+import { checkBenchmarkAlignment } from "@backend/types/eso";
 // ============================================================================
 // Types
 // ============================================================================
-exports.STRUCTURAL_TRUTH_SCHEMA_FIELDS = [
+export const STRUCTURAL_TRUTH_SCHEMA_FIELDS = [
     "integrity_checks",
     "analysis",
     "timestamp",
 ];
-exports.StructuralTruthModuleSchema = zod_1.z
+export const StructuralTruthModuleSchema = z
     .object({
-    integrity_checks: zod_1.z.array(zod_1.z.object({
-        title: zod_1.z.string(),
-        description: zod_1.z.string(),
-        confidence: zod_1.z.number().min(0).max(1),
-        category: zod_1.z.string(),
-        priority: zod_1.z.string(),
-        status: zod_1.z.string(),
+    integrity_checks: z.array(z.object({
+        title: z.string(),
+        description: z.string(),
+        confidence: z.number().min(0).max(1),
+        category: z.string(),
+        priority: z.string(),
+        status: z.string(),
     })),
-    analysis: zod_1.z.string(),
-    timestamp: zod_1.z.string(),
+    analysis: z.string(),
+    timestamp: z.string(),
 })
     .passthrough();
 // ============================================================================
 // Module Implementation
 // ============================================================================
-class ESOModule extends BaseModule_1.BaseModule {
+export class ESOModule extends BaseModule {
     moduleName = "eso";
     moduleVersion = "1.0.0";
     kpiIndex;
@@ -54,20 +51,20 @@ class ESOModule extends BaseModule_1.BaseModule {
     }
     async initialize() {
         // Index all KPIs
-        for (const kpi of eso_data_1.ALL_ESO_KPIS) {
+        for (const kpi of ALL_ESO_KPIS) {
             this.kpiIndex.set(kpi.id, kpi);
         }
         // Index edges by source
-        for (const edge of eso_data_1.EXTENDED_ESO_EDGES) {
+        for (const edge of EXTENDED_ESO_EDGES) {
             const existing = this.edgeIndex.get(edge.sourceId) || [];
             existing.push(edge);
             this.edgeIndex.set(edge.sourceId, existing);
         }
         // Index personas
-        for (const persona of eso_data_1.EXTENDED_PERSONA_MAPS) {
+        for (const persona of EXTENDED_PERSONA_MAPS) {
             this.personaIndex.set(persona.persona, persona);
         }
-        console.log(`ESO Module initialized: ${this.kpiIndex.size} KPIs, ${eso_data_1.EXTENDED_ESO_EDGES.length} edges`);
+        console.log(`ESO Module initialized: ${this.kpiIndex.size} KPIs, ${EXTENDED_ESO_EDGES.length} edges`);
     }
     getTools() {
         return [
@@ -212,7 +209,7 @@ class ESOModule extends BaseModule_1.BaseModule {
         };
     }
     validateClaim(request) {
-        const result = (0, eso_1.checkBenchmarkAlignment)(request.metricId, request.claimedValue);
+        const result = checkBenchmarkAlignment(request.metricId, request.claimedValue);
         const kpi = this.kpiIndex.get(request.metricId);
         if (!kpi) {
             return {
@@ -247,7 +244,7 @@ class ESOModule extends BaseModule_1.BaseModule {
         for (const depId of kpi.dependencies) {
             const depKpi = this.kpiIndex.get(depId);
             if (depKpi) {
-                const edge = eso_data_1.EXTENDED_ESO_EDGES.find((e) => e.sourceId === depId && e.targetId === kpi.id);
+                const edge = EXTENDED_ESO_EDGES.find((e) => e.sourceId === depId && e.targetId === kpi.id);
                 if (edge) {
                     upstream.push({ metric: depKpi, relationship: edge });
                 }
@@ -263,7 +260,7 @@ class ESOModule extends BaseModule_1.BaseModule {
         }
         // Find financial drivers from persona maps
         const financialDrivers = [];
-        for (const persona of eso_data_1.EXTENDED_PERSONA_MAPS) {
+        for (const persona of EXTENDED_PERSONA_MAPS) {
             if (persona.keyKPIs.includes(request.metricId)) {
                 financialDrivers.push(persona.financialDriver);
             }
@@ -277,7 +274,7 @@ class ESOModule extends BaseModule_1.BaseModule {
     }
     getSimilarTraces(request) {
         const limit = request.limit || 5;
-        const filtered = vos_pt1_seed_1.ALL_VMRT_SEEDS.filter((trace) => {
+        const filtered = ALL_VMRT_SEEDS.filter((trace) => {
             if (request.industry &&
                 trace.context?.organization?.industry !== request.industry) {
                 return false;
@@ -326,5 +323,4 @@ class ESOModule extends BaseModule_1.BaseModule {
         };
     }
 }
-exports.ESOModule = ESOModule;
 //# sourceMappingURL=StructuralTruthModule.js.map

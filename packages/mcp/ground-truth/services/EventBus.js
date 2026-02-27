@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Event-Driven Architecture for MCP Financial Ground Truth
  *
@@ -10,26 +9,22 @@
  *
  * Uses Redis pub/sub for message queuing with event replay capabilities.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.subscribeToEvents = exports.publishEvent = exports.EventBus = void 0;
-exports.getEventBus = getEventBus;
-exports.setEventBus = setEventBus;
-const redis_1 = require("redis");
-const logger_js_1 = require("../../lib/logger.js");
-const Cache_js_1 = require("../core/Cache.js");
-class EventBus {
+import { createClient } from "redis";
+import { logger } from "../../lib/logger.js";
+import { getCache } from "../core/Cache.js";
+export class EventBus {
     redisPublisher;
     redisSubscriber;
     handlers = new Map();
     subscriptions = new Map();
     eventHistory = [];
     maxHistorySize = 1000;
-    cache = (0, Cache_js_1.getCache)();
+    cache = getCache();
     isConnected = false;
     constructor(redisUrl) {
         const url = redisUrl || process.env.REDIS_URL || "redis://localhost:6379";
-        this.redisPublisher = (0, redis_1.createClient)({ url });
-        this.redisSubscriber = (0, redis_1.createClient)({ url });
+        this.redisPublisher = createClient({ url });
+        this.redisSubscriber = createClient({ url });
         this.setupEventHandlers();
     }
     /**
@@ -46,10 +41,10 @@ class EventBus {
             await this.redisSubscriber.subscribe("mcp-events", (message) => {
                 this.handleIncomingEvent(message);
             });
-            logger_js_1.logger.info("EventBus connected to Redis");
+            logger.info("EventBus connected to Redis");
         }
         catch (error) {
-            logger_js_1.logger.error("Failed to connect EventBus to Redis", error instanceof Error ? error : undefined);
+            logger.error("Failed to connect EventBus to Redis", error instanceof Error ? error : undefined);
             throw error;
         }
     }
@@ -63,10 +58,10 @@ class EventBus {
                 this.redisSubscriber.disconnect(),
             ]);
             this.isConnected = false;
-            logger_js_1.logger.info("EventBus disconnected from Redis");
+            logger.info("EventBus disconnected from Redis");
         }
         catch (error) {
-            logger_js_1.logger.error("Error disconnecting EventBus", error instanceof Error ? error : undefined);
+            logger.error("Error disconnecting EventBus", error instanceof Error ? error : undefined);
         }
     }
     /**
@@ -89,7 +84,7 @@ class EventBus {
             await this.redisPublisher.publish("mcp-events", JSON.stringify(fullEvent));
             // Cache recent events
             await this.cache.set(`event:${eventId}`, fullEvent, "tier2");
-            logger_js_1.logger.debug("Event published", {
+            logger.debug("Event published", {
                 eventId,
                 eventType: event.type,
                 source: event.source,
@@ -97,7 +92,7 @@ class EventBus {
             return eventId;
         }
         catch (error) {
-            logger_js_1.logger.error("Failed to publish event", error instanceof Error ? error : undefined, {
+            logger.error("Failed to publish event", error instanceof Error ? error : undefined, {
                 eventType: event.type,
                 source: event.source,
             });
@@ -127,7 +122,7 @@ class EventBus {
                 priority: 0,
             });
         }
-        logger_js_1.logger.info("Event subscription created", {
+        logger.info("Event subscription created", {
             subscriptionId,
             eventTypes: subscription.eventTypes,
             durable: options?.durable,
@@ -155,7 +150,7 @@ class EventBus {
             }
         }
         this.subscriptions.delete(subscriptionId);
-        logger_js_1.logger.info("Event subscription removed", { subscriptionId });
+        logger.info("Event subscription removed", { subscriptionId });
         return true;
     }
     /**
@@ -174,7 +169,7 @@ class EventBus {
         this.handlers
             .get(eventType)
             .sort((a, b) => (b.priority || 0) - (a.priority || 0));
-        logger_js_1.logger.debug("Event handler registered", { eventType, priority });
+        logger.debug("Event handler registered", { eventType, priority });
     }
     /**
      * Replay events from history
@@ -190,7 +185,7 @@ class EventBus {
         if (toTimestamp) {
             events = events.filter((e) => e.timestamp <= toTimestamp);
         }
-        logger_js_1.logger.info("Replaying events", {
+        logger.info("Replaying events", {
             totalEvents: events.length,
             eventTypes,
             fromTimestamp,
@@ -221,7 +216,7 @@ class EventBus {
             await this.processEvent(event);
         }
         catch (error) {
-            logger_js_1.logger.error("Error processing incoming event", error instanceof Error ? error : undefined, {
+            logger.error("Error processing incoming event", error instanceof Error ? error : undefined, {
                 message: message.substring(0, 200),
             });
         }
@@ -234,17 +229,17 @@ class EventBus {
         const wildcardHandlers = this.handlers.get("*") || [];
         const allHandlers = [...handlers, ...wildcardHandlers];
         if (allHandlers.length === 0) {
-            logger_js_1.logger.debug("No handlers found for event", { eventType: event.type });
+            logger.debug("No handlers found for event", { eventType: event.type });
             return;
         }
-        logger_js_1.logger.debug("Processing event", {
+        logger.debug("Processing event", {
             eventId: event.id,
             eventType: event.type,
             handlersCount: allHandlers.length,
         });
         // Process handlers concurrently
         const promises = allHandlers.map((handler) => this.executeHandler(handler, event).catch((error) => {
-            logger_js_1.logger.error("Event handler failed", error instanceof Error ? error : undefined, {
+            logger.error("Event handler failed", error instanceof Error ? error : undefined, {
                 eventId: event.id,
                 eventType: event.type,
                 handler: handler.eventType,
@@ -260,7 +255,7 @@ class EventBus {
             await handler.handler(event);
         }
         catch (error) {
-            logger_js_1.logger.error("Event handler execution failed", error instanceof Error ? error : undefined, {
+            logger.error("Event handler execution failed", error instanceof Error ? error : undefined, {
                 eventType: event.type,
                 handlerPriority: handler.priority,
             });
@@ -283,7 +278,7 @@ class EventBus {
     setupEventHandlers() {
         // Log all events
         this.registerHandler("*", async (event) => {
-            logger_js_1.logger.debug("Event processed", {
+            logger.debug("Event processed", {
                 eventId: event.id,
                 eventType: event.type,
                 source: event.source,
@@ -292,7 +287,7 @@ class EventBus {
         }, -100); // Low priority logging
         // Handle system events
         this.registerHandler("system.health", async (event) => {
-            logger_js_1.logger.info("System health event", {
+            logger.info("System health event", {
                 component: event.data.component,
                 status: event.data.status,
                 metrics: event.data.metrics,
@@ -300,7 +295,7 @@ class EventBus {
         }, 10);
         // Handle error events
         this.registerHandler("system.error", async (event) => {
-            logger_js_1.logger.error("System error event", {
+            logger.error("System error event", {
                 component: event.data.component,
                 error: event.data.error,
                 context: event.data.context,
@@ -324,13 +319,12 @@ class EventBus {
         };
     }
 }
-exports.EventBus = EventBus;
 // Singleton instance
 let defaultEventBus = null;
 /**
  * Get default event bus instance
  */
-function getEventBus() {
+export function getEventBus() {
     if (!defaultEventBus) {
         defaultEventBus = new EventBus();
     }
@@ -339,18 +333,16 @@ function getEventBus() {
 /**
  * Set custom event bus instance
  */
-function setEventBus(eventBus) {
+export function setEventBus(eventBus) {
     if (defaultEventBus) {
         // Disconnect existing instance
         defaultEventBus.disconnect().catch((error) => {
-            logger_js_1.logger.error("Error disconnecting previous event bus", error instanceof Error ? error : undefined);
+            logger.error("Error disconnecting previous event bus", error instanceof Error ? error : undefined);
         });
     }
     defaultEventBus = eventBus;
 }
 // Export convenience functions
-const publishEvent = (event) => getEventBus().publish(event);
-exports.publishEvent = publishEvent;
-const subscribeToEvents = (eventTypes, handler, options) => getEventBus().subscribe(eventTypes, handler, options);
-exports.subscribeToEvents = subscribeToEvents;
+export const publishEvent = (event) => getEventBus().publish(event);
+export const subscribeToEvents = (eventTypes, handler, options) => getEventBus().subscribe(eventTypes, handler, options);
 //# sourceMappingURL=EventBus.js.map

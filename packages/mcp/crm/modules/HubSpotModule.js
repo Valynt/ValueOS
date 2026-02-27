@@ -1,17 +1,14 @@
-"use strict";
 /**
  * HubSpot CRM Module
  *
  * Implements CRM operations for HubSpot via their REST API.
  * Uses OAuth tokens stored at tenant level.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.HubSpotModule = void 0;
-const logger_1 = require("../../lib/logger");
+import { logger } from "../../lib/logger";
 // ============================================================================
 // HubSpot Module Implementation
 // ============================================================================
-class HubSpotModule {
+export class HubSpotModule {
     provider = "hubspot";
     connection = null;
     baseUrl = "https://api.hubapi.com";
@@ -109,7 +106,7 @@ class HubSpotModule {
             };
         }
         catch (error) {
-            logger_1.logger.error("HubSpot searchDeals failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot searchDeals failed", error instanceof Error ? error : undefined);
             return { deals: [], total: 0, hasMore: false };
         }
     }
@@ -125,7 +122,7 @@ class HubSpotModule {
             return this.mapDeal(data);
         }
         catch (error) {
-            logger_1.logger.error("HubSpot getDeal failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot getDeal failed", error instanceof Error ? error : undefined);
             return null;
         }
     }
@@ -162,7 +159,7 @@ class HubSpotModule {
             return batchData.results.map((c) => this.mapContact(c));
         }
         catch (error) {
-            logger_1.logger.error("HubSpot getDealContacts failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot getDealContacts failed", error instanceof Error ? error : undefined);
             return [];
         }
     }
@@ -199,7 +196,7 @@ class HubSpotModule {
             return batchData.results.map((e) => this.mapActivity(e));
         }
         catch (error) {
-            logger_1.logger.error("HubSpot getDealActivities failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot getDealActivities failed", error instanceof Error ? error : undefined);
             return [];
         }
     }
@@ -218,7 +215,7 @@ class HubSpotModule {
             return this.mapCompany(data);
         }
         catch (error) {
-            logger_1.logger.error("HubSpot getCompany failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot getCompany failed", error instanceof Error ? error : undefined);
             return null;
         }
     }
@@ -245,7 +242,7 @@ class HubSpotModule {
             return data.results.map((c) => this.mapCompany(c));
         }
         catch (error) {
-            logger_1.logger.error("HubSpot searchCompanies failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot searchCompanies failed", error instanceof Error ? error : undefined);
             return [];
         }
     }
@@ -261,7 +258,7 @@ class HubSpotModule {
             return response.ok;
         }
         catch (error) {
-            logger_1.logger.error("HubSpot updateDealProperties failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot updateDealProperties failed", error instanceof Error ? error : undefined);
             return false;
         }
     }
@@ -291,7 +288,7 @@ class HubSpotModule {
             return response.ok;
         }
         catch (error) {
-            logger_1.logger.error("HubSpot addDealNote failed", error instanceof Error ? error : undefined);
+            logger.error("HubSpot addDealNote failed", error instanceof Error ? error : undefined);
             return false;
         }
     }
@@ -317,7 +314,7 @@ class HubSpotModule {
         // If we get a 401, try to refresh the token once
         if (response.status === 401 && this.connection.refreshToken) {
             try {
-                logger_1.logger.info("HubSpot token expired, attempting refresh");
+                logger.info("HubSpot token expired, attempting refresh");
                 // Attempt to refresh token via the edge function
                 // Note: We use the refresh_token for authentication, not the expired access_token
                 const refreshResponse = await fetch("/api/crm-oauth/refresh", {
@@ -341,12 +338,12 @@ class HubSpotModule {
                         }
                         // Retry the original request with new token
                         response = await makeRequest(this.connection.accessToken);
-                        logger_1.logger.info("HubSpot token refreshed successfully");
+                        logger.info("HubSpot token refreshed successfully");
                     }
                 }
             }
             catch (refreshError) {
-                logger_1.logger.error("Failed to refresh HubSpot token", refreshError instanceof Error ? refreshError : undefined);
+                logger.error("Failed to refresh HubSpot token", refreshError instanceof Error ? refreshError : undefined);
                 // Continue with the original 401 response
             }
         }
@@ -421,5 +418,4 @@ class HubSpotModule {
         };
     }
 }
-exports.HubSpotModule = HubSpotModule;
 //# sourceMappingURL=HubSpotModule.js.map

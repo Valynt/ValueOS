@@ -1,10 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.useDataHydration = useDataHydration;
-exports.clearAllHydrationCache = clearAllHydrationCache;
-exports.getHydrationCacheStats = getHydrationCacheStats;
-const logger_1 = require("@shared/lib/logger");
-const react_1 = require("react");
+import { logger } from "@shared/lib/logger";
+import { useCallback, useEffect, useRef, useState } from "react";
 /**
  * Global cache for hydrated data
  */
@@ -61,21 +56,21 @@ const isCacheValid = (entry, ttl) => {
  * );
  * ```
  */
-function useDataHydration(endpoints, options = {}) {
+export function useDataHydration(endpoints, options = {}) {
     const { enabled = true, onSuccess, onError, timeout = 10000, enableRetry = true, retryAttempts = 3, retryDelay = 1000, fetcher = defaultFetcher, enableCache = true, cacheTtl = 300000, // 5 minutes
      } = options;
-    const [data, setData] = (0, react_1.useState)(null);
-    const [loading, setLoading] = (0, react_1.useState)(false);
-    const [error, setError] = (0, react_1.useState)(null);
-    const [retryCount, setRetryCount] = (0, react_1.useState)(0);
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [retryCount, setRetryCount] = useState(0);
     // Use refs to track abort controllers and prevent memory leaks
-    const abortControllersRef = (0, react_1.useRef)([]);
-    const timeoutIdsRef = (0, react_1.useRef)([]);
-    const isMountedRef = (0, react_1.useRef)(true);
+    const abortControllersRef = useRef([]);
+    const timeoutIdsRef = useRef([]);
+    const isMountedRef = useRef(true);
     /**
      * Cleanup function to abort pending requests and clear timeouts
      */
-    const cleanup = (0, react_1.useCallback)(() => {
+    const cleanup = useCallback(() => {
         abortControllersRef.current.forEach((controller) => controller.abort());
         abortControllersRef.current = [];
         timeoutIdsRef.current.forEach((id) => clearTimeout(id));
@@ -84,7 +79,7 @@ function useDataHydration(endpoints, options = {}) {
     /**
      * Fetch data from a single endpoint with timeout and retry support
      */
-    const fetchEndpoint = (0, react_1.useCallback)(async (endpoint, attempt = 0) => {
+    const fetchEndpoint = useCallback(async (endpoint, attempt = 0) => {
         // Check cache first
         if (enableCache) {
             const cached = hydrationCache.get(endpoint);
@@ -137,7 +132,7 @@ function useDataHydration(endpoints, options = {}) {
     /**
      * Fetch data from all endpoints and merge results
      */
-    const hydrate = (0, react_1.useCallback)(async () => {
+    const hydrate = useCallback(async () => {
         if (!enabled || endpoints.length === 0) {
             return;
         }
@@ -177,7 +172,7 @@ function useDataHydration(endpoints, options = {}) {
             }
             // If some requests failed, log warnings but continue
             if (errors.length > 0) {
-                logger_1.logger.warn("Some hydration endpoints failed:", errors);
+                logger.warn("Some hydration endpoints failed:", errors);
                 errors.forEach(({ endpoint, error }) => {
                     onError?.(error, endpoint);
                 });
@@ -202,14 +197,14 @@ function useDataHydration(endpoints, options = {}) {
     /**
      * Manual retry function
      */
-    const retry = (0, react_1.useCallback)(() => {
+    const retry = useCallback(() => {
         setRetryCount((prev) => prev + 1);
         hydrate();
     }, [hydrate]);
     /**
      * Clear cache for current endpoints
      */
-    const clearCache = (0, react_1.useCallback)(() => {
+    const clearCache = useCallback(() => {
         endpoints.forEach((endpoint) => {
             hydrationCache.delete(endpoint);
         });
@@ -217,7 +212,7 @@ function useDataHydration(endpoints, options = {}) {
     /**
      * Effect to trigger hydration when endpoints change
      */
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         hydrate();
         // Cleanup on unmount or when endpoints change
         return () => {
@@ -227,7 +222,7 @@ function useDataHydration(endpoints, options = {}) {
     /**
      * Effect to track component mount status
      */
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         isMountedRef.current = true;
         return () => {
             isMountedRef.current = false;
@@ -244,13 +239,13 @@ function useDataHydration(endpoints, options = {}) {
 /**
  * Clear all cached hydration data
  */
-function clearAllHydrationCache() {
+export function clearAllHydrationCache() {
     hydrationCache.clear();
 }
 /**
  * Get cache statistics
  */
-function getHydrationCacheStats() {
+export function getHydrationCacheStats() {
     const entries = Array.from(hydrationCache.entries()).map(([endpoint, entry]) => ({
         endpoint,
         age: Date.now() - entry.timestamp,

@@ -1,4 +1,3 @@
-"use strict";
 /**
  * @valueos/shared Feature Flags
  *
@@ -8,15 +7,10 @@
  * Usage:
  *   import { FeatureFlags, parseBoolean, getSecurityFlagDefaults } from '@valueos/shared';
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseBoolean = parseBoolean;
-exports.getSecurityFlagDefaults = getSecurityFlagDefaults;
-exports.getDefaultFlags = getDefaultFlags;
-exports.shouldEnableForUser = shouldEnableForUser;
 /**
  * Parse boolean from environment variable
  */
-function parseBoolean(value, defaultValue = false) {
+export function parseBoolean(value, defaultValue = false) {
     if (value === undefined)
         return defaultValue;
     return value.toLowerCase() === "true" || value === "1";
@@ -25,7 +19,7 @@ function parseBoolean(value, defaultValue = false) {
  * Get security-safe defaults for production
  * Sprint 0: These MUST be false in production
  */
-function getSecurityFlagDefaults(isProduction) {
+export function getSecurityFlagDefaults(isProduction) {
     return {
         ENABLE_VALUE_COMMITMENT_SERVICE: false, // Always false until fully implemented
         ENABLE_AGENT_PLACEHOLDER_MODE: !isProduction,
@@ -35,7 +29,7 @@ function getSecurityFlagDefaults(isProduction) {
 /**
  * Get full defaults for all flags
  */
-function getDefaultFlags(isProduction) {
+export function getDefaultFlags(isProduction) {
     const securityDefaults = getSecurityFlagDefaults(isProduction);
     return {
         // Orchestration - enabled by default
@@ -67,7 +61,7 @@ function getDefaultFlags(isProduction) {
  *     // Use new feature
  *   }
  */
-function shouldEnableForUser(userId, percentage) {
+export function shouldEnableForUser(userId, percentage) {
     if (percentage >= 100)
         return true;
     if (percentage <= 0)

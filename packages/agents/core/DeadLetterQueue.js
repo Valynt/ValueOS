@@ -1,25 +1,22 @@
-"use strict";
 /**
  * Dead-Letter Queue for Failed Agent Tasks
  *
  * Routes failed agent tasks (after circuit breaker exhaustion) to a Redis list
  * for manual inspection and retry. Emits `system.dlq.enqueued` domain events.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DeadLetterQueue = exports.DLQEntrySchema = void 0;
-const zod_1 = require("zod");
+import { z } from 'zod';
 // ============================================================================
 // Zod Schemas
 // ============================================================================
-exports.DLQEntrySchema = zod_1.z.object({
-    taskId: zod_1.z.string(),
-    agentType: zod_1.z.string(),
-    input: zod_1.z.unknown(),
-    error: zod_1.z.string(),
-    timestamp: zod_1.z.string(),
-    correlationId: zod_1.z.string(),
-    tenantId: zod_1.z.string(),
-    retryCount: zod_1.z.number().int().min(0),
+export const DLQEntrySchema = z.object({
+    taskId: z.string(),
+    agentType: z.string(),
+    input: z.unknown(),
+    error: z.string(),
+    timestamp: z.string(),
+    correlationId: z.string(),
+    tenantId: z.string(),
+    retryCount: z.number().int().min(0),
 });
 // ============================================================================
 // Constants
@@ -28,7 +25,7 @@ const DLQ_KEY = 'dlq:agent_tasks';
 // ============================================================================
 // DeadLetterQueue
 // ============================================================================
-class DeadLetterQueue {
+export class DeadLetterQueue {
     store;
     eventEmitter;
     constructor(store, eventEmitter) {
@@ -39,7 +36,7 @@ class DeadLetterQueue {
      * Enqueue a failed task to the DLQ
      */
     async enqueue(entry) {
-        const validated = exports.DLQEntrySchema.parse(entry);
+        const validated = DLQEntrySchema.parse(entry);
         const serialized = JSON.stringify(validated);
         await this.store.lpush(DLQ_KEY, serialized);
         this.eventEmitter.emit({
@@ -95,5 +92,4 @@ class DeadLetterQueue {
         return DLQ_KEY;
     }
 }
-exports.DeadLetterQueue = DeadLetterQueue;
 //# sourceMappingURL=DeadLetterQueue.js.map

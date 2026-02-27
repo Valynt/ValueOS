@@ -3,13 +3,11 @@
  * Adds atomic transaction support for subscription updates
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { logger } from "../../lib/logger.js"
 import { PlanTier } from "../../config/billing.js"
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 class TransactionalSubscriptionService {
   private supabase: SupabaseClient;
@@ -17,7 +15,7 @@ class TransactionalSubscriptionService {
 
   constructor(stripe: Stripe) {
     this.stripe = stripe;
-    this.supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    this.supabase = supabaseClient;
   }
 
   /**

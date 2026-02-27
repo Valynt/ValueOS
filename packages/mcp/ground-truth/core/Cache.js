@@ -1,16 +1,11 @@
-"use strict";
 /**
  * Cache Implementation for MCP Ground Truth Server
  *
  * Provides in-memory caching with TTL support for expensive API calls.
  * Designed to reduce SEC API load and improve response times.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MemoryCache = void 0;
-exports.getCache = getCache;
-exports.setCache = setCache;
-const logger_1 = require("../../lib/logger");
-class MemoryCache {
+import { logger } from "../../lib/logger";
+export class MemoryCache {
     cache = new Map();
     policy;
     cleanupInterval = null;
@@ -41,7 +36,7 @@ class MemoryCache {
         // Update access stats
         entry.accessed_at = Date.now();
         entry.access_count++;
-        logger_1.logger.debug("Cache hit", { key, accessCount: entry.access_count });
+        logger.debug("Cache hit", { key, accessCount: entry.access_count });
         return entry.value;
     }
     /**
@@ -63,7 +58,7 @@ class MemoryCache {
             access_count: 0,
         };
         this.cache.set(key, entry);
-        logger_1.logger.debug("Cache set", { key, tier, ttl });
+        logger.debug("Cache set", { key, tier, ttl });
     }
     /**
      * Delete cached value
@@ -71,7 +66,7 @@ class MemoryCache {
     async delete(key) {
         const deleted = this.cache.delete(key);
         if (deleted) {
-            logger_1.logger.debug("Cache deleted", { key });
+            logger.debug("Cache deleted", { key });
         }
         return deleted;
     }
@@ -80,7 +75,7 @@ class MemoryCache {
      */
     async clear() {
         this.cache.clear();
-        logger_1.logger.info("Cache cleared");
+        logger.info("Cache cleared");
     }
     /**
      * Get cache statistics
@@ -112,7 +107,7 @@ class MemoryCache {
             this.cache.delete(key);
         }
         if (expiredKeys.length > 0) {
-            logger_1.logger.debug("Cache cleanup completed", {
+            logger.debug("Cache cleanup completed", {
                 expiredKeys: expiredKeys.length,
             });
         }
@@ -175,17 +170,16 @@ class MemoryCache {
         }
         if (oldestKey) {
             this.cache.delete(oldestKey);
-            logger_1.logger.debug("Cache eviction: removed oldest entry", { key: oldestKey });
+            logger.debug("Cache eviction: removed oldest entry", { key: oldestKey });
         }
     }
 }
-exports.MemoryCache = MemoryCache;
 // Singleton instance
 let defaultCache = null;
 /**
  * Get default cache instance
  */
-function getCache() {
+export function getCache() {
     if (!defaultCache) {
         defaultCache = new MemoryCache();
     }
@@ -194,7 +188,7 @@ function getCache() {
 /**
  * Set custom cache implementation
  */
-function setCache(cache) {
+export function setCache(cache) {
     if (defaultCache) {
         defaultCache.stopCleanup();
     }

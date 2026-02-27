@@ -1,15 +1,12 @@
-"use strict";
 /**
  * SOF Integrity Page Template
  *
  * Extended Integrity template with Governance Integration and System Health Monitoring.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSOFIntegrityPage = generateSOFIntegrityPage;
 /**
  * Generate SOF-enhanced Integrity page
  */
-function generateSOFIntegrityPage(data) {
+export function generateSOFIntegrityPage(data) {
     const allLoops = data.feedbackLoops || [];
     const activeLoops = allLoops.filter((loop) => loop.realization_stage === 'active');
     const closedLoops = allLoops.filter((loop) => loop.closure_status === 'closed');
@@ -445,5 +442,5 @@ function generateSOFIntegrityPage(data) {
         },
     };
 }
-exports.default = generateSOFIntegrityPage;
+export default generateSOFIntegrityPage;
 //# sourceMappingURL=sof-integrity-template.js.map

@@ -1,20 +1,17 @@
-"use strict";
 /**
  * CRM Configuration Manager
  *
  * Extends the base configuration manager with CRM-specific functionality
  * and provides easy access to provider configurations and field mappings.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CRMConfigManager = void 0;
-const mcp_common_1 = require("../../mcp-common");
-const logger_1 = require("../../lib/logger");
-class CRMConfigManager {
+import { ConfigurationManager } from "../../mcp-common";
+import { logger } from "../../lib/logger";
+export class CRMConfigManager {
     static instance;
     baseConfigManager;
     config = null;
     constructor() {
-        this.baseConfigManager = mcp_common_1.ConfigurationManager.getInstance();
+        this.baseConfigManager = ConfigurationManager.getInstance();
     }
     static getInstance() {
         if (!CRMConfigManager.instance) {
@@ -28,14 +25,14 @@ class CRMConfigManager {
     async loadConfig(environment) {
         try {
             this.config = await this.baseConfigManager.loadConfig("crm", environment);
-            logger_1.logger.info("CRM configuration loaded successfully", {
+            logger.info("CRM configuration loaded successfully", {
                 environment: environment || process.env.NODE_ENV || "development",
                 providers: this.config.crm.providers.map((p) => p.provider).filter((p) => p.enabled),
             });
             return this.config;
         }
         catch (error) {
-            logger_1.logger.error("Failed to load CRM configuration", {
+            logger.error("Failed to load CRM configuration", {
                 error: error instanceof Error ? error.message : "Unknown error",
                 environment: environment || process.env.NODE_ENV || "development",
             });
@@ -222,5 +219,4 @@ class CRMConfigManager {
         };
     }
 }
-exports.CRMConfigManager = CRMConfigManager;
 //# sourceMappingURL=CRMConfigManager.js.map

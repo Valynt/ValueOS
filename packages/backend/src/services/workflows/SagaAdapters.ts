@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import { 
-  SagaPersistence, 
-  SagaSnapshot, 
-  SagaTransitionRecord, 
-  SagaEventEmitter, 
-  SagaAuditLogger 
+import {
+  SagaPersistence,
+  SagaSnapshot,
+  SagaTransitionRecord,
+  SagaEventEmitter,
+  SagaAuditLogger
 } from "@valueos/agents";
 import { getAuditTrailService } from "../security/AuditTrailService.js";
 import { logger } from "../../lib/logger.js";
@@ -89,7 +89,7 @@ export class SupabaseSagaPersistence implements SagaPersistence {
       });
 
     if (error) {
-      // If table doesn't exist, don't crash, just log. 
+      // If table doesn't exist, don't crash, just log.
       // In a real scenario we'd ensure migration runs.
       logger.warn('Could not record saga transition to saga_transitions table', { error });
     }
@@ -211,7 +211,7 @@ export class SagaAuditTrailLogger implements SagaAuditLogger {
     await this.auditTrail.logImmediate({
       eventType: entry.eventType as any,
       actorId: 'system',
-      auth0Sub: 'system',
+      externalSub: 'system',
       actorType: 'service',
       resourceId: entry.resourceId,
       resourceType: 'case',

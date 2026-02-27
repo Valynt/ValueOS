@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Chat Opportunity Stage SDUI Template
  *
@@ -7,9 +6,7 @@
  *
  * Phase 3: Stage-specific SDUI generation
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateOpportunityPage = generateOpportunityPage;
-const uuid_1 = require("uuid");
+import { v4 as uuidv4 } from "uuid";
 /**
  * Generate Opportunity stage SDUI page
  *
@@ -19,7 +16,7 @@ const uuid_1 = require("uuid");
  * - StakeholderMap: Key stakeholders mentioned
  * - NextStepsTimeline: Suggested next actions
  */
-function generateOpportunityPage(context) {
+export function generateOpportunityPage(context) {
     const { content, confidence, reasoning, workflowState, sessionId, traceId } = context;
     const sections = [
         {
@@ -28,7 +25,7 @@ function generateOpportunityPage(context) {
             version: 1,
             props: {
                 response: {
-                    id: (0, uuid_1.v4)(),
+                    id: uuidv4(),
                     agentId: "opportunity",
                     agentName: "Opportunity Agent",
                     timestamp: new Date().toISOString(),

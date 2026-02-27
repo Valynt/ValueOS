@@ -6,7 +6,7 @@ import { AuditLogService } from './AuditLogService.js';
 
 export interface AssumptionUpdateContext {
   userId?: string;
-  auth0Sub?: string;
+  externalSub?: string;
   sessionId?: string;
   valueCaseId?: string;
   organizationId?: string;
@@ -49,7 +49,7 @@ export class AssumptionService {
       justificationText: String((safeUpdates as any)?.justificationText || (safeUpdates as any)?.justification || ''),
     });
 
-    const actor = context.auth0Sub || context.userId || 'system';
+    const actor = context.externalSub || context.userId || 'system';
     const valueCaseId = context.valueCaseId || (previous as any)?.value_case_id || (safeUpdates as any)?.value_case_id;
     const sessionId = context.sessionId || (safeUpdates as any)?.session_id || undefined;
 
@@ -62,7 +62,7 @@ export class AssumptionService {
           assumptionId,
           valueCaseId,
           sessionId,
-          auth0_sub: actor,
+          external_sub: actor,
           justificationPresent: evaluation.context.justificationPresent,
         },
         meta: {
@@ -80,7 +80,7 @@ export class AssumptionService {
         resourceType: 'assumption',
         resourceId: assumptionId,
         details: {
-          auth0_sub: actor,
+          external_sub: actor,
           value_case_id: valueCaseId,
           session_id: sessionId,
           old_assumptions: previous,
@@ -104,7 +104,7 @@ export class AssumptionService {
         resourceType: 'assumption',
         resourceId: assumptionId,
         details: {
-          auth0_sub: actor,
+          external_sub: actor,
           value_case_id: valueCaseId,
           session_id: sessionId,
           old_assumptions: previous,

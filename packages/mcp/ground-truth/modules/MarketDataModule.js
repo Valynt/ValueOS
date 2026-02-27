@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Market Data Module - Tier 2 Real-Time Market Intelligence
  *
@@ -10,18 +9,16 @@
  *
  * Security: IL4 with API key rotation
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MarketDataModule = void 0;
-const BaseModule_1 = require("../core/BaseModule");
-const types_1 = require("../types");
-const logger_1 = require("../../lib/logger");
+import { BaseModule } from '../core/BaseModule';
+import { ErrorCodes, GroundTruthError, } from '../types';
+import { logger } from '../../lib/logger';
 /**
  * Market Data Module - Tier 2 Market Intelligence
  *
  * Implements real-time quotes, fundamentals, and market multiples
  * Node Mapping: [NODE: Market_Data_Module], [NODE: Tier_2_Proxy]
  */
-class MarketDataModule extends BaseModule_1.BaseModule {
+export class MarketDataModule extends BaseModule {
     name = 'market-data';
     tier = 'tier2';
     description = 'Real-time market data and fundamentals - Tier 2 high-confidence source';
@@ -45,9 +42,9 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         this.rateLimit = marketConfig.rateLimit || 5;
         this.cacheTTL = marketConfig.cacheTTL || 300;
         if (!this.apiKey) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, 'Market data API key is required');
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, 'Market data API key is required');
         }
-        logger_1.logger.info('Market Data Module initialized', {
+        logger.info('Market Data Module initialized', {
             provider: this.provider,
             rateLimit: this.rateLimit,
             cacheTTL: this.cacheTTL,
@@ -75,7 +72,7 @@ class MarketDataModule extends BaseModule_1.BaseModule {
             else if (metric.includes('multiple')) {
                 return await this.getMultiples(ticker);
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Unsupported metric: ${metric}`);
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unsupported metric: ${metric}`);
         });
     }
     /**
@@ -85,7 +82,7 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         // Check cache first
         const cached = this.getCachedData(ticker, 'quote');
         if (cached) {
-            logger_1.logger.debug('Market quote cache hit', { ticker });
+            logger.debug('Market quote cache hit', { ticker });
             return this.createMetricFromQuote(cached, true);
         }
         await this.enforceRateLimit();
@@ -101,7 +98,7 @@ class MarketDataModule extends BaseModule_1.BaseModule {
                 quote = await this.getQuoteTiingo(ticker);
                 break;
             default:
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Unsupported provider: ${this.provider}`);
+                throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unsupported provider: ${this.provider}`);
         }
         // Cache the result
         this.setCachedData(ticker, 'quote', quote);
@@ -114,7 +111,7 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         // Check cache first
         const cached = this.getCachedData(ticker, 'fundamentals');
         if (cached) {
-            logger_1.logger.debug('Market fundamentals cache hit', { ticker });
+            logger.debug('Market fundamentals cache hit', { ticker });
             return this.createMetricFromFundamentals(cached, true);
         }
         await this.enforceRateLimit();
@@ -127,7 +124,7 @@ class MarketDataModule extends BaseModule_1.BaseModule {
                 fundamentals = await this.getFundamentalsPolygon(ticker);
                 break;
             default:
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Fundamentals not supported for provider: ${this.provider}`);
+                throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Fundamentals not supported for provider: ${this.provider}`);
         }
         // Cache the result
         this.setCachedData(ticker, 'fundamentals', fundamentals);
@@ -164,18 +161,18 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Alpha Vantage API returned ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Alpha Vantage API returned ${response.status}`);
             }
             const data = await response.json();
             if (data['Error Message']) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `Ticker ${ticker} not found`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `Ticker ${ticker} not found`);
             }
             if (data['Note']) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.RATE_LIMIT_EXCEEDED, 'Alpha Vantage rate limit exceeded');
+                throw new GroundTruthError(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Alpha Vantage rate limit exceeded');
             }
             const quote = data['Global Quote'];
             if (!quote) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No quote data for ${ticker}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No quote data for ${ticker}`);
             }
             return {
                 ticker,
@@ -187,10 +184,10 @@ class MarketDataModule extends BaseModule_1.BaseModule {
             };
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     async getFundamentalsAlphaVantage(ticker) {
@@ -198,11 +195,11 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Alpha Vantage API returned ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Alpha Vantage API returned ${response.status}`);
             }
             const data = await response.json();
             if (data['Error Message'] || Object.keys(data).length === 0) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No fundamental data for ${ticker}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No fundamental data for ${ticker}`);
             }
             return {
                 ticker,
@@ -217,10 +214,10 @@ class MarketDataModule extends BaseModule_1.BaseModule {
             };
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch fundamentals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch fundamentals: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     // ============================================================================
@@ -231,11 +228,11 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Polygon API returned ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Polygon API returned ${response.status}`);
             }
             const data = await response.json();
             if (data.status !== 'OK' || !data.results || data.results.length === 0) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No quote data for ${ticker}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No quote data for ${ticker}`);
             }
             const result = data.results[0];
             return {
@@ -248,10 +245,10 @@ class MarketDataModule extends BaseModule_1.BaseModule {
             };
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     async getFundamentalsPolygon(ticker) {
@@ -259,11 +256,11 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Polygon API returned ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Polygon API returned ${response.status}`);
             }
             const data = await response.json();
             if (data.status !== 'OK' || !data.results) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No fundamental data for ${ticker}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No fundamental data for ${ticker}`);
             }
             const results = data.results;
             return {
@@ -274,10 +271,10 @@ class MarketDataModule extends BaseModule_1.BaseModule {
             };
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch fundamentals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch fundamentals: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     // ============================================================================
@@ -288,11 +285,11 @@ class MarketDataModule extends BaseModule_1.BaseModule {
         try {
             const response = await fetch(url);
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Tiingo API returned ${response.status}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Tiingo API returned ${response.status}`);
             }
             const data = await response.json();
             if (!data || data.length === 0) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No quote data for ${ticker}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No quote data for ${ticker}`);
             }
             const latest = data[0];
             return {
@@ -305,10 +302,10 @@ class MarketDataModule extends BaseModule_1.BaseModule {
             };
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch quote: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     // ============================================================================
@@ -375,8 +372,7 @@ class MarketDataModule extends BaseModule_1.BaseModule {
     }
     clearCache() {
         this.quoteCache.clear();
-        logger_1.logger.info('Market data cache cleared');
+        logger.info('Market data cache cleared');
     }
 }
-exports.MarketDataModule = MarketDataModule;
 //# sourceMappingURL=MarketDataModule.js.map

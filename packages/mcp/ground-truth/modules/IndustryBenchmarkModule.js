@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Industry Benchmark Module - Tier 3 Contextual Intelligence
  *
@@ -12,20 +11,18 @@
  *
  * Node Mapping: [NODE: Industry_Benchmark_Module], [NODE: Tier_3_Narrative]
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.IndustryBenchmarkModule = void 0;
-const BaseModule_js_1 = require("../core/BaseModule.js");
-const index_js_1 = require("../types/index.js");
-const logger_js_1 = require("../../lib/logger.js");
-const ExpandedIndustryBenchmarks_js_1 = require("./ExpandedIndustryBenchmarks.js");
-const LiveDataFeedService_js_1 = require("../services/LiveDataFeedService.js");
+import { BaseModule } from "../core/BaseModule.js";
+import { ErrorCodes, GroundTruthError, } from "../types/index.js";
+import { logger } from "../../lib/logger.js";
+import { EXPANDED_INDUSTRY_BENCHMARKS } from "./ExpandedIndustryBenchmarks.js";
+import { LiveDataFeedService } from "../services/LiveDataFeedService.js";
 /**
  * Industry Benchmark Module - Tier 3 Contextual Data
  *
  * Provides industry-wide benchmarks for comparative analysis
  * Used in Value Driver Tree calculations and productivity gap analysis
  */
-class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
+export class IndustryBenchmarkModule extends BaseModule {
     name = "industry-benchmark";
     tier = "tier3";
     description = "Industry benchmarks and wage data - Tier 3 contextual intelligence";
@@ -38,7 +35,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
     liveDataFeed;
     // Comprehensive Industry Benchmarks (2024 data) - 50 Industries
     // In production, this would be regularly updated from authoritative sources
-    STATIC_BENCHMARKS = Object.entries(ExpandedIndustryBenchmarks_js_1.EXPANDED_INDUSTRY_BENCHMARKS).reduce((acc, [naics, data]) => {
+    STATIC_BENCHMARKS = Object.entries(EXPANDED_INDUSTRY_BENCHMARKS).reduce((acc, [naics, data]) => {
         const benchmarks = [];
         // Convert the expanded format to IndustryBenchmark format
         Object.entries(data.metrics).forEach(([metricName, metricData]) => {
@@ -123,7 +120,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
         this.enableStaticData = benchmarkConfig.enableStaticData ?? true;
         this.cacheTTL = benchmarkConfig.cacheTTL || this.cacheTTL;
         // Initialize live data feed service
-        this.liveDataFeed = new LiveDataFeedService_js_1.LiveDataFeedService({
+        this.liveDataFeed = new LiveDataFeedService({
             secApiKey: this.secApiKey,
             blsApiKey: this.blsApiKey,
             censusApiKey: this.censusApiKey,
@@ -133,7 +130,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
             requestTimeoutMs: 30000,
             enableFallbackToStatic: this.enableStaticData,
         });
-        logger_js_1.logger.info("Industry Benchmark Module initialized", {
+        logger.info("Industry Benchmark Module initialized", {
             hasSEC: !!this.secApiKey,
             hasBLS: !!this.blsApiKey,
             hasCensus: !!this.censusApiKey,
@@ -150,7 +147,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
     async query(request) {
         // Basic validation
         if (!request.identifier) {
-            throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.INVALID_REQUEST, "Identifier is required");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "Identifier is required");
         }
         const { identifier, metric, options } = request;
         // Determine if identifier is NAICS or occupation code
@@ -162,7 +159,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
         else if (isOccupation) {
             return await this.getWageData(identifier, options?.metro_area);
         }
-        throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.INVALID_REQUEST, `Invalid identifier format: ${identifier}`);
+        throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Invalid identifier format: ${identifier}`);
     }
     /**
      * Get industry benchmarks for a NAICS code
@@ -172,7 +169,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
         const cacheKey = `naics:${naicsCode}:${metric || "all"}`;
         const cached = this.getCachedData(cacheKey);
         if (cached) {
-            logger_js_1.logger.debug("Industry benchmark cache hit", { naicsCode, metric });
+            logger.debug("Industry benchmark cache hit", { naicsCode, metric });
             return this.createMetricFromBenchmark(cached, true);
         }
         // Try static data first
@@ -181,7 +178,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
             // Filter by metric if specified
             const filtered = metric ? benchmarks.filter((b) => b.metric_name === metric) : benchmarks;
             if (!benchmarks || !filtered || filtered.length === 0) {
-                throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, `No benchmark data for NAICS ${naicsCode}, metric ${metric}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No benchmark data for NAICS ${naicsCode}, metric ${metric}`);
             }
             const benchmark = filtered[0];
             this.setCachedData(cacheKey, benchmark);
@@ -195,10 +192,10 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
                 return this.createMetricFromBenchmark(benchmark, false);
             }
             catch (error) {
-                logger_js_1.logger.warn("Census API lookup failed", { naicsCode, error });
+                logger.warn("Census API lookup failed", { naicsCode, error });
             }
         }
-        throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, `No benchmark data available for NAICS ${naicsCode}`);
+        throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No benchmark data available for NAICS ${naicsCode}`);
     }
     /**
      * Get wage data for an occupation code
@@ -208,7 +205,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
         const cacheKey = `wage:${occupationCode}:${metroArea || "national"}`;
         const cached = this.getCachedData(cacheKey);
         if (cached) {
-            logger_js_1.logger.debug("Wage data cache hit", { occupationCode, metroArea });
+            logger.debug("Wage data cache hit", { occupationCode, metroArea });
             return this.createMetricFromWageData(cached, true);
         }
         // Try static data first
@@ -225,10 +222,10 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
                 return this.createMetricFromWageData(wageData, false);
             }
             catch (error) {
-                logger_js_1.logger.warn("BLS API lookup failed", { occupationCode, error });
+                logger.warn("BLS API lookup failed", { occupationCode, error });
             }
         }
-        throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, `No wage data available for occupation ${occupationCode}`);
+        throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No wage data available for occupation ${occupationCode}`);
     }
     /**
      * Get all benchmarks for an industry
@@ -241,7 +238,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
             // Would fetch from Census API
             // Placeholder implementation
         }
-        throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, `No benchmarks available for NAICS ${naicsCode}`);
+        throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No benchmarks available for NAICS ${naicsCode}`);
     }
     /**
      * Compare company metrics against industry benchmarks
@@ -285,7 +282,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
         const benchmarks = await this.getAllBenchmarks(naicsCode);
         const revPerEmpBenchmark = benchmarks.find((b) => b.metric_name === "revenue_per_employee");
         if (!revPerEmpBenchmark) {
-            throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, "Revenue per employee benchmark not available");
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "Revenue per employee benchmark not available");
         }
         const industryBenchmark = Array.isArray(revPerEmpBenchmark.value)
             ? (revPerEmpBenchmark.value[0] + revPerEmpBenchmark.value[1]) / 2
@@ -307,13 +304,13 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
     // ============================================================================
     async getCensusBenchmark(naicsCode, metric) {
         if (!this.liveDataFeed) {
-            throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.INVALID_REQUEST, "Live data feed service not initialized");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "Live data feed service not initialized");
         }
         try {
             // Get business patterns data for the NAICS code
             const businessData = await this.liveDataFeed.getCensusBusinessPatterns([naicsCode]);
             if (!businessData || businessData.length === 0) {
-                throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, `No Census data available for NAICS ${naicsCode}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No Census data available for NAICS ${naicsCode}`);
             }
             const data = businessData[0];
             // Convert to IndustryBenchmark format
@@ -326,27 +323,27 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
                 year: data.year,
                 source: "U.S. Census Bureau",
             };
-            logger_js_1.logger.debug("Census data retrieved", { naicsCode, metric, hasData: true });
+            logger.debug("Census data retrieved", { naicsCode, metric, hasData: true });
             return benchmark;
         }
         catch (error) {
-            logger_js_1.logger.warn("Census API lookup failed, falling back to static data", {
+            logger.warn("Census API lookup failed, falling back to static data", {
                 source: "census",
                 naicsCode,
                 error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
             });
-            throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, "Census API integration failed");
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "Census API integration failed");
         }
     }
     async getBLSWageData(occupationCode, metroArea) {
         if (!this.liveDataFeed) {
-            throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.INVALID_REQUEST, "Live data feed service not initialized");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "Live data feed service not initialized");
         }
         try {
             // Get wage data for the occupation code
             const wageData = await this.liveDataFeed.getBLSWageData([occupationCode]);
             if (!wageData || wageData.length === 0) {
-                throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, `No BLS wage data available for occupation ${occupationCode}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No BLS wage data available for occupation ${occupationCode}`);
             }
             const data = wageData[0];
             // Convert BLS format to WageData format
@@ -363,16 +360,16 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
                 year: data.year,
                 metro_area: data.areaTitle !== "National" ? data.areaTitle : undefined,
             };
-            logger_js_1.logger.debug("BLS wage data retrieved", { occupationCode, metroArea, hasData: true });
+            logger.debug("BLS wage data retrieved", { occupationCode, metroArea, hasData: true });
             return wageEntry;
         }
         catch (error) {
-            logger_js_1.logger.warn("BLS API lookup failed, falling back to static data", {
+            logger.warn("BLS API lookup failed, falling back to static data", {
                 source: "bls",
                 occupationCode,
                 error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
             });
-            throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.NO_DATA_FOUND, "BLS API integration failed");
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "BLS API integration failed");
         }
     }
     // ============================================================================
@@ -635,7 +632,7 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
     getDataProvenance(dataSource, data) {
         // Validate dataSource is one of the expected values
         if (!["sec", "bls", "census"].includes(dataSource)) {
-            throw new index_js_1.GroundTruthError(index_js_1.ErrorCodes.INVALID_REQUEST, `Invalid data source: ${dataSource}. Must be one of: sec, bls, census`);
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Invalid data source: ${dataSource}. Must be one of: sec, bls, census`);
         }
         const now = new Date().toISOString();
         const dataPoints = Array.isArray(data) ? data.length : 1;
@@ -675,7 +672,6 @@ class IndustryBenchmarkModule extends BaseModule_js_1.BaseModule {
         };
     }
 }
-exports.IndustryBenchmarkModule = IndustryBenchmarkModule;
 /**
  * Enhanced compare method with quality scoring
  */

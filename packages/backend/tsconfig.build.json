@@ -8,8 +8,8 @@
     "declarationMap": false,
     "sourceMap": true,
     "outDir": "dist",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "target": "ES2022",
     "skipLibCheck": true

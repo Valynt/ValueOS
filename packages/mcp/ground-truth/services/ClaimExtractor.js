@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Claim Extractor Service
  *
@@ -6,9 +5,7 @@
  * advanced pattern matching and keyword association.
  * Replaces the brittle regex implementation in UnifiedTruthLayer.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ClaimExtractor = void 0;
-class ClaimExtractor {
+export class ClaimExtractor {
     // Financial metric definitions mapping patterns to normalized metric IDs
     static METRICS = [
         {
@@ -202,5 +199,4 @@ class ClaimExtractor {
         return Array.from(unique.values());
     }
 }
-exports.ClaimExtractor = ClaimExtractor;
 //# sourceMappingURL=ClaimExtractor.js.map

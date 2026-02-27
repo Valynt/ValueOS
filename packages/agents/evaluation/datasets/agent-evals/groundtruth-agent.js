@@ -1,44 +1,41 @@
-"use strict";
 /**
  * Evaluation Dataset: Ground Truth Agent
  *
  * Golden input/output pairs for validating the GroundTruthAgent.
  * Tests evidence retrieval, source classification, and citation quality.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.groundtruthEvalCases = exports.GroundtruthEvalCaseSchema = void 0;
-const zod_1 = require("zod");
-exports.GroundtruthEvalCaseSchema = zod_1.z.object({
-    id: zod_1.z.string(),
-    name: zod_1.z.string(),
-    input: zod_1.z.object({
-        query: zod_1.z.string(),
-        context: zod_1.z.object({
-            organizationId: zod_1.z.string().optional(),
-            userId: zod_1.z.string().optional(),
+import { z } from 'zod';
+export const GroundtruthEvalCaseSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    input: z.object({
+        query: z.string(),
+        context: z.object({
+            organizationId: z.string().optional(),
+            userId: z.string().optional(),
         }).optional(),
-        idempotencyKey: zod_1.z.string().uuid().optional(),
+        idempotencyKey: z.string().uuid().optional(),
     }),
-    expectations: zod_1.z.object({
-        minGroundtruths: zod_1.z.number().int().min(1),
-        requiredCategories: zod_1.z.array(zod_1.z.string()).optional(),
+    expectations: z.object({
+        minGroundtruths: z.number().int().min(1),
+        requiredCategories: z.array(z.string()).optional(),
         /** At least one item should have confidence >= this threshold */
-        minTopConfidence: zod_1.z.number().min(0).max(1).optional(),
-        mustMentionKeywords: zod_1.z.array(zod_1.z.string()).optional(),
+        minTopConfidence: z.number().min(0).max(1).optional(),
+        mustMentionKeywords: z.array(z.string()).optional(),
     }),
-    mockResponse: zod_1.z.object({
-        groundtruths: zod_1.z.array(zod_1.z.object({
-            title: zod_1.z.string(),
-            description: zod_1.z.string(),
-            confidence: zod_1.z.number(),
-            category: zod_1.z.string(),
-            verification_type: zod_1.z.string(),
-            priority: zod_1.z.string(),
+    mockResponse: z.object({
+        groundtruths: z.array(z.object({
+            title: z.string(),
+            description: z.string(),
+            confidence: z.number(),
+            category: z.string(),
+            verification_type: z.string(),
+            priority: z.string(),
         })),
-        analysis: zod_1.z.string(),
+        analysis: z.string(),
     }),
 });
-exports.groundtruthEvalCases = [
+export const groundtruthEvalCases = [
     {
         id: 'gt-eval-001',
         name: 'Verify DSO and AR data for SaaS company',

@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Evidence Tiering
  *
@@ -7,28 +6,22 @@
  * - Tier 2 (Market/Secondary): Gartner/Forrester, industry benchmarks. Weight: 0.7
  * - Tier 3 (Benchmarks): Internal historical data, anonymized aggregates. Weight: 0.4
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EvidenceBundleSchema = exports.CitationSchema = exports.ClassifiedEvidenceSchema = exports.EvidenceItemSchema = exports.TIER_MAX_AGE_DAYS = exports.TIER_WEIGHTS = exports.EvidenceTierValue = void 0;
-exports.classifyEvidence = classifyEvidence;
-exports.buildEvidenceBundle = buildEvidenceBundle;
-exports.getTierWeight = getTierWeight;
-exports.getMaxAgeDays = getMaxAgeDays;
-const zod_1 = require("zod");
+import { z } from 'zod';
 // ============================================================================
 // Types
 // ============================================================================
-exports.EvidenceTierValue = {
+export const EvidenceTierValue = {
     TIER_1: 1,
     TIER_2: 2,
     TIER_3: 3,
 };
-exports.TIER_WEIGHTS = {
+export const TIER_WEIGHTS = {
     1: 1.0,
     2: 0.7,
     3: 0.4,
 };
 /** Max age in days before freshness drops to 0 */
-exports.TIER_MAX_AGE_DAYS = {
+export const TIER_MAX_AGE_DAYS = {
     1: 365,
     2: 730,
     3: 1095,
@@ -36,33 +29,33 @@ exports.TIER_MAX_AGE_DAYS = {
 // ============================================================================
 // Zod Schemas
 // ============================================================================
-exports.EvidenceItemSchema = zod_1.z.object({
-    id: zod_1.z.string(),
-    sourceType: zod_1.z.string(),
-    sourceName: zod_1.z.string(),
-    sourceUrl: zod_1.z.string().optional(),
-    content: zod_1.z.string(),
-    retrievedAt: zod_1.z.string(),
-    metadata: zod_1.z.record(zod_1.z.unknown()).optional(),
+export const EvidenceItemSchema = z.object({
+    id: z.string(),
+    sourceType: z.string(),
+    sourceName: z.string(),
+    sourceUrl: z.string().optional(),
+    content: z.string(),
+    retrievedAt: z.string(),
+    metadata: z.record(z.unknown()).optional(),
 });
-exports.ClassifiedEvidenceSchema = exports.EvidenceItemSchema.extend({
-    tier: zod_1.z.union([zod_1.z.literal(1), zod_1.z.literal(2), zod_1.z.literal(3)]),
-    weight: zod_1.z.number(),
-    maxAgeDays: zod_1.z.number(),
+export const ClassifiedEvidenceSchema = EvidenceItemSchema.extend({
+    tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    weight: z.number(),
+    maxAgeDays: z.number(),
 });
-exports.CitationSchema = zod_1.z.object({
-    evidenceId: zod_1.z.string(),
-    sourceName: zod_1.z.string(),
-    sourceUrl: zod_1.z.string().optional(),
-    tier: zod_1.z.union([zod_1.z.literal(1), zod_1.z.literal(2), zod_1.z.literal(3)]),
-    excerpt: zod_1.z.string(),
-    retrievedAt: zod_1.z.string(),
+export const CitationSchema = z.object({
+    evidenceId: z.string(),
+    sourceName: z.string(),
+    sourceUrl: z.string().optional(),
+    tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    excerpt: z.string(),
+    retrievedAt: z.string(),
 });
-exports.EvidenceBundleSchema = zod_1.z.object({
-    valueCaseId: zod_1.z.string(),
-    items: zod_1.z.array(exports.ClassifiedEvidenceSchema),
-    citations: zod_1.z.array(exports.CitationSchema),
-    timestamp: zod_1.z.string(),
+export const EvidenceBundleSchema = z.object({
+    valueCaseId: z.string(),
+    items: z.array(ClassifiedEvidenceSchema),
+    citations: z.array(CitationSchema),
+    timestamp: z.string(),
 });
 // ============================================================================
 // Source Type → Tier Mapping
@@ -96,7 +89,7 @@ const TIER_2_SOURCES = new Set([
 /**
  * Classify a single evidence item into a tier
  */
-function classifyEvidence(item) {
+export function classifyEvidence(item) {
     const normalizedType = item.sourceType.toLowerCase().replace(/[\s-]/g, '_');
     let tier;
     if (TIER_1_SOURCES.has(normalizedType)) {
@@ -111,14 +104,14 @@ function classifyEvidence(item) {
     return {
         ...item,
         tier,
-        weight: exports.TIER_WEIGHTS[tier],
-        maxAgeDays: exports.TIER_MAX_AGE_DAYS[tier],
+        weight: TIER_WEIGHTS[tier],
+        maxAgeDays: TIER_MAX_AGE_DAYS[tier],
     };
 }
 /**
  * Classify an array of evidence items and produce an EvidenceBundle
  */
-function buildEvidenceBundle(valueCaseId, items) {
+export function buildEvidenceBundle(valueCaseId, items) {
     const classified = items.map(classifyEvidence);
     const citations = classified.map((item) => ({
         evidenceId: item.id,
@@ -138,13 +131,13 @@ function buildEvidenceBundle(valueCaseId, items) {
 /**
  * Get the tier weight for a given tier
  */
-function getTierWeight(tier) {
-    return exports.TIER_WEIGHTS[tier];
+export function getTierWeight(tier) {
+    return TIER_WEIGHTS[tier];
 }
 /**
  * Get the max age in days for a given tier
  */
-function getMaxAgeDays(tier) {
-    return exports.TIER_MAX_AGE_DAYS[tier];
+export function getMaxAgeDays(tier) {
+    return TIER_MAX_AGE_DAYS[tier];
 }
 //# sourceMappingURL=EvidenceTiering.js.map

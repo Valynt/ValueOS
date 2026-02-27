@@ -1,21 +1,18 @@
-"use strict";
 /**
  * Health check alert manager
  * Tracks persistent failures and manages alert states
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.alertManager = exports.AlertState = exports.AlertSeverity = void 0;
-var AlertSeverity;
+export var AlertSeverity;
 (function (AlertSeverity) {
     AlertSeverity["WARNING"] = "warning";
     AlertSeverity["CRITICAL"] = "critical";
-})(AlertSeverity || (exports.AlertSeverity = AlertSeverity = {}));
-var AlertState;
+})(AlertSeverity || (AlertSeverity = {}));
+export var AlertState;
 (function (AlertState) {
     AlertState["OK"] = "ok";
     AlertState["ALERTING"] = "alerting";
     AlertState["RESOLVED"] = "resolved";
-})(AlertState || (exports.AlertState = AlertState = {}));
+})(AlertState || (AlertState = {}));
 class AlertManager {
     alerts = new Map();
     rules = [];
@@ -119,5 +116,5 @@ class AlertManager {
     }
 }
 // Global alert manager
-exports.alertManager = new AlertManager();
+export const alertManager = new AlertManager();
 //# sourceMappingURL=alerts.js.map

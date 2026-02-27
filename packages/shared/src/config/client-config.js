@@ -1,27 +1,24 @@
-"use strict";
 /**
  * Client Configuration
  *
  * Browser-safe configuration that only reads VITE_-prefixed values.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getClientApiConfig = exports.getClientSupabaseConfig = exports.isClientProduction = exports.getClientConfig = exports.clientConfig = void 0;
-const zod_1 = require("zod");
-const ClientConfigSchema = zod_1.z.object({
-    app: zod_1.z.object({
-        name: zod_1.z.string().default("ValueOS"),
-        version: zod_1.z.string().default("1.0.0"),
-        environment: zod_1.z.enum(["development", "staging", "production"]).default("development"),
-        debug: zod_1.z.boolean().default(false),
+import { z } from "zod";
+const ClientConfigSchema = z.object({
+    app: z.object({
+        name: z.string().default("ValueOS"),
+        version: z.string().default("1.0.0"),
+        environment: z.enum(["development", "staging", "production"]).default("development"),
+        debug: z.boolean().default(false),
     }),
-    supabase: zod_1.z.object({
-        url: zod_1.z.string(),
-        anonKey: zod_1.z.string(),
+    supabase: z.object({
+        url: z.string(),
+        anonKey: z.string(),
     }),
-    api: zod_1.z.object({
-        baseUrl: zod_1.z.string().default("/api"),
-        timeout: zod_1.z.number().default(30000),
-        retryAttempts: zod_1.z.number().default(3),
+    api: z.object({
+        baseUrl: z.string().default("/api"),
+        timeout: z.number().default(30000),
+        retryAttempts: z.number().default(3),
     }),
 });
 const isBrowser = typeof window !== "undefined";
@@ -97,7 +94,7 @@ class ClientConfigLoader {
             return { valid: true, errors: [] };
         }
         catch (error) {
-            if (error instanceof zod_1.z.ZodError) {
+            if (error instanceof z.ZodError) {
                 return {
                     valid: false,
                     errors: error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
@@ -110,17 +107,13 @@ class ClientConfigLoader {
         }
     }
 }
-exports.clientConfig = ClientConfigLoader.getInstance();
-const getClientConfig = () => exports.clientConfig.load();
-exports.getClientConfig = getClientConfig;
-const isClientProduction = () => (0, exports.getClientConfig)().app.environment === "production";
-exports.isClientProduction = isClientProduction;
-const getClientSupabaseConfig = () => (0, exports.getClientConfig)().supabase;
-exports.getClientSupabaseConfig = getClientSupabaseConfig;
-const getClientApiConfig = () => (0, exports.getClientConfig)().api;
-exports.getClientApiConfig = getClientApiConfig;
+export const clientConfig = ClientConfigLoader.getInstance();
+export const getClientConfig = () => clientConfig.load();
+export const isClientProduction = () => getClientConfig().app.environment === "production";
+export const getClientSupabaseConfig = () => getClientConfig().supabase;
+export const getClientApiConfig = () => getClientConfig().api;
 if (isBrowser) {
-    const validation = exports.clientConfig.validate();
+    const validation = clientConfig.validate();
     if (!validation.valid) {
         console.error("Client configuration validation failed:");
         validation.errors.forEach((error) => console.error(`  - ${error}`));

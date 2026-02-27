@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Component Tool Registry
  *
@@ -12,20 +11,12 @@
  *
  * This allows generated UIs to stay fresh without LLM regeneration.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.COMPONENT_TOOL_REGISTRY = void 0;
-exports.getComponentTool = getComponentTool;
-exports.getAllComponentTools = getAllComponentTools;
-exports.getComponentToolsByCategory = getComponentToolsByCategory;
-exports.searchComponentTools = searchComponentTools;
-exports.getComponentToolDocumentation = getComponentToolDocumentation;
-exports.validateComponentSelection = validateComponentSelection;
-const DataBindingSchema_1 = require("./DataBindingSchema");
+import { EXAMPLE_BINDINGS } from './DataBindingSchema';
 /**
  * Component Tool Registry
  * Documents all available UI components as "tools" for agents
  */
-exports.COMPONENT_TOOL_REGISTRY = {
+export const COMPONENT_TOOL_REGISTRY = {
     SystemMapCanvas: {
         name: 'SystemMapCanvas',
         description: 'Interactive visualization of system entities and relationships',
@@ -456,25 +447,25 @@ exports.COMPONENT_TOOL_REGISTRY = {
 /**
  * Get component tool by name
  */
-function getComponentTool(name) {
-    return exports.COMPONENT_TOOL_REGISTRY[name];
+export function getComponentTool(name) {
+    return COMPONENT_TOOL_REGISTRY[name];
 }
 /**
  * Get all component tools
  */
-function getAllComponentTools() {
-    return Object.values(exports.COMPONENT_TOOL_REGISTRY);
+export function getAllComponentTools() {
+    return Object.values(COMPONENT_TOOL_REGISTRY);
 }
 /**
  * Get component tools by category
  */
-function getComponentToolsByCategory(category) {
+export function getComponentToolsByCategory(category) {
     return getAllComponentTools().filter((tool) => tool.category === category);
 }
 /**
  * Search component tools by description
  */
-function searchComponentTools(query) {
+export function searchComponentTools(query) {
     const lowerQuery = query.toLowerCase();
     return getAllComponentTools().filter((tool) => tool.name.toLowerCase().includes(lowerQuery) ||
         tool.description.toLowerCase().includes(lowerQuery) ||
@@ -483,7 +474,7 @@ function searchComponentTools(query) {
 /**
  * Get component tool documentation for LLM
  */
-function getComponentToolDocumentation() {
+export function getComponentToolDocumentation() {
     const tools = getAllComponentTools();
     const header = `
 # SDUI Component Tools
@@ -528,7 +519,7 @@ Instead of hardcoding values, use data binding objects:
 
 **Example Bindings**:
 \`\`\`json
-${JSON.stringify(DataBindingSchema_1.EXAMPLE_BINDINGS, null, 2)}
+${JSON.stringify(EXAMPLE_BINDINGS, null, 2)}
 \`\`\`
 
 ---
@@ -560,7 +551,7 @@ ${JSON.stringify(tool.examples[0], null, 2)}
 /**
  * Validate component selection
  */
-function validateComponentSelection(componentName, props) {
+export function validateComponentSelection(componentName, props) {
     const tool = getComponentTool(componentName);
     const errors = [];
     const warnings = [];
@@ -587,5 +578,5 @@ function validateComponentSelection(componentName, props) {
         warnings,
     };
 }
-exports.default = exports.COMPONENT_TOOL_REGISTRY;
+export default COMPONENT_TOOL_REGISTRY;
 //# sourceMappingURL=ComponentToolRegistry.js.map

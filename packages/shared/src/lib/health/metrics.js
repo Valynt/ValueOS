@@ -1,11 +1,7 @@
-"use strict";
 /**
  * Health check metrics collector
  * Tracks latency and failure rates for health checks
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.healthMetrics = void 0;
-exports.withMetrics = withMetrics;
 class HealthMetricsCollector {
     metrics = [];
     healthHistory = [];
@@ -117,11 +113,11 @@ class HealthMetricsCollector {
     }
 }
 // Global metrics collector
-exports.healthMetrics = new HealthMetricsCollector();
+export const healthMetrics = new HealthMetricsCollector();
 /**
  * Wrapper to track metrics for health check functions
  */
-function withMetrics(service, fn) {
+export function withMetrics(service, fn) {
     return (...args) => {
         const startTime = Date.now();
         try {
@@ -130,24 +126,24 @@ function withMetrics(service, fn) {
                 return result
                     .then((res) => {
                     const latency = Date.now() - startTime;
-                    exports.healthMetrics.recordMetric(service, latency, res.healthy);
+                    healthMetrics.recordMetric(service, latency, res.healthy);
                     return res;
                 })
                     .catch((error) => {
                     const latency = Date.now() - startTime;
-                    exports.healthMetrics.recordMetric(service, latency, false, error.message);
+                    healthMetrics.recordMetric(service, latency, false, error.message);
                     throw error;
                 });
             }
             else {
                 const latency = Date.now() - startTime;
-                exports.healthMetrics.recordMetric(service, latency, result.healthy);
+                healthMetrics.recordMetric(service, latency, result.healthy);
                 return result;
             }
         }
         catch (error) {
             const latency = Date.now() - startTime;
-            exports.healthMetrics.recordMetric(service, latency, false, error instanceof Error ? error.message : "Unknown error");
+            healthMetrics.recordMetric(service, latency, false, error instanceof Error ? error.message : "Unknown error");
             throw error;
         }
     };

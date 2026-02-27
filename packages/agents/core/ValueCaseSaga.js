@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Value Case Saga State Machine
  *
@@ -6,13 +5,11 @@
  * Implements 6 phases: INITIATED → DRAFTING → VALIDATING → COMPOSING → REFINING → FINALIZED
  * with compensation handlers for rollback on failure.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ValueCaseSaga = exports.SagaTransitionRecordSchema = exports.SagaStateSchema = exports.SagaTrigger = exports.SagaState = void 0;
-const zod_1 = require("zod");
+import { z } from 'zod';
 // ============================================================================
 // State & Transition Types
 // ============================================================================
-exports.SagaState = {
+export const SagaState = {
     INITIATED: 'INITIATED',
     DRAFTING: 'DRAFTING',
     VALIDATING: 'VALIDATING',
@@ -20,7 +17,7 @@ exports.SagaState = {
     REFINING: 'REFINING',
     FINALIZED: 'FINALIZED',
 };
-exports.SagaTrigger = {
+export const SagaTrigger = {
     OPPORTUNITY_INGESTED: 'OPPORTUNITY_INGESTED',
     HYPOTHESIS_CONFIRMED: 'HYPOTHESIS_CONFIRMED',
     MODEL_COMPLETE: 'MODEL_COMPLETE',
@@ -34,7 +31,7 @@ exports.SagaTrigger = {
 // ============================================================================
 // Zod Schemas for validation
 // ============================================================================
-exports.SagaStateSchema = zod_1.z.enum([
+export const SagaStateSchema = z.enum([
     'INITIATED',
     'DRAFTING',
     'VALIDATING',
@@ -42,29 +39,29 @@ exports.SagaStateSchema = zod_1.z.enum([
     'REFINING',
     'FINALIZED',
 ]);
-exports.SagaTransitionRecordSchema = zod_1.z.object({
-    valueCaseId: zod_1.z.string().uuid(),
-    fromState: exports.SagaStateSchema,
-    toState: exports.SagaStateSchema,
-    trigger: zod_1.z.string(),
-    agentId: zod_1.z.string().optional(),
-    timestamp: zod_1.z.string(),
-    correlationId: zod_1.z.string().uuid(),
+export const SagaTransitionRecordSchema = z.object({
+    valueCaseId: z.string().uuid(),
+    fromState: SagaStateSchema,
+    toState: SagaStateSchema,
+    trigger: z.string(),
+    agentId: z.string().optional(),
+    timestamp: z.string(),
+    correlationId: z.string().uuid(),
 });
 // ============================================================================
 // Transition Table
 // ============================================================================
 const VALID_TRANSITIONS = [
     // Forward flow
-    { from: exports.SagaState.INITIATED, to: exports.SagaState.DRAFTING, trigger: exports.SagaTrigger.OPPORTUNITY_INGESTED },
-    { from: exports.SagaState.DRAFTING, to: exports.SagaState.VALIDATING, trigger: exports.SagaTrigger.HYPOTHESIS_CONFIRMED },
-    { from: exports.SagaState.VALIDATING, to: exports.SagaState.COMPOSING, trigger: exports.SagaTrigger.INTEGRITY_PASSED },
-    { from: exports.SagaState.COMPOSING, to: exports.SagaState.REFINING, trigger: exports.SagaTrigger.FEEDBACK_RECEIVED },
-    { from: exports.SagaState.REFINING, to: exports.SagaState.FINALIZED, trigger: exports.SagaTrigger.VE_APPROVED },
+    { from: SagaState.INITIATED, to: SagaState.DRAFTING, trigger: SagaTrigger.OPPORTUNITY_INGESTED },
+    { from: SagaState.DRAFTING, to: SagaState.VALIDATING, trigger: SagaTrigger.HYPOTHESIS_CONFIRMED },
+    { from: SagaState.VALIDATING, to: SagaState.COMPOSING, trigger: SagaTrigger.INTEGRITY_PASSED },
+    { from: SagaState.COMPOSING, to: SagaState.REFINING, trigger: SagaTrigger.FEEDBACK_RECEIVED },
+    { from: SagaState.REFINING, to: SagaState.FINALIZED, trigger: SagaTrigger.VE_APPROVED },
     // Backward flow (vetoes, objections, feedback)
-    { from: exports.SagaState.VALIDATING, to: exports.SagaState.DRAFTING, trigger: exports.SagaTrigger.INTEGRITY_VETOED },
-    { from: exports.SagaState.COMPOSING, to: exports.SagaState.DRAFTING, trigger: exports.SagaTrigger.REDTEAM_OBJECTION },
-    { from: exports.SagaState.REFINING, to: exports.SagaState.DRAFTING, trigger: exports.SagaTrigger.USER_FEEDBACK },
+    { from: SagaState.VALIDATING, to: SagaState.DRAFTING, trigger: SagaTrigger.INTEGRITY_VETOED },
+    { from: SagaState.COMPOSING, to: SagaState.DRAFTING, trigger: SagaTrigger.REDTEAM_OBJECTION },
+    { from: SagaState.REFINING, to: SagaState.DRAFTING, trigger: SagaTrigger.USER_FEEDBACK },
 ];
 const DEFAULT_COMPENSATION_HANDLERS = {
     DRAFTING: async (_snapshot) => {
@@ -99,7 +96,7 @@ const DEFAULT_COMPENSATION_HANDLERS = {
 // ============================================================================
 // ValueCaseSaga
 // ============================================================================
-class ValueCaseSaga {
+export class ValueCaseSaga {
     persistence;
     eventEmitter;
     auditLogger;
@@ -120,7 +117,7 @@ class ValueCaseSaga {
         const snapshot = {
             valueCaseId,
             tenantId,
-            state: exports.SagaState.INITIATED,
+            state: SagaState.INITIATED,
             data: initialData,
             version: 1,
             createdAt: new Date().toISOString(),
@@ -132,7 +129,7 @@ class ValueCaseSaga {
             payload: {
                 valueCaseId,
                 fromState: 'NONE',
-                toState: exports.SagaState.INITIATED,
+                toState: SagaState.INITIATED,
                 trigger: 'INITIALIZATION',
             },
             meta: {
@@ -145,7 +142,7 @@ class ValueCaseSaga {
             eventType: 'saga_compensation',
             action: 'saga_initialized',
             resourceId: valueCaseId,
-            details: { state: exports.SagaState.INITIATED, tenantId },
+            details: { state: SagaState.INITIATED, tenantId },
             correlationId,
         });
         return snapshot;
@@ -308,5 +305,4 @@ class ValueCaseSaga {
         return VALID_TRANSITIONS.find((t) => t.from === currentState && t.trigger === trigger);
     }
 }
-exports.ValueCaseSaga = ValueCaseSaga;
 //# sourceMappingURL=ValueCaseSaga.js.map

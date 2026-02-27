@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTraceContextForLogging = getTraceContextForLogging;
-function getTraceContextForLogging() {
+export function getTraceContextForLogging() {
     return {};
 }
 //# sourceMappingURL=telemetry.js.map

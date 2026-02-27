@@ -3,23 +3,12 @@
  * Collects usage metrics from various sources for reporting
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { BillingMetric } from '../../config/billing.js'
 import { UsageSummary } from '../../types/billing';
 import { createLogger } from '../../lib/logger.js'
+import { supabase } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'MetricsCollector' });
-
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = import.meta.env?.SUPABASE_SERVICE_ROLE_KEY;
-
-// Only initialize server-side
-let supabase: any = null;
-if (typeof window === 'undefined' && supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else if (typeof window === 'undefined') {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-}
 
 class MetricsCollector {
   /**

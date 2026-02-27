@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Chat Target Stage SDUI Template
  *
@@ -7,9 +6,7 @@
  *
  * Phase 3: Stage-specific SDUI generation
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateTargetPage = generateTargetPage;
-const uuid_1 = require("uuid");
+import { v4 as uuidv4 } from "uuid";
 /**
  * Generate Target stage SDUI page
  *
@@ -19,7 +16,7 @@ const uuid_1 = require("uuid");
  * - BusinessCaseBuilder: Template for building case
  * - MetricsTable: Target KPIs and baselines
  */
-function generateTargetPage(context) {
+export function generateTargetPage(context) {
     const { content, confidence, reasoning, workflowState, sessionId, traceId } = context;
     const sections = [
         {
@@ -28,7 +25,7 @@ function generateTargetPage(context) {
             version: 1,
             props: {
                 response: {
-                    id: (0, uuid_1.v4)(),
+                    id: uuidv4(),
                     agentId: "target",
                     agentName: "Target Agent",
                     timestamp: new Date().toISOString(),

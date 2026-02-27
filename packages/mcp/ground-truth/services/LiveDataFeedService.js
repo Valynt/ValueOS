@@ -1,17 +1,14 @@
-"use strict";
 /**
  * Live Data Feed Service
  *
  * Unified service for accessing live data from SEC, BLS, and Census APIs.
  * Provides caching, rate limiting, error handling, and data quality validation.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.LiveDataFeedService = void 0;
-const logger_js_1 = require("../../lib/logger.js");
-const SECEdgarClient_js_1 = require("../clients/SECEdgarClient.js");
-const BLSClient_js_1 = require("../clients/BLSClient.js");
-const CensusClient_js_1 = require("../clients/CensusClient.js");
-class LiveDataFeedService {
+import { logger } from "../../lib/logger.js";
+import { SECEdgarClient } from "../clients/SECEdgarClient.js";
+import { BLSClient } from "../clients/BLSClient.js";
+import { CensusClient, } from "../clients/CensusClient.js";
+export class LiveDataFeedService {
     secClient;
     blsClient;
     censusClient;
@@ -20,10 +17,10 @@ class LiveDataFeedService {
     qualityMetrics = new Map();
     constructor(config) {
         this.config = config;
-        this.secClient = new SECEdgarClient_js_1.SECEdgarClient();
-        this.blsClient = new BLSClient_js_1.BLSClient(config.blsApiKey);
-        this.censusClient = new CensusClient_js_1.CensusClient(config.censusApiKey);
-        logger_js_1.logger.info("Live Data Feed Service initialized", {
+        this.secClient = new SECEdgarClient();
+        this.blsClient = new BLSClient(config.blsApiKey);
+        this.censusClient = new CensusClient(config.censusApiKey);
+        logger.info("Live Data Feed Service initialized", {
             hasSecKey: !!config.secApiKey,
             hasBlsKey: !!config.blsApiKey,
             hasCensusKey: !!config.censusApiKey,
@@ -188,7 +185,7 @@ class LiveDataFeedService {
                 cleared++;
             }
         }
-        logger_js_1.logger.info("Cleared expired cache entries", { cleared });
+        logger.info("Cleared expired cache entries", { cleared });
         return cleared;
     }
     /**
@@ -221,7 +218,7 @@ class LiveDataFeedService {
                 refreshed++;
             }
         }
-        logger_js_1.logger.info("Refreshed cache entries", { pattern, refreshed });
+        logger.info("Refreshed cache entries", { pattern, refreshed });
         return refreshed;
     }
     // ==================== Private Methods ====================
@@ -230,13 +227,13 @@ class LiveDataFeedService {
             const cached = this.cache.get(cacheKey);
             const now = Date.now();
             if (cached && now < cached.expiresAt) {
-                logger_js_1.logger.debug("Cache hit", { cacheKey, source });
+                logger.debug("Cache hit", { cacheKey, source });
                 this.updateQualityMetrics(source, true);
                 return cached.data;
             }
         }
         try {
-            logger_js_1.logger.debug("Fetching fresh data", { cacheKey, source });
+            logger.debug("Fetching fresh data", { cacheKey, source });
             const data = await fetchFn();
             const quality = this.createQualityMetrics(source, Array.isArray(data) ? data.length : 1);
             if (this.config.cacheEnabled) {
@@ -252,13 +249,13 @@ class LiveDataFeedService {
             return data;
         }
         catch (error) {
-            logger_js_1.logger.error("Data fetch failed", { cacheKey, source, error });
+            logger.error("Data fetch failed", { cacheKey, source, error });
             this.updateQualityMetrics(source, false);
             // Try to return stale cache data if available
             if (this.config.enableFallbackToStatic) {
                 const cached = this.cache.get(cacheKey);
                 if (cached) {
-                    logger_js_1.logger.warn("Returning stale cache data due to fetch failure", { cacheKey, source });
+                    logger.warn("Returning stale cache data due to fetch failure", { cacheKey, source });
                     return cached.data;
                 }
             }
@@ -276,7 +273,7 @@ class LiveDataFeedService {
             }
             catch (error) {
                 lastError = error;
-                logger_js_1.logger.warn(`Operation attempt ${attempt} failed`, {
+                logger.warn(`Operation attempt ${attempt} failed`, {
                     error,
                     attempt,
                     maxRetries: this.config.maxRetries,
@@ -320,5 +317,4 @@ class LiveDataFeedService {
         this.qualityMetrics.set(source, metrics);
     }
 }
-exports.LiveDataFeedService = LiveDataFeedService;
 //# sourceMappingURL=LiveDataFeedService.js.map

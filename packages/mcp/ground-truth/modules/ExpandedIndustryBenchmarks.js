@@ -1,11 +1,8 @@
-"use strict";
 /**
  * Expanded Industry Benchmarks - 50 Industries
  * Comprehensive benchmark data for ValueOS ground truth system
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EXPANDED_INDUSTRY_BENCHMARKS = void 0;
-exports.EXPANDED_INDUSTRY_BENCHMARKS = {
+export const EXPANDED_INDUSTRY_BENCHMARKS = {
     // Technology & Software (10 industries)
     "541511": {
         naics_code: "541511",

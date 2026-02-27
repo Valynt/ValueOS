@@ -1,18 +1,15 @@
-"use strict";
 /**
  * Parallel Initializer
  *
  * Provides parallel initialization capabilities for MCP servers with
  * connection pooling, batch processing, and resource optimization.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ParallelInitializer = exports.ConnectionPool = void 0;
-const events_1 = require("events");
-const logger_1 = require("../../lib/logger");
+import { EventEmitter } from "events";
+import { logger } from "../../lib/logger";
 // ============================================================================
 // Connection Pool
 // ============================================================================
-class ConnectionPool {
+export class ConnectionPool {
     available = [];
     inUse = new Set();
     waiting = [];
@@ -73,7 +70,7 @@ class ConnectionPool {
             // Pool is full, destroy the connection
             if (this.destroyer) {
                 await this.destroyer(connection).catch((error) => {
-                    logger_1.logger.error("Error destroying connection", {
+                    logger.error("Error destroying connection", {
                         error: error instanceof Error ? error.message : "Unknown error",
                     });
                 });
@@ -91,7 +88,7 @@ class ConnectionPool {
         const allConnections = [...this.available, ...this.inUse];
         if (this.destroyer) {
             await Promise.all(allConnections.map((connection) => this.destroyer(connection).catch((error) => {
-                logger_1.logger.error("Error destroying connection during cleanup", {
+                logger.error("Error destroying connection during cleanup", {
                     error: error instanceof Error ? error.message : "Unknown error",
                 });
             })));
@@ -108,7 +105,6 @@ class ConnectionPool {
         };
     }
 }
-exports.ConnectionPool = ConnectionPool;
 // ============================================================================
 // Task Queue
 // ============================================================================
@@ -174,7 +170,7 @@ class TaskQueue {
 // ============================================================================
 // Parallel Initializer
 // ============================================================================
-class ParallelInitializer extends events_1.EventEmitter {
+export class ParallelInitializer extends EventEmitter {
     config;
     taskQueue;
     connectionPools = new Map();
@@ -199,7 +195,7 @@ class ParallelInitializer extends events_1.EventEmitter {
      */
     addTask(task) {
         this.taskQueue.addTask(task);
-        logger_1.logger.debug(`Initialization task added: ${task.name}`, {
+        logger.debug(`Initialization task added: ${task.name}`, {
             taskId: task.id,
             priority: task.priority,
             dependencies: task.dependencies,
@@ -218,7 +214,7 @@ class ParallelInitializer extends events_1.EventEmitter {
      */
     async execute() {
         const startTime = Date.now();
-        logger_1.logger.info("Starting parallel initialization", {
+        logger.info("Starting parallel initialization", {
             totalTasks: this.taskQueue.getStats().total,
             maxConcurrency: this.config.maxConcurrency,
         });
@@ -237,7 +233,7 @@ class ParallelInitializer extends events_1.EventEmitter {
         }
         const duration = Date.now() - startTime;
         const stats = this.taskQueue.getStats();
-        logger_1.logger.info("Parallel initialization completed", {
+        logger.info("Parallel initialization completed", {
             duration,
             totalTasks: stats.total,
             completedTasks: stats.completed,
@@ -252,7 +248,7 @@ class ParallelInitializer extends events_1.EventEmitter {
     async executeTask(task) {
         const startTime = Date.now();
         this.taskQueue.markRunning(task.id);
-        logger_1.logger.debug(`Executing task: ${task.name}`, { taskId: task.id });
+        logger.debug(`Executing task: ${task.name}`, { taskId: task.id });
         let retryCount = 0;
         let lastError;
         while (retryCount <= task.retryAttempts) {
@@ -270,7 +266,7 @@ class ParallelInitializer extends events_1.EventEmitter {
                 this.results.set(task.id, initResult);
                 this.taskQueue.markCompleted(task.id);
                 this.emit("taskCompleted", initResult);
-                logger_1.logger.debug(`Task completed: ${task.name}`, {
+                logger.debug(`Task completed: ${task.name}`, {
                     taskId: task.id,
                     duration,
                     retryCount,
@@ -280,7 +276,7 @@ class ParallelInitializer extends events_1.EventEmitter {
             catch (error) {
                 lastError = error instanceof Error ? error : new Error("Unknown error");
                 retryCount++;
-                logger_1.logger.warn(`Task failed: ${task.name}`, {
+                logger.warn(`Task failed: ${task.name}`, {
                     taskId: task.id,
                     error: lastError.message,
                     retryCount,
@@ -304,7 +300,7 @@ class ParallelInitializer extends events_1.EventEmitter {
         this.results.set(task.id, initResult);
         this.taskQueue.markFailed(task.id);
         this.emit("taskFailed", initResult);
-        logger_1.logger.error(`Task failed permanently: ${task.name}`, {
+        logger.error(`Task failed permanently: ${task.name}`, {
             taskId: task.id,
             error: lastError?.message,
             duration,
@@ -361,7 +357,7 @@ class ParallelInitializer extends events_1.EventEmitter {
     async destroy() {
         // Destroy all connection pools
         const destroyPromises = Array.from(this.connectionPools.values()).map((pool) => pool.destroy().catch((error) => {
-            logger_1.logger.error("Error destroying connection pool", {
+            logger.error("Error destroying connection pool", {
                 error: error instanceof Error ? error.message : "Unknown error",
             });
         }));
@@ -371,8 +367,7 @@ class ParallelInitializer extends events_1.EventEmitter {
         this.results.clear();
         // Remove all listeners
         this.removeAllListeners();
-        logger_1.logger.info("Parallel initializer destroyed");
+        logger.info("Parallel initializer destroyed");
     }
 }
-exports.ParallelInitializer = ParallelInitializer;
 //# sourceMappingURL=ParallelInitializer.js.map

@@ -48,9 +48,9 @@ describe("POST /api/agents/integrity/veto", () => {
     const [[topic, event]] = fakeProducer.publish.mock.calls;
     expect(topic).toBeDefined();
     expect(event.payload.parameters.issueId).toBe("issue-123");
-    expect(event.payload.auth0Sub).toBe("auth0|test-user");
+    expect(event.payload.externalSub).toBe("auth0|test-user");
 
     const [auditArg] = mockLogImmediate.mock.calls[0];
-    expect(auditArg.auth0Sub).toBe("auth0|test-user");
+    expect(auditArg.externalSub).toBe("auth0|test-user");
   });
 });

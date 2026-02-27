@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Provenance Tracking
  *
@@ -9,29 +8,27 @@
  * Records are immutable (append-only) and stored in the `agent_memory`
  * table with `memory_type: 'provenance'`.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProvenanceTracker = exports.ProvenanceRecordSchema = void 0;
-const zod_1 = require("zod");
+import { z } from 'zod';
 // ============================================================================
 // Zod Schemas
 // ============================================================================
-exports.ProvenanceRecordSchema = zod_1.z.object({
-    id: zod_1.z.string(),
-    valueCaseId: zod_1.z.string(),
-    claimId: zod_1.z.string(),
-    dataSource: zod_1.z.string(),
-    evidenceTier: zod_1.z.union([zod_1.z.literal(1), zod_1.z.literal(2), zod_1.z.literal(3)]),
-    formula: zod_1.z.string().optional(),
-    agentId: zod_1.z.string(),
-    agentVersion: zod_1.z.string(),
-    confidenceScore: zod_1.z.number().min(0).max(1),
-    createdAt: zod_1.z.string(),
-    parentRecordId: zod_1.z.string().optional(),
+export const ProvenanceRecordSchema = z.object({
+    id: z.string(),
+    valueCaseId: z.string(),
+    claimId: z.string(),
+    dataSource: z.string(),
+    evidenceTier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    formula: z.string().optional(),
+    agentId: z.string(),
+    agentVersion: z.string(),
+    confidenceScore: z.number().min(0).max(1),
+    createdAt: z.string(),
+    parentRecordId: z.string().optional(),
 });
 // ============================================================================
 // ProvenanceTracker
 // ============================================================================
-class ProvenanceTracker {
+export class ProvenanceTracker {
     store;
     constructor(store) {
         this.store = store;
@@ -45,7 +42,7 @@ class ProvenanceTracker {
             id: crypto.randomUUID(),
             createdAt: new Date().toISOString(),
         };
-        exports.ProvenanceRecordSchema.parse(record);
+        ProvenanceRecordSchema.parse(record);
         await this.store.insert(record);
         return record;
     }
@@ -86,5 +83,4 @@ class ProvenanceTracker {
         return { record, parents };
     }
 }
-exports.ProvenanceTracker = ProvenanceTracker;
 //# sourceMappingURL=index.js.map

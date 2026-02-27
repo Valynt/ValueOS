@@ -1,15 +1,12 @@
-"use strict";
 /**
  * SEC EDGAR API Client
  *
  * Provides live access to SEC EDGAR filings, XBRL data, and company financial information
  * SEC EDGAR API: https://www.sec.gov/edgar/searchedgar/companies.htm
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SECEdgarClient = void 0;
-const logger_1 = require("../../lib/logger");
-const fetchWithRetry_1 = require("./utils/fetchWithRetry");
-class SECEdgarClient {
+import { logger } from "../../lib/logger";
+import { fetchWithRetry } from "./utils/fetchWithRetry";
+export class SECEdgarClient {
     baseUrl = "https://www.sec.gov";
     userAgent;
     rateLimiter = new Map();
@@ -38,8 +35,8 @@ class SECEdgarClient {
             if (endDate)
                 params.append("end", endDate);
             const url = `${this.baseUrl}/cgi-bin/browse-edgar?${params.toString()}`;
-            logger_1.logger.debug("Fetching SEC filings", { cik: formattedCik, url });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url, {
+            logger.debug("Fetching SEC filings", { cik: formattedCik, url });
+            const response = await fetchWithRetry(url, {
                 headers: {
                     "User-Agent": this.userAgent,
                     Accept: "application/atom+xml",
@@ -52,7 +49,7 @@ class SECEdgarClient {
             return this.parseFilingsXML(xmlText);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch SEC filings", { cik, error });
+            logger.error("Failed to fetch SEC filings", { cik, error });
             throw error;
         }
     }
@@ -64,7 +61,7 @@ class SECEdgarClient {
         try {
             const formattedCik = cik.padStart(10, "0");
             const url = `${this.baseUrl}/cgi-bin/browse-edgar?action=getcompany&CIK=${formattedCik}&output=atom`;
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url, {
+            const response = await fetchWithRetry(url, {
                 headers: {
                     "User-Agent": this.userAgent,
                     Accept: "application/atom+xml",
@@ -77,7 +74,7 @@ class SECEdgarClient {
             return this.parseCompanyInfoXML(xmlText);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch SEC company info", { cik, error });
+            logger.error("Failed to fetch SEC company info", { cik, error });
             throw error;
         }
     }
@@ -92,8 +89,8 @@ class SECEdgarClient {
             const accessionPath = accessionNumber.replace(/-/g, "");
             // Try to get XBRL instance document
             const xbrlUrl = `${this.baseUrl}/Archives/edgar/data/${formattedCik}/${accessionPath}/${formattedCik}-${accessionPath}.xml`;
-            logger_1.logger.debug("Fetching XBRL data", { accessionNumber, cik, xbrlUrl });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(xbrlUrl, {
+            logger.debug("Fetching XBRL data", { accessionNumber, cik, xbrlUrl });
+            const response = await fetchWithRetry(xbrlUrl, {
                 headers: {
                     "User-Agent": this.userAgent,
                     Accept: "application/xml",
@@ -101,14 +98,14 @@ class SECEdgarClient {
             });
             if (!response.ok) {
                 // Fallback: try to get HTML filing and extract data
-                logger_1.logger.warn("XBRL not available, falling back to HTML parsing", { accessionNumber });
+                logger.warn("XBRL not available, falling back to HTML parsing", { accessionNumber });
                 return this.getHTMLFilingData(accessionNumber, cik);
             }
             const xmlText = await response.text();
             return this.parseXBRLData(xmlText, accessionNumber, cik);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch XBRL data", { accessionNumber, cik, error });
+            logger.error("Failed to fetch XBRL data", { accessionNumber, cik, error });
             throw error;
         }
     }
@@ -125,7 +122,7 @@ class SECEdgarClient {
                 output: "atom",
             });
             const url = `${this.baseUrl}/cgi-bin/browse-edgar?${params.toString()}`;
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url, {
+            const response = await fetchWithRetry(url, {
                 headers: {
                     "User-Agent": this.userAgent,
                     Accept: "application/atom+xml",
@@ -138,7 +135,7 @@ class SECEdgarClient {
             return this.parseCompanySearchXML(xmlText);
         }
         catch (error) {
-            logger_1.logger.error("Failed to search SEC companies", { companyName, error });
+            logger.error("Failed to search SEC companies", { companyName, error });
             throw error;
         }
     }
@@ -169,7 +166,7 @@ class SECEdgarClient {
                     filings.push(filing);
             }
             catch (error) {
-                logger_1.logger.warn("Failed to parse filing entry", { error });
+                logger.warn("Failed to parse filing entry", { error });
             }
         }
         return filings;
@@ -259,7 +256,7 @@ class SECEdgarClient {
     async getHTMLFilingData(accessionNumber, cik) {
         // Fallback: parse HTML filing for key financial data
         // This is a simplified implementation
-        logger_1.logger.warn("Using HTML fallback for financial data extraction", { accessionNumber, cik });
+        logger.warn("Using HTML fallback for financial data extraction", { accessionNumber, cik });
         return {
             cik,
             accessionNumber,
@@ -287,5 +284,4 @@ class SECEdgarClient {
         return companies;
     }
 }
-exports.SECEdgarClient = SECEdgarClient;
 //# sourceMappingURL=SECEdgarClient.js.map

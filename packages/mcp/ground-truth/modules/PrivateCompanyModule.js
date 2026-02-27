@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Private Company Module - Tier 2 Proxy-Based Estimation
  *
@@ -13,18 +12,16 @@
  *
  * Node Mapping: [NODE: Tier_2_Proxy], [NODE: Private_Entity_Estimation]
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PrivateCompanyModule = void 0;
-const BaseModule_1 = require("../core/BaseModule");
-const types_1 = require("../types");
-const logger_1 = require("../../lib/logger");
+import { BaseModule } from "../core/BaseModule";
+import { ErrorCodes, GroundTruthError, } from "../types";
+import { logger } from "../../lib/logger";
 /**
  * Private Company Module - Tier 2 Estimation Engine
  *
  * Implements MCP tool: get_private_entity_estimates
  * Uses proxy metrics to derive financial estimates with confidence scoring
  */
-class PrivateCompanyModule extends BaseModule_1.BaseModule {
+export class PrivateCompanyModule extends BaseModule {
     name = "private-company";
     tier = "tier2";
     description = "Private company financial estimation using proxy data - Tier 2 high-confidence estimates";
@@ -67,7 +64,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
         this.linkedInApiKey = privateConfig.linkedInApiKey;
         this.enableWebScraping = privateConfig.enableWebScraping || false;
         this.confidenceThreshold = privateConfig.confidenceThreshold || 0.5;
-        logger_1.logger.info("Private Company Module initialized", {
+        logger.info("Private Company Module initialized", {
             hasCrunchbase: !!this.crunchbaseApiKey,
             hasZoomInfo: !!this.zoomInfoApiKey,
             hasLinkedIn: !!this.linkedInApiKey,
@@ -112,7 +109,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                     ...signals,
                 }, JSON.stringify(signals));
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Unsupported metric: ${metric}`);
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unsupported metric: ${metric}`);
         });
     }
     /**
@@ -132,7 +129,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                 Object.assign(profile, crunchbaseData);
             }
             catch (error) {
-                logger_1.logger.warn("Crunchbase lookup failed", { domain, error });
+                logger.warn("Crunchbase lookup failed", { domain, error });
             }
         }
         // Augment with ZoomInfo
@@ -148,7 +145,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                 }
             }
             catch (error) {
-                logger_1.logger.warn("ZoomInfo lookup failed", { domain, error });
+                logger.warn("ZoomInfo lookup failed", { domain, error });
             }
         }
         // Augment with LinkedIn
@@ -160,7 +157,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                 }
             }
             catch (error) {
-                logger_1.logger.warn("LinkedIn lookup failed", { domain, error });
+                logger.warn("LinkedIn lookup failed", { domain, error });
             }
         }
         // Web scraping as fallback
@@ -170,11 +167,11 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                 Object.assign(profile, scrapedData);
             }
             catch (error) {
-                logger_1.logger.warn("Web scraping failed", { domain, error });
+                logger.warn("Web scraping failed", { domain, error });
             }
         }
         if (!profile.company_name) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No data found for domain: ${domain}`);
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No data found for domain: ${domain}`);
         }
         return profile;
     }
@@ -226,7 +223,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             rationale = `Estimated using headcount range (${min}-${max}) × industry benchmark ($${revenuePerEmployee.toLocaleString()}/employee)`;
         }
         else {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, "Insufficient data for revenue estimation");
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "Insufficient data for revenue estimation");
         }
         // Adjust confidence based on data quality factors
         const qualityFactors = [];
@@ -258,7 +255,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
         const finalConfidence = this.calculateConfidence(this.tier, qualityFactors);
         // Check confidence threshold
         if (finalConfidence < this.confidenceThreshold) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `Confidence (${finalConfidence.toFixed(2)}) below threshold (${this.confidenceThreshold})`);
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `Confidence (${finalConfidence.toFixed(2)}) below threshold (${this.confidenceThreshold})`);
         }
         return this.createMetric("revenue_estimate", estimatedRevenue, {
             source_type: "private-data",
@@ -280,7 +277,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
     // ============================================================================
     async getCrunchbaseData(domain) {
         if (!this.crunchbaseApiKey) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "Crunchbase API key not configured");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "Crunchbase API key not configured");
         }
         // Crunchbase API integration
         // Using Crunchbase API v4 (if available) or web scraping as fallback
@@ -294,9 +291,9 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             });
             if (!response.ok) {
                 if (response.status === 429) {
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.RATE_LIMIT_EXCEEDED, "Crunchbase API rate limit exceeded");
+                    throw new GroundTruthError(ErrorCodes.RATE_LIMIT_EXCEEDED, "Crunchbase API rate limit exceeded");
                 }
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Crunchbase API returned ${response.status}: ${response.statusText}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Crunchbase API returned ${response.status}: ${response.statusText}`);
             }
             const data = await response.json();
             const organizations = data.entities || [];
@@ -371,7 +368,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                     .slice(0, 5) // Limit to first 5
                     .map((inv) => inv.value);
             }
-            logger_1.logger.info("Crunchbase data retrieved", {
+            logger.info("Crunchbase data retrieved", {
                 domain,
                 companyName: profile.company_name,
                 hasEmployeeData: !!profile.employee_count,
@@ -380,16 +377,16 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             return profile;
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            logger_1.logger.error("Crunchbase API error", { domain, error });
+            logger.error("Crunchbase API error", { domain, error });
             return {}; // Return empty object on error, don't fail the entire lookup
         }
     }
     async getZoomInfoData(domain) {
         if (!this.zoomInfoApiKey) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "ZoomInfo API key not configured");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "ZoomInfo API key not configured");
         }
         // ZoomInfo API integration
         const url = `https://api.zoominfo.com/lookup/organization/enrich`;
@@ -410,7 +407,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                 }),
             });
             if (!response.ok) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `ZoomInfo API returned ${response.status}: ${response.statusText}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `ZoomInfo API returned ${response.status}: ${response.statusText}`);
             }
             const data = await response.json();
             const results = data.data || [];
@@ -430,7 +427,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                 profile.revenue_range = result.revenueRange;
             }
             profile.headquarters = result.hqAddress;
-            logger_1.logger.info("ZoomInfo data retrieved", {
+            logger.info("ZoomInfo data retrieved", {
                 domain,
                 companyName: profile.company_name,
                 hasEmployeeData: !!profile.employee_count,
@@ -438,16 +435,16 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             return profile;
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            logger_1.logger.error("ZoomInfo API error", { domain, error });
+            logger.error("ZoomInfo API error", { domain, error });
             return {}; // Return empty object on error
         }
     }
     async getLinkedInData(domain) {
         if (!this.linkedInApiKey) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "LinkedIn API key not configured");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "LinkedIn API key not configured");
         }
         // LinkedIn Company API integration
         // Note: LinkedIn API access is restricted and may require enterprise partnership
@@ -463,12 +460,12 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             });
             if (!response.ok) {
                 if (response.status === 401) {
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.UNAUTHORIZED, "LinkedIn API authentication failed");
+                    throw new GroundTruthError(ErrorCodes.UNAUTHORIZED, "LinkedIn API authentication failed");
                 }
                 if (response.status === 403) {
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.UNAUTHORIZED, "LinkedIn API access forbidden - insufficient permissions");
+                    throw new GroundTruthError(ErrorCodes.UNAUTHORIZED, "LinkedIn API access forbidden - insufficient permissions");
                 }
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `LinkedIn API returned ${response.status}: ${response.statusText}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `LinkedIn API returned ${response.status}: ${response.statusText}`);
             }
             const data = await response.json();
             const organizations = data.elements || [];
@@ -526,7 +523,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
                         break;
                 }
             }
-            logger_1.logger.info("LinkedIn data retrieved", {
+            logger.info("LinkedIn data retrieved", {
                 domain,
                 companyName: profile.company_name,
                 hasEmployeeData: !!profile.employee_count,
@@ -534,16 +531,16 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             return profile;
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            logger_1.logger.error("LinkedIn API error", { domain, error });
+            logger.error("LinkedIn API error", { domain, error });
             return {}; // Return empty object on error
         }
     }
     async scrapeCompanyWebsite(domain) {
         if (!this.enableWebScraping) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "Web scraping not enabled");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "Web scraping not enabled");
         }
         // Web scraping implementation (simplified)
         // In production, would use libraries like Puppeteer or Cheerio
@@ -572,14 +569,14 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             if (descMatch) {
                 profile.description = descMatch[1];
             }
-            logger_1.logger.info("Web scraping completed", {
+            logger.info("Web scraping completed", {
                 domain,
                 companyName: profile.company_name,
             });
             return profile;
         }
         catch (error) {
-            logger_1.logger.error("Web scraping error", { domain, error });
+            logger.error("Web scraping error", { domain, error });
             return {}; // Return empty object on error
         }
     }
@@ -603,7 +600,7 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
             actualRevenuePerEmployee = avgRevenue / avgHeadcount;
         }
         else {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, "Insufficient data for productivity calculation");
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, "Insufficient data for productivity calculation");
         }
         const delta = benchmark - actualRevenuePerEmployee;
         const deltaPercent = (delta / benchmark) * 100;
@@ -615,5 +612,4 @@ class PrivateCompanyModule extends BaseModule_1.BaseModule {
         };
     }
 }
-exports.PrivateCompanyModule = PrivateCompanyModule;
 //# sourceMappingURL=PrivateCompanyModule.js.map

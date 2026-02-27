@@ -1,16 +1,13 @@
-"use strict";
 /**
  * MCP Financial Ground Truth Server - Type Definitions
  *
  * Defines all core types for the tiered truth model, data contracts,
  * and module interfaces.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ErrorCodes = exports.GroundTruthError = void 0;
 // ============================================================================
 // Error Types
 // ============================================================================
-class GroundTruthError extends Error {
+export class GroundTruthError extends Error {
     code;
     details;
     constructor(code, message, details) {
@@ -20,8 +17,7 @@ class GroundTruthError extends Error {
         this.name = "GroundTruthError";
     }
 }
-exports.GroundTruthError = GroundTruthError;
-exports.ErrorCodes = {
+export const ErrorCodes = {
     NO_DATA_FOUND: "NO_DATA_FOUND",
     UPSTREAM_FAILURE: "UPSTREAM_FAILURE",
     RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",

@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Atomic UI Actions for Partial Mutations
  *
@@ -11,103 +10,95 @@
  * Agent: mutateComponent('comp_123', { type: 'bar' })
  * Result: Only the chart type changes, rest of page untouched
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EXAMPLE_ACTIONS = exports.AtomicUIActionSchema = exports.UpdateLayoutActionSchema = exports.ReorderComponentsActionSchema = exports.RemoveComponentActionSchema = exports.AddComponentActionSchema = exports.MutateComponentActionSchema = exports.PropertyMutationSchema = exports.ComponentSelectorSchema = void 0;
-exports.validateAtomicAction = validateAtomicAction;
-exports.createMutateAction = createMutateAction;
-exports.createPropertyUpdate = createPropertyUpdate;
-exports.createAddAction = createAddAction;
-exports.createRemoveAction = createRemoveAction;
-exports.createBatchAction = createBatchAction;
-const zod_1 = require("zod");
+import { z } from 'zod';
 /**
  * Zod schemas for validation
  */
-exports.ComponentSelectorSchema = zod_1.z.object({
-    id: zod_1.z.string().optional(),
-    type: zod_1.z.string().optional(),
-    index: zod_1.z.number().optional(),
-    props: zod_1.z.record(zod_1.z.any()).optional(),
-    description: zod_1.z.string().optional(),
+export const ComponentSelectorSchema = z.object({
+    id: z.string().optional(),
+    type: z.string().optional(),
+    index: z.number().optional(),
+    props: z.record(z.any()).optional(),
+    description: z.string().optional(),
 }).refine((data) => data.id || data.type || data.index !== undefined || data.description, { message: 'At least one selector field must be provided' });
-exports.PropertyMutationSchema = zod_1.z.object({
-    path: zod_1.z.string().min(1),
-    operation: zod_1.z.enum(['set', 'merge', 'append', 'prepend', 'remove', 'replace']),
-    value: zod_1.z.any().optional(),
+export const PropertyMutationSchema = z.object({
+    path: z.string().min(1),
+    operation: z.enum(['set', 'merge', 'append', 'prepend', 'remove', 'replace']),
+    value: z.any().optional(),
 });
-exports.MutateComponentActionSchema = zod_1.z.object({
-    type: zod_1.z.literal('mutate_component'),
-    selector: exports.ComponentSelectorSchema,
-    mutations: zod_1.z.array(exports.PropertyMutationSchema).min(1),
-    description: zod_1.z.string().optional(),
-    idempotencyKey: zod_1.z.string().optional(),
+export const MutateComponentActionSchema = z.object({
+    type: z.literal('mutate_component'),
+    selector: ComponentSelectorSchema,
+    mutations: z.array(PropertyMutationSchema).min(1),
+    description: z.string().optional(),
+    idempotencyKey: z.string().optional(),
 });
-exports.AddComponentActionSchema = zod_1.z.object({
-    type: zod_1.z.literal('add_component'),
-    component: zod_1.z.object({
-        component: zod_1.z.string(),
-        version: zod_1.z.string().optional(),
-        props: zod_1.z.record(zod_1.z.any()),
-        type: zod_1.z.string().optional(),
-        layout: zod_1.z.string().optional(),
+export const AddComponentActionSchema = z.object({
+    type: z.literal('add_component'),
+    component: z.object({
+        component: z.string(),
+        version: z.string().optional(),
+        props: z.record(z.any()),
+        type: z.string().optional(),
+        layout: z.string().optional(),
     }),
-    position: zod_1.z.object({
-        index: zod_1.z.number().optional(),
-        before: exports.ComponentSelectorSchema.optional(),
-        after: exports.ComponentSelectorSchema.optional(),
-        append: zod_1.z.boolean().optional(),
+    position: z.object({
+        index: z.number().optional(),
+        before: ComponentSelectorSchema.optional(),
+        after: ComponentSelectorSchema.optional(),
+        append: z.boolean().optional(),
     }),
-    description: zod_1.z.string().optional(),
-    idempotencyKey: zod_1.z.string().optional(),
+    description: z.string().optional(),
+    idempotencyKey: z.string().optional(),
 });
-exports.RemoveComponentActionSchema = zod_1.z.object({
-    type: zod_1.z.literal('remove_component'),
-    selector: exports.ComponentSelectorSchema,
-    description: zod_1.z.string().optional(),
-    idempotencyKey: zod_1.z.string().optional(),
+export const RemoveComponentActionSchema = z.object({
+    type: z.literal('remove_component'),
+    selector: ComponentSelectorSchema,
+    description: z.string().optional(),
+    idempotencyKey: z.string().optional(),
 });
-exports.ReorderComponentsActionSchema = zod_1.z.object({
-    type: zod_1.z.literal('reorder_components'),
-    order: zod_1.z.array(zod_1.z.union([zod_1.z.string(), zod_1.z.number()])).min(1),
-    description: zod_1.z.string().optional(),
-    idempotencyKey: zod_1.z.string().optional(),
+export const ReorderComponentsActionSchema = z.object({
+    type: z.literal('reorder_components'),
+    order: z.array(z.union([z.string(), z.number()])).min(1),
+    description: z.string().optional(),
+    idempotencyKey: z.string().optional(),
 });
-exports.UpdateLayoutActionSchema = zod_1.z.object({
-    type: zod_1.z.literal('update_layout'),
-    layout: zod_1.z.string(),
-    description: zod_1.z.string().optional(),
-    idempotencyKey: zod_1.z.string().optional(),
+export const UpdateLayoutActionSchema = z.object({
+    type: z.literal('update_layout'),
+    layout: z.string(),
+    description: z.string().optional(),
+    idempotencyKey: z.string().optional(),
 });
 // Non-batch actions discriminated union (no circular reference)
-const NonBatchActionSchema = zod_1.z.discriminatedUnion('type', [
-    exports.MutateComponentActionSchema,
-    exports.AddComponentActionSchema,
-    exports.RemoveComponentActionSchema,
-    exports.ReorderComponentsActionSchema,
-    exports.UpdateLayoutActionSchema,
+const NonBatchActionSchema = z.discriminatedUnion('type', [
+    MutateComponentActionSchema,
+    AddComponentActionSchema,
+    RemoveComponentActionSchema,
+    ReorderComponentsActionSchema,
+    UpdateLayoutActionSchema,
 ]);
 // Batch action schema with explicit type literal
-const BatchActionSchema = zod_1.z.object({
-    type: zod_1.z.literal('batch'),
-    actions: zod_1.z.array(zod_1.z.lazy(() => exports.AtomicUIActionSchema)),
-    description: zod_1.z.string().optional(),
-    idempotencyKey: zod_1.z.string().optional(),
+const BatchActionSchema = z.object({
+    type: z.literal('batch'),
+    actions: z.array(z.lazy(() => AtomicUIActionSchema)),
+    description: z.string().optional(),
+    idempotencyKey: z.string().optional(),
 });
 // Combined schema using union (not discriminatedUnion to avoid lazy issues)
-exports.AtomicUIActionSchema = zod_1.z.union([
+export const AtomicUIActionSchema = z.union([
     NonBatchActionSchema,
     BatchActionSchema,
 ]);
 /**
  * Validate atomic UI action
  */
-function validateAtomicAction(action) {
+export function validateAtomicAction(action) {
     try {
-        exports.AtomicUIActionSchema.parse(action);
+        AtomicUIActionSchema.parse(action);
         return { valid: true, errors: [] };
     }
     catch (error) {
-        if (error instanceof zod_1.z.ZodError) {
+        if (error instanceof z.ZodError) {
             return {
                 valid: false,
                 errors: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
@@ -122,7 +113,7 @@ function validateAtomicAction(action) {
 /**
  * Create a mutate component action
  */
-function createMutateAction(selector, mutations, description) {
+export function createMutateAction(selector, mutations, description) {
     return {
         type: 'mutate_component',
         selector,
@@ -133,13 +124,13 @@ function createMutateAction(selector, mutations, description) {
 /**
  * Create a simple property update action
  */
-function createPropertyUpdate(selector, propertyPath, value, description) {
+export function createPropertyUpdate(selector, propertyPath, value, description) {
     return createMutateAction(selector, [{ path: propertyPath, operation: 'set', value }], description);
 }
 /**
  * Create an add component action
  */
-function createAddAction(component, position, description) {
+export function createAddAction(component, position, description) {
     return {
         type: 'add_component',
         component,
@@ -150,7 +141,7 @@ function createAddAction(component, position, description) {
 /**
  * Create a remove component action
  */
-function createRemoveAction(selector, description) {
+export function createRemoveAction(selector, description) {
     return {
         type: 'remove_component',
         selector,
@@ -160,7 +151,7 @@ function createRemoveAction(selector, description) {
 /**
  * Create a batch action
  */
-function createBatchAction(actions, description) {
+export function createBatchAction(actions, description) {
     return {
         type: 'batch',
         actions,
@@ -170,7 +161,7 @@ function createBatchAction(actions, description) {
 /**
  * Example actions for common use cases
  */
-exports.EXAMPLE_ACTIONS = {
+export const EXAMPLE_ACTIONS = {
     // Change chart type
     changeChartType: createPropertyUpdate({ type: 'InteractiveChart', description: 'ROI chart' }, 'props.type', 'bar', 'Change ROI chart to bar graph'),
     // Update metric value
@@ -203,5 +194,5 @@ exports.EXAMPLE_ACTIONS = {
         createPropertyUpdate({ type: 'StatCard', index: 1 }, 'props.value', '85%', 'Update second metric'),
     ], 'Update all metrics'),
 };
-exports.default = exports.AtomicUIActionSchema;
+export default AtomicUIActionSchema;
 //# sourceMappingURL=AtomicUIActions.js.map

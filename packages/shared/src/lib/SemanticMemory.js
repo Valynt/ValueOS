@@ -1,21 +1,18 @@
-"use strict";
 /**
  * Semantic Memory Service
  *
  * Long-term semantic memory using pgvector for RAG (Retrieval-Augmented Generation).
  * Enables agents to recall past successful patterns, decisions, and outcomes.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.semanticMemory = exports.SemanticMemoryService = void 0;
-const logger_1 = require("./logger");
-const supabase_1 = require("./supabase");
-class SemanticMemoryService {
+import { logger } from "./logger";
+import { createServerSupabaseClient } from "./supabase";
+export class SemanticMemoryService {
     _supabase = null;
     embeddingModel = "togethercomputer/m2-bert-80M-8k-retrieval"; // Together AI embedding model
     embeddingDimension = 768;
     get supabase() {
         if (!this._supabase) {
-            this._supabase = (0, supabase_1.createServerSupabaseClient)();
+            this._supabase = createServerSupabaseClient();
         }
         return this._supabase;
     }
@@ -103,7 +100,7 @@ class SemanticMemoryService {
             return data.data[0].embedding;
         }
         catch (error) {
-            logger_1.logger.error("Failed to generate embedding", error);
+            logger.error("Failed to generate embedding", error);
             throw error;
         }
     }
@@ -127,14 +124,14 @@ class SemanticMemoryService {
                     ...namespace,
                 },
                 organization_id: namespace.organization_id,
-                auth0_sub: namespace.auth0_sub,
+                external_sub: namespace.external_sub,
                 session_id: namespace.session_id,
             })
                 .select("id")
                 .single();
             if (error)
                 throw error;
-            logger_1.logger.info("Memory stored", {
+            logger.info("Memory stored", {
                 id: data.id,
                 type: entry.type,
                 agentType: entry.metadata.agentType,
@@ -142,7 +139,7 @@ class SemanticMemoryService {
             return data.id;
         }
         catch (error) {
-            logger_1.logger.error("Failed to store memory", error);
+            logger.error("Failed to store memory", error);
             throw error;
         }
     }
@@ -183,12 +180,12 @@ class SemanticMemoryService {
                 p_target_market: options.targetMarket ?? null,
                 p_min_score: options.minScore ?? null,
                 p_organization_id: organizationId ?? null,
-                p_auth0_sub: options.auth0Sub ?? null,
+                p_auth0_sub: options.externalSub ?? null,
                 p_session_id: sessionId ?? null,
             });
             if (error)
                 throw error;
-            logger_1.logger.info("Semantic search completed", {
+            logger.info("Semantic search completed", {
                 query: query.substring(0, 50),
                 resultsCount: data?.length || 0,
             });
@@ -205,14 +202,14 @@ class SemanticMemoryService {
             }));
         }
         catch (error) {
-            logger_1.logger.error("Semantic search failed", error);
+            logger.error("Semantic search failed", error);
             throw error;
         }
     }
     resolveNamespace(metadata) {
         return {
             organization_id: metadata.organization_id ?? metadata.userId ?? null,
-            auth0_sub: metadata.auth0_sub ?? null,
+            external_sub: metadata.external_sub ?? null,
             session_id: metadata.session_id ?? metadata.workflowId ?? null,
         };
     }
@@ -363,14 +360,14 @@ class SemanticMemoryService {
             if (error)
                 throw error;
             const deletedCount = data?.length || 0;
-            logger_1.logger.info("Memories pruned", {
+            logger.info("Memories pruned", {
                 deletedCount,
                 conditions: options,
             });
             return deletedCount;
         }
         catch (error) {
-            logger_1.logger.error("Failed to prune memories", error);
+            logger.error("Failed to prune memories", error);
             throw error;
         }
     }
@@ -410,12 +407,11 @@ class SemanticMemoryService {
             };
         }
         catch (error) {
-            logger_1.logger.error("Failed to get memory statistics", error);
+            logger.error("Failed to get memory statistics", error);
             throw error;
         }
     }
 }
-exports.SemanticMemoryService = SemanticMemoryService;
 // Export singleton instance
-exports.semanticMemory = new SemanticMemoryService();
+export const semanticMemory = new SemanticMemoryService();
 //# sourceMappingURL=SemanticMemory.js.map

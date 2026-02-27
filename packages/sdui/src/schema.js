@@ -1,99 +1,93 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SDUIValidationError = exports.SDUIPageSchema = exports.SDUISectionSchema = exports.SDUIComponentSectionSchema = exports.SDUILayoutDirectiveSchema = exports.SDUIComponentVersionSchema = exports.SDUI_VERSION = void 0;
-exports.normalizeComponentSection = normalizeComponentSection;
-exports.normalizeSection = normalizeSection;
-exports.validateSDUISchema = validateSDUISchema;
-const zod_1 = require("zod");
-exports.SDUI_VERSION = 2;
-exports.SDUIComponentVersionSchema = zod_1.z.number().int().min(1);
-const SDUIFallbackSchema = zod_1.z.object({
-    message: zod_1.z.string().optional(),
-    component: zod_1.z.string().optional(),
-    props: zod_1.z.record(zod_1.z.any()).optional(),
+import { z } from "zod";
+export const SDUI_VERSION = 2;
+export const SDUIComponentVersionSchema = z.number().int().min(1);
+const SDUIFallbackSchema = z.object({
+    message: z.string().optional(),
+    component: z.string().optional(),
+    props: z.record(z.any()).optional(),
 });
 // Layout directive for CoordinatorAgent
-exports.SDUILayoutDirectiveSchema = zod_1.z.object({
-    type: zod_1.z.literal("layout.directive"),
-    intent: zod_1.z.string().min(1, "Intent is required"),
-    component: zod_1.z.string().min(1, "Component name is required"),
-    props: zod_1.z.record(zod_1.z.any()).default({}),
-    layout: zod_1.z.enum(["default", "full_width", "two_column", "dashboard", "single_column"]).optional(),
-    metadata: zod_1.z.record(zod_1.z.any()).optional(),
+export const SDUILayoutDirectiveSchema = z.object({
+    type: z.literal("layout.directive"),
+    intent: z.string().min(1, "Intent is required"),
+    component: z.string().min(1, "Component name is required"),
+    props: z.record(z.any()).default({}),
+    layout: z.enum(["default", "full_width", "two_column", "dashboard", "single_column"]).optional(),
+    metadata: z.record(z.any()).optional(),
 });
-exports.SDUIComponentSectionSchema = zod_1.z.object({
-    type: zod_1.z.literal("component"),
-    component: zod_1.z.string().min(1, "Component name is required"),
-    version: exports.SDUIComponentVersionSchema.default(1),
-    props: zod_1.z.record(zod_1.z.any()).default({}),
-    hydrateWith: zod_1.z.array(zod_1.z.string()).optional(),
+export const SDUIComponentSectionSchema = z.object({
+    type: z.literal("component"),
+    component: z.string().min(1, "Component name is required"),
+    version: SDUIComponentVersionSchema.default(1),
+    props: z.record(z.any()).default({}),
+    hydrateWith: z.array(z.string()).optional(),
     fallback: SDUIFallbackSchema.optional(),
 });
 // Multi-tenant metadata schema with enhanced fields
-const SDUIMetadataSchema = zod_1.z
+const SDUIMetadataSchema = z
     .object({
-    debug: zod_1.z.boolean().optional(),
-    cacheTtlSeconds: zod_1.z.number().int().positive().optional(),
-    experienceId: zod_1.z.string().optional(),
+    debug: z.boolean().optional(),
+    cacheTtlSeconds: z.number().int().positive().optional(),
+    experienceId: z.string().optional(),
     // Multi-tenant support
-    permissions: zod_1.z.array(zod_1.z.string()).optional(),
-    theme: zod_1.z.enum(["dark", "light"]).default("dark"),
-    featureFlags: zod_1.z.record(zod_1.z.boolean()).optional(),
-    dataResidency: zod_1.z.enum(["us", "eu", "apac"]).optional(),
+    permissions: z.array(z.string()).optional(),
+    theme: z.enum(["dark", "light"]).default("dark"),
+    featureFlags: z.record(z.boolean()).optional(),
+    dataResidency: z.enum(["us", "eu", "apac"]).optional(),
     // Phase 3: Enhanced metadata
-    lifecycle_stage: zod_1.z.string().optional(), // e.g., 'opportunity', 'target', 'realization', 'expansion'
-    case_id: zod_1.z.string().optional(), // Associated value case ID
-    session_id: zod_1.z.string().optional(), // Workflow session ID
-    generated_at: zod_1.z.number().optional(), // Unix timestamp
-    agent_name: zod_1.z.string().optional(), // Which agent generated this
-    confidence_score: zod_1.z.number().min(0).max(1).optional(), // AI confidence (0-1)
+    lifecycle_stage: z.string().optional(), // e.g., 'opportunity', 'target', 'realization', 'expansion'
+    case_id: z.string().optional(), // Associated value case ID
+    session_id: z.string().optional(), // Workflow session ID
+    generated_at: z.number().optional(), // Unix timestamp
+    agent_name: z.string().optional(), // Which agent generated this
+    confidence_score: z.number().min(0).max(1).optional(), // AI confidence (0-1)
     // Performance hints
-    estimated_render_time_ms: zod_1.z.number().positive().optional(),
-    priority: zod_1.z.enum(["low", "normal", "high", "critical"]).optional(),
+    estimated_render_time_ms: z.number().positive().optional(),
+    priority: z.enum(["low", "normal", "high", "critical"]).optional(),
     // Component dependencies for lazy loading
-    required_components: zod_1.z.array(zod_1.z.string()).optional(),
-    optional_components: zod_1.z.array(zod_1.z.string()).optional(),
+    required_components: z.array(z.string()).optional(),
+    optional_components: z.array(z.string()).optional(),
     // Accessibility
-    accessibility: zod_1.z
+    accessibility: z
         .object({
-        level: zod_1.z.enum(["A", "AA", "AAA"]).optional(),
-        screen_reader_optimized: zod_1.z.boolean().optional(),
-        high_contrast_mode: zod_1.z.boolean().optional(),
-        keyboard_navigation: zod_1.z.boolean().optional(),
+        level: z.enum(["A", "AA", "AAA"]).optional(),
+        screen_reader_optimized: z.boolean().optional(),
+        high_contrast_mode: z.boolean().optional(),
+        keyboard_navigation: z.boolean().optional(),
     })
         .optional(),
     // Telemetry
-    telemetry_enabled: zod_1.z.boolean().optional(),
-    trace_id: zod_1.z.string().optional(),
-    parent_span_id: zod_1.z.string().optional(),
+    telemetry_enabled: z.boolean().optional(),
+    trace_id: z.string().optional(),
+    parent_span_id: z.string().optional(),
     // SOF (System of Flows) features
-    sofEnabled: zod_1.z.boolean().optional(),
-    requiresClosedLoops: zod_1.z.boolean().optional(),
-    supportsReplication: zod_1.z.boolean().optional(),
-    requiresInterventions: zod_1.z.boolean().optional(),
-    requiresOutcomeHypotheses: zod_1.z.boolean().optional(),
-    requiresSystemMap: zod_1.z.boolean().optional(),
-    requiresFeedbackLoops: zod_1.z.boolean().optional(),
-    requiresGovernance: zod_1.z.boolean().optional(),
-    tracksCompliance: zod_1.z.boolean().optional(),
-    supportsAudit: zod_1.z.boolean().optional(),
+    sofEnabled: z.boolean().optional(),
+    requiresClosedLoops: z.boolean().optional(),
+    supportsReplication: z.boolean().optional(),
+    requiresInterventions: z.boolean().optional(),
+    requiresOutcomeHypotheses: z.boolean().optional(),
+    requiresSystemMap: z.boolean().optional(),
+    requiresFeedbackLoops: z.boolean().optional(),
+    requiresGovernance: z.boolean().optional(),
+    tracksCompliance: z.boolean().optional(),
+    supportsAudit: z.boolean().optional(),
 })
     .optional();
 // Union type for sections (component or layout directive)
-exports.SDUISectionSchema = zod_1.z.union([exports.SDUIComponentSectionSchema, exports.SDUILayoutDirectiveSchema]);
+export const SDUISectionSchema = z.union([SDUIComponentSectionSchema, SDUILayoutDirectiveSchema]);
 // Multi-tenant page schema
-exports.SDUIPageSchema = zod_1.z
+export const SDUIPageSchema = z
     .object({
-    type: zod_1.z.literal("page"),
-    version: exports.SDUIComponentVersionSchema.default(1),
+    type: z.literal("page"),
+    version: SDUIComponentVersionSchema.default(1),
     // Multi-tenant identifiers
-    tenantId: zod_1.z.string().optional(),
-    organizationId: zod_1.z.string().optional(),
-    sections: zod_1.z.array(exports.SDUISectionSchema).min(1, "At least one section is required"),
+    tenantId: z.string().optional(),
+    organizationId: z.string().optional(),
+    sections: z.array(SDUISectionSchema).min(1, "At least one section is required"),
     metadata: SDUIMetadataSchema,
 })
     .strict();
-class SDUIValidationError extends Error {
+export class SDUIValidationError extends Error {
     errors;
     constructor(message, errors) {
         super(message);
@@ -101,22 +95,21 @@ class SDUIValidationError extends Error {
         this.name = "SDUIValidationError";
     }
 }
-exports.SDUIValidationError = SDUIValidationError;
 const clampVersion = (version) => {
     if (!version || version < 1)
         return 1;
-    if (version > exports.SDUI_VERSION)
-        return exports.SDUI_VERSION;
+    if (version > SDUI_VERSION)
+        return SDUI_VERSION;
     return version;
 };
-function normalizeComponentSection(section) {
+export function normalizeComponentSection(section) {
     return {
         ...section,
         version: clampVersion(section.version),
         props: section.props ?? {},
     };
 }
-function normalizeSection(section) {
+export function normalizeSection(section) {
     if (section.type === "layout.directive") {
         return {
             ...section,
@@ -125,19 +118,19 @@ function normalizeSection(section) {
     }
     return normalizeComponentSection(section);
 }
-function validateSDUISchema(payload) {
+export function validateSDUISchema(payload) {
     if (!payload || typeof payload !== "object") {
         return { success: false, errors: ["Payload must be an object"] };
     }
-    const parsed = exports.SDUIPageSchema.safeParse(payload);
+    const parsed = SDUIPageSchema.safeParse(payload);
     if (!parsed.success) {
         const issues = parsed.error.issues.map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`);
         return { success: false, errors: issues };
     }
     const normalizedSections = parsed.data.sections.map(normalizeSection);
     const warnings = [];
-    if (parsed.data.version > exports.SDUI_VERSION) {
-        warnings.push(`Layout version ${parsed.data.version} is newer than supported (${exports.SDUI_VERSION}). Using ${exports.SDUI_VERSION}.`);
+    if (parsed.data.version > SDUI_VERSION) {
+        warnings.push(`Layout version ${parsed.data.version} is newer than supported (${SDUI_VERSION}). Using ${SDUI_VERSION}.`);
     }
     return {
         success: true,

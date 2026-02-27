@@ -1,21 +1,17 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MotionMasterProvider = exports.useMotionMaster = void 0;
-const jsx_runtime_1 = require("react/jsx-runtime");
+import { jsx as _jsx } from "react/jsx-runtime";
 /*
  * Motion Master: Centralized motion and entrance animation utilities for SDUI widgets
  * Applies cinematic, non-blocking staggered entrance and spring effects
  */
-const react_1 = require("react");
-const MotionMasterContext = (0, react_1.createContext)({
+import { createContext, useContext, useRef, useEffect } from "react";
+const MotionMasterContext = createContext({
     register: () => { },
 });
-const useMotionMaster = () => (0, react_1.useContext)(MotionMasterContext);
-exports.useMotionMaster = useMotionMaster;
-const MotionMasterProvider = ({ children }) => {
-    const refs = (0, react_1.useRef)([]);
+export const useMotionMaster = () => useContext(MotionMasterContext);
+export const MotionMasterProvider = ({ children }) => {
+    const refs = useRef([]);
     // Staggered entrance effect
-    (0, react_1.useEffect)(() => {
+    useEffect(() => {
         refs.current.forEach((ref, i) => {
             if (ref.current) {
                 ref.current.style.opacity = "0";
@@ -32,7 +28,6 @@ const MotionMasterProvider = ({ children }) => {
     const register = (ref) => {
         refs.current.push(ref);
     };
-    return ((0, jsx_runtime_1.jsx)(MotionMasterContext.Provider, { value: { register }, children: children }));
+    return (_jsx(MotionMasterContext.Provider, { value: { register }, children: children }));
 };
-exports.MotionMasterProvider = MotionMasterProvider;
 //# sourceMappingURL=MotionMaster.js.map

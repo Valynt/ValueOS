@@ -1,15 +1,12 @@
-"use strict";
 /**
  * SOF Expansion Page Template
  *
  * Extended Expansion template with System Replication and Scaling Analysis.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSOFExpansionPage = generateSOFExpansionPage;
 /**
  * Generate SOF-enhanced Expansion page
  */
-function generateSOFExpansionPage(data) {
+export function generateSOFExpansionPage(data) {
     const closedLoops = data.feedbackLoops.filter((loop) => loop.closure_status === "closed");
     const isReadyForExpansion = closedLoops.length > 0;
     const sections = [
@@ -437,5 +434,5 @@ function generateSOFExpansionPage(data) {
         },
     };
 }
-exports.default = generateSOFExpansionPage;
+export default generateSOFExpansionPage;
 //# sourceMappingURL=sof-expansion-template.js.map

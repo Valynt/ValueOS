@@ -1,10 +1,7 @@
-"use strict";
 /**
  * MCP Logger - Stub implementation
  * TODO: Replace with structured logging library (pino, winston)
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.logger = void 0;
 const createLogger = (name) => ({
     info: (message, context) => {
         console.info(`[${name}] ${message}`, context || "");
@@ -21,6 +18,6 @@ const createLogger = (name) => ({
         }
     },
 });
-exports.logger = createLogger("mcp");
-exports.default = exports.logger;
+export const logger = createLogger("mcp");
+export default logger;
 //# sourceMappingURL=logger.js.map

@@ -1,4 +1,3 @@
-"use strict";
 /**
  * PII Filter - Sanitize Sensitive Data from Logs
  *
@@ -7,14 +6,7 @@
  * This filter removes or redacts sensitive information before logging.
  * NEVER log raw user objects, request bodies, or configuration.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sanitizeForLogging = sanitizeForLogging;
-exports.sanitizeUser = sanitizeUser;
-exports.sanitizeRequest = sanitizeRequest;
-exports.sanitizeError = sanitizeError;
-exports.createLogContext = createLogContext;
-exports.validateLogMessage = validateLogMessage;
-const environment_1 = require("../config/environment");
+import { isDevelopment } from "../config/environment";
 /**
  * Sensitive field patterns to redact
  */
@@ -117,7 +109,7 @@ function redactValue(value, _key) {
     }
     const valueStr = String(value);
     // In development, show partial value for debugging
-    if ((0, environment_1.isDevelopment)() && valueStr.length > 4) {
+    if (isDevelopment() && valueStr.length > 4) {
         return `[REDACTED:${valueStr.substring(0, 4)}...]`;
     }
     // In production, completely redact
@@ -130,7 +122,7 @@ function redactValue(value, _key) {
  * @param maxDepth - Maximum recursion depth (prevents circular references)
  * @returns Sanitized object safe for logging
  */
-function sanitizeForLogging(obj, maxDepth = 5) {
+export function sanitizeForLogging(obj, maxDepth = 5) {
     // Handle primitives
     if (obj === null || obj === undefined) {
         return obj;
@@ -177,7 +169,7 @@ function sanitizeForLogging(obj, maxDepth = 5) {
  * Sanitize user object for logging
  * Only log safe identifiers, never PII
  */
-function sanitizeUser(user) {
+export function sanitizeUser(user) {
     if (!user)
         return { user: null };
     return {
@@ -191,7 +183,7 @@ function sanitizeUser(user) {
  * Sanitize request object for logging
  * Only log safe metadata, never body or headers
  */
-function sanitizeRequest(req) {
+export function sanitizeRequest(req) {
     if (!req)
         return { request: null };
     return {
@@ -200,7 +192,7 @@ function sanitizeRequest(req) {
         query: sanitizeForLogging(req.query),
         user_id: req.user?.id,
         tenant_id: req.tenantId ?? req.user?.tenant_id,
-        ip: (0, environment_1.isDevelopment)() ? req.ip : "[REDACTED]",
+        ip: isDevelopment() ? req.ip : "[REDACTED]",
         // NEVER log: body, headers, cookies, authorization
     };
 }
@@ -208,7 +200,7 @@ function sanitizeRequest(req) {
  * Sanitize error objects for logging
  * Preserves stack trace in development only
  */
-function sanitizeError(error) {
+export function sanitizeError(error) {
     if (!error)
         return { error: null };
     if (error instanceof Error) {
@@ -217,7 +209,7 @@ function sanitizeError(error) {
         return {
             name: error.name,
             message: error.message,
-            stack: (0, environment_1.isDevelopment)() ? error.stack : "[REDACTED]",
+            stack: isDevelopment() ? error.stack : "[REDACTED]",
             // Only spread if it's an object
             ...(typeof additionalProps === "object" && additionalProps !== null ? additionalProps : {}),
         };
@@ -231,7 +223,7 @@ function sanitizeError(error) {
  * Create a safe log context
  * Use this to build log context objects
  */
-function createLogContext(context) {
+export function createLogContext(context) {
     const sanitized = sanitizeForLogging(context);
     return typeof sanitized === "object" && sanitized !== null
         ? sanitized
@@ -241,8 +233,8 @@ function createLogContext(context) {
  * Validate that a log message doesn't contain PII
  * Throws error in development if PII detected
  */
-function validateLogMessage(message, context) {
-    if (!(0, environment_1.isDevelopment)())
+export function validateLogMessage(message, context) {
+    if (!isDevelopment())
         return;
     // Check message for email patterns
     if (/@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(message)) {

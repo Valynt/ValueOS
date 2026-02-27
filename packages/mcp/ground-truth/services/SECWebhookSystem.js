@@ -1,4 +1,3 @@
-"use strict";
 /**
  * SEC Filing Webhook System
  *
@@ -12,16 +11,14 @@
  * - Notification queuing and batching
  * - Integration with WebSocket server for live alerts
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SECWebhookSystem = void 0;
-const logger_1 = require("../../lib/logger");
-const Cache_1 = require("../core/Cache");
-class SECWebhookSystem {
+import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
+export class SECWebhookSystem {
     websocketServer;
     subscriptions = new Map();
     deliveryQueue = [];
     rssPollingInterval = null;
-    cache = (0, Cache_1.getCache)();
+    cache = getCache();
     lastProcessedTimestamp = "";
     constructor(websocketServer) {
         this.websocketServer = websocketServer;
@@ -30,27 +27,27 @@ class SECWebhookSystem {
      * Start the SEC filing monitoring system
      */
     async start() {
-        logger_1.logger.info("Starting SEC Webhook System");
+        logger.info("Starting SEC Webhook System");
         // Load existing subscriptions from cache/database
         await this.loadSubscriptions();
         // Start RSS feed monitoring
         this.startRSSMonitoring();
         // Start webhook delivery processor
         this.startDeliveryProcessor();
-        logger_1.logger.info("SEC Webhook System started successfully");
+        logger.info("SEC Webhook System started successfully");
     }
     /**
      * Stop the SEC filing monitoring system
      */
     async stop() {
-        logger_1.logger.info("Stopping SEC Webhook System");
+        logger.info("Stopping SEC Webhook System");
         if (this.rssPollingInterval) {
             clearInterval(this.rssPollingInterval);
             this.rssPollingInterval = null;
         }
         // Save subscriptions
         await this.saveSubscriptions();
-        logger_1.logger.info("SEC Webhook System stopped");
+        logger.info("SEC Webhook System stopped");
     }
     /**
      * Add a webhook subscription
@@ -64,7 +61,7 @@ class SECWebhookSystem {
         };
         this.subscriptions.set(id, newSubscription);
         await this.saveSubscriptions();
-        logger_1.logger.info("Added webhook subscription", {
+        logger.info("Added webhook subscription", {
             subscriptionId: id,
             url: subscription.url,
             filters: subscription.filters,
@@ -78,7 +75,7 @@ class SECWebhookSystem {
         const removed = this.subscriptions.delete(subscriptionId);
         if (removed) {
             await this.saveSubscriptions();
-            logger_1.logger.info("Removed webhook subscription", { subscriptionId });
+            logger.info("Removed webhook subscription", { subscriptionId });
         }
         return removed;
     }
@@ -98,10 +95,10 @@ class SECWebhookSystem {
                 await this.checkForNewFilings();
             }
             catch (error) {
-                logger_1.logger.error("Error checking for new SEC filings", error instanceof Error ? error : undefined);
+                logger.error("Error checking for new SEC filings", error instanceof Error ? error : undefined);
             }
         }, 30000);
-        logger_1.logger.info("Started SEC RSS feed monitoring");
+        logger.info("Started SEC RSS feed monitoring");
     }
     /**
      * Check for new SEC filings via RSS feed
@@ -115,7 +112,7 @@ class SECWebhookSystem {
                 },
             });
             if (!response.ok) {
-                logger_1.logger.warn("Failed to fetch SEC RSS feed", {
+                logger.warn("Failed to fetch SEC RSS feed", {
                     status: response.status,
                 });
                 return;
@@ -123,14 +120,14 @@ class SECWebhookSystem {
             const rssText = await response.text();
             const newFilings = this.parseRSSFeed(rssText);
             if (newFilings.length > 0) {
-                logger_1.logger.info(`Found ${newFilings.length} new SEC filings`);
+                logger.info(`Found ${newFilings.length} new SEC filings`);
                 for (const filing of newFilings) {
                     await this.processNewFiling(filing);
                 }
             }
         }
         catch (error) {
-            logger_1.logger.error("Error checking SEC RSS feed", error instanceof Error ? error : undefined);
+            logger.error("Error checking SEC RSS feed", error instanceof Error ? error : undefined);
         }
     }
     /**
@@ -153,7 +150,7 @@ class SECWebhookSystem {
             }
         }
         catch (error) {
-            logger_1.logger.error("Error parsing SEC RSS feed", error instanceof Error ? error : undefined);
+            logger.error("Error parsing SEC RSS feed", error instanceof Error ? error : undefined);
         }
         return filings;
     }
@@ -198,7 +195,7 @@ class SECWebhookSystem {
             };
         }
         catch (error) {
-            logger_1.logger.error("Error parsing RSS item", error instanceof Error ? error : undefined, {
+            logger.error("Error parsing RSS item", error instanceof Error ? error : undefined, {
                 itemSnippet: itemXml.substring(0, 200),
             });
             return null;
@@ -236,7 +233,7 @@ class SECWebhookSystem {
         this.websocketServer.broadcastWebhook(notification);
         // Queue for webhook delivery
         await this.queueWebhookDeliveries(notification);
-        logger_1.logger.info("Processed new SEC filing", {
+        logger.info("Processed new SEC filing", {
             filingType: filing.filingType,
             companyName: filing.companyName,
             cik: filing.cik,
@@ -262,7 +259,7 @@ class SECWebhookSystem {
                 this.deliveryQueue.push(delivery);
             }
         }
-        logger_1.logger.debug("Queued webhook deliveries", {
+        logger.debug("Queued webhook deliveries", {
             notificationId: notification.id,
             queuedDeliveries: this.deliveryQueue.length,
         });
@@ -303,7 +300,7 @@ class SECWebhookSystem {
             // Clean up old deliveries
             this.cleanupOldDeliveries();
         }, 5000);
-        logger_1.logger.info("Started webhook delivery processor");
+        logger.info("Started webhook delivery processor");
     }
     /**
      * Process a single webhook delivery
@@ -342,7 +339,7 @@ class SECWebhookSystem {
                 delivery.status = "delivered";
                 delivery.deliveredAt = new Date();
                 subscription.lastDelivery = new Date();
-                logger_1.logger.info("Webhook delivered successfully", {
+                logger.info("Webhook delivered successfully", {
                     subscriptionId: delivery.subscriptionId,
                     notificationId: delivery.notificationId,
                     attempt: delivery.attempt + 1,
@@ -369,7 +366,7 @@ class SECWebhookSystem {
                 : error instanceof Error
                     ? error.message
                     : "Unknown error";
-            logger_1.logger.error("Webhook delivery failed permanently", {
+            logger.error("Webhook delivery failed permanently", {
                 subscriptionId: delivery.subscriptionId,
                 notificationId: delivery.notificationId,
                 attempts: delivery.attempt,
@@ -381,7 +378,7 @@ class SECWebhookSystem {
             // Calculate backoff delay
             const backoffSeconds = Math.min(subscription.retryPolicy.backoffMultiplier ** delivery.attempt, subscription.retryPolicy.maxBackoffSeconds);
             delivery.nextRetryAt = new Date(Date.now() + backoffSeconds * 1000);
-            logger_1.logger.warn("Webhook delivery failed, scheduling retry", {
+            logger.warn("Webhook delivery failed, scheduling retry", {
                 subscriptionId: delivery.subscriptionId,
                 notificationId: delivery.notificationId,
                 attempt: delivery.attempt,
@@ -440,11 +437,11 @@ class SECWebhookSystem {
             if (cached) {
                 this.subscriptions.clear();
                 cached.forEach((sub) => this.subscriptions.set(sub.id, sub));
-                logger_1.logger.info("Loaded webhook subscriptions", { count: cached.length });
+                logger.info("Loaded webhook subscriptions", { count: cached.length });
             }
         }
         catch (error) {
-            logger_1.logger.error("Error loading webhook subscriptions", error instanceof Error ? error : undefined);
+            logger.error("Error loading webhook subscriptions", error instanceof Error ? error : undefined);
         }
     }
     /**
@@ -456,7 +453,7 @@ class SECWebhookSystem {
             await this.cache.set("webhook_subscriptions", subscriptions, "tier1");
         }
         catch (error) {
-            logger_1.logger.error("Error saving webhook subscriptions", error instanceof Error ? error : undefined);
+            logger.error("Error saving webhook subscriptions", error instanceof Error ? error : undefined);
         }
     }
     /**
@@ -478,5 +475,4 @@ class SECWebhookSystem {
         };
     }
 }
-exports.SECWebhookSystem = SECWebhookSystem;
 //# sourceMappingURL=SECWebhookSystem.js.map

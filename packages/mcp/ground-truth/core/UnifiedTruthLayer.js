@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Unified Truth Layer - Tiered Resolution Engine
  *
@@ -12,20 +11,18 @@
  *
  * Node Mapping: [NODE: Unified_Truth_Layer], [NODE: Data_Tier_Resolver]
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.UnifiedTruthLayer = void 0;
-const types_1 = require("../types");
-const logger_1 = require("../../lib/logger");
-const ClaimExtractor_1 = require("../services/ClaimExtractor");
+import { ErrorCodes, GroundTruthError, } from "../types";
+import { logger } from "../../lib/logger";
+import { ClaimExtractor } from "../services/ClaimExtractor";
 /**
  * Unified Truth Layer
  *
  * Central orchestration layer that implements the tiered truth model
  * and ensures zero-hallucination guarantees.
  */
-class UnifiedTruthLayer {
+export class UnifiedTruthLayer {
     modules = new Map();
-    claimExtractor = new ClaimExtractor_1.ClaimExtractor();
+    claimExtractor = new ClaimExtractor();
     tierModules = new Map([
         ["tier1", []],
         ["tier2", []],
@@ -41,7 +38,7 @@ class UnifiedTruthLayer {
         if (config) {
             this.config = { ...this.config, ...config };
         }
-        logger_1.logger.info("Unified Truth Layer initialized", this.config);
+        logger.info("Unified Truth Layer initialized", this.config);
     }
     /**
      * Register a module with the truth layer
@@ -51,7 +48,7 @@ class UnifiedTruthLayer {
         const tierModules = this.tierModules.get(module.tier) || [];
         tierModules.push(module);
         this.tierModules.set(module.tier, tierModules);
-        logger_1.logger.info("Module registered", {
+        logger.info("Module registered", {
             name: module.name,
             tier: module.tier,
         });
@@ -67,7 +64,7 @@ class UnifiedTruthLayer {
         const resolutionPath = [];
         const alternatives = [];
         try {
-            logger_1.logger.info("Truth resolution started", {
+            logger.info("Truth resolution started", {
                 identifier: request.identifier,
                 metric: request.metric,
                 preferTier: request.prefer_tier,
@@ -100,7 +97,7 @@ class UnifiedTruthLayer {
                             if (tier === request.prefer_tier || !request.prefer_tier) {
                                 // Found data at preferred tier
                                 const executionTime = Date.now() - startTime;
-                                logger_1.logger.info("Truth resolution succeeded", {
+                                logger.info("Truth resolution succeeded", {
                                     identifier: request.identifier,
                                     metric: request.metric,
                                     tier,
@@ -121,7 +118,7 @@ class UnifiedTruthLayer {
                         }
                     }
                     catch (error) {
-                        logger_1.logger.warn("Module query failed", {
+                        logger.warn("Module query failed", {
                             module: module.name,
                             error: error instanceof Error ? error.message : "Unknown error",
                         });
@@ -134,11 +131,11 @@ class UnifiedTruthLayer {
                 }
             }
             // No data found in any tier
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No data found for ${request.identifier} - ${request.metric}`, { resolution_path: resolutionPath });
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No data found for ${request.identifier} - ${request.metric}`, { resolution_path: resolutionPath });
         }
         catch (error) {
             const executionTime = Date.now() - startTime;
-            logger_1.logger.error("Truth resolution failed", {
+            logger.error("Truth resolution failed", {
                 identifier: request.identifier,
                 metric: request.metric,
                 error: error instanceof Error ? error.message : "Unknown error",
@@ -168,7 +165,7 @@ class UnifiedTruthLayer {
                 }
                 catch (error) {
                     // Continue with other requests even if one fails
-                    logger_1.logger.warn("Batch resolution item failed", {
+                    logger.warn("Batch resolution item failed", {
                         identifier: request.identifier,
                         metric: request.metric,
                         error: error instanceof Error ? error.message : "Unknown error",
@@ -185,7 +182,7 @@ class UnifiedTruthLayer {
      * Node Mapping: [NODE: Aletheia_Verification_Loop]
      */
     async verifyClaim(claimText, contextEntity, contextDate, strictMode = true) {
-        logger_1.logger.info("Claim verification started", {
+        logger.info("Claim verification started", {
             claimText,
             contextEntity,
             strictMode,
@@ -231,7 +228,7 @@ class UnifiedTruthLayer {
                 };
             }
             catch (error) {
-                logger_1.logger.warn("Claim verification failed", {
+                logger.warn("Claim verification failed", {
                     claim: claim.metric,
                     error: error instanceof Error ? error.message : "Unknown error",
                 });
@@ -250,7 +247,7 @@ class UnifiedTruthLayer {
      * Node Mapping: [NODE: Value_Driver_Tree], [NODE: Auto_Population_Agent]
      */
     async populateValueDriverTree(targetCIK, benchmarkNAICS, driverNodeId, simulationPeriod) {
-        logger_1.logger.info("Value driver tree population started", {
+        logger.info("Value driver tree population started", {
             targetCIK,
             benchmarkNAICS,
             driverNodeId,
@@ -294,7 +291,7 @@ class UnifiedTruthLayer {
                 rationale = `10% cost reduction potential through operational efficiency`;
                 break;
             default:
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Unsupported driver node: ${driverNodeId}`);
+                throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unsupported driver node: ${driverNodeId}`);
         }
         // Calculate confidence based on supporting data
         const avgConfidence = supportingData.reduce((sum, m) => sum + m.confidence, 0) /
@@ -373,7 +370,7 @@ class UnifiedTruthLayer {
     async queryModuleWithTimeout(module, request, timeout) {
         return Promise.race([
             module.query(request),
-            new Promise((_, reject) => setTimeout(() => reject(new types_1.GroundTruthError(types_1.ErrorCodes.TIMEOUT, "Module query timeout")), timeout)),
+            new Promise((_, reject) => setTimeout(() => reject(new GroundTruthError(ErrorCodes.TIMEOUT, "Module query timeout")), timeout)),
         ]);
     }
     /**
@@ -409,5 +406,4 @@ class UnifiedTruthLayer {
         return 1; // Cannot compare
     }
 }
-exports.UnifiedTruthLayer = UnifiedTruthLayer;
 //# sourceMappingURL=UnifiedTruthLayer.js.map

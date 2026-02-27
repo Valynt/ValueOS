@@ -1,14 +1,11 @@
-"use strict";
 /**
  * MCP Rate Limiter
  *
  * Provides centralized rate limiting for all MCP servers with provider-specific
  * configurations, circuit breaker patterns, and adaptive throttling.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.mcpRateLimiter = exports.MCPRateLimiter = void 0;
-const events_1 = require("events");
-const logger_1 = require("../../lib/logger");
+import { EventEmitter } from "events";
+import { logger } from "../../lib/logger";
 // ============================================================================
 // Circuit Breaker Implementation
 // ============================================================================
@@ -31,7 +28,7 @@ class CircuitBreaker {
             case "open":
                 if (now >= this.nextRetryTime) {
                     this.state = "half-open";
-                    logger_1.logger.info(`Circuit breaker transitioning to half-open for provider: ${this.provider}`);
+                    logger.info(`Circuit breaker transitioning to half-open for provider: ${this.provider}`);
                     return { allowed: true, state: "half-open" };
                 }
                 return { allowed: false, state: "open" };
@@ -59,7 +56,7 @@ class CircuitBreaker {
     trip() {
         this.state = "open";
         this.nextRetryTime = Date.now() + this.config.recoveryTimeout;
-        logger_1.logger.warn(`Circuit breaker tripped for provider: ${this.provider}`, {
+        logger.warn(`Circuit breaker tripped for provider: ${this.provider}`, {
             failureCount: this.failureCount,
             nextRetryTime: new Date(this.nextRetryTime),
         });
@@ -69,7 +66,7 @@ class CircuitBreaker {
         this.failureCount = 0;
         this.lastFailureTime = 0;
         this.nextRetryTime = 0;
-        logger_1.logger.info(`Circuit breaker reset for provider: ${this.provider}`);
+        logger.info(`Circuit breaker reset for provider: ${this.provider}`);
     }
     getState() {
         return this.state;
@@ -110,7 +107,7 @@ class AdaptiveThrottler {
             this.currentDelay = Math.max(this.currentDelay - 50, 0); // Reduce delay but not below 0
         }
         if (this.currentDelay > 0) {
-            logger_1.logger.debug(`Adaptive throttling applied`, {
+            logger.debug(`Adaptive throttling applied`, {
                 avgResponseTime,
                 variance,
                 currentDelay: this.currentDelay,
@@ -133,7 +130,7 @@ class AdaptiveThrottler {
 // ============================================================================
 // MCP Rate Limiter
 // ============================================================================
-class MCPRateLimiter extends events_1.EventEmitter {
+export class MCPRateLimiter extends EventEmitter {
     static instance;
     providers = new Map();
     requestWindows = new Map();
@@ -177,7 +174,7 @@ class MCPRateLimiter extends events_1.EventEmitter {
             averageResponseTime: 0,
             circuitBreakerState: "closed",
         });
-        logger_1.logger.info(`Rate limiter registered for provider: ${config.provider}`, {
+        logger.info(`Rate limiter registered for provider: ${config.provider}`, {
             requestsPerSecond: config.requestsPerSecond,
             burstCapacity: config.burstCapacity,
             circuitBreakerEnabled: config.circuitBreaker.enabled,
@@ -221,7 +218,7 @@ class MCPRateLimiter extends events_1.EventEmitter {
         if (currentRequests >= config.burstCapacity) {
             const oldestRequest = Math.min(...validRequests);
             const resetTime = oldestRequest + config.windowMs;
-            logger_1.logger.warn(`Rate limit exceeded for provider: ${provider}`, {
+            logger.warn(`Rate limit exceeded for provider: ${provider}`, {
                 currentRequests,
                 burstCapacity: config.burstCapacity,
                 windowMs: config.windowMs,
@@ -313,7 +310,7 @@ class MCPRateLimiter extends events_1.EventEmitter {
             stats.averageResponseTime = 0;
             stats.circuitBreakerState = "closed";
         }
-        logger_1.logger.info(`Rate limiter reset for provider: ${provider}`);
+        logger.info(`Rate limiter reset for provider: ${provider}`);
     }
     /**
      * Update provider statistics
@@ -367,7 +364,7 @@ class MCPRateLimiter extends events_1.EventEmitter {
                 this.requestWindows.set(provider, validRequests);
             }
         }
-        logger_1.logger.debug("Rate limiter cleanup completed", {
+        logger.debug("Rate limiter cleanup completed", {
             providersRemaining: this.requestWindows.size,
         });
     }
@@ -387,7 +384,6 @@ class MCPRateLimiter extends events_1.EventEmitter {
         this.removeAllListeners();
     }
 }
-exports.MCPRateLimiter = MCPRateLimiter;
 // Export singleton instance
-exports.mcpRateLimiter = MCPRateLimiter.getInstance();
+export const mcpRateLimiter = MCPRateLimiter.getInstance();
 //# sourceMappingURL=MCPRateLimiter.js.map

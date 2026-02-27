@@ -1,15 +1,12 @@
-"use strict";
 /**
  * SOF Target Page Template
  *
  * Extended Target template with Intervention Designer and Outcome Hypotheses.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSOFTargetPage = generateSOFTargetPage;
 /**
  * Generate SOF-enhanced Target page
  */
-function generateSOFTargetPage(data) {
+export function generateSOFTargetPage(data) {
     const sections = [
         // Header
         {
@@ -322,5 +319,5 @@ function generateSOFTargetPage(data) {
         },
     };
 }
-exports.default = generateSOFTargetPage;
+export default generateSOFTargetPage;
 //# sourceMappingURL=sof-target-template.js.map

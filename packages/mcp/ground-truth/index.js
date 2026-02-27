@@ -1,78 +1,27 @@
-"use strict";
 /**
  * MCP Financial Ground Truth Server - Main Export
  *
  * Central export point for the MCP Financial Ground Truth Server.
  * Provides easy access to all modules, types, and the main server class.
  */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ESOModule = exports.EntityMappingModule = exports.IndustryBenchmarkModule = exports.PrivateCompanyModule = exports.MarketDataModule = exports.XBRLModule = exports.EDGARModule = exports.BaseModule = exports.UnifiedTruthLayer = exports.MCPFinancialGroundTruthServer = void 0;
-exports.createMCPServer = createMCPServer;
-exports.createDevServer = createDevServer;
 // Core exports
-var MCPServer_1 = require("./core/MCPServer");
-Object.defineProperty(exports, "MCPFinancialGroundTruthServer", { enumerable: true, get: function () { return MCPServer_1.MCPFinancialGroundTruthServer; } });
-var UnifiedTruthLayer_1 = require("./core/UnifiedTruthLayer");
-Object.defineProperty(exports, "UnifiedTruthLayer", { enumerable: true, get: function () { return UnifiedTruthLayer_1.UnifiedTruthLayer; } });
-var BaseModule_1 = require("./core/BaseModule");
-Object.defineProperty(exports, "BaseModule", { enumerable: true, get: function () { return BaseModule_1.BaseModule; } });
+export { MCPFinancialGroundTruthServer } from "./core/MCPServer";
+export { UnifiedTruthLayer } from "./core/UnifiedTruthLayer";
+export { BaseModule } from "./core/BaseModule";
 // Module exports
-var EDGARModule_1 = require("./modules/EDGARModule");
-Object.defineProperty(exports, "EDGARModule", { enumerable: true, get: function () { return EDGARModule_1.EDGARModule; } });
-var XBRLModule_1 = require("./modules/XBRLModule");
-Object.defineProperty(exports, "XBRLModule", { enumerable: true, get: function () { return XBRLModule_1.XBRLModule; } });
-var MarketDataModule_1 = require("./modules/MarketDataModule");
-Object.defineProperty(exports, "MarketDataModule", { enumerable: true, get: function () { return MarketDataModule_1.MarketDataModule; } });
-var PrivateCompanyModule_1 = require("./modules/PrivateCompanyModule");
-Object.defineProperty(exports, "PrivateCompanyModule", { enumerable: true, get: function () { return PrivateCompanyModule_1.PrivateCompanyModule; } });
-var IndustryBenchmarkModule_1 = require("./modules/IndustryBenchmarkModule");
-Object.defineProperty(exports, "IndustryBenchmarkModule", { enumerable: true, get: function () { return IndustryBenchmarkModule_1.IndustryBenchmarkModule; } });
-var EntityMappingModule_1 = require("./modules/EntityMappingModule");
-Object.defineProperty(exports, "EntityMappingModule", { enumerable: true, get: function () { return EntityMappingModule_1.EntityMappingModule; } });
+export { EDGARModule } from "./modules/EDGARModule";
+export { XBRLModule } from "./modules/XBRLModule";
+export { MarketDataModule } from "./modules/MarketDataModule";
+export { PrivateCompanyModule } from "./modules/PrivateCompanyModule";
+export { IndustryBenchmarkModule } from "./modules/IndustryBenchmarkModule";
+export { EntityMappingModule } from "./modules/EntityMappingModule";
 // Fix: Import from StructuralTruthModule which contains the ESOModule class
-var StructuralTruthModule_1 = require("./modules/StructuralTruthModule");
-Object.defineProperty(exports, "ESOModule", { enumerable: true, get: function () { return StructuralTruthModule_1.ESOModule; } });
+export { ESOModule } from "./modules/StructuralTruthModule";
 // Type exports
-__exportStar(require("./types"), exports);
+export * from "./types";
 // Utility function to create a configured server instance
-async function createMCPServer(config) {
-    const { MCPFinancialGroundTruthServer } = await Promise.resolve().then(() => __importStar(require("./core/MCPServer")));
+export async function createMCPServer(config) {
+    const { MCPFinancialGroundTruthServer } = await import("./core/MCPServer");
     // Set defaults
     const serverConfig = {
         edgar: config.edgar || {
@@ -117,7 +66,7 @@ async function createMCPServer(config) {
 /**
  * Quick start function for development/testing
  */
-async function createDevServer() {
+export async function createDevServer() {
     return createMCPServer({
         edgar: {
             userAgent: "ValueCanvas Development contact@valuecanvas.com",

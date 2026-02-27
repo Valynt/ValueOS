@@ -1,4 +1,3 @@
-"use strict";
 /**
  * MCP Financial Ground Truth Server
  *
@@ -15,31 +14,29 @@
  * - verify_claim_aletheia (Verification)
  * - populate_value_driver_tree (Value Engineering)
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCPFinancialGroundTruthServer = void 0;
-const UnifiedTruthLayer_1 = require("./UnifiedTruthLayer");
-const EDGARModule_1 = require("../modules/EDGARModule");
-const XBRLModule_1 = require("../modules/XBRLModule");
-const MarketDataModule_1 = require("../modules/MarketDataModule");
-const PrivateCompanyModule_1 = require("../modules/PrivateCompanyModule");
-const IndustryBenchmarkModule_1 = require("../modules/IndustryBenchmarkModule");
-const StructuralTruthModule_1 = require("../modules/StructuralTruthModule");
-const EntityMappingModule_1 = require("../modules/EntityMappingModule");
-const types_1 = require("../types");
-const logger_1 = require("../../lib/logger");
-const crypto_1 = require("crypto");
-const SentimentAnalysisService_1 = require("../services/SentimentAnalysisService");
-const PredictiveModelingService_1 = require("../services/PredictiveModelingService");
-const AutomatedInsightsService_1 = require("../services/AutomatedInsightsService");
-const GroundTruthIntegrationService_1 = require("../services/GroundTruthIntegrationService");
-const WebSocketServer_1 = require("../services/WebSocketServer");
-const SECWebhookSystem_1 = require("../services/SECWebhookSystem");
-const EventBus_1 = require("../services/EventBus");
-const StreamingSentimentAnalyzer_1 = require("../services/StreamingSentimentAnalyzer");
-const schemas_1 = require("../schemas");
-const zod_1 = require("zod");
+import { UnifiedTruthLayer } from "./UnifiedTruthLayer";
+import { EDGARModule } from "../modules/EDGARModule";
+import { XBRLModule } from "../modules/XBRLModule";
+import { MarketDataModule } from "../modules/MarketDataModule";
+import { PrivateCompanyModule } from "../modules/PrivateCompanyModule";
+import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
+import { ESOModule } from "../modules/StructuralTruthModule";
+import { EntityMappingModule } from "../modules/EntityMappingModule";
+import { ErrorCodes, GroundTruthError } from "../types";
+import { logger } from "../../lib/logger";
+import { createHash } from "crypto";
+import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
+import { PredictiveModelingService } from "../services/PredictiveModelingService";
+import { AutomatedInsightsService } from "../services/AutomatedInsightsService";
+import { GroundTruthIntegrationService } from "../services/GroundTruthIntegrationService";
+import { WebSocketServer } from "../services/WebSocketServer";
+import { SECWebhookSystem } from "../services/SECWebhookSystem";
+import { getEventBus } from "../services/EventBus";
+import { StreamingSentimentAnalyzer } from "../services/StreamingSentimentAnalyzer";
+import { ToolSchemas } from "../schemas";
+import { z } from "zod";
 async function sha256(data) {
-    return (0, crypto_1.createHash)("sha256").update(data).digest("hex");
+    return createHash("sha256").update(data).digest("hex");
 }
 /**
  * MCP Financial Ground Truth Server
@@ -47,7 +44,7 @@ async function sha256(data) {
  * Main server class that implements the Model Context Protocol
  * for financial data retrieval.
  */
-class MCPFinancialGroundTruthServer {
+export class MCPFinancialGroundTruthServer {
     truthLayer;
     modules = {};
     config;
@@ -64,22 +61,22 @@ class MCPFinancialGroundTruthServer {
     ingestionService;
     constructor(config, httpServer) {
         this.config = config;
-        this.truthLayer = new UnifiedTruthLayer_1.UnifiedTruthLayer(config.truthLayer);
+        this.truthLayer = new UnifiedTruthLayer(config.truthLayer);
         // Initialize AI services
-        this.sentimentService = new SentimentAnalysisService_1.SentimentAnalysisService();
-        this.predictiveService = new PredictiveModelingService_1.PredictiveModelingService();
-        this.insightsService = new AutomatedInsightsService_1.AutomatedInsightsService();
+        this.sentimentService = new SentimentAnalysisService();
+        this.predictiveService = new PredictiveModelingService();
+        this.insightsService = new AutomatedInsightsService();
         // Initialize streaming services (Phase 3)
-        this.eventBus = (0, EventBus_1.getEventBus)();
-        this.streamingSentimentAnalyzer = new StreamingSentimentAnalyzer_1.StreamingSentimentAnalyzer();
+        this.eventBus = getEventBus();
+        this.streamingSentimentAnalyzer = new StreamingSentimentAnalyzer();
         // Initialize ingestion service for automated, provenance-enforced ingestion
         // (EDGAR, XBRL, BLS modules are initialized in .initialize())
         // Will be set after modules are ready
         this.ingestionService = undefined;
         // Initialize WebSocket server if HTTP server provided
         if (httpServer) {
-            this.webSocketServer = new WebSocketServer_1.WebSocketServer(httpServer);
-            this.secWebhookSystem = new SECWebhookSystem_1.SECWebhookSystem(this.webSocketServer);
+            this.webSocketServer = new WebSocketServer(httpServer);
+            this.secWebhookSystem = new SECWebhookSystem(this.webSocketServer);
         }
     }
     /**
@@ -87,54 +84,54 @@ class MCPFinancialGroundTruthServer {
      */
     async initialize() {
         if (this.initialized) {
-            logger_1.logger.warn("MCP server already initialized");
+            logger.warn("MCP server already initialized");
             return;
         }
-        logger_1.logger.info("Initializing MCP Financial Ground Truth Server");
+        logger.info("Initializing MCP Financial Ground Truth Server");
         try {
             // Initialize EDGAR module (Tier 1)
-            this.modules.edgar = new EDGARModule_1.EDGARModule();
+            this.modules.edgar = new EDGARModule();
             await this.modules.edgar.initialize(this.config.edgar);
             this.truthLayer.registerModule(this.modules.edgar);
             // Initialize XBRL module (Tier 1)
-            this.modules.xbrl = new XBRLModule_1.XBRLModule();
+            this.modules.xbrl = new XBRLModule();
             await this.modules.xbrl.initialize(this.config.xbrl);
             this.truthLayer.registerModule(this.modules.xbrl);
             // Initialize Market Data module (Tier 2)
-            this.modules.marketData = new MarketDataModule_1.MarketDataModule();
+            this.modules.marketData = new MarketDataModule();
             await this.modules.marketData.initialize(this.config.marketData);
             this.truthLayer.registerModule(this.modules.marketData);
             // Initialize Private Company module (Tier 2)
-            this.modules.privateCompany = new PrivateCompanyModule_1.PrivateCompanyModule();
+            this.modules.privateCompany = new PrivateCompanyModule();
             await this.modules.privateCompany.initialize(this.config.privateCompany);
             this.truthLayer.registerModule(this.modules.privateCompany);
             // Initialize Industry Benchmark module (Tier 3)
-            this.modules.industryBenchmark = new IndustryBenchmarkModule_1.IndustryBenchmarkModule();
+            this.modules.industryBenchmark = new IndustryBenchmarkModule();
             await this.modules.industryBenchmark.initialize(this.config.industryBenchmark);
             this.truthLayer.registerModule(this.modules.industryBenchmark);
             // Initialize Entity Mapping module (R1.2)
-            this.modules.entityMapping = new EntityMappingModule_1.EntityMappingModule();
+            this.modules.entityMapping = new EntityMappingModule();
             await this.modules.entityMapping.initialize({});
             this.truthLayer.registerModule(this.modules.entityMapping);
             // Initialize ESO module (Economic Structure Ontology)
-            this.modules.eso = new StructuralTruthModule_1.ESOModule();
+            this.modules.eso = new ESOModule();
             await this.modules.eso.initialize();
             this.truthLayer.registerModule(this.modules.eso);
             // Initialize ingestion service (now that modules are ready)
-            this.ingestionService = new GroundTruthIntegrationService_1.GroundTruthIntegrationService(this.modules.edgar, this.modules.xbrl, this.modules.industryBenchmark);
+            this.ingestionService = new GroundTruthIntegrationService(this.modules.edgar, this.modules.xbrl, this.modules.industryBenchmark);
             // Initialize streaming services (Phase 3)
             if (this.webSocketServer && this.secWebhookSystem) {
                 await this.eventBus.connect();
                 await this.secWebhookSystem.start();
                 // Set up market data streaming
                 this.setupMarketDataStreaming();
-                logger_1.logger.info("Streaming services initialized successfully");
+                logger.info("Streaming services initialized successfully");
             }
             this.initialized = true;
-            logger_1.logger.info("MCP Financial Ground Truth Server initialized successfully");
+            logger.info("MCP Financial Ground Truth Server initialized successfully");
         }
         catch (error) {
-            logger_1.logger.error("Failed to initialize MCP server", { error: error instanceof Error ? error.message : "Unknown error" });
+            logger.error("Failed to initialize MCP server", { error: error instanceof Error ? error.message : "Unknown error" });
             throw error;
         }
     }
@@ -569,11 +566,11 @@ class MCPFinancialGroundTruthServer {
      */
     async executeTool(toolName, args) {
         if (!this.initialized) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "MCP server not initialized");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "MCP server not initialized");
         }
         // Input validation and sanitization
         this.validateToolArguments(toolName, args);
-        logger_1.logger.info("MCP tool execution started", { toolName, args });
+        logger.info("MCP tool execution started", { toolName, args });
         try {
             switch (toolName) {
                 case "get_authoritative_financials":
@@ -619,13 +616,13 @@ class MCPFinancialGroundTruthServer {
                             content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
                         };
                     }
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "ESO module not initialized");
+                    throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "ESO module not initialized");
                 default:
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Unknown tool: ${toolName}`);
+                    throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Unknown tool: ${toolName}`);
             }
         }
         catch (error) {
-            logger_1.logger.error("MCP tool execution failed", {
+            logger.error("MCP tool execution failed", {
                 toolName,
                 error: error instanceof Error ? error.message : "Unknown error",
             });
@@ -635,7 +632,7 @@ class MCPFinancialGroundTruthServer {
                         type: "text",
                         text: JSON.stringify({
                             error: {
-                                code: error instanceof types_1.GroundTruthError ? error.code : types_1.ErrorCodes.UPSTREAM_FAILURE,
+                                code: error instanceof GroundTruthError ? error.code : ErrorCodes.UPSTREAM_FAILURE,
                                 message: error instanceof Error ? error.message : "Unknown error",
                             },
                         }, null, 2),
@@ -652,21 +649,21 @@ class MCPFinancialGroundTruthServer {
      * Validate tool arguments against Zod schemas
      */
     validateToolArguments(toolName, args) {
-        const schema = schemas_1.ToolSchemas[toolName];
+        const schema = ToolSchemas[toolName];
         if (!schema) {
             // If no schema defined, we might want to warn or allow if it's an ESO tool
             // specific logic for ESO tools is handled in executeTool but we should check here too
             if (toolName.startsWith("eso_"))
                 return;
-            logger_1.logger.warn(`No validation schema found for tool: ${toolName}`);
+            logger.warn(`No validation schema found for tool: ${toolName}`);
             return;
         }
         try {
             schema.parse(args);
         }
         catch (error) {
-            if (error instanceof zod_1.z.ZodError) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, `Invalid arguments for tool ${toolName}: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`);
+            if (error instanceof z.ZodError) {
+                throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, `Invalid arguments for tool ${toolName}: ${error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")}`);
             }
             throw error;
         }
@@ -728,7 +725,7 @@ class MCPFinancialGroundTruthServer {
     async getFilingSections(args) {
         const { identifier, filing_type = "10-K", sections } = args;
         if (!this.modules.edgar) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "EDGAR module not initialized");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "EDGAR module not initialized");
         }
         const results = await this.modules.edgar.query({
             identifier,
@@ -736,7 +733,7 @@ class MCPFinancialGroundTruthServer {
             options: { filing_type, sections },
         });
         if (!results.success || !results.data) {
-            throw new types_1.GroundTruthError(results.error?.code || types_1.ErrorCodes.UPSTREAM_FAILURE, results.error?.message || "Failed to retrieve filing sections");
+            throw new GroundTruthError(results.error?.code || ErrorCodes.UPSTREAM_FAILURE, results.error?.message || "Failed to retrieve filing sections");
         }
         const data = Array.isArray(results.data) ? results.data : [results.data];
         const sectionMap = {};
@@ -1261,59 +1258,59 @@ class MCPFinancialGroundTruthServer {
                 },
             });
         });
-        logger_1.logger.info("Market data streaming integration configured");
+        logger.info("Market data streaming integration configured");
     }
     validateAuthoritativeFinancialsArgs(args) {
         if (!args.entity_id || typeof args.entity_id !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "entity_id is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "entity_id is required and must be a string");
         }
         if (args.entity_id.length > 20) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "entity_id too long");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "entity_id too long");
         }
         if (!Array.isArray(args.metrics) || args.metrics.length === 0) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "metrics must be a non-empty array");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "metrics must be a non-empty array");
         }
         if (args.metrics.length > 10) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "too many metrics requested");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "too many metrics requested");
         }
     }
     validatePrivateEntityEstimatesArgs(args) {
         if (!args.domain || typeof args.domain !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "domain is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "domain is required and must be a string");
         }
         if (args.domain.length > 253) {
             // Max domain length per RFC
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "domain name too long");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "domain name too long");
         }
     }
     validateVerifyClaimArgs(args) {
         if (!args.claim_text || typeof args.claim_text !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "claim_text is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "claim_text is required and must be a string");
         }
         if (!args.context_entity || typeof args.context_entity !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "context_entity is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "context_entity is required and must be a string");
         }
         if (args.claim_text.length > 2000) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "claim_text too long");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "claim_text too long");
         }
     }
     validateValueDriverTreeArgs(args) {
         if (!args.target_cik || typeof args.target_cik !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "target_cik is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "target_cik is required and must be a string");
         }
         if (!args.benchmark_naics || typeof args.benchmark_naics !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "benchmark_naics is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "benchmark_naics is required and must be a string");
         }
         if (!args.driver_node_id || typeof args.driver_node_id !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "driver_node_id is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "driver_node_id is required and must be a string");
         }
     }
     validateIndustryBenchmarkArgs(args) {
         if (!args.identifier || typeof args.identifier !== "string") {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "identifier is required and must be a string");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "identifier is required and must be a string");
         }
         if (args.identifier.length > 20) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.INVALID_REQUEST, "identifier too long");
+            throw new GroundTruthError(ErrorCodes.INVALID_REQUEST, "identifier too long");
         }
     }
     async generateVerificationHash(results) {
@@ -1323,7 +1320,7 @@ class MCPFinancialGroundTruthServer {
             return `sha256:${hash}`;
         }
         catch (error) {
-            logger_1.logger.error("Failed to generate verification hash", error instanceof Error ? error : undefined);
+            logger.error("Failed to generate verification hash", error instanceof Error ? error : undefined);
             // Fallback to simple hash for audit trail continuity
             let hash = 0;
             const data = JSON.stringify(results);
@@ -1336,5 +1333,4 @@ class MCPFinancialGroundTruthServer {
         }
     }
 }
-exports.MCPFinancialGroundTruthServer = MCPFinancialGroundTruthServer;
 //# sourceMappingURL=MCPServer.js.map

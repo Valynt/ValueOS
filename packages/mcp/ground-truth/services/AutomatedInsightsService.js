@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Automated Insights Generation Service - AI-Powered Business Intelligence
  *
@@ -13,19 +12,17 @@
  * Combines multiple data sources and AI analysis to provide
  * actionable business insights and strategic recommendations.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AutomatedInsightsService = void 0;
-const SentimentAnalysisService_1 = require("./SentimentAnalysisService");
-const PredictiveModelingService_1 = require("./PredictiveModelingService");
-const Cache_1 = require("../core/Cache");
-const logger_1 = require("../../lib/logger");
-class AutomatedInsightsService {
+import { SentimentAnalysisService, } from "./SentimentAnalysisService";
+import { PredictiveModelingService, } from "./PredictiveModelingService";
+import { getCache } from "../core/Cache";
+import { logger } from "../../lib/logger";
+export class AutomatedInsightsService {
     sentimentService;
     predictiveService;
-    cache = (0, Cache_1.getCache)();
+    cache = getCache();
     constructor() {
-        this.sentimentService = new SentimentAnalysisService_1.SentimentAnalysisService();
-        this.predictiveService = new PredictiveModelingService_1.PredictiveModelingService();
+        this.sentimentService = new SentimentAnalysisService();
+        this.predictiveService = new PredictiveModelingService();
     }
     /**
      * Generate comprehensive business intelligence report
@@ -34,11 +31,11 @@ class AutomatedInsightsService {
         const cacheKey = `bi-report:${request.companyName}:${request.cik || "nocik"}:${JSON.stringify(request.timeRange || {})}`;
         const cachedReport = await this.cache.get(cacheKey);
         if (cachedReport) {
-            logger_1.logger.debug("Using cached business intelligence report");
+            logger.debug("Using cached business intelligence report");
             return cachedReport;
         }
         try {
-            logger_1.logger.info("Generating comprehensive business intelligence report", {
+            logger.info("Generating comprehensive business intelligence report", {
                 companyName: request.companyName,
                 cik: request.cik,
                 industry: request.industry,
@@ -82,7 +79,7 @@ class AutomatedInsightsService {
             };
             // Cache the report (Tier 2 - 6 hour TTL for expensive analyses)
             await this.cache.set(cacheKey, report, "tier2");
-            logger_1.logger.info("Business intelligence report generated successfully", {
+            logger.info("Business intelligence report generated successfully", {
                 companyName: request.companyName,
                 valueDriversCount: valueDrivers.length,
                 confidenceLevel,
@@ -90,7 +87,7 @@ class AutomatedInsightsService {
             return report;
         }
         catch (error) {
-            logger_1.logger.error("Business intelligence report generation failed", error instanceof Error ? error : undefined);
+            logger.error("Business intelligence report generation failed", error instanceof Error ? error : undefined);
             throw error;
         }
     }
@@ -485,5 +482,4 @@ class AutomatedInsightsService {
         return this.cache.clear();
     }
 }
-exports.AutomatedInsightsService = AutomatedInsightsService;
 //# sourceMappingURL=AutomatedInsightsService.js.map

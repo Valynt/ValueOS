@@ -1,29 +1,23 @@
-"use strict";
 // GroundTruthValidator: Enforces schema and provenance/confidence checks for MCP ground truth responses
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GroundTruthMetadataSchema = void 0;
-exports.validateGroundTruthMetadata = validateGroundTruthMetadata;
-exports.assertHighConfidence = assertHighConfidence;
-exports.assertProvenance = assertProvenance;
-const zod_1 = require("zod");
-const logger_js_1 = require("@backend/lib/logger.js");
+import { z } from "zod";
+import { logger } from "@backend/lib/logger.js";
 // Schema for ground truth metadata
-exports.GroundTruthMetadataSchema = zod_1.z.object({
-    provenance: zod_1.z.object({
-        filing_type: zod_1.z.string(),
-        accession_number: zod_1.z.string(),
-        source_tier: zod_1.z.number().int(),
+export const GroundTruthMetadataSchema = z.object({
+    provenance: z.object({
+        filing_type: z.string(),
+        accession_number: z.string(),
+        source_tier: z.number().int(),
     }),
-    confidence: zod_1.z.number().min(0).max(1),
-    cache_hit: zod_1.z.boolean().optional(),
+    confidence: z.number().min(0).max(1),
+    cache_hit: z.boolean().optional(),
 });
 // Validate the metadata schema
-function validateGroundTruthMetadata(metadata) {
+export function validateGroundTruthMetadata(metadata) {
     try {
-        return exports.GroundTruthMetadataSchema.parse(metadata);
+        return GroundTruthMetadataSchema.parse(metadata);
     }
     catch (err) {
-        logger_js_1.logger.error("GroundTruthValidator: Metadata schema validation failed", {
+        logger.error("GroundTruthValidator: Metadata schema validation failed", {
             error: err instanceof Error ? err.message : err,
             metadata,
         });
@@ -32,9 +26,9 @@ function validateGroundTruthMetadata(metadata) {
     }
 }
 // Assert confidence is above threshold
-function assertHighConfidence(metadata, minConfidence = 0.9) {
+export function assertHighConfidence(metadata, minConfidence = 0.9) {
     if (metadata.confidence < minConfidence) {
-        logger_js_1.logger.warn("GroundTruthValidator: Low confidence detected", {
+        logger.warn("GroundTruthValidator: Low confidence detected", {
             confidence: metadata.confidence,
             minConfidence,
             provenance: metadata.provenance,
@@ -44,9 +38,9 @@ function assertHighConfidence(metadata, minConfidence = 0.9) {
     }
 }
 // Assert provenance fields are present
-function assertProvenance(metadata) {
+export function assertProvenance(metadata) {
     if (!metadata.provenance?.filing_type || !metadata.provenance?.accession_number) {
-        logger_js_1.logger.error("GroundTruthValidator: Missing provenance fields", {
+        logger.error("GroundTruthValidator: Missing provenance fields", {
             provenance: metadata.provenance,
             metadata,
         });

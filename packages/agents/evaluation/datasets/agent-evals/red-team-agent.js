@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Evaluation Dataset: Red Team Agent
  *
@@ -6,45 +5,43 @@
  * Tests adversarial analysis quality, objection categorization,
  * severity assignment, and suggested revisions.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.redTeamEvalCases = exports.RedTeamEvalCaseSchema = void 0;
-const zod_1 = require("zod");
-exports.RedTeamEvalCaseSchema = zod_1.z.object({
-    id: zod_1.z.string(),
-    name: zod_1.z.string(),
-    input: zod_1.z.object({
-        valueCaseId: zod_1.z.string(),
-        tenantId: zod_1.z.string(),
-        valueTree: zod_1.z.record(zod_1.z.unknown()),
-        narrativeBlock: zod_1.z.record(zod_1.z.unknown()),
-        evidenceBundle: zod_1.z.record(zod_1.z.unknown()),
-        idempotencyKey: zod_1.z.string().uuid(),
+import { z } from 'zod';
+export const RedTeamEvalCaseSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    input: z.object({
+        valueCaseId: z.string(),
+        tenantId: z.string(),
+        valueTree: z.record(z.unknown()),
+        narrativeBlock: z.record(z.unknown()),
+        evidenceBundle: z.record(z.unknown()),
+        idempotencyKey: z.string().uuid(),
     }),
-    expectations: zod_1.z.object({
-        minObjections: zod_1.z.number().int().min(1),
-        maxObjections: zod_1.z.number().int().optional(),
+    expectations: z.object({
+        minObjections: z.number().int().min(1),
+        maxObjections: z.number().int().optional(),
         /** Whether this case should produce at least one critical objection */
-        expectsCritical: zod_1.z.boolean(),
-        requiredCategories: zod_1.z.array(zod_1.z.enum([
+        expectsCritical: z.boolean(),
+        requiredCategories: z.array(z.enum([
             'assumption', 'data_quality', 'math_error', 'missing_evidence', 'logical_gap',
         ])).optional(),
         /** Specific components that should be targeted */
-        targetComponents: zod_1.z.array(zod_1.z.string()).optional(),
+        targetComponents: z.array(z.string()).optional(),
     }),
-    mockResponse: zod_1.z.object({
-        objections: zod_1.z.array(zod_1.z.object({
-            id: zod_1.z.string(),
-            targetComponent: zod_1.z.string(),
-            severity: zod_1.z.enum(['low', 'medium', 'high', 'critical']),
-            category: zod_1.z.enum(['assumption', 'data_quality', 'math_error', 'missing_evidence', 'logical_gap']),
-            description: zod_1.z.string(),
-            suggestedRevision: zod_1.z.string().optional(),
+    mockResponse: z.object({
+        objections: z.array(z.object({
+            id: z.string(),
+            targetComponent: z.string(),
+            severity: z.enum(['low', 'medium', 'high', 'critical']),
+            category: z.enum(['assumption', 'data_quality', 'math_error', 'missing_evidence', 'logical_gap']),
+            description: z.string(),
+            suggestedRevision: z.string().optional(),
         })),
-        summary: zod_1.z.string(),
-        hasCritical: zod_1.z.boolean(),
+        summary: z.string(),
+        hasCritical: z.boolean(),
     }),
 });
-exports.redTeamEvalCases = [
+export const redTeamEvalCases = [
     {
         id: 'rt-eval-001',
         name: 'SaaS DSO case — no critical objections',

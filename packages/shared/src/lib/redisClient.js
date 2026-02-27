@@ -1,17 +1,14 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRedisClient = getRedisClient;
-const redis_1 = require("redis");
-const logger_1 = require("./logger");
-const logger = (0, logger_1.createLogger)({ component: 'redis-client' });
+import { createClient } from 'redis';
+import { createLogger } from './logger';
+const logger = createLogger({ component: 'redis-client' });
 let client = null;
 let connecting = null;
-async function getRedisClient() {
+export async function getRedisClient() {
     if (client?.isOpen) {
         return client;
     }
     if (!connecting) {
-        client = (0, redis_1.createClient)({
+        client = createClient({
             url: process.env.REDIS_URL || 'redis://localhost:6379'
         });
         client.on('error', (err) => {

@@ -1,24 +1,19 @@
-"use strict";
 /**
  * MCP CRM Server
  *
  * Provides LLM tool access to CRM data (HubSpot, Salesforce).
  * Uses tenant-level OAuth connections.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCPCRMServer = exports.CRM_TOOLS = void 0;
-exports.getMCPCRMServer = getMCPCRMServer;
-exports.clearMCPCRMServer = clearMCPCRMServer;
-const logger_1 = require("../../lib/logger");
-const supabase_1 = require("../../lib/supabase");
-const HubSpotModule_1 = require("../modules/HubSpotModule");
-const SalesforceModule_1 = require("../modules/SalesforceModule");
-const CRMConfigManager_1 = require("../config/CRMConfigManager");
-const mcp_common_1 = require("../../mcp-common");
+import { logger } from "../../lib/logger";
+import { supabase } from "../../lib/supabase";
+import { HubSpotModule } from "../modules/HubSpotModule";
+import { SalesforceModule } from "../modules/SalesforceModule";
+import { CRMConfigManager } from "../config/CRMConfigManager";
+import { mcpRateLimiter, ParallelInitializer, MCPCRMError, MCPErrorCodes, MCPResponseBuilder, } from "../../mcp-common";
 // ============================================================================
 // Tool Definitions for LLM
 // ============================================================================
-exports.CRM_TOOLS = [
+export const CRM_TOOLS = [
     {
         type: "function",
         function: {
@@ -237,7 +232,7 @@ exports.CRM_TOOLS = [
 // ============================================================================
 // MCP CRM Server
 // ============================================================================
-class MCPCRMServer {
+export class MCPCRMServer {
     config;
     modules = new Map();
     connections = new Map();
@@ -273,8 +268,8 @@ class MCPCRMServer {
     };
     constructor(config) {
         this.config = config;
-        this.configManager = CRMConfigManager_1.CRMConfigManager.getInstance();
-        this.parallelInitializer = new mcp_common_1.ParallelInitializer({
+        this.configManager = CRMConfigManager.getInstance();
+        this.parallelInitializer = new ParallelInitializer({
             maxConcurrency: 5,
             defaultTimeout: 30000,
             enableBatching: true,
@@ -314,17 +309,17 @@ class MCPCRMServer {
      * Load CRM connections from database
      */
     async loadConnections() {
-        if (!supabase_1.supabase) {
-            logger_1.logger.warn("Supabase not configured, skipping connection loading");
+        if (!supabase) {
+            logger.warn("Supabase not configured, skipping connection loading");
             return;
         }
-        const { data: connections, error } = await supabase_1.supabase
+        const { data: connections, error } = await supabase
             .from("crm_connections")
             .select("*")
             .eq("tenant_id", this.config.tenantId)
             .eq("status", "active");
         if (error) {
-            logger_1.logger.error("Failed to load CRM connections", error);
+            logger.error("Failed to load CRM connections", error);
             return;
         }
         for (const conn of connections || []) {
@@ -351,13 +346,13 @@ class MCPCRMServer {
     async initializeModule(connection) {
         let module;
         if (connection.provider === "hubspot") {
-            module = new HubSpotModule_1.HubSpotModule(connection);
+            module = new HubSpotModule(connection);
         }
         else if (connection.provider === "salesforce") {
-            module = new SalesforceModule_1.SalesforceModule(connection);
+            module = new SalesforceModule(connection);
         }
         else {
-            logger_1.logger.warn("Unknown CRM provider", { provider: connection.provider });
+            logger.warn("Unknown CRM provider", { provider: connection.provider });
             return;
         }
         // Test connection to validate credentials
@@ -388,10 +383,10 @@ class MCPCRMServer {
                 taskId: f.taskId || "unknown",
                 error: f.error?.message || String(f.error) || "Unknown error",
             }));
-            logger_1.logger.error(`Some initialization tasks failed: ${failures.length} failures`, undefined, { errorDetails });
+            logger.error(`Some initialization tasks failed: ${failures.length} failures`, undefined, { errorDetails });
         }
         const duration = Date.now() - startTime;
-        logger_1.logger.info("CRM server initialization completed", {
+        logger.info("CRM server initialization completed", {
             duration,
             totalTasks: results.size,
             failures: failures.length,
@@ -492,7 +487,7 @@ class MCPCRMServer {
         const enabledProviders = this.configManager.getEnabledProviders();
         for (const provider of enabledProviders) {
             const rateLimitConfig = this.configManager.getRateLimitConfig(provider);
-            mcp_common_1.mcpRateLimiter.registerProvider({
+            mcpRateLimiter.registerProvider({
                 provider,
                 requestsPerSecond: rateLimitConfig.requestsPerSecond,
                 burstCapacity: rateLimitConfig.burstCapacity,
@@ -516,9 +511,9 @@ class MCPCRMServer {
     getTools() {
         if (this.connections.size === 0) {
             // Return only the connection check tool if no CRMs connected
-            return exports.CRM_TOOLS.filter((t) => t.function.name === "crm_check_connection");
+            return CRM_TOOLS.filter((t) => t.function.name === "crm_check_connection");
         }
-        return exports.CRM_TOOLS;
+        return CRM_TOOLS;
     }
     /**
      * Check if any CRM is connected
@@ -538,7 +533,7 @@ class MCPCRMServer {
     async executeTool(toolName, args) {
         const startTime = Date.now();
         const requestId = `crm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const responseBuilder = new mcp_common_1.MCPResponseBuilder(toolName, undefined, requestId);
+        const responseBuilder = new MCPResponseBuilder(toolName, undefined, requestId);
         try {
             // Get the first available module (prefer HubSpot for now)
             const module = this.modules.get("hubspot") || this.modules.get("salesforce");
@@ -578,13 +573,13 @@ class MCPCRMServer {
                         return this.noConnectionResult(responseBuilder);
                     return this.handleInspectSchema(module, args, responseBuilder, startTime);
                 default:
-                    const error = new mcp_common_1.MCPCRMError(mcp_common_1.MCPErrorCodes.INVALID_REQUEST, `Unknown CRM tool: ${toolName}`, { requestId, tool: toolName });
+                    const error = new MCPCRMError(MCPErrorCodes.INVALID_REQUEST, `Unknown CRM tool: ${toolName}`, { requestId, tool: toolName });
                     return responseBuilder.error(error);
             }
         }
         catch (error) {
-            logger_1.logger.error("CRM tool execution failed", error instanceof Error ? error : undefined);
-            return responseBuilder.error(new mcp_common_1.MCPCRMError(mcp_common_1.MCPErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : "Unknown error", { requestId, tool: toolName }));
+            logger.error("CRM tool execution failed", error instanceof Error ? error : undefined);
+            return responseBuilder.error(new MCPCRMError(MCPErrorCodes.INTERNAL_ERROR, error instanceof Error ? error.message : "Unknown error", { requestId, tool: toolName }));
         }
     }
     // ==========================================================================
@@ -626,7 +621,7 @@ class MCPCRMServer {
         this.metrics.requests.byTool.set(toolName, toolMetrics);
         this.metrics.requests.byProvider.set(provider, providerMetrics);
         // Check rate limit
-        const rateLimitResult = await mcp_common_1.mcpRateLimiter.checkLimit(module.provider);
+        const rateLimitResult = await mcpRateLimiter.checkLimit(module.provider);
         if (!rateLimitResult.allowed) {
             // Track rate limit blocks
             this.metrics.rateLimits.blocks++;
@@ -703,7 +698,7 @@ class MCPCRMServer {
             this.metrics.performance.totalRequestDuration += duration;
             this.metrics.performance.requestDurations.push(duration);
             // Record successful request
-            mcp_common_1.mcpRateLimiter.recordSuccess(module.provider, Date.now() - startTime);
+            mcpRateLimiter.recordSuccess(module.provider, Date.now() - startTime);
             return {
                 success: true,
                 data: {
@@ -750,7 +745,7 @@ class MCPCRMServer {
                 error: error instanceof Error ? error.message : "Unknown error",
             });
             // Record failed request
-            mcp_common_1.mcpRateLimiter.recordFailure(module.provider, error instanceof Error ? error : undefined);
+            mcpRateLimiter.recordFailure(module.provider, error instanceof Error ? error : undefined);
             return {
                 success: false,
                 error: error instanceof Error
@@ -805,7 +800,7 @@ class MCPCRMServer {
                 contacts = await module.getDealContacts(dealId);
             }
             catch (error) {
-                logger_1.logger.warn("Failed to fetch deal contacts", {
+                logger.warn("Failed to fetch deal contacts", {
                     dealId,
                     provider: module.provider,
                     error: error instanceof Error ? error.message : "Unknown error",
@@ -821,7 +816,7 @@ class MCPCRMServer {
                 activities = await module.getDealActivities(dealId, 5);
             }
             catch (error) {
-                logger_1.logger.warn("Failed to fetch deal activities", {
+                logger.warn("Failed to fetch deal activities", {
                     dealId,
                     provider: module.provider,
                     error: error instanceof Error ? error.message : "Unknown error",
@@ -1262,7 +1257,7 @@ class MCPCRMServer {
             return this.configManager.getFieldMappings(provider);
         }
         catch (error) {
-            logger_1.logger.error("Failed to get field mappings from config, using defaults", error instanceof Error ? error : undefined, { provider });
+            logger.error("Failed to get field mappings from config, using defaults", error instanceof Error ? error : undefined, { provider });
             // Fallback to hard-coded mappings if config fails
             if (provider === "salesforce") {
                 return {
@@ -1352,13 +1347,12 @@ class MCPCRMServer {
         };
     }
 }
-exports.MCPCRMServer = MCPCRMServer;
 // ============================================================================
 // Tenant-Keyed Instance Cache
 // ============================================================================
 const serverInstances = new Map();
 const initializationLocks = new Map();
-async function getMCPCRMServer(tenantId, userId) {
+export async function getMCPCRMServer(tenantId, userId) {
     // Check if we already have an initialized instance for this tenant
     const existingInstance = serverInstances.get(tenantId);
     if (existingInstance) {
@@ -1393,7 +1387,7 @@ async function getMCPCRMServer(tenantId, userId) {
 /**
  * Clear a cached server instance (useful for testing or when connection changes)
  */
-function clearMCPCRMServer(tenantId) {
+export function clearMCPCRMServer(tenantId) {
     if (tenantId) {
         serverInstances.delete(tenantId);
     }

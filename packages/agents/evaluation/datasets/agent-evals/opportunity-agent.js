@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Evaluation Dataset: Opportunity Agent
  *
@@ -7,48 +6,46 @@
  * of the response. Used for both deterministic mock testing and
  * LLM output quality evaluation.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.opportunityEvalCases = exports.OpportunityEvalCaseSchema = void 0;
-const zod_1 = require("zod");
+import { z } from 'zod';
 // ============================================================================
 // Evaluation Case Schema
 // ============================================================================
-exports.OpportunityEvalCaseSchema = zod_1.z.object({
-    id: zod_1.z.string(),
-    name: zod_1.z.string(),
-    input: zod_1.z.object({
-        query: zod_1.z.string(),
-        context: zod_1.z.object({
-            organizationId: zod_1.z.string().optional(),
-            userId: zod_1.z.string().optional(),
-            sessionId: zod_1.z.string().optional(),
+export const OpportunityEvalCaseSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    input: z.object({
+        query: z.string(),
+        context: z.object({
+            organizationId: z.string().optional(),
+            userId: z.string().optional(),
+            sessionId: z.string().optional(),
         }).optional(),
     }),
     /** Expected output constraints — not exact match, but structural/semantic validation */
-    expectations: zod_1.z.object({
-        minOpportunities: zod_1.z.number().int().min(1),
-        maxOpportunities: zod_1.z.number().int().optional(),
-        requiredCategories: zod_1.z.array(zod_1.z.string()).optional(),
-        minConfidence: zod_1.z.number().min(0).max(1).optional(),
-        mustMentionKeywords: zod_1.z.array(zod_1.z.string()).optional(),
-        analysisMinLength: zod_1.z.number().int().optional(),
+    expectations: z.object({
+        minOpportunities: z.number().int().min(1),
+        maxOpportunities: z.number().int().optional(),
+        requiredCategories: z.array(z.string()).optional(),
+        minConfidence: z.number().min(0).max(1).optional(),
+        mustMentionKeywords: z.array(z.string()).optional(),
+        analysisMinLength: z.number().int().optional(),
     }),
     /** Deterministic mock response for unit testing */
-    mockResponse: zod_1.z.object({
-        opportunities: zod_1.z.array(zod_1.z.object({
-            title: zod_1.z.string(),
-            description: zod_1.z.string(),
-            confidence: zod_1.z.number(),
-            category: zod_1.z.string(),
-            estimatedValue: zod_1.z.number().optional(),
+    mockResponse: z.object({
+        opportunities: z.array(z.object({
+            title: z.string(),
+            description: z.string(),
+            confidence: z.number(),
+            category: z.string(),
+            estimatedValue: z.number().optional(),
         })),
-        analysis: zod_1.z.string(),
+        analysis: z.string(),
     }),
 });
 // ============================================================================
 // Evaluation Cases
 // ============================================================================
-exports.opportunityEvalCases = [
+export const opportunityEvalCases = [
     {
         id: 'opp-eval-001',
         name: 'SaaS company with high DSO',

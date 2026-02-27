@@ -28,7 +28,7 @@ export interface MemoryEntry {
     score?: number;
     timestamp: Date;
     organization_id?: string;
-    auth0_sub?: string;
+    external_sub?: string;
     session_id?: string;
     userId?: string;
     workflowId?: string;
@@ -176,7 +176,7 @@ export class SemanticMemoryService {
             ...namespace,
           },
           organization_id: namespace.organization_id,
-          auth0_sub: namespace.auth0_sub,
+          external_sub: namespace.external_sub,
           session_id: namespace.session_id,
         })
         .select("id")
@@ -235,7 +235,7 @@ export class SemanticMemoryService {
       minScore?: number;
       limit?: number;
       organizationId?: string;
-      auth0Sub?: string;
+      externalSub?: string;
       sessionId?: string;
       tenantId?: string;
       workflowId?: string;
@@ -260,7 +260,7 @@ export class SemanticMemoryService {
           p_target_market: options.targetMarket ?? null,
           p_min_score: options.minScore ?? null,
           p_organization_id: organizationId ?? null,
-          p_auth0_sub: options.auth0Sub ?? null,
+          p_auth0_sub: options.externalSub ?? null,
           p_session_id: sessionId ?? null,
         }
       );
@@ -291,12 +291,12 @@ export class SemanticMemoryService {
 
   private resolveNamespace(metadata: MemoryEntry["metadata"]): {
     organization_id: string | null;
-    auth0_sub: string | null;
+    external_sub: string | null;
     session_id: string | null;
   } {
     return {
       organization_id: metadata.organization_id ?? metadata.userId ?? null,
-      auth0_sub: metadata.auth0_sub ?? null,
+      external_sub: metadata.external_sub ?? null,
       session_id: metadata.session_id ?? metadata.workflowId ?? null,
     };
   }

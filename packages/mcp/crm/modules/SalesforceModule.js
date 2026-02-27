@@ -1,17 +1,14 @@
-"use strict";
 /**
  * Salesforce CRM Module
  *
  * Implements CRM operations for Salesforce via their REST API.
  * Uses OAuth tokens stored at tenant level.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SalesforceModule = void 0;
-const logger_1 = require("../../lib/logger");
+import { logger } from "../../lib/logger";
 // ============================================================================
 // Salesforce Module Implementation
 // ============================================================================
-class SalesforceModule {
+export class SalesforceModule {
     provider = "salesforce";
     connection = null;
     constructor(connection) {
@@ -96,7 +93,7 @@ class SalesforceModule {
             };
         }
         catch (error) {
-            logger_1.logger.error("Salesforce searchDeals failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce searchDeals failed", error instanceof Error ? error : undefined);
             return { deals: [], total: 0, hasMore: false };
         }
     }
@@ -116,7 +113,7 @@ class SalesforceModule {
             return this.mapOpportunity(result.records[0]);
         }
         catch (error) {
-            logger_1.logger.error("Salesforce getDeal failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce getDeal failed", error instanceof Error ? error : undefined);
             return null;
         }
     }
@@ -138,7 +135,7 @@ class SalesforceModule {
             }));
         }
         catch (error) {
-            logger_1.logger.error("Salesforce getDealContacts failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce getDealContacts failed", error instanceof Error ? error : undefined);
             return [];
         }
     }
@@ -174,7 +171,7 @@ class SalesforceModule {
             return activities.slice(0, limit);
         }
         catch (error) {
-            logger_1.logger.error("Salesforce getDealActivities failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce getDealActivities failed", error instanceof Error ? error : undefined);
             return [];
         }
     }
@@ -195,7 +192,7 @@ class SalesforceModule {
             return this.mapAccount(result.records[0]);
         }
         catch (error) {
-            logger_1.logger.error("Salesforce getCompany failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce getCompany failed", error instanceof Error ? error : undefined);
             return null;
         }
     }
@@ -215,7 +212,7 @@ class SalesforceModule {
             return result.records.map((a) => this.mapAccount(a));
         }
         catch (error) {
-            logger_1.logger.error("Salesforce searchCompanies failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce searchCompanies failed", error instanceof Error ? error : undefined);
             return [];
         }
     }
@@ -231,7 +228,7 @@ class SalesforceModule {
             return response.ok || response.status === 204;
         }
         catch (error) {
-            logger_1.logger.error("Salesforce updateDealProperties failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce updateDealProperties failed", error instanceof Error ? error : undefined);
             return false;
         }
     }
@@ -272,7 +269,7 @@ class SalesforceModule {
             return true;
         }
         catch (error) {
-            logger_1.logger.error("Salesforce addDealNote failed", error instanceof Error ? error : undefined);
+            logger.error("Salesforce addDealNote failed", error instanceof Error ? error : undefined);
             return false;
         }
     }
@@ -299,7 +296,7 @@ class SalesforceModule {
         // If we get a 401, try to refresh the token once
         if (response.status === 401 && this.connection.refreshToken) {
             try {
-                logger_1.logger.info("Salesforce token expired, attempting refresh");
+                logger.info("Salesforce token expired, attempting refresh");
                 // Attempt to refresh token via the edge function
                 // Note: We use the refresh_token for authentication, not the expired access_token
                 const refreshResponse = await fetch("/api/crm-oauth/refresh", {
@@ -326,12 +323,12 @@ class SalesforceModule {
                         }
                         // Retry the original request with new token
                         response = await makeRequest(this.connection.accessToken);
-                        logger_1.logger.info("Salesforce token refreshed successfully");
+                        logger.info("Salesforce token refreshed successfully");
                     }
                 }
             }
             catch (refreshError) {
-                logger_1.logger.error("Failed to refresh Salesforce token", refreshError instanceof Error ? refreshError : undefined);
+                logger.error("Failed to refresh Salesforce token", refreshError instanceof Error ? refreshError : undefined);
                 // Continue with the original 401 response
             }
         }
@@ -461,5 +458,4 @@ class SalesforceModule {
         };
     }
 }
-exports.SalesforceModule = SalesforceModule;
 //# sourceMappingURL=SalesforceModule.js.map

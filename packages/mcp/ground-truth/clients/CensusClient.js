@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Census Bureau API Client
  *
@@ -6,11 +5,9 @@
  * business statistics, economic indicators, and geographic data.
  * Census API: https://www.census.gov/data/developers/data-sets.html
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CensusClient = void 0;
-const logger_1 = require("../../lib/logger");
-const fetchWithRetry_1 = require("./utils/fetchWithRetry");
-class CensusClient {
+import { logger } from "../../lib/logger";
+import { fetchWithRetry } from "./utils/fetchWithRetry";
+export class CensusClient {
     baseUrl = "https://api.census.gov/data";
     apiKey;
     rateLimiter = new Map();
@@ -54,8 +51,8 @@ class CensusClient {
                 key: this.apiKey || "",
             });
             const url = `${this.baseUrl}/${year}/${dataset}?${params.toString()}`;
-            logger_1.logger.debug("Fetching Census demographic data", { geography, year, url });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url);
+            logger.debug("Fetching Census demographic data", { geography, year, url });
+            const response = await fetchWithRetry(url);
             if (!response.ok) {
                 throw new Error(`Census API error: ${response.status} ${response.statusText}`);
             }
@@ -63,7 +60,7 @@ class CensusClient {
             return this.parseDemographicData(data, year);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch Census business data", { naicsCodes, geography, error });
+            logger.error("Failed to fetch Census business data", { naicsCodes, geography, error });
             throw error;
         }
     }
@@ -103,8 +100,8 @@ class CensusClient {
                 key: this.apiKey || "",
             });
             const url = `${this.baseUrl}/${year}/${dataset}?${params.toString()}`;
-            logger_1.logger.debug("Fetching Census demographic data", { geography, year, url });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url);
+            logger.debug("Fetching Census demographic data", { geography, year, url });
+            const response = await fetchWithRetry(url);
             if (!response.ok) {
                 throw new Error(`Census API error: ${response.status} ${response.statusText}`);
             }
@@ -112,7 +109,7 @@ class CensusClient {
             return this.parseDemographicData(data, year);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch Census demographic data", { geography, year, error });
+            logger.error("Failed to fetch Census demographic data", { geography, year, error });
             throw error;
         }
     }
@@ -146,8 +143,8 @@ class CensusClient {
                 key: this.apiKey || "",
             });
             const url = `${this.baseUrl}/${year}/${dataset}?${params.toString()}`;
-            logger_1.logger.debug("Fetching Census economic data", { geography, year, url });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url);
+            logger.debug("Fetching Census economic data", { geography, year, url });
+            const response = await fetchWithRetry(url);
             if (!response.ok) {
                 throw new Error(`Census API error: ${response.status} ${response.statusText}`);
             }
@@ -155,7 +152,7 @@ class CensusClient {
             return this.parseEconomicData(data, year);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch Census economic data", { geography, year, error });
+            logger.error("Failed to fetch Census economic data", { geography, year, error });
             throw error;
         }
     }
@@ -187,8 +184,8 @@ class CensusClient {
                 key: this.apiKey || "",
             });
             const url = `${this.baseUrl}/${year}/${dataset}?${params.toString()}`;
-            logger_1.logger.debug("Fetching Census business patterns", { naicsCodes, geography, year, url });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url);
+            logger.debug("Fetching Census business patterns", { naicsCodes, geography, year, url });
+            const response = await fetchWithRetry(url);
             if (!response.ok) {
                 throw new Error(`Census API error: ${response.status} ${response.statusText}`);
             }
@@ -196,7 +193,7 @@ class CensusClient {
             return this.parseBusinessPatternsData(data, naicsCodes, year);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch Census business patterns", { naicsCodes, geography, error });
+            logger.error("Failed to fetch Census business patterns", { naicsCodes, geography, error });
             throw error;
         }
     }
@@ -221,8 +218,8 @@ class CensusClient {
                 key: this.apiKey || "",
             });
             const url = `${this.baseUrl}/${year}/${dataset}?${params.toString()}`;
-            logger_1.logger.debug("Fetching Census population estimates", { geography, year, url });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(url);
+            logger.debug("Fetching Census population estimates", { geography, year, url });
+            const response = await fetchWithRetry(url);
             if (!response.ok) {
                 throw new Error(`Census API error: ${response.status} ${response.statusText}`);
             }
@@ -230,7 +227,7 @@ class CensusClient {
             return this.parsePopulationData(data);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch Census population data", { geography, year, error });
+            logger.error("Failed to fetch Census population data", { geography, year, error });
             throw error;
         }
     }
@@ -274,7 +271,7 @@ class CensusClient {
                 results.push(demographicData);
             }
             catch (error) {
-                logger_1.logger.warn("Failed to parse Census demographic row", { row, error });
+                logger.warn("Failed to parse Census demographic row", { row, error });
             }
         }
         return results;
@@ -301,7 +298,7 @@ class CensusClient {
                 results.push(economicData);
             }
             catch (error) {
-                logger_1.logger.warn("Failed to parse Census economic row", { row, error });
+                logger.warn("Failed to parse Census economic row", { row, error });
             }
         }
         return results;
@@ -336,7 +333,7 @@ class CensusClient {
                 }
             }
             catch (error) {
-                logger_1.logger.warn("Failed to parse Census business patterns row", { row, error });
+                logger.warn("Failed to parse Census business patterns row", { row, error });
             }
         }
         return results;
@@ -355,7 +352,7 @@ class CensusClient {
                 });
             }
             catch (error) {
-                logger_1.logger.warn("Failed to parse Census population row", { row, error });
+                logger.warn("Failed to parse Census population row", { row, error });
             }
         }
         return results;
@@ -380,5 +377,4 @@ class CensusClient {
         return naicsTitles[naicsCode] || `NAICS ${naicsCode}`;
     }
 }
-exports.CensusClient = CensusClient;
 //# sourceMappingURL=CensusClient.js.map

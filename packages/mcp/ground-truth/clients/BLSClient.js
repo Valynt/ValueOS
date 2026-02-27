@@ -1,4 +1,3 @@
-"use strict";
 /**
  * BLS API Client
  *
@@ -6,11 +5,9 @@
  * employment statistics, and economic indicators.
  * BLS API: https://www.bls.gov/developers/
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BLSClient = void 0;
-const logger_1 = require("../../lib/logger");
-const fetchWithRetry_1 = require("./utils/fetchWithRetry");
-class BLSClient {
+import { logger } from "../../lib/logger";
+import { fetchWithRetry } from "./utils/fetchWithRetry";
+export class BLSClient {
     baseUrl = "https://api.bls.gov/publicAPI/v2/timeseries/data";
     apiKey;
     rateLimiter = new Map();
@@ -44,8 +41,8 @@ class BLSClient {
             if (this.apiKey) {
                 params.registrationkey = this.apiKey;
             }
-            logger_1.logger.debug("Fetching BLS wage data", { occupationCodes, areaCode, params });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(this.baseUrl, {
+            logger.debug("Fetching BLS wage data", { occupationCodes, areaCode, params });
+            const response = await fetchWithRetry(this.baseUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -59,7 +56,7 @@ class BLSClient {
             return this.parseWageData(data, occupationCodes);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch BLS wage data", { occupationCodes, error });
+            logger.error("Failed to fetch BLS wage data", { occupationCodes, error });
             throw error;
         }
     }
@@ -80,8 +77,8 @@ class BLSClient {
             if (this.apiKey) {
                 params.registrationkey = this.apiKey;
             }
-            logger_1.logger.debug("Fetching BLS employment data", { seriesIds, startYear, endYear });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(this.baseUrl, {
+            logger.debug("Fetching BLS employment data", { seriesIds, startYear, endYear });
+            const response = await fetchWithRetry(this.baseUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -95,7 +92,7 @@ class BLSClient {
             return this.parseEmploymentData(data);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch BLS employment data", { seriesIds, error });
+            logger.error("Failed to fetch BLS employment data", { seriesIds, error });
             throw error;
         }
     }
@@ -126,8 +123,8 @@ class BLSClient {
             if (this.apiKey) {
                 params.registrationkey = this.apiKey;
             }
-            logger_1.logger.debug("Fetching BLS industry data", { naicsCodes, year, quarter });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(this.baseUrl, {
+            logger.debug("Fetching BLS industry data", { naicsCodes, year, quarter });
+            const response = await fetchWithRetry(this.baseUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -141,7 +138,7 @@ class BLSClient {
             return this.parseIndustryData(data, naicsCodes);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch BLS industry data", { naicsCodes, error });
+            logger.error("Failed to fetch BLS industry data", { naicsCodes, error });
             throw error;
         }
     }
@@ -165,8 +162,8 @@ class BLSClient {
             if (this.apiKey) {
                 params.registrationkey = this.apiKey;
             }
-            logger_1.logger.debug("Fetching BLS CPI data", { areaCode, itemCode, startYear, endYear });
-            const response = await (0, fetchWithRetry_1.fetchWithRetry)(this.baseUrl, {
+            logger.debug("Fetching BLS CPI data", { areaCode, itemCode, startYear, endYear });
+            const response = await fetchWithRetry(this.baseUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -180,7 +177,7 @@ class BLSClient {
             return this.parseEmploymentData(data);
         }
         catch (error) {
-            logger_1.logger.error("Failed to fetch BLS CPI data", { areaCode, itemCode, error });
+            logger.error("Failed to fetch BLS CPI data", { areaCode, itemCode, error });
             throw error;
         }
     }
@@ -239,7 +236,7 @@ class BLSClient {
                 wageData.push(wageEntry);
             }
             catch (error) {
-                logger_1.logger.warn("Failed to parse BLS wage data series", { seriesId: series.seriesID, error });
+                logger.warn("Failed to parse BLS wage data series", { seriesId: series.seriesID, error });
             }
         }
         return wageData;
@@ -307,7 +304,7 @@ class BLSClient {
                 industryData.push(industryEntry);
             }
             catch (error) {
-                logger_1.logger.warn("Failed to parse BLS industry data", { naicsCode, error });
+                logger.warn("Failed to parse BLS industry data", { naicsCode, error });
             }
         }
         return industryData;
@@ -329,5 +326,4 @@ class BLSClient {
         return parseFloat(dataPoint.employment) || 0;
     }
 }
-exports.BLSClient = BLSClient;
 //# sourceMappingURL=BLSClient.js.map

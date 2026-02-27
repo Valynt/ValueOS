@@ -1,28 +1,18 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SectionErrorWrapper = exports.baseRegistry = exports.RegistryPlaceholderComponent = exports.versionedRegistry = void 0;
-exports.resolveComponentWithVersion = resolveComponentWithVersion;
-exports.resolveComponentLegacy = resolveComponentLegacy;
-exports.resolveComponentFromLegacyRegistry = resolveComponentFromLegacyRegistry;
-exports.resolveComponentFromVersionedRegistry = resolveComponentFromVersionedRegistry;
-exports.listRegisteredComponents = listRegisteredComponents;
-exports.getRegistryEntry = getRegistryEntry;
-exports.registerComponent = registerComponent;
-exports.resetRegistry = resetRegistry;
-exports.hotSwapComponent = hotSwapComponent;
-const jsx_runtime_1 = require("react/jsx-runtime");
-const SDUI_1 = require("./components/SDUI");
-const DiscoveryCard_1 = require("./components/SDUI/DiscoveryCard");
-const KPIForm_1 = require("./components/SDUI/KPIForm");
-const InteractiveChart_1 = require("./components/SDUI/InteractiveChart");
-const ValueTreeCard_1 = require("./components/SDUI/ValueTreeCard");
-const NarrativeBlock_1 = require("./components/SDUI/NarrativeBlock");
-const WorkflowStatusBar_1 = require("./components/Workflow/WorkflowStatusBar");
-const HumanCheckpoint_1 = require("./components/Workflow/HumanCheckpoint");
-const ConfidenceDisplay_1 = require("./components/Agent/ConfidenceDisplay");
-const IntegrityVetoPanel_1 = require("./components/Agent/IntegrityVetoPanel");
-const SDUI_2 = require("./components/SDUI");
-const logger_1 = require("@shared/lib/logger");
+import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
+import { DataTable, InfoBanner, SectionErrorFallback, UnknownComponentFallback,
+// Fallbacks
+ } from "./components/SDUI";
+import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
+import { KPIForm } from "./components/SDUI/KPIForm";
+import { InteractiveChart } from "./components/SDUI/InteractiveChart";
+import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
+import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
+import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
+import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
+import { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
+import { ComponentPreview } from "./components/SDUI";
+import { logger } from "@shared/lib/logger";
 /**
  * Versioned Component Registry
  *
@@ -42,7 +32,7 @@ class VersionedComponentRegistry {
         const filtered = existing.filter((e) => e.version !== entry.version);
         const updated = [...filtered, entry].sort((a, b) => b.version - a.version);
         this.components.set(componentName, updated);
-        logger_1.logger.info("Component version registered", {
+        logger.info("Component version registered", {
             componentName,
             version: entry.version,
             deprecated: entry.deprecated,
@@ -58,7 +48,7 @@ class VersionedComponentRegistry {
         const filtered = existing.filter((e) => e.version !== entry.version);
         const updated = [...filtered, entry].sort((a, b) => b.version - a.version);
         this.fallbackRegistry.set(componentName, updated);
-        logger_1.logger.info("Fallback component registered", {
+        logger.info("Fallback component registered", {
             componentName,
             version: entry.version,
         });
@@ -144,7 +134,7 @@ class VersionedComponentRegistry {
         const fallbacks = this.fallbackRegistry.get(componentName);
         if (fallbacks && fallbacks.length > 0) {
             const fallback = fallbacks[0]; // Latest fallback version
-            logger_1.logger.warn("Using fallback component", {
+            logger.warn("Using fallback component", {
                 componentName,
                 requestedVersion,
                 fallbackVersion: fallback.version,
@@ -157,12 +147,12 @@ class VersionedComponentRegistry {
             };
         }
         // No fallback available - use unknown component fallback
-        logger_1.logger.error("Component not found and no fallback available", {
+        logger.error("Component not found and no fallback available", {
             componentName,
             requestedVersion,
         });
         return {
-            component: SDUI_1.UnknownComponentFallback,
+            component: UnknownComponentFallback,
             version: 1,
             isFallback: true,
             isDeprecated: false,
@@ -195,7 +185,7 @@ class VersionedComponentRegistry {
      */
     setDefaultStrategy(strategy) {
         this.defaultStrategy = strategy;
-        logger_1.logger.info("Default version negotiation strategy updated", { strategy });
+        logger.info("Default version negotiation strategy updated", { strategy });
     }
     /**
      * Get component name from component
@@ -236,14 +226,14 @@ class VersionedComponentRegistry {
     clear() {
         this.components.clear();
         this.fallbackRegistry.clear();
-        logger_1.logger.info("Versioned component registry cleared");
+        logger.info("Versioned component registry cleared");
     }
 }
 // Global registry instance
-exports.versionedRegistry = new VersionedComponentRegistry();
+export const versionedRegistry = new VersionedComponentRegistry();
 // Register existing components with version information
-exports.versionedRegistry.register({
-    component: SDUI_1.InfoBanner,
+versionedRegistry.register({
+    component: InfoBanner,
     version: 2,
     minCompatibleVersion: 1,
     maxCompatibleVersion: 2,
@@ -252,8 +242,8 @@ exports.versionedRegistry.register({
     optionalProps: ["variant", "actions"],
     tags: ["ui", "information"],
 });
-exports.versionedRegistry.register({
-    component: DiscoveryCard_1.DiscoveryCard,
+versionedRegistry.register({
+    component: DiscoveryCard,
     version: 2,
     minCompatibleVersion: 1,
     maxCompatibleVersion: 2,
@@ -262,55 +252,55 @@ exports.versionedRegistry.register({
     optionalProps: ["description", "variant"],
     tags: ["ui", "discovery"],
 });
-exports.versionedRegistry.register({
-    component: ValueTreeCard_1.ValueTreeCard,
+versionedRegistry.register({
+    component: ValueTreeCard,
     version: 1,
     description: "Value tree visualization card",
     requiredProps: ["value"],
     optionalProps: ["title", "description"],
     tags: ["ui", "value", "visualization"],
 });
-exports.versionedRegistry.register({
-    component: SDUI_1.DataTable,
+versionedRegistry.register({
+    component: DataTable,
     version: 1,
     description: "Data table with sorting and filtering",
     requiredProps: ["data"],
     optionalProps: ["columns", "sortable", "filterable"],
     tags: ["ui", "data", "table"],
 });
-exports.versionedRegistry.register({
-    component: KPIForm_1.KPIForm,
+versionedRegistry.register({
+    component: KPIForm,
     version: 1,
     description: "Form for entering/editing KPI values",
     requiredProps: ["kpis"],
     optionalProps: ["values", "onChange", "onSubmit", "readOnly"],
     tags: ["ui", "form", "kpi"],
 });
-exports.versionedRegistry.register({
-    component: InteractiveChart_1.InteractiveChart,
+versionedRegistry.register({
+    component: InteractiveChart,
     version: 1,
     description: "Recharts-based chart supporting bar, line, area, and pie types",
     requiredProps: ["type", "data"],
     optionalProps: ["title", "xAxisLabel", "yAxisLabel", "colors", "height", "showLegend", "showTooltip"],
     tags: ["ui", "chart", "visualization"],
 });
-exports.versionedRegistry.register({
-    component: NarrativeBlock_1.NarrativeBlock,
+versionedRegistry.register({
+    component: NarrativeBlock,
     version: 1,
     description: "Typed narrative text block with metadata and sources",
     requiredProps: ["content"],
     optionalProps: ["author", "timestamp", "type", "confidence", "sources"],
     tags: ["ui", "narrative", "text"],
 });
-exports.versionedRegistry.register({
-    component: IntegrityVetoPanel_1.IntegrityVetoPanel,
+versionedRegistry.register({
+    component: IntegrityVetoPanel,
     version: 1,
     description: "Integrity review panel with issue list, severity colors, and resolve modal",
     requiredProps: ["issues", "onResolve", "onDismiss"],
     tags: ["ui", "integrity", "agent"],
 });
-exports.versionedRegistry.register({
-    component: WorkflowStatusBar_1.WorkflowStatusBar,
+versionedRegistry.register({
+    component: WorkflowStatusBar,
     version: 1,
     description: "Horizontal progress bar showing workflow stages",
     requiredProps: ["stages", "currentStageId"],
@@ -318,8 +308,8 @@ exports.versionedRegistry.register({
     tags: ["ui", "workflow", "status"],
 });
 // Register fallback components
-exports.versionedRegistry.registerFallback({
-    component: SDUI_1.UnknownComponentFallback,
+versionedRegistry.registerFallback({
+    component: UnknownComponentFallback,
     version: 1,
     description: "Fallback for unknown components",
     tags: ["fallback", "error"],
@@ -327,90 +317,89 @@ exports.versionedRegistry.registerFallback({
 /**
  * Resolve component with version negotiation
  */
-function resolveComponentWithVersion(componentName, requestedVersion, strategy) {
-    return exports.versionedRegistry.resolve(componentName, requestedVersion, strategy);
+export function resolveComponentWithVersion(componentName, requestedVersion, strategy) {
+    return versionedRegistry.resolve(componentName, requestedVersion, strategy);
 }
 /**
  * Legacy resolveComponent for backward compatibility
  */
-function resolveComponentLegacy(componentName) {
-    const result = exports.versionedRegistry.resolve(componentName);
+export function resolveComponentLegacy(componentName) {
+    const result = versionedRegistry.resolve(componentName);
     return result.component;
 }
 /**
  * Get registry placeholder component for unknown components
  */
-const RegistryPlaceholderComponent = ({ componentName, }) => ((0, jsx_runtime_1.jsx)("div", { className: "p-4 border border-gray-300 rounded bg-gray-50 text-center text-gray-500", children: (0, jsx_runtime_1.jsxs)("span", { className: "text-sm", children: ["Component not found: ", componentName] }) }));
-exports.RegistryPlaceholderComponent = RegistryPlaceholderComponent;
+export const RegistryPlaceholderComponent = ({ componentName, }) => (_jsx("div", { className: "p-4 border border-gray-300 rounded bg-gray-50 text-center text-gray-500", children: _jsxs("span", { className: "text-sm", children: ["Component not found: ", componentName] }) }));
 // Legacy registry placeholder for backward compatibility
-exports.baseRegistry = {
+export const baseRegistry = {
     WorkflowStatusBar: {
-        component: WorkflowStatusBar_1.WorkflowStatusBar,
+        component: WorkflowStatusBar,
         versions: [1],
         requiredProps: ["stages", "currentStageId"],
         description: "Real-time workflow progress bar showing current stage, agent, and confidence.",
     },
     HumanCheckpoint: {
-        component: HumanCheckpoint_1.HumanCheckpoint,
+        component: HumanCheckpoint,
         versions: [1],
         requiredProps: ["stageId", "agentName", "action", "riskLevel", "onApprove", "onReject"],
         description: "Human approval interface for high-risk workflow stages.",
     },
     ConfidenceDisplay: {
-        component: ConfidenceDisplay_1.ConfidenceDisplay,
+        component: ConfidenceDisplay,
         versions: [1],
         requiredProps: [],
         description: "Displays agent confidence levels and hallucination status with regeneration options.",
     },
     ComponentPreview: {
-        component: SDUI_2.ComponentPreview,
+        component: ComponentPreview,
         versions: [1],
         requiredProps: ["intentType", "componentName", "registryEntry", "organizationId"],
         description: "Developer preview tool for ui-registry.json entries with validation.",
     },
     DiscoveryCard: {
-        component: DiscoveryCard_1.DiscoveryCard,
+        component: DiscoveryCard,
         versions: [1],
         requiredProps: ["title"],
         description: "Card showing a discovered value opportunity with status and confidence.",
     },
     KPIForm: {
-        component: KPIForm_1.KPIForm,
+        component: KPIForm,
         versions: [1],
         requiredProps: ["kpis"],
         description: "Form for entering/editing KPI values with type-appropriate inputs.",
     },
     InteractiveChart: {
-        component: InteractiveChart_1.InteractiveChart,
+        component: InteractiveChart,
         versions: [1],
         requiredProps: ["type", "data"],
         description: "Recharts-based chart supporting bar, line, area, and pie types.",
     },
     ValueTreeCard: {
-        component: ValueTreeCard_1.ValueTreeCard,
+        component: ValueTreeCard,
         versions: [1],
         requiredProps: ["nodes"],
         description: "Hierarchical tree visualization of value decomposition.",
     },
     NarrativeBlock: {
-        component: NarrativeBlock_1.NarrativeBlock,
+        component: NarrativeBlock,
         versions: [1],
         requiredProps: ["content"],
         description: "Typed narrative text block with metadata and sources.",
     },
     IntegrityVetoPanel: {
-        component: IntegrityVetoPanel_1.IntegrityVetoPanel,
+        component: IntegrityVetoPanel,
         versions: [1],
         requiredProps: ["issues", "onResolve", "onDismiss"],
         description: "Integrity review panel with issue list, severity colors, and resolve modal.",
     },
 };
 // Initialize registry after baseRegistry is defined
-const registry = new Map(Object.entries(exports.baseRegistry));
+const registry = new Map(Object.entries(baseRegistry));
 /**
  * Resolve component from registry (legacy function)
  */
-function resolveComponentFromLegacyRegistry(section) {
+export function resolveComponentFromLegacyRegistry(section) {
     const entry = registry.get(section.component);
     if (!entry)
         return undefined;
@@ -425,24 +414,24 @@ function resolveComponentFromLegacyRegistry(section) {
 /**
  * Resolve component from registry (legacy function)
  */
-function resolveComponentFromVersionedRegistry(section) {
-    const result = exports.versionedRegistry.resolve(section.component || section.type, section.version);
+export function resolveComponentFromVersionedRegistry(section) {
+    const result = versionedRegistry.resolve(section.component || section.type, section.version);
     return result.component;
 }
-function listRegisteredComponents() {
+export function listRegisteredComponents() {
     return Array.from(registry.values());
 }
-function getRegistryEntry(name) {
+export function getRegistryEntry(name) {
     return registry.get(name);
 }
-function registerComponent(name, entry) {
+export function registerComponent(name, entry) {
     registry.set(name, entry);
 }
-function resetRegistry() {
+export function resetRegistry() {
     registry.clear();
-    Object.entries(exports.baseRegistry).forEach(([name, entry]) => registry.set(name, entry));
+    Object.entries(baseRegistry).forEach(([name, entry]) => registry.set(name, entry));
 }
-function hotSwapComponent(name, component) {
+export function hotSwapComponent(name, component) {
     const current = registry.get(name);
     if (!current)
         return undefined;
@@ -450,6 +439,5 @@ function hotSwapComponent(name, component) {
     registry.set(name, updated);
     return updated;
 }
-const SectionErrorWrapper = ({ componentName, children }) => ((0, jsx_runtime_1.jsx)(SDUI_1.SectionErrorFallback, { componentName: componentName, children: children }));
-exports.SectionErrorWrapper = SectionErrorWrapper;
+export const SectionErrorWrapper = ({ componentName, children }) => (_jsx(SectionErrorFallback, { componentName: componentName, children: children }));
 //# sourceMappingURL=registry.js.map

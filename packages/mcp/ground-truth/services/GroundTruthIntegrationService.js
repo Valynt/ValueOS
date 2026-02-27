@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GroundTruthIntegrationService = void 0;
-const logger_js_1 = require("../../lib/logger.js");
-class GroundTruthIntegrationService {
+import { logger } from "../../lib/logger.js";
+export class GroundTruthIntegrationService {
     edgar;
     xbrl;
     industry;
@@ -22,11 +19,11 @@ class GroundTruthIntegrationService {
         try {
             const results = await this.edgar.query({ identifier: cik, metric: metrics[0], period });
             // TODO: Loop over metrics, store with provenance and tenantId
-            logger_js_1.logger.info("Ingested SEC data", { cik, period, tenantId, metrics });
+            logger.info("Ingested SEC data", { cik, period, tenantId, metrics });
             return results;
         }
         catch (error) {
-            logger_js_1.logger.error("SEC ingestion failed", { cik, error });
+            logger.error("SEC ingestion failed", { cik, error });
             throw error;
         }
     }
@@ -39,14 +36,13 @@ class GroundTruthIntegrationService {
     async ingestBLSData(naics, metric, tenantId) {
         try {
             const results = await this.industry.query({ identifier: naics, metric });
-            logger_js_1.logger.info("Ingested BLS data", { naics, metric, tenantId });
+            logger.info("Ingested BLS data", { naics, metric, tenantId });
             return results;
         }
         catch (error) {
-            logger_js_1.logger.error("BLS ingestion failed", { naics, error });
+            logger.error("BLS ingestion failed", { naics, error });
             throw error;
         }
     }
 }
-exports.GroundTruthIntegrationService = GroundTruthIntegrationService;
 //# sourceMappingURL=GroundTruthIntegrationService.js.map

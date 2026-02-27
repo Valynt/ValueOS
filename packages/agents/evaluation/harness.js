@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Agent Evaluation Harness
  *
@@ -7,14 +6,6 @@
  * - Mock mode: uses deterministic mock responses for unit testing
  * - Live mode: calls actual agents and validates output structure/constraints
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateOpportunityResponse = validateOpportunityResponse;
-exports.validateFinancialModelingResponse = validateFinancialModelingResponse;
-exports.validateGroundtruthResponse = validateGroundtruthResponse;
-exports.validateNarrativeResponse = validateNarrativeResponse;
-exports.validateRedTeamResponse = validateRedTeamResponse;
-exports.runEvalChecks = runEvalChecks;
-exports.summarizeResults = summarizeResults;
 // ============================================================================
 // Validation Helpers
 // ============================================================================
@@ -74,7 +65,7 @@ function checkMinLength(text, min, label) {
 // ============================================================================
 // Agent-Specific Validators
 // ============================================================================
-function validateOpportunityResponse(evalCase, response) {
+export function validateOpportunityResponse(evalCase, response) {
     const checks = [];
     const { expectations } = evalCase;
     checks.push(checkMinCount(response.opportunities.length, expectations.minOpportunities, 'Opportunities'));
@@ -96,7 +87,7 @@ function validateOpportunityResponse(evalCase, response) {
     }
     return checks;
 }
-function validateFinancialModelingResponse(evalCase, response) {
+export function validateFinancialModelingResponse(evalCase, response) {
     const checks = [];
     const { expectations } = evalCase;
     checks.push(checkMinCount(response.financial_models.length, expectations.minModels, 'Models'));
@@ -118,7 +109,7 @@ function validateFinancialModelingResponse(evalCase, response) {
     }
     return checks;
 }
-function validateGroundtruthResponse(evalCase, response) {
+export function validateGroundtruthResponse(evalCase, response) {
     const checks = [];
     const { expectations } = evalCase;
     checks.push(checkMinCount(response.groundtruths.length, expectations.minGroundtruths, 'Groundtruths'));
@@ -134,7 +125,7 @@ function validateGroundtruthResponse(evalCase, response) {
     }
     return checks;
 }
-function validateNarrativeResponse(evalCase, response) {
+export function validateNarrativeResponse(evalCase, response) {
     const checks = [];
     const { expectations } = evalCase;
     checks.push(checkMinCount(response.narratives.length, expectations.minNarratives, 'Narratives'));
@@ -155,7 +146,7 @@ function validateNarrativeResponse(evalCase, response) {
     }
     return checks;
 }
-function validateRedTeamResponse(evalCase, response) {
+export function validateRedTeamResponse(evalCase, response) {
     const checks = [];
     const { expectations } = evalCase;
     checks.push(checkMinCount(response.objections.length, expectations.minObjections, 'Objections'));
@@ -201,7 +192,7 @@ function validateRedTeamResponse(evalCase, response) {
 // ============================================================================
 // Harness Runner
 // ============================================================================
-function runEvalChecks(caseId, caseName, agentType, checks, startTime) {
+export function runEvalChecks(caseId, caseName, agentType, checks, startTime) {
     return {
         caseId,
         caseName,
@@ -211,7 +202,7 @@ function runEvalChecks(caseId, caseName, agentType, checks, startTime) {
         durationMs: Date.now() - startTime,
     };
 }
-function summarizeResults(results) {
+export function summarizeResults(results) {
     const passed = results.filter((r) => r.passed).length;
     return {
         totalCases: results.length,

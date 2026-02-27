@@ -3,7 +3,7 @@
  * Manages subscription creation, updates, and cancellation
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import StripeService from "./StripeService.js"
 import CustomerService from "./CustomerService.js"
@@ -11,6 +11,7 @@ import { BILLING_METRICS, PLANS, PlanTier } from "../../config/billing.js"
 import type { BillingMetric } from "../../config/billing.js"
 import { Subscription, SubscriptionItem } from "../../types/billing";
 import { createLogger } from "../../lib/logger.js"
+import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: "SubscriptionService" });
 
@@ -18,18 +19,7 @@ const logger = createLogger({ component: "SubscriptionService" });
 const STRIPE_CENTS_PER_DOLLAR = 100;
 const UNIX_TIMESTAMP_MULTIPLIER = 1000;
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn(
-    "Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing"
-  );
-}
+const supabase: SupabaseClient | null = supabaseClient ?? null;
 
 class SubscriptionService {
   private stripeService: StripeService | null = null;

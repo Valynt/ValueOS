@@ -1,4 +1,3 @@
-"use strict";
 /**
  * WebSocket Server for Real-Time Financial Data Streaming
  *
@@ -11,18 +10,16 @@
  * Uses Socket.io for WebSocket communication with authentication,
  * subscription management, and scalable broadcasting.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WebSocketServer = void 0;
-const socket_io_1 = require("socket.io");
-const logger_1 = require("../../lib/logger");
-const Cache_1 = require("../core/Cache");
-class WebSocketServer {
+import { Server } from "socket.io";
+import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
+export class WebSocketServer {
     io;
     clients = new Map();
     channels = new Map(); // channel -> client IDs
-    cache = (0, Cache_1.getCache)();
+    cache = getCache();
     constructor(httpServer) {
-        this.io = new socket_io_1.Server(httpServer, {
+        this.io = new Server(httpServer, {
             cors: {
                 origin: process.env.CORS_ORIGIN || "*",
                 methods: ["GET", "POST"],
@@ -56,14 +53,14 @@ class WebSocketServer {
                 socket.data.authenticated = true;
                 socket.data.userId = userData.userId;
                 socket.data.permissions = userData.permissions || ["basic"];
-                logger_1.logger.info("WebSocket client authenticated", {
+                logger.info("WebSocket client authenticated", {
                     socketId: socket.id,
                     userId: userData.userId,
                 });
                 next();
             }
             catch (error) {
-                logger_1.logger.error("WebSocket authentication error", error instanceof Error ? error : undefined);
+                logger.error("WebSocket authentication error", error instanceof Error ? error : undefined);
                 next(new Error("Authentication error"));
             }
         });
@@ -84,7 +81,7 @@ class WebSocketServer {
                 lastActivity: new Date(),
             };
             this.clients.set(socket.id, client);
-            logger_1.logger.info("WebSocket client connected", {
+            logger.info("WebSocket client connected", {
                 socketId: socket.id,
                 authenticated: client.authenticated,
                 permissions: client.permissions,
@@ -141,7 +138,7 @@ class WebSocketServer {
                     this.channels.set(channel, new Set());
                 }
                 this.channels.get(channel).add(socket.id);
-                logger_1.logger.debug("Client subscribed to channel", {
+                logger.debug("Client subscribed to channel", {
                     socketId: socket.id,
                     channel,
                     filters,
@@ -154,7 +151,7 @@ class WebSocketServer {
             client.lastActivity = new Date();
         }
         catch (error) {
-            logger_1.logger.error("Subscription handling error", error instanceof Error ? error : undefined, {
+            logger.error("Subscription handling error", error instanceof Error ? error : undefined, {
                 socketId: socket.id,
                 channels: message.channels,
             });
@@ -202,7 +199,7 @@ class WebSocketServer {
             }
         }
         this.clients.delete(socketId);
-        logger_1.logger.info("WebSocket client disconnected", {
+        logger.info("WebSocket client disconnected", {
             socketId,
             reason,
             subscriptionsCount: client.subscriptions.size,
@@ -229,7 +226,7 @@ class WebSocketServer {
                 sentCount++;
             }
         }
-        logger_1.logger.debug("Broadcasted data to channel", {
+        logger.debug("Broadcasted data to channel", {
             channel,
             recipients: sentCount,
             totalSubscribers: channelClients.size,
@@ -260,7 +257,7 @@ class WebSocketServer {
             serverTimestamp: Date.now(),
         };
         this.io.emit("webhook", message);
-        logger_1.logger.info("Broadcasted webhook notification", {
+        logger.info("Broadcasted webhook notification", {
             notificationId: notification.id,
             type: notification.type,
             priority: notification.priority,
@@ -288,7 +285,7 @@ class WebSocketServer {
                 sentCount++;
             }
         }
-        logger_1.logger.info("Sent targeted webhook notification", {
+        logger.info("Sent targeted webhook notification", {
             notificationId: notification.id,
             type: notification.type,
             recipients: notification.recipients.length,
@@ -345,7 +342,7 @@ class WebSocketServer {
             const staleThreshold = 5 * 60 * 1000; // 5 minutes
             for (const [socketId, client] of this.clients.entries()) {
                 if (now - client.lastActivity.getTime() > staleThreshold) {
-                    logger_1.logger.warn("Removing stale WebSocket connection", {
+                    logger.warn("Removing stale WebSocket connection", {
                         socketId,
                         lastActivity: client.lastActivity.toISOString(),
                     });
@@ -375,7 +372,7 @@ class WebSocketServer {
      * Gracefully shutdown the server
      */
     async shutdown() {
-        logger_1.logger.info("Shutting down WebSocket server");
+        logger.info("Shutting down WebSocket server");
         // Disconnect all clients
         for (const client of this.clients.values()) {
             client.socket.disconnect(true);
@@ -386,5 +383,4 @@ class WebSocketServer {
         this.io.close();
     }
 }
-exports.WebSocketServer = WebSocketServer;
 //# sourceMappingURL=WebSocketServer.js.map

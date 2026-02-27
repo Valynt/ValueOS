@@ -1,7 +1,6 @@
-"use strict";
 /**
  * Referral Program Types
  * Core types for the referral system
  */
-Object.defineProperty(exports, "__esModule", { value: true });
+export {};
 //# sourceMappingURL=referral.js.map

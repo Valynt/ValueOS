@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Confidence Scorer
  *
@@ -9,37 +8,29 @@
  *
  * Final score = (freshness * 0.3) + (reliability * 0.4) + (transparency * 0.3)
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ClaimConfidenceSchema = exports.ConfidenceScoreSchema = void 0;
-exports.computeFreshness = computeFreshness;
-exports.computeReliability = computeReliability;
-exports.computeTransparency = computeTransparency;
-exports.computeConfidence = computeConfidence;
-exports.computeAggregateConfidence = computeAggregateConfidence;
-exports.scoreClaimConfidence = scoreClaimConfidence;
-const zod_1 = require("zod");
-const EvidenceTiering_js_1 = require("./EvidenceTiering.js");
+import { z } from 'zod';
+import { TIER_WEIGHTS, TIER_MAX_AGE_DAYS } from './EvidenceTiering.js';
 // ============================================================================
 // Zod Schemas
 // ============================================================================
-exports.ConfidenceScoreSchema = zod_1.z.object({
-    overall: zod_1.z.number().min(0).max(1),
-    freshness: zod_1.z.number().min(0).max(1),
-    reliability: zod_1.z.number().min(0).max(1),
-    transparency: zod_1.z.number().min(0).max(1),
-    tier: zod_1.z.union([zod_1.z.literal(1), zod_1.z.literal(2), zod_1.z.literal(3)]),
-    evidenceId: zod_1.z.string(),
+export const ConfidenceScoreSchema = z.object({
+    overall: z.number().min(0).max(1),
+    freshness: z.number().min(0).max(1),
+    reliability: z.number().min(0).max(1),
+    transparency: z.number().min(0).max(1),
+    tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    evidenceId: z.string(),
 });
-exports.ClaimConfidenceSchema = zod_1.z.object({
-    claimId: zod_1.z.string(),
-    score: exports.ConfidenceScoreSchema,
-    citations: zod_1.z.array(zod_1.z.object({
-        evidenceId: zod_1.z.string(),
-        sourceName: zod_1.z.string(),
-        sourceUrl: zod_1.z.string().optional(),
-        tier: zod_1.z.union([zod_1.z.literal(1), zod_1.z.literal(2), zod_1.z.literal(3)]),
-        excerpt: zod_1.z.string(),
-        retrievedAt: zod_1.z.string(),
+export const ClaimConfidenceSchema = z.object({
+    claimId: z.string(),
+    score: ConfidenceScoreSchema,
+    citations: z.array(z.object({
+        evidenceId: z.string(),
+        sourceName: z.string(),
+        sourceUrl: z.string().optional(),
+        tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+        excerpt: z.string(),
+        retrievedAt: z.string(),
     })),
 });
 // ============================================================================
@@ -60,31 +51,31 @@ const TRANSPARENCY_SCORES = {
  * Compute freshness score based on evidence age relative to tier max age.
  * Score = 1.0 - (age_days / max_age_days), clamped to [0, 1]
  */
-function computeFreshness(retrievedAt, tier, referenceDate) {
+export function computeFreshness(retrievedAt, tier, referenceDate) {
     const retrieved = new Date(retrievedAt).getTime();
     const reference = referenceDate
         ? new Date(referenceDate).getTime()
         : Date.now();
     const ageDays = Math.max(0, (reference - retrieved) / (1000 * 60 * 60 * 24));
-    const maxAge = EvidenceTiering_js_1.TIER_MAX_AGE_DAYS[tier];
+    const maxAge = TIER_MAX_AGE_DAYS[tier];
     return Math.max(0, Math.min(1, 1.0 - ageDays / maxAge));
 }
 /**
  * Get reliability score from tier weight
  */
-function computeReliability(tier) {
-    return EvidenceTiering_js_1.TIER_WEIGHTS[tier];
+export function computeReliability(tier) {
+    return TIER_WEIGHTS[tier];
 }
 /**
  * Get transparency score from transparency level
  */
-function computeTransparency(level) {
+export function computeTransparency(level) {
     return TRANSPARENCY_SCORES[level];
 }
 /**
  * Compute the overall confidence score for a single evidence item
  */
-function computeConfidence(input) {
+export function computeConfidence(input) {
     const freshness = computeFreshness(input.evidence.retrievedAt, input.evidence.tier, input.referenceDate);
     const reliability = computeReliability(input.evidence.tier);
     const transparency = computeTransparency(input.transparency);
@@ -105,7 +96,7 @@ function computeConfidence(input) {
  * Uses the highest-confidence evidence as the primary score,
  * with a small boost for corroborating evidence.
  */
-function computeAggregateConfidence(inputs) {
+export function computeAggregateConfidence(inputs) {
     if (inputs.length === 0)
         return null;
     const scores = inputs.map(computeConfidence);
@@ -123,7 +114,7 @@ function computeAggregateConfidence(inputs) {
 /**
  * Score a claim against its supporting evidence
  */
-function scoreClaimConfidence(claimId, evidenceItems, transparency, citations, referenceDate) {
+export function scoreClaimConfidence(claimId, evidenceItems, transparency, citations, referenceDate) {
     const inputs = evidenceItems.map((evidence) => ({
         evidence,
         transparency,

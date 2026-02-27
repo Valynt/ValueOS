@@ -5,9 +5,10 @@
  * Tenants are pinned to a specific version; catalog can advance independently.
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 import type { PriceVersionStatus, MeterKey, EnforcementMode } from "@shared/types/billing-events";
+import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: "PriceVersionService" });
 
@@ -46,14 +47,7 @@ export interface PriceVersion {
 // Service
 // ============================================================================
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-}
+const supabase: SupabaseClient | null = supabaseClient ?? null;
 
 class PriceVersionService {
   /**

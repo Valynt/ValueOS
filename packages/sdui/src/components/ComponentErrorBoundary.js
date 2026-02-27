@@ -1,47 +1,10 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EnhancedComponentErrorBoundary = void 0;
-exports.withEnhancedComponentErrorBoundary = withEnhancedComponentErrorBoundary;
-const jsx_runtime_1 = require("react/jsx-runtime");
-const logger_1 = require("@shared/lib/logger");
-const react_1 = __importStar(require("react"));
-const lucide_react_1 = require("lucide-react");
-const sentry_1 = require("../../lib/sentry");
-const environment_1 = require("../../config/environment");
-const SDUITelemetry_1 = require("../../lib/telemetry/SDUITelemetry");
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { logger } from "@shared/lib/logger";
+import React, { Component } from "react";
+import { RefreshCw, Shield, Zap, Clock, CheckCircle, XCircle } from "lucide-react";
+import { captureException } from "../../lib/sentry";
+import { isDevelopment, isProduction } from "../../config/environment";
+import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
 /**
  * Enhanced error boundary specifically designed for SDUI component rendering.
  * Provides comprehensive error handling with advanced resilience patterns.
@@ -88,10 +51,10 @@ const SDUITelemetry_1 = require("../../lib/telemetry/SDUITelemetry");
  * </EnhancedComponentErrorBoundary>
  * ```
  */
-class EnhancedComponentErrorBoundary extends react_1.Component {
+export class EnhancedComponentErrorBoundary extends Component {
     retryTimer;
     correlationIdCounter = 0;
-    errorTimestampRef = react_1.default.createRef();
+    errorTimestampRef = React.createRef();
     constructor(props) {
         super(props);
         this.state = {
@@ -225,7 +188,7 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
             recoveryAttempts: 0,
         };
         this.setState({ circuitBreaker: newState, errorCorrelations: [...this.state.errorCorrelations, errorCorrelation] });
-        logger_1.logger.warn("Circuit breaker opened", {
+        logger.warn("Circuit breaker opened", {
             componentName: this.props.componentName,
             failureCount: newState.failureCount,
             nextRetryTime: new Date(newState.nextRetryTime).toISOString(),
@@ -253,7 +216,7 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
                     recoveryAttempts: prevState.circuitBreaker.recoveryAttempts + 1,
                 },
             }));
-            logger_1.logger.info("Circuit breaker transitioning to half-open", {
+            logger.info("Circuit breaker transitioning to half-open", {
                 componentName: this.props.componentName,
                 recoveryAttempt: circuitBreaker.recoveryAttempts + 1,
                 maxAttempts: maxRecoveryAttempts,
@@ -310,7 +273,7 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
             this.updateCircuitBreakerAfterFailure(error, errorInfo);
         }
         // Enhanced error logging
-        logger_1.logger.error(`Enhanced error in SDUI component "${componentName}":`, {
+        logger.error(`Enhanced error in SDUI component "${componentName}":`, {
             error,
             errorInfo,
             correlation: errorCorrelation,
@@ -321,8 +284,8 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
         // Call error handler if provided
         onError?.(error, errorInfo);
         // Log to error tracking service in production with correlation
-        if ((0, environment_1.isProduction)()) {
-            (0, sentry_1.captureException)(error, {
+        if (isProduction()) {
+            captureException(error, {
                 extra: {
                     componentName,
                     componentStack: errorInfo.componentStack,
@@ -352,7 +315,7 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
      */
     handleRetry = () => {
         if (!this.shouldAllowRetry()) {
-            logger_1.logger.warn("Retry blocked", {
+            logger.warn("Retry blocked", {
                 componentName: this.props.componentName,
                 reason: "retry_limit_exceeded_or_circuit_open",
                 retryCount: this.state.retryCount,
@@ -367,7 +330,7 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
             isRetrying: true,
             nextRetryTime: Date.now() + delay,
         });
-        logger_1.logger.info("Attempting retry", {
+        logger.info("Attempting retry", {
             componentName: this.props.componentName,
             attempt: retryCount + 1,
             delay,
@@ -393,7 +356,7 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
                         recoveryAttempts: 0,
                     },
                 }));
-                logger_1.logger.info("Circuit breaker closed after successful recovery", {
+                logger.info("Circuit breaker closed after successful recovery", {
                     componentName: this.props.componentName,
                 });
                 // Send telemetry event
@@ -422,7 +385,7 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
             isRetrying: false,
             nextRetryTime: undefined,
         });
-        logger_1.logger.info("Circuit breaker manually reset", {
+        logger.info("Circuit breaker manually reset", {
             componentName: this.props.componentName,
         });
         // Send telemetry event
@@ -435,8 +398,8 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
         const { telemetryConfig } = this.props;
         if (!telemetryConfig?.enableTelemetry)
             return;
-        SDUITelemetry_1.sduiTelemetry.recordEvent({
-            type: SDUITelemetry_1.TelemetryEventType.CIRCUIT_BREAKER_EVENT,
+        sduiTelemetry.recordEvent({
+            type: TelemetryEventType.CIRCUIT_BREAKER_EVENT,
             metadata: {
                 component: this.props.componentName,
                 action,
@@ -455,8 +418,8 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
         const { telemetryConfig } = this.props;
         if (!telemetryConfig?.enableTelemetry)
             return;
-        SDUITelemetry_1.sduiTelemetry.recordEvent({
-            type: SDUITelemetry_1.TelemetryEventType.COMPONENT_ERROR,
+        sduiTelemetry.recordEvent({
+            type: TelemetryEventType.COMPONENT_ERROR,
             metadata: {
                 component: this.props.componentName,
                 errorType: error.constructor.name,
@@ -484,15 +447,15 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
             return fallback;
         }
         // Determine if we should show error details
-        const shouldShowDetails = showErrorDetails ?? (0, environment_1.isDevelopment)();
+        const shouldShowDetails = showErrorDetails ?? isDevelopment();
         const canRetry = this.shouldAllowRetry();
         const isCircuitOpen = cbState.state === "open";
         const isCircuitHalfOpen = cbState.state === "half-open";
-        return ((0, jsx_runtime_1.jsx)("div", { className: "rounded-lg border border-red-200 bg-red-50 p-4 text-red-900 shadow-lg", role: "alert", "aria-live": "assertive", "data-testid": "enhanced-component-error-boundary", children: (0, jsx_runtime_1.jsxs)("div", { className: "flex items-start gap-3", children: [(0, jsx_runtime_1.jsx)("div", { className: "flex-shrink-0", children: isCircuitOpen ? ((0, jsx_runtime_1.jsx)(lucide_react_1.Shield, { className: "h-6 w-6 text-red-600 animate-pulse", "aria-hidden": "true" })) : isCircuitHalfOpen ? ((0, jsx_runtime_1.jsx)(lucide_react_1.Clock, { className: "h-6 w-6 text-yellow-600 animate-spin", "aria-hidden": "true" })) : ((0, jsx_runtime_1.jsx)(lucide_react_1.XCircle, { className: "h-6 w-6 text-red-600", "aria-hidden": "true" })) }), (0, jsx_runtime_1.jsxs)("div", { className: "flex-1", children: [(0, jsx_runtime_1.jsxs)("h3", { className: "text-sm font-semibold mb-1", children: [isCircuitOpen ? "Circuit Breaker Open" : "Component Error", ": ", componentName] }), (0, jsx_runtime_1.jsx)("p", { className: "text-sm text-red-800 mb-3", children: isCircuitOpen
+        return (_jsx("div", { className: "rounded-lg border border-red-200 bg-red-50 p-4 text-red-900 shadow-lg", role: "alert", "aria-live": "assertive", "data-testid": "enhanced-component-error-boundary", children: _jsxs("div", { className: "flex items-start gap-3", children: [_jsx("div", { className: "flex-shrink-0", children: isCircuitOpen ? (_jsx(Shield, { className: "h-6 w-6 text-red-600 animate-pulse", "aria-hidden": "true" })) : isCircuitHalfOpen ? (_jsx(Clock, { className: "h-6 w-6 text-yellow-600 animate-spin", "aria-hidden": "true" })) : (_jsx(XCircle, { className: "h-6 w-6 text-red-600", "aria-hidden": "true" })) }), _jsxs("div", { className: "flex-1", children: [_jsxs("h3", { className: "text-sm font-semibold mb-1", children: [isCircuitOpen ? "Circuit Breaker Open" : "Component Error", ": ", componentName] }), _jsx("p", { className: "text-sm text-red-800 mb-3", children: isCircuitOpen
                                     ? `This component has failed ${cbState.failureCount} times and is temporarily disabled for safety.`
                                     : isCircuitHalfOpen
                                         ? "This component is attempting to recover after recent failures."
-                                        : "This component encountered an error and could not be rendered." }), (isCircuitOpen || isCircuitHalfOpen) && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-3 p-2 bg-red-100 rounded text-xs", children: [(0, jsx_runtime_1.jsx)("div", { className: "font-medium mb-1", children: "Circuit Breaker Status:" }), (0, jsx_runtime_1.jsxs)("div", { children: ["State: ", cbState.state] }), (0, jsx_runtime_1.jsxs)("div", { children: ["Failures: ", cbState.failureCount] }), isCircuitOpen && cbState.nextRetryTime && ((0, jsx_runtime_1.jsxs)("div", { children: ["Next retry: ", new Date(cbState.nextRetryTime).toLocaleTimeString()] })), (0, jsx_runtime_1.jsxs)("div", { children: ["Recovery attempts: ", cbState.recoveryAttempts] })] })), isRetrying && nextRetryTime && ((0, jsx_runtime_1.jsx)("div", { className: "mb-3 p-2 bg-yellow-100 rounded text-xs text-yellow-800", children: (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center gap-2", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.RefreshCw, { className: "h-3 w-3 animate-spin" }), (0, jsx_runtime_1.jsxs)("span", { children: ["Retrying in ", Math.ceil((nextRetryTime - Date.now()) / 1000), "s..."] })] }) })), shouldShowDetails && error && ((0, jsx_runtime_1.jsxs)("details", { className: "mb-3", children: [(0, jsx_runtime_1.jsx)("summary", { className: "cursor-pointer text-sm font-medium text-red-700 hover:text-red-900 mb-2", children: "Error Details" }), (0, jsx_runtime_1.jsxs)("div", { className: "rounded bg-red-100 p-3 text-xs font-mono", children: [(0, jsx_runtime_1.jsxs)("div", { className: "mb-2", children: [(0, jsx_runtime_1.jsx)("strong", { children: "Message:" }), " ", error.message] }), error.stack && ((0, jsx_runtime_1.jsxs)("div", { className: "mb-2", children: [(0, jsx_runtime_1.jsx)("strong", { children: "Stack:" }), (0, jsx_runtime_1.jsx)("pre", { className: "mt-1 overflow-auto whitespace-pre-wrap", children: error.stack })] })), errorInfo && ((0, jsx_runtime_1.jsxs)("div", { children: [(0, jsx_runtime_1.jsx)("strong", { children: "Component Stack:" }), (0, jsx_runtime_1.jsx)("pre", { className: "mt-1 overflow-auto whitespace-pre-wrap", children: errorInfo.componentStack })] })), errorCorrelations.length > 0 && ((0, jsx_runtime_1.jsxs)("div", { className: "mt-2 pt-2 border-t border-red-200", children: [(0, jsx_runtime_1.jsx)("strong", { children: "Error History:" }), (0, jsx_runtime_1.jsx)("div", { className: "mt-1 space-y-1", children: errorCorrelations.slice(-3).map((corr, _idx) => ((0, jsx_runtime_1.jsxs)("div", { className: "text-xs", children: [new Date(corr.timestamp).toLocaleTimeString(), " - ", corr.errorType, " (", corr.severity, ")"] }, corr.id))) })] }))] })] })), (0, jsx_runtime_1.jsxs)("div", { className: "flex gap-2 mt-4 pt-4 border-t border-red-200", children: [canRetry && !isRetrying && ((0, jsx_runtime_1.jsxs)("button", { onClick: this.handleRetry, disabled: isCircuitOpen, className: "inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded hover:bg-red-200 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed", "aria-label": `Retry rendering ${componentName}`, children: [(0, jsx_runtime_1.jsx)(lucide_react_1.RefreshCw, { className: "h-3 w-3 mr-1" }), "Try Again"] })), (0, environment_1.isDevelopment)() && (isCircuitOpen || isCircuitHalfOpen) && ((0, jsx_runtime_1.jsxs)("button", { onClick: this.resetCircuitBreaker, className: "inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2", "aria-label": `Reset circuit breaker for ${componentName}`, children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Zap, { className: "h-3 w-3 mr-1" }), "Reset Circuit"] })), isCircuitHalfOpen && ((0, jsx_runtime_1.jsxs)("div", { className: "flex items-center text-green-600 text-sm", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.CheckCircle, { className: "h-4 w-4 mr-1" }), "Recovery attempt in progress..."] }))] })] })] }) }));
+                                        : "This component encountered an error and could not be rendered." }), (isCircuitOpen || isCircuitHalfOpen) && (_jsxs("div", { className: "mb-3 p-2 bg-red-100 rounded text-xs", children: [_jsx("div", { className: "font-medium mb-1", children: "Circuit Breaker Status:" }), _jsxs("div", { children: ["State: ", cbState.state] }), _jsxs("div", { children: ["Failures: ", cbState.failureCount] }), isCircuitOpen && cbState.nextRetryTime && (_jsxs("div", { children: ["Next retry: ", new Date(cbState.nextRetryTime).toLocaleTimeString()] })), _jsxs("div", { children: ["Recovery attempts: ", cbState.recoveryAttempts] })] })), isRetrying && nextRetryTime && (_jsx("div", { className: "mb-3 p-2 bg-yellow-100 rounded text-xs text-yellow-800", children: _jsxs("div", { className: "flex items-center gap-2", children: [_jsx(RefreshCw, { className: "h-3 w-3 animate-spin" }), _jsxs("span", { children: ["Retrying in ", Math.ceil((nextRetryTime - Date.now()) / 1000), "s..."] })] }) })), shouldShowDetails && error && (_jsxs("details", { className: "mb-3", children: [_jsx("summary", { className: "cursor-pointer text-sm font-medium text-red-700 hover:text-red-900 mb-2", children: "Error Details" }), _jsxs("div", { className: "rounded bg-red-100 p-3 text-xs font-mono", children: [_jsxs("div", { className: "mb-2", children: [_jsx("strong", { children: "Message:" }), " ", error.message] }), error.stack && (_jsxs("div", { className: "mb-2", children: [_jsx("strong", { children: "Stack:" }), _jsx("pre", { className: "mt-1 overflow-auto whitespace-pre-wrap", children: error.stack })] })), errorInfo && (_jsxs("div", { children: [_jsx("strong", { children: "Component Stack:" }), _jsx("pre", { className: "mt-1 overflow-auto whitespace-pre-wrap", children: errorInfo.componentStack })] })), errorCorrelations.length > 0 && (_jsxs("div", { className: "mt-2 pt-2 border-t border-red-200", children: [_jsx("strong", { children: "Error History:" }), _jsx("div", { className: "mt-1 space-y-1", children: errorCorrelations.slice(-3).map((corr, _idx) => (_jsxs("div", { className: "text-xs", children: [new Date(corr.timestamp).toLocaleTimeString(), " - ", corr.errorType, " (", corr.severity, ")"] }, corr.id))) })] }))] })] })), _jsxs("div", { className: "flex gap-2 mt-4 pt-4 border-t border-red-200", children: [canRetry && !isRetrying && (_jsxs("button", { onClick: this.handleRetry, disabled: isCircuitOpen, className: "inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-100 rounded hover:bg-red-200 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed", "aria-label": `Retry rendering ${componentName}`, children: [_jsx(RefreshCw, { className: "h-3 w-3 mr-1" }), "Try Again"] })), isDevelopment() && (isCircuitOpen || isCircuitHalfOpen) && (_jsxs("button", { onClick: this.resetCircuitBreaker, className: "inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2", "aria-label": `Reset circuit breaker for ${componentName}`, children: [_jsx(Zap, { className: "h-3 w-3 mr-1" }), "Reset Circuit"] })), isCircuitHalfOpen && (_jsxs("div", { className: "flex items-center text-green-600 text-sm", children: [_jsx(CheckCircle, { className: "h-4 w-4 mr-1" }), "Recovery attempt in progress..."] }))] })] })] }) }));
     }
     render() {
         // Check if circuit breaker allows rendering
@@ -507,14 +470,13 @@ class EnhancedComponentErrorBoundary extends react_1.Component {
         return this.props.children;
     }
 }
-exports.EnhancedComponentErrorBoundary = EnhancedComponentErrorBoundary;
 /**
  * HOC to wrap a component with EnhancedComponentErrorBoundary
  */
-function withEnhancedComponentErrorBoundary(Component, boundaryProps) {
-    const WrappedComponent = (props) => ((0, jsx_runtime_1.jsx)(EnhancedComponentErrorBoundary, { ...boundaryProps, children: (0, jsx_runtime_1.jsx)(Component, { ...props }) }));
+export function withEnhancedComponentErrorBoundary(Component, boundaryProps) {
+    const WrappedComponent = (props) => (_jsx(EnhancedComponentErrorBoundary, { ...boundaryProps, children: _jsx(Component, { ...props }) }));
     WrappedComponent.displayName = `withEnhancedComponentErrorBoundary(${Component.displayName || Component.name || "Component"})`;
     return WrappedComponent;
 }
-exports.default = EnhancedComponentErrorBoundary;
+export default EnhancedComponentErrorBoundary;
 //# sourceMappingURL=ComponentErrorBoundary.js.map

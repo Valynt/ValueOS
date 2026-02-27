@@ -1,4 +1,3 @@
-"use strict";
 /**
  * XBRL Parser Module - Tier 1 Structured Financial Data
  *
@@ -9,11 +8,9 @@
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Standard: XBRL US GAAP Taxonomy
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.XBRLModule = void 0;
-const BaseModule_1 = require("../core/BaseModule");
-const types_1 = require("../types");
-const logger_1 = require("../../lib/logger");
+import { BaseModule } from '../core/BaseModule';
+import { ErrorCodes, GroundTruthError, } from '../types';
+import { logger } from '../../lib/logger';
 /**
  * XBRL Module - Tier 1 Structured Data Source
  *
@@ -23,7 +20,7 @@ const logger_1 = require("../../lib/logger");
  * Uses SEC's XBRL API for standardized financial facts:
  * https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json
  */
-class XBRLModule extends BaseModule_1.BaseModule {
+export class XBRLModule extends BaseModule {
     name = 'xbrl-parser';
     tier = 'tier1';
     description = 'XBRL structured financial data parser - Tier 1 authoritative source';
@@ -57,7 +54,7 @@ class XBRLModule extends BaseModule_1.BaseModule {
         this.userAgent = xbrlConfig.userAgent || 'ValueCanvas contact@valuecanvas.com';
         this.baseUrl = xbrlConfig.baseUrl || this.baseUrl;
         this.rateLimit = xbrlConfig.rateLimit || this.rateLimit;
-        logger_1.logger.info('XBRL Module initialized', {
+        logger.info('XBRL Module initialized', {
             baseUrl: this.baseUrl,
             rateLimit: this.rateLimit,
         });
@@ -79,7 +76,7 @@ class XBRLModule extends BaseModule_1.BaseModule {
             // Extract specific fact
             const fact = this.extractFact(facts, xbrlTag, period);
             if (!fact) {
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `XBRL fact not found: ${metric} for CIK ${cik} in period ${period || 'latest'}`);
+                throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `XBRL fact not found: ${metric} for CIK ${cik} in period ${period || 'latest'}`);
             }
             return this.createMetric(metric, fact.value, {
                 source_type: 'xbrl',
@@ -106,7 +103,7 @@ class XBRLModule extends BaseModule_1.BaseModule {
     async getCompanyFacts(cik) {
         // Check cache first
         if (this.factsCache.has(cik)) {
-            logger_1.logger.debug('XBRL facts cache hit', { cik });
+            logger.debug('XBRL facts cache hit', { cik });
             return this.factsCache.get(cik);
         }
         await this.enforceRateLimit();
@@ -121,14 +118,14 @@ class XBRLModule extends BaseModule_1.BaseModule {
             });
             if (!response.ok) {
                 if (response.status === 404) {
-                    throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No XBRL data found for CIK ${cik}`);
+                    throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No XBRL data found for CIK ${cik}`);
                 }
-                throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `SEC XBRL API returned ${response.status}: ${response.statusText}`);
+                throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `SEC XBRL API returned ${response.status}: ${response.statusText}`);
             }
             const data = await response.json();
             // Cache the results
             this.factsCache.set(cik, data);
-            logger_1.logger.info('XBRL facts retrieved', {
+            logger.info('XBRL facts retrieved', {
                 cik: paddedCIK,
                 entityName: data.entityName,
                 factsCount: Object.keys(data.facts || {}).length,
@@ -136,10 +133,10 @@ class XBRLModule extends BaseModule_1.BaseModule {
             return data;
         }
         catch (error) {
-            if (error instanceof types_1.GroundTruthError) {
+            if (error instanceof GroundTruthError) {
                 throw error;
             }
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch XBRL data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            throw new GroundTruthError(ErrorCodes.UPSTREAM_FAILURE, `Failed to fetch XBRL data: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
     /**
@@ -261,9 +258,9 @@ class XBRLModule extends BaseModule_1.BaseModule {
             break; // Use first taxonomy that has data
         }
         if (trendData.periods.length === 0) {
-            throw new types_1.GroundTruthError(types_1.ErrorCodes.NO_DATA_FOUND, `No trend data found for metric ${metric}`);
+            throw new GroundTruthError(ErrorCodes.NO_DATA_FOUND, `No trend data found for metric ${metric}`);
         }
-        logger_1.logger.info('XBRL trend data extracted', {
+        logger.info('XBRL trend data extracted', {
             cik,
             metric,
             periodsCount: trendData.periods.length,
@@ -356,8 +353,7 @@ class XBRLModule extends BaseModule_1.BaseModule {
      */
     clearCache() {
         this.factsCache.clear();
-        logger_1.logger.info('XBRL facts cache cleared');
+        logger.info('XBRL facts cache cleared');
     }
 }
-exports.XBRLModule = XBRLModule;
 //# sourceMappingURL=XBRLModule.js.map
