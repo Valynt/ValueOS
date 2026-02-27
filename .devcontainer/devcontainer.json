@@ -1,62 +1,33 @@
 {
-  "name": "ValueOS Development Environment",
-  "dockerComposeFile": "docker-compose.devcontainer.yml",
-  "service": "dev",
-  "shutdownAction": "stopCompose",
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "name": "ValueOS",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker": {
-      "version": "latest"
+    "ghcr.io/devcontainers/features/node": {
+      "version": "20.19.0"
     },
-    "ghcr.io/devcontainers/features/github-cli": {}
+    "ghcr.io/devcontainers/features/docker-in-docker": {}
   },
-  "forwardPorts": [
-    3001,
-    5173,
-    8000,
-    8001,
-    54323,
-    54324
-  ],
+  "forwardPorts": [5173, 8000, 5432, 6379],
   "portsAttributes": {
-    "3001": {
-      "label": "Frontend (Vite)",
-      "onAutoForward": "notify"
-    },
     "5173": {
       "label": "Vite Dev Server",
       "onAutoForward": "notify"
     },
     "8000": {
-      "label": "Kong Gateway",
-      "onAutoForward": "silent"
+      "label": "Backend API",
+      "onAutoForward": "notify"
     },
-    "8001": {
-      "label": "Kong Admin",
-      "onAutoForward": "silent"
-    },
-    "54323": {
+    "5432": {
       "label": "PostgreSQL",
       "onAutoForward": "silent"
     },
-    "54324": {
-      "label": "Supabase Studio",
+    "6379": {
+      "label": "Redis",
       "onAutoForward": "silent"
     }
   },
   "containerEnv": {
     "NODE_ENV": "development",
-    "NPM_CONFIG_UPDATE_NOTIFIER": "false",
-    "NPM_CONFIG_FUND": "false",
-    "PNPM_HOME": "/home/vscode/.local/share/pnpm",
-    "COREPACK_HOME": "/home/vscode/.cache/corepack",
-    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0",
-    "XDG_CACHE_HOME": "/home/vscode/.cache",
-    "VERSIONS_FILE": ".devcontainer/versions.json",
-    "WORKSPACE_FOLDER": "${containerWorkspaceFolder}"
-  },
-  "remoteUser": "vscode",
-  "onCreateCommand": "bash /opt/devcontainer/scripts/on-create.sh",
-  "postCreateCommand": "WORKSPACE_FOLDER=/workspaces/ValueOS bash /opt/devcontainer/scripts/post-create.sh",
-  "postStartCommand": "bash /opt/devcontainer/scripts/post-start.sh"
+    "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+  }
 }

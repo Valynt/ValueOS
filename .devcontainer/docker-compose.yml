@@ -1,7 +1,0 @@
-# DEPRECATED — canonical compose files live in ops/compose/.
-# Temporary compatibility shim for devcontainer tooling.
-
-include:
-  - ../ops/compose/compose.yml
-  - ../ops/compose/profiles/studio.yml
-  - ../ops/compose/profiles/devcontainer.yml

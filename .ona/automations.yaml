@@ -17,10 +17,6 @@ tasks:
     name: Setup dev tools
     description: Install tsx and other global dev tools.
     command: |
-      export PNPM_HOME="${PNPM_HOME:-/home/node/.local/share/pnpm}"
-      mkdir -p "$PNPM_HOME"
-      export PATH="$PNPM_HOME:$PATH"
-      pnpm config set global-bin-dir "$PNPM_HOME"
       if ! command -v tsx &> /dev/null; then
         pnpm add -g tsx
       fi
