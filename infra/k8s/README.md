@@ -108,11 +108,9 @@ Edit `infra/infra/k8s/overlays/staging/kustomization.yaml`:
 
 ```yaml
 images:
-  - name: REGISTRY_URL/valuecanvas-backend
-    newName: 123456789012.dkr.ecr.us-east-1.amazonaws.com/valuecanvas-backend
+  - name: ghcr.io/valynt/valueos-backend
     newTag: develop
-  - name: REGISTRY_URL/valuecanvas-frontend
-    newName: 123456789012.dkr.ecr.us-east-1.amazonaws.com/valuecanvas-frontend
+  - name: ghcr.io/valynt/valueos-frontend
     newTag: develop
 ```
 

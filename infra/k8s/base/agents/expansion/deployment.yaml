@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: expansion-agent
-        image: valynt/agent-expansion@sha256:FIXME_RUN_crane_digest_valynt_agent-expansion_latest
+        image: ghcr.io/valynt/valueos-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

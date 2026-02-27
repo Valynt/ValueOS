@@ -56,7 +56,7 @@ jobs:
           TF_VAR_domain_name: "staging.valueos.example.com"
           TF_VAR_frontend_image: "ghcr.io/valynt/valueos-frontend:latest"
           TF_VAR_backend_image: "ghcr.io/valynt/valueos-backend:latest"
-          TF_VAR_alert_email: "alerts@valueos.example.com"
-          TF_VAR_slack_webhook_url: "https://hooks.slack.com/services/placeholder"
+          TF_VAR_alert_email: "alerts@valueos.dev"
+          TF_VAR_slack_webhook_url: "https://hooks.slack.com/services/dry-run-placeholder"
         run: terraform plan -input=false -no-color
         continue-on-error: true

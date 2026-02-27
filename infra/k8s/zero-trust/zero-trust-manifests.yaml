@@ -74,7 +74,7 @@ spec:
       serviceAccountName: zero-trust-monitor-sa
       containers:
         - name: monitor
-          image: valueos/zero-trust-monitor@sha256:FIXME_RUN_crane_digest_valueos_zero-trust-monitor_latest
+          image: ghcr.io/valynt/valueos-backend:latest
           ports:
             - containerPort: 8080
           env:
