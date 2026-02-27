@@ -20,7 +20,11 @@ import type {
   PlanAssumption,
   ClarifyOption,
 } from "./types";
-import { resolveTransition, type AgentTransitionEvent } from "./state-machine";
+import {
+  transition,
+  buildTransitionContext,
+  type AgentAction,
+} from "./state-machine";
 import { logger } from "../../../lib/logger";
 
 /**
@@ -72,6 +76,7 @@ function safeTransition(currentPhase: AgentPhase, targetPhase: AgentPhase): Agen
 export interface AgentState {
   // Current phase
   phase: AgentPhase;
+  previousPhase: AgentPhase | null;
 
   // Active run
   runId: string | null;
@@ -122,6 +127,9 @@ export interface AgentState {
 }
 
 export interface AgentActions {
+  // State machine transition (preferred over direct phase mutation)
+  tryTransition: (action: AgentAction) => boolean;
+
   // Event processing
   processEvent: (event: AgentEvent) => void;
 
@@ -135,6 +143,8 @@ export interface AgentActions {
   rejectArtifact: (artifactId: string) => void;
   selectArtifact: (artifactId: string | null) => void;
   restoreCheckpoint: (checkpointId: string) => void;
+  dismissError: () => void;
+  retryFromError: () => void;
 
   // Undo/Redo
   undo: () => void;
@@ -153,6 +163,7 @@ export interface AgentActions {
 
 const initialState: AgentState = {
   phase: "idle",
+  previousPhase: null,
   runId: null,
   isStreaming: false,
   messages: [],
@@ -174,6 +185,18 @@ const MAX_HISTORY = 50; // Maximum undo steps
 
 export const useAgentStore = create<AgentState & AgentActions>()((set, get) => ({
   ...initialState,
+
+  tryTransition: (action: AgentAction): boolean => {
+    const state = get();
+    const ctx = buildTransitionContext(state);
+    const nextPhase = transition(state.phase, action, ctx);
+    if (nextPhase === null) {
+      logger.warn("Invalid state transition", { from: state.phase, action });
+      return false;
+    }
+    set({ previousPhase: state.phase, phase: nextPhase });
+    return true;
+  },
 
   processEvent: (event: AgentEvent) => {
     const processEventAsync = async () => {
@@ -335,18 +358,23 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
             assumptions: event.payload.assumptions,
           };
 
-        case "error":
+        case "error": {
+          const currentState = get();
+          const ctx = buildTransitionContext(currentState);
+          const errorPhase = transition(currentState.phase, "ERROR_OCCURRED", ctx);
           return {
-            ...get(),
+            ...currentState,
             error: {
               code: event.payload.code,
               message: event.payload.message,
               recoverable: event.payload.recoverable,
               suggestions: event.payload.suggestions,
             },
-            isStreaming: event.payload.recoverable ? get().isStreaming : false,
-            phase: event.payload.recoverable ? get().phase : safeTransition(get().phase, "idle"),
+            isStreaming: false,
+            phase: errorPhase ?? currentState.phase,
+            previousPhase: errorPhase ? currentState.phase : currentState.previousPhase,
           };
+        }
 
         default:
           return get();
@@ -382,6 +410,8 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
   },
 
   approvePlan: () => {
+    const transitioned = get().tryTransition("PLAN_APPROVED");
+    if (!transitioned) return;
     set((state) => {
       const newSteps: WorkflowStepState[] =
         state.steps.length > 0
@@ -389,14 +419,15 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
               idx === 0 ? { ...step, status: "running" as const, startedAt: Date.now() } : step
             )
           : state.steps;
-      return { ...state, phase: safeTransition(state.phase, "execute"), steps: newSteps };
+      return { ...state, steps: newSteps };
     });
   },
 
   rejectPlan: () => {
+    const transitioned = get().tryTransition("PLAN_REJECTED");
+    if (!transitioned) return;
     set((state) => ({
       ...state,
-      phase: safeTransition(state.phase, "idle"),
       planId: null,
       steps: [],
       assumptions: [],
@@ -446,15 +477,29 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
     logger.info("Restoring checkpoint:", checkpointId);
   },
 
+  dismissError: () => {
+    get().tryTransition("ERROR_DISMISSED");
+    set({ error: null });
+  },
+
+  retryFromError: () => {
+    const transitioned = get().tryTransition("ERROR_RECOVERED");
+    if (transitioned) {
+      set({ error: null });
+    }
+  },
+
   startRun: (runId: string) => {
     set({ runId, isStreaming: true, error: null });
   },
 
   cancelRun: () => {
-    set({ isStreaming: false, phase: "idle" });
+    get().tryTransition("CANCEL");
+    set({ isStreaming: false });
   },
 
   reset: () => {
+    get().tryTransition("RESET");
     set(initialState);
   },
 
@@ -467,6 +512,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
       // Create snapshot without history to avoid circular reference
       const snapshot: AgentState = {
         phase: state.phase,
+        previousPhase: state.previousPhase,
         runId: state.runId,
         isStreaming: state.isStreaming,
         messages: [...state.messages],
@@ -541,7 +587,8 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
       messages,
       artifacts: artifacts || state.artifacts,
       activeArtifactId: artifacts ? Object.keys(artifacts)[0] || null : state.activeArtifactId,
-      phase: "idle",
+      phase: messages.length > 0 ? "resume" : "idle",
+      previousPhase: state.phase,
       isStreaming: false,
       error: null,
     }));

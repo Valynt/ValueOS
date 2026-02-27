@@ -1,222 +1,203 @@
 /**
- * 7-State Agent UI Machine
+ * Agent Workspace State Machine
  *
- * Maps agent cognitive states to UI phases with validated transitions.
- * Each state has a color, animation class, and set of allowed transitions.
+ * Defines the 7-state machine for agent interactions:
  *
- * States: idle → clarify → plan → execute → review → finalize → resume
- * Error is an overlay state reachable from any active phase.
+ *   idle ──► plan ──► execute ──► review ──► finalize
+ *    ▲        │         │          │           │
+ *    │        ▼         ▼          ▼           │
+ *    │      clarify   error ◄─── (any) ───────┘
+ *    │        │         │
+ *    └────────┴─────────┘
+ *    └──── resume ──────┘
+ *
+ * Each transition has a named action and optional guard.
  */
 
-import type { AgentPhase } from "./types";
+import type { AgentPhase } from './types';
 
-// ─── Transition Events ───────────────────────────────────────────────
-
-export type AgentTransitionEvent =
-  | "START"              // idle → clarify | plan
-  | "NEED_CLARIFICATION" // any → clarify
-  | "CLARIFIED"          // clarify → plan
-  | "PLAN_READY"         // clarify → plan, execute → plan (re-plan)
-  | "PLAN_APPROVED"      // plan → execute
-  | "PLAN_REJECTED"      // plan → idle
-  | "EXECUTION_DONE"     // execute → review
-  | "NEED_INPUT"         // execute → clarify
-  | "APPROVED"           // review → finalize
-  | "REVISION_NEEDED"    // review → plan
-  | "FINALIZED"          // finalize → idle
-  | "SESSION_RESTORED"   // resume → idle | clarify | plan | execute
-  | "RESUME_SESSION"     // idle → resume
-  | "ERROR"              // any → error (overlay)
-  | "RETRY"              // error → previous phase
-  | "RESET";             // any → idle
-
-// ─── State Metadata ──────────────────────────────────────────────────
-
-export interface AgentStateConfig {
-  phase: AgentPhase;
-  label: string;
-  color: string;           // Tailwind bg class
-  textColor: string;       // Tailwind text class
-  borderColor: string;     // Tailwind border class
-  animationClass: string;  // Tailwind animation class for the state indicator
-  description: string;
-}
-
-export const AGENT_STATE_CONFIG: Record<AgentPhase, AgentStateConfig> = {
-  idle: {
-    phase: "idle",
-    label: "Ready",
-    color: "bg-primary/10",
-    textColor: "text-primary",
-    borderColor: "border-primary/20",
-    animationClass: "animate-breathe",
-    description: "Waiting for input",
-  },
-  clarify: {
-    phase: "clarify",
-    label: "Clarifying",
-    color: "bg-warning/10",
-    textColor: "text-warning-700",
-    borderColor: "border-warning/30",
-    animationClass: "animate-pulse-subtle",
-    description: "Resolving ambiguity",
-  },
-  plan: {
-    phase: "plan",
-    label: "Planning",
-    color: "bg-blue-50",
-    textColor: "text-blue-700",
-    borderColor: "border-blue-200",
-    animationClass: "animate-card-reveal",
-    description: "Showing execution plan",
-  },
-  execute: {
-    phase: "execute",
-    label: "Executing",
-    color: "bg-success/10",
-    textColor: "text-success-700",
-    borderColor: "border-success/30",
-    animationClass: "animate-scan-beam",
-    description: "Processing actively",
-  },
-  review: {
-    phase: "review",
-    label: "Review",
-    color: "bg-violet-50",
-    textColor: "text-violet-700",
-    borderColor: "border-violet-200",
-    animationClass: "animate-fade-in",
-    description: "Comparing results",
-  },
-  finalize: {
-    phase: "finalize",
-    label: "Complete",
-    color: "bg-success/10",
-    textColor: "text-success-700",
-    borderColor: "border-success/30",
-    animationClass: "animate-check-draw",
-    description: "Persisting to fabric",
-  },
-  resume: {
-    phase: "resume",
-    label: "Restoring",
-    color: "bg-cyan-50",
-    textColor: "text-cyan-700",
-    borderColor: "border-cyan-200",
-    animationClass: "animate-context-restore",
-    description: "Restoring context",
-  },
-};
-
-// ─── Transition Table ────────────────────────────────────────────────
+// Actions that trigger state transitions
+export type AgentAction =
+  | 'SEND_MESSAGE'
+  | 'PLAN_PROPOSED'
+  | 'PLAN_APPROVED'
+  | 'PLAN_REJECTED'
+  | 'CLARIFY_REQUESTED'
+  | 'CLARIFY_ANSWERED'
+  | 'EXECUTION_COMPLETE'
+  | 'ARTIFACT_PROPOSED'
+  | 'ARTIFACT_APPROVED'
+  | 'ARTIFACT_REJECTED'
+  | 'ALL_ARTIFACTS_REVIEWED'
+  | 'FINALIZE_COMPLETE'
+  | 'ERROR_OCCURRED'
+  | 'ERROR_RECOVERED'
+  | 'ERROR_DISMISSED'
+  | 'SESSION_RESTORED'
+  | 'RESUME_COMPLETE'
+  | 'CANCEL'
+  | 'RESET';
 
 interface Transition {
   from: AgentPhase;
-  event: AgentTransitionEvent;
   to: AgentPhase;
+  action: AgentAction;
+  guard?: (context: TransitionContext) => boolean;
 }
 
+export interface TransitionContext {
+  hasArtifacts: boolean;
+  hasPendingArtifacts: boolean;
+  hasCheckpoints: boolean;
+  errorRecoverable: boolean;
+  isStreaming: boolean;
+}
+
+// Valid transitions — the single source of truth for state flow
 const TRANSITIONS: Transition[] = [
-  // From idle
-  { from: "idle", event: "START", to: "clarify" },
-  { from: "idle", event: "PLAN_READY", to: "plan" },
-  { from: "idle", event: "RESUME_SESSION", to: "resume" },
+  // idle → plan: user sends a message, agent proposes a plan
+  { from: 'idle', to: 'plan', action: 'PLAN_PROPOSED' },
+  // idle → clarify: agent needs more info before planning
+  { from: 'idle', to: 'clarify', action: 'CLARIFY_REQUESTED' },
+  // idle → execute: direct execution (skip plan for simple queries)
+  { from: 'idle', to: 'execute', action: 'SEND_MESSAGE' },
 
-  // From clarify
-  { from: "clarify", event: "CLARIFIED", to: "plan" },
-  { from: "clarify", event: "PLAN_READY", to: "plan" },
-  { from: "clarify", event: "RESET", to: "idle" },
+  // plan → execute: user approves the plan
+  { from: 'plan', to: 'execute', action: 'PLAN_APPROVED' },
+  // plan → idle: user rejects the plan
+  { from: 'plan', to: 'idle', action: 'PLAN_REJECTED' },
+  // plan → clarify: agent needs clarification on plan details
+  { from: 'plan', to: 'clarify', action: 'CLARIFY_REQUESTED' },
 
-  // From plan
-  { from: "plan", event: "PLAN_APPROVED", to: "execute" },
-  { from: "plan", event: "PLAN_REJECTED", to: "idle" },
-  { from: "plan", event: "NEED_CLARIFICATION", to: "clarify" },
-  { from: "plan", event: "RESET", to: "idle" },
+  // clarify → plan: user answers, agent refines plan
+  { from: 'clarify', to: 'plan', action: 'PLAN_PROPOSED' },
+  // clarify → execute: user answers, agent proceeds directly
+  { from: 'clarify', to: 'execute', action: 'CLARIFY_ANSWERED' },
+  // clarify → idle: user cancels
+  { from: 'clarify', to: 'idle', action: 'CANCEL' },
 
-  // From execute
-  { from: "execute", event: "EXECUTION_DONE", to: "review" },
-  { from: "execute", event: "NEED_INPUT", to: "clarify" },
-  { from: "execute", event: "PLAN_READY", to: "plan" },
-  { from: "execute", event: "RESET", to: "idle" },
+  // execute → review: execution complete, artifacts ready for review
+  {
+    from: 'execute', to: 'review', action: 'EXECUTION_COMPLETE',
+    guard: (ctx) => ctx.hasArtifacts,
+  },
+  // execute → idle: execution complete, no artifacts to review
+  {
+    from: 'execute', to: 'idle', action: 'EXECUTION_COMPLETE',
+    guard: (ctx) => !ctx.hasArtifacts,
+  },
+  // execute → clarify: agent needs more info mid-execution
+  { from: 'execute', to: 'clarify', action: 'CLARIFY_REQUESTED' },
 
-  // From review
-  { from: "review", event: "APPROVED", to: "finalize" },
-  { from: "review", event: "REVISION_NEEDED", to: "plan" },
-  { from: "review", event: "RESET", to: "idle" },
+  // review → finalize: all artifacts approved
+  {
+    from: 'review', to: 'finalize', action: 'ALL_ARTIFACTS_REVIEWED',
+    guard: (ctx) => !ctx.hasPendingArtifacts,
+  },
+  // review → execute: user rejects artifact, agent re-executes
+  { from: 'review', to: 'execute', action: 'ARTIFACT_REJECTED' },
+  // review → idle: user cancels review
+  { from: 'review', to: 'idle', action: 'CANCEL' },
 
-  // From finalize
-  { from: "finalize", event: "FINALIZED", to: "idle" },
-  { from: "finalize", event: "RESET", to: "idle" },
+  // finalize → idle: finalization complete
+  { from: 'finalize', to: 'idle', action: 'FINALIZE_COMPLETE' },
 
-  // From resume
-  { from: "resume", event: "SESSION_RESTORED", to: "idle" },
-  { from: "resume", event: "CLARIFIED", to: "plan" },
-  { from: "resume", event: "PLAN_READY", to: "plan" },
-  { from: "resume", event: "PLAN_APPROVED", to: "execute" },
-  { from: "resume", event: "RESET", to: "idle" },
+  // error → previous state: recoverable error resolved
+  { from: 'error', to: 'idle', action: 'ERROR_DISMISSED' },
+  { from: 'error', to: 'execute', action: 'ERROR_RECOVERED', guard: (ctx) => ctx.errorRecoverable },
+  { from: 'error', to: 'idle', action: 'ERROR_RECOVERED', guard: (ctx) => !ctx.errorRecoverable },
+
+  // resume → idle: session restored
+  { from: 'resume', to: 'idle', action: 'RESUME_COMPLETE' },
+  // resume → execute: resume mid-execution
+  { from: 'resume', to: 'execute', action: 'SESSION_RESTORED' },
+
+  // Any state → error (except error itself)
+  { from: 'idle', to: 'error', action: 'ERROR_OCCURRED' },
+  { from: 'plan', to: 'error', action: 'ERROR_OCCURRED' },
+  { from: 'execute', to: 'error', action: 'ERROR_OCCURRED' },
+  { from: 'clarify', to: 'error', action: 'ERROR_OCCURRED' },
+  { from: 'review', to: 'error', action: 'ERROR_OCCURRED' },
+  { from: 'finalize', to: 'error', action: 'ERROR_OCCURRED' },
+
+  // Any state → idle via RESET
+  { from: 'plan', to: 'idle', action: 'RESET' },
+  { from: 'execute', to: 'idle', action: 'RESET' },
+  { from: 'clarify', to: 'idle', action: 'RESET' },
+  { from: 'review', to: 'idle', action: 'RESET' },
+  { from: 'finalize', to: 'idle', action: 'RESET' },
+  { from: 'error', to: 'idle', action: 'RESET' },
+  { from: 'resume', to: 'idle', action: 'RESET' },
 ];
 
-// Build a lookup map for O(1) transition checks
-const transitionMap = new Map<string, AgentPhase>();
-for (const t of TRANSITIONS) {
-  transitionMap.set(`${t.from}:${t.event}`, t.to);
-}
-
-// ─── Machine API ─────────────────────────────────────────────────────
-
-export interface TransitionResult {
-  success: boolean;
-  from: AgentPhase;
-  to: AgentPhase;
-  event: AgentTransitionEvent;
-}
-
 /**
- * Check if a transition is valid from the given phase.
+ * Attempt a state transition. Returns the new phase if valid, null if not.
  */
-export function canTransition(from: AgentPhase, event: AgentTransitionEvent): boolean {
-  return transitionMap.has(`${from}:${event}`);
-}
-
-/**
- * Resolve the target phase for a transition. Returns null if invalid.
- */
-export function resolveTransition(
-  from: AgentPhase,
-  event: AgentTransitionEvent
+export function transition(
+  currentPhase: AgentPhase,
+  action: AgentAction,
+  context: TransitionContext
 ): AgentPhase | null {
-  return transitionMap.get(`${from}:${event}`) ?? null;
-}
+  const candidates = TRANSITIONS.filter(
+    (t) => t.from === currentPhase && t.action === action
+  );
 
-/**
- * Get all valid events from a given phase.
- */
-export function getValidEvents(from: AgentPhase): AgentTransitionEvent[] {
-  const events: AgentTransitionEvent[] = [];
-  for (const t of TRANSITIONS) {
-    if (t.from === from) {
-      events.push(t.event);
+  if (candidates.length === 0) return null;
+
+  // Find first transition whose guard passes (or has no guard)
+  for (const t of candidates) {
+    if (!t.guard || t.guard(context)) {
+      return t.to;
     }
   }
-  return events;
+
+  return null;
 }
 
 /**
- * Get the state config for a phase.
+ * Check if a transition is valid without executing it.
  */
-export function getStateConfig(phase: AgentPhase): AgentStateConfig {
-  return AGENT_STATE_CONFIG[phase];
+export function canTransition(
+  currentPhase: AgentPhase,
+  action: AgentAction,
+  context: TransitionContext
+): boolean {
+  return transition(currentPhase, action, context) !== null;
 }
 
 /**
- * All phases in order.
+ * Get all valid actions from the current phase.
  */
-export const PHASE_ORDER: AgentPhase[] = [
-  "idle",
-  "clarify",
-  "plan",
-  "execute",
-  "review",
-  "finalize",
-  "resume",
-];
+export function getValidActions(
+  currentPhase: AgentPhase,
+  context: TransitionContext
+): AgentAction[] {
+  const actions = new Set<AgentAction>();
+  for (const t of TRANSITIONS) {
+    if (t.from === currentPhase && (!t.guard || t.guard(context))) {
+      actions.add(t.action);
+    }
+  }
+  return Array.from(actions);
+}
+
+/**
+ * Build a TransitionContext from the current agent state.
+ */
+export function buildTransitionContext(state: {
+  artifacts: Record<string, { status: string }>;
+  checkpoints: unknown[];
+  error: { recoverable: boolean } | null;
+  isStreaming: boolean;
+}): TransitionContext {
+  const artifactValues = Object.values(state.artifacts);
+  return {
+    hasArtifacts: artifactValues.length > 0,
+    hasPendingArtifacts: artifactValues.some(
+      (a) => a.status === 'proposed' || a.status === 'draft'
+    ),
+    hasCheckpoints: state.checkpoints.length > 0,
+    errorRecoverable: state.error?.recoverable ?? false,
+    isStreaming: state.isStreaming,
+  };
+}

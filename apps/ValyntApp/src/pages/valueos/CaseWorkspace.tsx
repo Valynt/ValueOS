@@ -12,11 +12,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Send,
-  CheckCircle2,
-  Circle,
-  PlayCircle,
   Clock,
-  AlertCircle,
   Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -56,7 +52,16 @@ import { KPICards, type KPIData } from "@/features/workspace/components/KPICards
 import { ShareModal } from "@/features/workspace/components/ShareModal";
 import { exportToPdf } from "@/features/workspace/services/exportPdf";
 
-// Agent Chat
+// Agent state UI components
+import {
+  PlanApprovalGate,
+  ExecuteStreamingPanel,
+  ClarifyPanel,
+  ReviewDiffPanel,
+  FinalizePanel,
+  ErrorRecoveryModal,
+  ResumePanel,
+} from "@/features/workspace/components/states";
 
 // Value Drivers
 import { ValueDriverSelector } from "@/components/value-drivers";
@@ -107,11 +112,16 @@ export function CaseWorkspace() {
     approveArtifact,
     rejectArtifact,
     selectArtifact,
+    dismissError,
+    retryFromError,
     reset,
     undo,
     redo,
     saveSnapshot,
     loadSession,
+    cancelRun,
+    tryTransition,
+    previousPhase,
   } = useAgentStore();
 
   const activeArtifact = useAgentStore(selectActiveArtifact);
@@ -285,6 +295,10 @@ export function CaseWorkspace() {
         return { label: "Review", color: "bg-emerald-100 text-emerald-700" };
       case "finalize":
         return { label: "Complete", color: "bg-emerald-100 text-emerald-700" };
+      case "error":
+        return { label: "Error", color: "bg-red-100 text-red-700" };
+      case "resume":
+        return { label: "Resuming", color: "bg-slate-100 text-slate-600" };
       default:
         return { label: phase, color: "bg-slate-100 text-slate-600" };
     }
@@ -384,18 +398,24 @@ export function CaseWorkspace() {
               </div>
             )}
 
-            {/* Clarify question */}
-            {pendingQuestion && (
-              <ClarifyCard
+            {/* Clarify state */}
+            {phase === "clarify" && pendingQuestion && (
+              <ClarifyPanel
                 question={pendingQuestion.question}
                 options={pendingQuestion.options || []}
-                onSelect={handleOptionSelect}
+                defaultOption={pendingQuestion.defaultOption}
+                allowFreeform={pendingQuestion.allowFreeform}
+                onSelectOption={handleOptionSelect}
+                onSubmitFreeform={(text) => {
+                  sendAgentMessage(text);
+                }}
+                onCancel={() => cancelRun()}
               />
             )}
 
-            {/* Plan card */}
+            {/* Plan state — approval gate */}
             {phase === "plan" && steps.length > 0 && (
-              <PlanCard
+              <PlanApprovalGate
                 steps={steps}
                 assumptions={assumptions}
                 onApprove={handleApprovePlan}
@@ -404,17 +424,61 @@ export function CaseWorkspace() {
               />
             )}
 
-            {/* Execution progress */}
+            {/* Execute state — streaming progress */}
             {phase === "execute" && steps.length > 0 && (
-              <ExecutionCard steps={steps} progress={overallProgress} />
+              <ExecuteStreamingPanel
+                steps={steps}
+                progress={overallProgress}
+                streamingContent={streamingContent}
+                isStreaming={isStreaming}
+                onCancel={() => cancelRun()}
+              />
             )}
 
-            {/* Error display */}
-            {error && (
-              <ErrorCard
-                message={error.message}
-                suggestions={error.suggestions}
-                onRetry={() => reset()}
+            {/* Review state — artifact diff */}
+            {phase === "review" && (
+              <ReviewDiffPanel
+                artifacts={artifactList}
+                activeArtifactId={activeArtifactId}
+                onSelectArtifact={selectArtifact}
+                onApproveArtifact={(id) => {
+                  saveSnapshot();
+                  approveArtifact(id);
+                }}
+                onRejectArtifact={(id) => {
+                  saveSnapshot();
+                  rejectArtifact(id);
+                }}
+                onApproveAll={() => {
+                  saveSnapshot();
+                  artifactList.forEach((a) => {
+                    if (a.status === "proposed" || a.status === "draft") {
+                      approveArtifact(a.id);
+                    }
+                  });
+                  tryTransition("ALL_ARTIFACTS_REVIEWED");
+                }}
+                onCancel={() => cancelRun()}
+              />
+            )}
+
+            {/* Finalize state */}
+            {phase === "finalize" && (
+              <FinalizePanel
+                artifacts={artifactList}
+                onExport={handleExport}
+                onShare={() => setShowShareModal(true)}
+                onDone={() => tryTransition("FINALIZE_COMPLETE")}
+              />
+            )}
+
+            {/* Resume state */}
+            {phase === "resume" && (
+              <ResumePanel
+                messages={messages}
+                artifacts={artifactList}
+                onContinue={() => tryTransition("RESUME_COMPLETE")}
+                onStartFresh={() => reset()}
               />
             )}
 
@@ -553,6 +617,19 @@ export function CaseWorkspace() {
         />
       )}
 
+      {/* Error Recovery Modal — overlays everything */}
+      {phase === "error" && error && (
+        <ErrorRecoveryModal
+          code={error.code}
+          message={error.message}
+          recoverable={error.recoverable}
+          suggestions={error.suggestions}
+          previousPhase={previousPhase}
+          onRetry={retryFromError}
+          onDismiss={dismissError}
+        />
+      )}
+
       {/* Share Modal */}
       <ShareModal
         isOpen={showShareModal}
@@ -593,172 +670,6 @@ function MessageBubble({ message }: { message: ConversationMessage }) {
         )}
       </div>
     </div>
-  );
-}
-
-// Clarify question card
-function ClarifyCard({
-  question,
-  options,
-  onSelect,
-}: {
-  question: string;
-  options: Array<{ id: string; label: string; description?: string }>;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <Card className="p-4 bg-white border-primary/20 shadow-sm">
-      <div className="text-xs font-semibold text-primary mb-2">CLARIFICATION NEEDED</div>
-      <p className="text-sm text-slate-700 mb-3">{question}</p>
-      <div className="flex flex-wrap gap-2">
-        {options.map((option) => (
-          <button
-            key={option.id}
-            onClick={() => onSelect(option.id)}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-primary border border-slate-200 hover:border-primary/30 rounded-lg text-xs font-medium transition-colors"
-            title={option.description}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-// Plan card
-function PlanCard({
-  steps,
-  assumptions,
-  onApprove,
-  onReject,
-  onUpdateAssumption,
-}: {
-  steps: WorkflowStepState[];
-  assumptions: Array<{ id: string; label: string; value: string | number; editable: boolean }>;
-  onApprove: () => void;
-  onReject: () => void;
-  onUpdateAssumption: (id: string, value: string | number) => void;
-}) {
-  return (
-    <Card className="p-4 bg-white border-amber-200 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold text-amber-700">PROPOSED PLAN</div>
-        <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">Review</Badge>
-      </div>
-
-      {/* Steps */}
-      <div className="space-y-2 mb-4">
-        {steps.map((step, index) => (
-          <div key={step.id} className="flex items-center gap-2 text-sm">
-            <span className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-xs font-medium text-slate-600">
-              {index + 1}
-            </span>
-            <span className="text-slate-700">{step.label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Assumptions */}
-      {assumptions.length > 0 && (
-        <div className="border-t border-slate-100 pt-3 mb-4">
-          <div className="text-xs font-medium text-slate-500 mb-2">Assumptions</div>
-          <div className="space-y-1">
-            {assumptions.map((asm) => (
-              <div key={asm.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">{asm.label}</span>
-                <span className="font-medium text-slate-800">{asm.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={onReject} className="flex-1">
-          Reject
-        </Button>
-        <Button size="sm" onClick={onApprove} className="flex-1">
-          Approve & Execute
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-// Execution progress card
-function ExecutionCard({ steps, progress }: { steps: WorkflowStepState[]; progress: number }) {
-  return (
-    <Card className="p-4 bg-white border-purple-200 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-xs font-semibold text-purple-700">EXECUTING</div>
-        <span className="text-xs text-slate-500">{progress}% complete</span>
-      </div>
-
-      {/* Progress bar */}
-      <div className="w-full h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
-        <div
-          className="h-full bg-purple-500 rounded-full transition-all duration-500"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Steps */}
-      <div className="space-y-2">
-        {steps.map((step) => (
-          <div key={step.id} className="flex items-center gap-2">
-            <div className="w-5 flex justify-center">
-              {step.status === "completed" && (
-                <CheckCircle2 size={16} className="text-emerald-500" />
-              )}
-              {step.status === "running" && (
-                <PlayCircle size={16} className="text-purple-500 animate-pulse" />
-              )}
-              {step.status === "pending" && <Circle size={16} className="text-slate-300" />}
-              {step.status === "error" && <AlertCircle size={16} className="text-red-500" />}
-            </div>
-            <span
-              className={cn(
-                "text-sm",
-                step.status === "pending" ? "text-slate-400" : "text-slate-700"
-              )}
-            >
-              {step.label}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-// Error card
-function ErrorCard({
-  message,
-  suggestions,
-  onRetry,
-}: {
-  message: string;
-  suggestions?: string[];
-  onRetry: () => void;
-}) {
-  return (
-    <Card className="p-4 bg-red-50 border-red-200 shadow-sm">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-        <div className="flex-1">
-          <div className="text-sm font-medium text-red-800 mb-1">Something went wrong</div>
-          <p className="text-sm text-red-600 mb-3">{message}</p>
-          {suggestions && suggestions.length > 0 && (
-            <div className="text-xs text-red-500 mb-3">Try: {suggestions.join(" or ")}</div>
-          )}
-          <Button variant="outline" size="sm" onClick={onRetry}>
-            Try Again
-          </Button>
-        </div>
-      </div>
-    </Card>
   );
 }
 
