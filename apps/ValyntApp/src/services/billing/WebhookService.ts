@@ -16,6 +16,14 @@ const logger = createLogger({ component: 'WebhookService' });
 /** Stripe signature tolerance: reject events older than this (seconds). */
 const SIGNATURE_TIMESTAMP_TOLERANCE_S = 300;
 
+/** Strips key/token/secret patterns from error messages before persistence. */
+function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/\b(key|token|secret|password|credential)[=:]\S+/gi, '[REDACTED]')
+    .replace(/\b(sk_live|sk_test|whsec_)\w+/g, '[REDACTED]')
+    .slice(0, 500);
+}
+
 function initSupabaseClient() {
   try {
     return getSupabaseClient();
@@ -29,10 +37,9 @@ function initSupabaseClient() {
 const supabase = initSupabaseClient();
 
 class WebhookService {
-  private stripe: any;
+  private stripe: unknown;
 
   constructor() {
-    // Initialize Stripe service only if billing is configured
     try {
       this.stripe = StripeService.getInstance().getClient();
     } catch (error) {
@@ -53,7 +60,8 @@ class WebhookService {
 
     let event: Record<string, unknown>;
     try {
-      event = this.stripe.webhooks.constructEvent(
+      const stripeClient = this.stripe as { webhooks: { constructEvent: (p: string | Buffer, s: string, secret: string) => Record<string, unknown> } };
+      event = stripeClient.webhooks.constructEvent(
         payload,
         signature,
         STRIPE_CONFIG.webhookSecret
@@ -64,7 +72,7 @@ class WebhookService {
     }
 
     // Freshness check: reject events with stale timestamps
-    this.validateEventFreshness(signature, event);
+    this.validateEventFreshnessInternal(signature, event);
 
     return event;
   }
@@ -72,19 +80,17 @@ class WebhookService {
   /**
    * Validate that the event timestamp is within acceptable skew.
    * Uses the `t=` component from the Stripe signature header and falls back
-   * to the event `created` field.
+   * to the event `created` field. Throws on stale events.
    */
-  private validateEventFreshness(signature: string, event: Record<string, unknown>): void {
+  private validateEventFreshnessInternal(signature: string, event: Record<string, unknown>): void {
     const nowSeconds = Math.floor(Date.now() / 1000);
 
-    // Extract timestamp from signature header (t=<unix_seconds>)
     let eventTimestamp: number | undefined;
     const tMatch = signature.match(/t=(\d+)/);
     if (tMatch) {
       eventTimestamp = parseInt(tMatch[1], 10);
     }
 
-    // Fallback to event.created
     if (!eventTimestamp && typeof event.created === 'number') {
       eventTimestamp = event.created;
     }
@@ -104,9 +110,44 @@ class WebhookService {
   }
 
   /**
+   * Public freshness check for testing. Returns boolean instead of throwing.
+   */
+  validateEventFreshness(event: Record<string, unknown>, signatureHeader?: string): boolean {
+    let eventTimestamp: number | undefined;
+
+    if (signatureHeader) {
+      const match = signatureHeader.match(/t=(\d+)/);
+      if (match) {
+        eventTimestamp = parseInt(match[1], 10);
+      }
+    }
+
+    if (!eventTimestamp && typeof event.created === 'number') {
+      eventTimestamp = event.created as number;
+    }
+
+    if (!eventTimestamp) {
+      return true;
+    }
+
+    const ageSeconds = Math.floor(Date.now() / 1000) - eventTimestamp;
+    if (ageSeconds > SIGNATURE_TIMESTAMP_TOLERANCE_S) {
+      logger.warn('Stale webhook event rejected', {
+        eventId: event.id,
+        ageSeconds,
+        maxAge: SIGNATURE_TIMESTAMP_TOLERANCE_S,
+      });
+      recordWebhookRejection('stale_timestamp');
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Process webhook event
    */
-  async processEvent(event: any): Promise<void> {
+  async processEvent(event: Record<string, unknown>): Promise<void> {
     if (!supabase) {
       throw new Error('Supabase billing not configured');
     }
@@ -117,13 +158,14 @@ class WebhookService {
       return;
     }
 
+    const eventType = event.type as string;
     logger.info('Processing webhook event', {
       eventId: event.id,
-      type: event.type
+      type: eventType,
     });
 
     try {
-      switch (event.type) {
+      switch (eventType) {
         case 'invoice.created':
         case 'invoice.finalized':
         case 'invoice.updated':
@@ -156,26 +198,23 @@ class WebhookService {
           break;
 
         default:
-          logger.info('Unhandled event type', { type: event.type });
+          logger.info('Unhandled event type', { type: eventType });
       }
 
-      // Mark as processed
-      await this.markEventProcessed(event.id);
-      recordStripeWebhook(event.type, 'processed');
+      await this.markEventProcessed(event.id as string);
+      recordStripeWebhook(eventType, 'processed');
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error processing webhook event', error instanceof Error ? error : undefined, { eventId: event.id });
-      recordStripeWebhook(event.type, 'failed');
-      recordBillingJobFailure('stripe_webhook', (error as Error).message);
-      await this.markEventFailed(event.id, (error as Error).message);
+      recordStripeWebhook(eventType, 'failed');
+      recordBillingJobFailure('stripe_webhook', errorMsg);
+      await this.markEventFailed(event.id as string, errorMsg);
       throw error;
     }
   }
 
-  /**
-   * Store webhook event
-   */
-  private async storeWebhookEvent(event: any): Promise<boolean> {
-    const { count, error } = await supabase
+  private async storeWebhookEvent(event: Record<string, unknown>): Promise<boolean> {
+    const { count, error } = await supabase!
       .from('webhook_events')
       .insert(
         {
@@ -193,7 +232,8 @@ class WebhookService {
       );
 
     if (error) {
-      if ((error as any).code === '23505') {
+      const pgError = error as { code?: string };
+      if (pgError.code === '23505') {
         logger.info('Duplicate webhook event insert conflict; treating as idempotent replay', {
           eventId: event.id,
         });
@@ -213,11 +253,8 @@ class WebhookService {
     return true;
   }
 
-  /**
-   * Mark event as processed
-   */
   private async markEventProcessed(eventId: string): Promise<void> {
-    await supabase
+    await supabase!
       .from('webhook_events')
       .update({
         processed: true,
@@ -232,12 +269,9 @@ class WebhookService {
    */
   private async markEventFailed(eventId: string, errorMessage: string): Promise<void> {
     try {
-      // Sanitize: keep only the first 500 chars, strip anything that looks like a key/token
-      const safeMessage = errorMessage
-        .replace(/(?:key|token|secret|password)[=:\s]+\S+/gi, '[REDACTED]')
-        .slice(0, 500);
+      const safeMessage = sanitizeErrorMessage(errorMessage);
 
-      const { data: existing, error: fetchErr } = await supabase
+      const { data: existing, error: fetchErr } = await supabase!
         .from('webhook_events')
         .select('retry_count')
         .eq('stripe_event_id', eventId)
@@ -250,7 +284,7 @@ class WebhookService {
       const current = (existing && (existing as Record<string, unknown>).retry_count) || 0;
       const newCount = Number(current) + 1;
 
-      const { error: updateErr } = await supabase
+      const { error: updateErr } = await supabase!
         .from('webhook_events')
         .update({
           error_message: safeMessage,
@@ -269,64 +303,54 @@ class WebhookService {
     }
   }
 
-  /**
-   * Handle invoice events
-   */
-  private async handleInvoiceEvent(event: any): Promise<void> {
-    const invoice = event.data.object;
+  private async handleInvoiceEvent(event: Record<string, unknown>): Promise<void> {
+    const data = event.data as { object: Record<string, unknown> };
+    const invoice = data.object;
     await InvoiceService.storeInvoice(invoice);
     logger.info('Invoice event processed', { invoiceId: invoice.id });
-    recordInvoiceEvent(event.type);
+    recordInvoiceEvent(event.type as string);
   }
 
-  /**
-   * Handle payment succeeded
-   */
-  private async handlePaymentSucceeded(event: any): Promise<void> {
-    const invoice = event.data.object;
+  private async handlePaymentSucceeded(event: Record<string, unknown>): Promise<void> {
+    const data = event.data as { object: Record<string, unknown> };
+    const invoice = data.object;
 
-    // Update invoice status
     await InvoiceService.updateInvoice(invoice);
 
-    // Update customer status to active
-    const { data: customer } = await supabase
+    const { data: customer } = await supabase!
       .from('billing_customers')
       .select('tenant_id')
-      .eq('stripe_customer_id', invoice.customer)
+      .eq('stripe_customer_id', invoice.customer as string)
       .single();
 
     if (customer) {
-      await supabase
+      await supabase!
         .from('billing_customers')
         .update({ status: 'active' })
-        .eq('tenant_id', customer.tenant_id);
+        .eq('tenant_id', (customer as { tenant_id: string }).tenant_id);
     }
 
     logger.info('Payment succeeded processed', { invoiceId: invoice.id });
-    recordInvoiceEvent(event.type);
+    recordInvoiceEvent(event.type as string);
   }
 
-  /**
-   * Handle payment failed
-   */
-  private async handlePaymentFailed(event: any): Promise<void> {
-    const invoice = event.data.object;
+  private async handlePaymentFailed(event: Record<string, unknown>): Promise<void> {
+    const data = event.data as { object: Record<string, unknown> };
+    const invoice = data.object;
 
-    // Update invoice
     await InvoiceService.updateInvoice(invoice);
 
-    // Get customer and create alert
-    const { data: customer } = await supabase
+    const { data: customer } = await supabase!
       .from('billing_customers')
       .select('tenant_id')
-      .eq('stripe_customer_id', invoice.customer)
+      .eq('stripe_customer_id', invoice.customer as string)
       .single();
 
     if (customer) {
-      // Create payment failed alert
-      await supabase.from('usage_alerts').insert({
-        tenant_id: customer.tenant_id,
-        metric: 'api_calls', // Generic metric for payment alerts
+      const tenantId = (customer as { tenant_id: string }).tenant_id;
+      await supabase!.from('usage_alerts').insert({
+        tenant_id: tenantId,
+        metric: 'api_calls',
         threshold_percentage: 100,
         current_usage: 0,
         quota_amount: 0,
@@ -336,81 +360,70 @@ class WebhookService {
       });
 
       logger.warn('Payment failed', {
-        tenantId: customer.tenant_id,
-        invoiceId: invoice.id
+        tenantId,
+        invoiceId: invoice.id,
       });
     }
-    recordInvoiceEvent(event.type);
+    recordInvoiceEvent(event.type as string);
   }
 
-  /**
-   * Handle subscription updated
-   */
-  private async handleSubscriptionUpdated(event: any): Promise<void> {
-    const subscription = event.data.object;
+  private async handleSubscriptionUpdated(event: Record<string, unknown>): Promise<void> {
+    const data = event.data as { object: Record<string, unknown> };
+    const subscription = data.object;
 
-    // Update subscription in database
-    await supabase
+    await supabase!
       .from('subscriptions')
       .update({
         status: subscription.status,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        current_period_start: new Date((subscription.current_period_start as number) * 1000).toISOString(),
+        current_period_end: new Date((subscription.current_period_end as number) * 1000).toISOString(),
         canceled_at: subscription.canceled_at
-          ? new Date(subscription.canceled_at * 1000).toISOString()
+          ? new Date((subscription.canceled_at as number) * 1000).toISOString()
           : null,
         updated_at: new Date().toISOString(),
       })
-      .eq('stripe_subscription_id', subscription.id);
+      .eq('stripe_subscription_id', subscription.id as string);
 
     logger.info('Subscription updated', { subscriptionId: subscription.id });
   }
 
-  /**
-   * Handle subscription deleted
-   */
-  private async handleSubscriptionDeleted(event: any): Promise<void> {
-    const subscription = event.data.object;
+  private async handleSubscriptionDeleted(event: Record<string, unknown>): Promise<void> {
+    const data = event.data as { object: Record<string, unknown> };
+    const subscription = data.object;
 
-    // Update subscription status
-    await supabase
+    await supabase!
       .from('subscriptions')
       .update({
         status: 'canceled',
         ended_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('stripe_subscription_id', subscription.id);
+      .eq('stripe_subscription_id', subscription.id as string);
 
-    // Get customer and update status
-    const { data: sub } = await supabase
+    const { data: sub } = await supabase!
       .from('subscriptions')
       .select('tenant_id')
-      .eq('stripe_subscription_id', subscription.id)
+      .eq('stripe_subscription_id', subscription.id as string)
       .single();
 
     if (sub) {
-      await supabase
+      await supabase!
         .from('billing_customers')
         .update({ status: 'cancelled' })
-        .eq('tenant_id', sub.tenant_id);
+        .eq('tenant_id', (sub as { tenant_id: string }).tenant_id);
     }
 
     logger.info('Subscription deleted', { subscriptionId: subscription.id });
   }
 
-  /**
-   * Handle charge succeeded
-   */
-  private async handleChargeSucceeded(event: any): Promise<void> {
-    logger.info('Charge succeeded', { chargeId: event.data.object.id });
+  private async handleChargeSucceeded(event: Record<string, unknown>): Promise<void> {
+    const data = event.data as { object: Record<string, unknown> };
+    logger.info('Charge succeeded', { chargeId: data.object.id });
   }
 
-  /**
-   * Handle charge failed
-   */
-  private async handleChargeFailed(event: any): Promise<void> {
-    logger.warn('Charge failed', { chargeId: event.data.object.id });
+  private async handleChargeFailed(event: Record<string, unknown>): Promise<void> {
+    const data = event.data as { object: Record<string, unknown> };
+    logger.warn('Charge failed', { chargeId: data.object.id });
   }
 }
 

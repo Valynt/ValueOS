@@ -5,9 +5,10 @@
  * DLQ moves preserve full audit context.
  */
 
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import WebhookService from './WebhookService';
 import { createLogger } from '../../lib/logger';
-import { getSupabaseClient } from '../../lib/supabase';
+import { getSupabaseServerConfig } from '../../lib/env';
 
 const logger = createLogger({ component: 'WebhookRetryService' });
 
@@ -15,9 +16,20 @@ const MAX_RETRIES = 5;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 3600000; // 1 hour
 
-function initSupabaseClient() {
+/** Strips key/token/secret patterns from error messages before persistence. */
+function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/\b(key|token|secret|password|credential)[=:]\S+/gi, '[REDACTED]')
+    .replace(/\b(sk_live|sk_test|whsec_)\w+/g, '[REDACTED]')
+    .slice(0, 500);
+}
+
+function initSupabaseClient(): SupabaseClient | null {
   try {
-    return getSupabaseClient();
+    const { url, serviceRoleKey } = getSupabaseServerConfig();
+    if (url && serviceRoleKey) {
+      return createClient(url, serviceRoleKey);
+    }
   } catch {
     // safe to ignore in browser context
   }
@@ -111,9 +123,8 @@ class WebhookRetryService {
     } catch (error) {
       const retryCount = event.retry_count + 1;
       const nextRetry = this.calculateNextRetry(retryCount);
-      const safeMessage = (error instanceof Error ? error.message : 'Unknown error')
-        .replace(/(?:key|token|secret|password)[=:\s]+\S+/gi, '[REDACTED]')
-        .slice(0, 500);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      const safeMessage = sanitizeErrorMessage(errorMsg);
 
       logger.error('Webhook event retry failed', error instanceof Error ? error : undefined, {
         eventId: event.stripe_event_id,
@@ -185,7 +196,7 @@ class WebhookRetryService {
   private async moveToDeadLetterQueue(
     event: WebhookEvent,
     lastError?: string,
-    finalRetryCount?: number
+    finalRetryCount?: number,
   ): Promise<void> {
     if (!supabase) throw new Error('Supabase not configured');
 
@@ -260,7 +271,7 @@ class WebhookRetryService {
     const dlqEvent = event as Record<string, unknown>;
 
     try {
-      await WebhookService.processEvent(dlqEvent.payload);
+      await WebhookService.processEvent(dlqEvent.payload as Record<string, unknown>);
 
       // Remove from DLQ only after successful processing
       await supabase
