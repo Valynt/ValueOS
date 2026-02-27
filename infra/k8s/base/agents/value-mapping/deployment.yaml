@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: value-mapping-agent
-        image: valynt/agent-value-mapping@sha256:FIXME_RUN_crane_digest_valynt_agent-value-mapping_latest
+        image: ghcr.io/valynt/valueos-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

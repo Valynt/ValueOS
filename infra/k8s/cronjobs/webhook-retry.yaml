@@ -44,7 +44,7 @@ spec:
 
           containers:
           - name: webhook-retry
-            image: valynt/api@sha256:FIXME_RUN_crane_digest_valynt_api_latest
+            image: ghcr.io/valynt/valueos-backend:latest
             imagePullPolicy: Always
 
             command:
@@ -154,7 +154,7 @@ spec:
 
           containers:
           - name: grace-period-cleanup
-            image: valynt/api@sha256:FIXME_RUN_crane_digest_valynt_api_latest
+            image: ghcr.io/valynt/valueos-backend:latest
             imagePullPolicy: Always
 
             command:

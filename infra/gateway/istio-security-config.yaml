@@ -31,7 +31,7 @@ spec:
       - ECDHE-ECDSA-AES256-GCM-SHA384
       - ECDHE-RSA-AES256-GCM-SHA384
     hosts:
-    - "valuecanvas.example.com"
+    - "app.valynt.com"
   
   # HTTP (redirect to HTTPS)
   - port:
@@ -39,7 +39,7 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "valuecanvas.example.com"
+    - "app.valynt.com"
     tls:
       httpsRedirect: true
 
@@ -54,7 +54,7 @@ metadata:
   namespace: valuecanvas
 spec:
   hosts:
-  - "valuecanvas.example.com"
+  - "app.valynt.com"
   gateways:
   - valuecanvas-gateway
   http:
@@ -216,8 +216,9 @@ spec:
     matchLabels:
       app: backend
   jwtRules:
-  - issuer: "https://your-supabase-project.supabase.co/auth/v1"
-    jwksUri: "https://your-supabase-project.supabase.co/auth/v1/jwks"
+  # Replace with your Supabase project URL from the project dashboard.
+  - issuer: ""
+    jwksUri: ""
     audiences:
     - "authenticated"
 
@@ -258,7 +259,7 @@ spec:
 # kubectl get gateway -n valuecanvas
 #
 # Verify security headers:
-# curl -I https://valuecanvas.example.com/ | grep -Ei 'content-security-policy|strict-transport-security'
+# curl -I https://app.valynt.com/ | grep -Ei 'content-security-policy|strict-transport-security'
 #
 # Check mTLS status:
 # istioctl authn tls-check backend-service.valuecanvas.svc.cluster.local

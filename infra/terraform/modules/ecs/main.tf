@@ -1,4 +1,6 @@
 # ECS cluster module — Fargate cluster with Container Insights
+# NOTE: Active deploys use K8s (infra/k8s/ + .github/workflows/deploy.yml).
+# This module is retained for supporting infra and future migration reference.
 
 variable "name_prefix" { type = string }
 variable "tags" { type = map(string) }

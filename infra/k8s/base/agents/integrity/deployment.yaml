@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: integrity-agent
-        image: valynt/agent-integrity@sha256:FIXME_RUN_crane_digest_valynt_agent-integrity_latest
+        image: ghcr.io/valynt/valueos-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

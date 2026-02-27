@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: narrative-agent
-        image: valynt/agent-narrative@sha256:FIXME_RUN_crane_digest_valynt_agent-narrative_latest
+        image: ghcr.io/valynt/valueos-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

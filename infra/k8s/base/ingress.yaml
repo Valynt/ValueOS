@@ -30,11 +30,11 @@ metadata:
         }
       }
     
-    # Certificate ARN (replace with actual value)
-    alb.ingress.kubernetes.io/certificate-arn: "CERTIFICATE_ARN_PLACEHOLDER"
-    
-    # WAF (optional)
-    # alb.ingress.kubernetes.io/wafv2-acl-arn: "WAF_ARN_PLACEHOLDER"
+    # Certificate ARN — set via overlay patches per environment.
+    # Staging: infra/k8s/overlays/staging/ingress-patch.yaml
+    # Production: infra/k8s/overlays/production/ingress-patch.yaml
+    # alb.ingress.kubernetes.io/certificate-arn: ""
+    # alb.ingress.kubernetes.io/wafv2-acl-arn: ""
     
     # Tags
     alb.ingress.kubernetes.io/tags: Environment=production,Application=valynt

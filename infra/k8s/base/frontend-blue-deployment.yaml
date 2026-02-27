@@ -39,7 +39,7 @@ spec:
 
       containers:
         - name: frontend
-          image: REGISTRY_URL/valynt-frontend@sha256:FIXME_RUN_crane_digest_REGISTRY_URL_valynt-frontend_latest
+          image: ghcr.io/valynt/valueos-frontend:latest
           imagePullPolicy: Always
 
           env:

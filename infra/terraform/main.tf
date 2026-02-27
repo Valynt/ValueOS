@@ -1,5 +1,13 @@
-# ValueOS Production Infrastructure
-# One-click deployment with Terraform
+# ValueOS Production Infrastructure — Terraform (ECS Fargate)
+#
+# STATUS: The active deploy pipeline uses Kubernetes (kustomize + kubectl).
+# See: .github/workflows/deploy.yml and infra/k8s/
+#
+# These ECS modules provision supporting infrastructure (VPC, RDS, ElastiCache,
+# CloudFront, monitoring) that the K8s cluster depends on. The ECS service
+# modules are retained for reference but are NOT used by the deploy workflow.
+# To switch to ECS, update deploy.yml to use `aws ecs update-service` instead
+# of kubectl.
 
 terraform {
   required_version = ">= 1.0"

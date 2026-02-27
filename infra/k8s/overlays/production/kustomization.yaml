@@ -15,6 +15,7 @@ patches:
   - path: deployment-patch.yaml
   - path: external-secrets-vault-patch.yaml
   - path: remove-placeholder-secrets.yaml
+  - path: ingress-patch.yaml
 
 replicas:
   - name: backend-blue
@@ -23,9 +24,9 @@ replicas:
     count: 2
 
 images:
-  - name: REGISTRY_URL/valynt-backend
+  - name: ghcr.io/valynt/valueos-backend
     newTag: latest
-  - name: REGISTRY_URL/valynt-frontend
+  - name: ghcr.io/valynt/valueos-frontend
     newTag: latest
 
 configMapGenerator:

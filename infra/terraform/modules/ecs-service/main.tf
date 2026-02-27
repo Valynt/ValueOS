@@ -1,4 +1,6 @@
 # ECS service module — Fargate task definition, service, ALB, target group, health checks
+# NOTE: Active deploys use K8s (infra/k8s/ + .github/workflows/deploy.yml).
+# This module is retained for supporting infra and future migration reference.
 
 variable "name_prefix" { type = string }
 variable "cluster_id" { type = string }

@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: outcome-engineer-agent
-        image: valynt/agent-outcome-engineer@sha256:FIXME_RUN_crane_digest_valynt_agent-outcome-engineer_latest
+        image: ghcr.io/valynt/valueos-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
