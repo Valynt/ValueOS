@@ -240,14 +240,34 @@ export const ValueHypothesisSchema = z.object({
   estimatedValue: z.number().refine((n) => !Number.isNaN(n), { message: 'estimatedValue must not be NaN' }).optional(),
 });
 
+export const ValueDriverSchema = z.object({
+  metric: z.string(),
+  value: z.number().refine((n) => !Number.isNaN(n), { message: 'driver value must not be NaN' }),
+  unit: z.string(),
+  timeBasis: z.enum(['monthly', 'quarterly', 'annual', 'one-time']).optional(),
+  assumptions: z.array(z.string()).optional(),
+  citations: z.array(z.string()).optional(),
+});
+
+export const ValueRangeSchema = z.object({
+  low: z.number(),
+  high: z.number(),
+});
+
 export const ValueTreeNodeSchema: z.ZodType<ValueTreeNode> = z.lazy(() =>
   z.object({
     id: z.string(),
     label: z.string(),
     value: z.number().refine((n) => !Number.isNaN(n), { message: 'node value must not be NaN' }),
+    currency: z.string().optional(),
+    timeBasis: z.enum(['monthly', 'quarterly', 'annual', 'one-time']).optional(),
+    range: ValueRangeSchema.optional(),
     formula: z.string().optional(),
     confidenceScore: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
+    assumptions: z.array(z.string()),
+    dependencies: z.array(z.string()),
     citations: z.array(z.string()),
+    drivers: z.array(ValueDriverSchema),
     children: z.array(ValueTreeNodeSchema).optional(),
   })
 );

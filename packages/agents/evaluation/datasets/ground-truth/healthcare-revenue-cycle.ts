@@ -188,7 +188,10 @@ export const valueTree: ValueTree = {
       value: 26_500_000,
       formula: 'node_denials + node_beds + node_cash',
       confidenceScore: 0.72,
+      assumptions: ['All child node assumptions hold'],
+      dependencies: [],
       citations: ['ev_201', 'ev_202', 'ev_203', 'ev_204', 'ev_205', 'ev_206'],
+      drivers: [],
       children: [
         {
           id: 'node_denials',
@@ -196,7 +199,10 @@ export const valueTree: ValueTree = {
           value: 13_500_000,
           formula: '$45M * (12% - 5%) / 12% = $26.25M potential; conservative 50% capture = $13.5M',
           confidenceScore: 0.80,
+          assumptions: ['Current denial rate of 12%', 'Target denial rate of 5%', 'Conservative 50% capture rate'],
+          dependencies: [],
           citations: ['ev_201', 'ev_202', 'ev_203'],
+          drivers: [{ metric: 'denial_rate_reduction', value: 7, unit: 'percentage_points' }],
         },
         {
           id: 'node_beds',
@@ -204,7 +210,10 @@ export const valueTree: ValueTree = {
           value: 8_200_000,
           formula: '800 beds * 10pp utilization increase * $2,800 avg daily revenue * 365 / 1000',
           confidenceScore: 0.70,
+          assumptions: ['10 percentage point utilization increase achievable', 'Average daily revenue of $2,800'],
+          dependencies: ['node_denials'],
           citations: ['ev_201', 'ev_204', 'ev_206'],
+          drivers: [{ metric: 'bed_utilization_increase', value: 10, unit: 'percentage_points' }],
         },
         {
           id: 'node_cash',
@@ -212,7 +221,10 @@ export const valueTree: ValueTree = {
           value: 4_800_000,
           formula: '($680M / 365) * (45 - 20 days) * 2.8% cost of capital',
           confidenceScore: 0.65,
+          assumptions: ['DSO reduction from 45 to 20 days', 'Cost of capital at 2.8%'],
+          dependencies: [],
           citations: ['ev_201', 'ev_205'],
+          drivers: [{ metric: 'dso_reduction', value: 25, unit: 'days' }],
         },
       ],
     },
