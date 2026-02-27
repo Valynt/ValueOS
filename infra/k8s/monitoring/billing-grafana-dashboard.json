@@ -1,0 +1,174 @@
+{
+  "dashboard": {
+    "title": "ValueOS Billing Operations",
+    "tags": ["billing", "usage", "stripe", "invoicing"],
+    "timezone": "UTC",
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Usage Aggregation — Records Processed",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(billing_usage_records_aggregated_total[5m])",
+            "legendFormat": "aggregated/s"
+          },
+          {
+            "expr": "billing_usage_records_unaggregated",
+            "legendFormat": "backlog"
+          }
+        ],
+        "yaxes": [{ "label": "Records", "format": "short" }]
+      },
+      {
+        "id": 2,
+        "title": "Usage Aggregation — Job Duration",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(billing_usage_aggregation_duration_seconds_bucket[15m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(billing_usage_aggregation_duration_seconds_bucket[15m]))",
+            "legendFormat": "p50"
+          }
+        ],
+        "yaxes": [{ "label": "Seconds", "format": "s" }]
+      },
+      {
+        "id": 3,
+        "title": "Stripe Submissions",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(billing_stripe_submission_total[5m])",
+            "legendFormat": "success/s"
+          },
+          {
+            "expr": "rate(billing_stripe_submission_errors_total[5m])",
+            "legendFormat": "errors/s"
+          }
+        ],
+        "yaxes": [{ "label": "Submissions/sec", "format": "reqps" }]
+      },
+      {
+        "id": 4,
+        "title": "Stripe Submission Latency",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(billing_stripe_submission_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(billing_stripe_submission_duration_seconds_bucket[5m]))",
+            "legendFormat": "p50"
+          }
+        ],
+        "yaxes": [{ "label": "Seconds", "format": "s" }]
+      },
+      {
+        "id": 5,
+        "title": "Webhook Processing",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "rate(billing_webhook_processing_total[5m])",
+            "legendFormat": "processed/s"
+          },
+          {
+            "expr": "rate(billing_webhook_processing_errors_total[5m])",
+            "legendFormat": "errors/s"
+          },
+          {
+            "expr": "billing_webhook_retry_queue_size",
+            "legendFormat": "retry queue"
+          }
+        ],
+        "yaxes": [{ "label": "Count", "format": "short" }]
+      },
+      {
+        "id": 6,
+        "title": "Approval Requests",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "billing_approval_requests_pending_total",
+            "legendFormat": "pending"
+          },
+          {
+            "expr": "increase(billing_approval_requests_expired_total[24h])",
+            "legendFormat": "expired (24h)"
+          },
+          {
+            "expr": "increase(billing_approval_requests_approved_total[24h])",
+            "legendFormat": "approved (24h)"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Invoice Generation",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "rate(billing_invoice_generation_total[1h])",
+            "legendFormat": "generated/s"
+          },
+          {
+            "expr": "rate(billing_invoice_generation_errors_total[1h])",
+            "legendFormat": "errors/s"
+          }
+        ],
+        "yaxes": [{ "label": "Invoices/sec", "format": "reqps" }]
+      },
+      {
+        "id": 8,
+        "title": "Quota Usage by Tenant (Top 10)",
+        "type": "bargauge",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+        "targets": [
+          {
+            "expr": "topk(10, billing_tenant_quota_usage_ratio)",
+            "legendFormat": "{{ tenant_id }} — {{ metric }}"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Cronjob Status",
+        "type": "table",
+        "gridPos": { "h": 6, "w": 24, "x": 0, "y": 32 },
+        "targets": [
+          {
+            "expr": "kube_cronjob_status_last_schedule_time{cronjob=~\"usage-aggregation|approval-cleanup|webhook-retry|grace-period-cleanup\"}",
+            "legendFormat": "{{ cronjob }}",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Feature Flag Rollout Status",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 24, "x": 0, "y": 38 },
+        "targets": [
+          {
+            "expr": "billing_feature_flag_rollout_percentage",
+            "legendFormat": "{{ flag_key }}"
+          }
+        ]
+      }
+    ]
+  }
+}

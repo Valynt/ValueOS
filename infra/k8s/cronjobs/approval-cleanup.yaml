@@ -1,0 +1,97 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: approval-cleanup
+  labels:
+    app: valynt
+    component: billing
+    job-type: approval-cleanup
+spec:
+  # Run daily at 4 AM UTC
+  schedule: "0 4 * * *"
+
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+
+  concurrencyPolicy: Forbid
+
+  startingDeadlineSeconds: 300
+
+  jobTemplate:
+    metadata:
+      labels:
+        app: valynt
+        component: billing
+        job-type: approval-cleanup
+    spec:
+      backoffLimit: 1
+
+      # Job timeout: 10 minutes
+      activeDeadlineSeconds: 600
+
+      template:
+        metadata:
+          labels:
+            app: valynt
+            component: billing
+            job-type: approval-cleanup
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "9090"
+        spec:
+          restartPolicy: OnFailure
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            fsGroup: 1001
+
+          containers:
+          - name: approval-cleanup
+            image: ghcr.io/valynt/valueos-backend:latest
+            imagePullPolicy: Always
+
+            command:
+            - node
+            - scripts/jobs/approval-cleanup.js
+            - --expire-days=7
+            - --retain-days=90
+
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-credentials
+                  key: url
+
+            - name: VITE_SUPABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: supabase-url
+
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-credentials
+                  key: service-role-key
+
+            - name: NODE_ENV
+              value: "production"
+
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 1001
+              capabilities:
+                drop:
+                  - ALL
