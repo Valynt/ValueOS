@@ -3,7 +3,7 @@ import { logger } from '@shared/lib/logger';
 import { rateLimiters } from '../middleware/rateLimiter.js'
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
-import { validateRequest } from '../middleware/inputValidation.js'
+import { validateRequest, type ValidationSchema } from '../middleware/inputValidation.js'
 import { requirePermission } from '../middleware/rbac.js'
 import { requireAuth } from '../middleware/auth.js'
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
@@ -15,9 +15,9 @@ router.use(serviceIdentityMiddleware);
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
 router.use(tenantDbContextMiddleware());
-router.use(requirePermission('agents.execute'));
+router.use(requirePermission('agents:execute'));
 
-const workflowExplainParamsSchema = {
+const workflowExplainParamsSchema: ValidationSchema = {
   executionId: { type: 'string', required: true, minLength: 1, maxLength: 100 },
   stepId: { type: 'string', required: true, minLength: 1, maxLength: 100 },
 };

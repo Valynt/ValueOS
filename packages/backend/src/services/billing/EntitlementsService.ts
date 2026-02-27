@@ -200,7 +200,7 @@ export class EntitlementsService {
         .gt('quantity', quota);
 
       if (error) {
-        logger.warn('Error checking grace period', error);
+        logger.warn('Error checking grace period', { message: error.message, code: error.code });
         return { allowed: false };
       }
 
@@ -216,6 +216,9 @@ export class EntitlementsService {
 
       // Check if still within grace window
       const lastOverage = recentOverages[recentOverages.length - 1];
+      if (!lastOverage) {
+        return { allowed: false };
+      }
       const hoursSince = (Date.now() - new Date(lastOverage.timestamp).getTime()) / (1000 * 60 * 60);
 
       if (hoursSince < GRACE_PERIOD_HOURS && requestedUsage <= graceLimit) {
@@ -247,7 +250,7 @@ export class EntitlementsService {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      logger.warn('Error fetching current usage', error);
+      logger.warn('Error fetching current usage', { message: error.message, code: error.code });
       return 0;
     }
 

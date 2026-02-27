@@ -16,6 +16,10 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
   ...meta,
 });
 
+function getStripeClient() {
+  return StripeService.getInstance().getClient();
+}
+
 interface CreatePaymentMethodRequest {
   type: 'card' | 'bank_account';
   card?: {
@@ -57,22 +61,26 @@ interface UpdatePaymentMethodRequest {
  * GET /api/billing/payment-methods
  * List payment methods for tenant
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
-    // Get customer from tenant
     const customer = await CustomerService.getCustomerByTenantId(tenantId);
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      res.status(404).json({ error: 'Customer not found' });
+      return;
     }
 
-    // Get payment methods from Stripe
-    const paymentMethods = await StripeService.listPaymentMethods(customer.stripe_customer_id);
+    const stripe = getStripeClient();
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customer.stripe_customer_id,
+      type: 'card',
+    });
 
     res.json({
       payment_methods: paymentMethods.data.map(pm => ({
@@ -100,28 +108,31 @@ router.get('/', async (req: Request, res: Response) => {
  * POST /api/billing/payment-methods
  * Create new payment method
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const { type, card, billing_details }: CreatePaymentMethodRequest = req.body;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     if (!type || (type === 'card' && !card)) {
-      return res.status(400).json({ error: 'Payment method details required' });
+      res.status(400).json({ error: 'Payment method details required' });
+      return;
     }
 
-    // Get customer from tenant
     const customer = await CustomerService.getCustomerByTenantId(tenantId);
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      res.status(404).json({ error: 'Customer not found' });
+      return;
     }
 
-    // Create payment method in Stripe
-    const paymentMethod = await StripeService.createPaymentMethod({
-      type,
+    const stripe = getStripeClient();
+
+    const paymentMethod = await stripe.paymentMethods.create({
+      type: type === 'bank_account' ? 'us_bank_account' : type,
       card,
       billing_details: {
         ...billing_details,
@@ -130,14 +141,17 @@ router.post('/', async (req: Request, res: Response) => {
       }
     });
 
-    // Attach to customer
-    await StripeService.attachPaymentMethod(customer.stripe_customer_id, paymentMethod.id);
+    await stripe.paymentMethods.attach(paymentMethod.id, {
+      customer: customer.stripe_customer_id,
+    });
 
-    // If this is the first payment method, make it default
-    const existingMethods = await StripeService.listPaymentMethods(customer.stripe_customer_id);
+    const existingMethods = await stripe.paymentMethods.list({
+      customer: customer.stripe_customer_id,
+      type: 'card',
+    });
     if (existingMethods.data.length === 1) {
-      await StripeService.updateCustomer(customer.stripe_customer_id, {
-        default_payment_method: paymentMethod.id
+      await stripe.customers.update(customer.stripe_customer_id, {
+        invoice_settings: { default_payment_method: paymentMethod.id },
       });
     }
 
@@ -164,24 +178,25 @@ router.post('/', async (req: Request, res: Response) => {
  * PUT /api/billing/payment-methods/:id
  * Update payment method
  */
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
-    const paymentMethodId = req.params.id;
+    const paymentMethodId = req.params.id ?? "";
     const { billing_details }: UpdatePaymentMethodRequest = req.body;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
-    // Get customer from tenant
     const customer = await CustomerService.getCustomerByTenantId(tenantId);
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      res.status(404).json({ error: 'Customer not found' });
+      return;
     }
 
-    // Update payment method in Stripe
-    const paymentMethod = await StripeService.updatePaymentMethod(paymentMethodId, {
+    const stripe = getStripeClient();
+    const paymentMethod = await stripe.paymentMethods.update(paymentMethodId, {
       billing_details
     });
 
@@ -201,23 +216,24 @@ router.put('/:id', async (req: Request, res: Response) => {
  * DELETE /api/billing/payment-methods/:id
  * Delete payment method
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
-    const paymentMethodId = req.params.id;
+    const paymentMethodId = req.params.id ?? "";
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
-    // Get customer from tenant
     const customer = await CustomerService.getCustomerByTenantId(tenantId);
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      res.status(404).json({ error: 'Customer not found' });
+      return;
     }
 
-    // Detach from customer (soft delete)
-    await StripeService.detachPaymentMethod(paymentMethodId);
+    const stripe = getStripeClient();
+    await stripe.paymentMethods.detach(paymentMethodId);
 
     res.json({ deleted: true });
   } catch (error) {
@@ -230,24 +246,25 @@ router.delete('/:id', async (req: Request, res: Response) => {
  * PUT /api/billing/payment-methods/:id/default
  * Set payment method as default
  */
-router.put('/:id/default', async (req: Request, res: Response) => {
+router.put('/:id/default', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
-    const paymentMethodId = req.params.id;
+    const paymentMethodId = req.params.id ?? "";
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
-    // Get customer from tenant
     const customer = await CustomerService.getCustomerByTenantId(tenantId);
     if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
+      res.status(404).json({ error: 'Customer not found' });
+      return;
     }
 
-    // Update default payment method
-    await StripeService.updateCustomer(customer.stripe_customer_id, {
-      default_payment_method: paymentMethodId
+    const stripe = getStripeClient();
+    await stripe.customers.update(customer.stripe_customer_id, {
+      invoice_settings: { default_payment_method: paymentMethodId },
     });
 
     res.json({ default_payment_method: paymentMethodId });

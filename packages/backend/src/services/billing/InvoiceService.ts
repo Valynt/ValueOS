@@ -254,11 +254,11 @@ class InvoiceService {
    */
   async downloadInvoicePDF(invoiceId: string): Promise<string> {
     const invoice = await this.getInvoiceById(invoiceId);
-    if (!invoice || !invoice.invoice_pdf_url) {
+    if (!invoice || !invoice.invoice_pdf) {
       throw new Error("Invoice PDF not available");
     }
 
-    return invoice.invoice_pdf_url;
+    return invoice.invoice_pdf;
   }
 }
 

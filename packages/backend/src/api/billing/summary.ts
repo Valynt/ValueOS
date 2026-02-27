@@ -21,12 +21,13 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  * GET /api/billing/summary
  * Get tenant billing overview
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // Get current subscription
@@ -40,7 +41,7 @@ router.get('/', async (req: Request, res: Response) => {
     try {
       upcomingInvoice = await InvoiceService.getUpcomingInvoice(tenantId);
     } catch (error) {
-      logger.warn('Could not fetch upcoming invoice', { error: error.message });
+      logger.warn('Could not fetch upcoming invoice', { error: error instanceof Error ? error.message : String(error) });
     }
 
     // Get recent invoices
@@ -58,7 +59,7 @@ router.get('/', async (req: Request, res: Response) => {
       } : null,
       usage: usageSummary,
       upcoming_invoice: upcomingInvoice,
-      recent_invoices: recentInvoices.invoices || [],
+      recent_invoices: recentInvoices ?? [],
       generated_at: new Date().toISOString()
     };
 

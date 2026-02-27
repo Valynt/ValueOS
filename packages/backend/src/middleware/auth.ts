@@ -22,7 +22,7 @@ export interface AuthenticatedRequest extends Request {
 }
 import { authService } from '../services/AuthService.js'
 import { AuthenticationError } from '../services/errors.js'
-import { createLogger } from '@shared/lib/logger';
+import { createLogger, LogContext } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
 import { createRequestSupabaseClient, getSupabaseClient } from '@shared/lib/supabase';
 import { getEnvVar } from '@shared/lib/env';
@@ -59,8 +59,18 @@ type AuthUser = {
 };
 
 type AuthSession = {
+  access_token?: string;
+  token_type?: string;
   expires_at?: number;
   expires_in?: number;
+  user?: AuthUser;
+};
+
+/** Result of verifyAccessToken / verifyTokenWithSupabase / verifyTokenLocally */
+type VerifiedAuth = {
+  user: AuthUser;
+  session: AuthSession;
+  claims: JwtPayload;
 };
 
 function allowLocalJwtFallback(): boolean {
@@ -79,7 +89,7 @@ function isFallbackEmergencyModeEnabled(): boolean {
   const ttlUntil = getEnvVar(AUTH_FALLBACK_EMERGENCY_TTL_UNTIL);
   if (!ttlUntil) {
     if (!isDevelopmentEnvironment()) {
-      logger.error('Fallback emergency mode requires explicit TTL in non-dev environments', {
+      logger.error('Fallback emergency mode requires explicit TTL in non-dev environments', undefined, {
         flag: AUTH_FALLBACK_EMERGENCY_TTL_UNTIL,
       });
       return false;
@@ -90,7 +100,7 @@ function isFallbackEmergencyModeEnabled(): boolean {
 
   const ttlDate = new Date(ttlUntil);
   if (Number.isNaN(ttlDate.getTime())) {
-    logger.error('Invalid fallback TTL timestamp; refusing local JWT fallback', {
+    logger.error('Invalid fallback TTL timestamp; refusing local JWT fallback', undefined, {
       flag: AUTH_FALLBACK_EMERGENCY_TTL_UNTIL,
       value: sanitizeForLogging(ttlUntil),
     });
@@ -193,7 +203,7 @@ async function isTokenRevoked(token: string, claims: JwtPayload): Promise<boolea
     const revokedCount = await redis.exists(revocationKeys);
     return revokedCount > 0;
   } catch (error) {
-    logger.warn('Revocation check failed during fallback validation', sanitizeForLogging(error));
+    logger.warn('Revocation check failed during fallback validation', sanitizeForLogging(error) as LogContext);
     return false;
   }
 }
@@ -204,12 +214,12 @@ function recordFallbackActivation(alertContext: Record<string, unknown>) {
   const windowMs = Number(getEnvVar(AUTH_FALLBACK_ALERT_WINDOW_SECONDS) || '300') * 1000;
 
   fallbackActivations.push(now);
-  while (fallbackActivations.length > 0 && fallbackActivations[0] < now - windowMs) {
+  while (fallbackActivations.length > 0 && (fallbackActivations[0] ?? 0) < now - windowMs) {
     fallbackActivations.shift();
   }
 
   if (fallbackActivations.length >= threshold) {
-    logger.error('High-severity alert: JWT fallback usage spike detected', {
+    logger.error('High-severity alert: JWT fallback usage spike detected', undefined, {
       severity: 'critical',
       threshold,
       activationsInWindow: fallbackActivations.length,
@@ -234,7 +244,7 @@ async function emitFallbackAuditEvent(context: {
     fallbackMode: true,
   };
 
-  logger.error('Emergency JWT fallback activated', details);
+  logger.error('Emergency JWT fallback activated', undefined, details);
   recordFallbackActivation(details);
 
   try {
@@ -254,7 +264,7 @@ async function emitFallbackAuditEvent(context: {
       },
     });
   } catch (error) {
-    logger.error('Failed to persist fallback activation audit event', sanitizeForLogging(error));
+    logger.error('Failed to persist fallback activation audit event', error instanceof Error ? error : undefined, sanitizeForLogging(error) as LogContext);
   }
 }
 
@@ -302,7 +312,7 @@ function ensureAuthHeader(req: Request, token?: string | null) {
   (req.headers as Record<string, string>).authorization = `Bearer ${token}`;
 }
 
-async function verifyTokenWithSupabase(token: string) {
+async function verifyTokenWithSupabase(token: string): Promise<VerifiedAuth | null> {
   try {
     const supabaseClient = getSupabaseClient();
     const { data, error } = await supabaseClient.auth.getUser(token);
@@ -317,19 +327,27 @@ async function verifyTokenWithSupabase(token: string) {
     }
 
     const session = buildSessionFromClaims(token, claims as JwtPayload);
+    const user: AuthUser = {
+      id: data.user.id,
+      email: data.user.email,
+      role: data.user.role,
+      tenant_id: data.user.app_metadata?.tenant_id as string | undefined,
+      app_metadata: data.user.app_metadata as AuthUser['app_metadata'],
+      user_metadata: data.user.user_metadata,
+    };
 
     return {
-      user: data.user,
+      user,
       session,
       claims: claims as JwtPayload,
     };
   } catch (error) {
-    logger.debug('Supabase token verification unavailable', sanitizeForLogging(error));
+    logger.debug('Supabase token verification unavailable', sanitizeForLogging(error) as LogContext);
     return null;
   }
 }
 
-async function verifyTokenLocally(token: string, context: VerificationContext = {}) {
+async function verifyTokenLocally(token: string, context: VerificationContext = {}): Promise<VerifiedAuth | null> {
   const emergencyModeEnabled = isFallbackEmergencyModeEnabled();
   const devExplicitFallback = isDevelopmentEnvironment() && allowLocalJwtFallback();
 
@@ -380,12 +398,12 @@ async function verifyTokenLocally(token: string, context: VerificationContext = 
     const session = buildSessionFromClaims(token, claims);
     return { user: session.user, session, claims };
   } catch (error) {
-    logger.debug('Local token verification failed', sanitizeForLogging(error));
+    logger.debug('Local token verification failed', sanitizeForLogging(error) as LogContext);
     return null;
   }
 }
 
-export async function verifyAccessToken(token: string, context: VerificationContext = {}) {
+export async function verifyAccessToken(token: string, context: VerificationContext = {}): Promise<VerifiedAuth | null> {
   const supabaseSession = await verifyTokenWithSupabase(token);
   if (supabaseSession) {
     return supabaseSession;
@@ -403,8 +421,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const authHeader = req.headers.authorization;
     const bearerToken = parseBearerToken(authHeader);
 
-    let session = null;
-    let user = null;
+    let session: AuthSession | null = null;
+    let user: AuthUser | null = null;
     let claims: JwtPayload | null = null;
 
     // Try to get session from various sources
@@ -419,9 +437,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       claims = verified.claims ?? null;
     } else {
       // Try to get current session from Supabase (may be from cookies)
-      session = await authService.getSession();
-      if (session?.access_token) {
-        const verified = await verifyAccessToken(session.access_token, { route: req.path, method: req.method });
+      const supabaseSession = await authService.getSession();
+      if (supabaseSession?.access_token) {
+        const verified = await verifyAccessToken(supabaseSession.access_token, { route: req.path, method: req.method });
         if (!verified) {
           throw new AuthenticationError('Invalid or expired token');
         }
@@ -446,18 +464,18 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
     // Add user and session to request for use in handlers
     applyAuthContext(req, user, session, claims);
-    ensureAuthHeader(req, session?.access_token);
+    ensureAuthHeader(req, session.access_token);
     createRequestSupabaseClient(req);
 
     logger.debug('Authentication successful', {
-      userId: sanitizeForLogging(user.id),
-      path: sanitizeForLogging(req.path),
+      userId: sanitizeForLogging(user.id) as string | undefined,
+      path: sanitizeForLogging(req.path) as string | undefined,
       method: req.method
     });
 
     next();
   } catch (error) {
-    logger.error('Authentication middleware error', sanitizeForLogging(error));
+    logger.error('Authentication middleware error', error instanceof Error ? error : undefined, sanitizeForLogging(error) as LogContext);
 
     if (error instanceof AuthenticationError) {
       res.status(401).json({ error: error.message });
@@ -475,8 +493,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
     const bearerToken = parseBearerToken(req.headers.authorization);
-    let session = null;
-    let user = null;
+    let session: AuthSession | null = null;
+    let user: AuthUser | null = null;
     let claims: JwtPayload | null = null;
 
     if (bearerToken) {
@@ -485,25 +503,23 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
       user = verified?.user ?? null;
       claims = verified?.claims ?? null;
     } else {
-      session = await authService.getSession();
-      if (session?.access_token) {
-        const verified = await verifyAccessToken(session.access_token, { route: req.path, method: req.method });
+      const supabaseSession = await authService.getSession();
+      if (supabaseSession?.access_token) {
+        const verified = await verifyAccessToken(supabaseSession.access_token, { route: req.path, method: req.method });
         session = verified?.session ?? null;
         user = verified?.user ?? null;
         claims = verified?.claims ?? null;
-      } else {
-        user = session?.user ?? null;
       }
     }
 
     if (user && session) {
       applyAuthContext(req, user, session, claims);
-      ensureAuthHeader(req, session?.access_token);
+      ensureAuthHeader(req, session.access_token);
       createRequestSupabaseClient(req);
 
       logger.debug('Optional authentication successful', {
-        userId: sanitizeForLogging(user.id),
-        path: sanitizeForLogging(req.path)
+        userId: sanitizeForLogging(user.id) as string | undefined,
+        path: sanitizeForLogging(req.path) as string | undefined
       });
     }
 
