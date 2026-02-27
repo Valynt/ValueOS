@@ -8,6 +8,10 @@ vi.mock('../../services/billing/WebhookService', () => ({
   },
 }));
 
+vi.mock('../../metrics/webhookMetrics', () => ({
+  recordWebhookRejection: vi.fn(),
+}));
+
 import app from '../server';
 import WebhookService from '../../services/billing/WebhookService';
 

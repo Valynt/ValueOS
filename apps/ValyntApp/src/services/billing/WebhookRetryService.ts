@@ -1,25 +1,49 @@
 /**
  * Webhook Retry Service
- * Handles retrying failed webhook events with exponential backoff
+ * Handles retrying failed webhook events with exponential backoff.
+ * Retries reuse the same event identity and update counters atomically.
+ * DLQ moves preserve full audit context.
  */
 
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import WebhookService from './WebhookService';
 import { createLogger } from '../../lib/logger';
-import { getSupabaseClient } from '../../lib/supabase';
+import { getSupabaseServerConfig } from '../../lib/env';
 
 const logger = createLogger({ component: 'WebhookRetryService' });
 
-const supabase = (() => { try { return getSupabaseClient(); } catch { return null as any; } })();
-
 const MAX_RETRIES = 5;
-const INITIAL_BACKOFF_MS = 1000; // 1 second
+const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 3600000; // 1 hour
+
+/** Strips key/token/secret patterns from error messages before persistence. */
+function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/\b(key|token|secret|password|credential)[=:]\S+/gi, '[REDACTED]')
+    .replace(/\b(sk_live|sk_test|whsec_)\w+/g, '[REDACTED]')
+    .slice(0, 500);
+}
+
+function initSupabaseClient(): SupabaseClient | null {
+  try {
+    const { url, serviceRoleKey } = getSupabaseServerConfig();
+    if (url && serviceRoleKey) {
+      return createClient(url, serviceRoleKey);
+    }
+  } catch {
+    // safe to ignore in browser context
+  }
+  logger.warn('WebhookRetryService: Supabase not configured');
+  return null;
+}
+
+const supabase = initSupabaseClient();
 
 interface WebhookEvent {
   id: string;
   stripe_event_id: string;
   event_type: string;
-  payload: any;
+  payload: Record<string, unknown>;
   processed: boolean;
   error_message?: string;
   retry_count: number;
@@ -28,9 +52,6 @@ interface WebhookEvent {
 }
 
 class WebhookRetryService {
-  /**
-   * Calculate next retry time with exponential backoff
-   */
   private calculateNextRetry(retryCount: number): Date {
     const backoffMs = Math.min(
       INITIAL_BACKOFF_MS * Math.pow(2, retryCount),
@@ -39,10 +60,9 @@ class WebhookRetryService {
     return new Date(Date.now() + backoffMs);
   }
 
-  /**
-   * Get failed events ready for retry
-   */
   async getEventsForRetry(): Promise<WebhookEvent[]> {
+    if (!supabase) throw new Error('Supabase not configured');
+
     const { data, error } = await supabase
       .from('webhook_events')
       .select('*')
@@ -57,23 +77,20 @@ class WebhookRetryService {
       throw error;
     }
 
-    return data || [];
+    return (data as WebhookEvent[]) || [];
   }
 
-  /**
-   * Retry a single webhook event
-   */
   async retryEvent(event: WebhookEvent): Promise<boolean> {
+    if (!supabase) throw new Error('Supabase not configured');
+
     try {
       logger.info('Retrying webhook event', {
         eventId: event.stripe_event_id,
         retryCount: event.retry_count,
       });
 
-      // Process the event
       await WebhookService.processEvent(event.payload);
 
-      // Mark as processed
       await supabase
         .from('webhook_events')
         .update({
@@ -91,40 +108,34 @@ class WebhookRetryService {
     } catch (error) {
       const retryCount = event.retry_count + 1;
       const nextRetry = this.calculateNextRetry(retryCount);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
 
-      logger.error('Webhook event retry failed', error as Error, {
+      logger.error('Webhook event retry failed', error instanceof Error ? error : undefined, {
         eventId: event.stripe_event_id,
         retryCount,
         nextRetry: nextRetry.toISOString(),
       });
 
-      // Update retry info
       await supabase
         .from('webhook_events')
         .update({
           retry_count: retryCount,
           next_retry_at: nextRetry.toISOString(),
-          error_message: (error as Error).message,
+          error_message: sanitizeErrorMessage(errorMsg),
         })
         .eq('id', event.id);
 
-      // Check if max retries reached
       if (retryCount >= MAX_RETRIES) {
         logger.error('Max retries reached for webhook event', {
           eventId: event.stripe_event_id,
         });
-
-        // Move to dead letter queue
-        await this.moveToDeadLetterQueue(event);
+        await this.moveToDeadLetterQueue(event, sanitizeErrorMessage(errorMsg), retryCount);
       }
 
       return false;
     }
   }
 
-  /**
-   * Process all events ready for retry
-   */
   async processRetries(): Promise<{
     processed: number;
     succeeded: number;
@@ -159,18 +170,21 @@ class WebhookRetryService {
     };
   }
 
-  /**
-   * Move event to dead letter queue
-   */
-  private async moveToDeadLetterQueue(event: WebhookEvent): Promise<void> {
+  private async moveToDeadLetterQueue(
+    event: WebhookEvent,
+    finalError?: string,
+    finalRetryCount?: number,
+  ): Promise<void> {
+    if (!supabase) throw new Error('Supabase not configured');
+
     const { error } = await supabase
       .from('webhook_dead_letter_queue')
       .insert({
         stripe_event_id: event.stripe_event_id,
         event_type: event.event_type,
         payload: event.payload,
-        error_message: event.error_message,
-        retry_count: event.retry_count,
+        error_message: finalError ?? event.error_message,
+        retry_count: finalRetryCount ?? event.retry_count,
         original_received_at: event.received_at,
         moved_at: new Date().toISOString(),
       });
@@ -185,10 +199,9 @@ class WebhookRetryService {
     });
   }
 
-  /**
-   * Get dead letter queue events
-   */
-  async getDeadLetterQueue(limit: number = 50): Promise<any[]> {
+  async getDeadLetterQueue(limit: number = 50): Promise<Record<string, unknown>[]> {
+    if (!supabase) throw new Error('Supabase not configured');
+
     const { data, error } = await supabase
       .from('webhook_dead_letter_queue')
       .select('*')
@@ -200,13 +213,12 @@ class WebhookRetryService {
       throw error;
     }
 
-    return data || [];
+    return (data as Record<string, unknown>[]) || [];
   }
 
-  /**
-   * Replay event from dead letter queue
-   */
   async replayDeadLetterEvent(eventId: string): Promise<boolean> {
+    if (!supabase) throw new Error('Supabase not configured');
+
     const { data: event, error } = await supabase
       .from('webhook_dead_letter_queue')
       .select('*')
@@ -222,24 +234,24 @@ class WebhookRetryService {
       throw new Error('Event not found in dead letter queue');
     }
 
-    try {
-      // Process the event
-      await WebhookService.processEvent(event.payload);
+    const dlqEvent = event as Record<string, unknown>;
 
-      // Remove from dead letter queue
+    try {
+      await WebhookService.processEvent(dlqEvent.payload as Record<string, unknown>);
+
       await supabase
         .from('webhook_dead_letter_queue')
         .delete()
         .eq('id', eventId);
 
       logger.info('Dead letter event replayed successfully', {
-        eventId: event.stripe_event_id,
+        eventId: dlqEvent.stripe_event_id,
       });
 
       return true;
-    } catch (error) {
-      logger.error('Dead letter event replay failed', error as Error, {
-        eventId: event.stripe_event_id,
+    } catch (replayError) {
+      logger.error('Dead letter event replay failed', replayError instanceof Error ? replayError : undefined, {
+        eventId: dlqEvent.stripe_event_id,
       });
       return false;
     }
