@@ -6,7 +6,6 @@
  */
 
 import { logger } from "../lib/logger";
-import { createClient } from "@supabase/supabase-js";
 import { getConfig } from "../config/environment";
 import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning";
 import { supabase as publicSupabase } from "../lib/supabase";
@@ -290,13 +289,7 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-const serviceRoleSupabase =
-  typeof window === "undefined"
-    ? createClient(
-        import.meta.env?.VITE_SUPABASE_URL || "",
-        import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ""
-      )
-    : null;
+const serviceRoleSupabase = publicSupabase;
 
 /**
  * Persist usage to database (upsert into `tenant_usage` table)

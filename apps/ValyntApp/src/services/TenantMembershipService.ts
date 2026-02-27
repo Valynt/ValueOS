@@ -5,19 +5,13 @@
  * Implements OWASP-compliant seat provisioning with race condition prevention.
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { logger } from '../lib/logger';
 import { TenantAwareService } from './TenantAwareService';
 import { AuditLogService } from './AuditLogService';
 import { ValidationError } from './errors';
+import { getSupabaseClient } from '../lib/supabase';
 
-// Only instantiate server-side Supabase client. Prevents bundler/runtime errors in browser.
-const supabase = (typeof window === 'undefined')
-  ? createClient(
-      import.meta.env?.VITE_SUPABASE_URL || '',
-      import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
-    )
-  : (null as any);
+const supabase = (() => { try { return getSupabaseClient(); } catch { return null as any; } })();
 
 export class TenantMembershipService extends TenantAwareService {
   private auditLog: AuditLogService;

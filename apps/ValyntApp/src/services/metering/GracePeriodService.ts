@@ -3,16 +3,13 @@
  * Manages grace periods for soft quota limits
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { BillingMetric, GRACE_PERIOD_MS } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { getSupabaseClient } from '../../lib/supabase';
 
 const logger = createLogger({ component: 'GracePeriodService' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabase = (() => { try { return getSupabaseClient(); } catch { return null as any; } })();
 
 interface GracePeriod {
   id: string;

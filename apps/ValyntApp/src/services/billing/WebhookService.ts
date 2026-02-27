@@ -3,25 +3,16 @@
  * Handles Stripe webhook signature verification and event processing
  */
 
-import { createClient } from '@supabase/supabase-js';
 import StripeService from './StripeService';
 import InvoiceService from './InvoiceService';
 import { STRIPE_CONFIG } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
-import { getSupabaseConfig } from '../../lib/env';
 import { recordBillingJobFailure, recordInvoiceEvent, recordStripeWebhook } from '../../metrics/billingMetrics';
+import { getSupabaseClient } from '../../lib/supabase';
 
 const logger = createLogger({ component: 'WebhookService' });
 
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
-
-let supabase: any = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-}
+const supabase = (() => { try { return getSupabaseClient(); } catch { return null as any; } })();
 
 class WebhookService {
   private stripe: any;
@@ -72,9 +63,9 @@ class WebhookService {
       return;
     }
 
-    logger.info('Processing webhook event', { 
-      eventId: event.id, 
-      type: event.type 
+    logger.info('Processing webhook event', {
+      eventId: event.id,
+      type: event.type
     });
 
     try {
@@ -226,10 +217,10 @@ class WebhookService {
    */
   private async handlePaymentSucceeded(event: any): Promise<void> {
     const invoice = event.data.object;
-    
+
     // Update invoice status
     await InvoiceService.updateInvoice(invoice);
-    
+
     // Update customer status to active
     const { data: customer } = await supabase
       .from('billing_customers')
@@ -253,10 +244,10 @@ class WebhookService {
    */
   private async handlePaymentFailed(event: any): Promise<void> {
     const invoice = event.data.object;
-    
+
     // Update invoice
     await InvoiceService.updateInvoice(invoice);
-    
+
     // Get customer and create alert
     const { data: customer } = await supabase
       .from('billing_customers')
@@ -277,9 +268,9 @@ class WebhookService {
         notification_sent: false,
       });
 
-      logger.warn('Payment failed', { 
+      logger.warn('Payment failed', {
         tenantId: customer.tenant_id,
-        invoiceId: invoice.id 
+        invoiceId: invoice.id
       });
     }
     recordInvoiceEvent(event.type);
@@ -290,7 +281,7 @@ class WebhookService {
    */
   private async handleSubscriptionUpdated(event: any): Promise<void> {
     const subscription = event.data.object;
-    
+
     // Update subscription in database
     await supabase
       .from('subscriptions')
@@ -298,7 +289,7 @@ class WebhookService {
         status: subscription.status,
         current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
         current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        canceled_at: subscription.canceled_at 
+        canceled_at: subscription.canceled_at
           ? new Date(subscription.canceled_at * 1000).toISOString()
           : null,
         updated_at: new Date().toISOString(),
@@ -313,7 +304,7 @@ class WebhookService {
    */
   private async handleSubscriptionDeleted(event: any): Promise<void> {
     const subscription = event.data.object;
-    
+
     // Update subscription status
     await supabase
       .from('subscriptions')
