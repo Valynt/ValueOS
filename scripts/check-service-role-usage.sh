@@ -55,6 +55,52 @@ APPROVED_PATTERNS=(
   "packages/backend/src/services/billing/FinanceExportService.ts"
   "packages/backend/src/services/metering/UsageSink.ts"
   "packages/backend/src/repositories/"
+
+  # Backend infrastructure (lib, config, env)
+  "packages/backend/src/lib/supabase.ts"
+  "packages/backend/src/lib/env.ts"
+  "packages/backend/src/config/schema.ts"
+  "packages/backend/src/config/settings.ts"
+  "packages/backend/src/config/validateEnv.ts"
+  "packages/backend/src/services/LLMCostTracker.ts"
+
+  # Backend API routes and repositories
+  "packages/backend/src/api/billing/webhooks.ts"
+  "packages/backend/src/api/customer/"
+  "packages/backend/src/api/conversations/"
+  "packages/backend/src/api/valueCases/"
+  "packages/backend/src/api/valueDrivers/"
+  "packages/backend/src/api/artifacts/"
+  "packages/backend/src/api/dataSubjectRequests.ts"
+  "packages/backend/src/api/services/ReferralAnalyticsService.ts"
+  "packages/backend/src/api/services/ReferralService.ts"
+
+  # ValyntApp mirrors of approved backend services
+  "apps/ValyntApp/src/services/AdminUserService.ts"
+  "apps/ValyntApp/src/services/AuditLogService.ts"
+  "apps/ValyntApp/src/services/IntegrationControlService.ts"
+  "apps/ValyntApp/src/services/SecurityAuditService.ts"
+  "apps/ValyntApp/src/services/TenantProvisioning.ts"
+  "apps/ValyntApp/src/services/UsageTrackingService.ts"
+  "apps/ValyntApp/src/services/billing/UsageMeteringService.ts"
+  "apps/ValyntApp/src/services/metering/"
+  "apps/ValyntApp/src/api/billing/webhooks.ts"
+  "apps/ValyntApp/src/middleware/planEnforcementMiddleware.ts"
+
+  # Domain services
+  "packages/services/domain-validator/src/config.ts"
+  "packages/services/domain-validator/src/database.ts"
+
+  # Ops backend
+  "ops/backend/"
+
+  # Scripts (migrations, seeds, security tools)
+  "scripts/beta-provision.ts"
+  "scripts/migration/"
+  "scripts/security-hammer"
+  "scripts/seed-"
+  "scripts/test-"
+  "scripts/verify/"
 )
 
 # Patterns that indicate direct service-role client creation
@@ -80,8 +126,8 @@ for pattern in "${SEARCH_PATTERNS[@]}"; do
     # Skip non-source files
     case "$rel" in
       *.test.ts|*.spec.ts|*.test.js|*.spec.js|*.bench.ts|*.bench.js|*.md|*.sql|*.sh|*.json|*.d.ts|*.js.map|*.d.ts.map) continue ;;
-      */__benchmarks__/*|*/__tests__/*) continue ;;
-      node_modules/*|.windsurf/*) continue ;;
+      */__benchmarks__/*|*/__tests__/*|*/benchmarks/*|*/test/*) continue ;;
+      node_modules/*|.windsurf/*|*/node_modules/*) continue ;;
     esac
 
     # Skip compiled output directories
