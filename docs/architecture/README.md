@@ -15,7 +15,8 @@
 - [Memory First Architecture](./memory-first-architecture.md)
 - [Module Ownership and Boundaries](./module-ownership-boundaries.md)
 - [Security Architecture](./security-architecture.md)
+- [Component Interaction Diagrams](./component-interaction-diagram.md) — Visual maps of system flows (Mermaid)
 
 ---
 
-**Total Documents**: 9
+**Total Documents**: 10
