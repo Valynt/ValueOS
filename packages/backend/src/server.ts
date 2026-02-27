@@ -69,6 +69,7 @@ const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
+import { initBroadcastAdapter, getBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -488,6 +489,11 @@ async function startServer(): Promise<void> {
     });
   }
 
+  // 3.5. Initialise Redis-backed WebSocket broadcast adapter so that
+  // broadcasts reach clients on every backend pod, not just the local one.
+  const broadcastAdapter = initBroadcastAdapter(wss);
+  await broadcastAdapter.init();
+
   // 4. Workers run as a separate process (see workers/workerMain.ts).
   // In development, optionally start them in-process for convenience.
   if (settings.NODE_ENV === "development") {
@@ -544,14 +550,17 @@ function registerGracefulShutdown(): void {
     // 2. Stop audit DLQ retry loop
     securityAuditService.stopRetryLoop();
 
-    // 3. Close WebSocket connections
+    // 3. Tear down Redis pub/sub for WebSocket broadcasts
+    getBroadcastAdapter().shutdown().catch(() => {});
+
+    // 4. Close WebSocket connections
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         client.close(1001, "Server shutting down");
       }
     });
 
-    // 3. Stop accepting new HTTP connections and drain existing ones
+    // 5. Stop accepting new HTTP connections and drain existing ones
     server.close(() => {
       logger.info("All connections drained, exiting");
       process.exit(0);
@@ -582,8 +591,8 @@ if (isMainModule || settings.NODE_ENV === "development") {
 
 /**
  * Broadcast a reasoning chain update to all authenticated WebSocket clients
- * in the specified tenant. Matches the event format expected by
- * AgentReasoningViewer: { type: 'agent.event', payload: { eventType, data } }
+ * in the specified tenant across all pods. Uses Redis pub/sub when available,
+ * falls back to local-only delivery.
  */
 function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
   const message = JSON.stringify({
@@ -594,12 +603,17 @@ function broadcastReasoningUpdate(tenantId: string, chain: unknown): void {
     },
   });
 
-  wss.clients.forEach((client) => {
-    const authed = client as AuthenticatedWebSocket;
-    if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
+  try {
+    getBroadcastAdapter().broadcast(tenantId, message);
+  } catch {
+    // Adapter not yet initialised (e.g. during tests) — fall back to local.
+    wss.clients.forEach((client) => {
+      const authed = client as AuthenticatedWebSocket;
+      if (authed.tenantId === tenantId && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }
 }
 
 export { app, server, wss, broadcastReasoningUpdate };

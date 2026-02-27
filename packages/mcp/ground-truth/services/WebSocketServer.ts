@@ -14,6 +14,8 @@
 import { Server as HTTPServer } from "http";
 import { Server as HTTPSServer } from "https";
 import { Server, Socket } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Redis } from "ioredis";
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 
@@ -72,9 +74,39 @@ export class WebSocketServer {
       transports: ["websocket", "polling"],
     });
 
+    this.attachRedisAdapter();
     this.setupMiddleware();
     this.setupEventHandlers();
     this.startHealthMonitoring();
+  }
+
+  /**
+   * Attach the Redis adapter so that socket.io broadcasts reach clients
+   * connected to other pods. Falls back to in-memory (single-pod) when
+   * REDIS_URL is not set.
+   */
+  private attachRedisAdapter(): void {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      logger.warn("MCP WebSocketServer: REDIS_URL not set, running in local-only mode");
+      return;
+    }
+
+    try {
+      const pubClient = new Redis(redisUrl, { lazyConnect: false, maxRetriesPerRequest: 3 });
+      const subClient = pubClient.duplicate();
+
+      pubClient.on("error", (err) => logger.error("MCP WS Redis pub error", err));
+      subClient.on("error", (err) => logger.error("MCP WS Redis sub error", err));
+
+      this.io.adapter(createAdapter(pubClient, subClient));
+      logger.info("MCP WebSocketServer: Redis adapter attached");
+    } catch (err) {
+      logger.error(
+        "MCP WebSocketServer: failed to attach Redis adapter, using in-memory",
+        err instanceof Error ? err : undefined
+      );
+    }
   }
 
   /**
