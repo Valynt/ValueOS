@@ -198,6 +198,11 @@ export default {
         "pulse-subtle": "pulse-subtle 2s ease-in-out infinite",
         "typing": "typing 1.4s infinite ease-in-out",
         "progress": "progress 1.5s infinite linear",
+        "breathe": "breathe 3s ease-in-out infinite",
+        "scan-beam": "scan-beam 2s ease-in-out infinite",
+        "card-reveal": "card-reveal 400ms ease-out forwards",
+        "check-draw": "check-draw 600ms ease-out forwards",
+        "context-restore": "context-restore 500ms ease-out forwards",
       },
       
       keyframes: {
@@ -240,6 +245,26 @@ export default {
         "progress": {
           "0%": { backgroundPosition: "200% 0" },
           "100%": { backgroundPosition: "-200% 0" },
+        },
+        "breathe": {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.6" },
+          "50%": { transform: "scale(1.08)", opacity: "1" },
+        },
+        "scan-beam": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        "card-reveal": {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.96)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "check-draw": {
+          "0%": { strokeDashoffset: "24" },
+          "100%": { strokeDashoffset: "0" },
+        },
+        "context-restore": {
+          "0%": { opacity: "0", transform: "scale(0.92)", filter: "blur(4px)" },
+          "100%": { opacity: "1", transform: "scale(1)", filter: "blur(0)" },
         },
       },
       
