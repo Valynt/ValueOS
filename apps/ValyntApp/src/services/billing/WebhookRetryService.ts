@@ -49,6 +49,7 @@ interface WebhookEvent {
   retry_count: number;
   next_retry_at?: string;
   received_at: string;
+  tenant_id: string | null;
 }
 
 class WebhookRetryService {
@@ -98,8 +99,8 @@ class WebhookRetryService {
 
       await WebhookService.processEvent(event.payload);
 
-      // Atomically mark processed
-      const { error: updateErr } = await supabase
+      // Atomically mark processed, scoped by tenant
+      let markQuery = supabase
         .from('webhook_events')
         .update({
           processed: true,
@@ -107,6 +108,12 @@ class WebhookRetryService {
           error_message: null,
         })
         .eq('id', event.id);
+
+      if (event.tenant_id) {
+        markQuery = markQuery.eq('tenant_id', event.tenant_id);
+      }
+
+      const { error: updateErr } = await markQuery;
 
       if (updateErr) {
         logger.error('Failed to mark retried event as processed', undefined, {
@@ -132,8 +139,8 @@ class WebhookRetryService {
         nextRetry: nextRetry.toISOString(),
       });
 
-      // Atomic update: retry count + next_retry_at + error message
-      const { error: updateErr } = await supabase
+      // Atomic update: retry count + next_retry_at + error message, scoped by tenant
+      let retryQuery = supabase
         .from('webhook_events')
         .update({
           retry_count: retryCount,
@@ -141,6 +148,12 @@ class WebhookRetryService {
           error_message: safeMessage,
         })
         .eq('id', event.id);
+
+      if (event.tenant_id) {
+        retryQuery = retryQuery.eq('tenant_id', event.tenant_id);
+      }
+
+      const { error: updateErr } = await retryQuery;
 
       if (updateErr) {
         logger.error('Failed to update retry info for webhook event', undefined, {
@@ -203,6 +216,7 @@ class WebhookRetryService {
     const { error } = await supabase
       .from('webhook_dead_letter_queue')
       .insert({
+        tenant_id: event.tenant_id,
         stripe_event_id: event.stripe_event_id,
         event_type: event.event_type,
         payload: event.payload,
@@ -225,12 +239,13 @@ class WebhookRetryService {
     });
   }
 
-  async getDeadLetterQueue(limit: number = 50): Promise<Record<string, unknown>[]> {
+  async getDeadLetterQueue(tenantId: string, limit: number = 50): Promise<Record<string, unknown>[]> {
     if (!supabase) throw new Error('Supabase not configured');
 
     const { data, error } = await supabase
       .from('webhook_dead_letter_queue')
       .select('*')
+      .eq('tenant_id', tenantId)
       .order('moved_at', { ascending: false })
       .limit(limit);
 
@@ -248,13 +263,14 @@ class WebhookRetryService {
    * Replay event from DLQ. Follows the same processing guardrails
    * as normal webhook processing (idempotent insert, side effects).
    */
-  async replayDeadLetterEvent(eventId: string): Promise<boolean> {
+  async replayDeadLetterEvent(tenantId: string, eventId: string): Promise<boolean> {
     if (!supabase) throw new Error('Supabase not configured');
 
     const { data: event, error } = await supabase
       .from('webhook_dead_letter_queue')
       .select('*')
       .eq('id', eventId)
+      .eq('tenant_id', tenantId)
       .single();
 
     if (error) {
@@ -273,14 +289,16 @@ class WebhookRetryService {
     try {
       await WebhookService.processEvent(dlqEvent.payload as Record<string, unknown>);
 
-      // Remove from DLQ only after successful processing
+      // Remove from DLQ only after successful processing, scoped by tenant
       await supabase
         .from('webhook_dead_letter_queue')
         .delete()
-        .eq('id', eventId);
+        .eq('id', eventId)
+        .eq('tenant_id', tenantId);
 
       logger.info('Dead letter event replayed successfully', {
         eventId: dlqEvent.stripe_event_id,
+        tenantId,
       });
 
       return true;

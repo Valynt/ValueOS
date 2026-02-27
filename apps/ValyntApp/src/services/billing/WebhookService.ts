@@ -145,14 +145,46 @@ class WebhookService {
   }
 
   /**
-   * Process webhook event
+   * Resolve tenant_id from a Stripe event by looking up the customer in billing_customers.
+   * Returns null if the event has no customer or the customer is unknown.
+   */
+  private async resolveTenantId(event: Record<string, unknown>): Promise<string | null> {
+    if (!supabase) return null;
+
+    const data = event.data as Record<string, unknown> | undefined;
+    const obj = data?.object as Record<string, unknown> | undefined;
+    const customerId = obj?.customer as string | undefined;
+
+    if (!customerId) return null;
+
+    const { data: customer, error } = await supabase
+      .from('billing_customers')
+      .select('tenant_id')
+      .eq('stripe_customer_id', customerId)
+      .single();
+
+    if (error || !customer) {
+      logger.warn('Could not resolve tenant for Stripe customer', {
+        stripeCustomerId: customerId,
+        eventId: event.id,
+      });
+      return null;
+    }
+
+    return (customer as { tenant_id: string }).tenant_id;
+  }
+
+  /**
+   * Process webhook event. Resolves tenant at ingestion and scopes all operations.
    */
   async processEvent(event: Record<string, unknown>): Promise<void> {
     if (!supabase) {
       throw new Error('Supabase billing not configured');
     }
 
-    const inserted = await this.storeWebhookEvent(event);
+    const tenantId = await this.resolveTenantId(event);
+
+    const inserted = await this.storeWebhookEvent(event, tenantId);
     if (!inserted) {
       logger.info('Event is an idempotent replay, skipping side effects', { eventId: event.id });
       return;
@@ -162,6 +194,7 @@ class WebhookService {
     logger.info('Processing webhook event', {
       eventId: event.id,
       type: eventType,
+      tenantId: tenantId || 'unknown',
     });
 
     try {
@@ -173,20 +206,20 @@ class WebhookService {
           break;
 
         case 'invoice.payment_succeeded':
-          await this.handlePaymentSucceeded(event);
+          await this.handlePaymentSucceeded(event, tenantId);
           break;
 
         case 'invoice.payment_failed':
-          await this.handlePaymentFailed(event);
+          await this.handlePaymentFailed(event, tenantId);
           break;
 
         case 'customer.subscription.created':
         case 'customer.subscription.updated':
-          await this.handleSubscriptionUpdated(event);
+          await this.handleSubscriptionUpdated(event, tenantId);
           break;
 
         case 'customer.subscription.deleted':
-          await this.handleSubscriptionDeleted(event);
+          await this.handleSubscriptionDeleted(event, tenantId);
           break;
 
         case 'charge.succeeded':
@@ -201,19 +234,19 @@ class WebhookService {
           logger.info('Unhandled event type', { type: eventType });
       }
 
-      await this.markEventProcessed(event.id as string);
+      await this.markEventProcessed(event.id as string, tenantId);
       recordStripeWebhook(eventType, 'processed');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error processing webhook event', error instanceof Error ? error : undefined, { eventId: event.id });
       recordStripeWebhook(eventType, 'failed');
       recordBillingJobFailure('stripe_webhook', errorMsg);
-      await this.markEventFailed(event.id as string, errorMsg);
+      await this.markEventFailed(event.id as string, errorMsg, tenantId);
       throw error;
     }
   }
 
-  private async storeWebhookEvent(event: Record<string, unknown>): Promise<boolean> {
+  private async storeWebhookEvent(event: Record<string, unknown>, tenantId: string | null): Promise<boolean> {
     const { count, error } = await supabase!
       .from('webhook_events')
       .insert(
@@ -223,6 +256,7 @@ class WebhookService {
           payload: event,
           processed: false,
           received_at: new Date().toISOString(),
+          tenant_id: tenantId,
         },
         {
           onConflict: 'stripe_event_id',
@@ -253,29 +287,40 @@ class WebhookService {
     return true;
   }
 
-  private async markEventProcessed(eventId: string): Promise<void> {
-    await supabase!
+  private async markEventProcessed(eventId: string, tenantId: string | null): Promise<void> {
+    let query = supabase!
       .from('webhook_events')
       .update({
         processed: true,
         processed_at: new Date().toISOString(),
       })
       .eq('stripe_event_id', eventId);
+
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    await query;
   }
 
   /**
    * Mark event as failed with atomic retry counter increment.
    * Error message is sanitized to avoid persisting secrets or stack traces.
    */
-  private async markEventFailed(eventId: string, errorMessage: string): Promise<void> {
+  private async markEventFailed(eventId: string, errorMessage: string, tenantId: string | null): Promise<void> {
     try {
       const safeMessage = sanitizeErrorMessage(errorMessage);
 
-      const { data: existing, error: fetchErr } = await supabase!
+      let fetchQuery = supabase!
         .from('webhook_events')
         .select('retry_count')
-        .eq('stripe_event_id', eventId)
-        .single();
+        .eq('stripe_event_id', eventId);
+
+      if (tenantId) {
+        fetchQuery = fetchQuery.eq('tenant_id', tenantId);
+      }
+
+      const { data: existing, error: fetchErr } = await fetchQuery.single();
 
       if (fetchErr && (fetchErr as Record<string, unknown>).code !== 'PGRST116') {
         throw fetchErr;
@@ -284,13 +329,19 @@ class WebhookService {
       const current = (existing && (existing as Record<string, unknown>).retry_count) || 0;
       const newCount = Number(current) + 1;
 
-      const { error: updateErr } = await supabase!
+      let updateQuery = supabase!
         .from('webhook_events')
         .update({
           error_message: safeMessage,
           retry_count: newCount,
         })
         .eq('stripe_event_id', eventId);
+
+      if (tenantId) {
+        updateQuery = updateQuery.eq('tenant_id', tenantId);
+      }
+
+      const { error: updateErr } = await updateQuery;
 
       if (updateErr) {
         logger.error('Failed to update webhook event failure status', undefined, {
@@ -311,43 +362,30 @@ class WebhookService {
     recordInvoiceEvent(event.type as string);
   }
 
-  private async handlePaymentSucceeded(event: Record<string, unknown>): Promise<void> {
+  private async handlePaymentSucceeded(event: Record<string, unknown>, tenantId: string | null): Promise<void> {
     const data = event.data as { object: Record<string, unknown> };
     const invoice = data.object;
 
     await InvoiceService.updateInvoice(invoice);
 
-    const { data: customer } = await supabase!
-      .from('billing_customers')
-      .select('tenant_id')
-      .eq('stripe_customer_id', invoice.customer as string)
-      .single();
-
-    if (customer) {
+    if (tenantId) {
       await supabase!
         .from('billing_customers')
         .update({ status: 'active' })
-        .eq('tenant_id', (customer as { tenant_id: string }).tenant_id);
+        .eq('tenant_id', tenantId);
     }
 
-    logger.info('Payment succeeded processed', { invoiceId: invoice.id });
+    logger.info('Payment succeeded processed', { invoiceId: invoice.id, tenantId });
     recordInvoiceEvent(event.type as string);
   }
 
-  private async handlePaymentFailed(event: Record<string, unknown>): Promise<void> {
+  private async handlePaymentFailed(event: Record<string, unknown>, tenantId: string | null): Promise<void> {
     const data = event.data as { object: Record<string, unknown> };
     const invoice = data.object;
 
     await InvoiceService.updateInvoice(invoice);
 
-    const { data: customer } = await supabase!
-      .from('billing_customers')
-      .select('tenant_id')
-      .eq('stripe_customer_id', invoice.customer as string)
-      .single();
-
-    if (customer) {
-      const tenantId = (customer as { tenant_id: string }).tenant_id;
+    if (tenantId) {
       await supabase!.from('usage_alerts').insert({
         tenant_id: tenantId,
         metric: 'api_calls',
@@ -367,11 +405,11 @@ class WebhookService {
     recordInvoiceEvent(event.type as string);
   }
 
-  private async handleSubscriptionUpdated(event: Record<string, unknown>): Promise<void> {
+  private async handleSubscriptionUpdated(event: Record<string, unknown>, tenantId: string | null): Promise<void> {
     const data = event.data as { object: Record<string, unknown> };
     const subscription = data.object;
 
-    await supabase!
+    let query = supabase!
       .from('subscriptions')
       .update({
         status: subscription.status,
@@ -384,14 +422,20 @@ class WebhookService {
       })
       .eq('stripe_subscription_id', subscription.id as string);
 
-    logger.info('Subscription updated', { subscriptionId: subscription.id });
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    }
+
+    await query;
+
+    logger.info('Subscription updated', { subscriptionId: subscription.id, tenantId });
   }
 
-  private async handleSubscriptionDeleted(event: Record<string, unknown>): Promise<void> {
+  private async handleSubscriptionDeleted(event: Record<string, unknown>, tenantId: string | null): Promise<void> {
     const data = event.data as { object: Record<string, unknown> };
     const subscription = data.object;
 
-    await supabase!
+    let cancelQuery = supabase!
       .from('subscriptions')
       .update({
         status: 'canceled',
@@ -400,20 +444,30 @@ class WebhookService {
       })
       .eq('stripe_subscription_id', subscription.id as string);
 
-    const { data: sub } = await supabase!
-      .from('subscriptions')
-      .select('tenant_id')
-      .eq('stripe_subscription_id', subscription.id as string)
-      .single();
+    if (tenantId) {
+      cancelQuery = cancelQuery.eq('tenant_id', tenantId);
+    }
 
-    if (sub) {
+    await cancelQuery;
+
+    // Use resolved tenantId; fall back to subscription lookup only if needed
+    const resolvedTenantId = tenantId || await (async () => {
+      const { data: sub } = await supabase!
+        .from('subscriptions')
+        .select('tenant_id')
+        .eq('stripe_subscription_id', subscription.id as string)
+        .single();
+      return sub ? (sub as { tenant_id: string }).tenant_id : null;
+    })();
+
+    if (resolvedTenantId) {
       await supabase!
         .from('billing_customers')
         .update({ status: 'cancelled' })
-        .eq('tenant_id', (sub as { tenant_id: string }).tenant_id);
+        .eq('tenant_id', resolvedTenantId);
     }
 
-    logger.info('Subscription deleted', { subscriptionId: subscription.id });
+    logger.info('Subscription deleted', { subscriptionId: subscription.id, tenantId });
   }
 
   private async handleChargeSucceeded(event: Record<string, unknown>): Promise<void> {
