@@ -400,6 +400,10 @@ router.post(
 router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Response) => {
   const { jobId } = req.params;
 
+  if (!isKafkaEnabled()) {
+    return kafkaUnavailableResponse(res);
+  }
+
   try {
     const eventSourcing = getEventSourcingService();
 
@@ -483,6 +487,10 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
  */
 router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: Response) => {
   const { jobId } = req.params;
+
+  if (!isKafkaEnabled()) {
+    return kafkaUnavailableResponse(res);
+  }
 
   // Set SSE headers
   res.setHeader("Content-Type", "text/event-stream");

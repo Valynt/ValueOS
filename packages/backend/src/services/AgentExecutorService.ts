@@ -6,9 +6,9 @@
  */
 
 import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
-import { getEventProducer } from "./EventProducer.js"
+import { getEventProducer, EventProducer } from "./EventProducer.js"
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
-import { getEventSourcingService } from "./EventSourcingService.js"
+import { getEventSourcingService, EventSourcingService } from "./EventSourcingService.js"
 import {
   AgentRequestEvent,
   AgentResponseEvent,
@@ -22,26 +22,42 @@ import { logger } from "../lib/logger.js"
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 
 export class AgentExecutorService {
-  private consumer: EventConsumer;
-  private eventProducer = getEventProducer();
-  private eventSourcing = getEventSourcingService();
-  private unifiedAgentAPI = getUnifiedAgentAPI();
+  private _consumer: EventConsumer | null = null;
+  private _eventProducer: EventProducer | null = null;
+  private _eventSourcing: EventSourcingService | null = null;
 
-  constructor() {
-    // Create consumer for agent requests
-    this.consumer = createEventConsumer(
-      "agent-executor",
-      [EVENT_TOPICS.AGENT_REQUESTS],
-      [
-        {
-          eventType: "agent.request",
-          handler: async (event: BaseEvent) => {
-            await this.handleAgentRequest(event as AgentRequestEvent);
+  private get consumer(): EventConsumer {
+    if (!this._consumer) {
+      this._consumer = createEventConsumer(
+        "agent-executor",
+        [EVENT_TOPICS.AGENT_REQUESTS],
+        [
+          {
+            eventType: "agent.request",
+            handler: async (event: BaseEvent) => {
+              await this.handleAgentRequest(event as AgentRequestEvent);
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
+    return this._consumer;
   }
+
+  private get eventProducer(): EventProducer {
+    if (!this._eventProducer) {
+      this._eventProducer = getEventProducer();
+    }
+    return this._eventProducer;
+  }
+
+  private get eventSourcing(): EventSourcingService {
+    if (!this._eventSourcing) {
+      this._eventSourcing = getEventSourcingService();
+    }
+    return this._eventSourcing;
+  }
+  private unifiedAgentAPI = getUnifiedAgentAPI();
 
   /**
    * Start the agent executor service

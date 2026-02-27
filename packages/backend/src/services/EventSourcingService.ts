@@ -10,7 +10,8 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js"
 import { BaseEvent, Event } from "@shared/types/events";
-import { getEventProducer } from "./EventProducer.js"
+import { getEventProducer, EventProducer } from "./EventProducer.js"
+import { isKafkaEnabled } from "./kafkaConfig.js"
 
 export interface EventStoreRecord {
   id: string;
@@ -38,7 +39,14 @@ export interface Projection {
 
 export class EventSourcingService {
   private supabase: SupabaseClient;
-  private eventProducer = getEventProducer();
+  private _eventProducer: EventProducer | null = null;
+
+  private get eventProducer(): EventProducer {
+    if (!this._eventProducer) {
+      this._eventProducer = getEventProducer();
+    }
+    return this._eventProducer;
+  }
   private projections: Map<string, Map<string, Projection>> = new Map();
 
   constructor() {
