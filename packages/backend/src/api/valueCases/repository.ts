@@ -1,13 +1,14 @@
 /**
  * Value Cases Repository
- * 
+ *
  * Data access layer for value cases with Supabase/Postgres.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { 
-  ValueCase, 
-  CreateValueCaseRequest, 
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+import {
+  ValueCase,
+  CreateValueCaseRequest,
   UpdateValueCaseRequest,
   ListValueCasesQuery,
   PaginatedResponse,
@@ -58,14 +59,7 @@ export class ValueCasesRepository {
   private tableName = 'value_cases';
 
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase configuration');
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = createServerSupabaseClient();
   }
 
   /**
@@ -77,7 +71,7 @@ export class ValueCasesRepository {
     data: CreateValueCaseRequest
   ): Promise<ValueCase> {
     const correlationId = `vc-create-${Date.now()}`;
-    
+
     try {
       const now = new Date().toISOString();
       const caseData = {
@@ -130,7 +124,7 @@ export class ValueCasesRepository {
       return this.mapToEntity(result);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error creating value case', {
         correlationId,
         tenantId,
@@ -170,7 +164,7 @@ export class ValueCasesRepository {
       return this.mapToEntity(data);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error getting value case', {
         correlationId,
         tenantId,
@@ -241,7 +235,7 @@ export class ValueCasesRepository {
       return this.mapToEntity(result);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error updating value case', {
         correlationId,
         tenantId,
@@ -285,7 +279,7 @@ export class ValueCasesRepository {
       });
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error deleting value case', {
         correlationId,
         tenantId,
@@ -357,7 +351,7 @@ export class ValueCasesRepository {
       };
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error listing value cases', {
         correlationId,
         tenantId,

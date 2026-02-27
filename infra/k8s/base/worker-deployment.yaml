@@ -37,7 +37,7 @@ spec:
         - name: worker
           image: REGISTRY_URL/valynt-backend@sha256:FIXME_RUN_crane_digest_REGISTRY_URL_valynt-backend_latest
           imagePullPolicy: Always
-          command: ["node", "packages/backend/dist/workers/workerMain.js"]
+          command: ["node", "dist/workers/workerMain.js"]
 
           ports:
             - name: health

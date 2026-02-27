@@ -1,14 +1,15 @@
 /**
  * Artifacts Repository
- * 
+ *
  * Data access layer for artifacts with Supabase/Postgres.
  * Uses memory_artifacts table with tenant isolation via RLS.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { 
-  Artifact, 
-  CreateArtifactRequest, 
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+import {
+  Artifact,
+  CreateArtifactRequest,
   UpdateArtifactRequest,
   ListArtifactsQuery,
   PaginatedResponse,
@@ -82,14 +83,7 @@ export class ArtifactsRepository {
   private tableName = 'memory_artifacts';
 
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase configuration');
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = createServerSupabaseClient();
   }
 
   /**
@@ -100,10 +94,10 @@ export class ArtifactsRepository {
     data: CreateArtifactRequest
   ): Promise<Artifact> {
     const correlationId = `artifact-create-${Date.now()}`;
-    
+
     try {
       const now = new Date().toISOString();
-      
+
       // Store artifact type, status, content, and agent source in metadata
       const metadata: Record<string, unknown> = {
         ...data.metadata,
@@ -151,7 +145,7 @@ export class ArtifactsRepository {
       return this.mapToEntity(result);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error creating artifact', {
         correlationId,
         tenantId,
@@ -170,10 +164,10 @@ export class ArtifactsRepository {
     artifacts: Omit<CreateArtifactRequest, 'valueCaseId'>[]
   ): Promise<Artifact[]> {
     const correlationId = `artifact-batch-${Date.now()}`;
-    
+
     try {
       const now = new Date().toISOString();
-      
+
       const artifactRows = artifacts.map(data => {
         const metadata: Record<string, unknown> = {
           ...data.metadata,
@@ -222,7 +216,7 @@ export class ArtifactsRepository {
       return (results || []).map(this.mapToEntity);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error creating artifacts batch', {
         correlationId,
         tenantId,
@@ -262,7 +256,7 @@ export class ArtifactsRepository {
       return this.mapToEntity(data);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error getting artifact', {
         correlationId,
         tenantId,
@@ -344,7 +338,7 @@ export class ArtifactsRepository {
       return this.mapToEntity(result);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error updating artifact', {
         correlationId,
         tenantId,
@@ -388,7 +382,7 @@ export class ArtifactsRepository {
       });
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error deleting artifact', {
         correlationId,
         tenantId,
@@ -466,7 +460,7 @@ export class ArtifactsRepository {
       };
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error listing artifacts', {
         correlationId,
         tenantId,
@@ -503,7 +497,7 @@ export class ArtifactsRepository {
       return (data || []).map(this.mapToEntity);
     } catch (err) {
       if (err instanceof RepositoryError) throw err;
-      
+
       logger.error('Unexpected error getting artifacts by value case', {
         correlationId,
         tenantId,
@@ -519,7 +513,7 @@ export class ArtifactsRepository {
    */
   private mapToEntity(row: ArtifactRow): Artifact {
     const metadata = row.metadata || {};
-    
+
     return {
       id: row.id,
       tenantId: row.tenant_id,
@@ -532,7 +526,7 @@ export class ArtifactsRepository {
       agentRunId: metadata.agent_run_id as string | undefined,
       checkpointId: metadata.checkpoint_id as string | undefined,
       metadata: Object.fromEntries(
-        Object.entries(metadata).filter(([key]) => 
+        Object.entries(metadata).filter(([key]) =>
           !['artifact_type', 'artifact_status', 'content', 'agent_run_id', 'checkpoint_id'].includes(key)
         )
       ),

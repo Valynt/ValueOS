@@ -260,7 +260,7 @@ export class SemanticMemoryService {
           p_target_market: options.targetMarket ?? null,
           p_min_score: options.minScore ?? null,
           p_organization_id: organizationId ?? null,
-          p_auth0_sub: options.externalSub ?? null,
+          p_auth_subject: options.externalSub ?? null,
           p_session_id: sessionId ?? null,
         }
       );
