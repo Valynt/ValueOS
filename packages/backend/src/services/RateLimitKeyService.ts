@@ -72,7 +72,7 @@ export class RateLimitKeyService {
    */
   static generateIPKey(
     ip: string,
-    tenantId?: string,
+    tenantId: string | undefined,
     options: RateLimitKeyOptions
   ): string {
     const parts = [
