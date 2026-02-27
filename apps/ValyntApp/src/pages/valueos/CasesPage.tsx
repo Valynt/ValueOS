@@ -47,6 +47,7 @@ function toCaseView(row: ValueCaseWithRelations): CaseView {
   const company = row.company_profiles?.company_name ?? "Unknown";
   const initials = company
     .split(" ")
+    .filter(Boolean)
     .map((w) => w[0])
     .join("")
     .slice(0, 2)

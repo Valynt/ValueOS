@@ -36,22 +36,23 @@ import { logger } from "../../../lib/logger";
 function phaseToTransitionEvent(from: AgentPhase, to: AgentPhase): AgentTransitionEvent | null {
   const key = `${from}:${to}`;
   const mapping: Record<string, AgentTransitionEvent> = {
-    "idle:clarify": "START",
-    "idle:plan": "PLAN_READY",
-    "idle:resume": "RESUME_SESSION",
-    "clarify:plan": "CLARIFIED",
+    "idle:clarify": "CLARIFY_REQUESTED",
+    "idle:plan": "PLAN_PROPOSED",
+    "idle:execute": "SEND_MESSAGE",
+    "idle:resume": "RESUME_COMPLETE",
+    "clarify:plan": "PLAN_PROPOSED",
+    "clarify:execute": "CLARIFY_ANSWERED",
+    "clarify:idle": "CANCEL",
     "plan:execute": "PLAN_APPROVED",
     "plan:idle": "PLAN_REJECTED",
-    "plan:clarify": "NEED_CLARIFICATION",
-    "execute:review": "EXECUTION_DONE",
-    "execute:clarify": "NEED_INPUT",
-    "execute:plan": "PLAN_READY",
-    "review:finalize": "APPROVED",
-    "review:plan": "REVISION_NEEDED",
-    "finalize:idle": "FINALIZED",
-    "resume:idle": "SESSION_RESTORED",
-    "resume:plan": "PLAN_READY",
-    "resume:execute": "PLAN_APPROVED",
+    "plan:clarify": "CLARIFY_REQUESTED",
+    "execute:review": "EXECUTION_COMPLETE",
+    "execute:clarify": "CLARIFY_REQUESTED",
+    "review:finalize": "ALL_ARTIFACTS_REVIEWED",
+    "review:execute": "ARTIFACT_REJECTED",
+    "finalize:idle": "FINALIZE_COMPLETE",
+    "resume:idle": "RESUME_COMPLETE",
+    "resume:execute": "SESSION_RESTORED",
   };
   return mapping[key] ?? null;
 }

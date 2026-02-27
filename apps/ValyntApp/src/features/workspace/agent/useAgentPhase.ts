@@ -8,7 +8,6 @@
 import { useCallback, useMemo } from "react";
 import { useAgentStore } from "./store";
 import {
-  AGENT_STATE_CONFIG,
   type AgentStateConfig,
   type AgentTransitionEvent,
   canTransition,

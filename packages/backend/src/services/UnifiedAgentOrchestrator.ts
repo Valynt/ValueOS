@@ -1271,7 +1271,7 @@ export class UnifiedAgentOrchestrator {
     traceId: string = uuidv4()
   ): Promise<ProcessQueryResult> {
     // Check if async execution is enabled
-    const featureFlags = { ENABLE_ASYNC_AGENT_EXECUTION: false };
+    const { featureFlags } = await import("../config/featureFlags.js");
     if (featureFlags.ENABLE_ASYNC_AGENT_EXECUTION) {
       logger.info("Using async agent execution", { traceId, sessionId });
 
@@ -1426,8 +1426,10 @@ export class UnifiedAgentOrchestrator {
         completed_steps: [...currentState.completed_steps],
       };
 
-      // Determine which agent to use based on query and current stage
-      let agentType: AgentType = "discovery" as AgentType;
+      // Determine which agent to use based on query and current stage.
+      // startActiveSpan executes the callback synchronously, so agentType
+      // is assigned before the code below runs.
+      let agentType: AgentType;
       tracer.startActiveSpan('agent.selectAgent', (selectSpan: any) => {
         agentType = this.selectAgent(query, currentState);
         selectSpan.setAttributes({
@@ -1437,6 +1439,7 @@ export class UnifiedAgentOrchestrator {
         selectSpan.setStatus({ code: SpanStatusCode.OK });
         selectSpan.end();
       });
+      agentType ??= "discovery" as AgentType;
 
       // Check inter-agent rate limit
       if (!this.checkAgentRateLimit(agentType)) {

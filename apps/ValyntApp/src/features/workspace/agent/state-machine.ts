@@ -201,3 +201,132 @@ export function buildTransitionContext(state: {
     isStreaming: state.isStreaming,
   };
 }
+
+// ─── Backward-compatible exports ─────────────────────────────────────
+// The store, useAgentPhase, and PhaseIndicator reference the pre-rewrite
+// API surface. These aliases bridge the gap without rewriting consumers.
+
+/** @deprecated Use AgentAction */
+export type AgentTransitionEvent = AgentAction;
+
+export interface AgentStateConfig {
+  phase: AgentPhase;
+  label: string;
+  color: string;
+  textColor: string;
+  borderColor: string;
+  animationClass: string;
+  description: string;
+}
+
+export const AGENT_STATE_CONFIG: Record<AgentPhase, AgentStateConfig> = {
+  idle: {
+    phase: 'idle',
+    label: 'Ready',
+    color: 'bg-primary/10',
+    textColor: 'text-primary',
+    borderColor: 'border-primary/20',
+    animationClass: 'animate-breathe',
+    description: 'Waiting for input',
+  },
+  clarify: {
+    phase: 'clarify',
+    label: 'Clarifying',
+    color: 'bg-warning/10',
+    textColor: 'text-warning-700',
+    borderColor: 'border-warning/30',
+    animationClass: 'animate-pulse-subtle',
+    description: 'Resolving ambiguity',
+  },
+  plan: {
+    phase: 'plan',
+    label: 'Planning',
+    color: 'bg-blue-50',
+    textColor: 'text-blue-700',
+    borderColor: 'border-blue-200',
+    animationClass: 'animate-card-reveal',
+    description: 'Showing execution plan',
+  },
+  execute: {
+    phase: 'execute',
+    label: 'Executing',
+    color: 'bg-success/10',
+    textColor: 'text-success-700',
+    borderColor: 'border-success/30',
+    animationClass: 'animate-scan-beam',
+    description: 'Processing actively',
+  },
+  review: {
+    phase: 'review',
+    label: 'Review',
+    color: 'bg-violet-50',
+    textColor: 'text-violet-700',
+    borderColor: 'border-violet-200',
+    animationClass: 'animate-fade-in',
+    description: 'Comparing results',
+  },
+  finalize: {
+    phase: 'finalize',
+    label: 'Complete',
+    color: 'bg-success/10',
+    textColor: 'text-success-700',
+    borderColor: 'border-success/30',
+    animationClass: 'animate-check-draw',
+    description: 'Persisting to fabric',
+  },
+  error: {
+    phase: 'error',
+    label: 'Error',
+    color: 'bg-red-50',
+    textColor: 'text-red-700',
+    borderColor: 'border-red-200',
+    animationClass: 'animate-pulse',
+    description: 'Error occurred',
+  },
+  resume: {
+    phase: 'resume',
+    label: 'Restoring',
+    color: 'bg-cyan-50',
+    textColor: 'text-cyan-700',
+    borderColor: 'border-cyan-200',
+    animationClass: 'animate-context-restore',
+    description: 'Restoring context',
+  },
+};
+
+/** Get state config for a phase. */
+export function getStateConfig(phase: AgentPhase): AgentStateConfig {
+  return AGENT_STATE_CONFIG[phase];
+}
+
+/**
+ * Resolve a transition using a default TransitionContext.
+ * Used by the store's safeTransition which doesn't have full context.
+ */
+export function resolveTransition(
+  currentPhase: AgentPhase,
+  action: AgentAction,
+): AgentPhase | null {
+  // Use a permissive default context so transitions aren't blocked
+  // by missing guard data when called from legacy code paths.
+  const defaultCtx: TransitionContext = {
+    hasArtifacts: true,
+    hasPendingArtifacts: false,
+    hasCheckpoints: false,
+    errorRecoverable: true,
+    isStreaming: false,
+  };
+  return transition(currentPhase, action, defaultCtx);
+}
+
+/** Get all valid actions from the current phase using a default context. */
+export function getValidEvents(phase: AgentPhase): AgentAction[] {
+  const defaultCtx: TransitionContext = {
+    hasArtifacts: true,
+    hasPendingArtifacts: false,
+    hasCheckpoints: false,
+    errorRecoverable: true,
+    isStreaming: false,
+  };
+  return getValidActions(phase, defaultCtx);
+}
