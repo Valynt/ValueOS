@@ -9,7 +9,7 @@
     "dev": "bash ../../scripts/dev/start-backend.sh",
     "worker:dev": "tsx src/workers/workerMain.ts",
     "worker": "node dist/workers/workerMain.js",
-    "build": "tsc --project tsconfig.build.json",
+    "build": "node esbuild.config.mjs",
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
@@ -52,6 +52,7 @@
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
     "@types/js-yaml": "^4.0.9",
+    "esbuild": "^0.27.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"

@@ -162,7 +162,11 @@ describe('Billing Webhooks API', () => {
 
   it('enforces payload size limit on webhook route', () => {
     // The webhook route uses express.raw({ limit: '256kb' }).
-    // Verify the route stack has the expected middleware layers.
+    // express.raw rejects payloads exceeding the limit with 413 at the
+    // HTTP transport level. This is validated in the body-parsing
+    // integration test with the full server stack.
+    // Supertest in isolated router tests may not trigger the 413 due to
+    // how it streams request bodies, so we verify the route stack here.
     const stripeRoute = (webhookRouter as { stack?: Array<{ route?: { path: string; stack: Array<{ name: string }> } }> }).stack?.find(
       (layer) => layer.route?.path === '/stripe'
     );
@@ -173,6 +177,7 @@ describe('Billing Webhooks API', () => {
   });
 
   it('duplicate event replay remains idempotent (200)', async () => {
+    // processEvent handles idempotency internally — returns void for replays
     processEventMock.mockResolvedValue(undefined);
 
     const response = await request(app)
