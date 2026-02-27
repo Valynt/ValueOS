@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import {
-  csrfTokenMiddleware,
   csrfProtectionMiddleware,
+  csrfTokenMiddleware,
   securityHeadersMiddleware,
 } from './securityMiddleware';
 import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware';

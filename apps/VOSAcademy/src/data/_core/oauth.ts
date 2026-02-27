@@ -2,7 +2,7 @@ import { createHash, createHmac, createPublicKey, randomBytes, timingSafeEqual }
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { upsertUser } from "../db";
 import { createSessionToken, parseCookies } from "./session";
-import { getSessionCookieOptions, COOKIE_NAME } from "./cookies";
+import { COOKIE_NAME, getSessionCookieOptions } from "./cookies";
 
 interface OAuthUserInfo {
   openId: string;

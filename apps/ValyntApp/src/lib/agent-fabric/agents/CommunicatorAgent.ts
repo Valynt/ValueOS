@@ -7,13 +7,13 @@
 
 import {
   BaseAgent,
-  MARLState,
   MARLAction,
   MARLInteraction,
-  MARLRewardFunction,
   MARLPolicy,
+  MARLRewardFunction,
+  MARLState,
 } from "../BaseAgent";
-import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { BaseAgentConfig } from "../BaseAgent";
 import { AgentType } from "../../../services/agent-types";
 

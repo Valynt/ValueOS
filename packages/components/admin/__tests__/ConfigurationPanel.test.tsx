@@ -4,7 +4,7 @@
  * Week 1, Item 1: Verify placeholder tabs are removed
  */
 
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConfigurationPanel } from '../ConfigurationPanel';
 import '@testing-library/jest-dom';
 

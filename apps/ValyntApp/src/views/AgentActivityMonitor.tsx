@@ -3,17 +3,17 @@
  * Real-time monitoring dashboard for agent activities with WebSocket integration
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Activity, 
-  Clock, 
   CheckCircle, 
-  XCircle, 
-  TrendingUp,
-  RefreshCw,
+  Clock, 
+  Pause, 
   Play,
-  Pause,
-  Search
+  RefreshCw,
+  Search,
+  TrendingUp,
+  XCircle
 } from 'lucide-react';
 import AgentBadge from '../components/Agents/AgentBadge';
 import { auditLogService } from '@backend/services/AuditLogService';

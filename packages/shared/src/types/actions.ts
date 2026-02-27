@@ -22,6 +22,9 @@ export interface ActionContext {
   organizationId: string;
   workspaceId?: string;
   sessionId?: string;
+  traceId?: string;
+  timestamp?: string;
+  execution?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 }
 
@@ -48,6 +51,7 @@ export interface ValidationResult {
 export interface ManifestoViolation {
   ruleId: string;
   ruleName: string;
+  rule?: string;
   severity: "error" | "warning" | "info";
   message: string;
   path?: string;
@@ -77,6 +81,7 @@ export interface InvokeAgentAction extends BaseCanonicalAction {
   type: "invokeAgent";
   agentId: string;
   input: unknown;
+  payload?: Record<string, unknown>;
   execution?: unknown; // ExecutionRequest
 }
 

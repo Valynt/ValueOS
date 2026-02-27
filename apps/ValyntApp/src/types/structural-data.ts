@@ -2,7 +2,7 @@
  * Structural Data Types
  */
 
-import type { StructuralKPINode, StructuralEdge, FormulaRegistry, StructuralPersona } from "./structural-truth";
+import type { FormulaRegistry, StructuralEdge, StructuralKPINode, StructuralPersona } from "./structural-truth";
 
 export interface StructuralElement {
   id: string;

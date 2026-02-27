@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { appRouter } from "../src/data/routers";
 import type { Context } from "../src/data/_core/trpc";
 import * as db from "../src/data/db";

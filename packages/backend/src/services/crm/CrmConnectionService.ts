@@ -7,9 +7,9 @@
 
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
-import { encryptToken, decryptToken, tokenFingerprint, needsReEncryption } from './tokenEncryption.js';
+import { decryptToken, encryptToken, needsReEncryption, tokenFingerprint } from './tokenEncryption.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
-import { createOAuthState, consumeOAuthState } from './OAuthStateStore.js';
+import { consumeOAuthState, createOAuthState } from './OAuthStateStore.js';
 import type {
   CrmConnectionRow,
   CrmProvider,

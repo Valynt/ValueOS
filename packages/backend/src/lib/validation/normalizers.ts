@@ -4,7 +4,7 @@
  * Normalize and standardize common field types for consistent storage and comparison.
  */
 
-import { SafePatterns, isValidEmail, isValidPhoneE164 } from './safeRegex.js'
+import { isValidEmail, isValidPhoneE164, SafePatterns } from './safeRegex.js'
 
 // ============================================================================
 // Email Normalization

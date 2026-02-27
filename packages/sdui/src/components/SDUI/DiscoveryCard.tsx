@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, X, Tag } from "lucide-react";
+import { Search, Tag, X } from "lucide-react";
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 
 export interface DiscoveryCardProps {

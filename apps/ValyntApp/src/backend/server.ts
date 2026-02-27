@@ -36,7 +36,7 @@ import {
 import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
 import { createRateLimiter } from "../middleware/rateLimiter";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
-import { securityHeadersMiddleware, cspReportHandler } from "../middleware/securityHeaders";
+import { cspReportHandler, securityHeadersMiddleware } from "../middleware/securityHeaders";
 import {
   csrfProtectionMiddleware,
   csrfTokenMiddleware,

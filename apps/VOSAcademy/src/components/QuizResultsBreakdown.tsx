@@ -8,12 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  TrendingUp,
-  TrendingDown,
-  Target,
-  BookOpen,
   AlertTriangle,
+  BookOpen,
   CheckCircle2,
+  Target,
+  TrendingDown,
+  TrendingUp,
   XCircle
 } from "lucide-react";
 

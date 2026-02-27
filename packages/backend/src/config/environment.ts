@@ -4,6 +4,22 @@
 
 export { getEnvironment, isProduction, isDevelopment, isTest } from "@shared/config/environment";
 
+export type AppEnvironment = "development" | "staging" | "production" | "test";
+export type LogLevel = "debug" | "info" | "warn" | "error";
+export interface EnvironmentConfig {
+  environment: AppEnvironment;
+  logLevel: LogLevel;
+  [key: string]: unknown;
+}
+
+export function writeStderr(msg: string): void {
+  process.stderr.write(msg + "\n");
+}
+
+export function writeStdout(msg: string): void {
+  process.stdout.write(msg + "\n");
+}
+
 export function isFeatureEnabled(feature: string): boolean {
   // Simple implementation - can be enhanced with actual feature flags
   return process.env[`FEATURE_${feature.toUpperCase()}`] === "true";

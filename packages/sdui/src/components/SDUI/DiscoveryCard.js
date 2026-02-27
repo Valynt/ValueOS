@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Search, X, Tag } from "lucide-react";
+import { Search, Tag, X } from "lucide-react";
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 const statusConfig = {
     new: { label: "New", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },

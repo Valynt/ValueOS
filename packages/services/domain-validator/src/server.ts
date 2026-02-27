@@ -5,7 +5,7 @@
  * Checks if a domain is verified and belongs to a tenant.
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { config, validateConfig } from './config';
 import { logger } from './logger';
 import { domainValidator } from './validator';

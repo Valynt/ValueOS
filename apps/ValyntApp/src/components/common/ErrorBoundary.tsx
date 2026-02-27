@@ -1,5 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from "react";
-import { AlertTriangle, RefreshCw, Home, MessageSquare, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, Home, MessageSquare, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 

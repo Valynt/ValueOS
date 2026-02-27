@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { apiClient } from "../../../api/client/unified-api-client";
-import type { Canvas, CanvasNode, CanvasEdge, CanvasViewport } from "../types";
+import type { Canvas, CanvasEdge, CanvasNode, CanvasViewport } from "../types";
 
 export function useCanvas(_canvasId?: string) {
   const [canvas, setCanvas] = useState<Canvas | null>(null);

@@ -5,14 +5,14 @@
  * Allows adjusting assumptions and seeing real-time ROI impact.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { 
-  TrendingUp, 
   DollarSign, 
+  Download, 
+  Info,
   Percent,
   RefreshCw,
-  Download,
-  Info,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { KPICards, type KPIData } from '@/features/workspace/components/KPICards';

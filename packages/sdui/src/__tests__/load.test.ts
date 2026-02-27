@@ -8,10 +8,10 @@
  * - Memory stability
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { performance } from 'perf_hooks';
 import { sanitizeProps } from '../security/sanitization';
-import { validateSession, createSessionContext, type SessionContext } from '../security/sessionValidation';
+import { createSessionContext, type SessionContext, validateSession } from '../security/sessionValidation';
 import { resetSecurityMetrics } from '../security/metrics';
 
 describe('Load Testing', () => {

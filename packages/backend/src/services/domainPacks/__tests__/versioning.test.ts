@@ -1,20 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  parseSemver,
-  formatSemver,
-  nextPatch,
-  nextMinor,
-  nextMajor,
-  nextVersion,
-  compareSemver,
-  assertPublishable,
-  detectCircularParent,
-  validateParentNotDeprecated,
   assertMutable,
-  assertVersionIncreased,
+  assertPublishable,
   assertPublishableWithGovernance,
+  assertVersionIncreased,
+  compareSemver,
+  detectCircularParent,
+  formatSemver,
+  nextMajor,
+  nextMinor,
+  nextPatch,
+  nextVersion,
+  parseSemver,
+  validateParentNotDeprecated,
 } from '../versioning.js';
-import type { DomainPackKpi, DomainPackAssumption } from '../../../api/domainPacks/types.js';
+import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
 
 // ============================================================================
 // parseSemver / formatSemver

@@ -10,14 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  Lightbulb,
   RotateCcw,
   Target,
-  BookOpen,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Lightbulb
+  TrendingUp
 } from "lucide-react";
 
 interface RetakeAttempt {

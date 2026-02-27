@@ -7,7 +7,7 @@
  * - Manages state transitions: IDLE → PLANNING → EXECUTING → IDLE
  */
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type AgentState = "IDLE" | "PLANNING" | "EXECUTING" | "ERROR";
 

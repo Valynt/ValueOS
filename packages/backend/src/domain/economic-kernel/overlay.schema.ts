@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import { MetricCategory, MetricUnit, AggregationMethod, DriverCategory } from './kpi_registry.js';
+import { AggregationMethod, DriverCategory, MetricCategory, MetricUnit } from './kpi_registry.js';
 
 // ─── KPI Override ────────────────────────────────────────────────────────────
 

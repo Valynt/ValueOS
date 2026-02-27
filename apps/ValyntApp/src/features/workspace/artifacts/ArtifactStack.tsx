@@ -6,7 +6,7 @@
 
 import { cn } from '@/lib/utils';
 import type { Artifact } from '../agent/types';
-import { FileText, BarChart3, TrendingUp, FileCheck } from 'lucide-react';
+import { BarChart3, FileCheck, FileText, TrendingUp } from 'lucide-react';
 
 interface ArtifactStackProps {
   artifacts: Artifact[];

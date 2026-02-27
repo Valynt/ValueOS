@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import {
   LineChart,
   LineChartArea,
+  LineChartTooltip,
   LineChartXAxis,
   LineChartYAxis,
-  LineChartTooltip,
   ResponsiveContainer,
 } from "recharts";
 import { agentTelemetryService } from "../services/agents/telemetry/AgentTelemetryService";

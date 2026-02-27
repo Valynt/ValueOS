@@ -5,7 +5,7 @@
  * Provides a clean interface between the orchestrator and the UI store.
  */
 
-import type { AgentEvent, Artifact, AgentPhase } from './types';
+import type { AgentEvent, AgentPhase, Artifact } from './types';
 
 // Backend types (from UnifiedAgentOrchestrator)
 export interface StreamingUpdate {

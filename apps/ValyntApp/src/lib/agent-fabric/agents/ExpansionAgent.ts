@@ -7,11 +7,11 @@
 
 import { BaseAgent } from "../BaseAgent";
 import {
-  validateGroundTruthMetadata,
   assertHighConfidence,
   assertProvenance,
+  validateGroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
-import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
 
 export interface ExpansionOpportunity {

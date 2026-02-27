@@ -78,7 +78,7 @@ export abstract class MCPBaseError extends Error {
   public readonly category: "general" | "financial" | "crm" | "config";
   public readonly metadata: MCPErrorMetadata;
   public readonly details?: MCPErrorDetails;
-  public readonly cause?: Error;
+  public override readonly cause?: Error;
 
   constructor(
     code: MCPErrorCode,

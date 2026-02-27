@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { useForm } from "react-hook-form";
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { useEffect } from "react";
-import { Form, FormInput, FormTextarea, FormSelect } from "./FormSystem";
+import { Form, FormInput, FormSelect, FormTextarea } from "./FormSystem";
 
 const TestForm = ({ defaultValues = {} }) => {
   const form = useForm({ defaultValues });

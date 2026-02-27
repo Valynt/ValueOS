@@ -5,7 +5,7 @@
  * resolution varies across project configs, we extract the function logic
  * here to validate the fix independently.
  */
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // Mirrors the implementation added to packages/shared/src/lib/env.ts
 function getEnvVar(key: string): string | undefined {

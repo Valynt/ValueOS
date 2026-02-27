@@ -127,7 +127,7 @@ router.post(
         data: footprint,
       });
     } catch (err) {
-      logger.error("DSR export failed", { error: err, email });
+      logger.error("DSR export failed", err instanceof Error ? err : undefined, { email });
       return res.status(500).json({ error: "Export failed" });
     }
   },
@@ -196,7 +196,7 @@ router.post(
         erased_at: redactedTs,
       });
     } catch (err) {
-      logger.error("DSR erasure failed", { error: err, email });
+      logger.error("DSR erasure failed", err instanceof Error ? err : undefined, { email });
       return res.status(500).json({ error: "Erasure failed" });
     }
   },
@@ -235,7 +235,7 @@ router.post(
 
       return res.json({ email, user_id: userId, record_counts: summary });
     } catch (err) {
-      logger.error("DSR status failed", { error: err, email });
+      logger.error("DSR status failed", err instanceof Error ? err : undefined, { email });
       return res.status(500).json({ error: "Status check failed" });
     }
   },

@@ -1,16 +1,16 @@
 import {
-  Play,
-  Pause,
   AlertTriangle,
-  Shield,
-  RotateCcw,
-  Plus,
-  Sparkles,
-  FileText,
-  TrendingUp,
-  ChevronRight,
-  Zap,
   Bot,
+  ChevronRight,
+  FileText,
+  Pause,
+  Play,
+  Plus,
+  RotateCcw,
+  Shield,
+  Sparkles,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";

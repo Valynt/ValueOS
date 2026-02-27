@@ -1,24 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  checkDangerousString,
-  validateKpiUniqueness,
-  validateAssumptionUniqueness,
-  validateKpiUnits,
-  validateAssumptionUnits,
-  validateAssumptionSafety,
-  validateKpiSafety,
-  validatePack,
-  hasErrors,
-  validateLlmLimits,
-  stripPromptUnsafeMarkdown,
-  sanitizeKpiForPrompt,
-  sanitizeAssumptionForPrompt,
-  estimateTokens,
-  LLM_LIMITS,
-  ALLOWED_KPI_UNITS,
   ALLOWED_ASSUMPTION_UNITS,
+  ALLOWED_KPI_UNITS,
+  checkDangerousString,
+  estimateTokens,
+  hasErrors,
+  LLM_LIMITS,
+  sanitizeAssumptionForPrompt,
+  sanitizeKpiForPrompt,
+  stripPromptUnsafeMarkdown,
+  validateAssumptionSafety,
+  validateAssumptionUniqueness,
+  validateAssumptionUnits,
+  validateKpiSafety,
+  validateKpiUniqueness,
+  validateKpiUnits,
+  validateLlmLimits,
+  validatePack,
 } from '../validate.js';
-import type { DomainPackKpi, DomainPackAssumption } from '../../../api/domainPacks/types.js';
+import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
 
 // ============================================================================
 // Fixtures

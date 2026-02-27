@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  CheckType,
   ContentType,
   IntegrityValidationService,
   ValidationLevel,
-  CheckType,
 } from "../IntegrityValidationService";
 
 const baseRequest = {

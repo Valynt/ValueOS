@@ -7,13 +7,13 @@ import { SectionCard } from "@/components/SectionCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  CheckCircle2,
-  XCircle,
-  Lightbulb,
-  Target,
-  BookOpen,
   ArrowRight,
-  RotateCcw
+  BookOpen,
+  CheckCircle2,
+  Lightbulb,
+  RotateCcw,
+  Target,
+  XCircle
 } from "lucide-react";
 
 interface FeedbackData {

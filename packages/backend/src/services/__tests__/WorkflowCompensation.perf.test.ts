@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowCompensation } from '../WorkflowCompensation.js'
 import { createBoltClientMock } from '../utils/mockSupabaseClient.js'
 

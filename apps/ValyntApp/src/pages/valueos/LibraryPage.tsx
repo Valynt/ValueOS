@@ -4,17 +4,17 @@
  * Templates, Value Drivers, and other strategic resources.
  */
 
-import { useNavigate, NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  FileText,
-  Target,
-  Palette,
   BookOpen,
   ChevronRight,
+  FileText,
+  Palette,
   Plus,
+  Sparkles,
+  Target,
   TrendingUp,
   Users,
-  Sparkles,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

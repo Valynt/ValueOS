@@ -1,7 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
-import { Repository, PullRequestData } from '../types/index.js';
+import { PullRequestData, Repository } from '../types/index.js';
 
 export class GitHubClient {
   private octokit: Octokit;

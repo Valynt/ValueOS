@@ -9,10 +9,10 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
 import PQueue from 'p-queue';
 import { logger } from '../../lib/logger.js';
-import { crawlWebsite, type CrawlResult } from './WebCrawler.js';
+import { type CrawlResult, crawlWebsite } from './WebCrawler.js';
 import {
-  extractAllEntities,
   type EntityType,
+  extractAllEntities,
   type ExtractionResult,
   type LLMGatewayInterface,
 } from './SuggestionExtractor.js';

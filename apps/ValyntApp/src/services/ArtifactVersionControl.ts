@@ -11,10 +11,10 @@ import { EventEmitter } from "events";
 
 import {
   Artifact,
+  ArtifactStorageMetadata,
   ArtifactVersion,
   AuditEvent,
   AuditEventType,
-  ArtifactStorageMetadata,
   DistributionRecord,
   RetentionPolicy,
 } from "../types/artifact";

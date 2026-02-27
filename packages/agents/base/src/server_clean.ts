@@ -4,7 +4,7 @@
  */
 
 import express from "express";
-import { HealthChecker, defaultHealthChecks } from "./health.js";
+import { defaultHealthChecks, HealthChecker } from "./health.js";
 import { getMetricsRegistry } from "./metrics.js";
 import { logger } from "./logger.js";
 

@@ -5,7 +5,7 @@
  * and CostAwareRoutingService for budget-aware agent routing.
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CostAwareRouter } from '../CostAwareRouter.js';
 import { CostAwareRoutingService } from '../CostAwareRoutingService.js';
 import { LLMCostTracker } from '../LLMCostTracker.js';

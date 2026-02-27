@@ -1,5 +1,5 @@
 import type { LLMProvider } from "../lib/agent-fabric/llm-types.js"
-import type { LLMGatingConfig } from "../lib/llm-gating/types";
+import type { LLMGateConfig } from "../lib/llm-gating/types";
 
 // Use a local helper to avoid relying on global ImportMeta typings
 const env = (import.meta as any)?.env ?? {};
@@ -22,7 +22,7 @@ const gatingEnabled = gatingEnabledEnv === "false" ? false : true;
  * - Architectural Gating: MoE/sparse attention model selection
  * - Application Gating: Pre/post invocation security gates
  */
-export const llmGatingConfig: LLMGatingConfig = {
+export const llmGatingConfig: LLMGateConfig = {
   // Master switch
   enabled: gatingEnabled,
 

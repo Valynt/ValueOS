@@ -63,7 +63,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
       status: "success",
     });
 
-    res.json({
+    return res.json({
       success: true,
       referral_code: result.referral_code,
     });
@@ -72,7 +72,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -117,7 +117,7 @@ router.post(
       // Note: We don't audit log here since user might not be authenticated yet
       // Audit logging will happen when they complete signup
 
-      res.json({
+      return res.json({
         success: true,
         referral_id: result.referral_id,
         reward: result.reward,
@@ -129,7 +129,7 @@ router.post(
         referee_email: sanitizeForLogging(req.body.referee_email),
       });
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -164,7 +164,7 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
       total_referrals: dashboard.stats.total_referrals,
     });
 
-    res.json({
+    return res.json({
       success: true,
       dashboard,
     });
@@ -173,7 +173,7 @@ router.get("/dashboard", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -200,7 +200,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
       completed_referrals: stats.completed_referrals,
     });
 
-    res.json({
+    return res.json({
       success: true,
       stats,
     });
@@ -209,7 +209,7 @@ router.get("/stats", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -233,7 +233,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
       rewards_count: rewards.length,
     });
 
-    res.json({
+    return res.json({
       success: true,
       rewards,
       count: rewards.length,
@@ -243,7 +243,7 @@ router.get("/rewards", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -267,7 +267,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
       referrals_count: referrals.length,
     });
 
-    res.json({
+    return res.json({
       success: true,
       referrals,
       count: referrals.length,
@@ -277,7 +277,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -303,7 +303,7 @@ router.post(
         ipAddress: req.ip,
       });
 
-      res.json({
+      return res.json({
         success: true,
         valid: isValid,
         message: isValid ? "Referral code is valid" : "Invalid or inactive referral code",
@@ -313,7 +313,7 @@ router.post(
         code: sanitizeForLogging(req.body.code),
       });
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -365,7 +365,7 @@ router.post(
         status: "success",
       });
 
-      res.json({
+      return res.json({
         success: true,
         message: "Referral completed successfully! Rewards have been issued.",
       });
@@ -375,7 +375,7 @@ router.post(
         user_id: sanitizeForLogging((req as any).user?.id),
       });
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -415,7 +415,7 @@ router.delete("/deactivate", requireAuth, async (req: Request, res: Response) =>
       status: "success",
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: "Referral code deactivated successfully",
     });
@@ -424,7 +424,7 @@ router.delete("/deactivate", requireAuth, async (req: Request, res: Response) =>
       userId: sanitizeForLogging((req as any).user?.id),
     });
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

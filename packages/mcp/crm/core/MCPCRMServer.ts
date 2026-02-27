@@ -11,18 +11,18 @@ import { HubSpotModule } from "../modules/HubSpotModule";
 import { SalesforceModule } from "../modules/SalesforceModule";
 import { CRMConfigManager } from "../config/CRMConfigManager";
 import {
-  mcpRateLimiter,
-  ParallelInitializer,
   MCPCRMError,
   MCPErrorCodes,
+  mcpRateLimiter,
   MCPResponseBuilder,
+  ParallelInitializer,
 } from "../../mcp-common";
 import {
+  CRMActivity,
   CRMConnection,
+  CRMContact,
   CRMModule,
   CRMProvider,
-  CRMContact,
-  CRMActivity,
   DealSearchParams,
   MCPCRMConfig,
   MCPCRMToolResult,

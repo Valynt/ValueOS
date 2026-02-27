@@ -3,7 +3,7 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 import { NextFunction, Request, Response } from 'express';
 import { getAutonomyConfig } from "../config/autonomy.js"
 import { logger } from '../lib/logger.js';
-import { NonceStoreUnavailableError, nonceStore } from './nonceStore.js'
+import { nonceStore, NonceStoreUnavailableError } from './nonceStore.js'
 
 const browserRandomUUID = (): string | null => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -310,7 +310,7 @@ export function serviceIdentityMiddleware(req: Request, res: Response, next: Nex
       audience: resolvedIdentity.audience,
       path: req.originalUrl || req.url,
     });
-    next();
+    return next();
   }).catch((error) => {
     if (error instanceof NonceStoreUnavailableError) {
       logger.error('Service identity replay protection unavailable', error, {

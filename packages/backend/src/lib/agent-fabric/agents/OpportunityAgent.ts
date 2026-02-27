@@ -22,7 +22,7 @@ import type {
 import { mcpGroundTruthService } from '../../../services/MCPGroundTruthService.js';
 import type { FinancialDataResult } from '../../../services/MCPGroundTruthService.js';
 import { featureFlags } from '../../../config/featureFlags.js';
-import { loadDomainContext, formatDomainContextForPrompt } from '../../../agents/context/loadDomainContext.js';
+import { formatDomainContextForPrompt, loadDomainContext } from '../../../agents/context/loadDomainContext.js';
 import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
 
 // ---------------------------------------------------------------------------

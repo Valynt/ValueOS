@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { User, Briefcase, TrendingUp, Award, BookOpen, Target, CheckCircle } from "lucide-react";
+import { Award, BookOpen, Briefcase, CheckCircle, Target, TrendingUp, User } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";

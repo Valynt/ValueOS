@@ -9,7 +9,7 @@
  * Final score = (freshness * 0.3) + (reliability * 0.4) + (transparency * 0.3)
  */
 import { z } from 'zod';
-import type { EvidenceTier, ClassifiedEvidence, Citation } from './EvidenceTiering.js';
+import type { Citation, ClassifiedEvidence, EvidenceTier } from './EvidenceTiering.js';
 export type TransparencyLevel = 'full' | 'partial' | 'opaque';
 export interface ConfidenceInput {
     evidence: ClassifiedEvidence;

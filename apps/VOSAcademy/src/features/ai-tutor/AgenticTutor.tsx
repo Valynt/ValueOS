@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,14 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Bot, 
-  Send, 
-  Sparkles, 
-  TrendingUp, 
   DollarSign, 
+  FileText, 
+  Lightbulb, 
+  Loader2, 
+  Send,
+  Sparkles,
   Target,
-  FileText,
-  Lightbulb,
-  Loader2
+  TrendingUp
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import Streamdown from "streamdown";

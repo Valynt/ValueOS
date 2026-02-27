@@ -7,10 +7,10 @@
 
 import { supabase } from "@/lib/supabase";
 import type {
-  ValueCaseRow,
-  ValueCaseInsert,
-  ValueCaseWithRelations,
   PortfolioValue,
+  ValueCaseInsert,
+  ValueCaseRow,
+  ValueCaseWithRelations,
 } from "./types";
 
 class CaseQueryError extends Error {

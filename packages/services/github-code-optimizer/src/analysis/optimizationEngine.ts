@@ -1,4 +1,4 @@
-import { Optimization, CodeAnalysis, BotConfig } from '../types/index.js';
+import { BotConfig, CodeAnalysis, Optimization } from '../types/index.js';
 import { queryAI } from '../services/aiService.js';
 import { logger } from '../utils/logger.js';
 

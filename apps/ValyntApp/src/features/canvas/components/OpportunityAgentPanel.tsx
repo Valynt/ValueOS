@@ -3,7 +3,7 @@ import { useAgent } from "../../agents/hooks/useAgent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Check, X } from "lucide-react";
+import { Check, Edit2, X } from "lucide-react";
 import { logger } from "../../../lib/logger";
 
 interface OpportunityAgentPanelProps {

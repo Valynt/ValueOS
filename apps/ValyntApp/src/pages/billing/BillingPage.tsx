@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CreditCard, TrendingUp, FileText, AlertCircle, Check } from "lucide-react";
+import { AlertCircle, Check, CreditCard, FileText, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSkeleton } from "@valueos/components/ui/loading-skeleton";

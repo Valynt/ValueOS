@@ -3,7 +3,7 @@
  */
 
 import type { CalculatorTemplate } from '../../types/calculatorTemplate';
-import { Industry, MetricCategory, InputFieldType } from '../../types/calculatorTemplate';
+import { Industry, InputFieldType, MetricCategory } from '../../types/calculatorTemplate';
 
 export const saasTemplate: CalculatorTemplate = {
   id: 'saas-v1',

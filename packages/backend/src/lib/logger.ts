@@ -120,4 +120,5 @@ export function createLogger(options: { component: string }) {
   };
 }
 
+export { logger as log };
 export default logger;

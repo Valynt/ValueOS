@@ -1,11 +1,11 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
+  ApprovalContext,
   ApprovalDecision,
   ApprovalRecord,
-  ApprovalContext,
-  UUID,
   FactStatus,
   NarrativeStatus,
+  UUID,
 } from "./types";
 
 export class ApprovalError extends Error {

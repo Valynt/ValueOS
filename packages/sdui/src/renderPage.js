@@ -5,7 +5,7 @@ import { MotionMasterProvider } from "./MotionMaster";
 import { ErrorBoundary } from "../components/Common/ErrorBoundary";
 import { SectionErrorFallback, UnknownComponentFallback } from "../components/SDUI";
 import { SDUIValidationError, validateSDUISchema, } from "./schema";
-import { resolveComponentLazy, preloadCriticalComponents } from "./LazyComponentRegistry";
+import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
 import { resolveComponent } from "./registry";
 import { useDataHydration } from "./hooks/useDataHydration";
 import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";

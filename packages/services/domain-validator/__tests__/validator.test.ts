@@ -2,7 +2,7 @@
  * Tests for DomainValidator
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DomainValidator } from '../src/validator';
 import { domainCache } from '../src/cache';
 import { domainDatabase } from '../src/database';

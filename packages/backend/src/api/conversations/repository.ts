@@ -8,12 +8,12 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import {
-  Message,
+  ConversationSession,
   CreateMessageRequest,
   ListMessagesQuery,
-  MessageRole,
+  Message,
   MessageMetadata,
-  ConversationSession,
+  MessageRole,
 } from './types';
 import { logger } from "../../lib/logger.js";
 

@@ -6,11 +6,11 @@
  */
 
 import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
   BarChart3,
   Building2,
+  Minus,
+  TrendingDown,
+  TrendingUp,
   Users,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';

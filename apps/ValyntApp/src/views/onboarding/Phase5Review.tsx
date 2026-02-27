@@ -1,15 +1,15 @@
 import {
-  CheckCircle2,
-  Building2,
-  Swords,
-  Users,
-  Shield,
-  Package,
-  Sparkles,
-  ExternalLink,
   Bot,
-  Zap,
+  Building2,
+  CheckCircle2,
+  ExternalLink,
+  Package,
+  Shield,
+  Sparkles,
+  Swords,
   TrendingUp,
+  Users,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {

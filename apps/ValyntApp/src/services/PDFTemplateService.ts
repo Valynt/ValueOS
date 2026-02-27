@@ -5,7 +5,7 @@
  * This service provides template-driven PDF generation with organization branding
  */
 
-import { ArtifactType, BrandingProfile, ArtifactTemplate } from "../types/artifact";
+import { ArtifactTemplate, ArtifactType, BrandingProfile } from "../types/artifact";
 
 // ============================================================================
 // PDF Template Service

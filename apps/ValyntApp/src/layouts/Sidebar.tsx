@@ -1,16 +1,16 @@
 import {
-  Zap,
-  Briefcase,
-  Boxes,
   Bot,
-  Sparkles,
-  Settings,
-  LogOut,
+  Boxes,
+  Briefcase,
+  Building2,
   ChevronLeft,
   ChevronRight,
-  X,
+  LogOut,
+  Settings,
+  Sparkles,
   User,
-  Building2,
+  X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";

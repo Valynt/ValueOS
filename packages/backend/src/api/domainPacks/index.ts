@@ -5,23 +5,23 @@
  * Repository methods are stubbed — routes return 501 until wired.
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  CreateDomainPackSchema,
-  UpdateDomainPackSchema,
-  ListDomainPacksQuerySchema,
   ApiErrorResponse,
+  CreateDomainPackSchema,
+  ListDomainPacksQuerySchema,
+  UpdateDomainPackSchema,
 } from './types.js';
 import {
-  getDomainPacksRepository,
-  NotFoundError,
   ConflictError,
   DatabaseError,
+  getDomainPacksRepository,
+  NotFoundError,
   NotImplementedError,
 } from './repository.js';
-import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js';
+import { AuthenticatedRequest, requireAuth, requireRole } from '../../middleware/auth.js';
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js';
 import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js';

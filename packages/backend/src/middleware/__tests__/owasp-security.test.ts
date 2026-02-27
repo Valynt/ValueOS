@@ -3,16 +3,16 @@
  * Comprehensive tests for all security implementations
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Request, Response } from "express";
 import {
   csrfProtectionMiddleware,
   sessionSecurityMiddleware,
 } from "../securityMiddleware";
 import {
+  contentTypeValidationMiddleware,
   fileUploadSecurityMiddleware,
   validateFileUpload,
-  contentTypeValidationMiddleware,
 } from "../fileUploadSecurity";
 import { securityHeadersMiddleware } from "../securityHeaders";
 

@@ -93,7 +93,7 @@ router.post(
       });
 
       // Return session info (client will handle token storage)
-      res.json({
+      return res.json({
         user: {
           id: result.user.id,
           email: result.user.email,
@@ -120,7 +120,7 @@ router.post(
         return res.status(400).json({ error: error.message });
       }
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -178,7 +178,7 @@ router.post(
         });
       }
 
-      res.status(201).json({
+      return res.status(201).json({
         user: {
           id: result.user.id,
           email: result.user.email,
@@ -202,7 +202,7 @@ router.post(
         return res.status(409).json({ error: error.message });
       }
 
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -255,7 +255,7 @@ router.post(
       }
 
       // Always return success to prevent email enumeration
-      res.json({
+      return res.json({
         message: "If an account with that email exists, a password reset link has been sent.",
       });
     } catch (error) {
@@ -263,7 +263,7 @@ router.post(
         errorMsg: String(error),
       });
       // Don't expose internal errors for security
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -320,12 +320,12 @@ router.post(
         logger.warn("Verification audit lookup failed", { errorMsg: String(auditError) });
       }
 
-      res.json({ message: "Verification email resent" });
+      return res.json({ message: "Verification email resent" });
     } catch (error) {
       logger.error("Verification resend failed", error instanceof Error ? error : undefined, {
         errorMsg: String(error),
       });
-      res.status(500).json({ error: "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
@@ -367,7 +367,7 @@ router.post(
       });
     }
 
-    res.json({
+    return res.json({
       message: "Password updated successfully",
     });
   } catch (error) {
@@ -382,7 +382,7 @@ router.post(
       return res.status(401).json({ error: error.message });
     }
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -408,7 +408,7 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       message: "Logged out successfully",
     });
   } catch (error) {
@@ -416,7 +416,7 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
       errorMsg: String(error),
     });
     // Logout should always succeed on client side
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -428,7 +428,7 @@ router.get("/session", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "No active session" });
     }
 
-    res.json({
+    return res.json({
       user: {
         id: session.user.id,
         email: session.user.email,
@@ -444,7 +444,7 @@ router.get("/session", async (req: Request, res: Response) => {
     logger.error("Session retrieval failed", error instanceof Error ? error : undefined, {
       errorMsg: String(error),
     });
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -456,7 +456,7 @@ router.post("/refresh", requireAuth, async (req: Request, res: Response) => {
       userId: String(sanitizeForLogging(result.user.id)),
     });
 
-    res.json({
+    return res.json({
       user: {
         id: result.user.id,
         email: result.user.email,
@@ -479,7 +479,7 @@ router.post("/refresh", requireAuth, async (req: Request, res: Response) => {
       return res.status(401).json({ error: error.message });
     }
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

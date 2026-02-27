@@ -2,14 +2,14 @@ import React from "react";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ExternalLink, ShieldCheck, FileText } from "lucide-react";
+import { ExternalLink, FileText, ShieldCheck } from "lucide-react";
 import type { VMRTLog } from "../features/workflow/services/IntegrityService";
 
 interface VMRTPanelProps {

@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 // Create resources directory in public folder

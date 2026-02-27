@@ -1,4 +1,4 @@
-import { Repository, Optimization, PullRequestData, BotConfig } from '../types/index.js';
+import { BotConfig, Optimization, PullRequestData, Repository } from '../types/index.js';
 import { githubClient } from './githubClient.js';
 import { logger, logPREvent } from '../utils/logger.js';
 import { generateTests } from '../generation/testGenerator.js';

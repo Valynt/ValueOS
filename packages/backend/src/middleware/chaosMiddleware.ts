@@ -26,7 +26,7 @@ export function chaosMiddleware() {
         await chaosEngineering.executeChaos(injection);
       }
 
-      next();
+      return next();
     } catch (error) {
       // If chaos was injected, pass the error
       if (error instanceof Error && error.message.includes('chaos')) {
@@ -66,7 +66,7 @@ export function chaosServiceMiddleware(serviceName: string) {
         await chaosEngineering.executeChaos(injection);
       }
 
-      next();
+      return next();
     } catch (error) {
       if (error instanceof Error && error.message.includes('chaos')) {
         const statusCode = (error as any).statusCode || 500;

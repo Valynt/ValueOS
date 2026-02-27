@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Boxes, BarChart3, ArrowRight, Tag } from "lucide-react";
+import { ArrowRight, BarChart3, Boxes, Plus, Search, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const models = [

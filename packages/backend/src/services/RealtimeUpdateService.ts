@@ -406,7 +406,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
    * Detect conflict
    */
   private detectConflict(currentState: WorkspaceState, update: SDUIUpdate): boolean {
-    const stateUpdatedAt = currentState?.lastUpdated ?? 0;
+    const stateUpdatedAt = currentState?.last_updated ?? 0;
     const lastUpdate = this.lastProcessedUpdates.get(update.workspaceId);
 
     if (lastUpdate) {

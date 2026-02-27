@@ -27,7 +27,7 @@ export declare const ACTIONS: {
     readonly ALL: "*";
 };
 export type Action = (typeof ACTIONS)[keyof typeof ACTIONS];
-export type Permission = `${Resource}:${Action}` | `${string}:${string}`;
+export type Permission = `${Resource}:${Action}` | `${string}:${string}` | `${string}.${string}`;
 export declare const PERMISSIONS: {
     readonly DASHBOARD_VIEW: Permission;
     readonly PROJECTS_VIEW: Permission;

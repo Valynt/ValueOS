@@ -5,10 +5,10 @@
  * retries, and monitoring.
  */
 
-import { Kafka, Consumer, Producer, EachMessagePayload, logLevel } from "kafkajs";
+import { Consumer, EachMessagePayload, Kafka, logLevel, Producer } from "kafkajs";
 import { logger } from "../lib/logger.js"
 import { BaseEvent } from "@shared/types/events";
-import { tenantContextStorage, TCTPayload } from "../middleware/tenantContext.js"
+import { TCTPayload, tenantContextStorage } from "../middleware/tenantContext.js"
 import jwt from "jsonwebtoken";
 import { buildKafkaClientConfig, isKafkaEnabled } from "./kafkaConfig.js"
 

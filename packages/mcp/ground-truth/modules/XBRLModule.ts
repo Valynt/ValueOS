@@ -46,7 +46,7 @@ export class XBRLModule extends BaseModule {
   private userAgent: string = '';
   private baseUrl: string = 'https://data.sec.gov/api/xbrl';
   private rateLimit: number = 10;
-  private lastRequestTime: number = 0;
+  override private lastRequestTime: number = 0;
   private factsCache: Map<string, any> = new Map();
 
   // Standard XBRL US GAAP taxonomy mappings
@@ -69,7 +69,7 @@ export class XBRLModule extends BaseModule {
     cost_of_revenue: 'CostOfRevenue',
   };
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, any>): Promise<void> {
     await super.initialize(config);
     
     const xbrlConfig = config as XBRLConfig;

@@ -54,10 +54,10 @@ router.get("/audit-logs", requirePermission("users.read"), async (req: Request, 
       offset: offset ? Number(offset) : undefined,
     });
 
-    res.json({ logs });
+    return res.json({ logs });
   } catch (error) {
-    logger.error("Failed to fetch audit logs", sanitizeForLogging(error));
-    res.status(500).json({ error: "Failed to fetch audit logs" });
+    logger.error("Failed to fetch audit logs", error instanceof Error ? error : undefined);
+    return res.status(500).json({ error: "Failed to fetch audit logs" });
   }
 });
 
@@ -69,10 +69,10 @@ router.get("/users", requirePermission("users.read"), async (req: Request, res: 
     }
 
     const users = await adminUserService.listTenantUsers(tenantId);
-    res.json({ users });
+    return res.json({ users });
   } catch (error) {
-    logger.error("Failed to list tenant users", sanitizeForLogging(error));
-    res.status(500).json({ error: "Failed to load users" });
+    logger.error("Failed to list tenant users", error instanceof Error ? error : undefined);
+    return res.status(500).json({ error: "Failed to load users" });
   }
 });
 
@@ -107,10 +107,10 @@ router.post(
         }
       );
 
-      res.status(201).json({ user });
+      return res.status(201).json({ user });
     } catch (error) {
-      logger.error("Failed to invite user", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to invite user" });
+      logger.error("Failed to invite user", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to invite user" });
     }
   }
 );
@@ -140,16 +140,16 @@ router.patch(
           name: actorName,
         },
         {
-          userId: req.params.userId,
+          userId: req.params.userId!,
           role: req.body.role,
           tenantId,
         }
       );
 
-      res.json({ message: "Role updated" });
+      return res.json({ message: "Role updated" });
     } catch (error) {
-      logger.error("Failed to update role", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to update role" });
+      logger.error("Failed to update role", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to update role" });
     }
   }
 );
@@ -178,15 +178,15 @@ router.delete(
           name: actorName,
         },
         {
-          userId: req.params.userId,
+          userId: req.params.userId!,
           tenantId,
         }
       );
 
-      res.json({ message: "User removed" });
+      return res.json({ message: "User removed" });
     } catch (error) {
-      logger.error("Failed to remove user", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to remove user" });
+      logger.error("Failed to remove user", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to remove user" });
     }
   }
 );
@@ -215,10 +215,10 @@ router.post(
         }
       );
 
-      res.status(201).json({ role });
+      return res.status(201).json({ role });
     } catch (error) {
-      logger.error("Failed to create custom role", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to create role" });
+      logger.error("Failed to create custom role", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to create role" });
     }
   }
 );
@@ -239,7 +239,7 @@ router.patch(
 
       const role = await adminRoleService.updateCustomRole(
         { id: actor.id, email: actor.email, name: actorName },
-        req.params.roleId,
+        req.params.roleId!,
         {
           tenantId,
           name: req.body.name,
@@ -247,10 +247,10 @@ router.patch(
         }
       );
 
-      res.json({ role });
+      return res.json({ role });
     } catch (error) {
-      logger.error("Failed to update custom role", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to update role" });
+      logger.error("Failed to update custom role", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to update role" });
     }
   }
 );
@@ -271,13 +271,13 @@ router.delete(
       await adminRoleService.deleteCustomRole(
         { id: actor.id, email: actor.email, name: actorName },
         tenantId,
-        req.params.roleId
+        req.params.roleId!
       );
 
-      res.json({ message: "Role deleted" });
+      return res.json({ message: "Role deleted" });
     } catch (error) {
-      logger.error("Failed to delete custom role", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to delete role" });
+      logger.error("Failed to delete custom role", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to delete role" });
     }
   }
 );
@@ -290,10 +290,10 @@ router.get("/roles/matrix", requirePermission("users.read"), async (req: Request
     }
 
     const matrix = await adminRoleService.listRolePermissionMatrix(tenantId);
-    res.json({ matrix });
+    return res.json({ matrix });
   } catch (error) {
-    logger.error("Failed to list role permission matrix", sanitizeForLogging(error));
-    res.status(500).json({ error: "Failed to list role matrix" });
+    logger.error("Failed to list role permission matrix", error instanceof Error ? error : undefined);
+    return res.status(500).json({ error: "Failed to list role matrix" });
   }
 });
 
@@ -315,15 +315,15 @@ router.post(
         { id: actor.id, email: actor.email, name: actorName },
         {
           tenantId,
-          roleId: req.params.roleId,
+          roleId: req.params.roleId!,
           permissionKeys: req.body.permissionKeys,
         }
       );
 
-      res.status(204).send();
+      return res.status(204).send();
     } catch (error) {
-      logger.error("Failed to assign permissions", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to assign permissions" });
+      logger.error("Failed to assign permissions", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to assign permissions" });
     }
   }
 );
@@ -346,15 +346,15 @@ router.delete(
         { id: actor.id, email: actor.email, name: actorName },
         {
           tenantId,
-          roleId: req.params.roleId,
+          roleId: req.params.roleId!,
           permissionKeys: req.body.permissionKeys,
         }
       );
 
-      res.status(204).send();
+      return res.status(204).send();
     } catch (error) {
-      logger.error("Failed to remove permissions", sanitizeForLogging(error));
-      res.status(500).json({ error: "Failed to remove permissions" });
+      logger.error("Failed to remove permissions", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to remove permissions" });
     }
   }
 );

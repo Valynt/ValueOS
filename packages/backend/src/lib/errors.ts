@@ -81,7 +81,7 @@ export class AppError extends Error {
   public readonly code: ErrorCodeType;
   public readonly status: number;
   public readonly isOperational: boolean;
-  public readonly cause?: Error;
+  public override readonly cause?: Error;
   public readonly details?: Record<string, unknown>;
   public readonly timestamp: string;
 

@@ -29,7 +29,7 @@ export class EntityMappingModule extends BaseModule {
   private tickerMap: Map<string, string> = new Map(); // domain -> ticker
   private initialized_mapping = false;
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, any>): Promise<void> {
     await super.initialize(config);
     // In a real system, we might load a pre-computed mapping file here.
     this.initialized_mapping = true;

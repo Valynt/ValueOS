@@ -2,21 +2,21 @@
  * Sanitization Utilities Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  sanitizeForLog,
-  sanitizeObjectForLog,
+  detectPromptInjection,
   escapeHtml,
-  stripHtml,
-  sanitizeHtml,
-  escapeSqlString,
   escapeSqlLike,
-  removeNullBytes,
+  escapeSqlString,
   normalizeWhitespace,
   removeInvisibleChars,
-  sanitizeString,
-  detectPromptInjection,
+  removeNullBytes,
+  sanitizeForLog,
   sanitizeForPrompt,
+  sanitizeHtml,
+  sanitizeObjectForLog,
+  sanitizeString,
+  stripHtml,
 } from '../sanitize';
 
 describe('Sanitization Utilities', () => {

@@ -14,14 +14,14 @@
 
 import { logger } from "../../../utils/logger";
 import {
-  validateGroundTruthMetadata,
   assertHighConfidence,
   assertProvenance,
   GroundTruthMetadata,
+  validateGroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
 import { v4 as uuidv4 } from "uuid";
 import { LLMGateway, LLMResponse } from "../LLMGateway";
-import { MemorySystem, MemoryQuery } from "../MemorySystem";
+import { MemoryQuery, MemorySystem } from "../MemorySystem";
 import { AuditLogger } from "../AuditLogger";
 import { z } from "zod";
 

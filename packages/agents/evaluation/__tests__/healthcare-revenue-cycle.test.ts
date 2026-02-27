@@ -8,23 +8,23 @@
  * - Integration fixture for HypothesisLoop execution
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   healthcareRevenueCycleScenario as scenario,
 } from '../datasets/ground-truth/healthcare-revenue-cycle.js';
-import { classifyEvidence, buildEvidenceBundle } from '../../core/EvidenceTiering.js';
+import { buildEvidenceBundle, classifyEvidence } from '../../core/EvidenceTiering.js';
 import {
   computeConfidence,
   scoreClaimConfidence,
   type TransparencyLevel,
 } from '../../core/ConfidenceScorer.js';
 import {
-  validateOpportunityResponse,
+  runEvalChecks,
   validateFinancialModelingResponse,
   validateGroundtruthResponse,
   validateNarrativeResponse,
+  validateOpportunityResponse,
   validateRedTeamResponse,
-  runEvalChecks,
 } from '../harness.js';
 import type { OpportunityEvalCase } from '../datasets/agent-evals/opportunity-agent.js';
 import type { FinancialModelingEvalCase } from '../datasets/agent-evals/financial-modeling-agent.js';

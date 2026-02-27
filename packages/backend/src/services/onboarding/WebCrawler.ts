@@ -10,7 +10,7 @@
  */
 
 import { logger } from '../../lib/logger.js';
-import { WebScraperService, type WebScraperResult } from '../WebScraperService.js';
+import { type WebScraperResult, WebScraperService } from '../WebScraperService.js';
 
 // ---------------------------------------------------------------------------
 // Public types (unchanged — consumed by ResearchJobWorker + SuggestionExtractor)

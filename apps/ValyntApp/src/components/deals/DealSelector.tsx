@@ -5,15 +5,15 @@
  * Used when no deal is currently selected in the DealsView.
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Building2,
+  Clock,
+  FileText,
+  Loader2,
   Plus,
   Search,
-  Clock,
   TrendingUp,
-  Loader2,
-  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { valueCaseService, type ValueCase } from '@/services/ValueCaseService';
+import { type ValueCase, valueCaseService } from '@/services/ValueCaseService';
 import type { LifecycleStage } from '@/types/vos';
 
 export interface DealSelectorProps {

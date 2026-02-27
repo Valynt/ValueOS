@@ -9,7 +9,7 @@ import { supabase } from "../../lib/supabase";
 import { HubSpotModule } from "../modules/HubSpotModule";
 import { SalesforceModule } from "../modules/SalesforceModule";
 import { CRMConfigManager } from "../config/CRMConfigManager";
-import { mcpRateLimiter, ParallelInitializer, MCPCRMError, MCPErrorCodes, MCPResponseBuilder, } from "../../mcp-common";
+import { MCPCRMError, MCPErrorCodes, mcpRateLimiter, MCPResponseBuilder, ParallelInitializer, } from "../../mcp-common";
 // ============================================================================
 // Tool Definitions for LLM
 // ============================================================================

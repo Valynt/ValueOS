@@ -5,12 +5,12 @@
  * CRITICAL: These tests validate the complete billing flow.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  getTestSupabaseClient,
-  cleanupBillingTables,
-  seedTestData,
   assertRecordExists,
+  cleanupBillingTables,
+  getTestSupabaseClient,
+  seedTestData,
 } from "../__helpers__/db-helpers";
 import {
   createBillingCustomer,

@@ -10,8 +10,8 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 import PriceVersionService from "./PriceVersionService.js";
-import type { PriceVersionDefinition, MeterPricing } from "./PriceVersionService.js";
-import type { MeterKey, EnforcementMode } from "@shared/types/billing-events";
+import type { MeterPricing, PriceVersionDefinition } from "./PriceVersionService.js";
+import type { EnforcementMode, MeterKey } from "@shared/types/billing-events";
 
 const logger = createLogger({ component: "EntitlementSnapshotService" });
 

@@ -1,7 +1,7 @@
 import {
+  ArrowUp,
   CheckCircle2,
   Shield,
-  ArrowUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

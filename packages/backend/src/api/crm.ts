@@ -13,7 +13,7 @@
  *   POST /api/crm/:provider/sync/now
  */
 
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import express from 'express';
 import { z } from 'zod';
 import { createLogger } from '../lib/logger.js';

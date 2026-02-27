@@ -3,7 +3,7 @@
  * Centralized routing configuration with lazy loading and error boundaries
  */
 
-import { type ReactElement, lazy, Suspense } from "react";
+import { lazy, type ReactElement, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { CommandPaletteProvider } from "./components/CommandPalette";

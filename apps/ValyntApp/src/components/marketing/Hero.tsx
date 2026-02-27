@@ -1,8 +1,8 @@
 import {
-  ChevronRight,
-  GitMerge,
   Bot,
+  ChevronRight,
   FileCheck,
+  GitMerge,
   ShieldCheck,
 } from "lucide-react";
 

@@ -69,9 +69,9 @@ export class ConcurrentModificationError extends Error {
 
 export class ValueTreeService {
   private locks: Map<string, Promise<void>> = new Map();
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: any;
 
-  constructor(supabaseClient: ReturnType<typeof createClient>) {
+  constructor(supabaseClient: any) {
     this.supabase = supabaseClient;
   }
 

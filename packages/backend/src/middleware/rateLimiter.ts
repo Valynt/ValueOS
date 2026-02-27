@@ -11,7 +11,7 @@
  * Uses in-memory store with Redis fallback for production
  */
 
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import { logger } from "@shared/lib/logger";
 import { RateLimitKeyService } from "../services/RateLimitKeyService.js"
 import { RedisRateLimitStore } from "./redisRateLimitStore.js"

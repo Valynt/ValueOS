@@ -27,7 +27,7 @@ const openApiSpec = YAML.load(fs.readFileSync(openApiPath, 'utf8'));
  * Serve OpenAPI specification as JSON
  */
 router.get('/openapi.json', (_req, res) => {
-  res.json(openApiSpec);
+  return res.json(openApiSpec);
 });
 
 /**
@@ -35,7 +35,7 @@ router.get('/openapi.json', (_req, res) => {
  */
 router.get('/openapi.yaml', (_req, res) => {
   res.type('text/yaml');
-  res.send(YAML.dump(openApiSpec, { indent: 2 }));
+  return res.send(YAML.dump(openApiSpec, { indent: 2 }));
 });
 
 /**
@@ -61,7 +61,7 @@ router.use(
  * Serve ReDoc documentation (alternative)
  */
 router.get('/redoc', (_req, res) => {
-  res.send(`
+  return res.send(`
 <!DOCTYPE html>
 <html>
   <head>
@@ -88,7 +88,7 @@ router.get('/redoc', (_req, res) => {
  * API documentation landing page
  */
 router.get('/', (_req, res) => {
-  res.send(`
+  return res.send(`
 <!DOCTYPE html>
 <html>
   <head>
@@ -246,7 +246,7 @@ router.get('/sdk/:language', (req, res) => {
   }
   
   // In production, this would generate actual SDK code
-  res.json({
+  return res.json({
     message: `SDK generation for ${language}`,
     instructions: `Use OpenAPI Generator to generate ${language} SDK`,
     command: `openapi-generator-cli generate -i /api/openapi.json -g ${language} -o ./sdk/${language}`

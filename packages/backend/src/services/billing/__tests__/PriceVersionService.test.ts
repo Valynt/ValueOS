@@ -5,7 +5,7 @@
  * Uses mocked Supabase client.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PriceVersionDefinition } from "../PriceVersionService";
 
 // Track mock calls

@@ -7,12 +7,12 @@
 
 import React from 'react';
 import {
+  Check,
+  ChevronRight,
+  Rocket,
   Search,
   Target,
   TrendingUp,
-  Rocket,
-  Check,
-  ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LifecycleStage } from '@/types/vos';

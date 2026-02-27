@@ -6,7 +6,7 @@
  */
 
 import { IntegratedMCPServer } from '@valueos/mcp-ground-truth';
-import { adaptBusinessCaseToTemplate, selectTemplateByContext, IntegrationManager } from '@adapters/BusinessCaseAdapter';
+import { adaptBusinessCaseToTemplate, IntegrationManager, selectTemplateByContext } from '@adapters/BusinessCaseAdapter';
 import { BusinessCaseResult } from '@valueos/business-case';
 
 /**

@@ -59,7 +59,7 @@ export class ActivateCustomer extends BaseSemanticTool<
   /**
    * Telemetry configuration
    */
-  telemetry = {
+  override telemetry = {
     trackMetrics: true,
     logInputs: false, // Don't log sensitive activation codes
     logOutputs: true,

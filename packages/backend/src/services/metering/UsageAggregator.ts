@@ -224,7 +224,7 @@ class UsageAggregator {
    * Build evidence chain for aggregate
    */
   private async buildEvidenceChain(events: any[], sourceHash: string): Promise<any[]> {
-    const evidenceChain = [];
+    const evidenceChain: unknown[] = [];
 
     // Add source evidence
     evidenceChain.push({

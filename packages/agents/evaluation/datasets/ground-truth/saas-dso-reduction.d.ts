@@ -5,10 +5,10 @@
  * reducing Days Sales Outstanding (DSO) through accounts receivable automation.
  * Based on realistic financial data patterns from public SaaS companies.
  */
-import type { EvidenceItem, EvidenceBundle, ClassifiedEvidence, Citation } from '../../../core/EvidenceTiering.js';
+import type { Citation, ClassifiedEvidence, EvidenceBundle, EvidenceItem } from '../../../core/EvidenceTiering.js';
 import type { ClaimConfidence } from '../../../core/ConfidenceScorer.js';
 import type { ProvenanceRecord } from '../../../../memory/provenance/index.js';
-import type { ValueTree, NarrativeBlock, ValueHypothesis } from '../../../orchestration/HypothesisLoop.js';
+import type { NarrativeBlock, ValueHypothesis, ValueTree } from '../../../orchestration/HypothesisLoop.js';
 import type { Objection } from '../../../orchestration/agents/RedTeamAgent.js';
 import type { SagaStateType } from '../../../core/ValueCaseSaga.js';
 export declare const SCENARIO_ID = "gt-saas-dso-001";

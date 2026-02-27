@@ -1,4 +1,4 @@
-import type { AgentOutput, AgentMetadata } from './types';
+import type { AgentMetadata, AgentOutput } from './types';
 
 /**
  * Simulates running an agent with a given budget percentage.

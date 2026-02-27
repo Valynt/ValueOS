@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, TrendingUp, Target, AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Target, TrendingUp } from "lucide-react";
 
 interface AssessmentQuestion {
   id: string;

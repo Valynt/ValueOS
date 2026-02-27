@@ -1,4 +1,4 @@
-import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { DataTable, InfoBanner, SectionErrorFallback, UnknownComponentFallback,
 // Fallbacks
  } from "./components/SDUI";

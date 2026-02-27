@@ -25,12 +25,12 @@ import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
-  GroundtruthRequestPayload,
   GroundtruthRequestOptions,
+  GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
 import { cacheService } from "./CacheService.js"
 import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
-import { hasService, getService, SERVICE_TOKENS } from "./DependencyInjectionContainer.js";
+import { getService, hasService, SERVICE_TOKENS } from "./DependencyInjectionContainer.js";
 import type { LifecycleContext } from "../types/agent.js";
 
 // ============================================================================
@@ -242,7 +242,7 @@ export class UnifiedAgentAPI {
     const groundtruthConfig = {
       baseUrl: groundtruthEnv.apiUrl,
       apiKey: groundtruthEnv.apiKey,
-      timeoutMs: groundtruthEnv.timeoutMs,
+      timeoutMs: groundtruthEnv.timeout,
       ...config.groundtruth,
     };
     this.groundtruthAPI = groundtruthConfig.baseUrl

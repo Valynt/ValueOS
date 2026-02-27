@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import { apiClient } from "../../../api/client/unified-api-client";
-import type { AuditLogEntry, AuditFilter } from "../types";
+import type { AuditFilter, AuditLogEntry } from "../types";
 
 export function useAuditLog() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);

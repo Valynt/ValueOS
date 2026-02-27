@@ -5,7 +5,7 @@
  * They support the Smart Remediation "Fix It" buttons in the Dev HUD.
  */
 
-import { Router, Request, Response } from "express";
+import { Request, Response, Router } from "express";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { isDevRouteHostAllowed, shouldEnableDevRoutes } from "./devRoutes.js";

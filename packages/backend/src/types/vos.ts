@@ -44,6 +44,9 @@ export interface TargetAgentOutput {
   assumptions: string[];
   dependencies: string[];
   confidence_level: ConfidenceLevel;
+  valueTree?: Record<string, unknown>;
+  businessCase?: Record<string, unknown>;
+  roiModel?: Record<string, unknown>;
 }
 
 export interface TargetKPI {
@@ -303,7 +306,16 @@ export interface VMRTSeed {
   lifecycle_stage: LifecycleStage;
   default_kpis: string[];
   suggested_benchmarks: string[];
-  template_data: Record<string, any>;
+  template_data: Record<string, unknown>;
+  traceId?: string;
+  context?: Record<string, unknown>;
+  reasoningSteps?: unknown[];
+  valueModel?: Record<string, unknown>;
+  assumptions?: unknown[];
+  kpis?: unknown[];
+  benchmarks?: Record<string, unknown>;
+  citations?: unknown[];
+  provenance?: Record<string, unknown>;
 }
 
 export interface VMRTTrace {

@@ -1,5 +1,5 @@
 import express from 'express';
-import { Repository, Optimization, AnalysisJob } from '../types/index.js';
+import { AnalysisJob, Optimization, Repository } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
 const router = express.Router();

@@ -1,13 +1,13 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { ScopeBadge } from '../../components/admin/ScopeBadge';
 import {
   type AdminNavSection,
   type AdminPermission,
+  buildBreadcrumbs,
   filterByPermissions,
   findNavItemByPath,
-  buildBreadcrumbs,
   searchNavItems,
 } from '../../lib/adminNavigation';
 

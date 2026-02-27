@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Boxes, Edit3, Plus, Save, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 

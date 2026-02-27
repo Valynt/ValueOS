@@ -5,7 +5,7 @@
  * webhook events are handled correctly without causing data corruption.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { WebhookService } from '../WebhookService.js';
 
 // Mock Stripe webhook data

@@ -336,8 +336,8 @@ export class PredictiveModelingService {
     const rSquared = ssTot !== 0 ? 1 - ssRes / ssTot : 0;
 
     // Calculate CAGR
-    const initialValue = values[0];
-    const finalValue = values[values.length - 1];
+    const initialValue = values[0] ?? 0;
+    const finalValue = values[values.length - 1] ?? 0;
     const periodsCount = values.length - 1;
     const cagr =
       periodsCount > 0 && initialValue > 0
@@ -345,7 +345,7 @@ export class PredictiveModelingService {
         : 0;
 
     // Assess growth stability (coefficient of variation of growth rates)
-    const growthRates = [];
+    const growthRates: unknown[] = [];
     for (let i = 1; i < values.length; i++) {
       if (values[i - 1] > 0) {
         growthRates.push((values[i] - values[i - 1]) / values[i - 1]);
@@ -850,7 +850,7 @@ export class PredictiveModelingService {
   ): "accelerating" | "decelerating" | "stable" | "erratic" {
     if (values.length < 4) return "stable";
 
-    const growthRates = [];
+    const growthRates: unknown[] = [];
     for (let i = 1; i < values.length; i++) {
       if (values[i - 1] > 0) {
         growthRates.push((values[i] - values[i - 1]) / values[i - 1]);

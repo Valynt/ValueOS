@@ -1,13 +1,13 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  UUID,
-  Narrative,
-  NarrativeStatus,
   Fact,
   FactStatus,
   ModelRun,
-  PersonaType,
+  Narrative,
   NarrativeRequest,
+  NarrativeStatus,
+  PersonaType,
+  UUID,
 } from "./types";
 import { MemoryService } from "./MemoryService.js"
 import { ModelRunEngine } from "./ModelRunEngine.js"

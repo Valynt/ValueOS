@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import { createLogger } from "@shared/lib/logger";
 import { mfaService } from "../services/MFAService.js"
 import { sanitizeForLogging } from "@shared/lib/piiFilter";

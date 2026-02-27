@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquare, Target, TrendingUp, Briefcase, Send, Bot, User, Plus, X, DollarSign, Users, Clock, FileText } from "lucide-react";
+import { Bot, Briefcase, Clock, DollarSign, FileText, MessageSquare, Plus, Send, Target, TrendingUp, User, Users, X } from "lucide-react";
 import { SidebarLayout } from "@/components/SidebarLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

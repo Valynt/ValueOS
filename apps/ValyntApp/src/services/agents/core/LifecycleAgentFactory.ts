@@ -7,7 +7,7 @@
  * with a centralized, testable factory pattern.
  */
 
-import { IAgent, IAgentFactory, AgentConfiguration } from "./IAgent";
+import { AgentConfiguration, IAgent, IAgentFactory } from "./IAgent";
 import { AgentType } from "../../agent-types";
 import { logger } from "../../../utils/logger";
 import { createClient } from "@supabase/supabase-js";

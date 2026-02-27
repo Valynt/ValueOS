@@ -7,7 +7,7 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { ESOService, ESODataPoint, ESOConfig } from "../services/ESOService";
+import { ESOConfig, ESODataPoint, ESOService } from "../services/ESOService";
 
 export interface ESOData {
   [source: string]: {

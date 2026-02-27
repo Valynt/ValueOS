@@ -58,7 +58,7 @@ class SecurityAuditService extends BaseService {
     super("SecurityAuditService");
   }
 
-  private get supabase() {
+  private override get supabase() {
     if (!this._supabase) {
       this._supabase = createServerSupabaseClient();
     }

@@ -10,7 +10,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js"
 import { BaseEvent, Event } from "@shared/types/events";
-import { getEventProducer, EventProducer } from "./EventProducer.js"
+import { EventProducer, getEventProducer } from "./EventProducer.js"
 import { isKafkaEnabled } from "./kafkaConfig.js"
 
 export interface EventStoreRecord {

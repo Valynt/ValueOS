@@ -609,7 +609,7 @@ export class SecretRotationScheduler extends EventEmitter {
     secretKey: string;
     running: boolean;
   }> {
-    const jobs = [];
+    const jobs: unknown[] = [];
 
     for (const [jobKey, cronJob] of this.jobs.entries()) {
       const [tenantId, secretKey] = jobKey.split(":");

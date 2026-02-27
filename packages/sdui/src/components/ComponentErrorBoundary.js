@@ -1,7 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { logger } from "@shared/lib/logger";
 import React, { Component } from "react";
-import { RefreshCw, Shield, Zap, Clock, CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, Clock, RefreshCw, Shield, XCircle, Zap } from "lucide-react";
 import { captureException } from "../../lib/sentry";
 import { isDevelopment, isProduction } from "../../config/environment";
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";

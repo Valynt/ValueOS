@@ -5,7 +5,7 @@
  * and stage trigger detection.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock Supabase
 const mockSupabase = {

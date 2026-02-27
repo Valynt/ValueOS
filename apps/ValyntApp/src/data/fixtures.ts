@@ -1,15 +1,15 @@
 // /workspaces/ValueOS/src/data/fixtures.ts
 import {
-  User,
-  Deal,
-  Stakeholder,
-  ValueDriver,
+  Artifact,
+  AuditEvent,
   Benchmark,
+  Deal,
   Hypothesis,
   ROIModel,
-  Artifact,
+  Stakeholder,
+  User,
+  ValueDriver,
   ValueRealization,
-  AuditEvent,
 } from "./types";
 
 export const users: User[] = [

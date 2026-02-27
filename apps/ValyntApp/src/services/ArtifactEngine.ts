@@ -10,22 +10,22 @@ import { EventEmitter } from "events";
 
 import {
   Artifact,
-  ArtifactType,
   ArtifactFormat,
-  CreateArtifact,
-  UpdateArtifact,
   ArtifactGenerationRequest,
   ArtifactGenerationResult,
-  BrandingProfile,
+  ArtifactStorageMetadata,
   ArtifactTemplate,
+  ArtifactType,
   ArtifactVersion,
   AuditEvent,
   AuditEventType,
-  RetentionPolicy,
-  ArtifactStorageMetadata,
+  BrandingProfile,
+  CreateArtifact,
   DistributionRecord,
   DistributionStatus,
+  RetentionPolicy,
   ScheduledReport,
+  UpdateArtifact,
 } from "../types/artifact";
 
 import { Database } from "../types/database";

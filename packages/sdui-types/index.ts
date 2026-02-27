@@ -180,6 +180,8 @@ export interface FeedbackLoop {
   description: string;
   strength: number;
   components: string[];
+  closure_status?: string;
+  realization_stage?: string;
 }
 
 export interface InterventionPoint {
@@ -214,6 +216,10 @@ export interface SystemMap {
     type: 'flow' | 'influence' | 'constraint';
     strength?: number;
   }>;
+  entities?: unknown[];
+  relationships?: unknown[];
+  leverage_points?: unknown[];
+  constraints?: unknown[];
 }
 
 // Workflow and Lifecycle Types

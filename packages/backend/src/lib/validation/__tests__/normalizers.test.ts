@@ -2,21 +2,21 @@
  * Normalizer Utilities Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  normalizeEmail,
+  extractDomain,
   extractEmailDomain,
-  normalizePhone,
   formatPhoneForDisplay,
-  normalizeUuid,
-  normalizeSlug,
-  normalizeUsername,
-  normalizeName,
   normalizeCompanyName,
   normalizeCurrencyAmount,
+  normalizeEmail,
+  normalizeName,
   normalizePercentage,
+  normalizePhone,
+  normalizeSlug,
   normalizeUrl,
-  extractDomain,
+  normalizeUsername,
+  normalizeUuid,
 } from '../normalizers';
 
 describe('Normalizer Utilities', () => {

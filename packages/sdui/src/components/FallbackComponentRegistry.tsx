@@ -7,7 +7,7 @@
 
 import React, { ComponentType } from "react";
 import { logger } from "@shared/lib/logger";
-import { AlertTriangle, RefreshCw, Info, Loader2 } from "lucide-react";
+import { AlertTriangle, Info, Loader2, RefreshCw } from "lucide-react";
 import { ComponentErrorBoundary } from "./ComponentErrorBoundary";
 
 /**

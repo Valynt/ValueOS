@@ -12,12 +12,12 @@
 
 import { 
   BusinessAction, 
-  ImpactDistribution, 
-  TimeCurve, 
-  CausalRelationship, 
-  CausalChain,
-  CausalQueryEngine,
-  CAUSAL_RELATIONSHIPS
+  CAUSAL_RELATIONSHIPS, 
+  CausalChain, 
+  CausalQueryEngine, 
+  CausalRelationship,
+  ImpactDistribution,
+  TimeCurve
 } from './causal-truth';
 
 import { 

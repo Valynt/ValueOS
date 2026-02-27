@@ -10,9 +10,9 @@ import { createClient } from "@supabase/supabase-js";
 import { EventEmitter } from "events";
 
 import {
+  ArtifactFormat,
   ArtifactStorageMetadata,
   RetentionPolicy,
-  ArtifactFormat,
 } from "../types/artifact";
 
 import { Database } from "../types/database";

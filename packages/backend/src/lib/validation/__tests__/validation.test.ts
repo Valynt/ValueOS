@@ -4,24 +4,24 @@
  * Tests for: unknown fields, oversized strings, invalid enum, unsafe patterns
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
+  CreateDealSchema,
   CreateUserSchema,
   UpdateUserSchema,
-  CreateDealSchema,
 } from '../schemas';
 import {
+  detectPromptInjection,
   sanitizeForLog,
   sanitizeString,
   stripHtml,
-  detectPromptInjection,
 } from '../sanitize';
 import {
   analyzeRegexSafety,
-  SafePatterns,
   isValidEmail,
   isValidUuid,
+  SafePatterns,
 } from '../safeRegex';
 import {
   normalizeEmail,

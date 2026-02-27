@@ -9,7 +9,7 @@
  */
 
 import { BaseService } from './BaseService.js';
-import { getSessionStore, DeviceFingerprint } from '../security/RedisSessionStore.js';
+import { DeviceFingerprint, getSessionStore } from '../security/RedisSessionStore.js';
 import { securityLogger } from './SecurityLogger.js';
 import { createLogger } from '@shared/lib/logger';
 import { getRedisClient } from '@shared/lib/redisClient';

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmailService, emailService } from '../EmailService.js'
 import { logger } from '../../lib/logger.js'
 import * as environmentConfig from '../../config/environment.js'

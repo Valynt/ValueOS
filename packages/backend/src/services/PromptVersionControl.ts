@@ -81,7 +81,8 @@ export interface ABTest {
 }
 
 export class PromptVersionControlService {
-  private supabase: ReturnType<typeof createClient>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private supabase: any;
   private cache: Map<string, PromptVersion> = new Map();
 
   constructor() {
@@ -502,7 +503,7 @@ export class PromptVersionControlService {
 
     if (!test) return [];
 
-    const results = [];
+    const results: unknown[] = [];
 
     for (const variant of test.variants) {
       const { data: executions } = await this.supabase

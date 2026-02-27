@@ -7,7 +7,7 @@
  * - Example creation: `setAuthRateLimiter(createRedisRateLimiter(redisClient))`
  */
 
-import { RateLimiterProvider, RateLimitResult, RateLimitExceededError } from './index.js'
+import { RateLimiterProvider, RateLimitExceededError, RateLimitResult } from './index.js'
 
 export interface RedisRateLimiterOptions {
   windowMs?: number;

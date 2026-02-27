@@ -37,12 +37,15 @@ export interface RemoveUserPayload {
 }
 
 export interface TenantUserRecord {
+  id?: string;
   userUuid: string;
   tenantId: string;
   email: string;
   emailVerified: boolean;
   displayName: string;
+  fullName?: string;
   role: string;
+  createdAt?: string;
   status: "active" | "invited" | "suspended" | "deactivated" | "inactive";
   lastLoginAt: string | null;
   creationSource: string;

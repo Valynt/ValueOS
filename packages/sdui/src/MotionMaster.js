@@ -3,7 +3,7 @@ import { jsx as _jsx } from "react/jsx-runtime";
  * Motion Master: Centralized motion and entrance animation utilities for SDUI widgets
  * Applies cinematic, non-blocking staggered entrance and spring effects
  */
-import { createContext, useContext, useRef, useEffect } from "react";
+import { createContext, useContext, useEffect, useRef } from "react";
 const MotionMasterContext = createContext({
     register: () => { },
 });

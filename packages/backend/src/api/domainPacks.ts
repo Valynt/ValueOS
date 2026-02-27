@@ -37,7 +37,7 @@ router.get("/", async (req: Request, res: Response) => {
     const packs = await service.listPacks(tenantId);
     return res.json({ packs });
   } catch (err) {
-    logger.error("Failed to list domain packs", { error: (err as Error).message });
+    logger.error("Failed to list domain packs", err instanceof Error ? err : undefined);
     return res.status(500).json({ error: "Failed to list domain packs" });
   }
 });
@@ -52,7 +52,7 @@ router.get("/:packId", async (req: Request, res: Response) => {
     const result = await service.getPackWithLayers(packId);
     return res.json(result);
   } catch (err) {
-    logger.error("Failed to get domain pack", { error: (err as Error).message });
+    logger.error("Failed to get domain pack", err instanceof Error ? err : undefined);
     return res.status(404).json({ error: "Domain pack not found" });
   }
 });
@@ -81,7 +81,7 @@ router.post("/value-cases/:caseId/set-pack", async (req: Request, res: Response)
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid request", details: err.errors });
     }
-    logger.error("Failed to set domain pack", { error: (err as Error).message });
+    logger.error("Failed to set domain pack", err instanceof Error ? err : undefined);
     return res.status(500).json({ error: "Failed to set domain pack" });
   }
 });
@@ -101,7 +101,7 @@ router.get("/value-cases/:caseId/merged-context", async (req: Request, res: Resp
     const merged = await service.getMergedContext(caseId, tenantId);
     return res.json(merged);
   } catch (err) {
-    logger.error("Failed to get merged context", { error: (err as Error).message });
+    logger.error("Failed to get merged context", err instanceof Error ? err : undefined);
     return res.status(500).json({ error: "Failed to get merged context" });
   }
 });
@@ -136,7 +136,7 @@ router.post("/value-cases/:caseId/harden-kpi", async (req: Request, res: Respons
     if (err instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid request", details: err.errors });
     }
-    logger.error("Failed to harden KPI", { error: (err as Error).message });
+    logger.error("Failed to harden KPI", err instanceof Error ? err : undefined);
     return res.status(500).json({ error: "Failed to harden KPI" });
   }
 });
@@ -156,7 +156,7 @@ router.post("/value-cases/:caseId/harden-all-kpis", async (req: Request, res: Re
     const count = await service.hardenAllKPIs(caseId, tenantId);
     return res.json({ success: true, caseId, hardenedCount: count });
   } catch (err) {
-    logger.error("Failed to bulk-harden KPIs", { error: (err as Error).message });
+    logger.error("Failed to bulk-harden KPIs", err instanceof Error ? err : undefined);
     return res.status(500).json({ error: "Failed to bulk-harden KPIs" });
   }
 });

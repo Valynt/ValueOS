@@ -12,16 +12,16 @@ import { BaseModule } from "../core/BaseModule";
 import { z } from "zod";
 import {
   ALL_ESO_KPIS,
-  EXTENDED_PERSONA_MAPS,
   EXTENDED_ESO_EDGES,
+  EXTENDED_PERSONA_MAPS,
 } from "@backend/types/eso-data";
 import { ALL_VMRT_SEEDS } from "@backend/types/vos-pt1-seed";
 import { checkBenchmarkAlignment } from "@backend/types/eso";
 import type {
-  ESOKPINode,
   ESOEdge,
-  ESOPersonaValueMap,
   ESOIndustry,
+  ESOKPINode,
+  ESOPersonaValueMap,
 } from "@backend/types/eso";
 
 // ============================================================================
@@ -152,7 +152,7 @@ export class ESOModule extends BaseModule {
     this.personaIndex = new Map();
   }
 
-  async initialize(): Promise<void> {
+  override async initialize(): Promise<void> {
     // Index all KPIs
     for (const kpi of ALL_ESO_KPIS) {
       this.kpiIndex.set(kpi.id, kpi);

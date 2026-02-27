@@ -17,7 +17,7 @@ import type {
   SecretValue
 } from './ISecretProvider';
 import * as fs from 'fs';
-import { StructuredSecretAuditLogger, SecretAuditEvent } from './SecretAuditLogger';
+import { SecretAuditEvent, StructuredSecretAuditLogger } from './SecretAuditLogger';
 
 // Type definitions for node-vault (simplified)
 interface VaultClient {

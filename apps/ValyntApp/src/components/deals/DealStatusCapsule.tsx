@@ -10,7 +10,7 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown, Link2, Plus, Unlink, Eye } from 'lucide-react';
+import { ChevronDown, Eye, Link2, Plus, Unlink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

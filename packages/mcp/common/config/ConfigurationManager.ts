@@ -5,8 +5,8 @@
  * with environment-aware loading, validation, and hot-reloading.
  */
 
-import { readFileSync, existsSync, watchFile, unwatchFile } from "fs";
-import { resolve, join } from "path";
+import { existsSync, readFileSync, unwatchFile, watchFile } from "fs";
+import { join, resolve } from "path";
 import { logger } from "../../lib/logger";
 
 // ============================================================================

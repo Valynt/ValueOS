@@ -2,6 +2,11 @@
  * Export Utilities
  */
 
+export function generateFilename(prefix: string, extension: string): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${prefix}-${timestamp}.${extension}`;
+}
+
 export function exportToJSON(data: any): string {
   return JSON.stringify(data, null, 2);
 }

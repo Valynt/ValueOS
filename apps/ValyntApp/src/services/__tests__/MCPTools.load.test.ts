@@ -5,7 +5,7 @@
  * including concurrent execution, memory usage, and cleanup.
  */
 
-import { executeMCPTool, getAllTools, createToolExecutor } from "../MCPTools";
+import { createToolExecutor, executeMCPTool, getAllTools } from "../MCPTools";
 import { mcpGroundTruthService } from "../MCPGroundTruthService";
 
 // Mock dependencies

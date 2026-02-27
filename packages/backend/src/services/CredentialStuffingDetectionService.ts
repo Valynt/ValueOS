@@ -10,7 +10,8 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { TenantAwareService } from './TenantAwareService.js'
-import { log } from '../lib/logger.js'
+import logger from '../lib/logger.js'
+const log = logger;
 import { RateLimitEscalationService } from './RateLimitEscalationService.js'
 
 export interface CredentialStuffingPattern {
@@ -643,7 +644,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
   private hasConsistentTiming(attempts: LoginAttempt[]): boolean {
     if (attempts.length < 3) return false;
 
-    const intervals = [];
+    const intervals: number[] = [];
     for (let i = 1; i < attempts.length; i++) {
       intervals.push(attempts[i].timestamp.getTime() - attempts[i - 1].timestamp.getTime());
     }
@@ -731,7 +732,7 @@ export class CredentialStuffingDetectionService extends TenantAwareService {
   private getTimingPattern(attempts: LoginAttempt[]): number {
     if (attempts.length < 2) return 0;
 
-    const intervals = [];
+    const intervals: number[] = [];
     for (let i = 1; i < attempts.length; i++) {
       intervals.push(attempts[i].timestamp.getTime() - attempts[i - 1].timestamp.getTime());
     }

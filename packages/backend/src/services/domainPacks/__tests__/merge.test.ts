@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { mergeKpis, mergeAssumptions, mergePack, packToEffective } from '../merge.js';
-import type { DomainPackKpi, DomainPackAssumption, DomainPack } from '../../../api/domainPacks/types.js';
+import { describe, expect, it } from 'vitest';
+import { mergeAssumptions, mergeKpis, mergePack, packToEffective } from '../merge.js';
+import type { DomainPack, DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
 
 // ============================================================================
 // Fixtures

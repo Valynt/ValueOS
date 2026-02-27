@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { 
-  templateLibrary, 
   ComponentTemplate, 
   isCanvasTemplate, 
-  isReactTemplate 
+  isReactTemplate, 
+  templateLibrary 
 } from '../TemplateLibrary';
 import { 
-  TEMPLATE_COMPONENT_MAP, 
   getTemplateComponent, 
-  hasTemplateComponent 
+  hasTemplateComponent, 
+  TEMPLATE_COMPONENT_MAP 
 } from '../../components/templates/TemplateMap';
 
 describe('TemplateLibrary', () => {

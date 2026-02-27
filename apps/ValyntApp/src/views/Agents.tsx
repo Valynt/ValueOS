@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Bot, Search, ArrowRight, CheckCircle2, DollarSign, Activity } from "lucide-react";
+import { Activity, ArrowRight, Bot, CheckCircle2, DollarSign, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const agents = [

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmailService, emailService } from '../EmailService';
 import { logger } from '../../lib/logger';
 import * as environmentConfig from '../../config/environment';

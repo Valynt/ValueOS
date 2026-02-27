@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle, Circle, XCircle, SkipForward, Loader2, Bot } from "lucide-react";
+import { Bot, CheckCircle, Circle, Loader2, SkipForward, XCircle } from "lucide-react";
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 
 export interface WorkflowStage {

@@ -2,7 +2,7 @@
  * CRM Provider Registry Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getCrmProvider, getSupportedProviders } from '../CrmProviderRegistry.js';
 import { SalesforceProvider } from '../SalesforceProvider.js';
 

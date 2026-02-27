@@ -3,16 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Progress } from "../../../components/ui/progress";
 import { Badge } from "../../../components/ui/badge";
 import {
-  BookOpen,
-  TrendingUp,
   Award,
+  BookOpen,
   Brain,
-  Target,
-  Lightbulb,
-  Rocket,
+  CheckCircle,
   Crown,
+  Lightbulb,
   Lock,
-  CheckCircle
+  Rocket,
+  Target,
+  TrendingUp
 } from "lucide-react";
 import { Link } from "react-router-dom";
 

@@ -80,8 +80,6 @@ export const ENV = {
   oauthPortalUrl: process.env.VITE_OAUTH_PORTAL_URL || "",
   appId: process.env.VITE_APP_ID || "",
   sessionJwtIssuer: process.env.SESSION_JWT_ISSUER || "",
-  appId: process.env.VITE_APP_ID || "",
-  sessionJwtIssuer: process.env.SESSION_JWT_ISSUER || "",
   sessionJwtAudience: process.env.SESSION_JWT_AUDIENCE || "",
   sessionJwtKeys: process.env.SESSION_JWT_KEYS || "",
   sessionJwtTtlSeconds: process.env.SESSION_JWT_TTL_SECONDS || "",

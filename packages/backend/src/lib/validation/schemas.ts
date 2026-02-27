@@ -12,21 +12,21 @@
 
 import { z } from 'zod';
 import {
-  emailSchema,
-  optionalPhoneSchema,
-  uuidSchema,
-  optionalUuidSchema,
-  optionalUrlSchema,
-  descriptionSchema,
-  passwordSchema,
-  tagsSchema,
   currencySchema,
-  percentageSchema,
-  pageSchema,
+  descriptionSchema,
+  emailSchema,
   limitSchema,
+  optionalPhoneSchema,
+  optionalUrlSchema,
+  optionalUuidSchema,
+  pageSchema,
+  passwordSchema,
+  percentageSchema,
   sanitizedString,
+  tagsSchema,
+  uuidSchema,
 } from './zodHelpers';
-import { normalizeName, normalizeCompanyName } from './normalizers.js'
+import { normalizeCompanyName, normalizeName } from './normalizers.js'
 
 // ============================================================================
 // User Schemas

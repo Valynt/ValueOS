@@ -1,4 +1,4 @@
-import { BookOpen, Trophy, Award, CheckCircle2, Target, Globe } from 'lucide-react';
+import { Award, BookOpen, CheckCircle2, Globe, Target, Trophy } from 'lucide-react';
 
 export function Academy() {
   return (

@@ -10,13 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Shield,
-  AlertTriangle,
   Activity,
-  TrendingUp,
+  AlertTriangle,
   RefreshCw,
+  Shield,
+  TrendingUp,
 } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface SecurityMetrics {
   timestamp: string;

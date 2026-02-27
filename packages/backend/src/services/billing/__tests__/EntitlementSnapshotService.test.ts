@@ -4,7 +4,7 @@
  * Validates snapshot creation, superseding, and entitlement computation.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PriceVersionDefinition } from "../PriceVersionService";
 
 // ---------------------------------------------------------------------------

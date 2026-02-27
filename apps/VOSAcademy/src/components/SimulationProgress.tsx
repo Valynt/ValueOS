@@ -4,21 +4,21 @@ import { RecommendationsCard } from "@/components/RecommendationsCard";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, Trophy, Target, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Target, TrendingUp, Trophy, XCircle } from "lucide-react";
 import {
-  LineChart,
+  CartesianGrid,
+  Legend,
   Line,
-  RadarChart,
-  PolarGrid,
+  LineChart,
   PolarAngleAxis,
+  PolarGrid,
   PolarRadiusAxis,
   Radar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
+  RadarChart,
+  ResponsiveContainer,
   Tooltip,
-  Legend,
-  ResponsiveContainer
+  XAxis,
+  YAxis
 } from "recharts";
 
 export function SimulationProgress() {

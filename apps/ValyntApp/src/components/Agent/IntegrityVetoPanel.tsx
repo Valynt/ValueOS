@@ -11,7 +11,7 @@
  */
 
 import React, { useState } from "react";
-import { AlertTriangle, ShieldAlert, Info, XCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Info, ShieldAlert, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ViolationSeverity = "critical" | "high" | "medium" | "low";

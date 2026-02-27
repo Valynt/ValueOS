@@ -5,7 +5,7 @@
  * Supports saving and loading agent chat sessions per case.
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { requireAuth } from '../../middleware/auth.js'
@@ -13,16 +13,16 @@ import { requireRole } from '../../middleware/rbac.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 import { 
-  CreateMessageSchema,
+  ApiErrorResponse,
   BatchCreateMessagesSchema,
+  CreateMessageSchema,
   ListMessagesQuerySchema,
   SaveSessionSchema,
-  ApiErrorResponse,
 } from './types';
 import { 
+  DatabaseError,
   getConversationsRepository,
   NotFoundError,
-  DatabaseError,
 } from './repository';
 import { logger } from "../../lib/logger.js";
 

@@ -112,25 +112,25 @@ import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailSe
 import { DLQAlert } from "../lib/agent-fabric/FabricMonitor";
 
 import {
-  ValueCaseSaga,
-  IdempotencyGuard,
   DeadLetterQueue,
   HypothesisLoop,
-  RedTeamAgent
+  IdempotencyGuard,
+  RedTeamAgent,
+  ValueCaseSaga
 } from "@valueos/agents";
 import {
-  SupabaseSagaPersistence,
   DomainSagaEventEmitter,
-  SagaAuditTrailLogger
+  SagaAuditTrailLogger,
+  SupabaseSagaPersistence
 } from "./workflows/SagaAdapters.js";
 import {
-  RedisIdempotencyStore,
+  DomainDLQEventEmitter,
   RedisDLQStore,
-  DomainDLQEventEmitter
+  RedisIdempotencyStore
 } from "./workflows/RedisAdapters.js";
 import {
-  RedTeamLLMAdapter,
-  AgentServiceAdapter
+  AgentServiceAdapter,
+  RedTeamLLMAdapter
 } from "./workflows/AgentAdapters.js";
 
 // ... (other imports remain the same) ...

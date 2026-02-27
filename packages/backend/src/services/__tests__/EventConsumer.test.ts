@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EventConsumer, ConsumerConfig } from '../EventConsumer.js'
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ConsumerConfig, EventConsumer } from '../EventConsumer.js'
 import { logger } from '../../lib/logger.js'
 import { EachMessagePayload } from 'kafkajs';
 

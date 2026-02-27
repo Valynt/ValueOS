@@ -2,7 +2,7 @@
  * Salesforce Provider Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SalesforceProvider } from '../SalesforceProvider.js';
 
 describe('SalesforceProvider', () => {

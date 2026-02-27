@@ -9,7 +9,7 @@
  */
 import { BaseModule } from "../core/BaseModule";
 import { z } from "zod";
-import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS, EXTENDED_ESO_EDGES, } from "@backend/types/eso-data";
+import { ALL_ESO_KPIS, EXTENDED_ESO_EDGES, EXTENDED_PERSONA_MAPS, } from "@backend/types/eso-data";
 import { ALL_VMRT_SEEDS } from "@backend/types/vos-pt1-seed";
 import { checkBenchmarkAlignment } from "@backend/types/eso";
 // ============================================================================

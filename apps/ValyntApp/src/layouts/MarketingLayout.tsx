@@ -1,11 +1,11 @@
 import { Outlet } from "react-router-dom";
 import {
+  Analytics,
+  Footer,
+  Navigation,
+  ScrollToTop,
   SEO,
   SkipNav,
-  ScrollToTop,
-  Analytics,
-  Navigation,
-  Footer,
 } from "@/components/marketing";
 
 export function MarketingLayout() {

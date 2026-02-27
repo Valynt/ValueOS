@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  authRateLimiter,
-  recordAuthFailure,
-  authRateLimitStore,
   AUTH_CONFIGS,
+  authRateLimiter,
   AuthRateLimitStore,
+  authRateLimitStore,
+  recordAuthFailure,
 } from "../authRateLimiter.js";
 
 vi.mock("@shared/lib/logger", () => ({

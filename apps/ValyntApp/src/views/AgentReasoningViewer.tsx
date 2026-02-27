@@ -3,18 +3,18 @@
  * Visualizes agent reasoning traces and thought chains with interactive tree view
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  GitBranch,
+  Activity,
   ArrowRight,
-  ChevronRight,
   ChevronDown,
+  ChevronRight,
+  Clock,
+  GitBranch,
   Lightbulb,
+  Search,
   Target,
   XCircle,
-  Search,
-  Clock,
-  Activity,
 } from "lucide-react";
 import { AgentBadge } from "../components/Agents/AgentBadge";
 import { auditLogService } from "@backend/services/AuditLogService";

@@ -43,7 +43,7 @@ function getDefaultConfig(): Required<GroundtruthAPIConfig> {
   return {
     baseUrl: envConfig.apiUrl || '',
     apiKey: envConfig.apiKey || '',
-    timeoutMs: envConfig.timeoutMs,
+    timeoutMs: envConfig.timeout,
     headers: {},
   };
 }
@@ -89,7 +89,7 @@ export class GroundtruthAPI {
             headers: this.buildHeaders(),
             body: JSON.stringify(payload),
           },
-          options.timeoutMs ?? this.config.timeoutMs
+          options.timeout ?? this.config.timeout
         );
 
         const contentType = response.headers.get('content-type') || '';

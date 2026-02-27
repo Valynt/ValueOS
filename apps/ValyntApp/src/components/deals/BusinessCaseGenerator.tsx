@@ -5,16 +5,16 @@
  * Uses AI to analyze and produce financial projections, benchmarks, and insights.
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  Sparkles,
+  AlertCircle,
+  CheckCircle2,
+  DollarSign,
+  FileText,
   Loader2,
   RefreshCw,
-  CheckCircle2,
-  AlertCircle,
-  FileText,
+  Sparkles,
   TrendingUp,
-  DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

@@ -10,7 +10,7 @@
  * Or call initResearchWorker() from the server boot sequence.
  */
 
-import { Queue, Worker, type Job } from 'bullmq';
+import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';

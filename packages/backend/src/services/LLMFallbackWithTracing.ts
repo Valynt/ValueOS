@@ -18,7 +18,7 @@ export class LLMFallbackServiceWithTracing extends LLMFallbackService {
   /**
    * Process LLM request with tracing
    */
-  async processRequest(request: LLMRequest): Promise<LLMResponse> {
+  override async processRequest(request: LLMRequest): Promise<LLMResponse> {
     return traceLLMOperation(
       'process_request',
       {
@@ -162,7 +162,7 @@ export class LLMFallbackServiceWithTracing extends LLMFallbackService {
   /**
    * Get circuit breaker statistics with tracing
    */
-  async getStats() {
+  override async getStats() {
     const stats = await super.getStats();
 
     // Update circuit breaker metric

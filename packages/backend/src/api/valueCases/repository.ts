@@ -7,13 +7,13 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import {
-  ValueCase,
+  CasePhase,
+  CaseStatus,
   CreateValueCaseRequest,
-  UpdateValueCaseRequest,
   ListValueCasesQuery,
   PaginatedResponse,
-  CaseStatus,
-  CasePhase,
+  UpdateValueCaseRequest,
+  ValueCase,
 } from './types';
 import { logger } from '../../lib/logger.js'
 

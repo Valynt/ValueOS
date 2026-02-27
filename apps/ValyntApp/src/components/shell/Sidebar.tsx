@@ -6,6 +6,7 @@
 import React from "react";
 import {
   BookOpen,
+  ChevronRight,
   FileText,
   FolderOpen,
   HelpCircle,
@@ -13,7 +14,6 @@ import {
   Plus,
   Settings,
   Sparkles,
-  ChevronRight,
 } from "lucide-react";
 
 export interface ValueCase {

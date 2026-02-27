@@ -32,7 +32,7 @@ export class FallbackAIService {
     let analysis = "I'm currently experiencing technical difficulties with my AI analysis engine. However, I can provide some basic guidance based on your request.\n\n";
 
     const hypotheses = [];
-    const metrics = [];
+    const metrics: unknown[] = [];
     const actions = [
       "Please try again in a few moments",
       "Contact support if the issue persists",

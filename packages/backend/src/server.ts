@@ -61,15 +61,15 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher";
 import {
-  validateSecretsOnStartup,
   secretHealthMiddleware,
+  validateSecretsOnStartup,
 } from "./config/secrets/SecretValidator.js";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
-import { initBroadcastAdapter, getBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
+import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 
 // Conditionally import telemetry modules
 let tracingMiddleware = null;
@@ -98,20 +98,20 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
 import { requestAuditMiddleware } from "./middleware/requestAuditMiddleware.js";
 import { createRateLimiter } from "./middleware/rateLimiter.js";
 import {
-  requestIdMiddleware,
   accessLogMiddleware,
   globalErrorHandler,
   notFoundHandler,
+  requestIdMiddleware,
   setupGlobalErrorHandlers,
 } from "./middleware/globalErrorHandler";
 import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddleware.js";
-import { securityHeadersMiddleware, cspReportHandler } from "./middleware/securityHeaders.js";
+import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
-import { settings, initSecrets } from "./config/settings.js";
+import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/SecurityAuditService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
 import { TenantContextResolver } from "./services/TenantContextResolver.js";

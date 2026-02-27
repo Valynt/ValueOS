@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   CANONICAL_METRICS,
-  METRIC_IDS,
   getMetricById,
   getMetricByName,
   getMetricsByCategory,
   getMetricsByDriverCategory,
-  validateRegistry,
+  METRIC_IDS,
   MetricDefinitionSchema,
+  validateRegistry,
 } from '../kpi_registry';
 
 describe('KPI Registry', () => {

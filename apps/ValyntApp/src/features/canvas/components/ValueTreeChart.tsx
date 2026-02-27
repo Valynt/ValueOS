@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import useDataBinding from "@/sdui/useDataBinding";
 import { Tree } from "recharts";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { Maximize, ZoomIn, ZoomOut } from "lucide-react";
 
 // Example data structure for a value tree node
 export interface ValueTreeNode {

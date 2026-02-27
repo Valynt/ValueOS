@@ -1,18 +1,18 @@
-import { useParams, Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Building2,
-  User,
-  Calendar,
-  Play,
-  Pause,
-  CheckCircle2,
-  Plus,
-  FileText,
-  Boxes,
-  BarChart3,
   ArrowRight,
+  BarChart3,
   Bot,
+  Boxes,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  FileText,
+  Pause,
+  Play,
+  Plus,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

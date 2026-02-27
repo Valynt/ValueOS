@@ -6,7 +6,7 @@
  */
 
 import { logger } from "../../lib/logger.js"
-import { getAuditLogger, AgentAuditLog } from "../AgentAuditLogger.js"
+import { AgentAuditLog, getAuditLogger } from "../AgentAuditLogger.js"
 import { getSecureSharedContext } from "../SecureSharedContext.js"
 
 // ============================================================================

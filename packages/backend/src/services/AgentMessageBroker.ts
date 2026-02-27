@@ -10,9 +10,9 @@ import { logger } from "../lib/logger.js"
 import { v4 as uuidv4 } from "uuid";
 import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
 import {
-  secureMessageBus,
-  SecureMessage,
   MessagePriority,
+  SecureMessage,
+  secureMessageBus,
 } from "../lib/agent-fabric/SecureMessageBus";
 import { AgentIdentity } from "../lib/auth/AgentIdentity";
 

@@ -6,28 +6,28 @@
  * Validates end-to-end loop execution, state transitions, and failure handling.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { HypothesisLoop } from '../../orchestration/HypothesisLoop.js';
-import { ValueCaseSaga, SagaState } from '../../core/ValueCaseSaga.js';
+import { SagaState, ValueCaseSaga } from '../../core/ValueCaseSaga.js';
 import { IdempotencyGuard } from '../../core/IdempotencyGuard.js';
 import { DeadLetterQueue } from '../../core/DeadLetterQueue.js';
 import {
-  createMockOpportunityAgent,
-  createMockFinancialModelingAgent,
-  createMockGroundTruthAgent,
-  createMockNarrativeAgent,
-  createMockRedTeamAgent,
-  createMockIdempotencyStore,
+  createMockAuditLogger,
   createMockDLQStore,
   createMockEventEmitter,
-  createMockAuditLogger,
+  createMockFinancialModelingAgent,
+  createMockGroundTruthAgent,
+  createMockIdempotencyStore,
+  createMockNarrativeAgent,
+  createMockOpportunityAgent,
+  createMockRedTeamAgent,
   createMockSagaPersistence,
 } from '../mock-agents.js';
 import {
-  happyPathFixture,
-  revisionPathFixture,
   failureFixture,
+  happyPathFixture,
   type LoopFixture,
+  revisionPathFixture,
 } from '../datasets/integration/hypothesis-loop-fixtures.js';
 import type { LoopProgress } from '../../orchestration/HypothesisLoop.js';
 

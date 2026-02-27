@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Request, Response, Router } from "express";
 import { supabase } from "../lib/supabase";
 import { Logger } from "../utils/logger";
 import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";

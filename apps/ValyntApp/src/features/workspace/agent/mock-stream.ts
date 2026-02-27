@@ -9,9 +9,9 @@ import type {
   AgentEvent,
   AgentPhase,
   Artifact,
-  PlanStep,
-  PlanAssumption,
   ClarifyOption,
+  PlanAssumption,
+  PlanStep,
 } from './types';
 
 // Utility to generate unique IDs

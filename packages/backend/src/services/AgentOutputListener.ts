@@ -26,7 +26,7 @@ export type AgentOutputCallback = (output: AgentOutput) => void | Promise<void>;
  * Agent Output Listener Service
  */
 export class AgentOutputListener extends EventEmitter {
-  private listeners: Map<string, AgentOutputCallback[]>;
+  override private listeners: Map<string, AgentOutputCallback[]>;
   private enabled: boolean;
 
   constructor() {
@@ -75,14 +75,14 @@ export class AgentOutputListener extends EventEmitter {
   async handleAgentOutput(output: AgentOutput): Promise<void> {
     if (!this.enabled) {
       logger.debug('Agent output listener disabled, skipping', {
-        agentId: output.agentId,
+        agentId: output.agent_id,
       });
       return;
     }
 
     logger.info('Handling agent output', {
-      agentId: output.agentId,
-      agentType: output.agentType,
+      agentId: output.agent_id,
+      agentType: output.agent_type,
       workspaceId: output.workspaceId,
     });
 
@@ -100,11 +100,11 @@ export class AgentOutputListener extends EventEmitter {
       this.emit('agent:complete', output);
 
       logger.info('Agent output handled successfully', {
-        agentId: output.agentId,
+        agentId: output.agent_id,
       });
     } catch (error) {
       logger.error('Failed to handle agent output', {
-        agentId: output.agentId,
+        agentId: output.agent_id,
         error: error instanceof Error ? error.message : String(error),
       });
 
@@ -118,13 +118,13 @@ export class AgentOutputListener extends EventEmitter {
    */
   private async callCallbacks(output: AgentOutput): Promise<void> {
     // Call agent-specific callbacks
-    const agentCallbacks = this.listeners.get(output.agentId) || [];
+    const agentCallbacks = this.listeners.get(output.agent_id) || [];
     for (const callback of agentCallbacks) {
       try {
         await callback(output);
       } catch (error) {
         logger.error('Agent callback failed', {
-          agentId: output.agentId,
+          agentId: output.agent_id,
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -137,7 +137,7 @@ export class AgentOutputListener extends EventEmitter {
         await callback(output);
       } catch (error) {
         logger.error('Wildcard callback failed', {
-          agentId: output.agentId,
+          agentId: output.agent_id,
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -151,7 +151,7 @@ export class AgentOutputListener extends EventEmitter {
     try {
       // Generate SDUI update from agent output
       const sduiUpdate = await agentSDUIAdapter.processAgentOutputWithIntents(
-        output.agentId,
+        output.agent_id,
         output,
         output.workspaceId
       );
@@ -198,7 +198,7 @@ export class AgentOutputListener extends EventEmitter {
       }
     } catch (error) {
       logger.error('Failed to process agent output for SDUI', {
-        agentId: output.agentId,
+        agentId: output.agent_id,
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -233,7 +233,7 @@ export const agentOutputListener = new AgentOutputListener();
 // Register default SDUI update handler
 agentOutputListener.onAnyAgentOutput(async (output) => {
   logger.debug('Default SDUI handler processing agent output', {
-    agentId: output.agentId,
-    agentType: output.agentType,
+    agentId: output.agent_id,
+    agentType: output.agent_type,
   });
 });

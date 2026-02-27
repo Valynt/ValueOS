@@ -5,15 +5,15 @@
  * verifying that mock responses satisfy the declared expectations.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  validateOpportunityResponse,
+  runEvalChecks,
+  summarizeResults,
   validateFinancialModelingResponse,
   validateGroundtruthResponse,
   validateNarrativeResponse,
+  validateOpportunityResponse,
   validateRedTeamResponse,
-  runEvalChecks,
-  summarizeResults,
 } from '../harness.js';
 import { opportunityEvalCases } from '../datasets/agent-evals/opportunity-agent.js';
 import { financialModelingEvalCases } from '../datasets/agent-evals/financial-modeling-agent.js';
