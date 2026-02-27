@@ -3,7 +3,7 @@
  * Defines how modules are completed, locked, and unlocked based on curriculum rules
  */
 
-import { getCurriculumForRole, CurriculumModule, MATURITY_LEVELS } from '@/data/curriculum';
+import { CurriculumModule, getCurriculumForRole, MATURITY_LEVELS } from '@/data/curriculum';
 
 export type ModuleStatus = 'locked' | 'available' | 'in_progress' | 'completed';
 

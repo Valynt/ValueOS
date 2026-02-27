@@ -12,7 +12,7 @@
  */
 
 import React, { useMemo } from "react";
-import { Target, Send, AlertCircle } from "lucide-react";
+import { AlertCircle, Send, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface KPIDefinition {

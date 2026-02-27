@@ -4,7 +4,7 @@
  * Validates caching, lookup, and reload behaviour.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const SEED_METERS = [
   { meter_key: "ai_tokens", display_name: "AI Tokens", unit: "tokens", aggregation: "sum", dimensions_schema: {}, created_at: "2026-01-01" },

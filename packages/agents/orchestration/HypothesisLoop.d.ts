@@ -17,7 +17,7 @@ import { z } from 'zod';
 import type { ValueCaseSaga } from '../core/ValueCaseSaga.js';
 import type { IdempotencyGuard } from '../core/IdempotencyGuard.js';
 import type { DeadLetterQueue } from '../core/DeadLetterQueue.js';
-import type { RedTeamAgent, Objection } from './agents/RedTeamAgent.js';
+import type { Objection, RedTeamAgent } from './agents/RedTeamAgent.js';
 export interface ValueHypothesis {
     id: string;
     description: string;

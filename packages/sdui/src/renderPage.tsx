@@ -9,7 +9,7 @@ import {
   SDUIValidationError,
   validateSDUISchema,
 } from "./schema";
-import { resolveComponentLazy, preloadCriticalComponents } from "./LazyComponentRegistry";
+import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
 import { resolveComponent } from "./registry";
 import { useDataHydration } from "./hooks/useDataHydration";
 import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";

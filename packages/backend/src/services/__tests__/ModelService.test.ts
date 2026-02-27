@@ -1,5 +1,5 @@
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelService } from '../ModelService.js'
 import { auditLogService } from '../AuditLogService.js'
 import { userSettingsService } from '../UserSettingsService.js'

@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import {
-  Lightbulb,
-  ArrowUpRight,
   AlertTriangle,
-  FileText,
+  ArrowUpRight,
   ChevronDown,
   ChevronRight,
-  ExternalLink,
-  User,
   Clock,
+  ExternalLink,
+  FileText,
+  Lightbulb,
+  User,
 } from "lucide-react";
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 

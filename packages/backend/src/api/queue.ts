@@ -107,7 +107,7 @@ router.post(
       })
     );
     
-    res.status(202).json({
+    return res.status(202).json({
       success: true,
       data: {
         jobId: job.id,
@@ -118,7 +118,7 @@ router.post(
   } catch (error) {
     logger.error('Failed to submit LLM job', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to submit job',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -144,7 +144,7 @@ router.get('/llm/:jobId', async (req: Request, res: Response) => {
       });
     }
     
-    res.json({
+    return res.json({
       success: true,
       data: {
         jobId,
@@ -154,7 +154,7 @@ router.get('/llm/:jobId', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Failed to get job status', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get job status',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -179,14 +179,14 @@ router.get('/llm/:jobId/result', async (req: Request, res: Response) => {
       });
     }
     
-    res.json({
+    return res.json({
       success: true,
       data: result
     });
   } catch (error) {
     logger.error('Failed to get job result', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get job result',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -218,14 +218,14 @@ router.delete(
       })
     );
     
-    res.json({
+    return res.json({
       success: true,
       message: 'Job cancelled'
     });
   } catch (error) {
     logger.error('Failed to cancel job', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to cancel job',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -242,14 +242,14 @@ router.get('/metrics', async (req: Request, res: Response) => {
   try {
     const metrics = await llmQueue.getMetrics();
     
-    res.json({
+    return res.json({
       success: true,
       data: metrics
     });
   } catch (error) {
     logger.error('Failed to get queue metrics', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get metrics',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -338,7 +338,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
       })
     );
     
-    res.status(202).json({
+    return res.status(202).json({
       success: true,
       data: {
         jobs: submittedJobs,
@@ -348,7 +348,7 @@ router.post('/llm/batch', rateLimiters.strict, csrfProtectionMiddleware, session
   } catch (error) {
     logger.error('Failed to submit batch jobs', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to submit batch',
       message: error instanceof Error ? error.message : 'Unknown error'
     });

@@ -7,14 +7,14 @@
 
 import React from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
   CheckCircle2,
-  Target,
-  Zap,
-  Shield,
   Clock,
+  Shield,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  Zap,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

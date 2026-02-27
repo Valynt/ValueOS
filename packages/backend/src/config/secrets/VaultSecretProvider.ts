@@ -18,10 +18,10 @@ import type {
 } from "./ISecretProvider";
 import * as fs from "fs";
 import {
-  StructuredSecretAuditLogger,
   SecretAuditEvent,
+  StructuredSecretAuditLogger,
 } from "./SecretAuditLogger";
-import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import {
   CircuitBreaker,
   createConfigurableCircuitBreaker,
@@ -71,10 +71,10 @@ export class VaultSecretProvider implements ISecretProvider {
     this.encryptionKey = randomBytes(32);
     // Initialize circuit breaker for external API calls
     this.circuitBreaker = createConfigurableCircuitBreaker({
-      failureThreshold: config.circuitBreaker.failureThreshold,
-      recoveryTimeout: config.circuitBreaker.recoveryTimeout,
-      monitoringPeriod: config.circuitBreaker.monitoringPeriod,
-      successThreshold: config.circuitBreaker.successThreshold,
+      failureThreshold: 5,
+      recoveryTimeout: 30_000,
+      monitoringPeriod: 60_000,
+      successThreshold: 3,
     });
 
     logger.info("Vault Secret Provider initialized", {

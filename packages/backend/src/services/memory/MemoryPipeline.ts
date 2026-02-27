@@ -1,11 +1,11 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import * as crypto from "crypto";
 import {
-  UUID,
   ArtifactMetadata,
-  FactStatus,
   Chunk,
   ExtractedKnowledge,
+  FactStatus,
+  UUID,
 } from "./types";
 import { logger } from "../../lib/logger.js";
 

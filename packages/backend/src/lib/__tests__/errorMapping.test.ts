@@ -2,30 +2,30 @@
  * Error Mapping Utilities Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   errorFromHttpStatus,
+  getRetryDelay,
+  isClientError,
+  isRetryableError,
+  isServerError,
+  mapHttpClientError,
   mapPostgresError,
   mapSupabaseError,
-  mapHttpClientError,
-  isClientError,
-  isServerError,
-  isRetryableError,
-  getRetryDelay,
 } from '../errorMapping';
 import {
-  ValidationError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
   ConflictError,
-  RateLimitError,
-  ServiceUnavailableError,
-  GatewayTimeoutError,
-  ExternalServiceError,
-  InternalError,
   DatabaseError,
   ErrorCode,
+  ExternalServiceError,
+  ForbiddenError,
+  GatewayTimeoutError,
+  InternalError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  UnauthorizedError,
+  ValidationError,
 } from '../errors';
 
 describe('Error Mapping Utilities', () => {

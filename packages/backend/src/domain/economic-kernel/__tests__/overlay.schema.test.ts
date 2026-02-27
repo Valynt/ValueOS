@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DomainOverlaySchema,
-  validateOverlay,
   safeValidateOverlay,
+  validateOverlay,
   validateOverlayConsistency,
 } from '../overlay.schema';
 import { METRIC_IDS } from '../kpi_registry';

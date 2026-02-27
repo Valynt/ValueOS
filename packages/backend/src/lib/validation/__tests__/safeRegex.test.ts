@@ -2,21 +2,21 @@
  * Safe Regex Utilities Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   analyzeRegexSafety,
-  safeRegexTest,
-  SafePatterns,
+  createSearchPattern,
+  escapeRegex,
   isValidEmail,
-  isValidUuid,
-  isValidUrl,
-  isValidPhoneE164,
   isValidIdentifier,
-  isValidSlug,
   isValidIsoDate,
   isValidIsoDateTime,
-  escapeRegex,
-  createSearchPattern,
+  isValidPhoneE164,
+  isValidSlug,
+  isValidUrl,
+  isValidUuid,
+  SafePatterns,
+  safeRegexTest,
 } from '../safeRegex';
 
 describe('Safe Regex Utilities', () => {

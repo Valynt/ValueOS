@@ -9,9 +9,9 @@ import { logger } from '../logger.js';
 import { LLMCostTracker } from '../../services/LLMCostTracker.js';
 import { CostAwareRouter } from '../../services/CostAwareRouter.js';
 import {
-  LLMResilienceWrapper,
-  type LLMResilienceConfig,
   type CircuitBreakerStateInfo,
+  type LLMResilienceConfig,
+  LLMResilienceWrapper,
 } from './LLMResilience.js';
 import { getTracer } from '../../config/telemetry.js';
 import { SpanStatusCode } from '@opentelemetry/api';

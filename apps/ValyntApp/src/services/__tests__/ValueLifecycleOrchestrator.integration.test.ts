@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { ValueLifecycleOrchestrator } from "../src/services/ValueLifecycleOrchestrator";
 import { createClient } from "@supabase/supabase-js";
 import { LLMGateway } from "../src/lib/agent-fabric/LLMGateway";

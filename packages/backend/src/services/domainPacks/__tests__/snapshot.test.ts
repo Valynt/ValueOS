@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  snapshotFromEffective,
-  snapshotPack,
-  snapshotMergedPack,
+  detectDrift,
   effectiveFromSnapshot,
   isDomainPackSnapshot,
-  detectDrift,
+  snapshotFromEffective,
+  snapshotMergedPack,
+  snapshotPack,
 } from '../snapshot.js';
 import type { DomainPackSnapshot } from '../snapshot.js';
 import type {
   DomainPack,
-  DomainPackKpi,
   DomainPackAssumption,
+  DomainPackKpi,
   EffectiveDomainPack,
 } from '../../../api/domainPacks/types.js';
 

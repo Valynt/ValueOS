@@ -6,7 +6,7 @@ import { vi } from "vitest";
  * including resource management, health checking, and cleanup.
  */
 
-import { ConnectionPool, ConnectionConfig, HTTPConnectionPool } from "../../../lib/connection-pool";
+import { ConnectionConfig, ConnectionPool, HTTPConnectionPool } from "../../../lib/connection-pool";
 
 describe("ConnectionPool", () => {
   let pool: ConnectionPool<MockConnection>;

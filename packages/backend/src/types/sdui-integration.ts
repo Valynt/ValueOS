@@ -272,6 +272,7 @@ export interface ManifestoCheckResult {
   rule_id: string;
   rule_name: string;
   status: "passed" | "failed" | "warning";
+  allowed?: boolean;
   message: string;
   severity: "critical" | "high" | "medium" | "low";
   context?: Record<string, unknown>;
@@ -371,4 +372,11 @@ export interface ManifestoViolation {
   message: string;
   path?: string;
   suggestion?: string;
+}
+
+export interface SchemaCacheEntry {
+  schema: Record<string, unknown>;
+  hash: string;
+  timestamp: number;
+  ttl: number;
 }

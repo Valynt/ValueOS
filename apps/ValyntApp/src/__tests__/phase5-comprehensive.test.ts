@@ -8,7 +8,7 @@
  * - RLS cross-tenant isolation
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Phase 5: Comprehensive Test Suite', () => {
   it('should have all test files present', () => {

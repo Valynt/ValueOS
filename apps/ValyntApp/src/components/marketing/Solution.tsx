@@ -1,4 +1,4 @@
-import { Network, Search, Calculator, Scale } from "lucide-react";
+import { Calculator, Network, Scale, Search } from "lucide-react";
 
 export function Solution() {
   return (

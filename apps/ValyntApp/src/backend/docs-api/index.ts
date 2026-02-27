@@ -5,7 +5,7 @@
  * Enables agent-driven documentation updates based on code changes.
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { createLogger } from '../../lib/logger';
 import { sanitizeForLogging } from '../../lib/piiFilter';

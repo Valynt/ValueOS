@@ -1,8 +1,8 @@
 import {
-  OpportunityAgentInterface,
   FinancialModelingAgentInterface,
   GroundTruthAgentInterface,
   NarrativeAgentInterface,
+  OpportunityAgentInterface,
   RedTeamLLMGateway
 } from "@valueos/agents";
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";

@@ -1,5 +1,5 @@
-import { logger, logAnalysisEvent } from '../utils/logger.js';
-import { Repository, GitHubEvent, BotConfig } from '../types/index.js';
+import { logAnalysisEvent, logger } from '../utils/logger.js';
+import { BotConfig, GitHubEvent, Repository } from '../types/index.js';
 import { analyzeRepository } from '../services/analysisService.js';
 import { checkPermissions } from '../services/permissionService.js';
 import { loadRepositoryConfig } from '../services/configService.js';

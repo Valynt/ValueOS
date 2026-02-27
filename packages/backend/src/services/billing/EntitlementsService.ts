@@ -8,7 +8,7 @@
 
 import { type SupabaseClient } from '@supabase/supabase-js';
 import { createLogger } from '../../lib/logger.js';
-import type { MeterKey, EnforcementMode } from '@shared/types/billing-events';
+import type { EnforcementMode, MeterKey } from '@shared/types/billing-events';
 import EntitlementSnapshotService from './EntitlementSnapshotService.js';
 import type { EntitlementSnapshot, MeterEntitlement } from './EntitlementSnapshotService.js';
 

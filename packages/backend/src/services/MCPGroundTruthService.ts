@@ -6,7 +6,7 @@
  */
 
 import { logger } from '../lib/logger.js'
-import { isBrowser, getGroundtruthConfig } from '../lib/env.js';
+import { getGroundtruthConfig, isBrowser } from '../lib/env.js';
 import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
 
 // MCP Server type (dynamic import to avoid circular deps)

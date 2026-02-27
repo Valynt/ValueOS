@@ -5,12 +5,12 @@
  * the implemented features: migrations, error handling, caching, versioning.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { migrationRunner, migrateSchema, validateMigration, MigrationResult } from "../migrations";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { migrateSchema, MigrationResult, migrationRunner, validateMigration } from "../migrations";
 import { ComponentErrorBoundary } from "../components/ComponentErrorBoundary";
 import { fallbackRegistry, withFallback } from "../components/FallbackComponentRegistry";
 import { resolveComponent, versionedRegistry } from "../registry";
-import { globalCache, CacheFactory } from "../cache";
+import { CacheFactory, globalCache } from "../cache";
 import { validateSDUISchema } from "../schema";
 
 // Mock React for testing

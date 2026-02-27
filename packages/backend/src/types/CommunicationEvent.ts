@@ -8,6 +8,8 @@ export interface CommunicationEvent {
   sender_id: string;
   recipient_ids: string[];
   content: string;
-  metadata?: Record<string, any>;
+  payload?: unknown;
+  compressed?: boolean;
+  metadata?: Record<string, unknown>;
   timestamp: string;
 }

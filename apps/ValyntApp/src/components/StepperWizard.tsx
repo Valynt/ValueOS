@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type StepValidation = "valid" | "invalid" | "pending";

@@ -13,7 +13,7 @@
  */
 
 import { useState } from 'react';
-import { Lock, AlertTriangle, CheckCircle2, Link2, ArrowRight } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Link2, Lock } from 'lucide-react';
 import {
   Dialog,
   DialogContent,

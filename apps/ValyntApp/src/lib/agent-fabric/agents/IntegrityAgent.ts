@@ -9,18 +9,18 @@
  */
 
 import {
-  BaseAgent,
+  AgentCapability,
+  AgentClassification,
   AgentExecutionContext,
   AgentResponse,
-  AgentCapability,
   AgentTool,
+  AuthorityLevel,
+  BaseAgent,
+  MemoryType,
+  RiskCategory,
+  SecureInvokeInput,
   ToolExecutionContext,
   ValueLifecycleStage,
-  AgentClassification,
-  AuthorityLevel,
-  RiskCategory,
-  MemoryType,
-  SecureInvokeInput,
 } from "./BaseAgent";
 import { z } from "zod";
 import { LLMGateway } from "../LLMGateway";

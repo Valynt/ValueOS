@@ -7,7 +7,7 @@
  * Supabase directly for real-time polling efficiency.
  */
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { ResearchJob, ResearchSuggestion, SuggestionEntityType } from "./types";
 

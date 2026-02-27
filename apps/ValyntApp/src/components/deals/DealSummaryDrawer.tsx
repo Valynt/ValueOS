@@ -10,16 +10,16 @@
  */
 
 import {
+  AlertTriangle,
   Building2,
   Calendar,
-  DollarSign,
-  User,
-  ExternalLink,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
   CheckCircle2,
   Clock,
+  DollarSign,
+  ExternalLink,
+  TrendingDown,
+  TrendingUp,
+  User,
 } from 'lucide-react';
 import {
   Sheet,

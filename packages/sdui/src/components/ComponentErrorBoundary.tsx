@@ -1,6 +1,6 @@
 import { logger } from "@shared/lib/logger";
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { RefreshCw, Shield, Zap, Clock, CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, Clock, RefreshCw, Shield, XCircle, Zap } from "lucide-react";
 import { captureException } from "../../lib/sentry";
 import { isDevelopment, isProduction } from "../../config/environment";
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
@@ -168,7 +168,7 @@ export class EnhancedComponentErrorBoundary extends Component<
   /**
    * Clean up timers on unmount
    */
-  componentWillUnmount(): void {
+  override componentWillUnmount(): void {
     if (this.retryTimer) {
       clearTimeout(this.retryTimer);
     }
@@ -380,7 +380,7 @@ export class EnhancedComponentErrorBoundary extends Component<
   /**
    * Enhanced error logging with correlation and telemetry
    */
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const { componentName, onError, correlationContext, telemetryConfig } = this.props;
 
     // Create error correlation
@@ -744,7 +744,7 @@ export class EnhancedComponentErrorBoundary extends Component<
     );
   }
 
-  render(): ReactNode {
+  override render(): ReactNode {
     // Check if circuit breaker allows rendering
     if (this.state.circuitBreaker.state === "open") {
       return this.renderFallback();

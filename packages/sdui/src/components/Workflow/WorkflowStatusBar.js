@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import React from "react";
-import { CheckCircle, Circle, XCircle, SkipForward, Loader2, Bot } from "lucide-react";
+import { Bot, CheckCircle, Circle, Loader2, SkipForward, XCircle } from "lucide-react";
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 const stageIcon = {
     pending: Circle,

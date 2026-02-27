@@ -5,12 +5,12 @@
  * Each mock returns data from the evaluation datasets, allowing
  * the HypothesisLoop to be tested end-to-end without LLM calls.
  */
-import type { OpportunityAgentInterface, FinancialModelingAgentInterface, GroundTruthAgentInterface, NarrativeAgentInterface } from '../orchestration/HypothesisLoop.js';
+import type { FinancialModelingAgentInterface, GroundTruthAgentInterface, NarrativeAgentInterface, OpportunityAgentInterface } from '../orchestration/HypothesisLoop.js';
 import type { RedTeamAgent, RedTeamOutput } from '../orchestration/agents/RedTeamAgent.js';
 import type { IdempotencyStore } from '../core/IdempotencyGuard.js';
-import type { DLQStore, DLQEventEmitter } from '../core/DeadLetterQueue.js';
-import type { SagaPersistence, SagaEventEmitter, SagaAuditLogger, SagaSnapshot, SagaTransitionRecord } from '../core/ValueCaseSaga.js';
-import type { ProvenanceStore, ProvenanceRecord } from '../../memory/provenance/index.js';
+import type { DLQEventEmitter, DLQStore } from '../core/DeadLetterQueue.js';
+import type { SagaAuditLogger, SagaEventEmitter, SagaPersistence, SagaSnapshot, SagaTransitionRecord } from '../core/ValueCaseSaga.js';
+import type { ProvenanceRecord, ProvenanceStore } from '../../memory/provenance/index.js';
 export declare function createMockOpportunityAgent(responses: Map<string, Awaited<ReturnType<OpportunityAgentInterface['analyzeOpportunities']>>>): OpportunityAgentInterface;
 export declare function createMockFinancialModelingAgent(responses: Map<string, Awaited<ReturnType<FinancialModelingAgentInterface['analyzeFinancialModels']>>>): FinancialModelingAgentInterface;
 export declare function createMockGroundTruthAgent(responses: Map<string, Awaited<ReturnType<GroundTruthAgentInterface['analyzeGroundtruth']>>>): GroundTruthAgentInterface;

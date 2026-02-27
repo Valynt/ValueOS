@@ -9,7 +9,7 @@
  * Final score = (freshness * 0.3) + (reliability * 0.4) + (transparency * 0.3)
  */
 import { z } from 'zod';
-import { TIER_WEIGHTS, TIER_MAX_AGE_DAYS } from './EvidenceTiering.js';
+import { TIER_MAX_AGE_DAYS, TIER_WEIGHTS } from './EvidenceTiering.js';
 // ============================================================================
 // Zod Schemas
 // ============================================================================

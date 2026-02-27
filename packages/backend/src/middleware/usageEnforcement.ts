@@ -3,7 +3,7 @@
  * Enforces usage quotas and caps for billing
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { EntitlementsService } from '../services/billing/EntitlementsService.js';
 import { createLogger } from '../lib/logger.js';
 import { BillingMetric } from '../config/billing.js';

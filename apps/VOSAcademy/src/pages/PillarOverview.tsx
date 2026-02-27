@@ -6,11 +6,11 @@ import PillarProgressVisualization from "@/components/PillarProgressVisualizatio
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { APP_LOGO, APP_TITLE } from "@/const";
-import { ArrowLeft, BookOpen, Download, CheckCircle2, Clock, Target, Lock } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle2, Clock, Download, Lock, Target } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
-import { getCurriculumForRole, CurriculumModule } from "@/data/curriculum";
+import { CurriculumModule, getCurriculumForRole } from "@/data/curriculum";
 import { getModuleStatus } from "@/lib/progress-logic";
 import { downloadFile } from "@/lib/download";
 

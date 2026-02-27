@@ -5,9 +5,9 @@
  */
 
 import type {
-  DomainPackKpi,
-  DomainPackAssumption,
   DomainPack,
+  DomainPackAssumption,
+  DomainPackKpi,
   PackStatus,
 } from '../../api/domainPacks/types.js';
 

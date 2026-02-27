@@ -57,7 +57,7 @@ export class SDUIErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     const { componentId, componentType, onError } = this.props;
 
     // Create span for error tracking
@@ -142,7 +142,7 @@ export class SDUIErrorBoundary extends Component<Props, State> {
     });
   };
 
-  render(): ReactNode {
+  override render(): ReactNode {
     const { hasError, error, retryCount } = this.state;
     const { children, fallback, allowRetry = true, componentId, componentType } = this.props;
 

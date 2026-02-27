@@ -1,7 +1,7 @@
 
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { llmRateLimiter, strictLlmRateLimiter } from '../llmRateLimiter';
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 
 // Mock logger to avoid clutter
 vi.mock('@shared/lib/logger', () => ({

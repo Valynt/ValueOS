@@ -1,15 +1,15 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import {
-  UUID,
-  Vector1536,
   Artifact,
   ArtifactMetadata,
   Fact,
   FactStatus,
+  HybridSearchResult,
   Narrative,
   NarrativeStatus,
-  HybridSearchResult,
   SearchParams,
+  UUID,
+  Vector1536,
 } from "./types";
 
 export class MemoryServiceError extends Error {

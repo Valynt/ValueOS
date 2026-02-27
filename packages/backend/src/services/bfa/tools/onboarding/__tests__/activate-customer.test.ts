@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivateCustomer } from "../activate-customer.js"
 import { AgentContext } from "../../../types.js"
 import { supabase } from "../../../../../lib/supabase.js"

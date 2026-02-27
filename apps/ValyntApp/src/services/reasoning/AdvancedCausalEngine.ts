@@ -6,7 +6,7 @@
  */
 
 import { logger } from "../../lib/logger";
-import { getCausalTruthService, CausalTruthService } from "../CausalTruthService";
+import { CausalTruthService, getCausalTruthService } from "../CausalTruthService";
 import { EventEmitter } from "events";
 
 // ============================================================================

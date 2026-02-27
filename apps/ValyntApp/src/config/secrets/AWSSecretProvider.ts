@@ -25,7 +25,7 @@ import type {
   SecretMetadata,
   SecretValue
 } from './ISecretProvider';
-import { StructuredSecretAuditLogger, SecretAuditEvent } from './SecretAuditLogger';
+import { SecretAuditEvent, StructuredSecretAuditLogger } from './SecretAuditLogger';
 
 /**
  * AWS Secrets Manager provider implementation

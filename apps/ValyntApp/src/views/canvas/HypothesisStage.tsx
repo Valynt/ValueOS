@@ -1,26 +1,26 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  Lightbulb,
-  FileSearch,
-  Edit3,
-  Check,
-  X,
   AlertTriangle,
+  ArrowRight,
+  Check,
+  Edit3,
+  FileSearch,
+  Layers,
+  Lightbulb,
+  Minus,
+  Package,
   Plus,
   Sparkles,
-  Package,
-  Users,
   Swords,
-  Layers,
-  ArrowRight,
-  TrendingUp,
   TrendingDown,
-  Minus,
+  TrendingUp,
+  Users,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
-import { useMergedContext, useHardenKPI, useHardenAllKPIs, type MergedKPI } from "@/hooks/useDomainPacks";
+import { type MergedKPI, useHardenAllKPIs, useHardenKPI, useMergedContext } from "@/hooks/useDomainPacks";
 
 // Inline-editable text field
 function EditableField({

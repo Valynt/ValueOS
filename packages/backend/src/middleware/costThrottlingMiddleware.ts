@@ -5,7 +5,7 @@
  * Automatically downgrades non-critical agents to fallback service when budget limits are reached.
  */
 
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import { LLMCostTracker } from "../services/LLMCostTracker.js";
 import { FallbackAIService } from "../services/FallbackAIService.js";
 import { logger } from "../lib/logger.js";

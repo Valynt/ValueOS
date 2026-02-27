@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 export const ConfidenceDisplay = ({ data, size = "md", showTrend = true, showLabel = true, className = "", }) => {
     const { score, label, trend, previousScore } = data;
     const getConfidenceColor = (score) => {

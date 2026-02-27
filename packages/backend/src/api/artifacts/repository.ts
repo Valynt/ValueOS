@@ -9,13 +9,13 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '../../lib/supabase.js';
 import {
   Artifact,
+  ArtifactContent,
+  ArtifactStatus,
+  ArtifactType,
   CreateArtifactRequest,
-  UpdateArtifactRequest,
   ListArtifactsQuery,
   PaginatedResponse,
-  ArtifactType,
-  ArtifactStatus,
-  ArtifactContent,
+  UpdateArtifactRequest,
 } from './types';
 import { logger } from "../../lib/logger.js";
 // Simple logger

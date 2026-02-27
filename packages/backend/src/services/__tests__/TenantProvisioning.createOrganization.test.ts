@@ -1,5 +1,5 @@
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createOrganization, TenantConfig } from '../TenantProvisioning.js'
 
 // Define mocks using vi.hoisted to ensure they are available before imports

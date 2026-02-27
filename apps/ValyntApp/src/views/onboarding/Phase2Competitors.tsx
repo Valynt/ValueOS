@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Swords, Plus, X } from "lucide-react";
+import { Plus, Swords, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { OnboardingPhase2Input, CompanyCompetitor } from "@/hooks/company-context/types";
-import { useResearchSuggestions, useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
+import type { CompanyCompetitor, OnboardingPhase2Input } from "@/hooks/company-context/types";
+import { useAcceptSuggestion, useRejectSuggestion, useResearchSuggestions } from "@/hooks/company-context/useResearchJob";
 import { SuggestionSection } from "@/components/onboarding/SuggestionCard";
 import { useTenant } from "@/contexts/TenantContext";
 

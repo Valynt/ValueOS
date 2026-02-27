@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import Decimal from 'decimal.js';
 import {
-  discountCashFlows,
-  calculateNPV,
-  calculateIRR,
-  calculatePayback,
   calculateDiscountedPayback,
-  sensitivityAnalysis,
-  multiSensitivityAnalysis,
   calculateEVF,
+  calculateIRR,
+  calculateNPV,
+  calculatePayback,
   calculateROI,
-  toDecimalArray,
+  discountCashFlows,
+  multiSensitivityAnalysis,
   roundTo,
+  sensitivityAnalysis,
+  toDecimalArray,
 } from '../economic_kernel';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

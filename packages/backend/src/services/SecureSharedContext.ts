@@ -977,7 +977,7 @@ export class SecureSharedContext {
   }
 
   private getComplianceRequirements(fromAgent: AgentType, toAgent: AgentType): string[] {
-    const requirements = [];
+    const requirements: unknown[] = [];
 
     // Financial compliance
     if ([fromAgent, toAgent].some(agent => ['financial-modeling', 'target'].includes(agent))) {

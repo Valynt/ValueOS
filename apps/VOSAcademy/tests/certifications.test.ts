@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appRouter } from "../src/data/routers/index";
 import type { Context } from "../src/data/_core/trpc";
 

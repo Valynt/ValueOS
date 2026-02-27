@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import type { Subscription, PlanTier } from "../types";
+import { useEffect, useState } from "react";
+import type { PlanTier, Subscription } from "../types";
 import { billingService } from "@/services/billing/billingService";
 
 export function useSubscription() {

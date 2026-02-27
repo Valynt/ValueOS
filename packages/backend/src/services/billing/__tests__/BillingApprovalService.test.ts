@@ -4,7 +4,7 @@
  * Validates approval request lifecycle, policy enforcement, and auto-approval.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApprovalActionType } from "@shared/types/billing-events";
 
 // ---------------------------------------------------------------------------

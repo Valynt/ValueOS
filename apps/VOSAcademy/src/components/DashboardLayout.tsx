@@ -22,15 +22,15 @@ import {
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "../const";
 import { useMobile } from "../hooks/useMobile";
 import {
+  Award,
+  BookOpen,
+  Brain,
+  FileText,
+  Gamepad2,
   LayoutDashboard,
   LogOut,
   PanelLeft,
   Users,
-  BookOpen,
-  Brain,
-  Award,
-  FileText,
-  Gamepad2,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";

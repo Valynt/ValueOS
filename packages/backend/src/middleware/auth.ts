@@ -19,6 +19,8 @@ export interface AuthenticatedRequest extends Request {
     [key: string]: unknown;
   };
   tenantId?: string;
+  correlationId?: string;
+  organizationId?: string;
 }
 import { authService } from '../services/AuthService.js'
 import { AuthenticationError } from '../services/errors.js'

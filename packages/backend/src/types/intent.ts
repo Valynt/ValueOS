@@ -6,12 +6,14 @@
 
 export interface Intent {
   id: string;
+  type?: string;
   name: string;
   description: string;
   category: IntentCategory;
   lifecycle_stage?: string;
   confidence_threshold: number;
   training_examples: string[];
+  data?: Record<string, unknown>;
 }
 
 export type IntentCategory =

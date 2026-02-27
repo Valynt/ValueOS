@@ -9,7 +9,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
-import { Gift, CheckCircle, AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Gift } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface ReferralClaimProps {

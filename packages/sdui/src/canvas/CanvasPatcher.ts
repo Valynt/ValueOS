@@ -19,7 +19,7 @@
 
 import { CanvasDelta, CanvasLayout } from "./types";
 import { logger } from "@shared/lib/logger";
-import { immutableUpdate, immutableNestedUpdate } from "../../utils/immutableUtils";
+import { immutableNestedUpdate, immutableUpdate } from "../../utils/immutableUtils";
 
 export class CanvasPatcher {
   /**

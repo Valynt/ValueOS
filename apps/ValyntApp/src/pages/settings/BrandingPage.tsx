@@ -6,20 +6,20 @@
 
 import { useState } from "react";
 import {
-  Upload,
-  Eye,
   Download,
-  Plus,
-  Trash2,
+  Eye,
   GripVertical,
   Image,
+  Plus,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SimpleSelect } from "@/components/ui/select";
 import { UserAvatar } from "@/components/ui/avatar";
-import { SettingsSection, SettingsRow } from "@/components/settings";
+import { SettingsRow, SettingsSection } from "@/components/settings";
 import { cn } from "@/lib/utils";
 
 interface BrandColors {

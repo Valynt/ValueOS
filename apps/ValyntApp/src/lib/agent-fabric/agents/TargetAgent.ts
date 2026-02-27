@@ -6,12 +6,12 @@
  */
 
 import { BaseAgent, ValueLifecycleStage } from "../BaseAgent";
-import { AgentRequest, AgentResponse, AgentCapability } from "../../../services/agents/core/IAgent";
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 import { z } from "zod";
 import {
-  getAdvancedCausalEngine,
   AdvancedCausalEngine,
+  getAdvancedCausalEngine,
 } from "../../../services/reasoning/AdvancedCausalEngine";
 
 // ============================================================================

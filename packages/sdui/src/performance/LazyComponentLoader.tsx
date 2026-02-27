@@ -132,7 +132,7 @@ class LazyComponentErrorBoundary extends React.Component<
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error(`[LazyLoader] Error loading ${this.props.componentName}:`, error, errorInfo);
   }
 
@@ -142,7 +142,7 @@ class LazyComponentErrorBoundary extends React.Component<
     lazyComponentCache.delete(this.props.componentName);
   };
 
-  render() {
+  override render() {
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) {
         const FallbackComponent = this.props.fallback;

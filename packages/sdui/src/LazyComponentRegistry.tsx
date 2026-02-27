@@ -5,7 +5,7 @@
  * and runtime performance. Components are loaded on-demand when first used.
  */
 
-import React, { lazy, Suspense, ComponentType } from "react";
+import React, { ComponentType, lazy, Suspense } from "react";
 import { RegistryEntry, SDUIComponentSection } from "./registry";
 import { logger } from "@shared/lib/logger";
 import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetry";

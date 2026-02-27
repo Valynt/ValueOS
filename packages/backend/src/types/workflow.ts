@@ -13,7 +13,7 @@ export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity
 
 export type WorkflowStageType = "opportunity" | "target" | "realization" | "expansion";
 
-export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type WorkflowStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused" | "error" | "in_progress" | "initiated" | "rolled_back";
 
 // ============================================================================
 // Retry Configuration
@@ -169,5 +169,7 @@ export interface WorkflowProgress {
   completed_stages: string[];
   total_stages: number;
   progress_percentage: number;
+  percentComplete?: number;
+  status?: string;
   estimated_completion?: string;
 }

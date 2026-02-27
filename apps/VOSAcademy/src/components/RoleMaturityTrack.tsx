@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { SectionCard } from "@/components/SectionCard";
-import { Target, CheckCircle, Circle, Lock } from "lucide-react";
+import { CheckCircle, Circle, Lock, Target } from "lucide-react";
 
 interface RoleMaturityTrackProps {
   role: string;

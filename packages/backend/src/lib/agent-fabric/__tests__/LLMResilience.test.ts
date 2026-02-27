@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  LLMResilienceWrapper,
-  classifyLLMError,
   _test_resetResilienceState,
   CircuitOpenError,
+  classifyLLMError,
   DependencyTimeoutError,
+  LLMResilienceWrapper,
 } from '../LLMResilience.js';
 import type { LLMResponse } from '../LLMGateway.js';
 

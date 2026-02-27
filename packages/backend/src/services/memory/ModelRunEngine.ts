@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { UUID, ModelRun, ModelDiff, BenchmarkSlice } from "./types.js"
+import { BenchmarkSlice, ModelDiff, ModelRun, UUID } from "./types.js"
 
 export class ModelRunEngine {
   constructor(

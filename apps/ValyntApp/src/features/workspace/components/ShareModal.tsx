@@ -4,18 +4,18 @@
  * Modal for generating and managing guest access links.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  X,
-  Link2,
-  Copy,
   Check,
-  Mail,
   Clock,
-  Eye,
+  Copy,
   Edit3,
+  Eye,
+  Link2,
+  Mail,
   MessageSquare,
   Users,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';

@@ -30,9 +30,9 @@ import { mfaService } from "./MFAService.js"
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
 import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
 import { SessionClaimsSchema } from "../types/auth.js";
-import { getSessionStore, RedisSessionStore, DeviceFingerprint } from "../security/RedisSessionStore.js";
+import { DeviceFingerprint, getSessionStore, RedisSessionStore } from "../security/RedisSessionStore.js";
 import { getTokenRotationService } from "./TokenRotationService.js";
-import { getDeviceFingerprintService, DeviceFingerprintService } from "./DeviceFingerprintService.js";
+import { DeviceFingerprintService, getDeviceFingerprintService } from "./DeviceFingerprintService.js";
 import { getRedisClient } from "@shared/lib/redisClient";
 
 export interface LoginCredentials {

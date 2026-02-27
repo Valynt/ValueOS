@@ -640,7 +640,7 @@ export class IntelligentCoordinator {
    * Get compliance checks for an agent
    */
   private getComplianceChecks(agent: AgentType, analysis: RequestAnalysis): string[] {
-    const checks = [];
+    const checks: unknown[] = [];
 
     // Base compliance checks
     if (["financial-modeling", "target"].includes(agent)) {

@@ -10,10 +10,10 @@
  */
 
 import { logger } from '../lib/logger.js'
-import { getCache, setCache, deleteCache } from '../lib/redis';
+import { deleteCache, getCache, setCache } from '../lib/redis';
 import {
-  OrganizationConfiguration,
   hasConfigAccess,
+  OrganizationConfiguration,
 } from './settingsMatrix';
 
 /**

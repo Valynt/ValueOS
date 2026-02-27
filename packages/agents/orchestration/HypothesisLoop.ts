@@ -22,7 +22,7 @@ import { SagaTrigger } from '../core/ValueCaseSaga.js';
 import type { IdempotencyGuard } from '../core/IdempotencyGuard.js';
 import type { DeadLetterQueue, DLQEntry } from '../core/DeadLetterQueue.js';
 import { ObjectionSchema } from './agents/RedTeamAgent.js';
-import type { RedTeamAgent, RedTeamOutput, Objection } from './agents/RedTeamAgent.js';
+import type { Objection, RedTeamAgent, RedTeamOutput } from './agents/RedTeamAgent.js';
 
 // ============================================================================
 // Types

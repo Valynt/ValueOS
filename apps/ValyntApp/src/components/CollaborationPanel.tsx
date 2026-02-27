@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  CollaborationService,
   type CollaborationEvent,
+  CollaborationService,
   type GuestToken,
 } from "../services/CollaborationService";
 import { Card } from "@/components/ui/card";

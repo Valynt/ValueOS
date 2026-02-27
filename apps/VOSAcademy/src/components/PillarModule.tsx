@@ -8,7 +8,7 @@ import { SectionCard } from "@/components/SectionCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Lock, Play, BookOpen, Clock, Target } from "lucide-react";
+import { BookOpen, CheckCircle2, Clock, Lock, Play, Target } from "lucide-react";
 import { CurriculumModule } from "@/data/curriculum";
 import { ModuleStatus } from "@/lib/progress-logic";
 

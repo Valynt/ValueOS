@@ -7,10 +7,10 @@
  */
 
 import type {
-  DomainPackKpi,
-  DomainPackAssumption,
-  EffectiveDomainPack,
   DomainPack,
+  DomainPackAssumption,
+  DomainPackKpi,
+  EffectiveDomainPack,
 } from '../../api/domainPacks/types.js';
 
 // ============================================================================

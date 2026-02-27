@@ -1,8 +1,8 @@
 import Redis from "ioredis";
 import { 
-  IdempotencyStore, 
+  DLQEventEmitter, 
   DLQStore, 
-  DLQEventEmitter 
+  IdempotencyStore 
 } from "@valueos/agents";
 import { logger } from "../../lib/logger.js";
 

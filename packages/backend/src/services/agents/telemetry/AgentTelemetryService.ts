@@ -1,4 +1,4 @@
-import { metrics, Counter, Histogram } from "@opentelemetry/api";
+import { Counter, Histogram, metrics } from "@opentelemetry/api";
 import { AgentType } from "../../agent-types.js";
 import { logger } from "../../../lib/logger.js";
 

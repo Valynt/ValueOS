@@ -12,7 +12,7 @@
 
 import { Request, Response, Router } from 'express';
 import { logger } from '../../lib/logger';
-import { validateSDUISchema, SDUI_VERSION, SDUIPageDefinition } from '../../sdui/schema';
+import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from '../../sdui/schema';
 import { migrateSchema } from '../../sdui/migrations';
 import { canvasSchemaService } from '../../services/CanvasSchemaService';
 import { WorkspaceContext } from '../../types/sdui-integration';

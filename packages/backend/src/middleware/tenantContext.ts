@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { AsyncLocalStorage } from "async_hooks";
 import { createLogger } from "@shared/lib/logger";

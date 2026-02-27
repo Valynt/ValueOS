@@ -10,8 +10,8 @@
  */
 
 import { z } from 'zod';
-import type { EvidenceTier, ClassifiedEvidence, Citation } from './EvidenceTiering.js';
-import { TIER_WEIGHTS, TIER_MAX_AGE_DAYS } from './EvidenceTiering.js';
+import type { Citation, ClassifiedEvidence, EvidenceTier } from './EvidenceTiering.js';
+import { TIER_MAX_AGE_DAYS, TIER_WEIGHTS } from './EvidenceTiering.js';
 
 // ============================================================================
 // Types

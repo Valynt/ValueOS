@@ -31,7 +31,11 @@ export type WorkflowStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
-  | 'paused';
+  | 'paused'
+  | 'error'
+  | 'in_progress'
+  | 'initiated'
+  | 'rolled_back';
 
 export interface WorkflowStateFilter {
   workspace_id?: string;
@@ -186,6 +190,70 @@ export class WorkflowStateRepository {
     }
 
     return true;
+  }
+
+  // Session management methods used by AgentQueryService
+  async getState(sessionId: string): Promise<WorkflowState | null> {
+    return this.findById(sessionId);
+  }
+
+  async saveState(state: WorkflowState): Promise<WorkflowState> {
+    return this.update(state.id, state);
+  }
+
+  async createSession(params: {
+    userId: string;
+    organizationId: string;
+    workspaceId?: string;
+    initialStage?: string;
+  }): Promise<WorkflowState> {
+    return this.create({
+      workflow_id: '',
+      execution_id: '',
+      workspace_id: params.workspaceId ?? '',
+      organization_id: params.organizationId,
+      lifecycle_stage: params.initialStage ?? 'discovery',
+      status: 'pending',
+      current_step: params.initialStage ?? 'discovery',
+      completed_steps: [],
+      state_data: { userId: params.userId },
+      context: {},
+    });
+  }
+
+  async getSession(sessionId: string): Promise<WorkflowState | null> {
+    return this.findById(sessionId);
+  }
+
+  async getActiveSessions(organizationId: string): Promise<WorkflowState[]> {
+    return this.find({ organization_id: organizationId });
+  }
+
+  async getActiveSessionForCase(caseId: string): Promise<WorkflowState | null> {
+    const results = await this.find({ workflow_id: caseId });
+    return results[0] ?? null;
+  }
+
+  async updateSessionStatus(sessionId: string, status: WorkflowStatus): Promise<WorkflowState> {
+    return this.updateStatus(sessionId, status);
+  }
+
+  async incrementErrorCount(sessionId: string): Promise<void> {
+    const state = await this.findById(sessionId);
+    if (state) {
+      const errorCount = ((state.state_data?.errorCount as number) ?? 0) + 1;
+      await this.update(sessionId, { state_data: { ...state.state_data, errorCount } });
+    }
+  }
+
+  async cleanupOldSessions(maxAgeMs: number): Promise<number> {
+    const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+    const { data } = await this.supabase
+      .from('workflow_states')
+      .delete()
+      .lt('updated_at', cutoff)
+      .select('id');
+    return data?.length ?? 0;
   }
 }
 

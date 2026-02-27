@@ -11,7 +11,7 @@
  * - Distinct limits per auth action (login vs signup vs password reset)
  */
 
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import { createLogger } from "@shared/lib/logger";
 import { createCounter } from "../lib/observability/index.js";
 
@@ -342,7 +342,7 @@ export function authRateLimiter(
       const retryAfter = Math.ceil(
         (ipRecord.windowStart + config.windowMs - Date.now()) / 1000
       );
-      res.setHeader("Retry-After", Math.max(retryAfter, 1));
+      return res.setHeader("Retry-After", Math.max(retryAfter, 1));
 
       logger.warn("Auth rate limit exceeded (IP)", {
         ip,
@@ -364,7 +364,7 @@ export function authRateLimiter(
       const retryAfter = Math.ceil(
         (emailRecord.windowStart + config.windowMs - Date.now()) / 1000
       );
-      res.setHeader("Retry-After", Math.max(retryAfter, 1));
+      return res.setHeader("Retry-After", Math.max(retryAfter, 1));
 
       logger.warn("Auth rate limit exceeded (email)", {
         action,
@@ -385,7 +385,7 @@ export function authRateLimiter(
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
 
-    next();
+    return next();
   };
 }
 

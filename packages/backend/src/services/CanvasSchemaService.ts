@@ -6,13 +6,13 @@
  */
 
 import { logger } from "../lib/logger.js"
-import { SDUIPageDefinition, SDUIComponentSection } from "@sdui/schema";
+import { SDUIComponentSection, SDUIPageDefinition } from "@sdui/schema";
 import {
+  AddComponentAction,
   AtomicUIAction,
   ComponentSelector,
-  PropertyMutation,
-  AddComponentAction,
   MutateComponentAction,
+  PropertyMutation,
   RemoveComponentAction,
   ReorderComponentsAction,
   UpdateLayoutAction,

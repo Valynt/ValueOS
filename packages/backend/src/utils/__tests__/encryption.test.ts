@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { encrypt, decrypt } from '../encryption.js'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { decrypt, encrypt } from '../encryption.js'
 
 describe('Encryption Utils', () => {
   const originalKey = process.env.APP_ENCRYPTION_KEY;

@@ -70,7 +70,7 @@ export function featureFlagContext() {
       }
     };
 
-    next();
+    return next();
   };
 }
 
@@ -100,7 +100,7 @@ export function requireFeatureFlag(flagKey: string) {
         });
       }
 
-      next();
+      return next();
     } catch (error) {
       logger.error('Feature flag evaluation failed', error as Error);
       next(error);
@@ -124,7 +124,7 @@ export function withFeatureFlagVariant(flagKey: string) {
       (req as any).featureFlagVariant = variant;
       (req as any).featureFlagConfig = config;
 
-      next();
+      return next();
     } catch (error) {
       logger.error('Feature flag variant evaluation failed', error as Error);
       next(error);
@@ -151,7 +151,7 @@ export function conditionalMiddleware(
         return middleware(req, res, next);
       }
 
-      next();
+      return next();
     } catch (error) {
       logger.error('Conditional middleware evaluation failed', error as Error);
       next(error);
@@ -166,7 +166,7 @@ export function debugFeatureFlags() {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (process.env.NODE_ENV !== 'production') {
       const flags = await featureFlags.listFlags();
-      const enabledFlags = [];
+      const enabledFlags: unknown[] = [];
 
       for (const flag of flags) {
         if (req.featureFlags) {
@@ -177,9 +177,9 @@ export function debugFeatureFlags() {
         }
       }
 
-      res.setHeader('X-Feature-Flags', enabledFlags.join(','));
+      return res.setHeader('X-Feature-Flags', enabledFlags.join(','));
     }
 
-    next();
+    return next();
   };
 }

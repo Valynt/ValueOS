@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test.describe('Frontend Startup Health Check', () => {
   test('page loads without env validation errors', async ({ page }) => {

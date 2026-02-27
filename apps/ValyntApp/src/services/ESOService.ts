@@ -6,11 +6,11 @@
  */
 
 import {
-  SECAdapter,
   BLSAdapter,
   CensusAdapter,
   DataIngestionAdapter,
   IngestionConfig,
+  SECAdapter,
 } from "@valueos/infra/eso";
 
 export interface ESODataPoint {

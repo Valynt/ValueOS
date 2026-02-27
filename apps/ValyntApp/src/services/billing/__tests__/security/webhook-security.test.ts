@@ -3,7 +3,7 @@
  * Validates webhook signature verification, error exposure, and security measures.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createMockStripeEvent,
 } from "../__helpers__/stripe-mocks";

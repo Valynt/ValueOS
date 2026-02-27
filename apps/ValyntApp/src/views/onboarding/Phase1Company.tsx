@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Plus, X, Globe, Package, Sparkles, Loader2 } from "lucide-react";
+import { Building2, Globe, Loader2, Package, Plus, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { OnboardingPhase1Input } from "@/hooks/company-context/types";
 import type { ResearchJob, ResearchSuggestion } from "@/hooks/company-context/types";

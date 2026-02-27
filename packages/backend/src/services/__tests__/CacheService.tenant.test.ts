@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CacheService } from '../CacheService.js'
-import { tenantContextStorage, TCTPayload } from '../../middleware/tenantContext.js'
+import { TCTPayload, tenantContextStorage } from '../../middleware/tenantContext.js'
 
 const mockConnect = vi.fn().mockResolvedValue(undefined);
 const mockOn = vi.fn();

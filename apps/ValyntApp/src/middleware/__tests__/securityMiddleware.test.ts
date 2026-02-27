@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  csrfTokenMiddleware,
   csrfProtectionMiddleware,
+  csrfTokenMiddleware,
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../securityMiddleware';

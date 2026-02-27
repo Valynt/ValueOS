@@ -15,8 +15,8 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@shared/lib/logger";
 import { createServerSupabaseClient, getRequestSupabaseClient } from "@shared/lib/supabase";
 import {
-  type Permission as UnifiedPermission,
   hasPermission as matchPermission,
+  type Permission as UnifiedPermission,
   USER_ROLE_PERMISSIONS,
   USER_ROLES,
 } from "@shared/lib/permissions";
@@ -223,7 +223,7 @@ export function requirePermission(
         permission,
       });
 
-      next();
+      return next();
     } catch (error) {
       logger.error(
         "Permission middleware error",
@@ -322,7 +322,7 @@ export function requireRole(role: Role | Role[]) {
         });
       }
 
-      next();
+      return next();
     } catch (error) {
       logger.error(
         "Role middleware error",
@@ -388,7 +388,7 @@ export function requireOwnership(
         });
       }
 
-      next();
+      return next();
     } catch (error) {
       logger.error(
         "Ownership middleware error",
@@ -526,7 +526,7 @@ export function requireAllPermissions(...permissions: Permission[]) {
         permissions,
       });
 
-      next();
+      return next();
     } catch (error) {
       logger.error(
         "Permission middleware error",
@@ -597,7 +597,7 @@ export function requirePolicy<T>(
         });
       }
 
-      next();
+      return next();
     } catch (error) {
       logger.error(
         "Policy middleware error",

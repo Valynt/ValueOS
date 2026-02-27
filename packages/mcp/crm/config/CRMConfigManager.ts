@@ -5,7 +5,7 @@
  * and provides easy access to provider configurations and field mappings.
  */
 
-import { ConfigurationManager, MCPCRMServerConfig, CRMProviderConfig } from "../../mcp-common";
+import { ConfigurationManager, CRMProviderConfig, MCPCRMServerConfig } from "../../mcp-common";
 import { logger } from "../../lib/logger";
 
 export class CRMConfigManager {

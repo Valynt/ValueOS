@@ -3,16 +3,16 @@
  * Comprehensive tests for all security features
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Request, Response } from "express";
 import * as dns from "node:dns/promises";
 import {
+  applySecurityHeaders,
+  developmentSecurityConfig,
+  generateCSRFToken,
   getSecurityConfig,
   productionSecurityConfig,
-  developmentSecurityConfig,
-  applySecurityHeaders,
   validateFileUpload,
-  generateCSRFToken,
   validateSSRFUrl,
 } from "../securityConfig";
 

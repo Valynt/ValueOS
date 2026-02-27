@@ -1,4 +1,4 @@
-import { InsertUser, InsertPillar, InsertProgress, InsertQuizQuestion, InsertQuizResult, InsertCertification, InsertMaturityAssessment, InsertResource, InsertSimulationScenario, InsertSimulationAttempt, SimulationScenario, SimulationAttempt } from "../drizzle/schema";
+import { InsertCertification, InsertMaturityAssessment, InsertPillar, InsertProgress, InsertQuizQuestion, InsertQuizResult, InsertResource, InsertSimulationAttempt, InsertSimulationScenario, InsertUser, SimulationAttempt, SimulationScenario } from "../drizzle/schema";
 export declare function getDb(): Promise<import("drizzle-orm/mysql2").MySql2Database<Record<string, unknown>> | null>;
 export declare function upsertUser(user: InsertUser): Promise<void>;
 export declare function getUserByOpenId(openId: string): Promise<{

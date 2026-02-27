@@ -4,7 +4,7 @@
  * Validates deterministic rating, overage calculation, and idempotent storage.
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PriceVersionDefinition } from "../PriceVersionService";
 import type { RatingContext, UsageAggregate } from "../RatingEngine";
 import type { EntitlementSnapshot } from "../EntitlementSnapshotService";

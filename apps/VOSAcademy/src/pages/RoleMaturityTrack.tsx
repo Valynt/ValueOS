@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, Lock, TrendingUp, Target, Award } from "lucide-react";
+import { Award, CheckCircle2, Circle, Lock, Target, TrendingUp } from "lucide-react";
 
 interface MaturityLevel {
   level: number;

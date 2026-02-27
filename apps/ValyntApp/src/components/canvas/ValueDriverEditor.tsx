@@ -4,8 +4,8 @@
  * Provides syntax highlighting, autocomplete, and validation for value driver formulas.
  */
 
-import React, { useState, useEffect, useRef } from "react";
-import { X, Check, AlertCircle, Lightbulb } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { AlertCircle, Check, Lightbulb, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

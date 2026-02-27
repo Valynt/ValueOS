@@ -1,8 +1,8 @@
 import {
-  MicOff,
-  FileSpreadsheet,
-  TrendingDown,
   AlertTriangle,
+  FileSpreadsheet,
+  MicOff,
+  TrendingDown,
 } from "lucide-react";
 
 export function Problem() {

@@ -7,13 +7,16 @@
  * Integrates with agent store and mock stream for MVP.
  */
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
+  AlertCircle,
   ArrowLeft,
   Send,
   Clock,
   Loader2,
+  PlayCircle,
+  Send,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,19 +26,19 @@ import { cn } from "@/lib/utils";
 
 // Agent store and types
 import {
-  useAgentStore,
   selectActiveArtifact,
   selectArtifacts,
-  selectOverallProgress,
-  selectCanUndo,
   selectCanRedo,
+  selectCanUndo,
+  selectOverallProgress,
+  useAgentStore,
 } from "@/features/workspace/agent/store";
 import { useAgentStream } from "@/features/workspace/agent/useAgentStream";
 import type {
   AgentPhase,
+  Artifact,
   ConversationMessage,
   WorkflowStepState,
-  Artifact,
 } from "@/features/workspace/agent/types";
 
 // Services

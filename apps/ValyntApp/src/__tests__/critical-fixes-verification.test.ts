@@ -4,10 +4,10 @@
  * Tests to verify that all critical P0 and P1 findings have been properly addressed
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
-import { workflowStateMachine, resetWorkflowStateMachine } from "../services/WorkflowStateMachine";
+import { beforeEach, describe, expect, it } from "vitest";
+import { resetWorkflowStateMachine, workflowStateMachine } from "../services/WorkflowStateMachine";
 import { WebSearchTool } from "../tools/WebSearchTool";
-import { UnifiedAgentAPI, resetUnifiedAgentAPI } from "../services/UnifiedAgentAPI";
+import { resetUnifiedAgentAPI, UnifiedAgentAPI } from "../services/UnifiedAgentAPI";
 
 describe("Critical Fixes Verification", () => {
   describe("P0 Finding 1: Tenant Context Validation", () => {

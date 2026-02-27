@@ -5,11 +5,11 @@
  */
 
 import React, { memo, useCallback } from "react";
-import { Handle, Position, NodeProps } from "@xyflow/react";
+import { Handle, NodeProps, Position } from "@xyflow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import useValueCanvasStore from "@/stores/valueCanvasStore";
 import { calculationEngine } from "@/services/CalculationEngine";
 

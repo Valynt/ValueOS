@@ -3,7 +3,7 @@
  * Advanced quiz system with adaptive scoring, instant feedback, and targeted learning
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -12,17 +12,17 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { SectionCard } from "@/components/SectionCard";
 import {
-  CheckCircle2,
-  XCircle,
-  ArrowRight,
-  ArrowLeft,
-  BookCheck,
-  Target,
-  TrendingUp,
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Award,
+  BookCheck,
+  CheckCircle2,
   Lightbulb,
   RotateCcw,
-  Award
+  Target,
+  TrendingUp,
+  XCircle
 } from "lucide-react";
 
 export interface QuizQuestion {

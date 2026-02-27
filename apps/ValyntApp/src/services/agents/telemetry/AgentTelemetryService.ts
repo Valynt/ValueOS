@@ -8,14 +8,14 @@
  */
 
 import {
+  AgentHealthStatus,
   AgentRequest,
   AgentResponse,
-  AgentHealthStatus,
 } from "../core/IAgent";
 import { AgentType } from "../../agent-types";
 import { logger } from "../../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
-import { metrics, Counter, Histogram } from "@opentelemetry/api";
+import { Counter, Histogram, metrics } from "@opentelemetry/api";
 
 // ============================================================================
 // Telemetry Types

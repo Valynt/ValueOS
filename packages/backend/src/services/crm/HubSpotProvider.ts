@@ -16,7 +16,7 @@
  * - Invalid ID logging for security audit trail
  */
 
-import { createHmac, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 import { createLogger } from '../../lib/logger.js';
 import type { CrmProviderInterface } from './CrmProviderInterface.js';

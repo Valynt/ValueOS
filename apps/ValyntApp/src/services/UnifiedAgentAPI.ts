@@ -25,8 +25,8 @@ import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
-  GroundtruthRequestPayload,
   GroundtruthRequestOptions,
+  GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
 import {
   createInputGuardrailTripwire,

@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { Check, X, Pencil, ExternalLink, Sparkles } from "lucide-react";
+import { Check, ExternalLink, Pencil, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ResearchSuggestion } from "@/hooks/company-context/types";
 

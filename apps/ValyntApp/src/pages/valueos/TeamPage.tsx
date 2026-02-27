@@ -6,11 +6,11 @@
 
 import { useState } from "react";
 import {
-  Search,
-  UserPlus,
-  MoreHorizontal,
   Mail,
+  MoreHorizontal,
+  Search,
   Shield,
+  UserPlus,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,10 @@ import { UserAvatar } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";

@@ -8,7 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { Award, Download, Share2 } from "lucide-react";
 import { Link } from "wouter";
 import { toast } from "sonner";
-import { generateCertificatePDF, generateCertificateId } from "@/lib/certificate-generator";
+import { generateCertificateId, generateCertificatePDF } from "@/lib/certificate-generator";
 
 export default function Certifications() {
   const { user, loading: authLoading } = useAuth();

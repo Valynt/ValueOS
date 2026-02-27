@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Target, Send } from "lucide-react";
+import { Send, Target } from "lucide-react";
 const unitSuffix = {
     currency: "$",
     percentage: "%",

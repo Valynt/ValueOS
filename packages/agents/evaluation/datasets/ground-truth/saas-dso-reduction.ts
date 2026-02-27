@@ -6,10 +6,10 @@
  * Based on realistic financial data patterns from public SaaS companies.
  */
 
-import type { EvidenceItem, EvidenceBundle, ClassifiedEvidence, Citation } from '../../../core/EvidenceTiering.js';
-import type { ConfidenceScore, ClaimConfidence } from '../../../core/ConfidenceScorer.js';
+import type { Citation, ClassifiedEvidence, EvidenceBundle, EvidenceItem } from '../../../core/EvidenceTiering.js';
+import type { ClaimConfidence, ConfidenceScore } from '../../../core/ConfidenceScorer.js';
 import type { ProvenanceRecord } from '../../../../memory/provenance/index.js';
-import type { ValueTree, ValueTreeNode, NarrativeBlock, ValueHypothesis } from '../../../orchestration/HypothesisLoop.js';
+import type { NarrativeBlock, ValueHypothesis, ValueTree, ValueTreeNode } from '../../../orchestration/HypothesisLoop.js';
 import type { Objection } from '../../../orchestration/agents/RedTeamAgent.js';
 import type { SagaStateType } from '../../../core/ValueCaseSaga.js';
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   DashboardPanel,
   Grid,
@@ -10,8 +10,8 @@ import { SectionErrorFallback } from "./components/SDUI";
 import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
 import { RegistryPlaceholderComponent, resolveComponentWithVersion } from "./registry";
 import {
-  resolveComponentLazy,
   preloadCriticalComponents,
+  resolveComponentLazy,
 } from "./LazyComponentRegistry";
 import { DataBindingResolver } from "./DataBindingResolver";
 import { DataSourceContext } from "./DataBindingSchema";

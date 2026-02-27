@@ -137,7 +137,7 @@ export async function getCustomerValueCase(req: Request, res: Response): Promise
           name: n.label,
           category: n.driverType,
           baseline_value: n.value ?? 0,
-          target_value: target?.target_value ?? 0,
+          target_value: target?.targetValue ?? 0,
           unit: target?.unit ?? "",
         };
       }),

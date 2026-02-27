@@ -1,6 +1,6 @@
 import {
-  CheckCircle2,
   AlertTriangle,
+  CheckCircle2,
   Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";

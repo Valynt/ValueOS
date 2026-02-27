@@ -5,7 +5,7 @@
  * and maintains data integrity across multiple runs.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import UsageAggregator from '../services/metering/UsageAggregator.js';
 import { BillingMetric } from '../../config/billing.js';

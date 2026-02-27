@@ -5,7 +5,7 @@
  * Provides integration with ValueOS deterministic B2B value orchestration.
  */
 
-import { useEffect, useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useESOStore } from "../stores/esoStore";
 
 export interface ESOConfig {

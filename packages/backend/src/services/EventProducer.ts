@@ -5,13 +5,13 @@
  * retries, and monitoring.
  */
 
-import { Kafka, Producer, Message, CompressionTypes, logLevel } from "kafkajs";
+import { CompressionTypes, Kafka, logLevel, Message, Producer } from "kafkajs";
 import { logger } from "../lib/logger.js"
 import { BaseEvent } from "@shared/types/events";
 import {
+  kafkaProducerErrors,
   kafkaProducerEventsTotal,
   kafkaProducerLatency,
-  kafkaProducerErrors,
 } from "../lib/monitoring/metrics";
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 import { buildKafkaClientConfig, isKafkaEnabled } from "./kafkaConfig.js"

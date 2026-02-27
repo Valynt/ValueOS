@@ -42,7 +42,7 @@ function getActor(req: Request) {
 function handleError(res: Response, error: unknown, message: string) {
   const serviceError = handleServiceError(error);
   logger.error(message, serviceError, { code: serviceError.code });
-  res.status(serviceError.statusCode ?? 500).json({
+  return res.status(serviceError.statusCode ?? 500).json({
     error: serviceError.message || message,
     code: serviceError.code,
   });
@@ -60,7 +60,7 @@ router.get("/", requirePermission("integrations:view"), async (req: Request, res
     const integrations = await integrationConnectionService.listConnections(userId, tenantId);
     return res.json({ integrations });
   } catch (error) {
-    handleError(res, error, "Failed to list integrations");
+    return handleError(res, error, "Failed to list integrations");
   }
 });
 
@@ -105,7 +105,7 @@ router.post(
 
       return res.status(201).json({ integration });
     } catch (error) {
-      handleError(res, error, "Failed to connect integration");
+      return handleError(res, error, "Failed to connect integration");
     }
   }
 );
@@ -147,7 +147,7 @@ router.delete(
 
       return res.json({ integration });
     } catch (error) {
-      handleError(res, error, "Failed to disconnect integration");
+      return handleError(res, error, "Failed to disconnect integration");
     }
   }
 );
@@ -189,7 +189,7 @@ router.post(
 
       return res.json({ result });
     } catch (error) {
-      handleError(res, error, "Failed to test integration");
+      return handleError(res, error, "Failed to test integration");
     }
   }
 );
@@ -231,7 +231,7 @@ router.post(
 
       return res.json({ integration });
     } catch (error) {
-      handleError(res, error, "Failed to sync integration");
+      return handleError(res, error, "Failed to sync integration");
     }
   }
 );

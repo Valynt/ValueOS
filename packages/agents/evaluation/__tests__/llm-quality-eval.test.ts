@@ -13,17 +13,17 @@
  * infrastructure itself using mock agents as stand-ins.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  validateOpportunityResponse,
+  type EvalCheck,
+  type EvalResult,
+  runEvalChecks,
+  summarizeResults,
   validateFinancialModelingResponse,
   validateGroundtruthResponse,
   validateNarrativeResponse,
+  validateOpportunityResponse,
   validateRedTeamResponse,
-  runEvalChecks,
-  summarizeResults,
-  type EvalResult,
-  type EvalCheck,
 } from '../harness.js';
 import { opportunityEvalCases } from '../datasets/agent-evals/opportunity-agent.js';
 import { financialModelingEvalCases } from '../datasets/agent-evals/financial-modeling-agent.js';

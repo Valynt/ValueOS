@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidebarLayout } from "@/components/SidebarLayout";
 import { getLoginUrl } from "@/data/const";
-import { ArrowRight, BookOpen, TrendingUp, Users, Award, Brain, Target, Sparkles } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Brain, Sparkles, Target, TrendingUp, Users } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Home() {

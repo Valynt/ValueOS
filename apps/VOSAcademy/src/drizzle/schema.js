@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, timestamp, json, tinyint } from "drizzle-orm/mysql-core";
+import { int, json, mysqlTable, text, timestamp, tinyint, varchar } from "drizzle-orm/mysql-core";
 // ============================================================================
 // User Management
 // ============================================================================

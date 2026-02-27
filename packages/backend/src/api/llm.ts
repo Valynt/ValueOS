@@ -26,7 +26,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { requirePermission } from '../middleware/rbac.js'
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
-import { MODEL_POLICY_VERSION, ModelDeniedError, assertKnownApprovedModel } from '../config/models.js'
+import { assertKnownApprovedModel, MODEL_POLICY_VERSION, ModelDeniedError } from '../config/models.js'
 
 const router = Router();
 router.use(requestAuditMiddleware());
@@ -131,7 +131,7 @@ router.post(
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
         res.write(`data: ${JSON.stringify({ content: fallbackContent, done: true, fallback: true })}\n\n`);
-        res.end();
+        return res.end();
         return;
       }
 
@@ -176,7 +176,7 @@ router.post(
           res.write(`data: ${JSON.stringify(chunk)}\n\n`);
         }
 
-        res.end();
+        return res.end();
       } catch (error) {
         logger.error('LLM stream failed', error as Error, withRequestContext(req, res));
         const message =
@@ -187,7 +187,7 @@ router.post(
         res.write(
           `data: ${JSON.stringify({ error: message, done: true })}\n\n`
         );
-        res.end();
+        return res.end();
       }
       return;
     }
@@ -205,7 +205,7 @@ router.post(
     });
     
     // Return response
-    res.json({
+    return res.json({
       success: true,
       data: {
         content: response.content,
@@ -241,7 +241,7 @@ router.post(
 
     logger.error('LLM chat request failed', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'LLM request failed',
       message: 'An internal error occurred while processing the request'
     });
@@ -258,14 +258,14 @@ router.get('/stats', rateLimiters.loose, async (req: Request, res: Response) => 
   try {
     const stats = await llmFallback.getStats();
     
-    res.json({
+    return res.json({
       success: true,
       data: stats
     });
   } catch (error) {
     logger.error('Failed to get LLM stats', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Failed to get stats',
       message: 'An internal error occurred'
     });
@@ -283,14 +283,14 @@ router.get('/health', async (req: Request, res: Response) => {
     
     const allHealthy = health.togetherAI.healthy && health.openAI.healthy;
     
-    res.status(allHealthy ? 200 : 503).json({
+    return res.status(allHealthy ? 200 : 503).json({
       success: allHealthy,
       data: health
     });
   } catch (error) {
     logger.error('LLM health check failed', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Health check failed',
       message: 'An internal error occurred'
     });
@@ -313,14 +313,14 @@ router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTime
       })
     );
     
-    res.json({
+    return res.json({
       success: true,
       message: 'Circuit breakers reset successfully'
     });
   } catch (error) {
     logger.error('Failed to reset circuit breakers', error as Error, withRequestContext(req, res));
     
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Reset failed',
       message: 'An internal error occurred'
     });

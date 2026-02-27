@@ -5,7 +5,7 @@
  * with live Supabase queries scoped to the current tenant.
  */
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/contexts/TenantContext";
 import { CasesService } from "@/services/supabase/cases";
 import type { ValueCaseInsert } from "@/services/supabase/types";

@@ -44,9 +44,9 @@ export class EDGARModule extends BaseModule {
   protected userAgent: string = "";
   protected baseUrl: string = "https://data.sec.gov";
   protected rateLimit: number = 10; // SEC enforces 10 requests/second
-  protected lastRequestTime: number = 0;
+  protected override lastRequestTime: number = 0;
 
-  async initialize(config: Record<string, any>): Promise<void> {
+  override async initialize(config: Record<string, any>): Promise<void> {
     await super.initialize(config);
 
     const edgarConfig = config as EDGARConfig;

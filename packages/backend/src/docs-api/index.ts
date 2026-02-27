@@ -5,7 +5,7 @@
  * Enables agent-driven documentation updates based on code changes.
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
@@ -237,7 +237,7 @@ router.get('/sections', (req: Request, res: Response) => {
     );
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: sections,
     meta: {
@@ -264,7 +264,7 @@ router.get('/sections/:id', (req: Request, res: Response) => {
     });
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: section
   });
@@ -287,7 +287,7 @@ router.get('/mappings', (req: Request, res: Response) => {
     mappings = mappings.filter(m => m.changeDetected);
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: mappings,
     meta: {
@@ -320,7 +320,7 @@ router.get('/mappings/*', (req: Request, res: Response) => {
     .map(id => docSections.get(id))
     .filter(Boolean);
 
-  res.json({
+  return res.json({
     success: true,
     data: {
       ...mapping,
@@ -366,7 +366,7 @@ router.post('/detect-changes', async (req: Request, res: Response) => {
     .map(id => docSections.get(id))
     .filter(Boolean);
 
-  res.json({
+  return res.json({
     success: true,
     data: {
       changedFiles: files.length,
@@ -406,7 +406,7 @@ router.post('/sync', (req: Request, res: Response) => {
     }
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: {
       synced: true,
@@ -425,7 +425,7 @@ router.get('/health', (_req: Request, res: Response) => {
   const outdatedMappings = Array.from(codeMappings.values())
     .filter(m => m.changeDetected).length;
 
-  res.json({
+  return res.json({
     success: true,
     data: {
       status: 'healthy',
@@ -452,7 +452,7 @@ router.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
       ? err.message
       : undefined;
 
-  res.status(500).json({
+  return res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',

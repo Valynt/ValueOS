@@ -10,21 +10,21 @@
  * - 5-Second Rule: breadcrumbs answer "Where am I?", nav answers "What can I do?"
  */
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useLocation, Outlet } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import {
-  Search,
-  Home,
-  Briefcase,
-  Library,
   BarChart3,
-  Settings,
-  Users,
-  FileText,
-  Target,
-  PanelLeftClose,
-  PanelLeft,
+  Briefcase,
   ChevronRight,
+  FileText,
+  Home,
+  Library,
+  PanelLeft,
+  PanelLeftClose,
+  Search,
+  Settings,
+  Target,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

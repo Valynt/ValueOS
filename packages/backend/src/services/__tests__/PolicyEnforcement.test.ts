@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ToolRegistry, type MCPTool } from '../ToolRegistry.js';
+import { type MCPTool, ToolRegistry } from '../ToolRegistry.js';
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
 import {
   PolicyEnforcementError,

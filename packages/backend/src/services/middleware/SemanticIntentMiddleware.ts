@@ -12,11 +12,11 @@ import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../
 import type { AgentType } from '../agent-types.js';
 import type { IntentCategory } from '../../types/intent.js';
 import type {
+  ClarificationPayload,
+  HistoricalIntentMatch,
   IntentGraph,
   IntentNode,
   IntentParameter,
-  ClarificationPayload,
-  HistoricalIntentMatch,
 } from './types.js';
 import type { EmbeddingService } from './EmbeddingService.js';
 import type { VectorSearchService } from '../VectorSearchService.js';

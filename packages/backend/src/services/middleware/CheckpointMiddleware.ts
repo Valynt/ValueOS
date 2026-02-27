@@ -21,8 +21,8 @@ import { RiskClassifier } from './RiskClassifier.js';
 import {
   CheckpointConfig,
   CheckpointRecord,
-  CheckpointTimeoutError,
   CheckpointRejectedError,
+  CheckpointTimeoutError,
   DEFAULT_CHECKPOINT_CONFIG,
 } from './types.js';
 

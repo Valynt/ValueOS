@@ -8,22 +8,24 @@
 import { create } from "zustand";
 import { createIntegrityValidationService } from "@services/IntegrityValidationService";
 import {
-  ValidationLevel,
   ContentType,
+  ValidationLevel,
 } from "@services/IntegrityValidationService";
 import type {
-  AgentPhase,
   AgentEvent,
+  AgentPhase,
   Artifact,
-  ConversationMessage,
-  WorkflowStepState,
-  PlanAssumption,
   ClarifyOption,
+  ConversationMessage,
+  PlanAssumption,
+  WorkflowStepState,
 } from "./types";
 import {
   transition,
   buildTransitionContext,
   type AgentAction,
+  type AgentTransitionEvent,
+  resolveTransition,
 } from "./state-machine";
 import { logger } from "../../../lib/logger";
 

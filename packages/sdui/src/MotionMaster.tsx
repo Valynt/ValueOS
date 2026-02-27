@@ -3,7 +3,7 @@
  * Applies cinematic, non-blocking staggered entrance and spring effects
  */
 
-import React, { createContext, useContext, useRef, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useRef } from "react";
 
 interface MotionMasterContextProps {
   register: (ref: React.RefObject<HTMLElement>) => void;

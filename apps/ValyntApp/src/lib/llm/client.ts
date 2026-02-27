@@ -1,4 +1,4 @@
-import type { LLMConfig, LLMRequest, LLMResponse, LLMMessage } from "./types";
+import type { LLMConfig, LLMMessage, LLMRequest, LLMResponse } from "./types";
 
 const defaultConfig: LLMConfig = {
   provider: "openai",

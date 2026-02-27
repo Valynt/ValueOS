@@ -10,20 +10,20 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  EffectiveDomainPack,
-  DomainPackKpi,
   DomainPackAssumption,
+  DomainPackKpi,
+  EffectiveDomainPack,
 } from '../../api/domainPacks/types.js';
 import {
-  isDomainPackSnapshot,
   effectiveFromSnapshot,
+  isDomainPackSnapshot,
 } from '../../services/domainPacks/snapshot.js';
 import type { DomainPackSnapshot } from '../../services/domainPacks/snapshot.js';
 import {
-  sanitizeKpiForPrompt,
-  sanitizeAssumptionForPrompt,
   estimateTokens,
   LLM_LIMITS,
+  sanitizeAssumptionForPrompt,
+  sanitizeKpiForPrompt,
 } from '../../services/domainPacks/validate.js';
 import { DomainPackService } from '../../services/domain-packs/DomainPackService.js';
 import { logger } from '../../lib/logger.js';

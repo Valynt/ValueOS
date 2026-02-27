@@ -1,4 +1,4 @@
-import { X, ArrowUp, Bot, User } from "lucide-react";
+import { ArrowUp, Bot, User, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";

@@ -25,8 +25,8 @@ export function createVersionedApiRouter(): express.Router {
     const resolvedVersion = pathVersion ?? headerVersion ?? DEFAULT_VERSION;
 
     if (!SUPPORTED_VERSIONS.includes(resolvedVersion)) {
-      res.setHeader('API-Version', DEFAULT_VERSION);
-      res.setHeader('API-Deprecated-Versions', DEPRECATED_VERSIONS.join(',') || 'none');
+      return res.setHeader('API-Version', DEFAULT_VERSION);
+      return res.setHeader('API-Deprecated-Versions', DEPRECATED_VERSIONS.join(',') || 'none');
       return res.status(426).json({
         error: 'unsupported_version',
         message: `Version ${resolvedVersion} is not supported. Use ${DEFAULT_VERSION} or one of: ${SUPPORTED_VERSIONS.join(', ')}`,
@@ -34,9 +34,9 @@ export function createVersionedApiRouter(): express.Router {
     }
 
     res.locals.apiVersion = resolvedVersion;
-    res.setHeader('API-Version', resolvedVersion);
+    return res.setHeader('API-Version', resolvedVersion);
     if (DEPRECATED_VERSIONS.length > 0) {
-      res.setHeader('API-Deprecated-Versions', DEPRECATED_VERSIONS.join(','));
+      return res.setHeader('API-Deprecated-Versions', DEPRECATED_VERSIONS.join(','));
     }
 
     if (pathVersion) {

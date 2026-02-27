@@ -4,8 +4,8 @@
  * Member table with search, role assignment, and invite functionality.
  */
 
-import { useState, useEffect } from "react";
-import { UserPlus, ChevronRight, RotateCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronRight, RotateCw, UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

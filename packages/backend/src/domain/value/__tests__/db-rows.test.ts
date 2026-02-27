@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { getValueCase, listValueDriversForCase, getFinancialModelForCase, ValueCaseRow, ValueDriverRow, FinancialModelRow } from '../db/rows';
+import { FinancialModelRow, getFinancialModelForCase, getValueCase, listValueDriversForCase, ValueCaseRow, ValueDriverRow } from '../db/rows';
 
 describe('Value Domain DB Row Access', () => {
   const supabase = {

@@ -8,7 +8,7 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 import type { MeterKey } from "@shared/types/billing-events";
-import type { PriceVersion, MeterPricing } from "./PriceVersionService.js";
+import type { MeterPricing, PriceVersion } from "./PriceVersionService.js";
 import type { EntitlementSnapshot } from "./EntitlementSnapshotService.js";
 
 const logger = createLogger({ component: "RatingEngine" });

@@ -18,6 +18,9 @@ export interface ExecutionRequest {
   input: Record<string, any>;
   options?: ExecutionOptions;
   metadata?: Record<string, any>;
+  parameters?: Record<string, unknown>;
+  intent?: string;
+  environment?: string;
 }
 
 export type ExecutionType =

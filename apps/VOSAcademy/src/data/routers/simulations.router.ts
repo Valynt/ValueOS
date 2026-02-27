@@ -1,15 +1,15 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { invokeLLM } from "../_core/llm";
 import * as db from "../db";
 import {
   calculateScoringResult,
   generateFeedbackPrompt,
-  validateScoringResult,
   type SimulationResponse,
+  validateScoringResult,
 } from "../../lib/simulation-scoring";
-import { safeLLMOperation, safeDbOperation } from "../_core/error-handling";
+import { safeDbOperation, safeLLMOperation } from "../_core/error-handling";
 
 /**
  * Simulations router

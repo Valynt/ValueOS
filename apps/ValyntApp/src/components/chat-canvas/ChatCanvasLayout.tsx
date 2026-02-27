@@ -9,10 +9,10 @@
  * This replaces the monolithic "God Component" with a modular architecture.
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // Shell Layer
-import { Sidebar, TopBar, CommandBar } from "@/components/shell";
+import { CommandBar, Sidebar, TopBar } from "@/components/shell";
 import type { ValueCase } from "@/components/shell";
 
 // Orchestration Layer
@@ -22,9 +22,9 @@ import { useCanvasState } from "@/hooks/useCanvasState";
 
 // Canvas Layer
 import {
-  ValueSummaryCard,
   AgentResponseCard,
   ChatInput,
+  ValueSummaryCard,
 } from "@/components/canvas";
 import { logger } from "../../lib/logger";
 

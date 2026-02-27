@@ -4,7 +4,7 @@
  */
 
 import { render, screen, within } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import ROICalculator from "../ROICalculator";
 import ImpactCascade from "../ImpactCascade";
 import QuantumView from "../QuantumView";

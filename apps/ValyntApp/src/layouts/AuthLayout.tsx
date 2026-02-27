@@ -1,4 +1,4 @@
-import { Outlet, Link } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 
 export function AuthLayout() {
   return (

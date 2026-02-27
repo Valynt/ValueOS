@@ -7,12 +7,12 @@
 
 import React from 'react';
 import { 
-  Undo2, 
+  Copy, 
+  Download, 
   Redo2, 
   Save, 
-  Download, 
   Sparkles,
-  Copy,
+  Undo2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

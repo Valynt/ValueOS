@@ -6,7 +6,7 @@
  */
 
 import { logger } from "../../lib/logger.js"
-import { getCausalTruthService, CausalTruthService } from "../CausalTruthService.js"
+import { CausalTruthService, getCausalTruthService } from "../CausalTruthService.js"
 import { EventEmitter } from "events";
 
 // ============================================================================

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DomainPackService } from '../DomainPackService.js';
 
 const PACK_ID = '00000000-0000-0000-0000-000000000001';

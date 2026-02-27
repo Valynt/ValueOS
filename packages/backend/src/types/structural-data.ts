@@ -14,3 +14,5 @@ export interface Relationship {
   target_id: string;
   properties?: Record<string, any>;
 }
+
+export const EXTENDED_STRUCTURAL_PERSONA_MAPS: Record<string, Record<string, unknown>> = {};

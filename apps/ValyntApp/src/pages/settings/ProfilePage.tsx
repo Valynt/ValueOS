@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/avatar";
 import { logger } from "../../lib/logger";
 import {
+  SettingsAlert,
   SettingsRow,
   SettingsSection,
-  SettingsAlert,
 } from "@/components/settings";
 
 interface ProfileData {

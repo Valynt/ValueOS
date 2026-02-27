@@ -6,11 +6,11 @@
  */
 
 import { logger } from "../../lib/logger.js";
-import { SECEdgarClient, SECFiling, SECCompanyInfo, SECXBRLData } from "../clients/SECEdgarClient.js";
-import { BLSClient, BLSWageData, BLSEmploymentData, BLSIndustryData } from "../clients/BLSClient.js";
+import { SECCompanyInfo, SECEdgarClient, SECFiling, SECXBRLData } from "../clients/SECEdgarClient.js";
+import { BLSClient, BLSEmploymentData, BLSIndustryData, BLSWageData } from "../clients/BLSClient.js";
 import {
-  CensusClient,
   CensusBusinessData,
+  CensusClient,
   CensusDemographicData,
   CensusEconomicData,
 } from "../clients/CensusClient.js";

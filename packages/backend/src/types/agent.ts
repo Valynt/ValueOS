@@ -193,11 +193,23 @@ export interface HealthIssue {
 
 export interface AgentRegistration {
   agent_id: string;
+  id?: string;
+  name?: string;
   config: AgentConfig;
   status: 'active' | 'inactive' | 'deprecated';
   version: string;
   registered_at: string;
   last_updated: string;
+  lifecycleStage?: string;
+  capabilities?: string[];
+  region?: string;
+  endpoint?: string;
+  priority?: number;
+}
+
+export interface AgentRecord extends AgentRegistration {
+  health?: AgentHealthStatus;
+  metrics?: Record<string, unknown>;
 }
 
 // ============================================================================

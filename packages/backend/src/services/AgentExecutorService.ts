@@ -6,16 +6,16 @@
  */
 
 import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
-import { getEventProducer, EventProducer } from "./EventProducer.js"
+import { EventProducer, getEventProducer } from "./EventProducer.js"
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
-import { getEventSourcingService, EventSourcingService } from "./EventSourcingService.js"
+import { EventSourcingService, getEventSourcingService } from "./EventSourcingService.js"
 import {
   AgentRequestEvent,
   AgentResponseEvent,
-  EVENT_TOPICS,
-  createBaseEvent,
   BaseEvent,
+  createBaseEvent,
   Event,
+  EVENT_TOPICS,
 } from "@shared/types/events";
 import { AgentType } from "./agent-types.js"
 import { logger } from "../lib/logger.js"

@@ -4,7 +4,7 @@
  * Data structures for external service orchestration payloads
  */
 
-import type { ESOKPINode, ESOEdge, ESOPersonaValueMap } from "./eso";
+import type { ESOEdge, ESOKPINode, ESOPersonaValueMap } from "./eso";
 
 // ============================================================================
 // Ground Truth Seed Data

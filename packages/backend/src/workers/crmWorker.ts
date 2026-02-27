@@ -14,7 +14,7 @@
  * - Explicit tenant context in all job payloads
  */
 
-import { Queue, Worker, type Job } from 'bullmq';
+import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { createLogger } from '../lib/logger.js';
 

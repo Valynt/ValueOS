@@ -8,7 +8,7 @@
  * - Implements snapshot-based undo/redo (Clean Context strategy)
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { logger } from "../lib/logger";
 
 export interface CanvasSnapshot {

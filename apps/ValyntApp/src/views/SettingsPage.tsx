@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Building2, Users, Key, CreditCard, Shield, Copy, Eye, EyeOff, Plus, Trash2, ExternalLink,
+  Building2, Copy, CreditCard, ExternalLink, Eye, EyeOff, Key, Plus, Shield, Trash2, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

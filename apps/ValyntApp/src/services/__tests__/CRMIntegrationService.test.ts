@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Hoist mocks to be available in vi.mock
 const { mockIsConnected, mockSearchDeals, mockAreIntegrationsEnabled } = vi.hoisted(() => ({

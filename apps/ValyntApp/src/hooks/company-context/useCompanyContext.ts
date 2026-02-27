@@ -1,14 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type {
-  CompanyContext,
-  CompanyProduct,
   CompanyCapability,
-  CompanyCompetitor,
-  CompanyPersona,
-  CompanyValuePattern,
   CompanyClaimGovernance,
+  CompanyCompetitor,
+  CompanyContext,
+  CompanyPersona,
+  CompanyProduct,
   CompanyValueContext,
+  CompanyValuePattern,
   OnboardingPhase1Input,
   OnboardingPhase2Input,
   OnboardingPhase3Input,

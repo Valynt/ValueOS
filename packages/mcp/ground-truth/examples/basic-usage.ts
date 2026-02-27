@@ -5,7 +5,7 @@
  * This file demonstrates common usage patterns for the MCP server.
  */
 
-import { createMCPServer, createDevServer } from '../index';
+import { createDevServer, createMCPServer } from '../index';
 
 /**
  * Example 1: Get authoritative financials for a public company

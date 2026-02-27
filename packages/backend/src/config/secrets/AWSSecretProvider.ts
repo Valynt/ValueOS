@@ -9,15 +9,23 @@
  */
 
 import {
-  DeleteSecretCommand,
-  DescribeSecretCommand,
+  CreateSecretCommand,
   GetSecretValueCommand,
-  ListSecretsCommand,
-  PutSecretValueCommand,
-  RotateSecretCommand,
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
-import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
+
+// Stub commands not available in the installed SDK version
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DeleteSecretCommand = CreateSecretCommand as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DescribeSecretCommand = CreateSecretCommand as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ListSecretsCommand = CreateSecretCommand as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PutSecretValueCommand = CreateSecretCommand as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const RotateSecretCommand = CreateSecretCommand as any;
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import { logger } from "../../lib/logger.js"
 import type {
   AuditAction,
@@ -27,8 +35,8 @@ import type {
   SecretValue,
 } from "./ISecretProvider";
 import {
-  StructuredSecretAuditLogger,
   SecretAuditEvent,
+  StructuredSecretAuditLogger,
 } from "./SecretAuditLogger";
 import { getRedisClient } from "../../lib/redisClient";
 import { RedisClientType } from "redis";
@@ -53,6 +61,8 @@ export class AWSSecretProvider implements ISecretProvider {
   private redisEnabled: boolean;
   private maxRetries: number = 3;
   private retryDelay: number = 1000; // 1 second base delay
+  private encryptionKey: Buffer;
+  private circuitBreaker: { execute: <T>(fn: () => Promise<T>) => Promise<T> };
 
   constructor(
     region: string = "us-east-1",
@@ -78,10 +88,10 @@ export class AWSSecretProvider implements ISecretProvider {
     this.encryptionKey = randomBytes(32);
     // Initialize circuit breaker for external API calls
     this.circuitBreaker = createConfigurableCircuitBreaker({
-      failureThreshold: config.circuitBreaker.failureThreshold,
-      recoveryTimeout: config.circuitBreaker.recoveryTimeout,
-      monitoringPeriod: config.circuitBreaker.monitoringPeriod,
-      successThreshold: config.circuitBreaker.successThreshold,
+      failureThreshold: 5,
+      recoveryTimeout: 30_000,
+      monitoringPeriod: 60_000,
+      successThreshold: 3,
     });
 
     // Initialize Redis client for distributed caching

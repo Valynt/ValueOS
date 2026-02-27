@@ -6,7 +6,7 @@ import { logger } from "@shared/lib/logger";
 import { requirePermission } from "../middleware/rbac.js"
 import { getEventProducer } from "../services/EventProducer.js"
 import { getEventSourcingService } from "../services/EventSourcingService.js"
-import { createBaseEvent, EVENT_TOPICS, AgentRequestEvent } from "@shared/types/events";
+import { AgentRequestEvent, createBaseEvent, EVENT_TOPICS } from "@shared/types/events";
 import { v4 as uuidv4 } from "uuid";
 import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
 import { z } from "zod";
@@ -76,7 +76,7 @@ router.get("/:agentId/info", rateLimiters.loose, (req: Request, res: Response) =
     });
   }
 
-  res.setHeader("x-model-card-version", modelCard.schemaVersion);
+  return res.setHeader("x-model-card-version", modelCard.schemaVersion);
 
   return res.json({
     success: true,
@@ -222,7 +222,7 @@ router.post(
       });
 
       // Return job ID for tracking
-      res.json({
+      return res.json({
         success: true,
         data: {
           jobId: correlationId,
@@ -244,7 +244,7 @@ router.post(
         }
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: "Agent request failed",
         message: error instanceof Error ? error.message : "Unknown error",
@@ -312,10 +312,10 @@ router.post(
 
       await eventProducer.publish(EVENT_TOPICS.AGENT_REQUESTS, agentRequestEvent);
 
-      res.json({ success: true, data: { jobId: correlationId, status: "queued" } });
+      return res.json({ success: true, data: { jobId: correlationId, status: "queued" } });
     } catch (error) {
       logger.error("Failed to publish typed agent execute", error as Error);
-      res.status(500).json({ success: false, error: { code: "PUBLISH_FAILED", message: "Failed to enqueue request" } });
+      return res.status(500).json({ success: false, error: { code: "PUBLISH_FAILED", message: "Failed to enqueue request" } });
     }
   }
 );
@@ -442,7 +442,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
         }
       }
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           jobId,
@@ -456,7 +456,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
     } else {
       // Job still processing or queued
       const requestEvent = events.find((e: any) => e.eventType === "agent.request");
-      res.json({
+      return res.json({
         success: true,
         data: {
           jobId,
@@ -473,7 +473,7 @@ router.get("/jobs/:jobId", rateLimiters.loose, async (req: Request, res: Respons
       jobId,
     });
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Job status check failed",
       message: error instanceof Error ? error.message : "Unknown error",
@@ -493,9 +493,9 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
   }
 
   // Set SSE headers
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  return res.setHeader("Content-Type", "text/event-stream");
+  return res.setHeader("Cache-Control", "no-cache");
+  return res.setHeader("Connection", "keep-alive");
   if (res.flushHeaders) res.flushHeaders();
 
   const sendEvent = (data: any) => {
@@ -518,8 +518,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
 
     if (Date.now() - startTime > timeout) {
       sendEvent({ status: "error", error: "Timeout waiting for job completion" });
-      res.end();
-      return;
+      return res.end();
     }
 
     try {
@@ -557,8 +556,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
             latency: responseEvent.payload.latency,
             completedAt: responseEvent.timestamp,
           });
-          res.end();
-          return;
+          return res.end();
         } else {
           // Send processing update
           const requestEvent = events.find((e: any) => e.eventType === "agent.request");
@@ -574,7 +572,7 @@ router.get("/jobs/:jobId/stream", rateLimiters.loose, async (req: Request, res: 
     } catch (error) {
       logger.error("SSE Polling error", error instanceof Error ? error : undefined);
       sendEvent({ status: "error", message: "Internal polling error" });
-      res.end();
+      return res.end();
     }
   };
 

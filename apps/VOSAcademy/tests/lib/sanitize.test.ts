@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { sanitizeHtml } from '../../src/lib/sanitize';
 
 describe('sanitizeHtml', () => {

@@ -8,8 +8,8 @@ import { AuthService } from "../AuthService.js"
 import { AuthenticationError } from "../errors.js"
 import { OAUTH_PROVIDERS } from "../../test-utils/auth.fixtures";
 import {
-  setupAuthMocks,
   resetAuthMocks,
+  setupAuthMocks,
   setupBrowserMocks,
 } from "../../test-utils/auth.helpers";
 

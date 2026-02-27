@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { SanitizeOptions, sanitizeObject, sanitizeString } from '../security/InputSanitizer';
+import { sanitizeObject, SanitizeOptions, sanitizeString } from '../security/InputSanitizer';
 
 interface RequestSanitizationConfig {
   body?: Record<string, SanitizeOptions>;

@@ -8,13 +8,13 @@
 import { useCallback, useMemo } from "react";
 import { useAgentStore } from "./store";
 import {
+  AGENT_STATE_CONFIG,
+  type AgentStateConfig,
+  type AgentTransitionEvent,
   canTransition,
-  resolveTransition,
   getStateConfig,
   getValidEvents,
-  AGENT_STATE_CONFIG,
-  type AgentTransitionEvent,
-  type AgentStateConfig,
+  resolveTransition,
 } from "./state-machine";
 import type { AgentPhase } from "./types";
 

@@ -7,14 +7,14 @@
 
 import { BaseAgent } from "../BaseAgent";
 import {
-  validateGroundTruthMetadata,
   assertHighConfidence,
   assertProvenance,
+  validateGroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
 import {
+  AgentCapability,
   AgentRequest,
   AgentResponse,
-  AgentCapability,
   AgentType,
   ConfidenceLevel,
 } from "../../../services/agents/core/IAgent";

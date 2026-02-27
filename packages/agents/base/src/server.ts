@@ -7,7 +7,7 @@ import express from "express";
 import { getConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { getMetricsRegistry } from "./metrics.js";
-import { healthMiddleware, HealthChecker, defaultHealthChecks } from "./health.js";
+import { defaultHealthChecks, HealthChecker, healthMiddleware } from "./health.js";
 import { SafetyGuard } from "./safety.js";
 
 export interface ServerOptions {

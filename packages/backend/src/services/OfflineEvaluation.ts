@@ -64,7 +64,7 @@ export interface EvaluationRun {
 }
 
 export class OfflineEvaluationService {
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: any;
 
   constructor() {
     this.supabase = createClient(

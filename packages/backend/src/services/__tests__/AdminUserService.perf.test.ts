@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminUserService } from '../AdminUserService.js'
 
 // Hoist the mock object so it's available in the mock factory

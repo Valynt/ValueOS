@@ -4,32 +4,32 @@
  * Tests for error mapping, masking, and middleware behavior.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import express, { Express, Request, Response, NextFunction } from 'express';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import express, { Express, NextFunction, Request, Response } from 'express';
 import request from 'supertest';
 import {
-  requestIdMiddleware,
   accessLogMiddleware,
+  asyncHandler,
+  buildErrorEnvelope,
+  ErrorEnvelope,
   globalErrorHandler,
   notFoundHandler,
-  asyncHandler,
-  transformError,
-  buildErrorEnvelope,
+  requestIdMiddleware,
   TrackedRequest,
-  ErrorEnvelope,
+  transformError,
 } from '../globalErrorHandler';
 import {
   AppError,
-  ValidationError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
   ConflictError,
-  RateLimitError,
   DatabaseError,
-  ServiceUnavailableError,
-  InternalError,
   ErrorCode,
+  ForbiddenError,
+  InternalError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  UnauthorizedError,
+  ValidationError,
 } from '../../lib/errors';
 import { ZodError } from 'zod';
 

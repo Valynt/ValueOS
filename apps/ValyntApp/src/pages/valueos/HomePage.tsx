@@ -8,13 +8,13 @@
 
 import { useNavigate } from "react-router-dom";
 import {
-  FileText,
   ArrowRight,
-  Search,
-  Upload,
+  FileText,
   MessageSquare,
-  TrendingUp,
   Play,
+  Search,
+  TrendingUp,
+  Upload,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

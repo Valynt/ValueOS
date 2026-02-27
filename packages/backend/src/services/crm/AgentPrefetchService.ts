@@ -10,7 +10,7 @@ import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
 import { crmConnectionService } from './CrmConnectionService.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
-import type { CrmProvider, CanonicalAccount } from './types.js';
+import type { CanonicalAccount, CrmProvider } from './types.js';
 
 const logger = createLogger({ component: 'AgentPrefetchService' });
 

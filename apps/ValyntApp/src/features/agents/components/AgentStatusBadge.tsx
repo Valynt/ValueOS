@@ -1,4 +1,4 @@
-import { Loader2, CheckCircle, AlertCircle, Clock, Zap } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, Loader2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AgentStatus } from "../types";
 

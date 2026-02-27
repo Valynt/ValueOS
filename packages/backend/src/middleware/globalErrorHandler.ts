@@ -10,16 +10,16 @@
  * - Logging latency timing and access logs
  */
 
-import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import { ErrorRequestHandler, NextFunction, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { ZodError } from 'zod';
 import {
   AppError,
-  ValidationError,
+  getSafeErrorMessage,
   InternalError,
   isAppError,
-  getSafeErrorMessage,
   RateLimitError,
+  ValidationError,
 } from '../lib/errors';
 import { logger } from '../lib/logger.js'
 import { redactSensitiveData } from '../lib/redaction.js'

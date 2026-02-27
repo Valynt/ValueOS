@@ -8,18 +8,18 @@
 import React, { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
-  Home,
-  Briefcase,
-  Library,
-  Users,
-  CreditCard,
-  Settings,
-  Search,
   Bell,
+  Briefcase,
   ChevronDown,
   ChevronRight,
+  CreditCard,
   FileText,
+  Home,
+  Library,
+  Search,
+  Settings,
   Target,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/avatar";

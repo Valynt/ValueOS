@@ -5,17 +5,17 @@
  * rollback capabilities, schema diffing, and validation.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  MigrationRunner,
-  migrationRunner,
-  migrateSchema,
   canMigrate,
   getMigrationPath,
-  validateMigration,
-  SchemaMigration,
-  MigrationResult,
+  migrateSchema,
   MigrationCheckpoint,
+  MigrationResult,
+  migrationRunner,
+  MigrationRunner,
+  SchemaMigration,
+  validateMigration,
 } from "../migrations";
 import { SDUIPageDefinition, validateSDUISchema } from "../schema";
 import { logger } from "../../lib/logger";

@@ -5,10 +5,10 @@
 import { useMemo } from "react";
 import { useAuth } from '@/hooks/useAuth';
 import {
+  CurriculumModule,
   getCurriculumForRole,
   getModulesForRole,
   getRecommendedModules,
-  CurriculumModule,
   RoleCurriculum
 } from '../data/curriculum';
 import {

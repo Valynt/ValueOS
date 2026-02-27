@@ -6,11 +6,11 @@ import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/lib/supabase";
 import { clearOnboardingBypass, markOnboardingBypassed } from "@/lib/onboarding-bypass";
 import {
-  useCreateCompanyContext,
+  useAddClaimGovernance,
   useAddCompetitors,
   useAddPersonas,
-  useAddClaimGovernance,
   useCompleteOnboarding,
+  useCreateCompanyContext,
 } from "@/hooks/company-context";
 import {
   useCreateResearchJob,

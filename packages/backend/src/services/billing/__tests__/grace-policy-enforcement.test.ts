@@ -5,7 +5,7 @@
  * usage before enforcing hard caps.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EntitlementsService } from '../EntitlementsService.js';
 import { BillingMetric } from '../../../config/billing.js';
 

@@ -3,11 +3,11 @@
  * Displays user's referral stats, code, and recent activity
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Copy, Share2, Users, Gift, TrendingUp } from 'lucide-react';
+import { Copy, Gift, Share2, TrendingUp, Users } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface ReferralStats {

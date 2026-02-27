@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { writeStdout, writeStderr } from "./environment.js"
+import { writeStderr, writeStdout } from "./environment.js"
 
 /**
  * Base environment schema with common validations

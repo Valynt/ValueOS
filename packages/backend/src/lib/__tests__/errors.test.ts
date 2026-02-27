@@ -4,28 +4,28 @@
  * Tests for AppError hierarchy and utilities.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   AppError,
-  ValidationError,
-  UnauthorizedError,
-  ForbiddenError,
-  NotFoundError,
   ConflictError,
-  RateLimitError,
-  PayloadTooLargeError,
-  UnprocessableEntityError,
-  InternalError,
   DatabaseError,
-  ServiceUnavailableError,
-  GatewayTimeoutError,
-  ExternalServiceError,
   ErrorCode,
+  ExternalServiceError,
+  ForbiddenError,
+  GatewayTimeoutError,
   getHttpStatus,
+  getSafeErrorMessage,
+  InternalError,
   isAppError,
   isOperationalError,
+  NotFoundError,
+  PayloadTooLargeError,
+  RateLimitError,
+  ServiceUnavailableError,
+  UnauthorizedError,
+  UnprocessableEntityError,
+  ValidationError,
   wrapError,
-  getSafeErrorMessage,
 } from '../errors';
 
 describe('Error Classes', () => {
