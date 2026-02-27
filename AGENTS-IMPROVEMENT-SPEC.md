@@ -4,7 +4,7 @@
 
 | File / Directory | Tool | Purpose |
 |---|---|---|
-| `AGENTS.md` | **All** (convention) | ❌ Missing |
+| `AGENTS.md` | **All** (convention) | ✅ Created (this commit) |
 | `.github/copilot-instructions.md` | GitHub Copilot | Project-wide instructions |
 | `.github/copilot/agents/*.md` (12 files) | GitHub Copilot | Persona definitions |
 | `.github/CODEOWNERS` | GitHub | Review routing |
