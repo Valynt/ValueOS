@@ -1,8 +1,10 @@
 import { AgentExecutorService } from '../AgentExecutorService';
 import { createBaseEvent, EVENT_TOPICS } from '@shared/types/events';
 
-vi.mock('../services/EventProducer', () => ({ getEventProducer: () => ({ publish: vi.fn() }) }));
-vi.mock('../EventSourcingService', () => ({ getEventSourcingService: () => ({ storeEvent: vi.fn(), updateProjection: vi.fn(), getAuditTrail: vi.fn() }) }));
+vi.mock('../EventProducer', () => ({ getEventProducer: () => ({ publish: vi.fn() }), EventProducer: class {} }));
+vi.mock('../EventConsumer', () => ({ createEventConsumer: () => ({ connect: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() }), EventConsumer: class {} }));
+vi.mock('../kafkaConfig', () => ({ isKafkaEnabled: () => true }));
+vi.mock('../EventSourcingService', () => ({ getEventSourcingService: () => ({ storeEvent: vi.fn(), updateProjection: vi.fn(), getAuditTrail: vi.fn() }), EventSourcingService: class {} }));
 vi.mock('../UnifiedAgentAPI', () => ({ getUnifiedAgentAPI: () => ({ invoke: vi.fn().mockResolvedValue({ data: { resolvedIssueId: 'issue-xyz', resolution: 'accept' }, metadata: { tokens: {}, confidence: 0.9 } }) }) }));
 vi.mock('../RealtimeBroadcastService', () => ({ getRealtimeBroadcastService: () => ({ broadcastToTenant: vi.fn() }) }));
 

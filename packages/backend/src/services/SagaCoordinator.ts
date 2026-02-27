@@ -7,7 +7,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../lib/logger.js"
-import { getEventProducer } from "./EventProducer.js"
+import { getEventProducer, EventProducer } from "./EventProducer.js"
 import { EVENT_TOPICS } from "@shared/types/events";
 
 export interface SagaStep {
@@ -60,7 +60,14 @@ export interface SagaState {
 export class SagaCoordinator {
   private activeSagas: Map<string, SagaState> = new Map();
   private sagaDefinitions: Map<string, SagaDefinition> = new Map();
-  private eventProducer = getEventProducer();
+  private _eventProducer: EventProducer | null = null;
+
+  private get eventProducer(): EventProducer {
+    if (!this._eventProducer) {
+      this._eventProducer = getEventProducer();
+    }
+    return this._eventProducer;
+  }
 
   /**
    * Register a saga definition
