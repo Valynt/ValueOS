@@ -67,7 +67,9 @@ export class WorkflowDAGExecutor {
   private agentAPI = getAgentAPI();
 
   /**
-   * Register all workflow definitions in the database
+   * Register all workflow definitions in the database.
+   * NOTE: Intentionally unscoped — workflow definitions are system-level templates
+   * shared across tenants. This is a startup/provisioning operation (service_role allowed).
    */
   async registerAllWorkflows(): Promise<void> {
     for (const workflow of ALL_WORKFLOW_DEFINITIONS) {
@@ -112,12 +114,17 @@ export class WorkflowDAGExecutor {
       throw new Error(`Workflow not found: ${workflowId}`);
     }
 
+    if (!context.organizationId) {
+      throw new Error("context.organizationId is required for tenant-scoped workflow execution");
+    }
+
     // Create execution record
     const { data: execution, error: execError } = await supabase
       .from("workflow_executions")
       .insert({
         workflow_definition_id: workflowId,
         workflow_version: workflow.version,
+        organization_id: context.organizationId,
         status: "initiated",
         current_stage: workflow.initial_stage,
         context: {
@@ -645,12 +652,18 @@ export const workflowDAGExecutor = new WorkflowDAGExecutor();
  * Get workflow execution status
  */
 export async function getWorkflowExecutionStatus(
-  executionId: string
+  executionId: string,
+  organizationId: string
 ): Promise<WorkflowExecution | null> {
+  if (!organizationId) {
+    throw new Error("organizationId is required for tenant-scoped workflow status lookup");
+  }
+
   const { data, error } = await supabase
     .from("workflow_executions")
     .select("*")
     .eq("id", executionId)
+    .eq("organization_id", organizationId)
     .single();
 
   if (error) {
@@ -664,11 +677,19 @@ export async function getWorkflowExecutionStatus(
 /**
  * Get workflow execution logs
  */
-export async function getWorkflowExecutionLogs(executionId: string): Promise<any[]> {
+export async function getWorkflowExecutionLogs(
+  executionId: string,
+  organizationId: string
+): Promise<unknown[]> {
+  if (!organizationId) {
+    throw new Error("organizationId is required for tenant-scoped workflow log lookup");
+  }
+
   const { data, error } = await supabase
     .from("workflow_events")
-    .select("*")
+    .select("*, workflow_executions!inner(organization_id)")
     .eq("execution_id", executionId)
+    .eq("workflow_executions.organization_id", organizationId)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -684,9 +705,14 @@ export async function getWorkflowExecutionLogs(executionId: string): Promise<any
  */
 export async function retryWorkflowFromLastStage(
   executionId: string,
+  organizationId: string,
   userId: string
 ): Promise<string> {
-  const execution = await getWorkflowExecutionStatus(executionId);
+  if (!organizationId) {
+    throw new Error("organizationId is required for tenant-scoped workflow retry");
+  }
+
+  const execution = await getWorkflowExecutionStatus(executionId, organizationId);
   if (!execution) {
     throw new Error("Execution not found");
   }
