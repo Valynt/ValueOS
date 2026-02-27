@@ -148,23 +148,28 @@ export class OpportunityAgent extends BaseAgent {
    * Returns empty context when the feature flag is off or no pack is attached.
    */
   private async loadDomainPackContext(context: LifecycleContext): Promise<DomainContext> {
+    const empty: DomainContext = { pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [] };
+
     if (!featureFlags.ENABLE_DOMAIN_PACK_CONTEXT) {
-      return { pack: undefined, kpis: [], assumptions: [] };
+      return empty;
     }
 
     const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
     if (!valueCaseId || !context.organization_id) {
-      return { pack: undefined, kpis: [], assumptions: [] };
+      return empty;
     }
 
     try {
-      return await loadDomainContext(context.organization_id, valueCaseId);
+      // Pass supabase client from context if available (set by orchestrator)
+      const supabaseClient = (context as Record<string, unknown>).supabaseClient as
+        import('@supabase/supabase-js').SupabaseClient | undefined;
+      return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
     } catch (err) {
       logger.warn('Failed to load domain pack context, proceeding without it', {
         value_case_id: valueCaseId,
         error: (err as Error).message,
       });
-      return { pack: undefined, kpis: [], assumptions: [] };
+      return empty;
     }
   }
 
