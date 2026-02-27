@@ -15,6 +15,7 @@ import { requirePermission } from '../../middleware/rbac.js';
 import { requireAuth } from '../../middleware/auth.js';
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js';
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js';
+import { supabase } from '../../lib/supabase.js';
 
 const router = express.Router();
 
@@ -33,9 +34,9 @@ router.get('/dashboard', async (req, res) => {
     }
     const tenantId = req.tenantId;
     const metricsCollector = new MetricsCollector();
-    const entitlementsService = new EntitlementsService();
-    const usageAggregator = new UsageAggregator();
-    const invoiceMathEngine = new InvoiceMathEngine();
+    const entitlementsService = new EntitlementsService(supabase);
+    const usageAggregator = new UsageAggregator(supabase);
+    const invoiceMathEngine = new InvoiceMathEngine(supabase);
     const priceVersionService = new PriceVersionService();
 
     // Get usage summary
@@ -48,11 +49,7 @@ router.get('/dashboard', async (req, res) => {
     const recentAggregates = await usageAggregator.getRecentAggregates(tenantId, 30);
 
     // Get upcoming invoice preview
-    const upcomingInvoice = await invoiceMathEngine.calculateUpcomingInvoice({
-      tenantId,
-      subscriptionId: req.user.subscriptionId,
-      billingPeriod: 'current_month'
-    });
+    const upcomingInvoice = await invoiceMathEngine.calculateUpcomingInvoice(tenantId, req.user.subscriptionId);
 
     // Get current pricing version
     const pricingVersion = await priceVersionService.getEffectiveVersionForTenant(tenantId);
@@ -79,13 +76,13 @@ router.get('/quota-tracking', async (req, res) => {
     }
     const tenantId = req.tenantId;
     const metricsCollector = new MetricsCollector();
-    const entitlementsService = new EntitlementsService();
+    const entitlementsService = new EntitlementsService(supabase);
 
     // Get real-time usage metrics
     const realTimeUsage = await metricsCollector.getRealTimeUsage(tenantId);
 
     // Get quota status with alerts
-    const quotaStatus = await entitlementsService.getQuotaStatusWithAlerts(tenantId);
+    const quotaStatus = await entitlementsService.getUsageWithEntitlements(tenantId);
 
     res.json({
       realTimeUsage,
@@ -108,14 +105,10 @@ router.get('/invoice-preview', async (req, res) => {
       return res.status(400).json({ error: 'No subscription found' });
     }
     const tenantId = req.tenantId;
-    const invoiceMathEngine = new InvoiceMathEngine();
+    const invoiceMathEngine = new InvoiceMathEngine(supabase);
 
     // Get invoice preview for current period
-    const invoicePreview = await invoiceMathEngine.calculateUpcomingInvoice({
-      tenantId,
-      subscriptionId: req.user.subscriptionId,
-      billingPeriod: 'current_month'
-    });
+    const invoicePreview = await invoiceMathEngine.calculateUpcomingInvoice(tenantId, req.user.subscriptionId);
 
     // Get historical invoices for comparison
     const recentInvoices = await invoiceMathEngine.getRecentInvoices(tenantId, 3);
@@ -170,7 +163,7 @@ router.get('/ledger/:dateRange', async (req, res) => {
     }
     const tenantId = req.tenantId;
     const { dateRange } = req.params;
-    const usageAggregator = new UsageAggregator();
+    const usageAggregator = new UsageAggregator(supabase);
 
     // Get rated ledger entries for the specified date range
     const ledgerEntries = await usageAggregator.getRatedLedgerEntries(tenantId, dateRange);
