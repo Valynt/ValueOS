@@ -6,7 +6,8 @@
 
 import { logger } from "../../logger.js";
 import { z } from "zod";
-import type { AgentConfig, AgentOutput, LifecycleContext } from "../../../types/agent.js";
+import type { AgentConfig, AgentOutput, AgentOutputStatus, LifecycleContext, LifecycleStage } from "../../../types/agent.js";
+import type { AgentType } from "../../../services/agent-types.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import { MemorySystem } from "../MemorySystem.js";
@@ -52,12 +53,12 @@ export abstract class BaseAgent {
     return true;
   }
 
-  async prepareOutput(result: Record<string, any>, status: string): Promise<AgentOutput> {
+  async prepareOutput(result: Record<string, unknown>, status: AgentOutputStatus): Promise<AgentOutput> {
     return {
       agent_id: this.name,
-      agent_type: this.lifecycleStage as any,
-      lifecycle_stage: this.lifecycleStage as any,
-      status: status as any,
+      agent_type: this.lifecycleStage as AgentType,
+      lifecycle_stage: this.lifecycleStage as LifecycleStage,
+      status,
       result,
       confidence: "medium",
       metadata: {
@@ -78,7 +79,7 @@ export abstract class BaseAgent {
     options: {
       trackPrediction?: boolean;
       confidenceThresholds?: { low: number; high: number };
-      context?: Record<string, any>;
+      context?: Record<string, unknown>;
       idempotencyKey?: string;
     } = {}
   ): Promise<T & { hallucination_check?: boolean }> {

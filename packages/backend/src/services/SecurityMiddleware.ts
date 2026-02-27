@@ -33,14 +33,14 @@ export interface Permission {
 
 export interface AgentContext {
   agentId: string;
-  agentType: AgentType;
+  agentType: SecurityAgentRole;
   sessionId: string;
   userId: string;
   tenantId: string;
   permissions: Permission[];
 }
 
-export enum AgentType {
+export enum SecurityAgentRole {
   GOVERNANCE = 'governance-agent',
   ANALYTICAL = 'analytical-agent',
   EXECUTION = 'execution-agent',
@@ -70,8 +70,8 @@ export enum Action {
 // RBAC Configuration
 // ============================================================================
 
-const AGENT_PERMISSIONS: Record<AgentType, Permission[]> = {
-  [AgentType.GOVERNANCE]: [
+const AGENT_PERMISSIONS: Record<SecurityAgentRole, Permission[]> = {
+  [SecurityAgentRole.GOVERNANCE]: [
     { resource: ResourceType.WORKFLOW_STATE, action: Action.READ, scope: 'tenant' },
     { resource: ResourceType.WORKFLOW_STATE, action: Action.WRITE, scope: 'tenant' },
     { resource: ResourceType.WORKFLOW_STATE, action: Action.DELETE, scope: 'tenant' },
@@ -82,7 +82,7 @@ const AGENT_PERMISSIONS: Record<AgentType, Permission[]> = {
     { resource: ResourceType.AGENT_MEMORY, action: Action.APPROVE, scope: 'global' },
     { resource: ResourceType.AGENT_MEMORY, action: Action.REJECT, scope: 'global' }
   ],
-  [AgentType.ANALYTICAL]: [
+  [SecurityAgentRole.ANALYTICAL]: [
     { resource: ResourceType.WORKFLOW_STATE, action: Action.READ, scope: 'tenant' },
     { resource: ResourceType.AGENT_MEMORY, action: Action.READ, scope: 'global' },
     { resource: ResourceType.CANVAS_STATE, action: Action.READ, scope: 'session' },
@@ -90,19 +90,19 @@ const AGENT_PERMISSIONS: Record<AgentType, Permission[]> = {
     { resource: ResourceType.WORKFLOW_STATE, action: Action.PROPOSE, scope: 'tenant' },
     { resource: ResourceType.AGENT_MEMORY, action: Action.PROPOSE, scope: 'global' }
   ],
-  [AgentType.EXECUTION]: [
+  [SecurityAgentRole.EXECUTION]: [
     { resource: ResourceType.WORKFLOW_STATE, action: Action.READ, scope: 'tenant' },
     { resource: ResourceType.AGENT_MEMORY, action: Action.READ, scope: 'global' },
     { resource: ResourceType.CANVAS_STATE, action: Action.EXECUTE, scope: 'session' },
     { resource: ResourceType.SDUI_RENDER, action: Action.EXECUTE, scope: 'session' }
   ],
-  [AgentType.UI]: [
+  [SecurityAgentRole.UI]: [
     { resource: ResourceType.WORKFLOW_STATE, action: Action.READ, scope: 'session' },
     { resource: ResourceType.CANVAS_STATE, action: Action.READ, scope: 'session' },
     { resource: ResourceType.CANVAS_STATE, action: Action.WRITE, scope: 'session' },
     { resource: ResourceType.SDUI_RENDER, action: Action.EXECUTE, scope: 'session' }
   ],
-  [AgentType.SYSTEM]: [
+  [SecurityAgentRole.SYSTEM]: [
     // System agents have all permissions for internal operations
     ...Object.values(ResourceType).flatMap(resource => [
       { resource, action: Action.READ, scope: 'global' },
@@ -128,7 +128,7 @@ export class SecurityMiddleware {
    */
   async authenticate(
     token: string,
-    agentType: AgentType,
+    agentType: SecurityAgentRole,
     sessionId?: string
   ): Promise<AuthResult> {
     try {
@@ -248,8 +248,8 @@ export class SecurityMiddleware {
    * Authority Rule: Only governance-class agents may mutate WorkflowState directly
    */
   private enforceWorkflowStateAuthority(agentContext: AgentContext): boolean {
-    const isGovernanceAgent = agentContext.agentType === AgentType.GOVERNANCE ||
-      agentContext.agentType === AgentType.SYSTEM;
+    const isGovernanceAgent = agentContext.agentType === SecurityAgentRole.GOVERNANCE ||
+      agentContext.agentType === SecurityAgentRole.SYSTEM;
 
     if (!isGovernanceAgent) {
       logger.warn('WorkflowState mutation denied - non-governance agent', {
@@ -267,8 +267,8 @@ export class SecurityMiddleware {
    * Enforce governance authority for approval/rejection actions
    */
   private enforceGovernanceAuthority(agentContext: AgentContext): boolean {
-    const isGovernanceAgent = agentContext.agentType === AgentType.GOVERNANCE ||
-      agentContext.agentType === AgentType.SYSTEM;
+    const isGovernanceAgent = agentContext.agentType === SecurityAgentRole.GOVERNANCE ||
+      agentContext.agentType === SecurityAgentRole.SYSTEM;
 
     if (!isGovernanceAgent) {
       logger.warn('Governance action denied - non-governance agent', {
@@ -336,7 +336,7 @@ export class SecurityMiddleware {
    */
   async validateAgentRequest(
     token: string,
-    agentType: AgentType,
+    agentType: SecurityAgentRole,
     resource: ResourceType,
     action: Action,
     scope?: string,
@@ -415,7 +415,7 @@ export function createSecurityMiddleware(supabase: SupabaseClient): SecurityMidd
 export function createAuthMiddleware(security: SecurityMiddleware) {
   return async (req: any, res: any, next: any) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const agentType = req.headers['x-agent-type'] as AgentType;
+    const agentType = req.headers['x-agent-type'] as SecurityAgentRole;
     const sessionId = req.headers['x-session-id'] as string;
 
     if (!token || !agentType) {
@@ -447,8 +447,8 @@ export function hasPermission(
 }
 
 export function isGovernanceAgent(context: AgentContext): boolean {
-  return context.agentType === AgentType.GOVERNANCE ||
-    context.agentType === AgentType.SYSTEM;
+  return context.agentType === SecurityAgentRole.GOVERNANCE ||
+    context.agentType === SecurityAgentRole.SYSTEM;
 }
 
 export function canMutateWorkflowState(context: AgentContext): boolean {

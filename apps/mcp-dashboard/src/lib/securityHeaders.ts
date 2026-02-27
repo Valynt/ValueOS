@@ -385,7 +385,7 @@ class SecurityHeaders {
   /**
    * Send CSP violation report to monitoring service
    */
-  private sendCSPViolationReport(violation: any): void {
+  private sendCSPViolationReport(violation: Record<string, unknown>): void {
     if (process.env.NODE_ENV === "production") {
       // Send to monitoring service
       fetch("/api/security/csp-violation", {

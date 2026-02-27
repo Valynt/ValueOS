@@ -43,11 +43,11 @@ export const config: Config = configSchema.parse({
     baseUrl: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
   },
   database: {
-    type: (process.env.DATABASE_TYPE as any) || 'memory',
+    type: process.env.DATABASE_TYPE || 'memory',
     url: getDatabaseUrl(),
   },
   logging: {
-    level: (process.env.LOG_LEVEL as any) || 'info',
+    level: process.env.LOG_LEVEL || 'info',
     file: process.env.LOG_FILE,
   },
   analysis: {
