@@ -45,11 +45,7 @@ declare module "swagger-ui-express" {
   export function serve(req: unknown, res: unknown, next: unknown): void;
 }
 
-declare module "yamljs" {
-  export function load(path: string): unknown;
-  export function parse(yaml: string): unknown;
-  export function stringify(obj: unknown, depth?: number): string;
-}
+
 
 declare module "storybook/test" {
   export const fn: (...args: unknown[]) => unknown;

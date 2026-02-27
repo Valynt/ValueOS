@@ -6,7 +6,8 @@
 
 import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
-import YAML from 'yamljs';
+import YAML from 'js-yaml';
+import fs from 'fs';
 import path from 'path';
 // import { logger } from '../utils/logger';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
@@ -22,7 +23,7 @@ router.use(requestSanitizationMiddleware({ params: { language: { maxLength: 32 }
 
 // Load OpenAPI specification
 const openApiPath = path.join(__dirname, '../../openapi.yaml');
-const openApiSpec = YAML.load(openApiPath);
+const openApiSpec = YAML.load(fs.readFileSync(openApiPath, 'utf8'));
 
 /**
  * Serve OpenAPI specification as JSON
@@ -36,7 +37,7 @@ router.get('/openapi.json', (_req, res) => {
  */
 router.get('/openapi.yaml', (_req, res) => {
   res.type('text/yaml');
-  res.send(YAML.stringify(openApiSpec, 10));
+  res.send(YAML.dump(openApiSpec, { indent: 2 }));
 });
 
 /**
