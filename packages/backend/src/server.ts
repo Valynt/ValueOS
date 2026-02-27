@@ -369,7 +369,7 @@ app.get("/health/secrets", secretHealthMiddleware());
 
 // Mount routes
 apiRouter.use("/billing", billingRouter);
-apiRouter.use("/projects", projectsRouter);
+apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
 apiRouter.use(
   "/initiatives",
   requireAuth,
@@ -421,7 +421,12 @@ app.use("/api/onboarding", onboardingRouter);
 const orchestrator = getUnifiedOrchestrator();
 const checkpointMiddleware = orchestrator.getCheckpointMiddleware();
 if (checkpointMiddleware) {
-  app.use("/api/checkpoints", createCheckpointRouter(checkpointMiddleware));
+  app.use(
+    "/api/checkpoints",
+    requireAuth,
+    tenantContextMiddleware(),
+    createCheckpointRouter(checkpointMiddleware),
+  );
 }
 
 await registerDevRoutes(app);

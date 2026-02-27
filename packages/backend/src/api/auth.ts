@@ -414,7 +414,7 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get("/session", async (_req: Request, res: Response) => {
+router.get("/session", requireAuth, async (req: Request, res: Response) => {
   try {
     const session = await authService.getSession();
 
@@ -442,7 +442,7 @@ router.get("/session", async (_req: Request, res: Response) => {
   }
 });
 
-router.post("/refresh", async (_req: Request, res: Response) => {
+router.post("/refresh", requireAuth, async (req: Request, res: Response) => {
   try {
     const result = await authService.refreshSession();
 

@@ -372,7 +372,8 @@ export class ContinuousAuthService extends TenantAwareService {
     tenantId: string,
     deviceFingerprint: DeviceFingerprint
   ): Promise<void> {
-    // Upsert device trust record
+    await this.validateTenantAccess(userId, tenantId);
+
     const trustData = {
       user_id: userId,
       tenant_id: tenantId,
@@ -382,8 +383,9 @@ export class ContinuousAuthService extends TenantAwareService {
       trust_score: Math.max(0, 100 - deviceFingerprint.riskScore)
     };
 
+    // Include tenant_id in conflict key to prevent cross-tenant collisions
     await this.supabase
       .from('device_trust_history')
-      .upsert(trustData, { onConflict: 'user_id,device_id' });
+      .upsert(trustData, { onConflict: 'user_id,tenant_id,device_id' });
   }
 }
