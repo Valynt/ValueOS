@@ -15,6 +15,7 @@ import { DrawerProvider } from "./contexts/DrawerContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
 import { OnboardingGate } from "./app/routes/OnboardingGate";
+import { TenantGate } from "./app/routes/TenantGate";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
@@ -105,6 +106,7 @@ export function AppRoutes() {
 
                         {/* Protected routes */}
                         <Route element={<ProtectedRoute />}>
+                          <Route element={<TenantGate />}>
                           {/* Onboarding — own layout, no gate */}
                           <Route path="/onboarding" element={<CompanyOnboarding />} />
 
@@ -123,6 +125,7 @@ export function AppRoutes() {
                               <Route path="/settings" element={<SettingsPage />} />
                               <Route path="/company" element={<CompanyKnowledge />} />
                             </Route>
+                          </Route>
                           </Route>
                         </Route>
 
