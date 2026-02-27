@@ -27,8 +27,7 @@ export {
   ENV_VARS,
 } from './config';
 
-// Re-export CORS middleware
-// Re-export CORS types
+// Re-export CORS types and middleware
 export type {
   CorsOptions,
   CorsResult,
@@ -43,8 +42,7 @@ export {
   getAllowedOrigins,
 } from './cors';
 
-// Re-export security headers middleware
-// Re-export security headers types
+// Re-export security headers types and middleware
 export type {
   SecurityHeadersOptions,
   CspViolationReport,
