@@ -85,24 +85,27 @@ export async function loadRepositoryConfig(repository: Repository): Promise<BotC
   }
 }
 
-export function validateConfig(config: any): BotConfig {
-  // Basic validation - could be enhanced with zod
+export function validateConfig(config: unknown): BotConfig {
   if (typeof config !== 'object' || config === null) {
     throw new Error('Config must be an object');
   }
 
+  const raw = config as Record<string, unknown>;
+  const thresholds = raw.thresholds as Record<string, unknown> | undefined;
+  const ai = raw.ai as Record<string, unknown> | undefined;
+
   return {
-    enabled: config.enabled ?? DEFAULT_CONFIG.enabled,
+    enabled: (raw.enabled as boolean) ?? DEFAULT_CONFIG.enabled,
     thresholds: {
-      performanceGain: config.thresholds?.performanceGain ?? DEFAULT_CONFIG.thresholds.performanceGain,
-      maxFiles: config.thresholds?.maxFiles ?? DEFAULT_CONFIG.thresholds.maxFiles,
-      maxFileSize: config.thresholds?.maxFileSize ?? DEFAULT_CONFIG.thresholds.maxFileSize,
+      performanceGain: (thresholds?.performanceGain as number) ?? DEFAULT_CONFIG.thresholds.performanceGain,
+      maxFiles: (thresholds?.maxFiles as number) ?? DEFAULT_CONFIG.thresholds.maxFiles,
+      maxFileSize: (thresholds?.maxFileSize as number) ?? DEFAULT_CONFIG.thresholds.maxFileSize,
     },
-    languages: config.languages ?? DEFAULT_CONFIG.languages,
-    blacklist: config.blacklist ?? DEFAULT_CONFIG.blacklist,
+    languages: (raw.languages as string[]) ?? DEFAULT_CONFIG.languages,
+    blacklist: (raw.blacklist as string[]) ?? DEFAULT_CONFIG.blacklist,
     ai: {
-      model: config.ai?.model ?? DEFAULT_CONFIG.ai.model,
-      maxTokens: config.ai?.maxTokens ?? DEFAULT_CONFIG.ai.maxTokens,
+      model: (ai?.model as string) ?? DEFAULT_CONFIG.ai.model,
+      maxTokens: (ai?.maxTokens as number) ?? DEFAULT_CONFIG.ai.maxTokens,
     },
   };
 }

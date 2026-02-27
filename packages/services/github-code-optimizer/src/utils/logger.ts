@@ -34,12 +34,11 @@ export const logger = winston.createLogger({
   defaultMeta: { service: 'github-code-optimizer' },
 });
 
-// Add method for logging analysis events
-export const logAnalysisEvent = (event: string, data: any) => {
+export const logAnalysisEvent = (event: string, data: Record<string, unknown>) => {
   logger.info('Analysis Event', { event, ...data });
 };
 
-export const logOptimizationFound = (repo: string, optimization: any) => {
+export const logOptimizationFound = (repo: string, optimization: { type: string; severity: string; estimatedGain: number }) => {
   logger.info('Optimization Found', {
     repository: repo,
     type: optimization.type,

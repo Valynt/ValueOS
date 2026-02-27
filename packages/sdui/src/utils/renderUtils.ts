@@ -127,10 +127,11 @@ export function deepClone<T>(obj: T): T {
 }
 
 /**
- * Sanitize props to remove internal/private properties
+ * Strip internal/private properties (prefixed with _) from props.
+ * NOTE: This does NOT sanitize for XSS. For XSS sanitization, use security/sanitization.ts.
  */
-export function sanitizeProps(props: Record<string, any>): Record<string, any> {
-  const sanitized: Record<string, any> = {};
+export function stripInternalProps(props: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
 
   for (const key in props) {
     // Skip internal properties (starting with _)
@@ -141,6 +142,9 @@ export function sanitizeProps(props: Record<string, any>): Record<string, any> {
 
   return sanitized;
 }
+
+/** @deprecated Use stripInternalProps instead. This name collides with the XSS sanitizer. */
+export const sanitizeProps = stripInternalProps;
 
 /**
  * Validate that required props are present

@@ -22,9 +22,9 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 
 export function sanitizeHtml(dirty: string): string {
   if (!dirty) return '';
-  // Ensure we are in a browser environment or have a DOM implementation
+  // In non-browser environments, strip all HTML rather than returning unsanitized content
   if (typeof window === 'undefined') {
-    return dirty;
+    return dirty.replace(/<[^>]*>/g, '');
   }
   return DOMPurify.sanitize(dirty, DEFAULT_CONFIG) as unknown as string;
 }

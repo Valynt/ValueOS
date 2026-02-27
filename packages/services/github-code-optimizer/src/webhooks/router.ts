@@ -5,17 +5,6 @@ import { logger } from '../utils/logger.js';
 
 const router = express.Router();
 
-interface WebhookPayload {
-  action?: string;
-  repository: any;
-  sender: any;
-  installation?: any;
-  pull_request?: any;
-  commits?: any[];
-  after?: string;
-  ref?: string;
-}
-
 // Simplified webhook handler for development
 router.post('/github', async (req, res) => {
   try {

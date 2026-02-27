@@ -1,7 +1,22 @@
-// /workspaces/ValueOS/packages/services/github-code-optimizer/src/safe-html.ts
 /**
  * Safe HTML utilities for preventing XSS attacks
  */
+
+interface JobData {
+  repository: { fullName: string };
+  status: string;
+  startedAt: string | Date;
+  completedAt?: string | Date;
+}
+
+interface OptimizationData {
+  type: string;
+  filePath: string;
+  description: string;
+  confidence: number;
+  beforeMetrics?: { complexity?: string; performance?: string };
+  afterMetrics?: { complexity?: string; performance?: string };
+}
 
 /**
  * Escapes HTML special characters in a string
@@ -36,7 +51,7 @@ export function safeCreateElement(tagName: string, className?: string): HTMLElem
 /**
  * Safely creates a table row for job data
  */
-export function safeCreateJobRow(job: any): HTMLTableRowElement {
+export function safeCreateJobRow(job: JobData): HTMLTableRowElement {
   const row = document.createElement("tr");
 
   // Repository name cell
@@ -73,7 +88,7 @@ export function safeCreateJobRow(job: any): HTMLTableRowElement {
 /**
  * Safely creates an optimization card
  */
-export function safeCreateOptimizationCard(opt: any): HTMLElement {
+export function safeCreateOptimizationCard(opt: OptimizationData): HTMLElement {
   const card = document.createElement("div");
   card.className = "optimization-card";
 

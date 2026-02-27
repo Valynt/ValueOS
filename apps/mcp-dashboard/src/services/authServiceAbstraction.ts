@@ -26,7 +26,7 @@ export interface AuthUser {
   name: string;
   role: "user" | "admin";
   permissions: string[];
-  apiKeys: any[];
+  apiKeys: Array<{ id: string; name: string; key: string; createdAt: Date }>;
   createdAt: Date;
   lastLogin: Date;
 }

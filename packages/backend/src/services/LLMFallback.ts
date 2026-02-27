@@ -234,9 +234,9 @@ export class LLMFallbackService {
     const fallbackEnabled = getEnvVar('LLM_FALLBACK_ENABLED', { defaultValue: 'true' }) !== 'false';
     const secondaryModel = getEnvVar('TOGETHER_SECONDARY_MODEL_NAME');
 
-    let lastError: any = null;
+    let lastError: unknown = null;
 
-    const isTransient = (err: any) => {
+    const isTransient = (err: unknown): boolean => {
       const msg = err instanceof Error ? err.message : String(err);
       return /timeout|ETIMEDOUT|429|5\d{2}|rate limit/i.test(msg);
     };
@@ -334,6 +334,9 @@ export class LLMFallbackService {
       model: request.model,
     });
 
+    const fallbackEnabled = getEnvVar('LLM_FALLBACK_ENABLED', { defaultValue: 'true' }) !== 'false';
+    const secondaryModel = getEnvVar('TOGETHER_SECONDARY_MODEL_NAME');
+
     try {
       const chunks = await this.circuitBreaker.execute(
         this.togetherStreamBreakerKey,
@@ -350,8 +353,43 @@ export class LLMFallbackService {
       for (const chunk of chunks) {
         yield chunk;
       }
-    } catch (error) {
-      logger.error("Together.ai stream failed", error as Error);
+    } catch (primaryError) {
+      // Attempt secondary model fallback for streaming (mirrors processRequest behavior)
+      if (fallbackEnabled && secondaryModel) {
+        try {
+          assertModelAllowed('together_ai', String(secondaryModel));
+          const secondaryReq = { ...request, model: String(secondaryModel) };
+
+          logger.warn('LLMFallback stream using secondary model after primary failure', {
+            primary: request.model,
+            secondary: secondaryReq.model,
+            fallback_reason: primaryError instanceof Error ? primaryError.message : String(primaryError),
+          });
+
+          const chunks = await this.circuitBreaker.execute(
+            this.togetherStreamBreakerKey,
+            async () => {
+              const streamed: { content: string; done: boolean }[] = [];
+              for await (const chunk of this.callTogetherAIStream(secondaryReq)) {
+                streamed.push(chunk);
+              }
+              return streamed;
+            },
+            { config: this.breakerConfig }
+          );
+
+          this.stats.togetherAI.fallbacks = (this.stats.togetherAI.fallbacks || 0) + 1;
+
+          for (const chunk of chunks) {
+            yield chunk;
+          }
+          return;
+        } catch (secErr) {
+          logger.error('Together.ai stream secondary fallback failed', secErr as Error);
+        }
+      }
+
+      logger.error("Together.ai stream failed (no fallback available)", primaryError as Error);
       throw new Error("LLM provider unavailable. Please try again later.");
     }
   }

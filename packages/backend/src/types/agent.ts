@@ -22,14 +22,9 @@ export interface AgentConfig {
   metadata?: Record<string, any>;
 }
 
-export type AgentType =
-  | 'opportunity'
-  | 'target'
-  | 'realization'
-  | 'expansion'
-  | 'integrity'
-  | 'orchestrator'
-  | 'specialist';
+// Canonical AgentType is defined in services/agent-types.ts.
+// This re-export keeps backward compatibility for consumers of types/agent.ts.
+export type { AgentType } from '../services/agent-types.js';
 
 export type LifecycleStage =
   | 'opportunity'
