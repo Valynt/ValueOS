@@ -9,7 +9,7 @@
     "dev": "bash ../../scripts/dev/start-backend.sh",
     "worker:dev": "tsx src/workers/workerMain.ts",
     "worker": "node dist/workers/workerMain.js",
-    "build": "tsc --project tsconfig.build.json",
+    "build": "node esbuild.config.mjs",
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
@@ -51,7 +51,12 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
+<<<<<<< HEAD
     "@types/js-yaml": "^4.0.9",
+=======
+    "@types/yamljs": "^0.2.34",
+    "esbuild": "^0.27.3",
+>>>>>>> 4927a9aa (feat: migrate backend build from TypeScript compiler to esbuild with ESM output)
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
