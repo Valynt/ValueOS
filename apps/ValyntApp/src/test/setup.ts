@@ -2,6 +2,10 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
+// Fallback env vars so modules that eagerly validate config don't throw at import time
+process.env.VITE_SUPABASE_URL ??= "http://localhost:54321";
+process.env.VITE_SUPABASE_ANON_KEY ??= "test-anon-key";
+
 // Cleanup after each test
 afterEach(() => {
   cleanup();

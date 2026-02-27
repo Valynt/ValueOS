@@ -5,7 +5,7 @@
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach } from "vitest";
-import fetch, { Headers, Request, Response } from "node-fetch";
+// Node 20+ provides global fetch, Headers, Request, Response
 import jwt from "jsonwebtoken";
 
 const supabaseUrl =
