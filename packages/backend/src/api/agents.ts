@@ -32,11 +32,11 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-function resolveAuth0Sub(req: Request): string | undefined {
+function resolveExternalSub(req: Request): string | undefined {
   const anyReq = req as any;
   const user = anyReq.user as Record<string, any> | undefined;
 
-  const direct = user?.auth0_sub || user?.sub || user?.oidc_sub || user?.user_metadata?.auth0_sub || user?.app_metadata?.auth0_sub;
+  const direct = user?.sub || user?.oidc_sub || user?.user_metadata?.sub || user?.app_metadata?.sub;
   if (typeof direct === 'string' && direct.length > 0) return direct;
 
   const authHeader = req.headers.authorization;
@@ -191,7 +191,7 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
-      const auth0Sub = resolveAuth0Sub(req);
+      const externalSub = resolveExternalSub(req);
 
       // Create agent request event
       const agentRequestEvent: AgentRequestEvent = {
@@ -199,7 +199,7 @@ router.post(
         payload: {
           agentId,
           userId,
-          auth0Sub,
+          externalSub,
           sessionId,
           tenantId,
           query: sanitizedQuery,
@@ -290,12 +290,12 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
-      const auth0Sub = resolveAuth0Sub(req);
+      const externalSub = resolveExternalSub(req);
 
       const payload = {
         agentId,
         userId,
-        auth0Sub,
+        externalSub,
         sessionId,
         tenantId,
         query: type,
@@ -362,7 +362,7 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
-      const auth0Sub = resolveAuth0Sub(req);
+      const externalSub = resolveExternalSub(req);
 
       const normalizedAction = action
       ? action.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
@@ -373,7 +373,7 @@ router.post(
       payload: {
         agentId,
         userId,
-        auth0Sub,
+        externalSub,
         sessionId,
         tenantId,
         query: normalizedAction || "execute",
@@ -607,7 +607,7 @@ router.post(
       const eventProducer = getEventProducer();
       const correlationId = uuidv4();
       const userId = (req as any).user?.id;
-      const auth0Sub = resolveAuth0Sub(req);
+      const externalSub = resolveExternalSub(req);
 
       // Publish a typed agent request to handle veto resolution
       const agentRequestEvent: AgentRequestEvent = {
@@ -615,7 +615,7 @@ router.post(
         payload: {
           agentId: agentId || 'IntegrityAgent',
           userId,
-          auth0Sub,
+          externalSub,
           sessionId,
           tenantId,
           query: 'resolve_issue',
@@ -633,9 +633,9 @@ router.post(
         const auditService = require("../services/security/AuditTrailService.js").getAuditTrailService();
         await auditService.logImmediate({
           eventType: 'integrity_veto',
-          actorId: userId || auth0Sub || 'system',
-          auth0Sub: auth0Sub || 'system',
-          actorType: auth0Sub ? 'user' : 'system',
+          actorId: userId || externalSub || 'system',
+          externalSub: externalSub || 'system',
+          actorType: externalSub ? 'user' : 'system',
           resourceId: issueId,
           resourceType: 'integrity_issue',
           action: `veto_${resolution}`,
