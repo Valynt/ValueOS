@@ -417,100 +417,13 @@ export const EXPANDED_INDUSTRY_BENCHMARKS: Record<string, IndustryBenchmarkData>
         value: [8, 15],
         unit: "patients",
         percentile: 50,
+        source: "Dental Operations",
       },
       regulatory_approval_time: {
         value: [12, 24],
         unit: "months",
         percentile: 50,
         source: "FDA Metrics",
-      },
-    },
-  },
-
-  "623110": {
-    naics_code: "623110",
-    industry_name: "Nursing Care Facilities",
-    year: 2024,
-    source: "Healthcare Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 85000, unit: "USD", source: "BLS Economic Census" },
-      operating_margin: {
-        value: [5, 15],
-        unit: "percent",
-        percentile: 50,
-        source: "Healthcare Benchmarks",
-      },
-      occupancy_rate: {
-        value: [85, 95],
-        unit: "percent",
-        percentile: 50,
-        source: "Healthcare Operations",
-      },
-    },
-  },
-
-  "621410": {
-    naics_code: "621410",
-    industry_name: "Family Planning Centers",
-    year: 2024,
-    source: "Outpatient Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 140000, unit: "USD", source: "BLS Economic Census" },
-      operating_margin: {
-        value: [12, 25],
-        unit: "percent",
-        percentile: 50,
-        source: "Outpatient Benchmarks",
-      },
-      patient_visits_per_provider: {
-        value: [3000, 4500],
-        unit: "visits",
-        percentile: 50,
-        source: "Medical Practice Metrics",
-      },
-    },
-  },
-
-  "621511": {
-    naics_code: "621511",
-    industry_name: "Medical Laboratories",
-    year: 2024,
-    source: "Lab Services Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 130000, unit: "USD", source: "BLS Economic Census" },
-      gross_margin: {
-        value: [35, 55],
-        unit: "percent",
-        percentile: 50,
-        source: "Lab Services Benchmarks",
-      },
-      test_accuracy_rate: {
-        value: [98, 99.5],
-        unit: "percent",
-        percentile: 50,
-        source: "Lab Quality Metrics",
-      },
-    },
-  },
-
-  "621210": {
-    naics_code: "621210",
-    industry_name: "Offices of Dentists",
-    year: 2024,
-    source: "Dental Practice Benchmarks",
-    metrics: {
-      revenue_per_employee: { value: 165000, unit: "USD", source: "BLS Economic Census" },
-      operating_margin: {
-        value: [20, 35],
-        unit: "percent",
-        percentile: 50,
-        source: "Dental Practice Benchmarks",
-      },
-      patients_per_day: {
-        value: [8, 15],
-        unit: "patients",
-        percentile: 50,
-        source: "Dental Operations",
       },
     },
   },

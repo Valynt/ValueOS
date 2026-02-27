@@ -7,14 +7,16 @@
 
 import { Router } from 'express';
 
-// Re-export configuration
-export {
-  // Config types
+// Re-export configuration types
+export type {
   CorsConfig,
   HstsConfig,
   CspConfig,
   SecurityConfig,
-  // Config parsing
+} from './config';
+
+// Re-export configuration values
+export {
   parseCorsConfig,
   parseHstsConfig,
   getDefaultCspConfig,
@@ -22,11 +24,16 @@ export {
   getSecurityConfig,
   resetSecurityConfig,
   setSecurityConfig,
-  // Environment variables
   ENV_VARS,
 } from './config';
 
 // Re-export CORS middleware
+// Re-export CORS types
+export type {
+  CorsOptions,
+  CorsResult,
+} from './cors';
+
 export {
   createCorsMiddleware,
   corsMiddleware,
@@ -34,11 +41,15 @@ export {
   validateOrigin,
   isOriginAllowed,
   getAllowedOrigins,
-  CorsOptions,
-  CorsResult,
 } from './cors';
 
 // Re-export security headers middleware
+// Re-export security headers types
+export type {
+  SecurityHeadersOptions,
+  CspViolationReport,
+} from './headers';
+
 export {
   createSecurityHeadersMiddleware,
   securityHeadersMiddleware,
@@ -50,8 +61,6 @@ export {
   getApiSafeCspConfig,
   createCspReportHandler,
   cspReportHandler,
-  SecurityHeadersOptions,
-  CspViolationReport,
 } from './headers';
 
 // ============================================================================
