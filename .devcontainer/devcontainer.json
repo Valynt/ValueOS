@@ -32,6 +32,7 @@
     "PNPM_HOME": "/home/vscode/.local/share/pnpm"
   },
   "remoteEnv": {
-    "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/pnpm"
-  }
+    "PATH": "/home/vscode/.local/share/pnpm:${containerEnv:PATH}"
+  },
+  "remoteUser": "vscode"
 }
