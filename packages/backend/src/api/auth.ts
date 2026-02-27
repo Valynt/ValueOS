@@ -23,6 +23,7 @@ import { createServerSupabaseClient } from "@shared/lib/supabase";
 import { sanitizeErrorMessage } from "../utils/security.js"
 import { getConfig } from "../config/environment.js"
 import { userProfileDirectoryService } from "../services/UserProfileDirectoryService.js"
+import { authRateLimiter, recordAuthFailure } from "../middleware/authRateLimiter.js"
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");
@@ -52,6 +53,7 @@ function resolveActor(user?: AuthActor) {
 
 router.post(
   "/login",
+  authRateLimiter("login"),
   validateRequest(ValidationSchemas.login),
   async (req: Request, res: Response) => {
     try {
@@ -111,6 +113,7 @@ router.post(
       });
 
       if (error instanceof AuthenticationError) {
+        recordAuthFailure(req, "login");
         return res.status(401).json({ error: error.message });
       }
       if (error instanceof ValidationError) {
@@ -124,6 +127,7 @@ router.post(
 
 router.post(
   "/signup",
+  authRateLimiter("signup"),
   validateRequest(ValidationSchemas.signup),
   async (req: Request, res: Response) => {
     try {
@@ -205,6 +209,7 @@ router.post(
 
 router.post(
   "/password/reset",
+  authRateLimiter("passwordReset"),
   validateRequest({
     email: { type: "email" as const, required: true },
   }),
@@ -265,6 +270,7 @@ router.post(
 
 router.post(
   "/verify/resend",
+  authRateLimiter("verifyResend"),
   validateRequest({
     email: { type: "email" as const, required: true },
   }),
