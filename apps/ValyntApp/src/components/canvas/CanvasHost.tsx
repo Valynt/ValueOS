@@ -35,6 +35,16 @@ function registerWidget(type: string, component: ComponentType<WidgetProps>) {
   widgetRegistry[type] = component;
 }
 
+// Lazy-load built-in widgets to keep bundle split
+const ValueSummaryCard = React.lazy(() => import("./widgets/ValueSummaryCard"));
+const AgentResponseCard = React.lazy(() => import("./widgets/AgentResponseCard"));
+const ChatInputWidget = React.lazy(() => import("./widgets/ChatInput"));
+
+// Register built-in SDUI widget types
+registerWidget("value-summary", ValueSummaryCard as unknown as ComponentType<WidgetProps>);
+registerWidget("agent-response", AgentResponseCard as unknown as ComponentType<WidgetProps>);
+registerWidget("chat-input", ChatInputWidget as unknown as ComponentType<WidgetProps>);
+
 // Widget loading fallback
 function WidgetSkeleton() {
   return (
