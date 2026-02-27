@@ -189,10 +189,22 @@ router.get('/export', async (req, res) => {
     const tenantId = req.tenantId;
     const { format = 'json', startDate, endDate } = req.query;
 
+    if (!startDate || !endDate || typeof startDate !== 'string' || typeof endDate !== 'string') {
+      return res.status(400).json({ error: 'startDate and endDate query parameters are required' });
+    }
+
+    const parsedStart = new Date(startDate);
+    const parsedEnd = new Date(endDate);
+    if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+      return res.status(400).json({ error: 'startDate and endDate must be valid date strings' });
+    }
+
+    const metricsCollector = new MetricsCollector();
+
     // Get usage data for export
     const usageData = await metricsCollector.getUsageForExport(tenantId, {
-      startDate: new Date(startDate as string),
-      endDate: new Date(endDate as string)
+      startDate: parsedStart,
+      endDate: parsedEnd
     });
 
     // Format response based on requested format
@@ -211,10 +223,10 @@ router.get('/export', async (req, res) => {
 });
 
 // Helper functions
-function calculateSpendForecast(historicalUsage, pricingVersion) {
-  // Implement spend forecasting algorithm
-  // This would analyze historical usage patterns and project future spend
-  // based on current pricing and usage trends
+function calculateSpendForecast(
+  historicalUsage: unknown,
+  pricingVersion: unknown
+): { projectedSpend: number; confidenceInterval: string; trendAnalysis: string; recommendations: string[] } {
   return {
     projectedSpend: 0,
     confidenceInterval: 'medium',
@@ -223,11 +235,32 @@ function calculateSpendForecast(historicalUsage, pricingVersion) {
   };
 }
 
-function convertToCSV(data) {
-  // Convert usage data to CSV format
+/** Escape a value for safe CSV output (prevents formula injection and handles commas/quotes). */
+function escapeCsvField(value: unknown): string {
+  const str = String(value ?? '');
+  // Strip leading formula-injection characters
+  const safe = str.replace(/^[=+\-@\t\r]/, "'$&");
+  // Wrap in quotes if it contains commas, quotes, or newlines
+  if (safe.includes(',') || safe.includes('"') || safe.includes('\n')) {
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
+  return safe;
+}
+
+interface UsageExportRow {
+  metric: string;
+  usage: number;
+  quota: number;
+  period: string;
+}
+
+function convertToCSV(data: UsageExportRow[]): string {
+  if (!Array.isArray(data)) return 'metric,usage,quota,period\n';
   return 'metric,usage,quota,period\n' +
          data.map(item =>
-           `${item.metric},${item.usage},${item.quota},${item.period}`
+           [item.metric, item.usage, item.quota, item.period]
+             .map(escapeCsvField)
+             .join(',')
          ).join('\n');
 }
 

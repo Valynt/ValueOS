@@ -289,7 +289,17 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-const serviceRoleSupabase = publicSupabase;
+// service_role:justified — server-side usage persistence bypasses RLS
+const serviceRoleSupabase = (() => {
+  try {
+    // Dynamically import to avoid pulling service-role key into browser bundles
+    const { createServerSupabaseClient } = require("../lib/supabase");
+    return createServerSupabaseClient();
+  } catch {
+    // Falls back to null in browser context; persistUsage guards against this
+    return null;
+  }
+})();
 
 /**
  * Persist usage to database (upsert into `tenant_usage` table)
