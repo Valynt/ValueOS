@@ -394,6 +394,7 @@ describe('GuestAccessService', () => {
         'token-123',
         'vc-123',
         'view_element',
+        'org-123',
         { elementId: 'elem-456' }
       );
 
@@ -403,6 +404,7 @@ describe('GuestAccessService', () => {
           guest_access_token_id: 'token-123',
           value_case_id: 'vc-123',
           activity_type: 'view_element',
+          organization_id: 'org-123',
           activity_data: { elementId: 'elem-456' },
         })
       );
