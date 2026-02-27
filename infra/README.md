@@ -15,7 +15,7 @@ This registry is enforced in CI (`scripts/ci/check-infra-manifest-registry.mjs`)
 | --- | --- | --- | --- |
 | `infra/docker/docker-compose.dev.yml` | Active | n/a | Primary local development compose stack. |
 | `infra/docker/docker-compose.staging.yml` | Active | n/a | Staging compose entry point. |
-| `infra/docker/docker-compose.prod.yml` | Active | n/a | Production compose entry point. |
+| `infra/docker/docker-compose.prod.yml` | Active | n/a | Self-contained production compose (no dev dependency). |
 | `infra/docker/docker-compose.observability.yml` | Active | n/a | Canonical LGTM observability stack. |
 | `infra/docker-compose.observability.yml` | Deprecated | `infra/docker/docker-compose.observability.yml` | Legacy root-level observability compose file retained for historical context only. |
 | `infra/terraform/` | Active | n/a | Canonical shared Terraform root. |
@@ -32,7 +32,8 @@ This registry is enforced in CI (`scripts/ci/check-infra-manifest-registry.mjs`)
 | Devcontainer profile | `ops/compose/profiles/devcontainer.yml` | Developer Experience | Optional devcontainer services and agent placeholders. | Active |
 | Observability profile | `ops/compose/profiles/observability.yml` | Platform / DevOps | Optional observability and streaming tooling. | Active |
 | Runtime docker profile | `ops/compose/profiles/runtime-docker.yml` | Platform / DevOps | Optional full containerized runtime for DX docker mode. | Active |
-| Legacy `infra/docker/docker-compose*.yml` files | `infra/docker/*.yml` | Platform / DevOps | Compatibility include shims only; no service definitions allowed. | Deprecated |
+| Production compose | `infra/docker/docker-compose.prod.yml` | Platform / DevOps | Self-contained production stack (caddy, backend, frontend, postgres, redis). | Active |
+| Legacy `infra/docker/docker-compose*.yml` files | `infra/docker/*.yml` (except prod) | Platform / DevOps | Compatibility include shims only; no service definitions allowed. | Deprecated |
 
 ### Kubernetes targets
 
@@ -58,6 +59,7 @@ This registry is enforced in CI (`scripts/ci/check-infra-manifest-registry.mjs`)
 
 - Compose service definitions now belong only under `ops/compose/`.
 - Any `docker-compose*.yml` outside `ops/compose/` should be a thin `include:` compatibility shim.
+- **Exception:** `infra/docker/docker-compose.prod.yml` is fully self-contained to avoid inheriting dev defaults.
 
 ## Directory Structure
 

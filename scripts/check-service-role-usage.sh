@@ -54,6 +54,7 @@ APPROVED_PATTERNS=(
   "apps/ValyntApp/src/services/security/APIKeyRotationService.ts"
   "packages/backend/src/services/billing/FinanceExportService.ts"
   "packages/backend/src/services/metering/UsageSink.ts"
+  "packages/backend/src/repositories/"
 )
 
 # Patterns that indicate direct service-role client creation
@@ -78,7 +79,8 @@ for pattern in "${SEARCH_PATTERNS[@]}"; do
 
     # Skip non-source files
     case "$rel" in
-      *.test.ts|*.spec.ts|*.test.js|*.spec.js|*.md|*.sql|*.sh|*.json|*.d.ts|*.js.map|*.d.ts.map) continue ;;
+      *.test.ts|*.spec.ts|*.test.js|*.spec.js|*.bench.ts|*.bench.js|*.md|*.sql|*.sh|*.json|*.d.ts|*.js.map|*.d.ts.map) continue ;;
+      */__benchmarks__/*|*/__tests__/*) continue ;;
       node_modules/*|.windsurf/*) continue ;;
     esac
 

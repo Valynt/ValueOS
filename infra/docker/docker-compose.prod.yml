@@ -1,11 +1,8 @@
-# Production compose for ValueOS.
+# Production compose for ValueOS — fully self-contained.
 # Usage: docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.production up -d --build
 #
-# Inherits postgres + redis from the canonical dev compose and overrides
-# backend/frontend with production-appropriate settings.
-
-include:
-  - ../../ops/compose/compose.yml
+# All services are defined here with production-appropriate defaults.
+# This file does NOT depend on the dev compose (ops/compose/compose.yml).
 
 x-prod-common: &prod-common
   restart: unless-stopped
@@ -91,8 +88,58 @@ services:
     ports:
       - "${FRONTEND_PORT:-8080}:8080"
 
+  # ── Postgres (production) ────────────────────────────────────────────────
+  postgres:
+    <<: *prod-common
+    image: postgres:15-alpine
+    container_name: valueos-postgres-prod
+    environment:
+      POSTGRES_DB: ${PGDATABASE:?Set PGDATABASE in .env.production}
+      POSTGRES_USER: ${PGUSER:?Set PGUSER in .env.production}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env.production}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "${PGPORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${PGUSER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Redis (production) ──────────────────────────────────────────────────
+  redis:
+    <<: *prod-common
+    image: redis:7-alpine
+    container_name: valueos-redis-prod
+    command: >-
+      redis-server
+      --appendonly yes
+      --maxmemory ${REDIS_MAXMEMORY:-2gb}
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   caddy_data:
     driver: local
   caddy_config:
     driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: ${VALUEOS_NETWORK:-valueos-network}
