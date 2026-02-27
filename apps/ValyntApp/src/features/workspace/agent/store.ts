@@ -20,7 +20,54 @@ import type {
   PlanAssumption,
   ClarifyOption,
 } from "./types";
+import { resolveTransition, type AgentTransitionEvent } from "./state-machine";
 import { logger } from "../../../lib/logger";
+
+/**
+ * Map incoming phase_changed targets to state machine events.
+ * This bridges the backend event model with the validated transition table.
+ */
+function phaseToTransitionEvent(from: AgentPhase, to: AgentPhase): AgentTransitionEvent | null {
+  const key = `${from}:${to}`;
+  const mapping: Record<string, AgentTransitionEvent> = {
+    "idle:clarify": "START",
+    "idle:plan": "PLAN_READY",
+    "idle:resume": "RESUME_SESSION",
+    "clarify:plan": "CLARIFIED",
+    "plan:execute": "PLAN_APPROVED",
+    "plan:idle": "PLAN_REJECTED",
+    "plan:clarify": "NEED_CLARIFICATION",
+    "execute:review": "EXECUTION_DONE",
+    "execute:clarify": "NEED_INPUT",
+    "execute:plan": "PLAN_READY",
+    "review:finalize": "APPROVED",
+    "review:plan": "REVISION_NEEDED",
+    "finalize:idle": "FINALIZED",
+    "resume:idle": "SESSION_RESTORED",
+    "resume:plan": "PLAN_READY",
+    "resume:execute": "PLAN_APPROVED",
+  };
+  return mapping[key] ?? null;
+}
+
+/**
+ * Attempt a validated phase transition. Falls back to direct assignment
+ * if no mapping exists (for backward compatibility during migration).
+ */
+function safeTransition(currentPhase: AgentPhase, targetPhase: AgentPhase): AgentPhase {
+  const event = phaseToTransitionEvent(currentPhase, targetPhase);
+  if (event) {
+    const resolved = resolveTransition(currentPhase, event);
+    if (resolved) return resolved;
+  }
+  // Fallback: allow the transition but log a warning in dev
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      `[AgentStore] Unvalidated phase transition: ${currentPhase} → ${targetPhase}`
+    );
+  }
+  return targetPhase;
+}
 
 export interface AgentState {
   // Current phase
@@ -143,12 +190,14 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
         });
       }
       switch (event.type) {
-        case "phase_changed":
+        case "phase_changed": {
+          const validatedPhase = safeTransition(get().phase, event.payload.to);
           return {
             ...get(),
-            phase: event.payload.to,
-            error: event.payload.to !== "idle" ? null : get().error,
+            phase: validatedPhase,
+            error: validatedPhase !== "idle" ? null : get().error,
           };
+        }
 
         case "checkpoint_created":
           return {
@@ -263,7 +312,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
         case "clarify_question":
           return {
             ...get(),
-            phase: "clarify" as const,
+            phase: safeTransition(get().phase, "clarify"),
             pendingQuestion: {
               questionId: event.payload.questionId,
               question: event.payload.question,
@@ -276,7 +325,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
         case "plan_proposed":
           return {
             ...get(),
-            phase: "plan" as const,
+            phase: safeTransition(get().phase, "plan"),
             planId: event.payload.planId,
             steps: event.payload.steps.map((step) => ({
               id: step.id,
@@ -296,7 +345,7 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
               suggestions: event.payload.suggestions,
             },
             isStreaming: event.payload.recoverable ? get().isStreaming : false,
-            phase: event.payload.recoverable ? get().phase : "idle",
+            phase: event.payload.recoverable ? get().phase : safeTransition(get().phase, "idle"),
           };
 
         default:
@@ -340,14 +389,14 @@ export const useAgentStore = create<AgentState & AgentActions>()((set, get) => (
               idx === 0 ? { ...step, status: "running" as const, startedAt: Date.now() } : step
             )
           : state.steps;
-      return { ...state, phase: "execute" as const, steps: newSteps };
+      return { ...state, phase: safeTransition(state.phase, "execute"), steps: newSteps };
     });
   },
 
   rejectPlan: () => {
     set((state) => ({
       ...state,
-      phase: "idle" as const,
+      phase: safeTransition(state.phase, "idle"),
       planId: null,
       steps: [],
       assumptions: [],
