@@ -10,6 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import { isDevRouteHostAllowed, shouldEnableDevRoutes } from "./devRoutes.js";
 import { logger } from "../lib/logger.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const execAsync = promisify(exec);
 const router = Router();
@@ -29,6 +30,23 @@ router.use((req: Request, res: Response, next) => {
 
   next();
 });
+
+// Require authentication for all dev routes
+router.use(requireAuth);
+
+/**
+ * Guard for destructive dev operations — requires admin role from JWT claims.
+ * This is acceptable here because dev routes are already gated by NODE_ENV + feature flag.
+ */
+function requireDevAdmin(req: Request, res: Response, next: () => void): void {
+  const user = (req as any).user;
+  const role = user?.role ?? user?.app_metadata?.role;
+  if (role !== "admin" && role !== "service_role") {
+    res.status(403).json({ error: "Admin access required for this dev operation" });
+    return;
+  }
+  next();
+}
 
 if (isDevRoutesEnabled) {
   router.get("/status", (_req: Request, res: Response) => {
@@ -69,7 +87,7 @@ if (isDevRoutesEnabled) {
     }
   });
 
-  router.post("/seed", async (_req: Request, res: Response) => {
+  router.post("/seed", requireDevAdmin, async (_req: Request, res: Response) => {
     try {
       const { stdout, stderr } = await execAsync("npm run seed:demo", {
         cwd: process.cwd(),
@@ -114,7 +132,7 @@ if (isDevRoutesEnabled) {
     }
   });
 
-  router.post("/db/migrations/run", async (_req: Request, res: Response) => {
+  router.post("/db/migrations/run", requireDevAdmin, async (_req: Request, res: Response) => {
     try {
       const { stdout, stderr } = await execAsync("npm run db:push", {
         cwd: process.cwd(),
@@ -138,7 +156,7 @@ if (isDevRoutesEnabled) {
     }
   });
 
-  router.post("/auth/dev-token", async (_req: Request, res: Response) => {
+  router.post("/auth/dev-token", requireDevAdmin, async (_req: Request, res: Response) => {
     const now = Math.floor(Date.now() / 1000);
     const payload = {
       sub: "dev-user-001",
@@ -160,7 +178,7 @@ if (isDevRoutesEnabled) {
     });
   });
 
-  router.post("/restart", async (_req: Request, res: Response) => {
+  router.post("/restart", requireDevAdmin, async (_req: Request, res: Response) => {
     res.json({
       success: true,
       message: "Restart signal sent. Server will restart shortly.",
@@ -172,7 +190,7 @@ if (isDevRoutesEnabled) {
     }, 500);
   });
 
-  router.post("/clear-cache", async (_req: Request, res: Response) => {
+  router.post("/clear-cache", requireDevAdmin, async (_req: Request, res: Response) => {
     try {
       const redisModule = (await import("../lib/redis")) as Record<
         string,

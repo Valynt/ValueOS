@@ -152,16 +152,9 @@ function parseBearerToken(header?: string | string[]): string | null {
 }
 
 function getWebSocketToken(req: IncomingMessage): string | null {
-  const bearerToken = parseBearerToken(req.headers.authorization);
-  if (bearerToken) {
-    return bearerToken;
-  }
-
-  const url = new URL(req.url ?? "", "http://localhost");
-  if (process.env.NODE_ENV !== "production") {
-    return url.searchParams.get("access_token") ?? url.searchParams.get("token");
-  }
-  return null;
+  // Only accept tokens via Authorization header to prevent token leakage
+  // in server logs, proxy logs, and browser history.
+  return parseBearerToken(req.headers.authorization);
 }
 
 function getRequestedTenantId(req: IncomingMessage): string | null {

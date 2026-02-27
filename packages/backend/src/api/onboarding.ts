@@ -7,7 +7,7 @@
 
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
-import { supabase } from '@shared/lib/supabase';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 import { createLogger } from '@shared/lib/logger';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -77,9 +77,7 @@ router.post(
 
       const { contextId, website, industry, companySize, salesMotion } = parsed.data;
 
-      if (!supabase) {
-        return res.status(503).json({ error: 'Database not available' });
-      }
+      const supabase = getRequestSupabaseClient(req);
 
       // Verify context belongs to tenant
       const { data: context, error: ctxErr } = await supabase
@@ -159,9 +157,7 @@ router.get(
         return res.status(401).json({ error: 'Tenant context required' });
       }
 
-      if (!supabase) {
-        return res.status(503).json({ error: 'Database not available' });
-      }
+      const supabase = getRequestSupabaseClient(req);
 
       const { data: job, error } = await supabase
         .from('company_research_jobs')
@@ -196,9 +192,7 @@ router.get(
         return res.status(401).json({ error: 'Tenant context required' });
       }
 
-      if (!supabase) {
-        return res.status(503).json({ error: 'Database not available' });
-      }
+      const supabase = getRequestSupabaseClient(req);
 
       let query = supabase
         .from('company_research_suggestions')
@@ -252,9 +246,7 @@ router.patch(
         return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
       }
 
-      if (!supabase) {
-        return res.status(503).json({ error: 'Database not available' });
-      }
+      const supabase = getRequestSupabaseClient(req);
 
       // Fetch the suggestion
       const { data: suggestion, error: fetchErr } = await supabase
@@ -337,9 +329,7 @@ router.post(
         return res.status(400).json({ error: 'Invalid request', details: parsed.error.errors });
       }
 
-      if (!supabase) {
-        return res.status(503).json({ error: 'Database not available' });
-      }
+      const supabase = getRequestSupabaseClient(req);
 
       const { ids } = parsed.data;
       const results: Array<{ id: string; success: boolean; error?: string }> = [];

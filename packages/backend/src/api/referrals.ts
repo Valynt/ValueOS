@@ -11,6 +11,7 @@ import { Request, Response } from "express";
 import { createSecureRouter } from "../middleware/secureRouter.js"
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest } from "../middleware/inputValidation.js"
+import { createRateLimiter } from "../middleware/rateLimiter.js"
 import { referralService } from "./services/ReferralService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
@@ -18,6 +19,12 @@ import { auditLogService } from "../services/AuditLogService.js"
 
 const logger = createLogger({ component: "ReferralAPI" });
 const router = createSecureRouter("standard");
+
+// Strict per-IP rate limiter for unauthenticated referral endpoints
+// to prevent code enumeration and claim spam
+const referralPublicLimiter = createRateLimiter("strict", {
+  message: "Too many referral requests. Please try again later.",
+});
 
 /**
  * POST /api/referrals/generate
@@ -75,6 +82,7 @@ router.post("/generate", requireAuth, async (req: Request, res: Response) => {
  */
 router.post(
   "/claim",
+  referralPublicLimiter,
   validateRequest({
     referral_code: { type: "string", required: true, minLength: 8, maxLength: 8 },
     referee_email: { type: "email", required: true },
@@ -279,6 +287,7 @@ router.get("/referrals", requireAuth, async (req: Request, res: Response) => {
  */
 router.post(
   "/validate",
+  referralPublicLimiter,
   validateRequest({
     code: { type: "string", required: true, minLength: 8, maxLength: 8 },
   }),

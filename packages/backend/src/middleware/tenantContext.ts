@@ -14,9 +14,11 @@ const DEFAULT_TCT_SECRET = "default-tct-secret-change-me";
 
 const assertValidTctSecret = (): string => {
   const secret = process.env.TCT_SECRET || DEFAULT_TCT_SECRET;
-  if (process.env.NODE_ENV === "production" && secret === DEFAULT_TCT_SECRET) {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  // Require explicit TCT_SECRET in all non-development environments
+  if (nodeEnv !== "development" && secret === DEFAULT_TCT_SECRET) {
     validateEnv();
-    throw new Error("TCT_SECRET must be configured in production.");
+    throw new Error("TCT_SECRET must be configured in non-development environments.");
   }
   return secret;
 };

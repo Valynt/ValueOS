@@ -23,6 +23,7 @@ import { requireConsent } from '../middleware/consentMiddleware.js'
 import { consentRegistry } from '../services/consentRegistry.js'
 import { sanitizeAgentInput } from '../utils/security.js'
 import { requireAuth } from '../middleware/auth.js'
+import { requirePermission } from '../middleware/rbac.js'
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
 import { MODEL_POLICY_VERSION, ModelDeniedError, assertKnownApprovedModel } from '../config/models.js'
@@ -242,7 +243,7 @@ router.post(
     
     res.status(500).json({
       error: 'LLM request failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: 'An internal error occurred while processing the request'
     });
   }
   }
@@ -266,7 +267,7 @@ router.get('/stats', rateLimiters.loose, async (req: Request, res: Response) => 
     
     res.status(500).json({
       error: 'Failed to get stats',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: 'An internal error occurred'
     });
   }
 });
@@ -291,7 +292,7 @@ router.get('/health', async (req: Request, res: Response) => {
     
     res.status(500).json({
       error: 'Health check failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: 'An internal error occurred'
     });
   }
 });
@@ -301,18 +302,8 @@ router.get('/health', async (req: Request, res: Response) => {
  * 
  * Reset circuit breakers (admin only)
  */
-router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTimeoutMiddleware, async (req: Request, res: Response) => {
+router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTimeoutMiddleware, requirePermission('admin:manage'), async (req: Request, res: Response) => {
   try {
-    // Check admin permission (assumed to be set by auth middleware)
-    const isAdmin = (req as any).user?.role === 'admin';
-    
-    if (!isAdmin) {
-      return res.status(403).json({
-        error: 'Forbidden',
-        message: 'Admin access required'
-      });
-    }
-    
     llmFallback.reset();
     
     logger.info(
@@ -331,7 +322,7 @@ router.post('/reset', rateLimiters.strict, csrfProtectionMiddleware, sessionTime
     
     res.status(500).json({
       error: 'Reset failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: 'An internal error occurred'
     });
   }
 });

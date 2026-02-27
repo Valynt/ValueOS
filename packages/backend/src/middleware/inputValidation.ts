@@ -11,10 +11,8 @@ import { validatePassword } from '../utils/security.js';
 const logger = createLogger({ component: 'InputValidation' });
 
 // Input validation patterns
-const PATTERNS = {
-  // SQL injection patterns
-  sqlInjection: /(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b|\band\b|\bor\b.*=.*|\bxor\b|\/\*|\*\/|--|#|;)/gi,
 
+const PATTERNS = {
   // XSS patterns
   xss: /<script[^>]*>[\s\S]*?<\/script>|javascript:|vbscript:|on\w+\s*=|style\s*=.*expression\s*\(|style\s*=.*javascript\s*:/gi,
 
@@ -132,9 +130,6 @@ export function sanitizeInput(input: string, level: SanitizationLevel = Sanitiza
 export function securityScan(input: string): { safe: boolean; threats: string[] } {
   const threats: string[] = [];
 
-  if (PATTERNS.sqlInjection.test(input)) {
-    threats.push('Potential SQL injection detected');
-  }
 
   if (PATTERNS.xss.test(input)) {
     threats.push('Potential XSS attack detected');
@@ -320,6 +315,23 @@ export function validateRequest(
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
       const data = req[source];
+
+      // Security scan runs first on raw input before any sanitization
+      const securityCheck = securityScan(JSON.stringify(data));
+      if (!securityCheck.safe) {
+        logger.warn('Security threat detected', {
+          threats: securityCheck.threats,
+          path: sanitizeForLogging(req.path),
+          method: req.method,
+          ip: sanitizeForLogging(req.ip)
+        });
+
+        res.status(403).json({
+          error: 'Request blocked for security reasons'
+        });
+        return;
+      }
+
       const result = validateData(data, schema, true, options);
 
       if (!result.valid) {
@@ -343,25 +355,9 @@ export function validateRequest(
         req[source] = { ...req[source], ...result.sanitizedData };
       }
 
-      // Security scan
-      const securityCheck = securityScan(JSON.stringify(data));
-      if (!securityCheck.safe) {
-        logger.warn('Security threat detected', {
-          threats: securityCheck.threats,
-          path: sanitizeForLogging(req.path),
-          method: req.method,
-          ip: sanitizeForLogging(req.ip)
-        });
-
-        res.status(403).json({
-          error: 'Request blocked for security reasons'
-        });
-        return;
-      }
-
       next();
     } catch (error) {
-      logger.error('Input validation middleware error', sanitizeForLogging(error));
+      logger.error('Input validation middleware error', error instanceof Error ? error : undefined);
       res.status(500).json({ error: 'Validation service error' });
     }
   };
