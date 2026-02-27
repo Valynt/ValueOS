@@ -17,10 +17,10 @@ spec:
     spec:
       containers:
       - name: loki
-        image: grafana/loki:2.9.3
+        image: grafana/loki@sha256:d8585a80d577a849ac56393e10ee9a4475a55aca527f50ce722efeb39d8f59c1
         args:
           - -config.file=/etc/loki/loki.yaml
-        
+
         ports:
         - name: http
           containerPort: 3100
@@ -28,7 +28,7 @@ spec:
         - name: grpc
           containerPort: 9095
           protocol: TCP
-        
+
         resources:
           requests:
             cpu: 200m
@@ -36,27 +36,27 @@ spec:
           limits:
             cpu: 1000m
             memory: 1Gi
-        
+
         livenessProbe:
           httpGet:
             path: /ready
             port: http
           initialDelaySeconds: 45
           periodSeconds: 10
-        
+
         readinessProbe:
           httpGet:
             path: /ready
             port: http
           initialDelaySeconds: 45
           periodSeconds: 10
-        
+
         volumeMounts:
         - name: config
           mountPath: /etc/loki
         - name: storage
           mountPath: /loki
-      
+
       volumes:
       - name: config
         configMap:

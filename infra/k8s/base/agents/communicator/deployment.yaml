@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: communicator-agent
-        image: valynt/agent-communicator:latest
+        image: valynt/agent-communicator@sha256:FIXME_RUN_crane_digest_valynt_agent-communicator_latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

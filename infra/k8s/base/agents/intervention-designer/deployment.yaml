@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: intervention-designer-agent
-        image: valynt/agent-intervention-designer:latest
+        image: valynt/agent-intervention-designer@sha256:FIXME_RUN_crane_digest_valynt_agent-intervention-designer_latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

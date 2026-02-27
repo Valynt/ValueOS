@@ -3,16 +3,11 @@
  * Manages grace periods for soft quota limits
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { BillingMetric, GRACE_PERIOD_MS } from '../../config/billing.js'
 import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'GracePeriodService' });
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 interface GracePeriod {
   id: string;
@@ -26,6 +21,12 @@ interface GracePeriod {
 }
 
 class GracePeriodService {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
+
   /**
    * Start grace period for tenant/metric
    */
@@ -38,7 +39,7 @@ class GracePeriodService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + GRACE_PERIOD_MS);
 
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('grace_periods')
       .insert({
         tenant_id: tenantId,
@@ -70,7 +71,7 @@ class GracePeriodService {
     tenantId: string,
     metric: BillingMetric
   ): Promise<GracePeriod | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('grace_periods')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -114,7 +115,7 @@ class GracePeriodService {
    * Mark grace period as notified
    */
   async markNotified(gracePeriodId: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from('grace_periods')
       .update({ notified: true })
       .eq('id', gracePeriodId);
@@ -129,7 +130,7 @@ class GracePeriodService {
     tenantId: string,
     metric: BillingMetric
   ): Promise<void> {
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from('grace_periods')
       .update({ expires_at: new Date().toISOString() })
       .eq('tenant_id', tenantId)
@@ -145,7 +146,7 @@ class GracePeriodService {
    * Get all expired grace periods
    */
   async getExpiredGracePeriods(): Promise<GracePeriod[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('grace_periods')
       .select('*')
       .lt('expires_at', new Date().toISOString())
@@ -163,7 +164,7 @@ class GracePeriodService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const { error, count } = await supabase
+    const { error, count } = await this.supabase
       .from('grace_periods')
       .delete()
       .lt('expires_at', cutoffDate.toISOString());
@@ -176,4 +177,4 @@ class GracePeriodService {
   }
 }
 
-export default new GracePeriodService();
+export default GracePeriodService;

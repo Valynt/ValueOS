@@ -3,18 +3,18 @@
  * Runs as background job to aggregate usage events into batches
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { BillingMetric } from '../../config/billing.js'
 import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'UsageAggregator' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
-
 class UsageAggregator {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
   /**
    * Aggregate unprocessed events
    */
@@ -23,7 +23,7 @@ class UsageAggregator {
 
     try {
       // Get unprocessed events
-      const { data: events, error } = await supabase
+      const { data: events, error } = await this.supabase
         .from('usage_events')
         .select('*')
         .eq('processed', false)
@@ -104,7 +104,7 @@ class UsageAggregator {
     const evidenceChain = await this.buildEvidenceChain(events, sourceHash);
 
     // Fetch active subscriptions for tenant
-    const { data: subscriptions, error: subsErr } = await supabase
+    const { data: subscriptions, error: subsErr } = await this.supabase
       .from('subscriptions')
       .select('id')
       .eq('tenant_id', tenantId)
@@ -122,7 +122,7 @@ class UsageAggregator {
     const subscriptionIds = subscriptions.map((s: any) => s.id);
 
     // Find a subscription_item for these subscriptions and metric
-    const { data: subItems, error: subItemsErr } = await supabase
+    const { data: subItems, error: subItemsErr } = await this.supabase
       .from('subscription_items')
       .select('id')
       .eq('metric', metric)
@@ -143,7 +143,7 @@ class UsageAggregator {
     const idempotencyKey = `aggregate_${tenantId}_${metric}_${periodStartKey}_${periodEndKey}_${sourceHash.substring(0, 8)}`;
 
     // Create aggregate with enhanced metadata
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from('usage_aggregates')
       .insert({
         tenant_id: tenantId,
@@ -275,7 +275,7 @@ class UsageAggregator {
   }> {
     try {
       // Get aggregate
-      const { data: aggregate, error } = await supabase
+      const { data: aggregate, error } = await this.supabase
         .from('usage_aggregates')
         .select('*')
         .eq('id', aggregateId)
@@ -293,7 +293,7 @@ class UsageAggregator {
 
       // Verify source events still exist and match hash
       if (aggregate.metadata?.event_ids) {
-        const { data: events, error: eventsError } = await supabase
+        const { data: events, error: eventsError } = await this.supabase
           .from('usage_events')
           .select('*')
           .in('id', aggregate.metadata.event_ids);

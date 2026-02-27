@@ -37,7 +37,7 @@ spec:
           serviceAccountName: db-watcher
           containers:
             - name: db-watcher
-              image: valynt/db-watcher:latest
+              image: valynt/db-watcher@sha256:FIXME_RUN_crane_digest_valynt_db-watcher_latest
               imagePullPolicy: IfNotPresent
               command: ["bash", "/scripts/self_healing_db_watcher.sh"]
               volumeMounts:

@@ -3,19 +3,19 @@
  * Submits aggregated usage to Stripe with idempotency
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import StripeService from './StripeService.js'
 import { UsageAggregate } from '../../types/billing';
 import { createLogger } from '../../lib/logger.js'
 
 const logger = createLogger({ component: 'UsageMeteringService' });
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
-
 class UsageMeteringService {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
   // Per-tenant query cost tracking (in-memory, for demo; use Redis in prod)
   private static tenantQueryCosts: Map<string, { windowStart: number; cost: number }> = new Map();
   private static QUERY_WINDOW_MS = 60 * 1000; // 1 minute
@@ -79,7 +79,7 @@ class UsageMeteringService {
       );
 
       // Mark as submitted
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('usage_aggregates')
         .update({
           submitted_to_stripe: true,
@@ -107,7 +107,7 @@ class UsageMeteringService {
     logger.info('Processing pending usage aggregates');
 
     // Get pending aggregates
-    const { data: aggregates, error } = await supabase
+    const { data: aggregates, error } = await this.supabase
       .from('usage_aggregates')
       .select('*')
       .eq('submitted_to_stripe', false)
@@ -146,7 +146,7 @@ class UsageMeteringService {
    * Get submission status
    */
   async getSubmissionStatus(aggregateId: string): Promise<UsageAggregate | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('usage_aggregates')
       .select('*')
       .eq('id', aggregateId)
@@ -184,4 +184,4 @@ class UsageMeteringService {
   }
 }
 
-export default new UsageMeteringService();
+export default UsageMeteringService;

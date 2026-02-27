@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: benchmark-agent
-        image: valynt/agent-benchmark:latest
+        image: valynt/agent-benchmark@sha256:FIXME_RUN_crane_digest_valynt_agent-benchmark_latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

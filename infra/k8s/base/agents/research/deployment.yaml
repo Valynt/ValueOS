@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: research-agent
-        image: valynt/agent-research:latest
+        image: valynt/agent-research@sha256:FIXME_RUN_crane_digest_valynt_agent-research_latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

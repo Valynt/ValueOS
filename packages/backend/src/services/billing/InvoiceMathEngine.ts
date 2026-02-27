@@ -3,16 +3,11 @@
  * Deterministic invoice calculation engine
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { createLogger } from '../../lib/logger.js';
 import { BillingMetric } from '../../config/billing.js';
 
 const logger = createLogger({ component: 'InvoiceMathEngine' });
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 export interface InvoiceLineItem {
   id?: string;
@@ -54,10 +49,16 @@ export interface InvoiceCalculationInput {
 }
 
 export class InvoiceMathEngine {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
+
   /**
    * Calculate invoice deterministically
    */
-  static async calculateInvoice(input: InvoiceCalculationInput): Promise<InvoiceCalculation> {
+  async calculateInvoice(input: InvoiceCalculationInput): Promise<InvoiceCalculation> {
     const { tenant_id, subscription_id, period_start, period_end, currency = 'usd' } = input;
 
     logger.info('Starting invoice calculation', { tenant_id, subscription_id, period_start, period_end });
@@ -130,13 +131,13 @@ export class InvoiceMathEngine {
   /**
    * Get rated ledger entries for invoice calculation
    */
-  private static async getRatedLedgerEntries(
+  private async getRatedLedgerEntries(
     tenantId: string,
     subscriptionId: string,
     periodStart: string,
     periodEnd: string
   ): Promise<any[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('rated_ledger')
       .select(`
         id,
@@ -171,7 +172,7 @@ export class InvoiceMathEngine {
   /**
    * Calculate line items from ledger entries
    */
-  private static calculateLineItems(ledgerEntries: any[]): InvoiceLineItem[] {
+  private calculateLineItems(ledgerEntries: any[]): InvoiceLineItem[] {
     const lineItems: InvoiceLineItem[] = [];
 
     // Group by meter key and period
@@ -229,7 +230,7 @@ export class InvoiceMathEngine {
   /**
    * Generate description for line item
    */
-  private static generateLineItemDescription(
+  private generateLineItemDescription(
     meterKey: BillingMetric,
     included: number,
     overage: number
@@ -255,7 +256,7 @@ export class InvoiceMathEngine {
   /**
    * Calculate applied credits (placeholder)
    */
-  private static async calculateAppliedCredits(
+  private async calculateAppliedCredits(
     tenantId: string,
     periodStart: string,
     periodEnd: string
@@ -268,7 +269,7 @@ export class InvoiceMathEngine {
   /**
    * Calculate tax amount (placeholder)
    */
-  private static calculateTaxAmount(
+  private calculateTaxAmount(
     taxableAmount: number,
     tenantId: string
   ): number {
@@ -280,7 +281,7 @@ export class InvoiceMathEngine {
   /**
    * Generate calculation hash for determinism verification
    */
-  private static generateCalculationHash(data: any): string {
+  private generateCalculationHash(data: any): string {
     // Create a deterministic string representation
     const canonicalData = JSON.stringify(data, Object.keys(data).sort());
 
@@ -292,7 +293,7 @@ export class InvoiceMathEngine {
   /**
    * Verify invoice calculation determinism
    */
-  static async verifyCalculation(
+  async verifyCalculation(
     originalCalculation: InvoiceCalculation,
     tenantId: string,
     subscriptionId: string,
@@ -331,14 +332,14 @@ export class InvoiceMathEngine {
   /**
    * Get invoice preview for upcoming period
    */
-  static async calculateUpcomingInvoice(
+  async calculateUpcomingInvoice(
     tenantId: string,
     subscriptionId: string,
     previewDate?: string
   ): Promise<InvoiceCalculation | null> {
     try {
       // Get subscription details to determine billing period
-      const { data: subscription, error } = await supabase
+      const { data: subscription, error } = await this.supabase
         .from('subscriptions')
         .select('current_period_start, current_period_end')
         .eq('id', subscriptionId)

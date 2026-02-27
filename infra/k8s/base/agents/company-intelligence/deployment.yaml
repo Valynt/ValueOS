@@ -48,7 +48,7 @@ spec:
           effect: "NoSchedule"
       containers:
       - name: company-intelligence-agent
-        image: valynt/agent-company-intelligence:latest
+        image: valynt/agent-company-intelligence@sha256:FIXME_RUN_crane_digest_valynt_agent-company-intelligence_latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
