@@ -487,7 +487,8 @@ export class HypothesisLoop {
     correlationId: string,
     agentType: string
   ): Promise<T> {
-    const idempotencyKey = crypto.randomUUID();
+    // Deterministic key: same step retried produces the same key, hitting the cache.
+    const idempotencyKey = stepKey;
 
     try {
       const result = await this.idempotencyGuard.execute(idempotencyKey, fn);
@@ -497,7 +498,7 @@ export class HypothesisLoop {
 
       // Route to DLQ
       const dlqEntry: DLQEntry = {
-        taskId: `${stepKey}:${idempotencyKey}`,
+        taskId: `${stepKey}:${correlationId}`,
         agentType,
         input: { valueCaseId, stepKey },
         error: errorMsg,
