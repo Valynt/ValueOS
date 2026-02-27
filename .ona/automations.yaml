@@ -17,6 +17,9 @@ tasks:
     name: Setup dev tools
     description: Install tsx and other global dev tools.
     command: |
+      export PNPM_HOME="${PNPM_HOME:-/home/vscode/.local/share/pnpm}"
+      mkdir -p "$PNPM_HOME"
+      export PATH="$PNPM_HOME:$PATH"
       if ! command -v tsx &> /dev/null; then
         pnpm add -g tsx
       fi
