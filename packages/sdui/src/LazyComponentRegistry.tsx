@@ -90,17 +90,17 @@ const lazyComponents = {
 
   // Workflow components
   WorkflowStatusBar: lazy(() =>
-    import("../components/Workflow/WorkflowStatusBar").then((mod) => ({
+    import("./components/Workflow/WorkflowStatusBar").then((mod) => ({
       default: mod.WorkflowStatusBar,
     }))
   ),
   HumanCheckpoint: lazy(() =>
-    import("../components/Workflow/HumanCheckpoint").then((mod) => ({
+    import("./components/Workflow/HumanCheckpoint").then((mod) => ({
       default: mod.HumanCheckpoint,
     }))
   ),
   ConfidenceDisplay: lazy(() =>
-    import("../components/Agent/ConfidenceDisplay").then((mod) => ({
+    import("./components/Agent/ConfidenceDisplay").then((mod) => ({
       default: mod.ConfidenceDisplay,
     }))
   ),
@@ -123,14 +123,14 @@ const lazyComponents = {
     import("./components/SDUI").then((mod) => ({ default: mod.IntegrityReviewPanel }))
   ),
   IntegrityVetoPanel: lazy(() =>
-    import("../components/Agent/IntegrityVetoPanel").then((mod) => ({
+    import("./components/Agent/IntegrityVetoPanel").then((mod) => ({
       default: mod.IntegrityVetoPanel,
     }))
   ),
 
   // Development tools
   ComponentPreview: lazy(() =>
-    import("./components/SDUI/ComponentPreview").then((mod) => ({ default: mod.ComponentPreview }))
+    import("./components/SDUI").then((mod) => ({ default: mod.ComponentPreview }))
   ),
 
   // Fallback components (loaded immediately as they're essential)
