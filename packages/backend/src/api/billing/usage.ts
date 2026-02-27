@@ -19,6 +19,14 @@ import { supabase } from '../../lib/supabase.js';
 
 const router = express.Router();
 
+// Module-level service instances — these are stateless wrappers around the
+// singleton supabase client, so one instance per process is sufficient.
+const metricsCollector = new MetricsCollector();
+const entitlementsService = new EntitlementsService(supabase);
+const usageAggregator = new UsageAggregator(supabase);
+const invoiceMathEngine = new InvoiceMathEngine(supabase);
+const priceVersionService = new PriceVersionService();
+
 // Baseline protections applied to all usage routes
 router.use(securityHeadersMiddleware);
 router.use(serviceIdentityMiddleware);
@@ -33,11 +41,6 @@ router.get('/dashboard', async (req, res) => {
       return res.status(400).json({ error: 'No subscription found' });
     }
     const tenantId = req.tenantId;
-    const metricsCollector = new MetricsCollector();
-    const entitlementsService = new EntitlementsService(supabase);
-    const usageAggregator = new UsageAggregator(supabase);
-    const invoiceMathEngine = new InvoiceMathEngine(supabase);
-    const priceVersionService = new PriceVersionService();
 
     // Get usage summary
     const usageSummary = await metricsCollector.getUsageSummary(tenantId);
@@ -75,8 +78,6 @@ router.get('/quota-tracking', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized: No tenant context' });
     }
     const tenantId = req.tenantId;
-    const metricsCollector = new MetricsCollector();
-    const entitlementsService = new EntitlementsService(supabase);
 
     // Get real-time usage metrics
     const realTimeUsage = await metricsCollector.getRealTimeUsage(tenantId);
@@ -105,7 +106,6 @@ router.get('/invoice-preview', async (req, res) => {
       return res.status(400).json({ error: 'No subscription found' });
     }
     const tenantId = req.tenantId;
-    const invoiceMathEngine = new InvoiceMathEngine(supabase);
 
     // Get invoice preview for current period
     const invoicePreview = await invoiceMathEngine.calculateUpcomingInvoice(tenantId, req.user.subscriptionId);
@@ -131,8 +131,6 @@ router.get('/spend-forecasting', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized: No tenant context' });
     }
     const tenantId = req.tenantId;
-    const metricsCollector = new MetricsCollector();
-    const priceVersionService = new PriceVersionService();
 
     // Get historical usage trends
     const historicalUsage = await metricsCollector.getHistoricalUsage(tenantId, 90);
@@ -163,7 +161,6 @@ router.get('/ledger/:dateRange', async (req, res) => {
     }
     const tenantId = req.tenantId;
     const { dateRange } = req.params;
-    const usageAggregator = new UsageAggregator(supabase);
 
     // Get rated ledger entries for the specified date range
     const ledgerEntries = await usageAggregator.getRatedLedgerEntries(tenantId, dateRange);
@@ -191,7 +188,6 @@ router.get('/export', async (req, res) => {
     }
     const tenantId = req.tenantId;
     const { format = 'json', startDate, endDate } = req.query;
-    const metricsCollector = new MetricsCollector();
 
     // Get usage data for export
     const usageData = await metricsCollector.getUsageForExport(tenantId, {
