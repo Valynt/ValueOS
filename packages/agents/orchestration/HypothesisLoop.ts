@@ -21,6 +21,7 @@ import type {
 import { SagaTrigger } from '../core/ValueCaseSaga.js';
 import type { IdempotencyGuard } from '../core/IdempotencyGuard.js';
 import type { DeadLetterQueue, DLQEntry } from '../core/DeadLetterQueue.js';
+import { ObjectionSchema } from './agents/RedTeamAgent.js';
 import type { RedTeamAgent, RedTeamOutput, Objection } from './agents/RedTeamAgent.js';
 
 // ============================================================================
@@ -78,12 +79,28 @@ export interface LoopProgress {
   timestamp: string;
 }
 
+export interface EvidenceReportItem {
+  title: string;
+  description: string;
+  confidence: number;
+  category: string;
+  verification_type: string;
+  priority: string;
+}
+
+export interface EvidenceReport {
+  valueCaseId: string;
+  items: EvidenceReportItem[];
+  analysis: string;
+  timestamp: string;
+}
+
 export interface LoopResult {
   valueCaseId: string;
   tenantId: string;
   hypotheses: ValueHypothesis[];
   valueTree: ValueTree | null;
-  evidenceBundle: Record<string, unknown> | null;
+  evidenceBundle: EvidenceReport | null;
   narrative: NarrativeBlock | null;
   objections: Objection[];
   revisionCount: number;
@@ -181,20 +198,72 @@ export interface SSEEmitter {
 export const ValueHypothesisSchema = z.object({
   id: z.string(),
   description: z.string(),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
   category: z.string(),
-  estimatedValue: z.number().optional(),
+  estimatedValue: z.number().refine((n) => !Number.isNaN(n), { message: 'estimatedValue must not be NaN' }).optional(),
 });
+
+export const ValueTreeNodeSchema: z.ZodType<ValueTreeNode> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    label: z.string(),
+    value: z.number().refine((n) => !Number.isNaN(n), { message: 'node value must not be NaN' }),
+    formula: z.string().optional(),
+    confidenceScore: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
+    citations: z.array(z.string()),
+    children: z.array(ValueTreeNodeSchema).optional(),
+  })
+);
+
+export const ValueTreeSchema = z.object({
+  id: z.string(),
+  valueCaseId: z.string(),
+  nodes: z.array(ValueTreeNodeSchema),
+  totalValue: z.number().refine((n) => !Number.isNaN(n), { message: 'totalValue must not be NaN' }),
+  currency: z.string(),
+  timestamp: z.string(),
+}).strict();
+
+export const NarrativeSectionSchema = z.object({
+  heading: z.string(),
+  content: z.string(),
+  claimIds: z.array(z.string()),
+  confidenceScore: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
+}).strict();
+
+export const NarrativeBlockSchema = z.object({
+  id: z.string(),
+  valueCaseId: z.string(),
+  title: z.string(),
+  executiveSummary: z.string(),
+  sections: z.array(NarrativeSectionSchema),
+  timestamp: z.string(),
+}).strict();
+
+/** Schema for the evidence bundle as constructed by the loop (not the formal EvidenceBundle domain type). */
+export const EvidenceReportSchema = z.object({
+  valueCaseId: z.string(),
+  items: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    confidence: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
+    category: z.string(),
+    verification_type: z.string(),
+    priority: z.string(),
+  })),
+  analysis: z.string(),
+  timestamp: z.string(),
+}).strict();
 
 export const LoopResultSchema = z.object({
   valueCaseId: z.string(),
   tenantId: z.string(),
   hypotheses: z.array(ValueHypothesisSchema),
-  valueTree: z.any().nullable(),
-  evidenceBundle: z.any().nullable(),
-  narrative: z.any().nullable(),
-  objections: z.array(z.any()),
-  revisionCount: z.number(),
+  valueTree: ValueTreeSchema.nullable(),
+  evidenceBundle: EvidenceReportSchema.nullable(),
+  narrative: NarrativeBlockSchema.nullable(),
+  objections: z.array(ObjectionSchema),
+  revisionCount: z.number().int().min(0),
   finalState: z.string(),
   success: z.boolean(),
   error: z.string().optional(),
@@ -258,7 +327,7 @@ export class HypothesisLoop {
     let revisionCount = 0;
     let hypotheses: ValueHypothesis[] = [];
     let valueTree: ValueTree | null = null;
-    let evidenceBundle: Record<string, unknown> | null = null;
+    let evidenceBundle: EvidenceReport | null = null;
     let narrative: NarrativeBlock | null = null;
     let allObjections: Objection[] = [];
 
@@ -399,7 +468,7 @@ export class HypothesisLoop {
               tenantId,
               valueTree: valueTree as unknown as Record<string, unknown>,
               narrativeBlock: narrative as unknown as Record<string, unknown>,
-              evidenceBundle: evidenceBundle!,
+              evidenceBundle: evidenceBundle as unknown as Record<string, unknown>,
               idempotencyKey: crypto.randomUUID(),
             });
           },
