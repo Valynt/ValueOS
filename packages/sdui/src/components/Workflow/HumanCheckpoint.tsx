@@ -19,9 +19,12 @@ const RedisStreamBroker = class implements RedisStreamBroker {
   constructor(_opts: { streamName: string; consumerName: string }) { }
   async initialize() { }
   startConsumer(_handler: (event: StreamEvent) => Promise<void>) { }
-  async publish(_stream: string, _data: Record<string, any>) { }
+  async publish(_stream: string, _data: Record<string, any>) {
+    console.warn('[HumanCheckpoint] RedisStreamBroker is stubbed — publish is a no-op. Wire a real broker via props/context.');
+  }
 };
 function useAuth(): { user: { id: string } | null } {
+  console.warn('[HumanCheckpoint] useAuth is stubbed — always returns null user. Wire a real auth provider via context.');
   return { user: null };
 }
 

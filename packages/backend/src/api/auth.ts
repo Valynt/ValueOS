@@ -414,7 +414,7 @@ router.post("/logout", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get("/session", requireAuth, async (req: Request, res: Response) => {
+router.get("/session", async (req: Request, res: Response) => {
   try {
     const session = await authService.getSession();
 

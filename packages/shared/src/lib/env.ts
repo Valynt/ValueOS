@@ -120,6 +120,23 @@ export function getSupabaseConfig(): {
   return config;
 }
 
+/**
+ * Server-only Supabase config. Returns service_role key from process.env.
+ * Never call from browser code.
+ */
+export function getSupabaseServerConfig(): {
+  url: string;
+  serviceRoleKey: string;
+} {
+  if (_isBrowser) {
+    throw new Error("getSupabaseServerConfig must not be called in browser context");
+  }
+  return {
+    url: getEnvVar("VITE_SUPABASE_URL") || getEnvVar("SUPABASE_PUBLIC_URL") || getEnvVar("SUPABASE_URL") || getEnvVar("SUPABASE_INTERNAL_URL") || "",
+    serviceRoleKey: getEnvVar("SUPABASE_SERVICE_ROLE_KEY") || getEnvVar("SUPABASE_SERVICE_KEY") || "",
+  };
+}
+
 export function getGroundtruthConfig(): {
   baseUrl: string;
   apiKey?: string;
