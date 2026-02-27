@@ -1,0 +1,101 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: usage-aggregation
+  labels:
+    app: valynt
+    component: billing
+    job-type: usage-aggregation
+spec:
+  # Run every 5 minutes
+  schedule: "*/5 * * * *"
+
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+
+  concurrencyPolicy: Forbid
+
+  startingDeadlineSeconds: 120
+
+  jobTemplate:
+    metadata:
+      labels:
+        app: valynt
+        component: billing
+        job-type: usage-aggregation
+    spec:
+      backoffLimit: 2
+
+      # Job timeout: 4 minutes (must finish before next schedule)
+      activeDeadlineSeconds: 240
+
+      template:
+        metadata:
+          labels:
+            app: valynt
+            component: billing
+            job-type: usage-aggregation
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "9090"
+        spec:
+          restartPolicy: OnFailure
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            fsGroup: 1001
+
+          containers:
+          - name: usage-aggregation
+            image: ghcr.io/valynt/valueos-backend:latest
+            imagePullPolicy: Always
+
+            command:
+            - node
+            - scripts/jobs/usage-aggregation.js
+
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-credentials
+                  key: url
+
+            - name: VITE_SUPABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: supabase-url
+
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: supabase-credentials
+                  key: service-role-key
+
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-credentials
+                  key: secret-key
+
+            - name: NODE_ENV
+              value: "production"
+
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "300m"
+
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 1001
+              capabilities:
+                drop:
+                  - ALL
