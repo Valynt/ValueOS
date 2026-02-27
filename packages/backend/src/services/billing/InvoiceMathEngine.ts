@@ -287,8 +287,7 @@ export class InvoiceMathEngine {
     const canonicalData = JSON.stringify(data, Object.keys(data).sort());
 
     // Use crypto hash (in Node.js environment)
-    const crypto = await import('crypto');
-    return crypto.default.createHash('sha256').update(canonicalData).digest('hex');
+    return crypto.createHash('sha256').update(canonicalData).digest('hex');
   }
 
   /**

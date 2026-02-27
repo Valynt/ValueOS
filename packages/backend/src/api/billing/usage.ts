@@ -25,6 +25,12 @@ router.use(serviceIdentityMiddleware);
 // Get comprehensive usage dashboard data
 router.get('/dashboard', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: No tenant context' });
+    }
+    if (!req.user?.subscriptionId) {
+      return res.status(400).json({ error: 'No subscription found' });
+    }
     const tenantId = req.tenantId;
     const metricsCollector = new MetricsCollector();
     const entitlementsService = new EntitlementsService();
@@ -68,6 +74,9 @@ router.get('/dashboard', async (req, res) => {
 // Get real-time quota tracking data
 router.get('/quota-tracking', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: No tenant context' });
+    }
     const tenantId = req.tenantId;
     const metricsCollector = new MetricsCollector();
     const entitlementsService = new EntitlementsService();
@@ -92,6 +101,12 @@ router.get('/quota-tracking', async (req, res) => {
 // Get invoice preview UI data
 router.get('/invoice-preview', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: No tenant context' });
+    }
+    if (!req.user?.subscriptionId) {
+      return res.status(400).json({ error: 'No subscription found' });
+    }
     const tenantId = req.tenantId;
     const invoiceMathEngine = new InvoiceMathEngine();
 
@@ -119,6 +134,9 @@ router.get('/invoice-preview', async (req, res) => {
 // Get spend estimation forecasting data
 router.get('/spend-forecasting', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: No tenant context' });
+    }
     const tenantId = req.tenantId;
     const metricsCollector = new MetricsCollector();
     const priceVersionService = new PriceVersionService();
@@ -147,6 +165,9 @@ router.get('/spend-forecasting', async (req, res) => {
 // Get drill-down ledger view per tenant
 router.get('/ledger/:dateRange', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: No tenant context' });
+    }
     const tenantId = req.tenantId;
     const { dateRange } = req.params;
     const usageAggregator = new UsageAggregator();
@@ -172,6 +193,9 @@ router.get('/ledger/:dateRange', async (req, res) => {
 // Export usage data
 router.get('/export', async (req, res) => {
   try {
+    if (!req.tenantId) {
+      return res.status(401).json({ error: 'Unauthorized: No tenant context' });
+    }
     const tenantId = req.tenantId;
     const { format = 'json', startDate, endDate } = req.query;
     const metricsCollector = new MetricsCollector();
