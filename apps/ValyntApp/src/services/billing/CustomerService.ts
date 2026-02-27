@@ -3,29 +3,20 @@
  * Manages Stripe customer creation and mapping to tenants
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import StripeService from './StripeService';
 import { BillingCustomer } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger({ component: 'CustomerService' });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-}
-
-class CustomerService {
+export class CustomerService {
   private stripe: Stripe;
   private stripeService: StripeService;
+  private supabase: SupabaseClient;
 
-  constructor() {
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
     // Initialize Stripe service only if billing is configured
     try {
       this.stripeService = StripeService.getInstance();
@@ -46,13 +37,10 @@ class CustomerService {
     email: string,
     metadata?: Record<string, any>
   ): Promise<BillingCustomer> {
-    if (!this.stripe || !supabase) {
+    if (!this.stripe) {
       throw new Error('Billing service not configured');
     }
     try {
-      if (!supabase) {
-        throw new Error('Billing storage is not configured (Supabase env vars missing)');
-      }
       logger.info('Creating Stripe customer', { tenantId, organizationName });
 
       // Check if customer already exists
@@ -73,7 +61,7 @@ class CustomerService {
       });
 
       // Store in database
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('billing_customers')
         .insert({
           tenant_id: tenantId,
@@ -88,9 +76,9 @@ class CustomerService {
 
       if (error) throw error;
 
-      logger.info('Customer created successfully', { 
-        tenantId, 
-        stripeCustomerId: stripeCustomer.id 
+      logger.info('Customer created successfully', {
+        tenantId,
+        stripeCustomerId: stripeCustomer.id
       });
 
       return data;
@@ -103,10 +91,7 @@ class CustomerService {
    * Get customer by tenant ID
    */
   async getCustomerByTenantId(tenantId: string): Promise<BillingCustomer | null> {
-    if (!supabase) {
-      throw new Error('Billing storage is not configured (Supabase env vars missing)');
-    }
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('billing_customers')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -124,10 +109,7 @@ class CustomerService {
    * Get customer by Stripe customer ID
    */
   async getCustomerByStripeId(stripeCustomerId: string): Promise<BillingCustomer | null> {
-    if (!supabase) {
-      throw new Error('Billing storage is not configured (Supabase env vars missing)');
-    }
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('billing_customers')
       .select('*')
       .eq('stripe_customer_id', stripeCustomerId)
@@ -165,7 +147,7 @@ class CustomerService {
       const paymentMethod = await this.stripe.paymentMethods.retrieve(paymentMethodId);
 
       // Update in database
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('billing_customers')
         .update({
           default_payment_method: paymentMethodId,
@@ -195,7 +177,7 @@ class CustomerService {
     tenantId: string,
     status: 'active' | 'suspended' | 'cancelled'
   ): Promise<BillingCustomer> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('billing_customers')
       .update({
         status,
@@ -213,4 +195,4 @@ class CustomerService {
   }
 }
 
-export default new CustomerService();
+export default CustomerService;

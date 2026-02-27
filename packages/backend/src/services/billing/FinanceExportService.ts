@@ -3,17 +3,12 @@
  * Handles finance exports and reconciliation for billing data
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import InvoiceMathEngine from './InvoiceMathEngine.js';
 import { createLogger } from '../../lib/logger.js';
 import { BillingMetric } from '../../config/billing.js';
 
 const logger = createLogger({ component: 'FinanceExportService' });
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 export interface FinanceExport {
   id: string;
@@ -65,10 +60,15 @@ export interface ReconciliationReport {
 }
 
 export class FinanceExportService {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
   /**
    * Create finance export request
    */
-  static async createExport(
+  async createExport(
     exportType: FinanceExport['export_type'],
     periodStart: string,
     periodEnd: string,
@@ -77,7 +77,7 @@ export class FinanceExportService {
     requestedBy: string
   ): Promise<FinanceExport> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('finance_exports')
         .insert({
           export_type: exportType,
@@ -119,10 +119,10 @@ export class FinanceExportService {
   /**
    * Process finance export (async)
    */
-  static async processExport(exportId: string): Promise<void> {
+  async processExport(exportId: string): Promise<void> {
     try {
       // Update status to processing
-      await supabase
+      await this.supabase
         .from('finance_exports')
         .update({
           status: 'processing',
@@ -131,7 +131,7 @@ export class FinanceExportService {
         .eq('id', exportId);
 
       // Get export details
-      const { data: exportData, error: fetchError } = await supabase
+      const { data: exportData, error: fetchError } = await this.supabase
         .from('finance_exports')
         .select('*')
         .eq('id', exportId)
@@ -184,7 +184,7 @@ export class FinanceExportService {
       const fileUrl = await this.generateExportFile(records, exportData.format, exportId);
 
       // Update export as completed
-      await supabase
+      await this.supabase
         .from('finance_exports')
         .update({
           status: 'completed',
@@ -206,7 +206,7 @@ export class FinanceExportService {
       logger.error('Error processing finance export', error as Error, { exportId });
 
       // Update export as failed
-      await supabase
+      await this.supabase
         .from('finance_exports')
         .update({
           status: 'failed',
@@ -221,12 +221,12 @@ export class FinanceExportService {
   /**
    * Export invoices data
    */
-  private static async exportInvoices(
+  private async exportInvoices(
     periodStart: string,
     periodEnd: string,
     tenantFilter: string[]
   ): Promise<{ records: any[]; totalAmount: number }> {
-    let query = supabase
+    let query = this.supabase
       .from('invoices')
       .select(`
         *,
@@ -278,12 +278,12 @@ export class FinanceExportService {
   /**
    * Export usage data
    */
-  private static async exportUsage(
+  private async exportUsage(
     periodStart: string,
     periodEnd: string,
     tenantFilter: string[]
   ): Promise<{ records: any[]; totalAmount: number }> {
-    let query = supabase
+    let query = this.supabase
       .from('rated_ledger')
       .select(`
         *,
@@ -330,7 +330,7 @@ export class FinanceExportService {
   /**
    * Generate reconciliation report
    */
-  static async generateReconciliationReport(
+  async generateReconciliationReport(
     periodStart: string,
     periodEnd: string,
     tenantFilter: string[] = []
@@ -419,7 +419,7 @@ export class FinanceExportService {
   /**
    * Export revenue data
    */
-  private static async exportRevenue(
+  private async exportRevenue(
     periodStart: string,
     periodEnd: string,
     tenantFilter: string[]
@@ -438,7 +438,7 @@ export class FinanceExportService {
   /**
    * Aggregate data for revenue reporting
    */
-  private static aggregateRevenueData(invoices: any[], usage: any[]): any[] {
+  private aggregateRevenueData(invoices: any[], usage: any[]): any[] {
     // This would create revenue recognition entries
     // Simplified implementation
     const revenueMap = new Map<string, any>();
@@ -469,7 +469,7 @@ export class FinanceExportService {
   /**
    * Generate export file (simplified - would integrate with file storage)
    */
-  private static async generateExportFile(
+  private async generateExportFile(
     records: any[],
     format: string,
     exportId: string
@@ -483,8 +483,8 @@ export class FinanceExportService {
   /**
    * Get export status
    */
-  static async getExportStatus(exportId: string): Promise<FinanceExport | null> {
-    const { data, error } = await supabase
+  async getExportStatus(exportId: string): Promise<FinanceExport | null> {
+    const { data, error } = await this.supabase
       .from('finance_exports')
       .select('*')
       .eq('id', exportId)
@@ -501,11 +501,11 @@ export class FinanceExportService {
   /**
    * List finance exports
    */
-  static async listExports(
+  async listExports(
     requestedBy?: string,
     limit: number = 50
   ): Promise<FinanceExport[]> {
-    let query = supabase
+    let query = this.supabase
       .from('finance_exports')
       .select('*')
       .order('created_at', { ascending: false })

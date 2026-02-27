@@ -1,27 +1,31 @@
 /**
  * Phase 2: Approval API Endpoints
- * 
+ *
  * Handles approval workflow for agent actions requiring human oversight.
  */
 
 import { Request, Response, Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { logger } from '../utils/logger';
 import { auditBulkDelete } from '../middleware/auditHooks';
 import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
+import { createRequestSupabaseClient } from '../lib/supabase';
 
 const router = Router();
 router.use(requestAuditMiddleware());
 router.use(securityHeadersMiddleware);
 router.use(requestSanitizationMiddleware({ params: { requestId: { maxLength: 128 } } }));
 
-// Initialize Supabase client (server-side)
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-);
+function getClientFromReq(req: Request): SupabaseClient {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Missing authorization header');
+  }
+  const token = authHeader.slice(7).trim();
+  return createRequestSupabaseClient(token);
+}
 
 const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId,
@@ -72,6 +76,8 @@ router.post('/request', requestSanitizationMiddleware({
       });
     }
 
+    const supabase = getClientFromReq(req);
+
     // Create approval request via database function
     const { data, error } = await supabase.rpc('create_approval_request', {
       p_agent_name: agentName,
@@ -105,6 +111,8 @@ router.post('/request', requestSanitizationMiddleware({
  */
 router.get('/pending', async (req: Request, res: Response) => {
   try {
+    const supabase = getClientFromReq(req);
+
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*')
@@ -134,6 +142,8 @@ router.get('/my-requests', async (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+
+    const supabase = getClientFromReq(req);
 
     const { data, error } = await supabase
       .from('approval_requests')
@@ -173,6 +183,8 @@ router.post('/:requestId/approve', requestSanitizationMiddleware({
   try {
     const { requestId } = req.params;
     const { secondApproverEmail, notes } = req.body;
+
+    const supabase = getClientFromReq(req);
 
     // Approve via database function
     const { data, error } = await supabase.rpc('approve_request', {
@@ -235,6 +247,8 @@ router.post('/:requestId/reject', requestSanitizationMiddleware({
     const { requestId } = req.params;
     const { notes } = req.body;
 
+    const supabase = getClientFromReq(req);
+
     // Reject via database function
     const { data, error } = await supabase.rpc('reject_request', {
       p_request_id: requestId,
@@ -263,6 +277,8 @@ router.get('/:requestId', async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
 
+    const supabase = getClientFromReq(req);
+
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*, approvals(*)')
@@ -290,6 +306,8 @@ router.get('/:requestId', async (req: Request, res: Response) => {
 router.delete('/:requestId', auditBulkDelete('approval_request'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
+
+    const supabase = getClientFromReq(req);
 
     // Only allow cancellation of pending requests
     const { error } = await supabase

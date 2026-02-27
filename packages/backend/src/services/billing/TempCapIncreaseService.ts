@@ -3,18 +3,13 @@
  * Manages temporary quota increases for enterprise customers
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import BillingApprovalService from './BillingApprovalService.js';
-import EntitlementsService from './EntitlementsService.js';
+import { EntitlementsService } from './EntitlementsService.js';
 import { createLogger } from '../../lib/logger.js';
 import { BillingMetric } from '../../config/billing.js';
 
 const logger = createLogger({ component: 'TempCapIncreaseService' });
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 export interface TempCapIncreaseRequest {
   id: string;
@@ -51,10 +46,17 @@ export interface TempCapIncrease {
 }
 
 export class TempCapIncreaseService {
+  private supabase: SupabaseClient;
+  private entitlementsService: EntitlementsService;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+    this.entitlementsService = new EntitlementsService(supabase);
+  }
   /**
    * Request temporary cap increase
    */
-  static async requestTempIncrease(
+  async requestTempIncrease(
     tenantId: string,
     userId: string,
     metric: BillingMetric,
@@ -65,7 +67,7 @@ export class TempCapIncreaseService {
   ): Promise<TempCapIncreaseRequest> {
     try {
       // Get current entitlement
-      const currentEntitlement = await EntitlementsService.getEffectiveEntitlementSnapshot(tenantId);
+      const currentEntitlement = await this.entitlementsService.getEffectiveEntitlementSnapshot(tenantId);
       if (!currentEntitlement) {
         throw new Error('No active entitlement found for tenant');
       }
@@ -108,7 +110,7 @@ export class TempCapIncreaseService {
       );
 
       // Create temp cap increase request record
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('temp_cap_increase_requests')
         .insert({
           tenant_id: tenantId,
@@ -151,13 +153,13 @@ export class TempCapIncreaseService {
   /**
    * Approve temporary cap increase request
    */
-  static async approveTempIncrease(
+  async approveTempIncrease(
     requestId: string,
     approvedBy: string
   ): Promise<TempCapIncrease> {
     try {
       // Get the request
-      const { data: request, error: requestError } = await supabase
+      const { data: request, error: requestError } = await this.supabase
         .from('temp_cap_increase_requests')
         .select('*')
         .eq('id', requestId)
@@ -178,7 +180,7 @@ export class TempCapIncreaseService {
       const now = new Date();
       const expiresAt = new Date(now.getTime() + request.duration_hours * 60 * 60 * 1000);
 
-      const { data: updatedRequest, error: updateError } = await supabase
+      const { data: updatedRequest, error: updateError } = await this.supabase
         .from('temp_cap_increase_requests')
         .update({
           approval_status: 'approved',
@@ -197,7 +199,7 @@ export class TempCapIncreaseService {
       }
 
       // Create active temp cap increase record
-      const { data: tempCap, error: tempCapError } = await supabase
+      const { data: tempCap, error: tempCapError } = await this.supabase
         .from('temp_cap_increases')
         .insert({
           request_id: requestId,
@@ -236,9 +238,9 @@ export class TempCapIncreaseService {
   /**
    * Get active temporary cap increases for tenant
    */
-  static async getActiveTempCaps(tenantId: string): Promise<TempCapIncrease[]> {
+  async getActiveTempCaps(tenantId: string): Promise<TempCapIncrease[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('temp_cap_increases')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -261,9 +263,9 @@ export class TempCapIncreaseService {
   /**
    * Cancel temporary cap increase
    */
-  static async cancelTempIncrease(tempCapId: string, cancelledBy: string): Promise<void> {
+  async cancelTempIncrease(tempCapId: string, cancelledBy: string): Promise<void> {
     try {
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('temp_cap_increases')
         .update({
           status: 'cancelled',
@@ -285,12 +287,12 @@ export class TempCapIncreaseService {
   /**
    * Clean up expired temporary cap increases (should be called by cron job)
    */
-  static async cleanupExpiredTempCaps(): Promise<number> {
+  async cleanupExpiredTempCaps(): Promise<number> {
     try {
       const now = new Date().toISOString();
 
       // Update expired temp caps
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('temp_cap_increases')
         .update({
           status: 'expired',
@@ -309,7 +311,7 @@ export class TempCapIncreaseService {
 
       // Update corresponding requests
       if (expiredCount > 0) {
-        await supabase
+        await this.supabase
           .from('temp_cap_increase_requests')
           .update({
             approval_status: 'expired_active',
@@ -330,13 +332,13 @@ export class TempCapIncreaseService {
   /**
    * Get temporary cap increase requests for tenant
    */
-  static async getTempCapRequests(
+  async getTempCapRequests(
     tenantId: string,
     status?: string,
     limit: number = 50
   ): Promise<TempCapIncreaseRequest[]> {
     try {
-      let query = supabase
+      let query = this.supabase
         .from('temp_cap_increase_requests')
         .select('*')
         .eq('tenant_id', tenantId)

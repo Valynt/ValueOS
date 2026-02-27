@@ -3,18 +3,13 @@
  * Manages usage allowances and entitlement checking
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import SubscriptionService from './SubscriptionService.js';
 import MetricsCollector from '../metering/MetricsCollector.js';
 import { createLogger } from '../../lib/logger.js';
 import { BillingMetric } from '../../config/billing.js';
 
 const logger = createLogger({ component: 'EntitlementsService' });
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 // Grace period configuration
 const GRACE_PERIOD_HOURS = 24; // 24 hours grace period
@@ -42,10 +37,16 @@ export interface EntitlementSnapshot {
 }
 
 export class EntitlementsService {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
+
   /**
    * Check if usage is allowed for a tenant
    */
-  static async checkUsageAllowed(
+  async checkUsageAllowed(
     tenantId: string,
     metric: BillingMetric,
     units: number = 1,
@@ -127,7 +128,7 @@ export class EntitlementsService {
   /**
    * Check grace period allowance
    */
-  static async checkGracePeriod(
+  async checkGracePeriod(
     tenantId: string,
     metric: BillingMetric,
     requestedUsage: number,
@@ -135,7 +136,7 @@ export class EntitlementsService {
   ): Promise<{ allowed: boolean; gracePeriodRemaining?: number }> {
     try {
       // Check if tenant has been in grace period recently
-      const { data: recentOverages, error } = await supabase
+      const { data: recentOverages, error } = await this.supabase
         .from('usage_events')
         .select('timestamp')
         .eq('tenant_id', tenantId)
@@ -183,14 +184,14 @@ export class EntitlementsService {
   /**
    * Get effective entitlement snapshot for tenant
    */
-  static async getEffectiveEntitlementSnapshot(
+  async getEffectiveEntitlementSnapshot(
     tenantId: string,
     snapshotDate?: string
   ): Promise<EntitlementSnapshot | null> {
     try {
       const effectiveDate = snapshotDate || new Date().toISOString();
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('entitlement_snapshots')
         .select('*')
         .eq('tenant_id', tenantId)
@@ -215,7 +216,7 @@ export class EntitlementsService {
   /**
    * Create entitlement snapshot for tenant
    */
-  static async createEntitlementSnapshot(
+  async createEntitlementSnapshot(
     tenantId: string,
     planTier: string,
     quotas: Record<BillingMetric, number>,
@@ -225,7 +226,7 @@ export class EntitlementsService {
     try {
       const snapshotDate = effectiveDate || new Date().toISOString();
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('entitlement_snapshots')
         .insert({
           tenant_id: tenantId,
@@ -254,12 +255,12 @@ export class EntitlementsService {
   /**
    * Update entitlement snapshot (for plan changes)
    */
-  static async updateEntitlementSnapshot(
+  async updateEntitlementSnapshot(
     snapshotId: string,
     updates: Partial<EntitlementSnapshot>
   ): Promise<EntitlementSnapshot> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('entitlement_snapshots')
         .update({
           ...updates,
@@ -284,7 +285,7 @@ export class EntitlementsService {
   /**
    * Get usage summary with entitlements
    */
-  static async getUsageWithEntitlements(tenantId: string): Promise<{
+  async getUsageWithEntitlements(tenantId: string): Promise<{
     usage: Record<BillingMetric, {
       current: number;
       quota: number;
@@ -334,7 +335,7 @@ export class EntitlementsService {
   /**
    * Refresh entitlement snapshot from subscription
    */
-  static async refreshEntitlementSnapshot(tenantId: string): Promise<EntitlementSnapshot | null> {
+  async refreshEntitlementSnapshot(tenantId: string): Promise<EntitlementSnapshot | null> {
     try {
       const subscription = await SubscriptionService.getActiveSubscription(tenantId);
 
@@ -373,7 +374,7 @@ export class EntitlementsService {
   /**
    * Get plan quotas (placeholder - would be from config)
    */
-  private static async getPlanQuotas(planTier: string): Promise<Record<BillingMetric, number>> {
+  private async getPlanQuotas(planTier: string): Promise<Record<BillingMetric, number>> {
     // This would come from a configuration service
     const planQuotas: Record<string, Record<BillingMetric, number>> = {
       free: {
@@ -404,7 +405,7 @@ export class EntitlementsService {
   /**
    * Get plan overage rates (placeholder - would be from config)
    */
-  private static async getPlanOverageRates(planTier: string): Promise<Record<BillingMetric, number>> {
+  private async getPlanOverageRates(planTier: string): Promise<Record<BillingMetric, number>> {
     // This would come from a configuration service
     const overageRates: Record<string, Record<BillingMetric, number>> = {
       free: {

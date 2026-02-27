@@ -5,7 +5,7 @@
  * Core properties: deterministic, reproducible, append-only ledger.
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 import type { MeterKey } from "@shared/types/billing-events";
 import type { PriceVersion, MeterPricing } from "./PriceVersionService.js";
@@ -65,22 +65,17 @@ export interface RatingResult {
 // Service
 // ============================================================================
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-}
-
 class RatingEngine {
+  private supabase: SupabaseClient;
+
+  constructor(supabase: SupabaseClient) {
+    this.supabase = supabase;
+  }
   /**
    * Rate usage for a subscription period.
    * Deterministic: same inputs always produce same outputs.
    */
   async rateSubscriptionPeriod(context: RatingContext): Promise<RatingResult> {
-    this.requireSupabase();
 
     const { tenantId, subscriptionId, priceVersion, usageAggregates } = context;
 
@@ -220,7 +215,7 @@ class RatingEngine {
   private async storeRatedLineItems(lineItems: RatedLineItem[]): Promise<void> {
     if (lineItems.length === 0) return;
 
-    const { error } = await supabase!
+    const { error } = await this.supabase
       .from("rated_ledger")
       .insert(lineItems.map(item => ({
         id: item.id,
@@ -261,9 +256,7 @@ class RatingEngine {
     periodStart: Date,
     periodEnd: Date
   ): Promise<RatedLineItem[]> {
-    this.requireSupabase();
-
-    const { data, error } = await supabase!
+    const { data, error } = await this.supabase
       .from("rated_ledger")
       .select("*")
       .eq("tenant_id", tenantId)
@@ -296,11 +289,6 @@ class RatingEngine {
     return this.rateSubscriptionPeriod(context);
   }
 
-  private requireSupabase(): asserts this is { supabase: SupabaseClient } {
-    if (!supabase) {
-      throw new Error("Supabase not configured for RatingEngine");
-    }
-  }
 }
 
-export default new RatingEngine();
+export default RatingEngine;

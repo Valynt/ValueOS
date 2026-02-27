@@ -4,20 +4,21 @@
  */
 
 import express, { Request, Response } from "express";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../../lib/logger.js";
 import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware.js";
+import { createRequestSupabaseClient } from "../../lib/supabase.js";
 
 const router = express.Router();
 const logger = createLogger({ component: "UsageEventsAPI" });
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase: SupabaseClient | null = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+function getClientFromReq(req: Request): SupabaseClient {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new Error("Missing authorization header");
+  }
+  const token = authHeader.slice(7).trim();
+  return createRequestSupabaseClient(token);
 }
 
 // Request sanitization
@@ -55,14 +56,17 @@ interface UsageEventRequest {
  */
 router.post("/", async (req: Request, res: Response) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: "Billing service not configured" });
-    }
-
     // Extract tenant from auth context (assuming middleware sets this)
     const tenantId = (req as any).tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Unauthorized - no tenant context" });
+    }
+
+    let supabase: SupabaseClient;
+    try {
+      supabase = getClientFromReq(req);
+    } catch {
+      return res.status(503).json({ error: "Billing service not configured" });
     }
 
     const event: UsageEventRequest = req.body;
@@ -170,13 +174,16 @@ router.post("/", async (req: Request, res: Response) => {
  */
 router.post("/batch", async (req: Request, res: Response) => {
   try {
-    if (!supabase) {
-      return res.status(503).json({ error: "Billing service not configured" });
-    }
-
     const tenantId = (req as any).tenantId;
     if (!tenantId) {
       return res.status(401).json({ error: "Unauthorized - no tenant context" });
+    }
+
+    let supabase: SupabaseClient;
+    try {
+      supabase = getClientFromReq(req);
+    } catch {
+      return res.status(503).json({ error: "Billing service not configured" });
     }
 
     const { events }: { events: UsageEventRequest[] } = req.body;
