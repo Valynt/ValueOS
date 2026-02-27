@@ -594,11 +594,34 @@ export class ValueLifecycleOrchestrator {
         await this.saga.initialize(valueCaseId, tenantId, correlationId);
       }
 
+      // Load domain pack KPI context if a pack is assigned to this case
+      let domainPackContext: string | undefined;
+      try {
+        const { data: caseData } = await supabase
+          .from('value_cases')
+          .select('domain_pack_id')
+          .eq('id', valueCaseId)
+          .single();
+
+        if (caseData?.domain_pack_id) {
+          const { DomainPackService } = await import('./domain-packs/DomainPackService.js');
+          const packService = new DomainPackService(supabase);
+          domainPackContext = await packService.getAgentKPIContext(caseData.domain_pack_id);
+        }
+      } catch (packErr) {
+        logger.warn('Failed to load domain pack context, proceeding without it', {
+          valueCaseId,
+          error: packErr instanceof Error ? packErr.message : String(packErr),
+        });
+      }
+
       // Execute the HypothesisLoop
       const result = await this.hypothesisLoop.run(
         valueCaseId,
         tenantId,
-        correlationId
+        correlationId,
+        undefined, // sse
+        domainPackContext
       );
 
       return {

@@ -50,6 +50,7 @@ import teamsRouter from "./api/teams.js";
 import integrationsRouter from "./api/integrations.js";
 import crmRouter from "./api/crm.js";
 import onboardingRouter from "./api/onboarding.js";
+import domainPacksRouter from "./api/domainPacks.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
@@ -416,6 +417,7 @@ app.use("/api/teams", teamsRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
 app.use("/api/onboarding", onboardingRouter);
+app.use("/api/v1/domain-packs", domainPacksRouter);
 
 // Mount checkpoint HITL endpoints
 const orchestrator = getUnifiedOrchestrator();

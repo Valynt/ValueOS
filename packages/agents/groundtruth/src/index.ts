@@ -130,7 +130,7 @@ export class GroundtruthAnalyzer {
 
       if (searchResults.length > 0) {
         ragContext = searchResults
-          .map(r => {
+          .map((r: { entry: { metadata: Record<string, unknown>; content: string } }) => {
             const tier = r.entry.metadata.tier || 'tier3';
             return `[Source (${tier}): ${r.entry.metadata.source_url || 'Unknown'}]\n${r.entry.content}`;
           })

@@ -315,15 +315,20 @@ export class HypothesisLoop {
   }
 
   /**
-   * Run the full hypothesis-first core loop
+   * Run the full hypothesis-first core loop.
+   *
+   * @param domainPackContext - Optional KPI vocabulary from a domain pack,
+   *   prepended to agent queries so they prefer industry-specific terminology.
    */
   async run(
     valueCaseId: string,
     tenantId: string,
     correlationId: string,
-    sse?: SSEEmitter
+    sse?: SSEEmitter,
+    domainPackContext?: string
   ): Promise<LoopResult> {
     const context = { organizationId: tenantId };
+    const packPrefix = domainPackContext ? `${domainPackContext}\n\n` : '';
     let revisionCount = 0;
     let hypotheses: ValueHypothesis[] = [];
     let valueTree: ValueTree | null = null;
@@ -338,7 +343,7 @@ export class HypothesisLoop {
         `${valueCaseId}:hypothesis`,
         async () => {
           const result = await this.opportunityAgent.analyzeOpportunities(
-            `Identify value drivers for case ${valueCaseId}`,
+            `${packPrefix}Identify value drivers for case ${valueCaseId}`,
             context
           );
           return result.opportunities.map((o, i) => ({
@@ -372,7 +377,7 @@ export class HypothesisLoop {
               ? `\nPrevious objections to address: ${allObjections.map((o) => o.description).join('; ')}`
               : '';
             return this.financialModelingAgent.analyzeFinancialModels(
-              `Build value tree for hypotheses: ${hypothesisContext}${objectionContext}`,
+              `${packPrefix}Build value tree for hypotheses: ${hypothesisContext}${objectionContext}`,
               context
             );
           },
@@ -408,7 +413,7 @@ export class HypothesisLoop {
           `${valueCaseId}:evidence:${revisionCount}`,
           async () => {
             return this.groundTruthAgent.analyzeGroundtruth(
-              `Retrieve evidence for value tree: ${JSON.stringify(valueTree)}`,
+              `${packPrefix}Retrieve evidence for value tree: ${JSON.stringify(valueTree)}`,
               context
             );
           },
@@ -434,7 +439,7 @@ export class HypothesisLoop {
           `${valueCaseId}:narrative:${revisionCount}`,
           async () => {
             return this.narrativeAgent.analyzeNarrative(
-              `Create executive narrative for value tree: ${JSON.stringify(valueTree)} with evidence: ${JSON.stringify(evidenceBundle)}`,
+              `${packPrefix}Create executive narrative for value tree: ${JSON.stringify(valueTree)} with evidence: ${JSON.stringify(evidenceBundle)}`,
               context
             );
           },
@@ -486,9 +491,8 @@ export class HypothesisLoop {
           this.emitProgress(sse, 6, 'Revision', 'running', `Revision cycle ${revisionCount + 1}`);
           revisionCount++;
 
-          // Transition back to DRAFTING via feedback
-          await this.saga.transition(valueCaseId, SagaTrigger.FEEDBACK_RECEIVED, correlationId);
-          await this.saga.transition(valueCaseId, SagaTrigger.USER_FEEDBACK, correlationId);
+          // Direct transition COMPOSING → DRAFTING via REDTEAM_OBJECTION
+          await this.saga.transition(valueCaseId, SagaTrigger.REDTEAM_OBJECTION, correlationId);
 
           this.emitProgress(sse, 6, 'Revision', 'completed', `Re-entering at DRAFTING`);
           // Loop continues
