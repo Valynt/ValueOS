@@ -1,23 +1,19 @@
 /**
  * Phase 2: Approval API Endpoints
- * 
+ *
  * Handles approval workflow for agent actions requiring human oversight.
  */
 
-import { Request, Response, Router } from 'express';
-import { createClient } from '@supabase/supabase-js';
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
+import { Request, Response } from 'express';
+import { createSecureRouter } from '../middleware/secureRouter.js'
+import { requireAuth } from '../middleware/auth.js'
+import { tenantContextMiddleware } from '../middleware/tenantContext.js'
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 import { logger } from '../utils/logger.js'
 import { auditBulkDelete } from '../middleware/auditHooks.js'
 
-const router = Router();
-router.use(requestAuditMiddleware());
-
-// Initialize Supabase client (server-side)
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-);
+const router = createSecureRouter("strict");
+router.use(requireAuth, tenantContextMiddleware());
 
 const withRequestContext = (req: Request, meta?: Record<string, unknown>) => ({
   requestId: (req as any).requestId,
@@ -46,6 +42,8 @@ router.post('/request', async (req: Request, res: Response) => {
         error: 'Missing required fields: agentName, action',
       });
     }
+
+    const supabase = getRequestSupabaseClient(req);
 
     // Create approval request via database function
     const { data, error } = await supabase.rpc('create_approval_request', {
@@ -80,6 +78,13 @@ router.post('/request', async (req: Request, res: Response) => {
  */
 router.get('/pending', async (req: Request, res: Response) => {
   try {
+    const tenantId = (req as any).tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const supabase = getRequestSupabaseClient(req);
+
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*')
@@ -110,6 +115,8 @@ router.get('/my-requests', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    const supabase = getRequestSupabaseClient(req);
+
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*, approvals(*)')
@@ -135,6 +142,8 @@ router.post('/:requestId/approve', async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
     const { secondApproverEmail, notes } = req.body;
+
+    const supabase = getRequestSupabaseClient(req);
 
     // Approve via database function
     const { data, error } = await supabase.rpc('approve_request', {
@@ -188,6 +197,8 @@ router.post('/:requestId/reject', async (req: Request, res: Response) => {
     const { requestId } = req.params;
     const { notes } = req.body;
 
+    const supabase = getRequestSupabaseClient(req);
+
     // Reject via database function
     const { data, error } = await supabase.rpc('reject_request', {
       p_request_id: requestId,
@@ -216,6 +227,8 @@ router.get('/:requestId', async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
 
+    const supabase = getRequestSupabaseClient(req);
+
     const { data, error } = await supabase
       .from('approval_requests')
       .select('*, approvals(*)')
@@ -243,6 +256,8 @@ router.get('/:requestId', async (req: Request, res: Response) => {
 router.delete('/:requestId', auditBulkDelete('approval_request'), async (req: Request, res: Response) => {
   try {
     const { requestId } = req.params;
+
+    const supabase = getRequestSupabaseClient(req);
 
     // Only allow cancellation of pending requests
     const { error } = await supabase
