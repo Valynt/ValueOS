@@ -111,12 +111,13 @@ const AVAILABLE_PLANS = [
  * GET /api/billing/plans
  * Get available subscription plans
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     // TODO: Filter plans based on tenant eligibility (e.g., enterprise plans may require approval)
@@ -129,6 +130,7 @@ router.get('/', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error fetching plans', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch plans' });
+    return;
   }
 });
 
@@ -136,25 +138,28 @@ router.get('/', async (req: Request, res: Response) => {
  * GET /api/billing/plans/:planId
  * Get specific plan details
  */
-router.get('/:planId', async (req: Request, res: Response) => {
+router.get('/:planId', async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = (req as any).tenantId;
     const planId = req.params.planId;
 
     if (!tenantId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
 
     const plan = AVAILABLE_PLANS.find(p => p.id === planId);
 
     if (!plan) {
-      return res.status(404).json({ error: 'Plan not found' });
+      res.status(404).json({ error: 'Plan not found' });
+      return;
     }
 
     res.json(plan);
   } catch (error) {
     logger.error('Error fetching plan details', error as Error, withRequestContext(req, res));
     res.status(500).json({ error: 'Failed to fetch plan details' });
+    return;
   }
 });
 

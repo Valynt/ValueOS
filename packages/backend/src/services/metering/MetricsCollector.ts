@@ -72,6 +72,36 @@ class MetricsCollector {
   /**
    * Get metric usage
    */
+  /**
+   * Get current usage for a single metric in the current billing period
+   */
+  async getCurrentUsage(tenantId: string, metric: BillingMetric): Promise<number> {
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return this.getMetricUsage(tenantId, metric, periodStart, periodEnd);
+  }
+
+  /**
+   * Get usage data for a date range, suitable for CSV/JSON export
+   */
+  async getUsageForExport(
+    tenantId: string,
+    range: { startDate: Date; endDate: Date }
+  ): Promise<Array<{ metric: string; usage: number; quota: number; period: string }>> {
+    const metrics: BillingMetric[] = ['llm_tokens', 'agent_executions', 'api_calls', 'storage_gb', 'user_seats'];
+    const period = `${range.startDate.toISOString().slice(0, 10)} - ${range.endDate.toISOString().slice(0, 10)}`;
+
+    const rows = await Promise.all(
+      metrics.map(async (metric) => {
+        const usage = await this.getMetricUsage(tenantId, metric, range.startDate, range.endDate);
+        const quota = await this.getMetricQuota(tenantId, metric);
+        return { metric, usage, quota, period };
+      })
+    );
+    return rows;
+  }
+
   private async getMetricUsage(
     tenantId: string,
     metric: BillingMetric,

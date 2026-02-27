@@ -4,12 +4,13 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
-import BillingApprovalService from './BillingApprovalService.js';
-import { EntitlementsService } from './EntitlementsService.js';
+import { BillingApprovalService } from './BillingApprovalService.js';
+import EntitlementSnapshotService from './EntitlementSnapshotService.js';
 import { createLogger } from '../../lib/logger.js';
 import { BillingMetric } from '../../config/billing.js';
 
 const logger = createLogger({ component: 'TempCapIncreaseService' });
+const billingApprovalService = new BillingApprovalService();
 
 export interface TempCapIncreaseRequest {
   id: string;
@@ -47,11 +48,11 @@ export interface TempCapIncrease {
 
 export class TempCapIncreaseService {
   private supabase: SupabaseClient;
-  private entitlementsService: EntitlementsService;
+  private snapshotService: EntitlementSnapshotService;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
-    this.entitlementsService = new EntitlementsService(supabase);
+    this.snapshotService = new EntitlementSnapshotService(supabase);
   }
   /**
    * Request temporary cap increase
@@ -67,15 +68,16 @@ export class TempCapIncreaseService {
   ): Promise<TempCapIncreaseRequest> {
     try {
       // Get current entitlement
-      const currentEntitlement = await this.entitlementsService.getEffectiveEntitlementSnapshot(tenantId);
+      const currentEntitlement = await this.snapshotService.getCurrentSnapshot(tenantId);
       if (!currentEntitlement) {
         throw new Error('No active entitlement found for tenant');
       }
 
-      const currentCap = currentEntitlement.quotas[metric];
-      if (!currentCap) {
+      const entitlement = currentEntitlement.entitlements[metric];
+      if (!entitlement) {
         throw new Error(`No quota defined for metric: ${metric}`);
       }
+      const currentCap = entitlement.included;
 
       const increasePercentage = ((requestedCap - currentCap) / currentCap) * 100;
 
@@ -93,20 +95,20 @@ export class TempCapIncreaseService {
       }
 
       // Create approval request
-      const approvalRequest = await BillingApprovalService.createApprovalRequest(
+      const approvalRequest = await billingApprovalService.createApprovalRequest(
         tenantId,
-        'cap_increase',
+        'increase_cap',
         {
           metric,
           current_cap: currentCap,
           requested_cap: requestedCap,
           increase_percentage: increasePercentage,
           duration_hours: durationHours,
-          business_impact: businessImpact
+          business_impact: businessImpact,
+          justification,
         },
         userId,
-        justification,
-        0 // No cost for cap increases
+        { estimatedCost: 0 }
       );
 
       // Create temp cap increase request record
@@ -123,7 +125,7 @@ export class TempCapIncreaseService {
           justification,
           business_impact: businessImpact,
           approval_status: 'pending',
-          approval_request_id: approvalRequest.id,
+          approval_request_id: approvalRequest.approval_id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -174,7 +176,7 @@ export class TempCapIncreaseService {
       }
 
       // Approve the underlying approval request
-      await BillingApprovalService.approveRequest(request.approval_request_id, approvedBy, 'Approved temporary cap increase');
+      await billingApprovalService.approveRequest(request.approval_request_id, approvedBy, 'Approved temporary cap increase');
 
       // Update request status
       const now = new Date();

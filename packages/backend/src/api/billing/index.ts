@@ -34,7 +34,7 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.manage'),
+  requirePermission('billing:manage'),
   subscriptionsRouter
 );
 router.use(
@@ -42,7 +42,7 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.read'),
+  requirePermission('billing:read'),
   usageRouter
 );
 router.use(
@@ -50,7 +50,7 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.read'),
+  requirePermission('billing:read'),
   summaryRouter
 );
 router.use(
@@ -58,7 +58,7 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.read'),
+  requirePermission('billing:read'),
   plansRouter
 );
 router.use(
@@ -66,7 +66,7 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.manage'),
+  requirePermission('billing:manage'),
   planChangeRouter
 );
 router.use(
@@ -74,7 +74,7 @@ router.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
-  requirePermission('billing.manage'),
+  requirePermission('billing:manage'),
   paymentMethodsRouter
 );
 

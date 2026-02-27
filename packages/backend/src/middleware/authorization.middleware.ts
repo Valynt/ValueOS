@@ -8,16 +8,18 @@ interface AuthContext {
 }
 
 export function requireTenantScope() {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const auth = req.auth as AuthContext;
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const auth = (req as Request & { auth?: AuthContext }).auth as AuthContext;
     const requestedTenantId = req.params.tenantId || req.body?.tenantId;
 
     if (!requestedTenantId) {
-      return res.status(400).json({ error: 'tenant_id required' });
+      res.status(400).json({ error: 'tenant_id required' });
+      return;
     }
 
     if (auth.tenantId !== requestedTenantId) {
-      return res.status(403).json({ error: 'tenant_access_denied' });
+      res.status(403).json({ error: 'tenant_access_denied' });
+      return;
     }
 
     next();
@@ -25,12 +27,13 @@ export function requireTenantScope() {
 }
 
 export function requireCustomerEntitlement() {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const auth = req.auth as AuthContext;
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const auth = (req as Request & { auth?: AuthContext }).auth as AuthContext;
     const requestedValueCaseId = req.params.valueCaseId || req.params.token; // For customer portal
 
     if (!auth.customerId) {
-      return res.status(403).json({ error: 'customer_context_required' });
+      res.status(403).json({ error: 'customer_context_required' });
+      return;
     }
 
     // Check if customer has access to this value case

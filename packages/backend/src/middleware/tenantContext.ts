@@ -95,10 +95,10 @@ export const tenantContextMiddleware = (enforce = true) => {
     let tctPayload: TCTPayload | null = null;
 
     if (authHeader) {
-      const token = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+      const token = Array.isArray(authHeader) ? authHeader[0] ?? '' : authHeader;
 
       try {
-        tctPayload = jwt.verify(token, tctSecret, { algorithms: ["HS256"] }) as TCTPayload;
+        tctPayload = jwt.verify(token, tctSecret, { algorithms: ["HS256"] }) as unknown as TCTPayload;
         const requestTenantId = (req as any).tenantId as string | undefined;
 
         if (requestTenantId && tctPayload.tid !== requestTenantId) {

@@ -148,9 +148,15 @@ export interface UsageAggregate {
   period_start: string;
   period_end: string;
   total_quantity: number;
+  total_amount: number;
   quota: number;
   overage: number;
   is_capped: boolean;
+  submitted_to_stripe?: boolean;
+  submitted_at?: string;
+  stripe_usage_record_id?: string;
+  subscription_item_id?: string;
+  idempotency_key?: string;
 }
 
 export interface UsageSummary {

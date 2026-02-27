@@ -10,7 +10,7 @@
     "apps/ValyntApp": { "budget": 4725, "nextTarget": 4680 },
     "packages/infra": { "budget": 6, "nextTarget": 5 },
     "packages/services": { "budget": 28, "nextTarget": 24 },
-    "packages/backend": { "budget": 4016, "nextTarget": 3960 },
+    "packages/backend": { "budget": 3602, "nextTarget": 3500 },
     "packages/mcp": { "budget": 468, "nextTarget": 450 },
     "packages/sdui": { "budget": 313, "nextTarget": 300 },
     "packages/shared": { "budget": 6, "nextTarget": 4 },

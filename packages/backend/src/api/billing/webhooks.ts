@@ -7,7 +7,7 @@ import express, { Request, Response } from 'express';
 import WebhookService from '../../services/billing/WebhookService.js';
 import { createLogger } from '@shared/lib/logger';
 import { recordStripeWebhook } from '../../metrics/billingMetrics.js';
-import { getSupabaseServerConfig } from '@shared/lib/env';
+import { getSupabaseConfig } from '@shared/lib/env';
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });
@@ -15,7 +15,7 @@ const logger = createLogger({ component: 'WebhooksAPI' });
 const WEBHOOK_PAYLOAD_LIMIT = '256kb';
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as Record<string, unknown>).requestId || res.locals.requestId,
+  requestId: (req as unknown as Record<string, unknown>).requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -26,28 +26,31 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
 router.post(
   '/stripe',
   express.raw({ type: 'application/json', limit: WEBHOOK_PAYLOAD_LIMIT }),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     try {
-      const { url, serviceRoleKey } = getSupabaseServerConfig();
+      const { url, serviceRoleKey } = getSupabaseConfig();
       if (!url || !serviceRoleKey) {
         logger.warn(
           'Webhook processing unavailable: server credentials not configured',
           withRequestContext(req, res)
         );
-        return res.status(503).json({ error: 'Service temporarily unavailable' });
+        res.status(503).json({ error: 'Service temporarily unavailable' });
+        return;
       }
 
       const signature = req.headers['stripe-signature'] as string;
 
       if (!signature) {
-        return res.status(400).json({ error: 'Bad request' });
+        res.status(400).json({ error: 'Bad request' });
+        return;
       }
 
       let event;
       try {
         event = WebhookService.verifySignature(req.body, signature);
       } catch {
-        return res.status(400).json({ error: 'Bad request' });
+        res.status(400).json({ error: 'Bad request' });
+        return;
       }
 
       recordStripeWebhook(event.type, 'received');
@@ -68,7 +71,8 @@ router.post(
           processingError instanceof Error ? processingError : undefined,
           withRequestContext(req, res, { eventId: event.id })
         );
-        return res.status(503).json({ error: 'Service temporarily unavailable. Please retry.' });
+        res.status(503).json({ error: 'Service temporarily unavailable. Please retry.' });
+        return;
       }
 
       res.json({ received: true, eventId: event.id });
@@ -79,6 +83,7 @@ router.post(
         withRequestContext(req, res)
       );
       res.status(500).json({ error: 'Internal server error' });
+      return;
     }
   }
 );

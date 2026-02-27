@@ -61,12 +61,14 @@ export interface WorkflowDAG {
   version?: string | number;
   stages: WorkflowStage[];
   transitions: WorkflowTransition[];
-  entry_stage: string;
+  entry_stage?: string;
   // Aliases for backward compatibility
   initial_stage?: string;
   final_stages?: string[];
-  exit_stages: string[];
-  metadata?: Record<string, any>;
+  exit_stages?: string[];
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ============================================================================

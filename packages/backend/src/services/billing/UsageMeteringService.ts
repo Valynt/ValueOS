@@ -4,6 +4,7 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import StripeService from './StripeService.js'
 import { UsageAggregate } from '../../types/billing';
 import { createLogger } from '../../lib/logger.js'
@@ -12,9 +13,13 @@ const logger = createLogger({ component: 'UsageMeteringService' });
 
 class UsageMeteringService {
   private supabase: SupabaseClient;
+  private stripeService: ReturnType<typeof StripeService.getInstance>;
+  private stripe: Stripe;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
+    this.stripeService = StripeService.getInstance();
+    this.stripe = this.stripeService.getClient();
   }
   // Per-tenant query cost tracking (in-memory, for demo; use Redis in prod)
   private static tenantQueryCosts: Map<string, { windowStart: number; cost: number }> = new Map();
@@ -39,8 +44,7 @@ class UsageMeteringService {
     entry.cost += cost;
     UsageMeteringService.tenantQueryCosts.set(tenantId, entry);
   }
-  private stripe = StripeService.getInstance().getClient();
-  private stripeService = StripeService.getInstance();
+  // stripe and stripeService initialized in constructor
 
   /**
    * Submit usage record to Stripe
@@ -66,6 +70,9 @@ class UsageMeteringService {
       });
 
       // Submit to Stripe with idempotency
+      if (!aggregate.subscription_item_id) {
+        throw new Error('subscription_item_id required for Stripe usage submission');
+      }
       const usageRecord = await this.stripe.subscriptionItems.createUsageRecord(
         aggregate.subscription_item_id,
         {
@@ -165,16 +172,12 @@ class UsageMeteringService {
    */
   async syncUsageFromStripe(
     subscriptionItemId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<any[]> {
+    _startDate: Date,
+    _endDate: Date
+  ): Promise<Stripe.UsageRecordSummary[]> {
     try {
       const usageRecords = await this.stripe.subscriptionItems.listUsageRecordSummaries(
-        subscriptionItemId,
-        {
-          starting_after: Math.floor(startDate.getTime() / 1000),
-          ending_before: Math.floor(endDate.getTime() / 1000),
-        }
+        subscriptionItemId
       );
 
       return usageRecords.data;

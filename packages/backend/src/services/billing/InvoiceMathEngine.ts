@@ -237,7 +237,7 @@ export class InvoiceMathEngine {
     overage: number
   ): string {
     const meterNames: Record<BillingMetric, string> = {
-      ai_tokens: 'AI Tokens',
+      llm_tokens: 'LLM Tokens',
       api_calls: 'API Calls',
       agent_executions: 'Agent Executions',
       storage_gb: 'Storage (GB)',

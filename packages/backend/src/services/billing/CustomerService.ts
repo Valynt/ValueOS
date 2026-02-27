@@ -4,6 +4,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import StripeService from './StripeService.js'
 import { BillingCustomer } from '../../types/billing';
 import { createLogger } from '../../lib/logger.js'
@@ -11,7 +12,14 @@ import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: 'CustomerService' });
 
-const supabase: SupabaseClient | null = supabaseClient ?? null;
+// Billing requires a configured database — fail fast if missing
+function requireSupabase(): SupabaseClient {
+  if (!supabaseClient) {
+    throw new Error('Billing service requires Supabase to be configured');
+  }
+  return supabaseClient;
+}
+const supabase = supabaseClient;
 
 class CustomerService {
   private stripe: Stripe;
