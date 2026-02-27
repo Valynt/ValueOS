@@ -9,8 +9,9 @@
     "sourceMap": true,
     "outDir": "dist",
     "rootDir": "src",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
     "target": "ES2022",
     "skipLibCheck": true
   },
