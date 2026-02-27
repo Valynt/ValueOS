@@ -1,30 +1,33 @@
+"use strict";
 /**
  * Server Configuration
  *
  * Server-only configuration that reads secure environment variables.
  */
-import { z } from "zod";
-const ServerConfigSchema = z.object({
-    database: z.object({
-        url: z.string(),
-        poolSize: z.number().default(10),
-        timeout: z.number().default(30000),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getDatabaseConfig = exports.getServerBillingConfig = exports.getServerWebhookConfig = exports.getServerSupabaseConfig = exports.getServerConfig = exports.serverConfig = void 0;
+const zod_1 = require("zod");
+const ServerConfigSchema = zod_1.z.object({
+    database: zod_1.z.object({
+        url: zod_1.z.string(),
+        poolSize: zod_1.z.number().default(10),
+        timeout: zod_1.z.number().default(30000),
     }),
-    supabase: z.object({
-        url: z.string().optional(),
-        anonKey: z.string().optional(),
-        serviceRoleKey: z.string().optional(),
+    supabase: zod_1.z.object({
+        url: zod_1.z.string().optional(),
+        anonKey: zod_1.z.string().optional(),
+        serviceRoleKey: zod_1.z.string().optional(),
     }),
-    security: z.object({
-        jwtSecret: z.string().optional(),
-        encryptionKey: z.string().optional(),
+    security: zod_1.z.object({
+        jwtSecret: zod_1.z.string().optional(),
+        encryptionKey: zod_1.z.string().optional(),
     }),
-    billing: z.object({
-        stripeWebhookSecret: z.string().optional(),
+    billing: zod_1.z.object({
+        stripeWebhookSecret: zod_1.z.string().optional(),
     }),
-    webhooks: z.object({
-        alertWebhookUrl: z.string().url().optional(),
-        slackWebhookUrl: z.string().url().optional(),
+    webhooks: zod_1.z.object({
+        alertWebhookUrl: zod_1.z.string().url().optional(),
+        slackWebhookUrl: zod_1.z.string().url().optional(),
     }),
 });
 function parseNumber(value) {
@@ -34,9 +37,9 @@ function parseNumber(value) {
     return Number.isFinite(parsed) ? parsed : undefined;
 }
 class ServerConfigLoader {
-    constructor() {
-        this.config = null;
-    }
+    static instance;
+    config = null;
+    constructor() { }
     static getInstance() {
         if (!ServerConfigLoader.instance) {
             ServerConfigLoader.instance = new ServerConfigLoader();
@@ -86,7 +89,7 @@ class ServerConfigLoader {
             return { valid: true, errors: [] };
         }
         catch (error) {
-            if (error instanceof z.ZodError) {
+            if (error instanceof zod_1.z.ZodError) {
                 return {
                     valid: false,
                     errors: error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
@@ -99,10 +102,15 @@ class ServerConfigLoader {
         }
     }
 }
-export const serverConfig = ServerConfigLoader.getInstance();
-export const getServerConfig = () => serverConfig.load();
-export const getServerSupabaseConfig = () => getServerConfig().supabase;
-export const getServerWebhookConfig = () => getServerConfig().webhooks;
-export const getServerBillingConfig = () => getServerConfig().billing;
-export const getDatabaseConfig = () => getServerConfig().database;
+exports.serverConfig = ServerConfigLoader.getInstance();
+const getServerConfig = () => exports.serverConfig.load();
+exports.getServerConfig = getServerConfig;
+const getServerSupabaseConfig = () => (0, exports.getServerConfig)().supabase;
+exports.getServerSupabaseConfig = getServerSupabaseConfig;
+const getServerWebhookConfig = () => (0, exports.getServerConfig)().webhooks;
+exports.getServerWebhookConfig = getServerWebhookConfig;
+const getServerBillingConfig = () => (0, exports.getServerConfig)().billing;
+exports.getServerBillingConfig = getServerBillingConfig;
+const getDatabaseConfig = () => (0, exports.getServerConfig)().database;
+exports.getDatabaseConfig = getDatabaseConfig;
 //# sourceMappingURL=server-config.js.map

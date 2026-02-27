@@ -1,14 +1,16 @@
+"use strict";
 /**
  * Health check metrics collector
  * Tracks latency and failure rates for health checks
  */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.healthMetrics = void 0;
+exports.withMetrics = withMetrics;
 class HealthMetricsCollector {
-    constructor() {
-        this.metrics = [];
-        this.healthHistory = [];
-        this.maxMetrics = 1000; // Keep last 1000 metrics
-        this.maxHistory = 100; // Keep last 100 health snapshots
-    }
+    metrics = [];
+    healthHistory = [];
+    maxMetrics = 1000; // Keep last 1000 metrics
+    maxHistory = 100; // Keep last 100 health snapshots
     recordMetric(service, latency, success, error) {
         const metric = {
             service,
@@ -115,11 +117,11 @@ class HealthMetricsCollector {
     }
 }
 // Global metrics collector
-export const healthMetrics = new HealthMetricsCollector();
+exports.healthMetrics = new HealthMetricsCollector();
 /**
  * Wrapper to track metrics for health check functions
  */
-export function withMetrics(service, fn) {
+function withMetrics(service, fn) {
     return (...args) => {
         const startTime = Date.now();
         try {
@@ -128,24 +130,24 @@ export function withMetrics(service, fn) {
                 return result
                     .then((res) => {
                     const latency = Date.now() - startTime;
-                    healthMetrics.recordMetric(service, latency, res.healthy);
+                    exports.healthMetrics.recordMetric(service, latency, res.healthy);
                     return res;
                 })
                     .catch((error) => {
                     const latency = Date.now() - startTime;
-                    healthMetrics.recordMetric(service, latency, false, error.message);
+                    exports.healthMetrics.recordMetric(service, latency, false, error.message);
                     throw error;
                 });
             }
             else {
                 const latency = Date.now() - startTime;
-                healthMetrics.recordMetric(service, latency, result.healthy);
+                exports.healthMetrics.recordMetric(service, latency, result.healthy);
                 return result;
             }
         }
         catch (error) {
             const latency = Date.now() - startTime;
-            healthMetrics.recordMetric(service, latency, false, error instanceof Error ? error.message : "Unknown error");
+            exports.healthMetrics.recordMetric(service, latency, false, error instanceof Error ? error.message : "Unknown error");
             throw error;
         }
     };

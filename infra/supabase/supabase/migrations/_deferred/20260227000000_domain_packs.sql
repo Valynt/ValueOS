@@ -153,19 +153,19 @@ DROP POLICY IF EXISTS domain_packs_select_policy ON public.domain_packs;
 CREATE POLICY domain_packs_select_policy ON public.domain_packs
     FOR SELECT USING (
         tenant_id IS NULL
-        OR tenant_id = auth.uid()
+        OR security.user_has_tenant_access(tenant_id)
     );
 
 DROP POLICY IF EXISTS domain_packs_insert_policy ON public.domain_packs;
 CREATE POLICY domain_packs_insert_policy ON public.domain_packs
     FOR INSERT WITH CHECK (
-        tenant_id = auth.uid()
+        security.user_has_tenant_access(tenant_id)
     );
 
 DROP POLICY IF EXISTS domain_packs_update_policy ON public.domain_packs;
 CREATE POLICY domain_packs_update_policy ON public.domain_packs
     FOR UPDATE USING (
-        tenant_id = auth.uid()
+        security.user_has_tenant_access(tenant_id)
     );
 
 -- domain_pack_kpis: accessible if the parent pack is accessible
@@ -175,7 +175,7 @@ CREATE POLICY domain_pack_kpis_select_policy ON public.domain_pack_kpis
         EXISTS (
             SELECT 1 FROM public.domain_packs dp
             WHERE dp.id = pack_id
-              AND (dp.tenant_id IS NULL OR dp.tenant_id = auth.uid())
+              AND (dp.tenant_id IS NULL OR security.user_has_tenant_access(dp.tenant_id))
         )
     );
 
@@ -185,7 +185,7 @@ CREATE POLICY domain_pack_kpis_insert_policy ON public.domain_pack_kpis
         EXISTS (
             SELECT 1 FROM public.domain_packs dp
             WHERE dp.id = pack_id
-              AND dp.tenant_id = auth.uid()
+              AND security.user_has_tenant_access(dp.tenant_id)
         )
     );
 
@@ -196,7 +196,7 @@ CREATE POLICY domain_pack_assumptions_select_policy ON public.domain_pack_assump
         EXISTS (
             SELECT 1 FROM public.domain_packs dp
             WHERE dp.id = pack_id
-              AND (dp.tenant_id IS NULL OR dp.tenant_id = auth.uid())
+              AND (dp.tenant_id IS NULL OR security.user_has_tenant_access(dp.tenant_id))
         )
     );
 
@@ -206,6 +206,6 @@ CREATE POLICY domain_pack_assumptions_insert_policy ON public.domain_pack_assump
         EXISTS (
             SELECT 1 FROM public.domain_packs dp
             WHERE dp.id = pack_id
-              AND dp.tenant_id = auth.uid()
+              AND security.user_has_tenant_access(dp.tenant_id)
         )
     );

@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Red Team Agent
  *
@@ -5,23 +6,25 @@
  * Challenges assumptions, questions data sources, probes for math hallucinations.
  * Produces structured Objection[] with severity and category.
  */
-import { z } from 'zod';
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RedTeamAgent = exports.RedTeamOutputSchema = exports.ObjectionSchema = void 0;
+const zod_1 = require("zod");
 // ============================================================================
 // Zod Schemas
 // ============================================================================
-export const ObjectionSchema = z.object({
-    id: z.string(),
-    targetComponent: z.string(),
-    severity: z.enum(['low', 'medium', 'high', 'critical']),
-    category: z.enum(['assumption', 'data_quality', 'math_error', 'missing_evidence', 'logical_gap']),
-    description: z.string(),
-    suggestedRevision: z.string().optional(),
+exports.ObjectionSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    targetComponent: zod_1.z.string(),
+    severity: zod_1.z.enum(['low', 'medium', 'high', 'critical']),
+    category: zod_1.z.enum(['assumption', 'data_quality', 'math_error', 'missing_evidence', 'logical_gap']),
+    description: zod_1.z.string(),
+    suggestedRevision: zod_1.z.string().optional(),
 });
-export const RedTeamOutputSchema = z.object({
-    objections: z.array(ObjectionSchema),
-    summary: z.string(),
-    hasCritical: z.boolean(),
-    timestamp: z.string(),
+exports.RedTeamOutputSchema = zod_1.z.object({
+    objections: zod_1.z.array(exports.ObjectionSchema),
+    summary: zod_1.z.string(),
+    hasCritical: zod_1.z.boolean(),
+    timestamp: zod_1.z.string(),
 });
 // ============================================================================
 // System Prompt
@@ -55,7 +58,7 @@ Be thorough but fair. Only mark objections as "critical" if they would materiall
 // ============================================================================
 // RedTeamAgent
 // ============================================================================
-export class RedTeamAgent {
+class RedTeamAgent {
     llmGateway;
     constructor(llmGateway) {
         this.llmGateway = llmGateway;
@@ -124,11 +127,12 @@ export class RedTeamAgent {
             jsonStr = jsonMatch[1];
         }
         const raw = JSON.parse(jsonStr);
-        const validated = RedTeamOutputSchema.parse({
+        const validated = exports.RedTeamOutputSchema.parse({
             ...raw,
             timestamp: raw.timestamp ?? new Date().toISOString(),
         });
         return validated;
     }
 }
+exports.RedTeamAgent = RedTeamAgent;
 //# sourceMappingURL=RedTeamAgent.js.map

@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Ground Truth Dataset: Healthcare Revenue Cycle
  *
@@ -5,15 +6,17 @@
  * and improving bed utilization through revenue cycle automation
  * and predictive discharge planning.
  */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.healthcareRevenueCycleScenario = exports.expectedStateTransitions = exports.provenanceRecords = exports.objections = exports.narrativeBlock = exports.claimConfidences = exports.valueTree = exports.evidenceBundle = exports.citations = exports.classifiedEvidence = exports.evidenceItems = exports.hypotheses = exports.scenarioMeta = exports.CORRELATION_ID = exports.TENANT_ID = exports.VALUE_CASE_ID = exports.SCENARIO_ID = void 0;
 // ============================================================================
 // Scenario Metadata
 // ============================================================================
-export const SCENARIO_ID = 'gt-healthcare-revcycle-001';
-export const VALUE_CASE_ID = '550e8400-e29b-41d4-a716-446655440003';
-export const TENANT_ID = 'tenant-regional-health-001';
-export const CORRELATION_ID = '660e8400-e29b-41d4-a716-446655440003';
-export const scenarioMeta = {
-    id: SCENARIO_ID,
+exports.SCENARIO_ID = 'gt-healthcare-revcycle-001';
+exports.VALUE_CASE_ID = '550e8400-e29b-41d4-a716-446655440003';
+exports.TENANT_ID = 'tenant-regional-health-001';
+exports.CORRELATION_ID = '660e8400-e29b-41d4-a716-446655440003';
+exports.scenarioMeta = {
+    id: exports.SCENARIO_ID,
     name: 'Healthcare Revenue Cycle Optimization',
     industry: 'Healthcare / Hospital Network',
     companyProfile: {
@@ -33,7 +36,7 @@ export const scenarioMeta = {
 // ============================================================================
 // Hypotheses
 // ============================================================================
-export const hypotheses = [
+exports.hypotheses = [
     {
         id: 'hyp_201',
         description: 'Reducing claim denial rate from 12% to 5% through automated prior authorization and coding accuracy improvements',
@@ -59,7 +62,7 @@ export const hypotheses = [
 // ============================================================================
 // Evidence Items
 // ============================================================================
-export const evidenceItems = [
+exports.evidenceItems = [
     {
         id: 'ev_201',
         sourceType: 'annual_report',
@@ -126,15 +129,15 @@ export const evidenceItems = [
 // ============================================================================
 // Classified Evidence
 // ============================================================================
-export const classifiedEvidence = [
-    { ...evidenceItems[0], tier: 1, weight: 1.0, maxAgeDays: 365 },
-    { ...evidenceItems[1], tier: 2, weight: 0.7, maxAgeDays: 730 },
-    { ...evidenceItems[2], tier: 1, weight: 1.0, maxAgeDays: 365 },
-    { ...evidenceItems[3], tier: 2, weight: 0.7, maxAgeDays: 730 },
-    { ...evidenceItems[4], tier: 3, weight: 0.4, maxAgeDays: 1095 },
-    { ...evidenceItems[5], tier: 2, weight: 0.7, maxAgeDays: 730 },
+exports.classifiedEvidence = [
+    { ...exports.evidenceItems[0], tier: 1, weight: 1.0, maxAgeDays: 365 },
+    { ...exports.evidenceItems[1], tier: 2, weight: 0.7, maxAgeDays: 730 },
+    { ...exports.evidenceItems[2], tier: 1, weight: 1.0, maxAgeDays: 365 },
+    { ...exports.evidenceItems[3], tier: 2, weight: 0.7, maxAgeDays: 730 },
+    { ...exports.evidenceItems[4], tier: 3, weight: 0.4, maxAgeDays: 1095 },
+    { ...exports.evidenceItems[5], tier: 2, weight: 0.7, maxAgeDays: 730 },
 ];
-export const citations = classifiedEvidence.map((ev) => ({
+exports.citations = exports.classifiedEvidence.map((ev) => ({
     evidenceId: ev.id,
     sourceName: ev.sourceName,
     sourceUrl: ev.sourceUrl,
@@ -142,18 +145,18 @@ export const citations = classifiedEvidence.map((ev) => ({
     excerpt: ev.content.substring(0, 200),
     retrievedAt: ev.retrievedAt,
 }));
-export const evidenceBundle = {
-    valueCaseId: VALUE_CASE_ID,
-    items: classifiedEvidence,
-    citations,
+exports.evidenceBundle = {
+    valueCaseId: exports.VALUE_CASE_ID,
+    items: exports.classifiedEvidence,
+    citations: exports.citations,
     timestamp: '2026-01-25T16:00:00Z',
 };
 // ============================================================================
 // Value Tree
 // ============================================================================
-export const valueTree = {
-    id: `vt_${VALUE_CASE_ID}_0`,
-    valueCaseId: VALUE_CASE_ID,
+exports.valueTree = {
+    id: `vt_${exports.VALUE_CASE_ID}_0`,
+    valueCaseId: exports.VALUE_CASE_ID,
     nodes: [
         {
             id: 'node_root',
@@ -197,7 +200,7 @@ export const valueTree = {
 // ============================================================================
 // Confidence Scores
 // ============================================================================
-export const claimConfidences = [
+exports.claimConfidences = [
     {
         claimId: 'node_denials',
         score: {
@@ -208,7 +211,7 @@ export const claimConfidences = [
             tier: 1,
             evidenceId: 'ev_201',
         },
-        citations: citations.filter((c) => ['ev_201', 'ev_202', 'ev_203'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_201', 'ev_202', 'ev_203'].includes(c.evidenceId)),
     },
     {
         claimId: 'node_beds',
@@ -220,7 +223,7 @@ export const claimConfidences = [
             tier: 2,
             evidenceId: 'ev_204',
         },
-        citations: citations.filter((c) => ['ev_201', 'ev_204', 'ev_206'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_201', 'ev_204', 'ev_206'].includes(c.evidenceId)),
     },
     {
         claimId: 'node_cash',
@@ -232,15 +235,15 @@ export const claimConfidences = [
             tier: 2,
             evidenceId: 'ev_205',
         },
-        citations: citations.filter((c) => ['ev_201', 'ev_205'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_201', 'ev_205'].includes(c.evidenceId)),
     },
 ];
 // ============================================================================
 // Narrative Block
 // ============================================================================
-export const narrativeBlock = {
-    id: `narr_${VALUE_CASE_ID}_0`,
-    valueCaseId: VALUE_CASE_ID,
+exports.narrativeBlock = {
+    id: `narr_${exports.VALUE_CASE_ID}_0`,
+    valueCaseId: exports.VALUE_CASE_ID,
     title: 'Recovering $26.5M Through Revenue Cycle Optimization',
     executiveSummary: 'Regional Health Partners\' 12% denial rate and 72% bed utilization represent $26.5M in recoverable value. ' +
         'AI-driven revenue cycle management targets $13.5M in denied claims recovery, $8.2M in bed utilization revenue, ' +
@@ -276,7 +279,7 @@ export const narrativeBlock = {
 // ============================================================================
 // Red Team Objections — includes a CRITICAL objection
 // ============================================================================
-export const objections = [
+exports.objections = [
     {
         id: 'obj_201',
         targetComponent: 'node_denials',
@@ -320,9 +323,9 @@ export const objections = [
 // ============================================================================
 // Provenance Records
 // ============================================================================
-export const provenanceRecords = [
+exports.provenanceRecords = [
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_denials',
         dataSource: 'Regional Health Partners Annual Report FY2025 — $45M denied claims, 12% rate',
         evidenceTier: 1,
@@ -332,7 +335,7 @@ export const provenanceRecords = [
         confidenceScore: 0.80,
     },
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_beds',
         dataSource: 'Regional Health Annual Report + Gartner AI Healthcare RCM 2025',
         evidenceTier: 2,
@@ -342,7 +345,7 @@ export const provenanceRecords = [
         confidenceScore: 0.70,
     },
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_cash',
         dataSource: 'Regional Health Annual Report — $680M revenue, 45 days AR',
         evidenceTier: 1,
@@ -355,7 +358,7 @@ export const provenanceRecords = [
 // ============================================================================
 // Expected State Transitions — includes revision due to critical objection
 // ============================================================================
-export const expectedStateTransitions = [
+exports.expectedStateTransitions = [
     { from: 'NONE', to: 'INITIATED', trigger: 'INITIALIZATION' },
     { from: 'INITIATED', to: 'DRAFTING', trigger: 'OPPORTUNITY_INGESTED' },
     { from: 'DRAFTING', to: 'VALIDATING', trigger: 'HYPOTHESIS_CONFIRMED' },
@@ -372,22 +375,22 @@ export const expectedStateTransitions = [
 // ============================================================================
 // Full Scenario Export
 // ============================================================================
-export const healthcareRevenueCycleScenario = {
-    meta: scenarioMeta,
-    valueCaseId: VALUE_CASE_ID,
-    tenantId: TENANT_ID,
-    correlationId: CORRELATION_ID,
-    hypotheses,
-    evidenceItems,
-    classifiedEvidence,
-    citations,
-    evidenceBundle,
-    valueTree,
-    claimConfidences,
-    narrativeBlock,
-    objections,
-    provenanceRecords,
-    expectedStateTransitions,
+exports.healthcareRevenueCycleScenario = {
+    meta: exports.scenarioMeta,
+    valueCaseId: exports.VALUE_CASE_ID,
+    tenantId: exports.TENANT_ID,
+    correlationId: exports.CORRELATION_ID,
+    hypotheses: exports.hypotheses,
+    evidenceItems: exports.evidenceItems,
+    classifiedEvidence: exports.classifiedEvidence,
+    citations: exports.citations,
+    evidenceBundle: exports.evidenceBundle,
+    valueTree: exports.valueTree,
+    claimConfidences: exports.claimConfidences,
+    narrativeBlock: exports.narrativeBlock,
+    objections: exports.objections,
+    provenanceRecords: exports.provenanceRecords,
+    expectedStateTransitions: exports.expectedStateTransitions,
     expectsRevision: true,
     expectedRevisionCount: 1,
 };

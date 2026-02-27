@@ -1,25 +1,12 @@
-/**
- * Typed Domain Events
- *
- * Type-safe event contracts for cross-package communication.
- * Uses discriminated unions for exhaustive pattern matching.
- *
- * @example
- * function handleEvent(event: DomainEvent) {
- *   switch (event.type) {
- *     case 'user.created':
- *       logger.info(event.payload.userId);
- *       break;
- *     case 'agent.task.completed':
- *       logger.info(event.payload.result);
- *       break;
- *   }
- * }
- */
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EVENT_TOPICS = void 0;
+exports.createEvent = createEvent;
+exports.createBaseEvent = createBaseEvent;
 /**
  * Helper to create typed events
  */
-export function createEvent(type, payload, meta = {}) {
+function createEvent(type, payload, meta = {}) {
     return {
         type,
         payload,
@@ -34,8 +21,9 @@ export function createEvent(type, payload, meta = {}) {
 /**
  * Event topics for message bus routing
  */
-export const EVENT_TOPICS = {
+exports.EVENT_TOPICS = {
     SAGA_COMMANDS: "saga.commands",
+    SAGA_EVENTS: "saga.events",
     WORKFLOW_EVENTS: "workflow.events",
     AGENT_REQUESTS: "agent.requests",
     AGENT_RESPONSES: "agent.responses",
@@ -44,7 +32,7 @@ export const EVENT_TOPICS = {
 /**
  * Helper to create base events
  */
-export function createBaseEvent(type, payload, meta = {}) {
+function createBaseEvent(type, payload, meta = {}) {
     return createEvent(type, payload, meta);
 }
 //# sourceMappingURL=events.js.map

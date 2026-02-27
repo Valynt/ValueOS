@@ -1,3 +1,4 @@
+"use strict";
 /**
  * SDUI Schema Migrations
  *
@@ -44,9 +45,19 @@
  *
  * ──────────────────────────────────────────────────────────────────
  */
-import logger from "../../shared/src/lib/logger.js";
-import { validateSDUISchema } from "./schema";
-import { createHash } from "crypto";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.migrationRunner = exports.MigrationRunner = void 0;
+exports.migrateSchema = migrateSchema;
+exports.getAvailableMigrations = getAvailableMigrations;
+exports.canMigrate = canMigrate;
+exports.getMigrationPath = getMigrationPath;
+exports.validateMigration = validateMigration;
+const logger_js_1 = __importDefault(require("../../shared/src/lib/logger.js"));
+const schema_1 = require("./schema");
+const crypto_1 = require("crypto");
 /**
  * Registry of all schema migrations
  */
@@ -205,7 +216,7 @@ function rollbackV2ToV1(schema) {
  *
  * Applies migrations sequentially from current version to target version
  */
-export function migrateSchema(schema, targetVersion) {
+function migrateSchema(schema, targetVersion) {
     const currentVersion = schema.version || 1;
     // No migration needed
     if (currentVersion === targetVersion) {
@@ -213,7 +224,7 @@ export function migrateSchema(schema, targetVersion) {
     }
     // Downgrade not supported - return as-is with warning
     if (currentVersion > targetVersion) {
-        logger.warn("Schema downgrade requested but not supported", {
+        logger_js_1.default.warn("Schema downgrade requested but not supported", {
             currentVersion,
             targetVersion,
         });
@@ -228,13 +239,13 @@ export function migrateSchema(schema, targetVersion) {
     for (let v = currentVersion; v < targetVersion; v++) {
         const migration = migrations.find((m) => m.fromVersion === v && m.toVersion === v + 1);
         if (!migration) {
-            logger.error("No migration found", {
+            logger_js_1.default.error("No migration found", {
                 fromVersion: v,
                 toVersion: v + 1,
             });
             throw new Error(`No migration found from version ${v} to ${v + 1}`);
         }
-        logger.info("Applying schema migration", {
+        logger_js_1.default.info("Applying schema migration", {
             fromVersion: migration.fromVersion,
             toVersion: migration.toVersion,
             description: migration.description,
@@ -249,7 +260,7 @@ export function migrateSchema(schema, targetVersion) {
  *
  * Provides comprehensive migration execution with validation, rollback, and checkpointing
  */
-export class MigrationRunner {
+class MigrationRunner {
     checkpoints = new Map();
     maxCheckpoints = 10; // Keep last 10 checkpoints
     /**
@@ -259,7 +270,7 @@ export class MigrationRunner {
         const startTime = Date.now();
         const originalHash = this.calculateSchemaHash(schema);
         const fromVersion = schema.version || 1;
-        logger.info("Starting schema migration", {
+        logger_js_1.default.info("Starting schema migration", {
             fromVersion,
             targetVersion,
             schemaHash: originalHash,
@@ -287,14 +298,14 @@ export class MigrationRunner {
             // Get migration path
             const migrationPath = getMigrationPath(fromVersion, targetVersion);
             const estimatedTime = migrationPath.reduce((sum, m) => sum + (m.estimatedTimeMs || 0), 0);
-            logger.info("Migration path determined", {
+            logger_js_1.default.info("Migration path determined", {
                 steps: migrationPath.length,
                 estimatedTime: `${estimatedTime}ms`,
                 breakingChanges: migrationPath.some((m) => m.breakingChanges),
             });
             // Dry run validation
             if (options.dryRun) {
-                logger.info("Dry run mode - no changes will be applied");
+                logger_js_1.default.info("Dry run mode - no changes will be applied");
                 result.success = true;
                 result.warnings = ["Dry run mode - no changes applied"];
                 return result;
@@ -302,7 +313,7 @@ export class MigrationRunner {
             // Apply migrations sequentially
             let migratedSchema = { ...schema };
             for (const migration of migrationPath) {
-                logger.info("Applying migration", {
+                logger_js_1.default.info("Applying migration", {
                     fromVersion: migration.fromVersion,
                     toVersion: migration.toVersion,
                     description: migration.description,
@@ -312,20 +323,20 @@ export class MigrationRunner {
                 migratedSchema.version = migration.toVersion;
                 const migrationDuration = Date.now() - migrationStart;
                 result.appliedMigrations.push(`${migration.fromVersion}→${migration.toVersion}: ${migration.description}`);
-                logger.info("Migration applied", {
+                logger_js_1.default.info("Migration applied", {
                     duration: `${migrationDuration}ms`,
                     estimated: `${migration.estimatedTimeMs || 0}ms`,
                 });
                 // Validate after each migration if requested
                 if (options.validateAfter) {
-                    const validation = validateSDUISchema(migratedSchema);
+                    const validation = (0, schema_1.validateSDUISchema)(migratedSchema);
                     if (!validation.success) {
                         throw new Error(`Schema validation failed after migration ${migration.fromVersion}→${migration.toVersion}: ${validation.errors.join(", ")}`);
                     }
                 }
             }
             // Final validation
-            const finalValidation = validateSDUISchema(migratedSchema);
+            const finalValidation = (0, schema_1.validateSDUISchema)(migratedSchema);
             if (!finalValidation.success) {
                 throw new Error(`Final schema validation failed: ${finalValidation.errors.join(", ")}`);
             }
@@ -334,7 +345,7 @@ export class MigrationRunner {
             result.success = true;
             result.schemaHash = finalHash;
             result.warnings = finalValidation.warnings;
-            logger.info("Migration completed successfully", {
+            logger_js_1.default.info("Migration completed successfully", {
                 fromVersion,
                 toVersion: targetVersion,
                 duration: `${Date.now() - startTime}ms`,
@@ -346,7 +357,7 @@ export class MigrationRunner {
         }
         catch (error) {
             result.errors = [error instanceof Error ? error.message : "Unknown error"];
-            logger.error("Migration failed", {
+            logger_js_1.default.error("Migration failed", {
                 fromVersion,
                 toVersion: targetVersion,
                 error: result.errors[0],
@@ -366,7 +377,7 @@ export class MigrationRunner {
         if (!checkpoint) {
             throw new Error(`Checkpoint ${checkpointId} not found`);
         }
-        logger.info("Starting rollback", {
+        logger_js_1.default.info("Starting rollback", {
             checkpointId,
             fromVersion: checkpoint.toVersion,
             toVersion: checkpoint.fromVersion,
@@ -391,7 +402,7 @@ export class MigrationRunner {
                 const [from, to] = migrationId.split("→").map(Number);
                 const migration = migrations.find((m) => m.fromVersion === from && m.toVersion === to);
                 if (migration?.rollback) {
-                    logger.info("Applying rollback migration", {
+                    logger_js_1.default.info("Applying rollback migration", {
                         migrationId,
                         description: `Rollback: ${migration.description}`,
                     });
@@ -401,14 +412,14 @@ export class MigrationRunner {
                 }
             }
             // Validate rolled back schema
-            const validation = validateSDUISchema(rolledBackSchema);
+            const validation = (0, schema_1.validateSDUISchema)(rolledBackSchema);
             if (!validation.success) {
                 throw new Error(`Rollback validation failed: ${validation.errors.join(", ")}`);
             }
             result.success = true;
             result.schemaHash = this.calculateSchemaHash(rolledBackSchema);
             result.warnings = validation.warnings;
-            logger.info("Rollback completed successfully", {
+            logger_js_1.default.info("Rollback completed successfully", {
                 checkpointId,
                 duration: `${Date.now() - startTime}ms`,
                 appliedMigrations: result.appliedMigrations.length,
@@ -417,7 +428,7 @@ export class MigrationRunner {
         }
         catch (error) {
             result.errors = [error instanceof Error ? error.message : "Unknown error"];
-            logger.error("Rollback failed", {
+            logger_js_1.default.error("Rollback failed", {
                 checkpointId,
                 error: result.errors[0],
                 duration: `${Date.now() - startTime}ms`,
@@ -448,7 +459,7 @@ export class MigrationRunner {
             const oldestKey = this.checkpoints.keys().next().value;
             this.checkpoints.delete(oldestKey);
         }
-        logger.info("Migration checkpoint created", {
+        logger_js_1.default.info("Migration checkpoint created", {
             checkpointId: checkpoint.id,
             fromVersion,
             toVersion,
@@ -467,7 +478,7 @@ export class MigrationRunner {
      */
     calculateSchemaHash(schema) {
         const schemaString = JSON.stringify(schema, Object.keys(schema).sort());
-        return createHash("sha256").update(schemaString).digest("hex");
+        return (0, crypto_1.createHash)("sha256").update(schemaString).digest("hex");
     }
     /**
      * Generate unique checkpoint ID
@@ -518,18 +529,19 @@ export class MigrationRunner {
         };
     }
 }
+exports.MigrationRunner = MigrationRunner;
 // Global migration runner instance
-export const migrationRunner = new MigrationRunner();
+exports.migrationRunner = new MigrationRunner();
 /**
  * Get available migrations
  */
-export function getAvailableMigrations() {
+function getAvailableMigrations() {
     return migrations;
 }
 /**
  * Check if migration is available
  */
-export function canMigrate(fromVersion, toVersion) {
+function canMigrate(fromVersion, toVersion) {
     if (fromVersion === toVersion)
         return true;
     if (fromVersion > toVersion)
@@ -545,7 +557,7 @@ export function canMigrate(fromVersion, toVersion) {
 /**
  * Get migration path
  */
-export function getMigrationPath(fromVersion, toVersion) {
+function getMigrationPath(fromVersion, toVersion) {
     if (fromVersion === toVersion)
         return [];
     if (fromVersion > toVersion)
@@ -564,7 +576,7 @@ export function getMigrationPath(fromVersion, toVersion) {
  *
  * Ensures migration didn't break schema structure
  */
-export function validateMigration(original, migrated) {
+function validateMigration(original, migrated) {
     const errors = [];
     // Check version was updated
     if (migrated.version === original.version) {

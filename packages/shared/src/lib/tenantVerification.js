@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Tenant Verification Module
  *
@@ -7,7 +8,48 @@
  * they are trying to access. All data access operations MUST verify tenant
  * membership to prevent unauthorized cross-tenant access.
  */
-import { logger } from "./logger";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TenantSecurityError = void 0;
+exports.verifyTenantMembership = verifyTenantMembership;
+exports.verifyTenantMembershipBatch = verifyTenantMembershipBatch;
+exports.getUserTenantId = getUserTenantId;
+exports.verifyTenantExists = verifyTenantExists;
+exports.assertTenantMembership = assertTenantMembership;
+exports.verifyRequestTenant = verifyRequestTenant;
+const logger_1 = require("./logger");
 /**
  * Verify user belongs to tenant
  *
@@ -26,10 +68,10 @@ import { logger } from "./logger";
  * }
  * ```
  */
-export async function verifyTenantMembership(userId, tenantId) {
+async function verifyTenantMembership(userId, tenantId) {
     try {
         // Import supabase client dynamically to avoid circular dependencies
-        const { supabase } = await import("./supabase");
+        const { supabase } = await Promise.resolve().then(() => __importStar(require("./supabase")));
         const { data: membership, error: membershipError } = await supabase
             .from("user_tenants")
             .select("tenant_id, status")
@@ -40,7 +82,7 @@ export async function verifyTenantMembership(userId, tenantId) {
             const membershipStatus = membership.status || "active";
             const belongsToTenant = membershipStatus === "active";
             if (!belongsToTenant) {
-                logger.warn("Tenant membership inactive", {
+                logger_1.logger.warn("Tenant membership inactive", {
                     userId: maskUserId(userId),
                     tenantId,
                     status: membershipStatus,
@@ -49,7 +91,7 @@ export async function verifyTenantMembership(userId, tenantId) {
             return belongsToTenant;
         }
         if (membershipError) {
-            logger.warn("Tenant membership lookup failed, falling back to legacy org check", {
+            logger_1.logger.warn("Tenant membership lookup failed, falling back to legacy org check", {
                 userId: maskUserId(userId),
                 tenantId,
                 errorCode: membershipError.code,
@@ -62,7 +104,7 @@ export async function verifyTenantMembership(userId, tenantId) {
             .eq("id", userId)
             .single();
         if (error || !data) {
-            logger.error("Failed to verify tenant membership via legacy org check", error, {
+            logger_1.logger.error("Failed to verify tenant membership via legacy org check", error, {
                 userId: maskUserId(userId),
                 tenantId,
             });
@@ -70,7 +112,7 @@ export async function verifyTenantMembership(userId, tenantId) {
         }
         const belongsToTenant = data.organization_id === tenantId;
         if (!belongsToTenant) {
-            logger.warn("Cross-tenant access attempt detected", {
+            logger_1.logger.warn("Cross-tenant access attempt detected", {
                 userId: maskUserId(userId),
                 userTenant: data.organization_id,
                 requestedTenant: tenantId,
@@ -81,7 +123,7 @@ export async function verifyTenantMembership(userId, tenantId) {
         return belongsToTenant;
     }
     catch (error) {
-        logger.error("Tenant membership verification error", error instanceof Error ? error : undefined, {
+        logger_1.logger.error("Tenant membership verification error", error instanceof Error ? error : undefined, {
             userId: maskUserId(userId),
             tenantId,
         });
@@ -95,10 +137,10 @@ export async function verifyTenantMembership(userId, tenantId) {
  * @param tenantIds - Array of tenant IDs to verify against
  * @returns Promise<Map<string, boolean>> - Map of tenantId to membership status
  */
-export async function verifyTenantMembershipBatch(userId, tenantIds) {
+async function verifyTenantMembershipBatch(userId, tenantIds) {
     const results = new Map();
     try {
-        const { supabase } = await import("./supabase");
+        const { supabase } = await Promise.resolve().then(() => __importStar(require("./supabase")));
         const { data: memberships, error: membershipsError } = await supabase
             .from("user_tenants")
             .select("tenant_id, status")
@@ -110,7 +152,7 @@ export async function verifyTenantMembershipBatch(userId, tenantIds) {
             return results;
         }
         if (membershipsError) {
-            logger.warn("Batch tenant lookup failed, falling back to legacy org check", {
+            logger_1.logger.warn("Batch tenant lookup failed, falling back to legacy org check", {
                 userId: maskUserId(userId),
                 errorCode: membershipsError.code,
             });
@@ -131,7 +173,7 @@ export async function verifyTenantMembershipBatch(userId, tenantIds) {
         return results;
     }
     catch (error) {
-        logger.error("Batch tenant verification error", error instanceof Error ? error : undefined, {
+        logger_1.logger.error("Batch tenant verification error", error instanceof Error ? error : undefined, {
             userId: maskUserId(userId),
             tenantCount: tenantIds.length,
         });
@@ -146,9 +188,9 @@ export async function verifyTenantMembershipBatch(userId, tenantIds) {
  * @param userId - User ID
  * @returns Promise<string | null> - Tenant ID or null if not found
  */
-export async function getUserTenantId(userId) {
+async function getUserTenantId(userId) {
     try {
-        const { supabase } = await import("./supabase");
+        const { supabase } = await Promise.resolve().then(() => __importStar(require("./supabase")));
         const { data: membership, error: membershipError } = await supabase
             .from("user_tenants")
             .select("tenant_id, created_at, status")
@@ -161,7 +203,7 @@ export async function getUserTenantId(userId) {
             return membership.tenant_id;
         }
         if (membershipError) {
-            logger.warn("Tenant lookup failed, falling back to legacy org check", {
+            logger_1.logger.warn("Tenant lookup failed, falling back to legacy org check", {
                 userId: maskUserId(userId),
                 error: membershipError.message,
             });
@@ -172,7 +214,7 @@ export async function getUserTenantId(userId) {
             .eq("id", userId)
             .single();
         if (error || !data) {
-            logger.warn("Failed to get user tenant ID", {
+            logger_1.logger.warn("Failed to get user tenant ID", {
                 userId: maskUserId(userId),
                 error: error?.message,
             });
@@ -181,7 +223,7 @@ export async function getUserTenantId(userId) {
         return data.organization_id;
     }
     catch (error) {
-        logger.error("Error getting user tenant ID", error instanceof Error ? error : undefined, {
+        logger_1.logger.error("Error getting user tenant ID", error instanceof Error ? error : undefined, {
             userId: maskUserId(userId),
         });
         return null;
@@ -193,9 +235,9 @@ export async function getUserTenantId(userId) {
  * @param tenantId - Tenant ID to verify
  * @returns Promise<boolean> - true if tenant exists and is active
  */
-export async function verifyTenantExists(tenantId) {
+async function verifyTenantExists(tenantId) {
     try {
-        const { supabase } = await import("./supabase");
+        const { supabase } = await Promise.resolve().then(() => __importStar(require("./supabase")));
         const { data: tenant, error: tenantError } = await supabase
             .from("tenants")
             .select("id, status")
@@ -205,7 +247,7 @@ export async function verifyTenantExists(tenantId) {
             return tenant.status === "active";
         }
         if (tenantError) {
-            logger.warn("Tenant lookup failed, falling back to organizations table", {
+            logger_1.logger.warn("Tenant lookup failed, falling back to organizations table", {
                 tenantId,
                 errorCode: tenantError.code,
             });
@@ -221,7 +263,7 @@ export async function verifyTenantExists(tenantId) {
         return data.status === "active" || data.status === "trial";
     }
     catch (error) {
-        logger.error("Error verifying tenant exists", error instanceof Error ? error : undefined, {
+        logger_1.logger.error("Error verifying tenant exists", error instanceof Error ? error : undefined, {
             tenantId,
         });
         return false;
@@ -242,7 +284,10 @@ function maskUserId(userId) {
 /**
  * Security error for tenant violations
  */
-export class TenantSecurityError extends Error {
+class TenantSecurityError extends Error {
+    userId;
+    requestedTenantId;
+    userTenantId;
     constructor(message, userId, requestedTenantId, userTenantId) {
         super(message);
         this.userId = userId;
@@ -251,6 +296,7 @@ export class TenantSecurityError extends Error {
         this.name = "TenantSecurityError";
     }
 }
+exports.TenantSecurityError = TenantSecurityError;
 /**
  * Assert user belongs to tenant (throws on failure)
  *
@@ -261,7 +307,7 @@ export class TenantSecurityError extends Error {
  * @param tenantId - Tenant ID to verify against
  * @throws TenantSecurityError if user doesn't belong to tenant
  */
-export async function assertTenantMembership(userId, tenantId) {
+async function assertTenantMembership(userId, tenantId) {
     const belongsToTenant = await verifyTenantMembership(userId, tenantId);
     if (!belongsToTenant) {
         const userTenantId = await getUserTenantId(userId);
@@ -275,11 +321,11 @@ export async function assertTenantMembership(userId, tenantId) {
  * @param tenantIdFromRequest - Tenant ID from request (path, query, or body)
  * @returns Promise<boolean> - true if verified, false otherwise
  */
-export async function verifyRequestTenant(userId, tenantIdFromRequest) {
+async function verifyRequestTenant(userId, tenantIdFromRequest) {
     // Verify tenant exists first
     const tenantExists = await verifyTenantExists(tenantIdFromRequest);
     if (!tenantExists) {
-        logger.warn("Request for non-existent tenant", {
+        logger_1.logger.warn("Request for non-existent tenant", {
             userId: maskUserId(userId),
             tenantId: tenantIdFromRequest,
         });

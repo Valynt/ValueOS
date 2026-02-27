@@ -1,26 +1,50 @@
-import { createClient } from "@supabase/supabase-js";
-import { getEnvVar, getSupabaseConfig } from "./env";
-import { withRetry, retryPredicates } from "./retry";
-// Custom fetch with retry logic for network stability
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.supabase = void 0;
+exports.getSupabaseClient = getSupabaseClient;
+exports.createRequestSupabaseClient = createRequestSupabaseClient;
+exports.getRequestSupabaseClient = getRequestSupabaseClient;
+exports.createServerSupabaseClient = createServerSupabaseClient;
+const supabase_js_1 = require("@supabase/supabase-js");
+const env_1 = require("./env");
+// Simple fetch wrapper with retry for transient network/server errors
+const MAX_RETRY_ATTEMPTS = 3;
+const BASE_DELAY_MS = 500;
+function isRetryableError(error) {
+    if (error instanceof TypeError)
+        return true; // network errors
+    if (error instanceof Response && error.status >= 500)
+        return true;
+    return false;
+}
 const fetchWithRetry = async (input, init) => {
-    const result = await withRetry(() => fetch(input, init), {
-        retryOn: (error) => retryPredicates.networkErrors(error) ||
-            retryPredicates.serverErrors(error),
-        maxAttempts: 3,
-        baseDelayMs: 500,
-    });
-    if (result.ok) {
-        return result.value;
+    let lastError;
+    for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+        try {
+            const response = await fetch(input, init);
+            if (response.status >= 500 && attempt < MAX_RETRY_ATTEMPTS - 1) {
+                lastError = response;
+                await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
+                continue;
+            }
+            return response;
+        }
+        catch (error) {
+            lastError = error;
+            if (!isRetryableError(error) || attempt >= MAX_RETRY_ATTEMPTS - 1)
+                throw error;
+            await new Promise((r) => setTimeout(r, BASE_DELAY_MS * 2 ** attempt));
+        }
     }
-    throw result.error;
+    throw lastError;
 };
 // Client-side configuration - only uses anon key
-const supabaseConfig = getSupabaseConfig();
+const supabaseConfig = (0, env_1.getSupabaseConfig)();
 const supabaseUrl = supabaseConfig.url;
 const supabaseAnonKey = supabaseConfig.anonKey;
 const supabaseServiceRoleKey = supabaseConfig.serviceRoleKey;
-const nodeEnv = getEnvVar("NODE_ENV") || getEnvVar("VITE_APP_ENV");
-const allowInsecureAnonServerClient = getEnvVar("ALLOW_INSECURE_ANON_SERVER_CLIENT") === "true";
+const nodeEnv = (0, env_1.getEnvVar)("NODE_ENV") || (0, env_1.getEnvVar)("VITE_APP_ENV");
+const allowInsecureAnonServerClient = (0, env_1.getEnvVar)("ALLOW_INSECURE_ANON_SERVER_CLIENT") === "true";
 const isServer = typeof window === "undefined";
 const isProduction = nodeEnv === "production";
 if (isServer && isProduction && !supabaseServiceRoleKey) {
@@ -28,6 +52,7 @@ if (isServer && isProduction && !supabaseServiceRoleKey) {
 }
 // Validate required client-side configuration
 let supabase = null;
+exports.supabase = supabase;
 if (supabaseUrl && supabaseAnonKey) {
     const supabaseOptions = {
         db: {
@@ -43,13 +68,12 @@ if (supabaseUrl && supabaseAnonKey) {
         },
     };
     // Client-side Supabase client - safe for browser
-    supabase = createClient(supabaseUrl, supabaseAnonKey, supabaseOptions);
+    exports.supabase = supabase = (0, supabase_js_1.createClient)(supabaseUrl, supabaseAnonKey, supabaseOptions);
 }
 else {
     console.warn("Supabase client configuration is missing. Billing features will be disabled.");
 }
-export { supabase };
-export function getSupabaseClient() {
+function getSupabaseClient() {
     if (!supabase) {
         throw new Error("Supabase client not configured. Billing features are disabled.");
     }
@@ -67,7 +91,7 @@ function parseBearerToken(header) {
     const token = headerValue.slice(prefix.length).trim();
     return token.length > 0 ? token : null;
 }
-export function createRequestSupabaseClient(req) {
+function createRequestSupabaseClient(req) {
     if (!isServer) {
         throw new Error("Request-scoped Supabase client can only be used server-side");
     }
@@ -94,17 +118,17 @@ export function createRequestSupabaseClient(req) {
             fetch: fetchWithRetry,
         },
     };
-    const client = createClient(supabaseUrl, supabaseAnonKey, requestOptions);
+    const client = (0, supabase_js_1.createClient)(supabaseUrl, supabaseAnonKey, requestOptions);
     req.supabase = client;
     req.supabaseUser = req.user ?? null;
     return client;
 }
-export function getRequestSupabaseClient(req) {
+function getRequestSupabaseClient(req) {
     return req.supabase ?? createRequestSupabaseClient(req);
 }
 // Server-side Supabase client - for backend services only
 // This should NEVER be used in client-side code
-export function createServerSupabaseClient(serviceKey) {
+function createServerSupabaseClient(serviceKey) {
     const serverKey = serviceKey || supabaseServiceRoleKey;
     if (!serverKey) {
         if (isProduction || !allowInsecureAnonServerClient) {
@@ -132,6 +156,6 @@ export function createServerSupabaseClient(serviceKey) {
         },
     };
     const resolvedKey = serverKey ?? supabaseAnonKey;
-    return createClient(supabaseUrl, resolvedKey, serverOptions);
+    return (0, supabase_js_1.createClient)(supabaseUrl, resolvedKey, serverOptions);
 }
 //# sourceMappingURL=supabase.js.map

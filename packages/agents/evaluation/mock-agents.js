@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Mock Agent Factory
  *
@@ -5,10 +6,22 @@
  * Each mock returns data from the evaluation datasets, allowing
  * the HypothesisLoop to be tested end-to-end without LLM calls.
  */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createMockOpportunityAgent = createMockOpportunityAgent;
+exports.createMockFinancialModelingAgent = createMockFinancialModelingAgent;
+exports.createMockGroundTruthAgent = createMockGroundTruthAgent;
+exports.createMockNarrativeAgent = createMockNarrativeAgent;
+exports.createMockRedTeamAgent = createMockRedTeamAgent;
+exports.createMockIdempotencyStore = createMockIdempotencyStore;
+exports.createMockDLQStore = createMockDLQStore;
+exports.createMockEventEmitter = createMockEventEmitter;
+exports.createMockAuditLogger = createMockAuditLogger;
+exports.createMockSagaPersistence = createMockSagaPersistence;
+exports.createMockProvenanceStore = createMockProvenanceStore;
 // ============================================================================
 // Mock Opportunity Agent
 // ============================================================================
-export function createMockOpportunityAgent(responses) {
+function createMockOpportunityAgent(responses) {
     return {
         async analyzeOpportunities(query, context) {
             // Find matching response by tenant or return first
@@ -24,7 +37,7 @@ export function createMockOpportunityAgent(responses) {
 // ============================================================================
 // Mock Financial Modeling Agent
 // ============================================================================
-export function createMockFinancialModelingAgent(responses) {
+function createMockFinancialModelingAgent(responses) {
     return {
         async analyzeFinancialModels(query, context, _idempotencyKey) {
             const key = context?.organizationId ?? 'default';
@@ -39,7 +52,7 @@ export function createMockFinancialModelingAgent(responses) {
 // ============================================================================
 // Mock Ground Truth Agent
 // ============================================================================
-export function createMockGroundTruthAgent(responses) {
+function createMockGroundTruthAgent(responses) {
     return {
         async analyzeGroundtruth(query, context, _idempotencyKey) {
             const key = context?.organizationId ?? 'default';
@@ -54,7 +67,7 @@ export function createMockGroundTruthAgent(responses) {
 // ============================================================================
 // Mock Narrative Agent
 // ============================================================================
-export function createMockNarrativeAgent(responses) {
+function createMockNarrativeAgent(responses) {
     return {
         async analyzeNarrative(query, context, _idempotencyKey) {
             const key = context?.organizationId ?? 'default';
@@ -69,7 +82,7 @@ export function createMockNarrativeAgent(responses) {
 // ============================================================================
 // Mock Red Team Agent
 // ============================================================================
-export function createMockRedTeamAgent(responses) {
+function createMockRedTeamAgent(responses) {
     return {
         analyze: async (input) => {
             const key = input.tenantId;
@@ -85,7 +98,7 @@ export function createMockRedTeamAgent(responses) {
 // Mock Infrastructure
 // ============================================================================
 /** In-memory idempotency store */
-export function createMockIdempotencyStore() {
+function createMockIdempotencyStore() {
     const store = new Map();
     return {
         store,
@@ -98,7 +111,7 @@ export function createMockIdempotencyStore() {
     };
 }
 /** In-memory DLQ store */
-export function createMockDLQStore() {
+function createMockDLQStore() {
     const entries = [];
     return {
         entries,
@@ -122,7 +135,7 @@ export function createMockDLQStore() {
     };
 }
 /** Event collector for testing */
-export function createMockEventEmitter() {
+function createMockEventEmitter() {
     const events = [];
     return {
         events,
@@ -132,7 +145,7 @@ export function createMockEventEmitter() {
     };
 }
 /** In-memory audit logger */
-export function createMockAuditLogger() {
+function createMockAuditLogger() {
     const entries = [];
     return {
         entries,
@@ -142,7 +155,7 @@ export function createMockAuditLogger() {
     };
 }
 /** In-memory saga persistence */
-export function createMockSagaPersistence() {
+function createMockSagaPersistence() {
     const snapshots = new Map();
     const transitions = [];
     return {
@@ -160,7 +173,7 @@ export function createMockSagaPersistence() {
     };
 }
 /** In-memory provenance store */
-export function createMockProvenanceStore() {
+function createMockProvenanceStore() {
     const records = [];
     return {
         records,

@@ -1,74 +1,84 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.LEGACY_ROLE_MAP = exports.AGENT_ROLE_PERMISSIONS = exports.USER_ROLE_PERMISSIONS = exports.AGENT_ROLES = exports.USER_ROLES = void 0;
+exports.getPermissionsForUserRole = getPermissionsForUserRole;
+exports.getPermissionsForAgentRole = getPermissionsForAgentRole;
+exports.computePermissionsFromRoles = computePermissionsFromRoles;
+exports.isValidUserRole = isValidUserRole;
+exports.isValidAgentRole = isValidAgentRole;
+exports.normalizeRole = normalizeRole;
+exports.getRolesWithPermission = getRolesWithPermission;
 /**
  * Role Types and Constants
  */
-import { PERMISSIONS } from "./types";
-export const USER_ROLES = {
+const types_1 = require("./types");
+exports.USER_ROLES = {
     ADMIN: "admin",
     MEMBER: "member",
     VIEWER: "viewer",
 };
-export const AGENT_ROLES = {
+exports.AGENT_ROLES = {
     ORCHESTRATOR: "orchestrator",
     EXECUTOR: "executor",
     OBSERVER: "observer",
 };
-export const USER_ROLE_PERMISSIONS = {
-    [USER_ROLES.ADMIN]: Object.values(PERMISSIONS),
-    [USER_ROLES.MEMBER]: [
-        PERMISSIONS.DASHBOARD_VIEW,
-        PERMISSIONS.PROJECTS_VIEW,
-        PERMISSIONS.PROJECTS_CREATE,
-        PERMISSIONS.PROJECTS_EDIT,
-        PERMISSIONS.TEAM_VIEW,
-        PERMISSIONS.SETTINGS_VIEW,
-        PERMISSIONS.BILLING_VIEW,
-        PERMISSIONS.USERS_VIEW,
-        PERMISSIONS.INTEGRATIONS_VIEW,
-        PERMISSIONS.VALUE_TREES_VIEW,
-        PERMISSIONS.VALUE_TREES_CREATE,
-        PERMISSIONS.VALUE_TREES_EDIT,
-        PERMISSIONS.COMMITMENTS_VIEW,
-        PERMISSIONS.COMMITMENTS_CREATE,
-        PERMISSIONS.AGENTS_VIEW,
+exports.USER_ROLE_PERMISSIONS = {
+    [exports.USER_ROLES.ADMIN]: Object.values(types_1.PERMISSIONS),
+    [exports.USER_ROLES.MEMBER]: [
+        types_1.PERMISSIONS.DASHBOARD_VIEW,
+        types_1.PERMISSIONS.PROJECTS_VIEW,
+        types_1.PERMISSIONS.PROJECTS_CREATE,
+        types_1.PERMISSIONS.PROJECTS_EDIT,
+        types_1.PERMISSIONS.TEAM_VIEW,
+        types_1.PERMISSIONS.SETTINGS_VIEW,
+        types_1.PERMISSIONS.BILLING_VIEW,
+        types_1.PERMISSIONS.USERS_VIEW,
+        types_1.PERMISSIONS.INTEGRATIONS_VIEW,
+        types_1.PERMISSIONS.VALUE_TREES_VIEW,
+        types_1.PERMISSIONS.VALUE_TREES_CREATE,
+        types_1.PERMISSIONS.VALUE_TREES_EDIT,
+        types_1.PERMISSIONS.COMMITMENTS_VIEW,
+        types_1.PERMISSIONS.COMMITMENTS_CREATE,
+        types_1.PERMISSIONS.AGENTS_VIEW,
     ],
-    [USER_ROLES.VIEWER]: [
-        PERMISSIONS.DASHBOARD_VIEW,
-        PERMISSIONS.PROJECTS_VIEW,
-        PERMISSIONS.TEAM_VIEW,
-        PERMISSIONS.SETTINGS_VIEW,
-        PERMISSIONS.INTEGRATIONS_VIEW,
-        PERMISSIONS.VALUE_TREES_VIEW,
-        PERMISSIONS.COMMITMENTS_VIEW,
-    ],
-};
-export const AGENT_ROLE_PERMISSIONS = {
-    [AGENT_ROLES.ORCHESTRATOR]: Object.values(PERMISSIONS),
-    [AGENT_ROLES.EXECUTOR]: [
-        PERMISSIONS.VALUE_TREES_VIEW,
-        PERMISSIONS.VALUE_TREES_EDIT,
-        PERMISSIONS.COMMITMENTS_VIEW,
-        PERMISSIONS.COMMITMENTS_CREATE,
-        PERMISSIONS.COMMITMENTS_EDIT,
-        PERMISSIONS.AGENTS_EXECUTE,
-    ],
-    [AGENT_ROLES.OBSERVER]: [
-        PERMISSIONS.VALUE_TREES_VIEW,
-        PERMISSIONS.COMMITMENTS_VIEW,
-        PERMISSIONS.AGENTS_VIEW,
+    [exports.USER_ROLES.VIEWER]: [
+        types_1.PERMISSIONS.DASHBOARD_VIEW,
+        types_1.PERMISSIONS.PROJECTS_VIEW,
+        types_1.PERMISSIONS.TEAM_VIEW,
+        types_1.PERMISSIONS.SETTINGS_VIEW,
+        types_1.PERMISSIONS.INTEGRATIONS_VIEW,
+        types_1.PERMISSIONS.VALUE_TREES_VIEW,
+        types_1.PERMISSIONS.COMMITMENTS_VIEW,
     ],
 };
-export const LEGACY_ROLE_MAP = {
-    owner: USER_ROLES.ADMIN,
-    editor: USER_ROLES.MEMBER,
-    reader: USER_ROLES.VIEWER,
+exports.AGENT_ROLE_PERMISSIONS = {
+    [exports.AGENT_ROLES.ORCHESTRATOR]: Object.values(types_1.PERMISSIONS),
+    [exports.AGENT_ROLES.EXECUTOR]: [
+        types_1.PERMISSIONS.VALUE_TREES_VIEW,
+        types_1.PERMISSIONS.VALUE_TREES_EDIT,
+        types_1.PERMISSIONS.COMMITMENTS_VIEW,
+        types_1.PERMISSIONS.COMMITMENTS_CREATE,
+        types_1.PERMISSIONS.COMMITMENTS_EDIT,
+        types_1.PERMISSIONS.AGENTS_EXECUTE,
+    ],
+    [exports.AGENT_ROLES.OBSERVER]: [
+        types_1.PERMISSIONS.VALUE_TREES_VIEW,
+        types_1.PERMISSIONS.COMMITMENTS_VIEW,
+        types_1.PERMISSIONS.AGENTS_VIEW,
+    ],
 };
-export function getPermissionsForUserRole(role) {
-    return USER_ROLE_PERMISSIONS[role] || [];
+exports.LEGACY_ROLE_MAP = {
+    owner: exports.USER_ROLES.ADMIN,
+    editor: exports.USER_ROLES.MEMBER,
+    reader: exports.USER_ROLES.VIEWER,
+};
+function getPermissionsForUserRole(role) {
+    return exports.USER_ROLE_PERMISSIONS[role] || [];
 }
-export function getPermissionsForAgentRole(role) {
-    return AGENT_ROLE_PERMISSIONS[role] || [];
+function getPermissionsForAgentRole(role) {
+    return exports.AGENT_ROLE_PERMISSIONS[role] || [];
 }
-export function computePermissionsFromRoles(userRoles, agentRoles = []) {
+function computePermissionsFromRoles(userRoles, agentRoles = []) {
     const permissions = new Set();
     for (const role of userRoles) {
         for (const perm of getPermissionsForUserRole(role)) {
@@ -82,19 +92,19 @@ export function computePermissionsFromRoles(userRoles, agentRoles = []) {
     }
     return Array.from(permissions);
 }
-export function isValidUserRole(role) {
-    return Object.values(USER_ROLES).includes(role);
+function isValidUserRole(role) {
+    return Object.values(exports.USER_ROLES).includes(role);
 }
-export function isValidAgentRole(role) {
-    return Object.values(AGENT_ROLES).includes(role);
+function isValidAgentRole(role) {
+    return Object.values(exports.AGENT_ROLES).includes(role);
 }
-export function normalizeRole(role) {
+function normalizeRole(role) {
     if (isValidUserRole(role))
         return role;
-    return LEGACY_ROLE_MAP[role] || null;
+    return exports.LEGACY_ROLE_MAP[role] || null;
 }
-export function getRolesWithPermission(permission) {
-    return Object.entries(USER_ROLE_PERMISSIONS)
+function getRolesWithPermission(permission) {
+    return Object.entries(exports.USER_ROLE_PERMISSIONS)
         .filter(([, perms]) => perms.includes(permission))
         .map(([role]) => role);
 }

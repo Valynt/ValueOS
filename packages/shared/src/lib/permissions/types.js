@@ -1,7 +1,18 @@
+"use strict";
 /**
  * Permission Types and Constants
  */
-export const RESOURCES = {
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PERMISSIONS = exports.ACTIONS = exports.RESOURCES = void 0;
+exports.parsePermission = parsePermission;
+exports.createPermission = createPermission;
+exports.matchesPermission = matchesPermission;
+exports.expandWildcard = expandWildcard;
+exports.isValidPermission = isValidPermission;
+exports.hasPermission = hasPermission;
+exports.hasAllPermissions = hasAllPermissions;
+exports.hasAnyPermission = hasAnyPermission;
+exports.RESOURCES = {
     DASHBOARD: "dashboard",
     PROJECTS: "projects",
     TEAM: "team",
@@ -15,7 +26,7 @@ export const RESOURCES = {
     COMMITMENTS: "commitments",
     AGENTS: "agents",
 };
-export const ACTIONS = {
+exports.ACTIONS = {
     VIEW: "view",
     CREATE: "create",
     EDIT: "edit",
@@ -25,7 +36,7 @@ export const ACTIONS = {
     EXECUTE: "execute",
     ALL: "*",
 };
-export const PERMISSIONS = {
+exports.PERMISSIONS = {
     DASHBOARD_VIEW: "dashboard:view",
     PROJECTS_VIEW: "projects:view",
     PROJECTS_CREATE: "projects:create",
@@ -60,16 +71,16 @@ export const PERMISSIONS = {
     AGENTS_CREATE: "agents:create",
     AGENTS_EXECUTE: "agents:execute",
 };
-export function parsePermission(permission) {
+function parsePermission(permission) {
     const parts = permission.split(":");
     if (parts.length !== 2 || !parts[0] || !parts[1])
         return null;
     return { resource: parts[0], action: parts[1] };
 }
-export function createPermission(resource, action) {
+function createPermission(resource, action) {
     return `${resource}:${action}`;
 }
-export function matchesPermission(granted, required) {
+function matchesPermission(granted, required) {
     if (granted === required)
         return true;
     const grantedParts = parsePermission(granted);
@@ -83,36 +94,36 @@ export function matchesPermission(granted, required) {
         return true;
     return grantedParts.action === requiredParts.action;
 }
-export function expandWildcard(permission) {
+function expandWildcard(permission) {
     const parsed = parsePermission(permission);
     if (!parsed)
         return [permission];
     if (parsed.action === "*") {
-        return Object.values(ACTIONS)
+        return Object.values(exports.ACTIONS)
             .filter(a => a !== "*")
             .map(a => createPermission(parsed.resource, a));
     }
     return [permission];
 }
-export function isValidPermission(permission) {
+function isValidPermission(permission) {
     const parsed = parsePermission(permission);
     if (!parsed)
         return false;
     return true;
 }
-export function hasPermission(userPermissions, required) {
+function hasPermission(userPermissions, required) {
     if (!userPermissions?.length)
         return false;
     return userPermissions.some((granted) => matchesPermission(granted, required));
 }
-export function hasAllPermissions(userPermissions, required) {
+function hasAllPermissions(userPermissions, required) {
     if (!userPermissions?.length)
         return false;
     if (!required.length)
         return true;
     return required.every((r) => hasPermission(userPermissions, r));
 }
-export function hasAnyPermission(userPermissions, required) {
+function hasAnyPermission(userPermissions, required) {
     if (!userPermissions?.length)
         return false;
     if (!required.length)

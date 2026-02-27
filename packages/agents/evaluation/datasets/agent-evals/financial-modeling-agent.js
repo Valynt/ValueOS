@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Evaluation Dataset: Financial Modeling Agent
  *
@@ -5,42 +6,44 @@
  * Tests value tree construction from hypotheses, formula correctness,
  * and confidence score assignment.
  */
-import { z } from 'zod';
-export const FinancialModelingEvalCaseSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    input: z.object({
-        query: z.string(),
-        context: z.object({
-            organizationId: z.string().optional(),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.financialModelingEvalCases = exports.FinancialModelingEvalCaseSchema = void 0;
+const zod_1 = require("zod");
+exports.FinancialModelingEvalCaseSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string(),
+    input: zod_1.z.object({
+        query: zod_1.z.string(),
+        context: zod_1.z.object({
+            organizationId: zod_1.z.string().optional(),
         }).optional(),
-        idempotencyKey: z.string().uuid().optional(),
+        idempotencyKey: zod_1.z.string().uuid().optional(),
     }),
-    expectations: z.object({
-        minModels: z.number().int().min(1),
+    expectations: zod_1.z.object({
+        minModels: zod_1.z.number().int().min(1),
         /** Every model must have a parseable formula or description */
-        requiresFormula: z.boolean(),
-        minConfidence: z.number().min(0).max(1).optional(),
-        mustMentionKeywords: z.array(z.string()).optional(),
+        requiresFormula: zod_1.z.boolean(),
+        minConfidence: zod_1.z.number().min(0).max(1).optional(),
+        mustMentionKeywords: zod_1.z.array(zod_1.z.string()).optional(),
         /** Total value should be within this range */
-        totalValueRange: z.object({
-            min: z.number(),
-            max: z.number(),
+        totalValueRange: zod_1.z.object({
+            min: zod_1.z.number(),
+            max: zod_1.z.number(),
         }).optional(),
     }),
-    mockResponse: z.object({
-        financial_models: z.array(z.object({
-            title: z.string(),
-            description: z.string(),
-            confidence: z.number(),
-            category: z.string(),
-            model_type: z.string(),
-            priority: z.string(),
+    mockResponse: zod_1.z.object({
+        financial_models: zod_1.z.array(zod_1.z.object({
+            title: zod_1.z.string(),
+            description: zod_1.z.string(),
+            confidence: zod_1.z.number(),
+            category: zod_1.z.string(),
+            model_type: zod_1.z.string(),
+            priority: zod_1.z.string(),
         })),
-        analysis: z.string(),
+        analysis: zod_1.z.string(),
     }),
 });
-export const financialModelingEvalCases = [
+exports.financialModelingEvalCases = [
     {
         id: 'fm-eval-001',
         name: 'DSO reduction value tree',

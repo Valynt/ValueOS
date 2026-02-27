@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Ground Truth Dataset: Manufacturing Yield Improvement
  *
@@ -6,15 +7,17 @@
  * Exercises different evidence tiers and a critical red-team objection
  * that triggers a revision cycle.
  */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.manufacturingYieldScenario = exports.expectedStateTransitions = exports.provenanceRecords = exports.objections = exports.narrativeBlock = exports.claimConfidences = exports.valueTree = exports.evidenceBundle = exports.citations = exports.classifiedEvidence = exports.evidenceItems = exports.hypotheses = exports.scenarioMeta = exports.CORRELATION_ID = exports.TENANT_ID = exports.VALUE_CASE_ID = exports.SCENARIO_ID = void 0;
 // ============================================================================
 // Scenario Metadata
 // ============================================================================
-export const SCENARIO_ID = 'gt-mfg-yield-001';
-export const VALUE_CASE_ID = '550e8400-e29b-41d4-a716-446655440002';
-export const TENANT_ID = 'tenant-precision-mfg-001';
-export const CORRELATION_ID = '660e8400-e29b-41d4-a716-446655440002';
-export const scenarioMeta = {
-    id: SCENARIO_ID,
+exports.SCENARIO_ID = 'gt-mfg-yield-001';
+exports.VALUE_CASE_ID = '550e8400-e29b-41d4-a716-446655440002';
+exports.TENANT_ID = 'tenant-precision-mfg-001';
+exports.CORRELATION_ID = '660e8400-e29b-41d4-a716-446655440002';
+exports.scenarioMeta = {
+    id: exports.SCENARIO_ID,
     name: 'Manufacturing First-Pass Yield Improvement',
     industry: 'Discrete Manufacturing / Automotive Parts',
     companyProfile: {
@@ -32,7 +35,7 @@ export const scenarioMeta = {
 // ============================================================================
 // Hypotheses
 // ============================================================================
-export const hypotheses = [
+exports.hypotheses = [
     {
         id: 'hyp_101',
         description: 'Improving first-pass yield from 87% to 94% through real-time SPC and predictive defect detection',
@@ -58,7 +61,7 @@ export const hypotheses = [
 // ============================================================================
 // Evidence Items
 // ============================================================================
-export const evidenceItems = [
+exports.evidenceItems = [
     {
         id: 'ev_101',
         sourceType: 'annual_report',
@@ -111,14 +114,14 @@ export const evidenceItems = [
 // ============================================================================
 // Classified Evidence
 // ============================================================================
-export const classifiedEvidence = [
-    { ...evidenceItems[0], tier: 1, weight: 1.0, maxAgeDays: 365 },
-    { ...evidenceItems[1], tier: 2, weight: 0.7, maxAgeDays: 730 },
-    { ...evidenceItems[2], tier: 1, weight: 1.0, maxAgeDays: 365 },
-    { ...evidenceItems[3], tier: 2, weight: 0.7, maxAgeDays: 730 },
-    { ...evidenceItems[4], tier: 3, weight: 0.4, maxAgeDays: 1095 },
+exports.classifiedEvidence = [
+    { ...exports.evidenceItems[0], tier: 1, weight: 1.0, maxAgeDays: 365 },
+    { ...exports.evidenceItems[1], tier: 2, weight: 0.7, maxAgeDays: 730 },
+    { ...exports.evidenceItems[2], tier: 1, weight: 1.0, maxAgeDays: 365 },
+    { ...exports.evidenceItems[3], tier: 2, weight: 0.7, maxAgeDays: 730 },
+    { ...exports.evidenceItems[4], tier: 3, weight: 0.4, maxAgeDays: 1095 },
 ];
-export const citations = classifiedEvidence.map((ev) => ({
+exports.citations = exports.classifiedEvidence.map((ev) => ({
     evidenceId: ev.id,
     sourceName: ev.sourceName,
     sourceUrl: ev.sourceUrl,
@@ -126,18 +129,18 @@ export const citations = classifiedEvidence.map((ev) => ({
     excerpt: ev.content.substring(0, 200),
     retrievedAt: ev.retrievedAt,
 }));
-export const evidenceBundle = {
-    valueCaseId: VALUE_CASE_ID,
-    items: classifiedEvidence,
-    citations,
+exports.evidenceBundle = {
+    valueCaseId: exports.VALUE_CASE_ID,
+    items: exports.classifiedEvidence,
+    citations: exports.citations,
     timestamp: '2026-01-25T14:00:00Z',
 };
 // ============================================================================
 // Value Tree
 // ============================================================================
-export const valueTree = {
-    id: `vt_${VALUE_CASE_ID}_0`,
-    valueCaseId: VALUE_CASE_ID,
+exports.valueTree = {
+    id: `vt_${exports.VALUE_CASE_ID}_0`,
+    valueCaseId: exports.VALUE_CASE_ID,
     nodes: [
         {
             id: 'node_root',
@@ -189,7 +192,7 @@ export const valueTree = {
 // ============================================================================
 // Confidence Scores
 // ============================================================================
-export const claimConfidences = [
+exports.claimConfidences = [
     {
         claimId: 'node_scrap',
         score: {
@@ -200,7 +203,7 @@ export const claimConfidences = [
             tier: 1,
             evidenceId: 'ev_101',
         },
-        citations: citations.filter((c) => ['ev_101', 'ev_102', 'ev_105'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_101', 'ev_102', 'ev_105'].includes(c.evidenceId)),
     },
     {
         claimId: 'node_rework',
@@ -212,7 +215,7 @@ export const claimConfidences = [
             tier: 1,
             evidenceId: 'ev_101',
         },
-        citations: citations.filter((c) => ['ev_101', 'ev_104'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_101', 'ev_104'].includes(c.evidenceId)),
     },
     {
         claimId: 'node_warranty',
@@ -224,7 +227,7 @@ export const claimConfidences = [
             tier: 1,
             evidenceId: 'ev_101',
         },
-        citations: citations.filter((c) => ['ev_101', 'ev_103'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_101', 'ev_103'].includes(c.evidenceId)),
     },
     {
         claimId: 'node_downtime',
@@ -236,15 +239,15 @@ export const claimConfidences = [
             tier: 1,
             evidenceId: 'ev_103',
         },
-        citations: citations.filter((c) => c.evidenceId === 'ev_103'),
+        citations: exports.citations.filter((c) => c.evidenceId === 'ev_103'),
     },
 ];
 // ============================================================================
 // Narrative Block
 // ============================================================================
-export const narrativeBlock = {
-    id: `narr_${VALUE_CASE_ID}_0`,
-    valueCaseId: VALUE_CASE_ID,
+exports.narrativeBlock = {
+    id: `narr_${exports.VALUE_CASE_ID}_0`,
+    valueCaseId: exports.VALUE_CASE_ID,
     title: 'Driving $9.8M in Quality-Driven Value Through Predictive Analytics',
     executiveSummary: 'Precision Parts\' 87% first-pass yield results in $14.3M annual cost of quality. ' +
         'Predictive quality analytics can improve yield to 94%, reducing scrap by $3.5M, rework by $1.9M, ' +
@@ -279,7 +282,7 @@ export const narrativeBlock = {
 // ============================================================================
 // Red Team Objections — includes a CRITICAL objection to trigger revision
 // ============================================================================
-export const objections = [
+exports.objections = [
     {
         id: 'obj_101',
         targetComponent: 'node_warranty',
@@ -312,9 +315,9 @@ export const objections = [
 // ============================================================================
 // Provenance Records
 // ============================================================================
-export const provenanceRecords = [
+exports.provenanceRecords = [
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_scrap',
         dataSource: 'Precision Parts Annual Report FY2025 — $8.8M scrap cost',
         evidenceTier: 1,
@@ -324,7 +327,7 @@ export const provenanceRecords = [
         confidenceScore: 0.78,
     },
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_rework',
         dataSource: 'Precision Parts Annual Report FY2025 — $5.5M rework cost',
         evidenceTier: 1,
@@ -334,7 +337,7 @@ export const provenanceRecords = [
         confidenceScore: 0.72,
     },
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_warranty',
         dataSource: 'Precision Parts Annual Report FY2025 — $4.2M warranty claims',
         evidenceTier: 1,
@@ -344,7 +347,7 @@ export const provenanceRecords = [
         confidenceScore: 0.58,
     },
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_downtime',
         dataSource: 'Estimated from production dashboard — no direct evidence',
         evidenceTier: 3,
@@ -357,7 +360,7 @@ export const provenanceRecords = [
 // ============================================================================
 // Expected State Transitions — includes revision cycle due to critical objection
 // ============================================================================
-export const expectedStateTransitions = [
+exports.expectedStateTransitions = [
     { from: 'NONE', to: 'INITIATED', trigger: 'INITIALIZATION' },
     { from: 'INITIATED', to: 'DRAFTING', trigger: 'OPPORTUNITY_INGESTED' },
     { from: 'DRAFTING', to: 'VALIDATING', trigger: 'HYPOTHESIS_CONFIRMED' },
@@ -374,22 +377,22 @@ export const expectedStateTransitions = [
 // ============================================================================
 // Full Scenario Export
 // ============================================================================
-export const manufacturingYieldScenario = {
-    meta: scenarioMeta,
-    valueCaseId: VALUE_CASE_ID,
-    tenantId: TENANT_ID,
-    correlationId: CORRELATION_ID,
-    hypotheses,
-    evidenceItems,
-    classifiedEvidence,
-    citations,
-    evidenceBundle,
-    valueTree,
-    claimConfidences,
-    narrativeBlock,
-    objections,
-    provenanceRecords,
-    expectedStateTransitions,
+exports.manufacturingYieldScenario = {
+    meta: exports.scenarioMeta,
+    valueCaseId: exports.VALUE_CASE_ID,
+    tenantId: exports.TENANT_ID,
+    correlationId: exports.CORRELATION_ID,
+    hypotheses: exports.hypotheses,
+    evidenceItems: exports.evidenceItems,
+    classifiedEvidence: exports.classifiedEvidence,
+    citations: exports.citations,
+    evidenceBundle: exports.evidenceBundle,
+    valueTree: exports.valueTree,
+    claimConfidences: exports.claimConfidences,
+    narrativeBlock: exports.narrativeBlock,
+    objections: exports.objections,
+    provenanceRecords: exports.provenanceRecords,
+    expectedStateTransitions: exports.expectedStateTransitions,
     /** This scenario triggers a revision cycle due to obj_101 (critical) */
     expectsRevision: true,
     expectedRevisionCount: 1,

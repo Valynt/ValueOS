@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Evaluation Dataset: Narrative Agent
  *
@@ -5,38 +6,40 @@
  * Tests executive summary generation, section structure, and
  * claim-to-citation linkage.
  */
-import { z } from 'zod';
-export const NarrativeEvalCaseSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    input: z.object({
-        query: z.string(),
-        context: z.object({
-            organizationId: z.string().optional(),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.narrativeEvalCases = exports.NarrativeEvalCaseSchema = void 0;
+const zod_1 = require("zod");
+exports.NarrativeEvalCaseSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string(),
+    input: zod_1.z.object({
+        query: zod_1.z.string(),
+        context: zod_1.z.object({
+            organizationId: zod_1.z.string().optional(),
         }).optional(),
-        idempotencyKey: z.string().uuid().optional(),
+        idempotencyKey: zod_1.z.string().uuid().optional(),
     }),
-    expectations: z.object({
-        minNarratives: z.number().int().min(1),
+    expectations: zod_1.z.object({
+        minNarratives: zod_1.z.number().int().min(1),
         /** Executive summary / analysis must be at least this long */
-        analysisMinLength: z.number().int(),
-        mustMentionKeywords: z.array(z.string()).optional(),
+        analysisMinLength: zod_1.z.number().int(),
+        mustMentionKeywords: zod_1.z.array(zod_1.z.string()).optional(),
         /** Each narrative should reference specific dollar amounts */
-        requiresDollarAmounts: z.boolean().optional(),
+        requiresDollarAmounts: zod_1.z.boolean().optional(),
     }),
-    mockResponse: z.object({
-        narratives: z.array(z.object({
-            title: z.string(),
-            description: z.string(),
-            confidence: z.number(),
-            category: z.string(),
-            narrative_type: z.string(),
-            priority: z.string(),
+    mockResponse: zod_1.z.object({
+        narratives: zod_1.z.array(zod_1.z.object({
+            title: zod_1.z.string(),
+            description: zod_1.z.string(),
+            confidence: zod_1.z.number(),
+            category: zod_1.z.string(),
+            narrative_type: zod_1.z.string(),
+            priority: zod_1.z.string(),
         })),
-        analysis: z.string(),
+        analysis: zod_1.z.string(),
     }),
 });
-export const narrativeEvalCases = [
+exports.narrativeEvalCases = [
     {
         id: 'narr-eval-001',
         name: 'SaaS DSO reduction executive narrative',

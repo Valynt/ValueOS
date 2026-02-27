@@ -1,3 +1,4 @@
+"use strict";
 /* eslint-disable no-console */
 /**
  * Structured Logging Utility with PII Protection
@@ -17,19 +18,23 @@
  *   logger.info('User action', { userId: '123', action: 'login' });
  *   logger.error('Operation failed', error, { context: data });
  */
-import { isDevelopment, isProduction, isTest } from "../config/environment";
-import { getTraceContextForLogging } from "../config/telemetry";
-import { sanitizeError, sanitizeForLogging, sanitizeRequest, sanitizeUser, validateLogMessage, } from "./piiFilter";
-import { getContext } from "./context";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.secureLog = exports.log = exports.logger = void 0;
+exports.createLogger = createLogger;
+exports.setupMonitoring = setupMonitoring;
+const environment_1 = require("../config/environment");
+const telemetry_1 = require("../config/telemetry");
+const piiFilter_1 = require("./piiFilter");
+const context_1 = require("./context");
 class Logger {
     minLevel;
     listeners = [];
     constructor() {
         // Set minimum log level based on environment
-        if (isProduction()) {
+        if ((0, environment_1.isProduction)()) {
             this.minLevel = "warn";
         }
-        else if (isTest()) {
+        else if ((0, environment_1.isTest)()) {
             this.minLevel = "error";
         }
         else {
@@ -52,33 +57,33 @@ class Logger {
      * Log a debug message (with automatic PII sanitization)
      */
     debug(message, context) {
-        validateLogMessage(message, context);
-        const sanitizedContext = context ? sanitizeForLogging(context) : undefined;
+        (0, piiFilter_1.validateLogMessage)(message, context);
+        const sanitizedContext = context ? (0, piiFilter_1.sanitizeForLogging)(context) : undefined;
         this.log("debug", message, sanitizedContext);
     }
     /**
      * Log an info message (with automatic PII sanitization)
      */
     info(message, context) {
-        validateLogMessage(message, context);
-        const sanitizedContext = context ? sanitizeForLogging(context) : undefined;
+        (0, piiFilter_1.validateLogMessage)(message, context);
+        const sanitizedContext = context ? (0, piiFilter_1.sanitizeForLogging)(context) : undefined;
         this.log("info", message, sanitizedContext);
     }
     /**
      * Log a warning message (with automatic PII sanitization)
      */
     warn(message, context) {
-        validateLogMessage(message, context);
-        const sanitizedContext = context ? sanitizeForLogging(context) : undefined;
+        (0, piiFilter_1.validateLogMessage)(message, context);
+        const sanitizedContext = context ? (0, piiFilter_1.sanitizeForLogging)(context) : undefined;
         this.log("warn", message, sanitizedContext);
     }
     /**
      * Log an error message (with automatic PII sanitization)
      */
     error(message, error, context) {
-        validateLogMessage(message, context);
-        const sanitizedContext = context ? sanitizeForLogging(context) : undefined;
-        const sanitizedError = error ? sanitizeError(error) : undefined;
+        (0, piiFilter_1.validateLogMessage)(message, context);
+        const sanitizedContext = context ? (0, piiFilter_1.sanitizeForLogging)(context) : undefined;
+        const sanitizedError = error ? (0, piiFilter_1.sanitizeError)(error) : undefined;
         this.log("error", message, {
             ...sanitizedContext,
             error: sanitizedError,
@@ -92,7 +97,7 @@ class Logger {
             return;
         }
         // Merge with AsyncLocalStorage context if available
-        const requestContext = getContext();
+        const requestContext = (0, context_1.getContext)();
         const mergedContext = {
             ...requestContext,
             ...context,
@@ -124,11 +129,11 @@ class Logger {
             }
         });
         // Output to console in development
-        if (isDevelopment() || isTest()) {
+        if ((0, environment_1.isDevelopment)() || (0, environment_1.isTest)()) {
             this.consoleOutput(entry);
         }
         // In production, only log errors to console
-        if (isProduction() && level === "error") {
+        if ((0, environment_1.isProduction)() && level === "error") {
             this.consoleOutput(entry);
         }
     }
@@ -146,7 +151,7 @@ class Logger {
      */
     consoleOutput(entry) {
         // In production, output structured JSON for log ingestion
-        if (isProduction()) {
+        if ((0, environment_1.isProduction)()) {
             console.log(JSON.stringify({
                 timestamp: entry.timestamp,
                 level: entry.level,
@@ -199,65 +204,65 @@ class Logger {
     }
 }
 // Export singleton instance
-export const logger = new Logger();
+exports.logger = new Logger();
 // Export convenience functions
-export const log = {
-    debug: (message, context) => logger.debug(message, context),
-    info: (message, context) => logger.info(message, context),
-    warn: (message, context) => logger.warn(message, context),
-    error: (message, error, context) => logger.error(message, error, context),
+exports.log = {
+    debug: (message, context) => exports.logger.debug(message, context),
+    info: (message, context) => exports.logger.info(message, context),
+    warn: (message, context) => exports.logger.warn(message, context),
+    error: (message, error, context) => exports.logger.error(message, error, context),
 };
 /**
  * Create a logger with default context (automatically sanitized)
  */
-export function createLogger(defaultContext) {
-    const sanitizedDefault = sanitizeForLogging(defaultContext);
+function createLogger(defaultContext) {
+    const sanitizedDefault = (0, piiFilter_1.sanitizeForLogging)(defaultContext);
     return {
-        debug: (message, context) => logger.debug(message, { ...sanitizedDefault, ...context }),
-        info: (message, context) => logger.info(message, { ...sanitizedDefault, ...context }),
-        warn: (message, context) => logger.warn(message, { ...sanitizedDefault, ...context }),
-        error: (message, error, context) => logger.error(message, error, { ...sanitizedDefault, ...context }),
+        debug: (message, context) => exports.logger.debug(message, { ...sanitizedDefault, ...context }),
+        info: (message, context) => exports.logger.info(message, { ...sanitizedDefault, ...context }),
+        warn: (message, context) => exports.logger.warn(message, { ...sanitizedDefault, ...context }),
+        error: (message, error, context) => exports.logger.error(message, error, { ...sanitizedDefault, ...context }),
     };
 }
 /**
  * Specialized loggers for common use cases
  */
-export const secureLog = {
+exports.secureLog = {
     /**
      * Log user-related actions (automatically sanitizes user objects)
      */
     user: (message, user, context) => {
-        logger.info(message, { ...sanitizeUser(user), ...context });
+        exports.logger.info(message, { ...(0, piiFilter_1.sanitizeUser)(user), ...context });
     },
     /**
      * Log request-related actions (automatically sanitizes requests)
      */
     request: (message, req, context) => {
-        logger.info(message, { ...sanitizeRequest(req), ...context });
+        exports.logger.info(message, { ...(0, piiFilter_1.sanitizeRequest)(req), ...context });
     },
     /**
      * Log errors with automatic sanitization
      */
     error: (message, error, context) => {
         const sanitizedError = error instanceof Error ? error : new Error(String(error));
-        logger.error(message, sanitizedError, context);
+        exports.logger.error(message, sanitizedError, context);
     },
 };
 /**
  * Integration with monitoring services
  */
-export function setupMonitoring() {
+function setupMonitoring() {
     // Example: Send errors to Sentry
-    if (isProduction()) {
+    if ((0, environment_1.isProduction)()) {
         // Add Sentry integration if available
         try {
             // Dynamically import Sentry to avoid dependency errors in minimal builds
             // eslint-disable-next-line @typescript-eslint/no-require-imports
             const Sentry = typeof window === "undefined" ? require("@sentry/node") : null;
             if (Sentry) {
-                logger.addListener((entry) => {
+                exports.logger.addListener((entry) => {
                     if (entry.level === "error" && entry.error) {
-                        const trace = getTraceContextForLogging();
+                        const trace = (0, telemetry_1.getTraceContextForLogging)();
                         Sentry.withScope((scope) => {
                             scope.setExtras({ ...entry.context, ...trace });
                             scope.setTag("component", entry.context?.component || "unknown");
@@ -268,11 +273,11 @@ export function setupMonitoring() {
             }
         }
         catch (err) {
-            logger.warn("Sentry not installed; skipping error forwarding", {
+            exports.logger.warn("Sentry not installed; skipping error forwarding", {
                 error: err instanceof Error ? err.message : String(err),
             });
         }
     }
 }
-export default logger;
+exports.default = exports.logger;
 //# sourceMappingURL=logger.js.map

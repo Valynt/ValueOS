@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Ground Truth Dataset: SaaS DSO Reduction
  *
@@ -5,15 +6,17 @@
  * reducing Days Sales Outstanding (DSO) through accounts receivable automation.
  * Based on realistic financial data patterns from public SaaS companies.
  */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.saassDsoReductionScenario = exports.expectedStateTransitions = exports.provenanceRecords = exports.objections = exports.narrativeBlock = exports.claimConfidences = exports.valueTree = exports.evidenceBundle = exports.citations = exports.classifiedEvidence = exports.evidenceItems = exports.hypotheses = exports.scenarioMeta = exports.CORRELATION_ID = exports.TENANT_ID = exports.VALUE_CASE_ID = exports.SCENARIO_ID = void 0;
 // ============================================================================
 // Scenario Metadata
 // ============================================================================
-export const SCENARIO_ID = 'gt-saas-dso-001';
-export const VALUE_CASE_ID = '550e8400-e29b-41d4-a716-446655440001';
-export const TENANT_ID = 'tenant-acme-corp-001';
-export const CORRELATION_ID = '660e8400-e29b-41d4-a716-446655440001';
-export const scenarioMeta = {
-    id: SCENARIO_ID,
+exports.SCENARIO_ID = 'gt-saas-dso-001';
+exports.VALUE_CASE_ID = '550e8400-e29b-41d4-a716-446655440001';
+exports.TENANT_ID = 'tenant-acme-corp-001';
+exports.CORRELATION_ID = '660e8400-e29b-41d4-a716-446655440001';
+exports.scenarioMeta = {
+    id: exports.SCENARIO_ID,
     name: 'SaaS DSO Reduction via AR Automation',
     industry: 'SaaS / B2B Software',
     companyProfile: {
@@ -30,7 +33,7 @@ export const scenarioMeta = {
 // ============================================================================
 // Hypotheses (Step 1 output)
 // ============================================================================
-export const hypotheses = [
+exports.hypotheses = [
     {
         id: 'hyp_001',
         description: 'Reducing DSO from 62 to 45 days through automated invoice delivery and payment reminders',
@@ -56,7 +59,7 @@ export const hypotheses = [
 // ============================================================================
 // Evidence Items (Step 3 input)
 // ============================================================================
-export const evidenceItems = [
+exports.evidenceItems = [
     {
         id: 'ev_001',
         sourceType: '10-K',
@@ -111,17 +114,17 @@ export const evidenceItems = [
 // ============================================================================
 // Classified Evidence (after EvidenceTiering)
 // ============================================================================
-export const classifiedEvidence = [
-    { ...evidenceItems[0], tier: 1, weight: 1.0, maxAgeDays: 365 },
-    { ...evidenceItems[1], tier: 2, weight: 0.7, maxAgeDays: 730 },
-    { ...evidenceItems[2], tier: 2, weight: 0.7, maxAgeDays: 730 },
-    { ...evidenceItems[3], tier: 1, weight: 1.0, maxAgeDays: 365 },
-    { ...evidenceItems[4], tier: 3, weight: 0.4, maxAgeDays: 1095 },
+exports.classifiedEvidence = [
+    { ...exports.evidenceItems[0], tier: 1, weight: 1.0, maxAgeDays: 365 },
+    { ...exports.evidenceItems[1], tier: 2, weight: 0.7, maxAgeDays: 730 },
+    { ...exports.evidenceItems[2], tier: 2, weight: 0.7, maxAgeDays: 730 },
+    { ...exports.evidenceItems[3], tier: 1, weight: 1.0, maxAgeDays: 365 },
+    { ...exports.evidenceItems[4], tier: 3, weight: 0.4, maxAgeDays: 1095 },
 ];
 // ============================================================================
 // Citations
 // ============================================================================
-export const citations = classifiedEvidence.map((ev) => ({
+exports.citations = exports.classifiedEvidence.map((ev) => ({
     evidenceId: ev.id,
     sourceName: ev.sourceName,
     sourceUrl: ev.sourceUrl,
@@ -132,18 +135,18 @@ export const citations = classifiedEvidence.map((ev) => ({
 // ============================================================================
 // Evidence Bundle
 // ============================================================================
-export const evidenceBundle = {
-    valueCaseId: VALUE_CASE_ID,
-    items: classifiedEvidence,
-    citations,
+exports.evidenceBundle = {
+    valueCaseId: exports.VALUE_CASE_ID,
+    items: exports.classifiedEvidence,
+    citations: exports.citations,
     timestamp: '2026-01-25T12:00:00Z',
 };
 // ============================================================================
 // Value Tree (Step 2 output)
 // ============================================================================
-export const valueTree = {
-    id: `vt_${VALUE_CASE_ID}_0`,
-    valueCaseId: VALUE_CASE_ID,
+exports.valueTree = {
+    id: `vt_${exports.VALUE_CASE_ID}_0`,
+    valueCaseId: exports.VALUE_CASE_ID,
     nodes: [
         {
             id: 'node_root',
@@ -187,7 +190,7 @@ export const valueTree = {
 // ============================================================================
 // Confidence Scores (Step 3 output)
 // ============================================================================
-export const claimConfidences = [
+exports.claimConfidences = [
     {
         claimId: 'node_wc',
         score: {
@@ -198,7 +201,7 @@ export const claimConfidences = [
             tier: 1,
             evidenceId: 'ev_001',
         },
-        citations: citations.filter((c) => ['ev_001', 'ev_002', 'ev_003'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_001', 'ev_002', 'ev_003'].includes(c.evidenceId)),
     },
     {
         claimId: 'node_fte',
@@ -210,7 +213,7 @@ export const claimConfidences = [
             tier: 1,
             evidenceId: 'ev_004',
         },
-        citations: citations.filter((c) => c.evidenceId === 'ev_004'),
+        citations: exports.citations.filter((c) => c.evidenceId === 'ev_004'),
     },
     {
         claimId: 'node_bd',
@@ -222,15 +225,15 @@ export const claimConfidences = [
             tier: 2,
             evidenceId: 'ev_005',
         },
-        citations: citations.filter((c) => ['ev_004', 'ev_005'].includes(c.evidenceId)),
+        citations: exports.citations.filter((c) => ['ev_004', 'ev_005'].includes(c.evidenceId)),
     },
 ];
 // ============================================================================
 // Narrative Block (Step 4 output)
 // ============================================================================
-export const narrativeBlock = {
-    id: `narr_${VALUE_CASE_ID}_0`,
-    valueCaseId: VALUE_CASE_ID,
+exports.narrativeBlock = {
+    id: `narr_${exports.VALUE_CASE_ID}_0`,
+    valueCaseId: exports.VALUE_CASE_ID,
     title: 'Unlocking $4.9M in Value Through AR Automation',
     executiveSummary: 'Acme Cloud\'s current 62-day DSO is 14 days above the SaaS industry median of 48 days, ' +
         'tying up approximately $14.4M in receivables. By implementing AR automation, Acme can reduce DSO to 45 days, ' +
@@ -268,7 +271,7 @@ export const narrativeBlock = {
 // ============================================================================
 // Red Team Objections (Step 5 output)
 // ============================================================================
-export const objections = [
+exports.objections = [
     {
         id: 'obj_001',
         targetComponent: 'node_wc',
@@ -300,9 +303,9 @@ export const objections = [
 // ============================================================================
 // Provenance Records
 // ============================================================================
-export const provenanceRecords = [
+exports.provenanceRecords = [
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_wc',
         dataSource: 'Acme Cloud Inc. 10-K FY2025 — AR balance $14.4M, DSO 62 days',
         evidenceTier: 1,
@@ -312,7 +315,7 @@ export const provenanceRecords = [
         confidenceScore: 0.82,
     },
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_fte',
         dataSource: 'Acme Cloud Finance Team — AR Aging Report, 2.5 FTE on manual AR',
         evidenceTier: 1,
@@ -322,7 +325,7 @@ export const provenanceRecords = [
         confidenceScore: 0.75,
     },
     {
-        valueCaseId: VALUE_CASE_ID,
+        valueCaseId: exports.VALUE_CASE_ID,
         claimId: 'node_bd',
         dataSource: 'Acme Cloud Finance Team — $1.7M bad debt; ValueOS Benchmark DB — 35% avg reduction',
         evidenceTier: 3,
@@ -336,7 +339,7 @@ export const provenanceRecords = [
 // ============================================================================
 // Expected Saga State Transitions
 // ============================================================================
-export const expectedStateTransitions = [
+exports.expectedStateTransitions = [
     { from: 'NONE', to: 'INITIATED', trigger: 'INITIALIZATION' },
     { from: 'INITIATED', to: 'DRAFTING', trigger: 'OPPORTUNITY_INGESTED' },
     { from: 'DRAFTING', to: 'VALIDATING', trigger: 'HYPOTHESIS_CONFIRMED' },
@@ -347,21 +350,21 @@ export const expectedStateTransitions = [
 // ============================================================================
 // Full Scenario Export
 // ============================================================================
-export const saassDsoReductionScenario = {
-    meta: scenarioMeta,
-    valueCaseId: VALUE_CASE_ID,
-    tenantId: TENANT_ID,
-    correlationId: CORRELATION_ID,
-    hypotheses,
-    evidenceItems,
-    classifiedEvidence,
-    citations,
-    evidenceBundle,
-    valueTree,
-    claimConfidences,
-    narrativeBlock,
-    objections,
-    provenanceRecords,
-    expectedStateTransitions,
+exports.saassDsoReductionScenario = {
+    meta: exports.scenarioMeta,
+    valueCaseId: exports.VALUE_CASE_ID,
+    tenantId: exports.TENANT_ID,
+    correlationId: exports.CORRELATION_ID,
+    hypotheses: exports.hypotheses,
+    evidenceItems: exports.evidenceItems,
+    classifiedEvidence: exports.classifiedEvidence,
+    citations: exports.citations,
+    evidenceBundle: exports.evidenceBundle,
+    valueTree: exports.valueTree,
+    claimConfidences: exports.claimConfidences,
+    narrativeBlock: exports.narrativeBlock,
+    objections: exports.objections,
+    provenanceRecords: exports.provenanceRecords,
+    expectedStateTransitions: exports.expectedStateTransitions,
 };
 //# sourceMappingURL=saas-dso-reduction.js.map

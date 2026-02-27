@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Hypothesis-First Core Loop Orchestrator
  *
@@ -13,76 +14,78 @@
  * Each step carries an idempotency key, streams progress via SSE,
  * records token usage, and routes failures to the DLQ.
  */
-import { z } from 'zod';
-import { SagaTrigger } from '../core/ValueCaseSaga.js';
-import { ObjectionSchema } from './agents/RedTeamAgent.js';
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.HypothesisLoop = exports.LoopResultSchema = exports.EvidenceReportSchema = exports.NarrativeBlockSchema = exports.NarrativeSectionSchema = exports.ValueTreeSchema = exports.ValueTreeNodeSchema = exports.ValueHypothesisSchema = void 0;
+const zod_1 = require("zod");
+const ValueCaseSaga_js_1 = require("../core/ValueCaseSaga.js");
+const RedTeamAgent_js_1 = require("./agents/RedTeamAgent.js");
 // ============================================================================
 // Zod Schemas
 // ============================================================================
-export const ValueHypothesisSchema = z.object({
-    id: z.string(),
-    description: z.string(),
-    confidence: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
-    category: z.string(),
-    estimatedValue: z.number().refine((n) => !Number.isNaN(n), { message: 'estimatedValue must not be NaN' }).optional(),
+exports.ValueHypothesisSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    description: zod_1.z.string(),
+    confidence: zod_1.z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
+    category: zod_1.z.string(),
+    estimatedValue: zod_1.z.number().refine((n) => !Number.isNaN(n), { message: 'estimatedValue must not be NaN' }).optional(),
 });
-export const ValueTreeNodeSchema = z.lazy(() => z.object({
-    id: z.string(),
-    label: z.string(),
-    value: z.number().refine((n) => !Number.isNaN(n), { message: 'node value must not be NaN' }),
-    formula: z.string().optional(),
-    confidenceScore: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
-    citations: z.array(z.string()),
-    children: z.array(ValueTreeNodeSchema).optional(),
+exports.ValueTreeNodeSchema = zod_1.z.lazy(() => zod_1.z.object({
+    id: zod_1.z.string(),
+    label: zod_1.z.string(),
+    value: zod_1.z.number().refine((n) => !Number.isNaN(n), { message: 'node value must not be NaN' }),
+    formula: zod_1.z.string().optional(),
+    confidenceScore: zod_1.z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
+    citations: zod_1.z.array(zod_1.z.string()),
+    children: zod_1.z.array(exports.ValueTreeNodeSchema).optional(),
 }));
-export const ValueTreeSchema = z.object({
-    id: z.string(),
-    valueCaseId: z.string(),
-    nodes: z.array(ValueTreeNodeSchema),
-    totalValue: z.number().refine((n) => !Number.isNaN(n), { message: 'totalValue must not be NaN' }),
-    currency: z.string(),
-    timestamp: z.string(),
+exports.ValueTreeSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    valueCaseId: zod_1.z.string(),
+    nodes: zod_1.z.array(exports.ValueTreeNodeSchema),
+    totalValue: zod_1.z.number().refine((n) => !Number.isNaN(n), { message: 'totalValue must not be NaN' }),
+    currency: zod_1.z.string(),
+    timestamp: zod_1.z.string(),
 }).strict();
-export const NarrativeSectionSchema = z.object({
-    heading: z.string(),
-    content: z.string(),
-    claimIds: z.array(z.string()),
-    confidenceScore: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
+exports.NarrativeSectionSchema = zod_1.z.object({
+    heading: zod_1.z.string(),
+    content: zod_1.z.string(),
+    claimIds: zod_1.z.array(zod_1.z.string()),
+    confidenceScore: zod_1.z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidenceScore must not be NaN' }),
 }).strict();
-export const NarrativeBlockSchema = z.object({
-    id: z.string(),
-    valueCaseId: z.string(),
-    title: z.string(),
-    executiveSummary: z.string(),
-    sections: z.array(NarrativeSectionSchema),
-    timestamp: z.string(),
+exports.NarrativeBlockSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    valueCaseId: zod_1.z.string(),
+    title: zod_1.z.string(),
+    executiveSummary: zod_1.z.string(),
+    sections: zod_1.z.array(exports.NarrativeSectionSchema),
+    timestamp: zod_1.z.string(),
 }).strict();
 /** Schema for the evidence bundle as constructed by the loop (not the formal EvidenceBundle domain type). */
-export const EvidenceReportSchema = z.object({
-    valueCaseId: z.string(),
-    items: z.array(z.object({
-        title: z.string(),
-        description: z.string(),
-        confidence: z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
-        category: z.string(),
-        verification_type: z.string(),
-        priority: z.string(),
+exports.EvidenceReportSchema = zod_1.z.object({
+    valueCaseId: zod_1.z.string(),
+    items: zod_1.z.array(zod_1.z.object({
+        title: zod_1.z.string(),
+        description: zod_1.z.string(),
+        confidence: zod_1.z.number().min(0).max(1).refine((n) => !Number.isNaN(n), { message: 'confidence must not be NaN' }),
+        category: zod_1.z.string(),
+        verification_type: zod_1.z.string(),
+        priority: zod_1.z.string(),
     })),
-    analysis: z.string(),
-    timestamp: z.string(),
+    analysis: zod_1.z.string(),
+    timestamp: zod_1.z.string(),
 }).strict();
-export const LoopResultSchema = z.object({
-    valueCaseId: z.string(),
-    tenantId: z.string(),
-    hypotheses: z.array(ValueHypothesisSchema),
-    valueTree: ValueTreeSchema.nullable(),
-    evidenceBundle: EvidenceReportSchema.nullable(),
-    narrative: NarrativeBlockSchema.nullable(),
-    objections: z.array(ObjectionSchema),
-    revisionCount: z.number().int().min(0),
-    finalState: z.string(),
-    success: z.boolean(),
-    error: z.string().optional(),
+exports.LoopResultSchema = zod_1.z.object({
+    valueCaseId: zod_1.z.string(),
+    tenantId: zod_1.z.string(),
+    hypotheses: zod_1.z.array(exports.ValueHypothesisSchema),
+    valueTree: exports.ValueTreeSchema.nullable(),
+    evidenceBundle: exports.EvidenceReportSchema.nullable(),
+    narrative: exports.NarrativeBlockSchema.nullable(),
+    objections: zod_1.z.array(RedTeamAgent_js_1.ObjectionSchema),
+    revisionCount: zod_1.z.number().int().min(0),
+    finalState: zod_1.z.string(),
+    success: zod_1.z.boolean(),
+    error: zod_1.z.string().optional(),
 });
 // ============================================================================
 // Constants
@@ -91,7 +94,7 @@ const DEFAULT_MAX_REVISION_CYCLES = 3;
 // ============================================================================
 // HypothesisLoop
 // ============================================================================
-export class HypothesisLoop {
+class HypothesisLoop {
     saga;
     idempotencyGuard;
     dlq;
@@ -144,7 +147,7 @@ export class HypothesisLoop {
             }, valueCaseId, tenantId, correlationId, 'opportunity');
             this.emitProgress(sse, 1, 'Hypothesis', 'completed', `Found ${hypotheses.length} hypotheses`);
             // Transition to DRAFTING
-            await this.saga.transition(valueCaseId, SagaTrigger.OPPORTUNITY_INGESTED, correlationId);
+            await this.saga.transition(valueCaseId, ValueCaseSaga_js_1.SagaTrigger.OPPORTUNITY_INGESTED, correlationId);
             // Revision loop (steps 2-6)
             let needsRevision = true;
             while (needsRevision && revisionCount <= this.config.maxRevisionCycles) {
@@ -160,7 +163,7 @@ export class HypothesisLoop {
                 valueTree = this.buildValueTree(valueCaseId, revisionCount, modelResult.financial_models, hypotheses);
                 this.emitProgress(sse, 2, 'Model', 'completed');
                 // Transition to VALIDATING
-                await this.saga.transition(valueCaseId, SagaTrigger.HYPOTHESIS_CONFIRMED, correlationId);
+                await this.saga.transition(valueCaseId, ValueCaseSaga_js_1.SagaTrigger.HYPOTHESIS_CONFIRMED, correlationId);
                 // Step 3: Evidence
                 this.emitProgress(sse, 3, 'Evidence', 'running');
                 const evidenceResult = await this.executeWithGuard(`${valueCaseId}:evidence:${revisionCount}`, async () => {
@@ -174,7 +177,7 @@ export class HypothesisLoop {
                 };
                 this.emitProgress(sse, 3, 'Evidence', 'completed');
                 // Transition to COMPOSING
-                await this.saga.transition(valueCaseId, SagaTrigger.INTEGRITY_PASSED, correlationId);
+                await this.saga.transition(valueCaseId, ValueCaseSaga_js_1.SagaTrigger.INTEGRITY_PASSED, correlationId);
                 // Step 4: Narrative
                 this.emitProgress(sse, 4, 'Narrative', 'running');
                 const narrativeResult = await this.executeWithGuard(`${valueCaseId}:narrative:${revisionCount}`, async () => {
@@ -214,7 +217,7 @@ export class HypothesisLoop {
                     this.emitProgress(sse, 6, 'Revision', 'running', `Revision cycle ${revisionCount + 1}`);
                     revisionCount++;
                     // Direct transition COMPOSING → DRAFTING via REDTEAM_OBJECTION
-                    await this.saga.transition(valueCaseId, SagaTrigger.REDTEAM_OBJECTION, correlationId);
+                    await this.saga.transition(valueCaseId, ValueCaseSaga_js_1.SagaTrigger.REDTEAM_OBJECTION, correlationId);
                     this.emitProgress(sse, 6, 'Revision', 'completed', `Re-entering at DRAFTING`);
                     // Loop continues
                 }
@@ -227,10 +230,10 @@ export class HypothesisLoop {
             // Move to REFINING first (COMPOSING → REFINING via FEEDBACK_RECEIVED)
             const currentState = await this.saga.getState(valueCaseId);
             if (currentState?.state === 'COMPOSING') {
-                await this.saga.transition(valueCaseId, SagaTrigger.FEEDBACK_RECEIVED, correlationId);
+                await this.saga.transition(valueCaseId, ValueCaseSaga_js_1.SagaTrigger.FEEDBACK_RECEIVED, correlationId);
             }
             // Then FINALIZED (REFINING → FINALIZED via VE_APPROVED)
-            await this.saga.transition(valueCaseId, SagaTrigger.VE_APPROVED, correlationId);
+            await this.saga.transition(valueCaseId, ValueCaseSaga_js_1.SagaTrigger.VE_APPROVED, correlationId);
             this.emitProgress(sse, 7, 'Approval', 'completed', 'Value case finalized');
             return {
                 valueCaseId,
@@ -365,4 +368,5 @@ export class HypothesisLoop {
         });
     }
 }
+exports.HypothesisLoop = HypothesisLoop;
 //# sourceMappingURL=HypothesisLoop.js.map

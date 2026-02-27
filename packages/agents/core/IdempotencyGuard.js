@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Idempotency Guard
  *
@@ -11,7 +12,9 @@
  * - Before execution: check Redis for `idempotency:{key}` — if exists, return cached result
  * - After execution: store result with 24-hour TTL
  */
-import { z } from 'zod';
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.IdempotencyGuard = exports.IdempotencyKeySchema = void 0;
+const zod_1 = require("zod");
 // ============================================================================
 // Constants
 // ============================================================================
@@ -22,11 +25,11 @@ const MAX_KEY_LENGTH = 512;
 // Zod Schema for idempotency key validation
 // ============================================================================
 /** Accepts UUIDs or any non-empty string up to 512 chars (for deterministic step keys). */
-export const IdempotencyKeySchema = z.string().min(1).max(MAX_KEY_LENGTH);
+exports.IdempotencyKeySchema = zod_1.z.string().min(1).max(MAX_KEY_LENGTH);
 // ============================================================================
 // IdempotencyGuard
 // ============================================================================
-export class IdempotencyGuard {
+class IdempotencyGuard {
     store;
     ttlSeconds;
     constructor(store, ttlSeconds = DEFAULT_TTL_SECONDS) {
@@ -44,7 +47,7 @@ export class IdempotencyGuard {
      * Validate that a key is acceptable (non-empty, bounded length).
      */
     static validateKey(key) {
-        return IdempotencyKeySchema.safeParse(key).success;
+        return exports.IdempotencyKeySchema.safeParse(key).success;
     }
     /**
      * Execute a function with idempotency protection.
@@ -92,4 +95,5 @@ export class IdempotencyGuard {
         return JSON.parse(cached);
     }
 }
+exports.IdempotencyGuard = IdempotencyGuard;
 //# sourceMappingURL=IdempotencyGuard.js.map

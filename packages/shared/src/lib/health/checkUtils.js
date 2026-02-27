@@ -1,11 +1,21 @@
+"use strict";
 /**
  * Shared health check utilities
  * Common functions for health validation across different contexts
  */
-import https from "https";
-import http from "http";
-import net from "net";
-import { execSync } from "child_process";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.checkHttpEndpoint = checkHttpEndpoint;
+exports.checkDockerService = checkDockerService;
+exports.isPortInUse = isPortInUse;
+exports.commandExists = commandExists;
+exports.runCommand = runCommand;
+const https_1 = __importDefault(require("https"));
+const http_1 = __importDefault(require("http"));
+const net_1 = __importDefault(require("net"));
+const child_process_1 = require("child_process");
 /**
  * Circuit breaker states
  */
@@ -19,16 +29,19 @@ var CircuitState;
  * Circuit breaker for health checks
  */
 class CircuitBreaker {
+    failureThreshold;
+    recoveryTimeout;
+    monitoringPeriod;
+    state = CircuitState.CLOSED;
+    failureCount = 0;
+    lastFailureTime = 0;
+    nextAttemptTime = 0;
     constructor(failureThreshold = 5, recoveryTimeout = 60000, // 1 minute
     monitoringPeriod = 300000 // 5 minutes
     ) {
         this.failureThreshold = failureThreshold;
         this.recoveryTimeout = recoveryTimeout;
         this.monitoringPeriod = monitoringPeriod;
-        this.state = CircuitState.CLOSED;
-        this.failureCount = 0;
-        this.lastFailureTime = 0;
-        this.nextAttemptTime = 0;
     }
     async execute(operation) {
         const now = Date.now();
@@ -108,13 +121,13 @@ function getCircuitBreaker(serviceName) {
 /**
  * Check HTTP/HTTPS endpoint with circuit breaker
  */
-export async function checkHttpEndpoint(url, timeout = 5000) {
+async function checkHttpEndpoint(url, timeout = 5000) {
     const circuitBreaker = getCircuitBreaker(`http:${url}`);
     try {
         const result = await circuitBreaker.execute(async () => {
             const startTime = Date.now();
             return new Promise((resolve) => {
-                const client = url.startsWith("https:") ? https : http;
+                const client = url.startsWith("https:") ? https_1.default : http_1.default;
                 const req = client.get(url, { timeout }, (res) => {
                     const responseTime = Date.now() - startTime;
                     const isHealthy = Boolean(res.statusCode && res.statusCode >= 200 && res.statusCode < 300);
@@ -165,7 +178,7 @@ export async function checkHttpEndpoint(url, timeout = 5000) {
 /**
  * Check if a Docker service is running with circuit breaker
  */
-export function checkDockerService(serviceName, projectRoot) {
+function checkDockerService(serviceName, projectRoot) {
     const circuitBreaker = getCircuitBreaker(`docker:${serviceName}`);
     try {
         // For synchronous operations, we need to check circuit breaker state manually
@@ -186,7 +199,7 @@ export function checkDockerService(serviceName, projectRoot) {
                 };
             }
         }
-        const output = execSync(`docker compose ps ${serviceName}`, {
+        const output = (0, child_process_1.execSync)(`docker compose ps ${serviceName}`, {
             cwd: projectRoot,
             encoding: "utf8",
             timeout: 10000,
@@ -211,9 +224,9 @@ export function checkDockerService(serviceName, projectRoot) {
 /**
  * Check if a port is in use
  */
-export async function isPortInUse(port, host = "127.0.0.1") {
+async function isPortInUse(port, host = "127.0.0.1") {
     return new Promise((resolve) => {
-        const tester = net
+        const tester = net_1.default
             .createServer()
             .once("error", (error) => {
             resolve(error.code === "EADDRINUSE");
@@ -227,9 +240,9 @@ export async function isPortInUse(port, host = "127.0.0.1") {
 /**
  * Check if a command exists in PATH
  */
-export function commandExists(command) {
+function commandExists(command) {
     try {
-        execSync(`command -v ${command}`, { stdio: "ignore" });
+        (0, child_process_1.execSync)(`command -v ${command}`, { stdio: "ignore" });
         return true;
     }
     catch {
@@ -239,8 +252,8 @@ export function commandExists(command) {
 /**
  * Run a command and return its output
  */
-export function runCommand(command, options = {}) {
-    return execSync(command, {
+function runCommand(command, options = {}) {
+    return (0, child_process_1.execSync)(command, {
         cwd: options.cwd,
         stdio: "pipe",
         encoding: "utf8",
