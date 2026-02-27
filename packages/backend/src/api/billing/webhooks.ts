@@ -1,19 +1,21 @@
 /**
  * Webhooks API
- * Stripe webhook endpoint
+ * Stripe webhook endpoint with security hardening
  */
 
 import express, { Request, Response } from 'express';
 import WebhookService from '../../services/billing/WebhookService.js';
 import { createLogger } from '@shared/lib/logger';
 import { recordStripeWebhook } from '../../metrics/billingMetrics.js';
-import { getSupabaseConfig } from '@shared/lib/env';
+import { getSupabaseServerConfig } from '@shared/lib/env';
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });
 
+const WEBHOOK_PAYLOAD_LIMIT = '256kb';
+
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
+  requestId: (req as Record<string, unknown>).requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -21,49 +23,64 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  * POST /api/billing/webhooks/stripe
  * Stripe webhook handler
  */
-router.post('/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
-  try {
-    const { url, serviceRoleKey } = getSupabaseConfig();
-    if (!url || !serviceRoleKey) {
-      logger.warn(
-        'Billing database configuration missing for webhook processing',
+router.post(
+  '/stripe',
+  express.raw({ type: 'application/json', limit: WEBHOOK_PAYLOAD_LIMIT }),
+  async (req: Request, res: Response) => {
+    try {
+      const { url, serviceRoleKey } = getSupabaseServerConfig();
+      if (!url || !serviceRoleKey) {
+        logger.warn(
+          'Webhook processing unavailable: server credentials not configured',
+          withRequestContext(req, res)
+        );
+        return res.status(503).json({ error: 'Service temporarily unavailable' });
+      }
+
+      const signature = req.headers['stripe-signature'] as string;
+
+      if (!signature) {
+        return res.status(400).json({ error: 'Bad request' });
+      }
+
+      let event;
+      try {
+        event = WebhookService.verifySignature(req.body, signature);
+      } catch {
+        return res.status(400).json({ error: 'Bad request' });
+      }
+
+      recordStripeWebhook(event.type, 'received');
+
+      logger.info(
+        'Webhook received',
+        withRequestContext(req, res, {
+          eventId: event.id,
+          type: event.type,
+        })
+      );
+
+      try {
+        await WebhookService.processEvent(event);
+      } catch (processingError) {
+        logger.error(
+          'Webhook processing failed',
+          processingError instanceof Error ? processingError : undefined,
+          withRequestContext(req, res, { eventId: event.id })
+        );
+        return res.status(503).json({ error: 'Service temporarily unavailable. Please retry.' });
+      }
+
+      res.json({ received: true, eventId: event.id });
+    } catch (error: unknown) {
+      logger.error(
+        'Webhook unexpected error',
+        error instanceof Error ? error : undefined,
         withRequestContext(req, res)
       );
-      return res.status(503).json({
-        error: 'Billing database configuration is missing. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
-      });
+      res.status(500).json({ error: 'Internal server error' });
     }
-
-    const signature = req.headers['stripe-signature'] as string;
-    
-    if (!signature) {
-      return res.status(400).json({ error: 'Missing stripe-signature header' });
-    }
-
-    // Verify and construct event
-    const event = WebhookService.verifySignature(req.body, signature);
-    recordStripeWebhook(event.type, 'received');
-    
-    logger.info(
-      'Webhook received',
-      withRequestContext(req, res, {
-        eventId: event.id,
-        type: event.type,
-      })
-    );
-
-    // Process event (async)
-    WebhookService.processEvent(event)
-      .catch(error => {
-        logger.error('Webhook processing failed', error, withRequestContext(req, res));
-      });
-
-    // Respond immediately
-    res.json({ received: true, eventId: event.id });
-  } catch (error: any) {
-    logger.error('Webhook error', error, withRequestContext(req, res));
-    res.status(400).json({ error: error.message });
   }
-});
+);
 
 export default router;

@@ -1,20 +1,33 @@
 /**
  * Webhooks API
- * Stripe webhook endpoint
+ * Stripe webhook endpoint with security hardening
  */
 
 import express, { Request, Response } from 'express';
 import WebhookService from '../../services/billing/WebhookService';
 import { createLogger } from '../../lib/logger';
 import { recordStripeWebhook } from '../../metrics/billingMetrics';
-import { getSupabaseConfig } from '../../lib/env';
+import { getSupabaseServerConfig } from '../../lib/env';
 import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
+import { createRateLimiter } from '../../middleware/rateLimiter';
+import { recordWebhookRejection } from '../../metrics/webhookMetrics';
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });
 
+/** Max raw body size for webhook payloads (256 KB). */
+const WEBHOOK_PAYLOAD_LIMIT = '256kb';
+
+/** Dedicated rate limiter for the webhook endpoint: IP-keyed, burst-tolerant. */
+const webhookRateLimiter = createRateLimiter('standard', {
+  windowMs: 60 * 1000,
+  max: 120,
+  message: 'Webhook rate limit exceeded. Retry later.',
+  keyGenerator: (req: Request) => `webhook:ip:${req.ip || req.socket.remoteAddress || 'unknown'}`,
+});
+
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
+  requestId: (req as Record<string, unknown>).requestId || res.locals.requestId,
   ...meta,
 });
 
@@ -25,28 +38,36 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
 router.post(
   '/stripe',
   requestSanitizationMiddleware({ skipBody: true }),
-  express.raw({ type: 'application/json' }),
+  express.raw({ type: 'application/json', limit: WEBHOOK_PAYLOAD_LIMIT }),
+  webhookRateLimiter,
   async (req: Request, res: Response) => {
     try {
-      const { url, serviceRoleKey } = getSupabaseConfig();
+      // Validate server credentials are available
+      const { url, serviceRoleKey } = getSupabaseServerConfig();
       if (!url || !serviceRoleKey) {
         logger.warn(
-          'Billing database configuration missing for webhook processing',
+          'Webhook processing unavailable: server credentials not configured',
           withRequestContext(req, res)
         );
-        return res.status(503).json({
-          error: 'Billing database configuration is missing. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
-        });
+        return res.status(503).json({ error: 'Service temporarily unavailable' });
       }
 
       const signature = req.headers['stripe-signature'] as string;
 
       if (!signature) {
-        return res.status(400).json({ error: 'Missing stripe-signature header' });
+        recordWebhookRejection('missing_signature');
+        return res.status(400).json({ error: 'Bad request' });
       }
 
       // Verify and construct event
-      const event = WebhookService.verifySignature(req.body, signature);
+      let event;
+      try {
+        event = WebhookService.verifySignature(req.body, signature);
+      } catch {
+        recordWebhookRejection('invalid_signature');
+        return res.status(400).json({ error: 'Bad request' });
+      }
+
       recordStripeWebhook(event.type, 'received');
 
       logger.info(
@@ -57,16 +78,29 @@ router.post(
         })
       );
 
-      // Process event (async)
-      WebhookService.processEvent(event).catch(error => {
-        logger.error('Webhook processing failed', error, withRequestContext(req, res));
-      });
+      // Persist event durably before acknowledging.
+      // processEvent handles idempotent insert internally.
+      try {
+        await WebhookService.processEvent(event);
+      } catch (processingError) {
+        logger.error(
+          'Webhook processing failed',
+          processingError instanceof Error ? processingError : undefined,
+          withRequestContext(req, res, { eventId: event.id })
+        );
+        recordWebhookRejection('persistence_failed');
+        return res.status(503).json({ error: 'Service temporarily unavailable. Please retry.' });
+      }
 
-      // Respond immediately
       res.json({ received: true, eventId: event.id });
-    } catch (error: any) {
-      logger.error('Webhook error', error, withRequestContext(req, res));
-      res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+      // Catch-all: never leak internal details
+      logger.error(
+        'Webhook unexpected error',
+        error instanceof Error ? error : undefined,
+        withRequestContext(req, res)
+      );
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 );
