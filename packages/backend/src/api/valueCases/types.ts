@@ -97,10 +97,15 @@ export const CreateValueCaseSchema = z.object({
   companyId: z.string().uuid().optional(),
   description: sanitizeText(2000).optional(),
   templateId: z.string().uuid().optional(),
+  domainPackId: z.string().uuid().optional(),
+  domainPackVersion: z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+$/, 'Must be semver').optional(),
   stakeholders: z.array(StakeholderSchema).max(20).optional(),
   valueDrivers: z.array(ValueDriverRefSchema).max(50).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-}).strict(); // Reject unknown fields
+}).strict().refine(
+  (data) => !data.domainPackId || data.domainPackVersion,
+  { message: 'domainPackVersion is required when domainPackId is set', path: ['domainPackVersion'] },
+);
 
 export type CreateValueCaseRequest = z.infer<typeof CreateValueCaseSchema>;
 
@@ -112,6 +117,8 @@ export const UpdateValueCaseSchema = z.object({
   description: sanitizeText(2000).optional(),
   status: CaseStatus.optional(),
   phase: CasePhase.optional(),
+  domainPackId: z.string().uuid().nullable().optional(),
+  domainPackVersion: z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+$/, 'Must be semver').nullable().optional(),
   stakeholders: z.array(StakeholderSchema).max(20).optional(),
   metrics: z.array(ValueMetricSchema).max(100).optional(),
   valueDrivers: z.array(ValueDriverRefSchema).max(50).optional(),
@@ -153,6 +160,9 @@ export interface ValueCase {
   description?: string;
   status: CaseStatus;
   phase: CasePhase;
+  domainPackId: string | null;
+  domainPackVersion: string | null;
+  domainPackSnapshot: Record<string, unknown> | null;
   stakeholders: Stakeholder[];
   metrics: ValueMetric[];
   valueDrivers: ValueDriverRef[];

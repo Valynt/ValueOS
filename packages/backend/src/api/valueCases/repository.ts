@@ -88,6 +88,9 @@ export class ValueCasesRepository {
         description: data.description || null,
         status: 'draft' as CaseStatus,
         phase: 'discovery' as CasePhase,
+        domain_pack_id: data.domainPackId || null,
+        domain_pack_version: data.domainPackVersion || null,
+        domain_pack_snapshot: null, // Snapshot is set by the service layer at attachment time
         stakeholders: data.stakeholders || [],
         metrics: [],
         value_drivers: data.valueDrivers || [],
@@ -200,6 +203,8 @@ export class ValueCasesRepository {
       if (data.description !== undefined) updateData.description = data.description;
       if (data.status !== undefined) updateData.status = data.status;
       if (data.phase !== undefined) updateData.phase = data.phase;
+      if (data.domainPackId !== undefined) updateData.domain_pack_id = data.domainPackId;
+      if (data.domainPackVersion !== undefined) updateData.domain_pack_version = data.domainPackVersion;
       if (data.stakeholders !== undefined) updateData.stakeholders = data.stakeholders;
       if (data.metrics !== undefined) updateData.metrics = data.metrics;
       if (data.valueDrivers !== undefined) updateData.value_drivers = data.valueDrivers;
@@ -375,6 +380,9 @@ export class ValueCasesRepository {
       description: row.description as string | undefined,
       status: row.status as CaseStatus,
       phase: row.phase as CasePhase,
+      domainPackId: (row.domain_pack_id as string) ?? null,
+      domainPackVersion: (row.domain_pack_version as string) ?? null,
+      domainPackSnapshot: (row.domain_pack_snapshot as Record<string, unknown>) ?? null,
       stakeholders: (row.stakeholders as unknown[]) || [],
       metrics: (row.metrics as unknown[]) || [],
       valueDrivers: (row.value_drivers as unknown[]) || [],

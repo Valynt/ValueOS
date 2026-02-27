@@ -76,6 +76,12 @@ export interface FeatureFlags {
    * Sprint 0: Disabled in production until breaker integration complete
    */
   ENABLE_CLIENT_LLM_STREAMING: boolean;
+
+  /**
+   * Enable domain pack context loading in agents.
+   * When enabled, agents load KPIs and assumptions from the attached domain pack.
+   */
+  ENABLE_DOMAIN_PACK_CONTEXT: boolean;
 }
 
 /**
@@ -146,6 +152,10 @@ function loadFeatureFlags(): FeatureFlags {
       import.meta.env.VITE_ENABLE_CLIENT_LLM_STREAMING,
       import.meta.env.MODE !== "production" // Default: disabled in prod
     ),
+    ENABLE_DOMAIN_PACK_CONTEXT: parseBoolean(
+      import.meta.env.VITE_ENABLE_DOMAIN_PACK_CONTEXT,
+      false // Default: disabled until repository is wired
+    ),
   };
 
   // Log feature flag status on startup
@@ -162,6 +172,7 @@ function loadFeatureFlags(): FeatureFlags {
     valueCommitmentService: flags.ENABLE_VALUE_COMMITMENT_SERVICE,
     agentPlaceholderMode: flags.ENABLE_AGENT_PLACEHOLDER_MODE,
     clientLlmStreaming: flags.ENABLE_CLIENT_LLM_STREAMING,
+    domainPackContext: flags.ENABLE_DOMAIN_PACK_CONTEXT,
   });
 
   return flags;

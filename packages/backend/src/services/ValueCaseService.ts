@@ -27,6 +27,9 @@ export interface ValueCase {
   stage: LifecycleStage;
   status: "in-progress" | "completed" | "paused";
   quality_score?: number;
+  domain_pack_id?: string;
+  domain_pack_version?: string;
+  domain_pack_snapshot?: Record<string, unknown> | null;
   created_at: Date;
   updated_at: Date;
   metadata?: Record<string, unknown>;
@@ -39,6 +42,8 @@ export interface ValueCaseCreate {
   website?: string;
   stage?: LifecycleStage;
   status?: "in-progress" | "completed" | "paused";
+  domain_pack_id?: string;
+  domain_pack_version?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -49,6 +54,8 @@ export interface ValueCaseUpdate {
   stage?: LifecycleStage;
   status?: "in-progress" | "completed" | "paused";
   quality_score?: number;
+  domain_pack_id?: string;
+  domain_pack_version?: string;
   metadata?: Record<string, unknown>;
 }
 

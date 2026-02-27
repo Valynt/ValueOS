@@ -107,6 +107,9 @@ export interface ValueCase {
   title: string;
   description: string | null;
   status: ValueCaseStatus;
+  domain_pack_id: UUID | null;
+  domain_pack_version: string | null;
+  domain_pack_snapshot: Record<string, unknown> | null;
   created_at: Date;
   updated_at: Date;
 }
