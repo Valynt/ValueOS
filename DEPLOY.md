@@ -56,22 +56,21 @@ ValueOS production runtime is standardized on **`packages/backend`**.
 
 ```bash
 # From the repo root:
-cd infra/docker
-docker compose -f docker-compose.prod.yml --env-file ../../.env.production up -d --build
+docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
 This starts:
 - **Caddy** — reverse proxy with automatic HTTPS (ports 80/443)
 - **Frontend** — Vite-built SPA served by nginx (port 8080 internal)
-- **Backend** — `@valueos/backend` from `packages/backend` via `infra/docker/Dockerfile.backend` (port 3001 internal)
-- **Redis** — session cache and rate limiting
-- **Kafka + Zookeeper** — event streaming (optional, can be removed if not using agent fabric)
+- **Backend** — `@valueos/backend` from `packages/backend` via `infra/docker/Dockerfile.backend` (port 8000 internal)
+- **Postgres** — database (port 5432 internal)
+- **Redis** — session cache and rate limiting (port 6379 internal)
 
 ## Verify
 
 ```bash
 # Check all services are healthy
-docker compose -f docker-compose.prod.yml ps
+docker compose -f infra/docker/docker-compose.prod.yml ps
 
 # Check frontend
 curl -s https://app.yourdomain.com/health

@@ -1,5 +1,98 @@
-# DEPRECATED — canonical compose files live in ops/compose/.
-# Temporary compatibility shim.
+# Production compose for ValueOS.
+# Usage: docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# Inherits postgres + redis from the canonical dev compose and overrides
+# backend/frontend with production-appropriate settings.
 
 include:
   - ../../ops/compose/compose.yml
+
+x-prod-common: &prod-common
+  restart: unless-stopped
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "25m"
+      max-file: "5"
+
+services:
+  # ── Caddy reverse proxy (automatic HTTPS) ─────────────────────────────────
+  caddy:
+    <<: *prod-common
+    image: caddy:2-alpine
+    container_name: valueos-caddy
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile.base:ro
+      - ../caddy/snippets:/etc/caddy/snippets:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      TLS_MODE: ${TLS_MODE:-}
+      API_UPSTREAM: http://backend:${BACKEND_PORT:-8000}
+      FRONTEND_UPSTREAM: http://frontend:${FRONTEND_PORT:-8080}
+
+  # ── Backend (production build) ─────────────────────────────────────────────
+  backend:
+    <<: *prod-common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.backend
+      target: runtime
+    container_name: valueos-backend-prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: ${BACKEND_PORT:-8000}
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${APP_DOMAIN}}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.production}
+      SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in .env.production}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:?Set SUPABASE_ANON_KEY in .env.production}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY in .env.production}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env.production}
+      REDIS_TLS_REJECT_UNAUTHORIZED: ${REDIS_TLS_REJECT_UNAUTHORIZED:-true}
+      REDIS_TLS_CA_CERT_PATH: ${REDIS_TLS_CA_CERT_PATH:-}
+      REDIS_TLS_SERVERNAME: ${REDIS_TLS_SERVERNAME:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENABLE_TELEMETRY: ${ENABLE_TELEMETRY:-true}
+    ports:
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
+
+  # ── Frontend (production nginx) ────────────────────────────────────────────
+  frontend:
+    <<: *prod-common
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.frontend
+      target: runtime
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in .env.production}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?Set VITE_SUPABASE_ANON_KEY in .env.production}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    container_name: valueos-frontend-prod
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+
+volumes:
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local

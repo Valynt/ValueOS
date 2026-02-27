@@ -1,14 +1,14 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@app/providers/AuthProvider";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePersona, type Persona } from "../context/PersonaContext";
 
 export function AppLayout() {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
   const { persona, setPersona } = usePersona();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    await signOut();
+    await logout();
     navigate("/");
   };
 
@@ -50,9 +50,8 @@ export function AppLayout() {
         <header className="h-16 border-b flex items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <span
-              className={`px-2 py-0.5 rounded text-xs font-bold ${
-                persona === "CFO" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-              }`}
+              className={`px-2 py-0.5 rounded text-xs font-bold ${persona === "CFO" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                }`}
             >
               {persona} Mode
             </span>

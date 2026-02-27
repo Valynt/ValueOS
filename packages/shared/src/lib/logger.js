@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Structured Logging Utility with PII Protection
  *
@@ -21,8 +22,9 @@ import { getTraceContextForLogging } from "../config/telemetry";
 import { sanitizeError, sanitizeForLogging, sanitizeRequest, sanitizeUser, validateLogMessage, } from "./piiFilter";
 import { getContext } from "./context";
 class Logger {
+    minLevel;
+    listeners = [];
     constructor() {
-        this.listeners = [];
         // Set minimum log level based on environment
         if (isProduction()) {
             this.minLevel = "warn";
@@ -188,6 +190,12 @@ class Logger {
      */
     setMinLevel(level) {
         this.minLevel = level;
+    }
+    /**
+     * Create a child logger with default context merged into every log call.
+     */
+    withContext(defaultContext) {
+        return createLogger(defaultContext);
     }
 }
 // Export singleton instance

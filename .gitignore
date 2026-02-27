@@ -129,6 +129,7 @@ playwright-report/
 !.env.example
 !.env.local.example
 !.env.ports.example
+!ops/env/.env.production.template
 
 # Development files
 .dx-lock

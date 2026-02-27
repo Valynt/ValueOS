@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Structured Logging Utility with PII Protection
  *
@@ -72,7 +71,17 @@ declare class Logger {
      * Set minimum log level (useful for testing)
      */
     setMinLevel(level: LogLevel): void;
+    /**
+     * Create a child logger with default context merged into every log call.
+     */
+    withContext(defaultContext: LogContext): {
+        debug: (message: string, context?: LogContext) => void;
+        info: (message: string, context?: LogContext) => void;
+        warn: (message: string, context?: LogContext) => void;
+        error: (message: string, error?: Error, context?: LogContext) => void;
+    };
 }
+export type { Logger };
 export declare const logger: Logger;
 export declare const log: {
     debug: (message: string, context?: LogContext) => void;

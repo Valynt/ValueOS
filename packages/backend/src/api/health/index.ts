@@ -465,25 +465,25 @@ router.get("/ready", async (_req: Request, res: Response) => {
   }
 
   try {
-    const [database, togetherAI] = await Promise.all([
+    const [database, redis] = await Promise.all([
       checkDatabase(),
-      checkTogetherAI(),
+      checkRedis(),
     ]);
 
     const isReady =
-      database.status !== "unhealthy" && togetherAI.status !== "unhealthy";
+      database.status !== "unhealthy" && redis.status !== "unhealthy";
 
     if (isReady) {
       res.status(200).json({
         status: "ready",
         timestamp: new Date().toISOString(),
-        checks: { database, togetherAI },
+        checks: { database, redis },
       });
     } else {
       res.status(503).json({
         status: "not_ready",
         timestamp: new Date().toISOString(),
-        checks: { database, togetherAI },
+        checks: { database, redis },
       });
     }
   } catch (error) {
@@ -519,25 +519,25 @@ router.get("/health/ready", async (_req: Request, res: Response) => {
   }
 
   try {
-    const [database, togetherAI] = await Promise.all([
+    const [database, redis] = await Promise.all([
       checkDatabase(),
-      checkTogetherAI(),
+      checkRedis(),
     ]);
 
     const isReady =
-      database.status !== "unhealthy" && togetherAI.status !== "unhealthy";
+      database.status !== "unhealthy" && redis.status !== "unhealthy";
 
     if (isReady) {
       res.status(200).json({
         status: "ready",
         timestamp: new Date().toISOString(),
-        checks: { database, togetherAI },
+        checks: { database, redis },
       });
     } else {
       res.status(503).json({
         status: "not_ready",
         timestamp: new Date().toISOString(),
-        checks: { database, togetherAI },
+        checks: { database, redis },
       });
     }
   } catch (error) {

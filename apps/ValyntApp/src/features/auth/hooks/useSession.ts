@@ -1,16 +1,26 @@
-import { useAuth } from "@/app/providers/AuthProvider";
+import { useAuth } from "@/contexts/AuthContext";
 import type { User } from "../types";
 
 export function useSession() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user: supabaseUser, isAuthenticated, loading } = useAuth();
 
-  // Cast to extended User type if needed
-  const extendedUser = user as (User | null);
+  // Map Supabase user to the features/auth User type
+  const extendedUser: User | null = supabaseUser
+    ? {
+        id: supabaseUser.id,
+        email: supabaseUser.email ?? "",
+        fullName: supabaseUser.user_metadata?.full_name as string | undefined,
+        avatarUrl: supabaseUser.user_metadata?.avatar_url as string | undefined,
+        role: (supabaseUser.user_metadata?.role as User["role"]) ?? "member",
+        createdAt: supabaseUser.created_at,
+        updatedAt: supabaseUser.updated_at ?? supabaseUser.created_at,
+      }
+    : null;
 
   return {
     user: extendedUser,
     isAuthenticated,
-    isLoading,
+    isLoading: loading,
     isAdmin: extendedUser?.role === "admin",
   };
 }
