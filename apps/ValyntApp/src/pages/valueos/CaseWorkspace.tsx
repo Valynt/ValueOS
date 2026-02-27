@@ -61,12 +61,18 @@ import { exportToPdf } from "@/features/workspace/services/exportPdf";
 // Value Drivers
 import { ValueDriverSelector } from "@/components/value-drivers";
 import { ValueDriver } from "@/types/valueDriver";
+import { useCase } from "@/hooks/useCases";
 
 export function CaseWorkspace() {
   const { caseId } = useParams();
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch case data from Supabase
+  const { data: caseData } = useCase(caseId);
+  const companyName = caseData?.company_profiles?.company_name ?? caseData?.name ?? "Value Case";
+  const caseTitle = caseData?.name ?? "Value Case";
 
   // Local UI state
   const [inputValue, setInputValue] = useState("");
@@ -158,7 +164,7 @@ export function CaseWorkspace() {
   // Persists artifacts and messages to backend when caseId is available
   const { sendMessage: sendAgentMessage } = useAgentStream({
     useMock: false, // Using real Together AI API
-    companyName: "Acme Corp",
+    companyName,
     valueCaseId: caseId,
     persistArtifacts: !!caseId, // Enable artifact persistence when we have a case ID
     persistMessages: !!caseId, // Enable message persistence when we have a case ID
@@ -210,8 +216,8 @@ export function CaseWorkspace() {
   // Export handler
   const handleExport = useCallback(() => {
     exportToPdf({
-      title: "Value Case Analysis",
-      companyName: "Acme Corp",
+      title: caseTitle,
+      companyName,
       artifacts: artifactList,
       kpiData,
       confidential: true,
@@ -300,7 +306,7 @@ export function CaseWorkspace() {
           <div className="flex items-center gap-2 text-sm">
             <span className="text-slate-500">Cases</span>
             <span className="text-slate-300">/</span>
-            <span className="font-medium text-slate-900">Acme Corp Value Case</span>
+            <span className="font-medium text-slate-900">{caseTitle}</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -552,8 +558,8 @@ export function CaseWorkspace() {
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         caseId={caseId || "new"}
-        caseTitle="Acme Corp Value Case"
-        companyName="Acme Corp"
+        caseTitle={caseTitle}
+        companyName={companyName}
       />
     </div>
   );

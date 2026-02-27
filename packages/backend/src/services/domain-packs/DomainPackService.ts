@@ -163,11 +163,51 @@ export class DomainPackService {
 
   /**
    * Set the domain pack for a value case.
+   * Creates a point-in-time snapshot for reproducibility.
    */
   async setPackForCase(caseId: string, packId: string, organizationId: string): Promise<void> {
+    // Load the pack with all layers to create a snapshot
+    const packData = await this.getPackWithLayers(packId);
+
+    const snapshot = {
+      schemaVersion: 1,
+      packId: packData.pack.id,
+      parentPackId: null,
+      name: packData.pack.name,
+      industry: packData.pack.industry,
+      version: packData.pack.version,
+      kpis: packData.kpis.map((k) => ({
+        kpiKey: k.kpi_key,
+        defaultName: k.default_name,
+        description: k.description,
+        unit: k.unit,
+        direction: k.direction,
+        baselineHint: k.baseline_hint,
+        targetHint: k.target_hint,
+        defaultConfidence: 0.8,
+        sortOrder: k.sort_order,
+      })),
+      assumptions: packData.assumptions.map((a) => ({
+        assumptionKey: a.assumption_key,
+        valueType: a.value_type,
+        valueNumber: a.value_number,
+        valueText: a.value_text,
+        valueBool: a.value_bool,
+        unit: a.unit,
+        defaultConfidence: 0.9,
+      })),
+      glossary: packData.pack.glossary ?? {},
+      complianceRules: packData.pack.compliance_rules ?? [],
+      snapshotCreatedAt: new Date().toISOString(),
+    };
+
     const { error } = await this.supabase
       .from("value_cases")
-      .update({ domain_pack_id: packId })
+      .update({
+        domain_pack_id: packId,
+        domain_pack_version: packData.pack.version,
+        domain_pack_snapshot: snapshot,
+      })
       .eq("id", caseId)
       .eq("organization_id", organizationId);
 
@@ -176,7 +216,7 @@ export class DomainPackService {
       throw new Error(`Failed to set domain pack: ${error.message}`);
     }
 
-    logger.info("Domain pack set for case", { caseId, packId, organizationId });
+    logger.info("Domain pack set for case with snapshot", { caseId, packId, version: packData.pack.version, organizationId });
   }
 
   /**

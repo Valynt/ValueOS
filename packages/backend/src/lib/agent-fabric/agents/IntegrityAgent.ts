@@ -20,6 +20,9 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
+import { featureFlags } from '../../../config/featureFlags.js';
+import { loadDomainContext } from '../../../agents/context/loadDomainContext.js';
+import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -94,11 +97,14 @@ export class IntegrityAgent extends BaseAgent {
       );
     }
 
+    // Step 1b: Load domain pack context for risk weights and compliance rules
+    const domainContext = await this.loadDomainPackContext(context);
+
     // Step 2: Build claims from KPIs + hypotheses for validation
     const claims = this.buildClaims(kpis, hypotheses);
 
-    // Step 3: Validate claims via LLM
-    const analysis = await this.validateClaims(context, claims);
+    // Step 3: Validate claims via LLM (with domain context)
+    const analysis = await this.validateClaims(context, claims, domainContext);
     if (!analysis) {
       return this.buildOutput(
         { error: 'Claim validation failed. Retry or provide more context.' },
@@ -151,6 +157,31 @@ export class IntegrityAgent extends BaseAgent {
           ? ['Review flagged claims', 'Strengthen evidence for weak hypotheses']
           : ['Proceed to NarrativeAgent for business case composition'],
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Domain Pack Context
+  // -------------------------------------------------------------------------
+
+  private async loadDomainPackContext(context: LifecycleContext): Promise<DomainContext> {
+    const empty: DomainContext = { pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [] };
+
+    if (!featureFlags.ENABLE_DOMAIN_PACK_CONTEXT) return empty;
+
+    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
+    if (!valueCaseId || !context.organization_id) return empty;
+
+    try {
+      const supabaseClient = (context as Record<string, unknown>).supabaseClient as
+        import('@supabase/supabase-js').SupabaseClient | undefined;
+      return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
+    } catch (err) {
+      logger.warn('IntegrityAgent: failed to load domain pack context', {
+        value_case_id: valueCaseId,
+        error: (err as Error).message,
+      });
+      return empty;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -236,10 +267,20 @@ export class IntegrityAgent extends BaseAgent {
   private async validateClaims(
     context: LifecycleContext,
     claims: Array<{ id: string; text: string; evidence: string[]; source: string }>,
+    domainContext?: DomainContext,
   ): Promise<IntegrityAnalysis | null> {
     const claimsContext = claims.map((c, i) =>
       `${i + 1}. [${c.id}] ${c.text}\n   Evidence: ${c.evidence.join('; ')}`
     ).join('\n\n');
+
+    // Build domain-specific context for the prompt
+    let domainFragment = '';
+    if (domainContext?.complianceRules && domainContext.complianceRules.length > 0) {
+      domainFragment += `\n\nIndustry compliance requirements to validate against:\n${domainContext.complianceRules.map(r => `- ${r}`).join('\n')}`;
+    }
+    if (domainContext?.glossary && Object.keys(domainContext.glossary).length > 0) {
+      domainFragment += `\n\nUse these domain-specific terms:\n${Object.entries(domainContext.glossary).map(([k, v]) => `- "${k}" → "${v}"`).join('\n')}`;
+    }
 
     const systemPrompt = `You are a Value Engineering integrity validator. Your job is to assess whether value claims are supported by their evidence.
 
@@ -255,7 +296,7 @@ Also provide:
 - logical_consistency_score: 0.0-1.0 for internal logical consistency
 - evidence_coverage_score: 0.0-1.0 for how well evidence covers claims
 
-Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fences.`;
+Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fences.${domainFragment}`;
 
     const userPrompt = `Validate these ${claims.length} value claims:\n\n${claimsContext}`;
 

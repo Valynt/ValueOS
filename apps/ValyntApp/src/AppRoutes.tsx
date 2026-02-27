@@ -15,12 +15,12 @@ import { DrawerProvider } from "./contexts/DrawerContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { CompanyContextProvider } from "./contexts/CompanyContextProvider";
 import { OnboardingGate } from "./app/routes/OnboardingGate";
+import { TenantGate } from "./app/routes/TenantGate";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { SDUIStateProvider } from "./lib/state/SDUIStateProvider";
 import { supabase } from "./lib/supabase";
 import { publicRoutePaths } from "./routes/routeConfig";
 import { ProtectedRoute } from "./app/routes/route-guards";
-import { TenantGate } from "./app/routes/TenantGate";
 
 // Lazy load auth pages (public routes) - Modern design
 const LoginPage = lazy(() =>

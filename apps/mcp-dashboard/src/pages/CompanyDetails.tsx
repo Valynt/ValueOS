@@ -256,26 +256,28 @@ export default function CompanyDetails() {
       <div className="bg-white shadow rounded-lg">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8 px-6">
-            {[
-              {
-                id: "overview",
-                name: "Overview",
-                current: activeTab === "overview",
-              },
-              {
-                id: "financials",
-                name: "Financials",
-                current: activeTab === "financials",
-              },
-              {
-                id: "analysis",
-                name: "Analysis",
-                current: activeTab === "analysis",
-              },
-            ].map((tab) => (
+            {(
+              [
+                {
+                  id: "overview" as const,
+                  name: "Overview",
+                  current: activeTab === "overview",
+                },
+                {
+                  id: "financials" as const,
+                  name: "Financials",
+                  current: activeTab === "financials",
+                },
+                {
+                  id: "analysis" as const,
+                  name: "Analysis",
+                  current: activeTab === "analysis",
+                },
+              ] satisfies Array<{ id: "overview" | "financials" | "analysis"; name: string; current: boolean }>
+            ).map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   tab.current
                     ? "border-blue-500 text-blue-600"
