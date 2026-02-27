@@ -45,13 +45,33 @@ export interface ValueTree {
   timestamp: string;
 }
 
+export interface ValueRange {
+  low: number;
+  high: number;
+}
+
+export interface ValueDriver {
+  metric: string;
+  value: number;
+  unit: string;
+  timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+  assumptions?: string[];
+  citations?: string[];
+}
+
 export interface ValueTreeNode {
   id: string;
   label: string;
   value: number;
+  currency?: string;
+  timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+  range?: ValueRange;
   formula?: string;
   confidenceScore: number;
+  assumptions: string[];
+  dependencies: string[];
   citations: string[];
+  drivers: ValueDriver[];
   children?: ValueTreeNode[];
 }
 
@@ -133,20 +153,37 @@ export interface OpportunityAgentInterface {
   }>;
 }
 
+export interface FinancialModelOutput {
+  title: string;
+  description: string;
+  confidence: number;
+  category: string;
+  model_type: string;
+  priority: string;
+  value?: number;
+  currency?: string;
+  timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+  range?: { low: number; high: number };
+  assumptions?: string[];
+  dependencies?: string[];
+  citations?: string[];
+  drivers?: Array<{
+    metric: string;
+    value: number;
+    unit: string;
+    timeBasis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
+    assumptions?: string[];
+    citations?: string[];
+  }>;
+}
+
 export interface FinancialModelingAgentInterface {
   analyzeFinancialModels(
     query: string,
     context?: { organizationId?: string; userId?: string; sessionId?: string },
     idempotencyKey?: string
   ): Promise<{
-    financial_models: Array<{
-      title: string;
-      description: string;
-      confidence: number;
-      category: string;
-      model_type: string;
-      priority: string;
-    }>;
+    financial_models: FinancialModelOutput[];
     analysis: string;
   }>;
 }
@@ -387,21 +424,12 @@ export class HypothesisLoop {
           'financial-modeling'
         );
 
-        valueTree = {
-          id: `vt_${valueCaseId}_${revisionCount}`,
+        valueTree = this.buildValueTree(
           valueCaseId,
-          nodes: modelResult.financial_models.map((m, i) => ({
-            id: `node_${i}`,
-            label: m.title,
-            value: 0,
-            formula: m.description,
-            confidenceScore: m.confidence,
-            citations: [],
-          })),
-          totalValue: 0,
-          currency: 'USD',
-          timestamp: new Date().toISOString(),
-        };
+          revisionCount,
+          modelResult.financial_models,
+          hypotheses
+        );
         this.emitProgress(sse, 2, 'Model', 'completed');
 
         // Transition to VALIDATING
@@ -584,6 +612,79 @@ export class HypothesisLoop {
 
       throw error;
     }
+  }
+
+  /**
+   * Build a ValueTree from the modeling agent's structured output.
+   * Falls back to hypothesis estimatedValue when the model doesn't provide a value.
+   */
+  private buildValueTree(
+    valueCaseId: string,
+    revisionCount: number,
+    models: FinancialModelOutput[],
+    hypotheses: ValueHypothesis[]
+  ): ValueTree {
+    // Index hypotheses by description for fallback value lookup.
+    // The modeling agent's title often derives from the hypothesis description.
+    const hypothesisValues: Array<{ description: string; value: number }> = [];
+    for (const h of hypotheses) {
+      if (typeof h.estimatedValue === 'number' && h.estimatedValue !== 0) {
+        hypothesisValues.push({ description: h.description.toLowerCase(), value: h.estimatedValue });
+      }
+    }
+
+    const nodes: ValueTreeNode[] = models.map((m, i) => {
+      // Resolve value: model output > hypothesis fallback > 0
+      const modelValue = typeof m.value === 'number' ? m.value : 0;
+      // Fuzzy match: find hypothesis whose description appears in the model title or vice versa
+      const titleLower = m.title.toLowerCase();
+      const matchedHypothesis = hypothesisValues.find(
+        (h) => titleLower.includes(h.description.substring(0, 30)) || h.description.includes(titleLower.substring(0, 30))
+      );
+      const hypothesisValue = matchedHypothesis?.value ?? 0;
+      const resolvedValue = modelValue !== 0 ? modelValue : hypothesisValue;
+
+      // Build driver sub-nodes
+      const drivers: ValueDriver[] = (m.drivers ?? []).map((d) => ({
+        metric: d.metric,
+        value: d.value,
+        unit: d.unit,
+        timeBasis: d.timeBasis,
+        assumptions: d.assumptions ?? [],
+        citations: d.citations ?? [],
+      }));
+
+      // Build citations: model citations > provenance pointers
+      const citations: string[] = m.citations && m.citations.length > 0
+        ? m.citations
+        : [`model:${valueCaseId}:${i}`];
+
+      return {
+        id: `node_${i}`,
+        label: m.title,
+        value: resolvedValue,
+        currency: m.currency ?? 'USD',
+        timeBasis: m.timeBasis,
+        range: m.range,
+        formula: m.description,
+        confidenceScore: m.confidence,
+        assumptions: m.assumptions ?? [],
+        dependencies: m.dependencies ?? [],
+        citations,
+        drivers,
+      };
+    });
+
+    const totalValue = nodes.reduce((sum, n) => sum + n.value, 0);
+
+    return {
+      id: `vt_${valueCaseId}_${revisionCount}`,
+      valueCaseId,
+      nodes,
+      totalValue,
+      currency: 'USD',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   private emitProgress(

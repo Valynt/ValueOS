@@ -244,14 +244,14 @@ export class AuditLogService extends BaseService {
   }
 
   /**
-   * Query audit logs with filters
+   * Query audit logs with filters.
+   * tenantId is required to enforce tenant isolation.
    */
-  async query(query: AuditLogQuery = {}): Promise<AuditLogEntry[]> {
+  async query(query: AuditLogQuery & { tenantId: string }): Promise<AuditLogEntry[]> {
     super.log("info", "Querying audit logs", query);
 
-    // SECURITY: Tenant filtering is required for multi-tenant isolation
     if (!query.tenantId) {
-      logger.warn("Audit log query without tenant filter - this may expose cross-tenant data");
+      throw new Error("tenantId is required for audit log queries to enforce tenant isolation");
     }
 
     return this.executeRequest(
@@ -259,9 +259,7 @@ export class AuditLogService extends BaseService {
         let dbQuery = this.supabase.from("audit_logs" as any).select("*");
 
         // CRITICAL: Apply tenant filter first for security
-        if (query.tenantId) {
-          dbQuery = dbQuery.eq("tenant_id" as any, query.tenantId as any);
-        }
+        dbQuery = dbQuery.eq("tenant_id" as any, query.tenantId as any);
 
         if (query.userId) {
           dbQuery = dbQuery.eq("user_id" as any, query.userId as any);

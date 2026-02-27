@@ -36,7 +36,8 @@ export interface MemoryQuery {
   memory_type?: MemoryType;
   limit?: number;
   min_importance?: number;
-  organization_id?: string;
+  /** Required for tenant isolation. All memory queries must be scoped to a tenant. */
+  organization_id: string;
 }
 
 export class MemorySystem {
@@ -72,15 +73,19 @@ export class MemorySystem {
   }
 
   async retrieve(query: MemoryQuery): Promise<Memory[]> {
+    if (!query.organization_id) {
+      throw new Error("organization_id is required for tenant-scoped memory retrieval");
+    }
+
     const results: Memory[] = [];
 
     for (const memory of this.memories.values()) {
       if (memory.agent_id !== query.agent_id) continue;
+      // Tenant isolation: always filter by organization_id
+      if (memory.metadata?.organization_id !== query.organization_id) continue;
       if (query.workspace_id && memory.workspace_id !== query.workspace_id) continue;
       if (query.memory_type && memory.memory_type !== query.memory_type) continue;
       if (query.min_importance && memory.importance < query.min_importance) continue;
-      if (query.organization_id && memory.metadata?.organization_id !== query.organization_id)
-        continue;
 
       memory.accessed_at = new Date().toISOString();
       memory.access_count++;

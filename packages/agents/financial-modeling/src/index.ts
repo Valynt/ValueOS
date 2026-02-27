@@ -32,6 +32,19 @@ const QuerySchema = z.object({
 
 type QueryRequest = z.infer<typeof QuerySchema>;
 
+const ValueDriverSchema = z.object({
+  metric: z.string(),
+  value: z.number(),
+  unit: z.string(),
+  timeBasis: z.enum(['monthly', 'quarterly', 'annual', 'one-time']).optional(),
+  range: z.object({
+    low: z.number(),
+    high: z.number(),
+  }).optional(),
+  assumptions: z.array(z.string()).optional(),
+  citations: z.array(z.string()).optional(),
+});
+
 const FinancialModelSchema = z.object({
   title: z.string(),
   description: z.string(),
@@ -39,6 +52,17 @@ const FinancialModelSchema = z.object({
   category: z.string(),
   model_type: z.string(),
   priority: z.string(),
+  value: z.number().optional(),
+  currency: z.string().optional(),
+  timeBasis: z.enum(['monthly', 'quarterly', 'annual', 'one-time']).optional(),
+  range: z.object({
+    low: z.number(),
+    high: z.number(),
+  }).optional(),
+  assumptions: z.array(z.string()).optional(),
+  dependencies: z.array(z.string()).optional(),
+  citations: z.array(z.string()).optional(),
+  drivers: z.array(ValueDriverSchema).optional(),
 });
 
 const ResponseSchema = z.object({
@@ -67,26 +91,49 @@ export interface FinancialModelingLLMGateway {
 // System Prompt
 // ============================================================================
 
-const FINANCIAL_MODELING_SYSTEM_PROMPT = `You are a Financial Modeling agent for a Value Engineering platform. Your role is to analyze financial queries and produce structured financial models.
+const FINANCIAL_MODELING_SYSTEM_PROMPT = `You are a Financial Modeling agent for a Value Engineering platform. Your role is to analyze financial queries and produce structured financial models with concrete numeric values.
 
-For each query, produce financial models with projections, valuations, and ROI analysis.
+For each query, produce financial models with projections, valuations, and ROI analysis. Every model MUST include a numeric value estimate.
 
 You MUST respond with valid JSON matching this schema:
 {
   "financial_models": [
     {
       "title": "<model title>",
-      "description": "<model description>",
+      "description": "<model description with methodology>",
       "confidence": <0.0-1.0>,
       "category": "<Investment Analysis|Valuation|Forecasting|Risk Analysis|General>",
       "model_type": "<Cash Flow Model|DCF Model|Budget Model|Monte Carlo Model|Financial Statement Model>",
-      "priority": "<High|Medium|Low>"
+      "priority": "<High|Medium|Low>",
+      "value": <numeric value estimate>,
+      "currency": "USD",
+      "timeBasis": "<monthly|quarterly|annual|one-time>",
+      "range": { "low": <conservative estimate>, "high": <optimistic estimate> },
+      "assumptions": ["<assumption 1>", "<assumption 2>"],
+      "dependencies": ["<dependency on other models or data>"],
+      "citations": ["<source reference or record ID>"],
+      "drivers": [
+        {
+          "metric": "<driver name>",
+          "value": <numeric value>,
+          "unit": "<unit of measure>",
+          "timeBasis": "<monthly|quarterly|annual|one-time>",
+          "assumptions": ["<driver-specific assumptions>"],
+          "citations": ["<source for this driver>"]
+        }
+      ]
     }
   ],
   "analysis": "<summary analysis text>"
 }
 
-Be specific and quantitative. Base confidence scores on the quality and completeness of available data.`;
+Rules:
+- Every model MUST have a non-zero "value" field with the best numeric estimate.
+- Include "range" with low/high bounds when uncertainty exists.
+- List all assumptions explicitly — downstream agents will validate them.
+- Include citations where data sources are known; use record IDs or source descriptions.
+- Break complex models into "drivers" — each driver is a sub-component with its own value.
+- Be specific and quantitative. Base confidence scores on the quality and completeness of available data.`;
 
 // ============================================================================
 // FinancialModelingAnalyzer
@@ -163,6 +210,11 @@ export class FinancialModelingAnalyzer {
           category: "General",
           model_type: "Financial Statement Model",
           priority: "Medium",
+          value: 0,
+          currency: "USD",
+          timeBasis: "annual",
+          assumptions: ["Fallback response — no LLM configured"],
+          citations: [],
         },
       ],
       analysis: `Fallback analysis for "${query}". LLMGateway not configured.`,

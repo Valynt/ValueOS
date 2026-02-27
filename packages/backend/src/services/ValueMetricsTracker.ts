@@ -10,7 +10,7 @@ import { analyticsClient } from '../lib/analyticsClient';
 export interface ValueMetric {
   id: string;
   user_id: string;
-  organization_id?: string;
+  organization_id: string;
   metric_type: 
     | 'time_saved'
     | 'revenue_identified'
@@ -45,6 +45,10 @@ export class ValueMetricsTracker {
    * Track a value metric
    */
   async trackValue(metric: Omit<ValueMetric, 'id' | 'timestamp'>): Promise<void> {
+    if (!metric.organization_id) {
+      throw new Error("organization_id is required for tenant-scoped value tracking");
+    }
+
     try {
       const { error } = await supabase.from('value_metrics').insert({
         ...metric,
@@ -53,7 +57,6 @@ export class ValueMetricsTracker {
 
       if (error) throw error;
 
-      // Track in analytics for real-time monitoring
       analyticsClient.trackWorkflowEvent('value_delivered', 'value_tracking', {
         metric_type: metric.metric_type,
         metric_value: metric.metric_value,
@@ -71,11 +74,13 @@ export class ValueMetricsTracker {
    */
   async trackTimeSaved(params: {
     user_id: string;
+    organization_id: string;
     hours_saved: number;
     context: { activity: string; case_id?: string };
   }): Promise<void> {
     await this.trackValue({
       user_id: params.user_id,
+      organization_id: params.organization_id,
       metric_type: 'time_saved',
       metric_value: params.hours_saved,
       unit: 'hours',
@@ -89,7 +94,7 @@ export class ValueMetricsTracker {
    */
   async trackRevenueIdentified(params: {
     user_id: string;
-    organization_id?: string;
+    organization_id: string;
     amount: number;
     context: { source: string; case_id?: string };
   }): Promise<void> {
@@ -109,7 +114,7 @@ export class ValueMetricsTracker {
    */
   async trackCostReduced(params: {
     user_id: string;
-    organization_id?: string;
+    organization_id: string;
     amount: number;
     context: { category: string; case_id?: string };
   }): Promise<void> {
@@ -129,11 +134,13 @@ export class ValueMetricsTracker {
    */
   async trackInsightGenerated(params: {
     user_id: string;
+    organization_id: string;
     insight_type: string;
     case_id?: string;
   }): Promise<void> {
     await this.trackValue({
       user_id: params.user_id,
+      organization_id: params.organization_id,
       metric_type: 'insights_generated',
       metric_value: 1,
       unit: 'count',
@@ -145,11 +152,16 @@ export class ValueMetricsTracker {
   /**
    * Get value summary for user
    */
-  async getValueSummary(userId: string, timeframe?: { start: Date; end: Date }): Promise<ValueSummary> {
+  async getValueSummary(organizationId: string, userId: string, timeframe?: { start: Date; end: Date }): Promise<ValueSummary> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped value summary");
+    }
+
     try {
       let query = supabase
         .from('value_metrics')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('user_id', userId);
 
       if (timeframe) {
@@ -248,23 +260,26 @@ export class ValueMetricsTracker {
   /**
    * Get leaderboard of value created
    */
-  async getValueLeaderboard(limit = 10): Promise<Array<ValueSummary & { rank: number }>> {
+  async getValueLeaderboard(organizationId: string, limit = 10): Promise<Array<ValueSummary & { rank: number }>> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped leaderboard");
+    }
+
     try {
       const { data: users, error } = await supabase
         .from('value_metrics')
         .select('user_id')
+        .eq('organization_id', organizationId)
         .order('metric_value', { ascending: false })
-        .limit(limit * 10); // Get more to dedupe
+        .limit(limit * 10);
 
       if (error) throw error;
 
-      // Get unique users
       const uniqueUsers = [...new Set(users?.map((u) => u.user_id) || [])];
 
-      // Get summaries for top users
       const summaries = await Promise.all(
         uniqueUsers.slice(0, limit).map(async (userId) => {
-          const summary = await this.getValueSummary(userId);
+          const summary = await this.getValueSummary(organizationId, userId);
           return summary;
         })
       );
@@ -297,10 +312,15 @@ export class ValueMetricsTracker {
    * Get value metrics over time for charting
    */
   async getValueTimeSeries(
+    organizationId: string,
     userId: string,
     metricType: ValueMetric['metric_type'],
     days = 30
   ): Promise<Array<{ date: string; value: number }>> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped time series");
+    }
+
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
@@ -308,6 +328,7 @@ export class ValueMetricsTracker {
       const { data: metrics, error } = await supabase
         .from('value_metrics')
         .select('*')
+        .eq('organization_id', organizationId)
         .eq('user_id', userId)
         .eq('metric_type', metricType)
         .gte('timestamp', startDate.toISOString())

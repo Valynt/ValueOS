@@ -236,21 +236,29 @@ export class VectorSearchService {
   }
 
   /**
-   * Get memory statistics
+   * Get memory statistics scoped to a tenant
    */
-  async getStats(): Promise<{
+  async getStats(organizationId: string): Promise<{
     total: number;
     byType: Record<string, number>;
     recentCount: number;
   }> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant-scoped memory stats");
+    }
+
     try {
       // Total count
       const { count: total } = await supabase
         .from("semantic_memory")
-        .select("id", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", organizationId);
 
       // Count by type
-      const { data: typeData } = await supabase.from("semantic_memory").select("type");
+      const { data: typeData } = await supabase
+        .from("semantic_memory")
+        .select("type")
+        .eq("organization_id", organizationId);
 
       const byType: Record<string, number> = {};
       typeData?.forEach((row: any) => {
@@ -261,6 +269,7 @@ export class VectorSearchService {
       const { count: recentCount } = await supabase
         .from("semantic_memory")
         .select("id", { count: "exact", head: true })
+        .eq("organization_id", organizationId)
         .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
       return {

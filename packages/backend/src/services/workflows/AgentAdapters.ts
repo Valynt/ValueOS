@@ -22,6 +22,10 @@ export class RedTeamLLMAdapter implements RedTeamLLMGateway {
     content: string;
     usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
   }> {
+    if (!request.metadata?.tenantId) {
+      throw new Error("RedTeamLLMAdapter requires tenantId in metadata for tenant isolation");
+    }
+
     const response = await this.llmGateway.complete({
       messages: request.messages as any,
       metadata: request.metadata as any,

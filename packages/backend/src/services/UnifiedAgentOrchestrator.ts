@@ -1927,9 +1927,15 @@ Provide a JSON response with:
 - estimatedDuration: seconds`;
 
     try {
-      const response = await this.llmGateway.chat([{ role: "user", content: prompt }], {
-        maxTokens: 500,
+      const organizationId = context.organizationId || context.organization_id;
+      const response = await this.llmGateway.complete({
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 500,
         temperature: 0.3,
+        metadata: {
+          tenantId: organizationId,
+          agentType: "workflow_predictor",
+        },
       });
 
       const parsed = JSON.parse(response.content);
