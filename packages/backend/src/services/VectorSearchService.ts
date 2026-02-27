@@ -362,6 +362,29 @@ export class VectorSearchService {
   // Private Helpers
   // ============================================================================
 
+  /**
+   * Escape a string for use as a SQL literal to prevent SQL injection.
+   * Doubles single quotes per SQL standard.
+   */
+  private escapeSqlLiteral(value: string): string {
+    return value.replace(/'/g, "''");
+  }
+
+  /**
+   * Validate that a key name is a safe SQL identifier (alphanumeric + underscores).
+   */
+  private isSafeIdentifier(key: string): boolean {
+    return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key);
+  }
+
+  private static readonly VALID_TYPES: ReadonlySet<string> = new Set([
+    "value_proposition",
+    "target_definition",
+    "opportunity",
+    "integrity_check",
+    "workflow_result",
+  ]);
+
   private buildFilterClause(
     type?: SemanticMemory["type"],
     filters: Record<string, any> = {},
@@ -378,8 +401,11 @@ export class VectorSearchService {
       "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'",
     ];
 
-    // Type filter
+    // Type filter — validate against known enum to prevent injection
     if (type) {
+      if (!VectorSearchService.VALID_TYPES.has(type)) {
+        throw new Error(`Invalid memory type: ${type}`);
+      }
       conditions.push(`type = '${type}'`);
     }
 
@@ -390,25 +416,34 @@ export class VectorSearchService {
       conditions.push("COALESCE(metadata->>'data_sensitivity_level', 'unknown') <> 'unknown'");
     }
 
-    // Organization / tenant filter - treat specially
+    // Organization / tenant filter — escape value
     if ((filters as any).organization_id) {
-      conditions.push(`organization_id = '${(filters as any).organization_id}'`);
+      const orgId = String((filters as any).organization_id);
+      conditions.push(`organization_id = '${this.escapeSqlLiteral(orgId)}'`);
       delete (filters as any).organization_id;
     }
 
-    // Metadata filters
+    // Metadata filters — escape all interpolated values
     Object.entries(filters).forEach(([key, value]) => {
       if (value === null || value === undefined) return;
 
+      // Reject keys that aren't safe identifiers to prevent injection via key names
+      if (!this.isSafeIdentifier(key)) {
+        logger.warn("Skipping unsafe metadata filter key", { key });
+        return;
+      }
+
       if (typeof value === "string") {
-        conditions.push(`metadata->>'${key}' = '${value}'`);
+        conditions.push(`metadata->>'${key}' = '${this.escapeSqlLiteral(value)}'`);
       } else if (typeof value === "number") {
+        if (!Number.isFinite(value)) return;
         conditions.push(`(metadata->>'${key}')::float = ${value}`);
       } else if (typeof value === "boolean") {
         conditions.push(`(metadata->>'${key}')::boolean = ${value}`);
       } else if (Array.isArray(value)) {
-        // Array contains check
-        conditions.push(`metadata->'${key}' @> '${JSON.stringify(value)}'::jsonb`);
+        // Serialize via JSON.stringify (safe for jsonb cast) then escape the wrapper
+        const jsonStr = JSON.stringify(value);
+        conditions.push(`metadata->'${key}' @> '${this.escapeSqlLiteral(jsonStr)}'::jsonb`);
       }
     });
 
