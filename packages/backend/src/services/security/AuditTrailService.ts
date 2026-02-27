@@ -17,7 +17,7 @@ export interface AuditEvent {
   id?: string;
   eventType: AuditEventType;
   actorId: string;
-  auth0Sub: string;
+  externalSub: string;
   actorType: ActorType;
   resourceId: string;
   resourceType: ResourceType;
@@ -68,7 +68,7 @@ export type AuditOutcome = "success" | "failure" | "denied" | "error";
 export interface AuditQueryFilters {
   eventType?: AuditEventType;
   actorId?: string;
-  auth0Sub?: string;
+  externalSub?: string;
   actorType?: ActorType;
   resourceType?: ResourceType;
   outcome?: AuditOutcome;
@@ -200,8 +200,9 @@ export class AuditTrailService {
       if (filters.actorId) {
         query = query.eq("actor_id", filters.actorId);
       }
-      if (filters.auth0Sub) {
-        query = query.eq("auth0_sub", filters.auth0Sub);
+      if (filters.externalSub) {
+        // DB column is still named auth0_sub (legacy); TS field renamed to externalSub
+        query = query.eq("auth0_sub", filters.externalSub);
       }
       if (filters.actorType) {
         query = query.eq("actor_type", filters.actorType);
@@ -410,7 +411,7 @@ export class AuditTrailService {
     return {
       event_type: event.eventType,
       actor_id: event.actorId,
-      auth0_sub: event.auth0Sub,
+      auth0_sub: event.externalSub, // DB column is auth0_sub (legacy)
       actor_type: event.actorType,
       resource_id: event.resourceId,
       resource_type: event.resourceType,
@@ -433,7 +434,7 @@ export class AuditTrailService {
       id: row.id as string,
       eventType: row.event_type as AuditEventType,
       actorId: row.actor_id as string,
-      auth0Sub: row.auth0_sub as string,
+      externalSub: row.auth0_sub as string, // DB column is auth0_sub (legacy)
       actorType: row.actor_type as ActorType,
       resourceId: row.resource_id as string,
       resourceType: row.resource_type as ResourceType,

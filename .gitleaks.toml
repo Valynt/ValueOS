@@ -31,6 +31,15 @@ description = "Together AI API key"
 regex = '''together_[0-9a-zA-Z]{20,}'''
 tags = ["together", "secret"]
 
+[[rules]]
+id = "supabase-service-role-jwt"
+description = "Supabase service_role JWT embedded in source"
+regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{20,}'''
+tags = ["supabase", "jwt", "secret"]
+[rules.allowlist]
+# Allow well-known supabase-demo anon keys used for local dev
+regexes = ['''eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24i''']
+
 [allowlist]
 description = "Global allowlist"
 paths = [
@@ -41,4 +50,10 @@ paths = [
   '''tests/test/mocks/''',
   '''\.gitleaks\.toml$''',
   '''pnpm-lock\.yaml$''',
+  '''scripts/setup-test-environment\.sh$''',
+  '''\.windsurf/workflows/''',
+  '''docs/security-compliance/''',
+  '''DEPLOY\.md$''',
+  '''scripts/dx/doctor\.js$''',
+  '''packages/backend/benchmarks/''',
 ]
