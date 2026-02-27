@@ -2,10 +2,13 @@
  * Load Domain Context for Agents
  *
  * Provides agents with the effective domain pack (KPIs + assumptions)
- * for a given value case. Returns empty defaults when no pack is
- * attached or the repository is not yet wired.
+ * for a given value case. Uses snapshot-first strategy for reproducibility:
+ *   1. If the value case has a domain_pack_snapshot, reconstruct from it.
+ *   2. Otherwise, fetch the live pack via DomainPackService.
+ *   3. If neither is available, return empty context.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   EffectiveDomainPack,
   DomainPackKpi,
@@ -22,6 +25,7 @@ import {
   estimateTokens,
   LLM_LIMITS,
 } from '../../services/domainPacks/validate.js';
+import { DomainPackService } from '../../services/domain-packs/DomainPackService.js';
 import { logger } from '../../lib/logger.js';
 
 // ============================================================================
@@ -32,12 +36,18 @@ export interface DomainContext {
   pack: EffectiveDomainPack | undefined;
   kpis: DomainPackKpi[];
   assumptions: DomainPackAssumption[];
+  /** Glossary mapping (neutral term → domain-specific term) */
+  glossary: Record<string, string>;
+  /** Compliance rules for the domain */
+  complianceRules: string[];
 }
 
 const EMPTY_CONTEXT: DomainContext = Object.freeze({
   pack: undefined,
   kpis: [],
   assumptions: [],
+  glossary: {},
+  complianceRules: [],
 });
 
 // ============================================================================
@@ -47,46 +57,95 @@ const EMPTY_CONTEXT: DomainContext = Object.freeze({
 /**
  * Load the domain context for a value case.
  *
- * Strategy (snapshot-first for reproducibility):
- *   1. If the value case has a domain_pack_snapshot, reconstruct from it.
- *   2. Otherwise, fetch the live pack and merge (once repository is wired).
- *   3. If neither is available, return empty context.
- *
- * Current behavior (pre-repository wiring): always returns empty context.
+ * Accepts an optional SupabaseClient. When provided, queries the DB
+ * using snapshot-first strategy. When omitted, returns empty context
+ * (safe for unit tests and environments without DB access).
  */
 export async function loadDomainContext(
-  _tenantId: string,
-  _valueCaseId: string,
+  tenantId: string,
+  valueCaseId: string,
+  supabaseClient?: SupabaseClient,
 ): Promise<DomainContext> {
-  // TODO: Wire to repository once DomainPacksRepository is implemented
-  //
-  // const vcRepo = getValueCasesRepository();
-  // const vc = await vcRepo.getById(tenantId, valueCaseId);
-  //
-  // // Prefer snapshot for reproducibility
-  // if (vc.domainPackSnapshot && isDomainPackSnapshot(vc.domainPackSnapshot)) {
-  //   return loadFromSnapshot(vc.domainPackSnapshot as unknown as DomainPackSnapshot);
-  // }
-  //
-  // // Fall back to live pack
-  // if (!vc.domainPackId) return EMPTY_CONTEXT;
-  // const repo = getDomainPacksRepository();
-  // const pack = await repo.getById(tenantId, vc.domainPackId);
-  // let effective: EffectiveDomainPack;
-  // if (pack.parentPackId) {
-  //   const parent = await repo.getById(tenantId, pack.parentPackId);
-  //   effective = mergePack(parent, pack);
-  // } else {
-  //   effective = packToEffective(pack);
-  // }
-  // return { pack: effective, kpis: effective.kpis, assumptions: effective.assumptions };
+  if (!supabaseClient) {
+    logger.debug('loadDomainContext: no supabase client, returning empty context', {
+      tenantId,
+      valueCaseId,
+    });
+    return { ...EMPTY_CONTEXT };
+  }
 
-  logger.debug('loadDomainContext: returning empty context (repository not yet wired)', {
-    _tenantId,
-    _valueCaseId,
-  });
+  // 1. Fetch the value case to check for snapshot or pack ID
+  const { data: vc, error: vcError } = await supabaseClient
+    .from('value_cases')
+    .select('id, domain_pack_id, domain_pack_snapshot')
+    .eq('id', valueCaseId)
+    .eq('organization_id', tenantId)
+    .single();
 
-  return { ...EMPTY_CONTEXT, kpis: [], assumptions: [] };
+  if (vcError || !vc) {
+    logger.warn('loadDomainContext: value case not found', {
+      tenantId,
+      valueCaseId,
+      error: vcError?.message,
+    });
+    return { ...EMPTY_CONTEXT };
+  }
+
+  // 2. Prefer snapshot for reproducibility
+  if (vc.domain_pack_snapshot && isDomainPackSnapshot(vc.domain_pack_snapshot)) {
+    return loadFromSnapshot(vc.domain_pack_snapshot as unknown as DomainPackSnapshot);
+  }
+
+  // 3. Fall back to live pack via DomainPackService
+  if (!vc.domain_pack_id) {
+    return { ...EMPTY_CONTEXT };
+  }
+
+  const service = new DomainPackService(supabaseClient);
+  const packData = await service.getPackWithLayers(vc.domain_pack_id);
+
+  // Convert to DomainPackKpi[] format expected by agents
+  const kpis: DomainPackKpi[] = packData.kpis.map((k) => ({
+    kpiKey: k.kpi_key,
+    defaultName: k.default_name,
+    description: k.description ?? undefined,
+    unit: k.unit ?? undefined,
+    direction: k.direction === 'up' ? 'increase' : k.direction === 'down' ? 'decrease' : undefined,
+    baselineHint: k.baseline_hint ?? undefined,
+    targetHint: k.target_hint ?? undefined,
+    defaultConfidence: 0.8,
+    sortOrder: k.sort_order,
+    tags: undefined,
+  }));
+
+  const assumptions: DomainPackAssumption[] = packData.assumptions.map((a) => ({
+    assumptionKey: a.assumption_key,
+    valueType: a.value_type as 'number' | 'string' | 'boolean' | 'json',
+    valueNumber: a.value_number ?? undefined,
+    valueText: a.value_text ?? undefined,
+    valueBool: a.value_bool ?? undefined,
+    valueJson: undefined,
+    unit: a.unit ?? undefined,
+    defaultConfidence: 0.9,
+    rationale: a.description ?? undefined,
+    evidenceRefs: [],
+  }));
+
+  return {
+    pack: {
+      packId: packData.pack.id,
+      parentPackId: null,
+      name: packData.pack.name,
+      industry: packData.pack.industry,
+      version: packData.pack.version,
+      kpis,
+      assumptions,
+    },
+    kpis,
+    assumptions,
+    glossary: (packData.pack as Record<string, unknown>).glossary as Record<string, string> ?? {},
+    complianceRules: (packData.pack as Record<string, unknown>).compliance_rules as string[] ?? [],
+  };
 }
 
 /**
@@ -96,10 +155,13 @@ export async function loadDomainContext(
  */
 export function loadFromSnapshot(snapshot: DomainPackSnapshot): DomainContext {
   const effective = effectiveFromSnapshot(snapshot);
+  const raw = snapshot as Record<string, unknown>;
   return {
     pack: effective,
     kpis: effective.kpis,
     assumptions: effective.assumptions,
+    glossary: (raw.glossary as Record<string, string>) ?? {},
+    complianceRules: (raw.complianceRules as string[]) ?? [],
   };
 }
 
@@ -142,6 +204,22 @@ export function formatDomainContextForPrompt(ctx: DomainContext): string {
       if (a.unit) parts.push(`(${a.unit})`);
       if (a.rationale) parts.push(`— ${a.rationale}`);
       lines.push(parts.join(' '));
+    }
+  }
+
+  // Include glossary if present
+  if (ctx.glossary && Object.keys(ctx.glossary).length > 0) {
+    lines.push('', 'Terminology (use these domain-specific terms):');
+    for (const [neutral, domain] of Object.entries(ctx.glossary)) {
+      lines.push(`  - "${neutral}" → "${domain}"`);
+    }
+  }
+
+  // Include compliance rules if present
+  if (ctx.complianceRules && ctx.complianceRules.length > 0) {
+    lines.push('', 'Compliance requirements:');
+    for (const rule of ctx.complianceRules) {
+      lines.push(`  - ${rule}`);
     }
   }
 
