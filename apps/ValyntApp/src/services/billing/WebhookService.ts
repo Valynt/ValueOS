@@ -8,20 +8,29 @@ import StripeService from './StripeService';
 import InvoiceService from './InvoiceService';
 import { STRIPE_CONFIG } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
-import { getSupabaseConfig } from '../../lib/env';
+import { getSupabaseServerConfig } from '../../lib/env';
 import { recordBillingJobFailure, recordInvoiceEvent, recordStripeWebhook } from '../../metrics/billingMetrics';
+import { recordWebhookRejection } from '../../metrics/webhookMetrics';
 
 const logger = createLogger({ component: 'WebhookService' });
 
-const { url: supabaseUrl, serviceRoleKey: supabaseServiceRoleKey } = getSupabaseConfig();
+/** Stripe signature tolerance: reject events older than this (seconds). */
+const SIGNATURE_TIMESTAMP_TOLERANCE_S = 300;
 
-let supabase: any = null;
-
-if (supabaseUrl && supabaseServiceRoleKey) {
-  supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-} else {
-  logger.warn('Supabase billing not configured: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+function initSupabaseClient() {
+  try {
+    const { url, serviceRoleKey } = getSupabaseServerConfig();
+    if (url && serviceRoleKey) {
+      return createClient(url, serviceRoleKey);
+    }
+  } catch {
+    // getSupabaseServerConfig throws in browser — safe to ignore at module level
+  }
+  logger.warn('Supabase billing not configured: server credentials missing');
+  return null;
 }
+
+const supabase = initSupabaseClient();
 
 class WebhookService {
   private stripe: any;
@@ -37,24 +46,64 @@ class WebhookService {
   }
 
   /**
-   * Verify webhook signature
+   * Verify webhook signature and validate event freshness.
+   * Throws a generic error on failure — internal details stay in server logs.
    */
-  verifySignature(payload: string | Buffer, signature: string): any {
-    try {
-      if (!STRIPE_CONFIG.webhookSecret) {
-        throw new Error('STRIPE_WEBHOOK_SECRET not configured');
-      }
+  verifySignature(payload: string | Buffer, signature: string): Record<string, unknown> {
+    if (!STRIPE_CONFIG.webhookSecret) {
+      logger.error('Webhook secret not configured');
+      throw new Error('Webhook verification failed');
+    }
 
-      const event = this.stripe.webhooks.constructEvent(
+    let event: Record<string, unknown>;
+    try {
+      event = this.stripe.webhooks.constructEvent(
         payload,
         signature,
         STRIPE_CONFIG.webhookSecret
-      );
+      ) as Record<string, unknown>;
+    } catch (error: unknown) {
+      logger.error('Webhook signature verification failed', error instanceof Error ? error : undefined);
+      throw new Error('Webhook verification failed');
+    }
 
-      return event;
-    } catch (error: any) {
-      logger.error('Webhook signature verification failed', error);
-      throw new Error(`Webhook verification failed: ${error.message}`);
+    // Freshness check: reject events with stale timestamps
+    this.validateEventFreshness(signature, event);
+
+    return event;
+  }
+
+  /**
+   * Validate that the event timestamp is within acceptable skew.
+   * Uses the `t=` component from the Stripe signature header and falls back
+   * to the event `created` field.
+   */
+  private validateEventFreshness(signature: string, event: Record<string, unknown>): void {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    // Extract timestamp from signature header (t=<unix_seconds>)
+    let eventTimestamp: number | undefined;
+    const tMatch = signature.match(/t=(\d+)/);
+    if (tMatch) {
+      eventTimestamp = parseInt(tMatch[1], 10);
+    }
+
+    // Fallback to event.created
+    if (!eventTimestamp && typeof event.created === 'number') {
+      eventTimestamp = event.created;
+    }
+
+    if (eventTimestamp) {
+      const age = nowSeconds - eventTimestamp;
+      if (age > SIGNATURE_TIMESTAMP_TOLERANCE_S) {
+        recordWebhookRejection('stale_timestamp');
+        logger.warn('Stale webhook event rejected', {
+          eventId: event.id,
+          ageSeconds: age,
+          tolerance: SIGNATURE_TIMESTAMP_TOLERANCE_S,
+        });
+        throw new Error('Webhook verification failed');
+      }
     }
   }
 
@@ -182,32 +231,45 @@ class WebhookService {
   }
 
   /**
-   * Mark event as failed
+   * Mark event as failed with atomic retry counter increment.
+   * Error message is sanitized to avoid persisting secrets or stack traces.
    */
   private async markEventFailed(eventId: string, errorMessage: string): Promise<void> {
     try {
+      // Sanitize: keep only the first 500 chars, strip anything that looks like a key/token
+      const safeMessage = errorMessage
+        .replace(/(?:key|token|secret|password)[=:\s]+\S+/gi, '[REDACTED]')
+        .slice(0, 500);
+
       const { data: existing, error: fetchErr } = await supabase
         .from('webhook_events')
         .select('retry_count')
         .eq('stripe_event_id', eventId)
         .single();
 
-      if (fetchErr && (fetchErr as any).code !== 'PGRST116') {
+      if (fetchErr && (fetchErr as Record<string, unknown>).code !== 'PGRST116') {
         throw fetchErr;
       }
 
-      const current = (existing && (existing as any).retry_count) || 0;
+      const current = (existing && (existing as Record<string, unknown>).retry_count) || 0;
       const newCount = Number(current) + 1;
 
-      await supabase
+      const { error: updateErr } = await supabase
         .from('webhook_events')
         .update({
-          error_message: errorMessage,
+          error_message: safeMessage,
           retry_count: newCount,
         })
         .eq('stripe_event_id', eventId);
+
+      if (updateErr) {
+        logger.error('Failed to update webhook event failure status', undefined, {
+          eventId,
+          dbErrorCode: (updateErr as Record<string, unknown>).code,
+        });
+      }
     } catch (err) {
-      logger.error('Failed to mark webhook event failed', err as Error, { eventId });
+      logger.error('Failed to mark webhook event failed', err instanceof Error ? err : undefined, { eventId });
     }
   }
 
