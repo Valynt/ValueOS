@@ -5,10 +5,12 @@
  * Handles three states: loading, error, and no-tenants.
  * Without this, downstream providers (CompanyContextProvider, OnboardingGate)
  * receive currentTenant=null during loading, causing false onboarding redirects.
+ *
+ * When user has no tenants, redirects to /create-org so they can provision one.
  */
 
-import { Outlet } from "react-router-dom";
-import { AlertTriangle, Building2, RefreshCw, LogOut } from "lucide-react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { AlertTriangle, RefreshCw, LogOut } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -16,6 +18,12 @@ import { Button } from "@/components/ui/button";
 export function TenantGate() {
   const { currentTenant, isLoading, error, refreshTenants, tenants } = useTenant();
   const { logout } = useAuth();
+  const location = useLocation();
+
+  // Don't gate the create-org page itself
+  if (location.pathname.startsWith("/create-org")) {
+    return <Outlet />;
+  }
 
   if (isLoading) {
     return (
@@ -56,33 +64,9 @@ export function TenantGate() {
     );
   }
 
+  // No tenants → redirect to org creation flow
   if (tenants.length === 0 || !currentTenant) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#fafafa] px-4">
-        <div className="max-w-sm w-full text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100">
-            <Building2 className="h-6 w-6 text-zinc-400" aria-hidden="true" />
-          </div>
-          <h1 className="text-lg font-semibold text-zinc-900 mb-1">
-            No workspace found
-          </h1>
-          <p className="text-sm text-zinc-500 mb-6">
-            Your account isn&apos;t associated with any workspace yet.
-            Contact your administrator or sign in with a different account.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Button onClick={() => refreshTenants()} variant="default" size="default">
-              <RefreshCw className="h-4 w-4 mr-1.5" aria-hidden="true" />
-              Refresh
-            </Button>
-            <Button onClick={() => logout()} variant="outline" size="default">
-              <LogOut className="h-4 w-4 mr-1.5" aria-hidden="true" />
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return <Navigate to="/create-org" replace />;
   }
 
   return <Outlet />;

@@ -1,10 +1,11 @@
-import { Search, Bell, ChevronDown, Sparkles, Menu } from "lucide-react";
+import { Search, Bell, Sparkles, Menu } from "lucide-react";
 import { KeyboardEvent, useMemo, useState } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
 import { useTenant } from "@/contexts/TenantContext";
 import { useNavigationPersonalization } from "@/hooks/useNavigationPersonalization";
+import { TenantSwitcher } from "@/components/tenant/TenantSwitcher";
 import { cn } from "@/lib/utils";
 
 interface TopBarProps {
@@ -63,6 +64,8 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
     return candidates.find((entry) => typeof entry === "string" && entry.trim().length > 0)?.trim() ?? "Value Org";
   }, [companyContext?.context.company_name, currentTenant?.name, user?.user_metadata]);
 
+  // TODO: planLabel is computed but currently unused after TenantSwitcher integration.
+  // Keep for potential use in tenant badge or settings.
   const planLabel = useMemo(() => {
     const authMeta = user?.user_metadata as Record<string, unknown> | undefined;
     const metadata = companyContext?.context.metadata;
@@ -83,7 +86,7 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
     return normalizePlanLabel(candidates.find((entry) => typeof entry === "string" && entry.trim().length > 0));
   }, [companyContext?.context.company_size, companyContext?.context.metadata, currentTenant?.role, user?.user_metadata]);
 
-  const orgInitials = getInitials(orgName);
+  // orgInitials removed — TenantSwitcher handles its own initials
 
   const personalizedPlaceholder = useMemo(() => {
     const recent = recentSearches[0];
@@ -133,21 +136,21 @@ export function TopBar({ onMenuClick, onAgentOpen }: TopBarProps) {
         )}
 
         {/* Org / Tenant switcher */}
-        <button
-          type="button"
-          className="flex items-center gap-2 px-3 sm:px-4 min-h-11 rounded-xl hover:bg-zinc-100 transition-colors min-w-0"
-        >
-          <div className="w-7 h-7 bg-zinc-950 rounded flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-[10px] font-black">{orgInitials}</span>
+        <TenantSwitcher />
+
+        {/* Tenant badge */}
+        {currentTenant && (
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-200 bg-zinc-50 text-[11px] text-zinc-600 font-medium">
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: currentTenant.color || "#18C3A5" }}
+            />
+            <span className="truncate max-w-[6rem]">{currentTenant.name}</span>
+            {currentTenant.role && currentTenant.role !== "member" && (
+              <span className="text-zinc-400 capitalize">{currentTenant.role}</span>
+            )}
           </div>
-          <div className="text-left hidden sm:block min-w-0">
-            <p className="text-[13px] font-semibold text-zinc-900 leading-tight truncate">
-              {orgName}
-            </p>
-            <p className="text-[10px] text-zinc-400 leading-tight">{planLabel}</p>
-          </div>
-          <ChevronDown className="w-4 h-4 text-zinc-400 flex-shrink-0" />
-        </button>
+        )}
       </div>
 
       {/* Center: search */}
