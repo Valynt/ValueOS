@@ -102,7 +102,7 @@ spec:
                 secretKeyRef:
                   name: valynt-secrets
                   key: supabase_url
-            - name: SUPABASE_SERVICE_KEY
+            - name: SUPABASE_SERVICE_ROLE_KEY
               valueFrom:
                 secretKeyRef:
                   name: valynt-secrets
