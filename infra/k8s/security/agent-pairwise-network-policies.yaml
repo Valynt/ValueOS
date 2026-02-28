@@ -1,0 +1,258 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agents-default-deny-east-west
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      component: agent
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agents-allow-dns-egress
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      component: agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agents-allow-backend-orchestrator
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      component: agent
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agents-allow-monitoring
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      component: agent
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090
+
+---
+# Pairwise allow-list (derived from infra/k8s/security/agent-architecture-manifest.yaml)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-opportunity-to-financial-modeling
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: opportunity-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: financial-modeling-agent
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-opportunity-to-target
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: opportunity-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: target-agent
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-financial-modeling-to-target
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: financial-modeling-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: target-agent
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-financial-modeling-to-integrity
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: financial-modeling-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: integrity-agent
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-target-to-integrity
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: target-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: integrity-agent
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-target-to-realization
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: target-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: realization-agent
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-integrity-to-realization
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: integrity-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: realization-agent
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge-realization-to-expansion
+  namespace: valynt
+spec:
+  podSelector:
+    matchLabels:
+      app: realization-agent
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: expansion-agent
+      ports:
+        - protocol: TCP
+          port: 8080

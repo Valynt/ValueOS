@@ -4,6 +4,8 @@
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { createHash } from "crypto";
+import { z } from "zod";
 
 import { BillingMetric } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
@@ -12,15 +14,31 @@ const logger = createLogger({ component: "UsageEmitter" });
 
 // In-memory buffer for failed events (dead-letter queue)
 interface FailedUsageEvent {
-  tenantId: string;
-  metric: BillingMetric;
-  amount: number;
-  requestId: string;
-  metadata?: Record<string, any>;
+  payload: UsageEvidencePayload;
   retryCount: number;
   lastError: string;
   timestamp: string;
 }
+
+const usageEvidenceSchema = z.object({
+  tenantId: z.string().uuid(),
+  metric: z.enum([
+    "llm_tokens",
+    "agent_executions",
+    "api_calls",
+    "storage_gb",
+    "user_seats",
+    "ai_tokens",
+  ]),
+  amount: z.number().finite().nonnegative(),
+  requestId: z.string().min(1),
+  agentUuid: z.string().min(1),
+  workloadIdentity: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+type UsageEvidencePayload = z.infer<typeof usageEvidenceSchema>;
 
 const MAX_RETRY_COUNT = 3;
 const failedEventsBuffer: FailedUsageEvent[] = [];
@@ -32,57 +50,61 @@ class UsageEmitter {
     this.supabase = supabase;
   }
 
+  static deriveDeterministicIdempotencyKey(
+    tenantId: string,
+    requestId: string,
+    agentUuid: string,
+    metric: BillingMetric
+  ): string {
+    return createHash("sha256")
+      .update(`${tenantId}:${requestId}:${agentUuid}:${metric}`)
+      .digest("hex");
+  }
+
+  private validatePayload(payload: UsageEvidencePayload): UsageEvidencePayload {
+    return usageEvidenceSchema.parse(payload);
+  }
+
   /**
    * Emit usage event (non-blocking)
    */
-  async emitUsage(
-    tenantId: string,
-    metric: BillingMetric,
-    amount: number,
-    requestId: string,
-    metadata?: Record<string, any>
-  ): Promise<void> {
+  async emitUsage(payload: UsageEvidencePayload): Promise<void> {
+    const validatedPayload = this.validatePayload(payload);
+
     try {
       // Non-blocking insert
       const { error } = await this.supabase.from("usage_events").insert({
-        tenant_id: tenantId,
-        metric,
-        amount,
-        request_id: requestId,
-        metadata: metadata || {},
+        tenant_id: validatedPayload.tenantId,
+        metric: validatedPayload.metric,
+        amount: validatedPayload.amount,
+        request_id: validatedPayload.requestId,
+        agent_uuid: validatedPayload.agentUuid,
+        workload_identity: validatedPayload.workloadIdentity,
+        idempotency_key: validatedPayload.idempotencyKey,
+        metadata: validatedPayload.metadata || {},
         processed: false,
         timestamp: new Date().toISOString(),
       });
 
       if (error) {
         logger.error("Failed to emit usage event", error, {
-          tenantId,
-          metric,
-          amount,
+          tenantId: validatedPayload.tenantId,
+          metric: validatedPayload.metric,
+          amount: validatedPayload.amount,
         });
         // Add to dead-letter queue for retry
-        this.addToDeadLetterQueue(
-          tenantId,
-          metric,
-          amount,
-          requestId,
-          metadata,
-          error.message
-        );
+        this.addToDeadLetterQueue(validatedPayload, error.message);
       } else {
-        logger.debug("Usage event emitted", { tenantId, metric, amount });
+        logger.debug("Usage event emitted", {
+          tenantId: validatedPayload.tenantId,
+          metric: validatedPayload.metric,
+          amount: validatedPayload.amount,
+        });
       }
     } catch (error) {
       logger.error("Error emitting usage", error as Error);
       // Add to dead-letter queue for retry
-      this.addToDeadLetterQueue(
-        tenantId,
-        metric,
-        amount,
-        requestId,
-        metadata,
-        (error as Error).message
-      );
+      this.addToDeadLetterQueue(validatedPayload, (error as Error).message);
     }
   }
 
@@ -90,11 +112,7 @@ class UsageEmitter {
    * Add failed event to dead-letter queue for retry
    */
   private addToDeadLetterQueue(
-    tenantId: string,
-    metric: BillingMetric,
-    amount: number,
-    requestId: string,
-    metadata: Record<string, any> | undefined,
+    payload: UsageEvidencePayload,
     errorMessage: string
   ): void {
     // Prevent unbounded growth - cap at 10000 events
@@ -104,19 +122,15 @@ class UsageEmitter {
     }
 
     failedEventsBuffer.push({
-      tenantId,
-      metric,
-      amount,
-      requestId,
-      metadata,
+      payload,
       retryCount: 0,
       lastError: errorMessage,
       timestamp: new Date().toISOString(),
     });
 
     logger.debug("Event added to dead-letter queue", {
-      tenantId,
-      metric,
+      tenantId: payload.tenantId,
+      metric: payload.metric,
       queueSize: failedEventsBuffer.length,
     });
   }
@@ -144,11 +158,14 @@ class UsageEmitter {
 
       try {
         const { error } = await this.supabase.from("usage_events").insert({
-          tenant_id: event.tenantId,
-          metric: event.metric,
-          amount: event.amount,
-          request_id: event.requestId,
-          metadata: event.metadata || {},
+          tenant_id: event.payload.tenantId,
+          metric: event.payload.metric,
+          amount: event.payload.amount,
+          request_id: event.payload.requestId,
+          agent_uuid: event.payload.agentUuid,
+          workload_identity: event.payload.workloadIdentity,
+          idempotency_key: event.payload.idempotencyKey,
+          metadata: event.payload.metadata || {},
           processed: false,
           timestamp: event.timestamp,
         });
@@ -185,12 +202,15 @@ class UsageEmitter {
     try {
       await this.supabase.from("dead_letter_events").insert({
         event_type: "usage_event",
-        tenant_id: event.tenantId,
+        tenant_id: event.payload.tenantId,
         payload: {
-          metric: event.metric,
-          amount: event.amount,
-          request_id: event.requestId,
-          metadata: event.metadata,
+          metric: event.payload.metric,
+          amount: event.payload.amount,
+          request_id: event.payload.requestId,
+          agent_uuid: event.payload.agentUuid,
+          workload_identity: event.payload.workloadIdentity,
+          idempotency_key: event.payload.idempotencyKey,
+          metadata: event.payload.metadata,
           original_timestamp: event.timestamp,
         },
         error_message: event.lastError,
@@ -198,8 +218,8 @@ class UsageEmitter {
         created_at: new Date().toISOString(),
       });
       logger.warn("Event persisted to dead-letter table", {
-        tenantId: event.tenantId,
-        metric: event.metric,
+        tenantId: event.payload.tenantId,
+        metric: event.payload.metric,
       });
     } catch (err) {
       logger.error("Failed to persist to dead-letter table", err as Error);
@@ -220,9 +240,25 @@ class UsageEmitter {
     tenantId: string,
     tokens: number,
     requestId: string,
+    agentUuid: string,
+    workloadIdentity: string,
     model?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "llm_tokens", tokens, requestId, { model });
+    await this.emitUsage({
+      tenantId,
+      metric: "llm_tokens",
+      amount: tokens,
+      requestId,
+      agentUuid,
+      workloadIdentity,
+      idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+        tenantId,
+        requestId,
+        agentUuid,
+        "llm_tokens"
+      ),
+      metadata: { model },
+    });
   }
 
   /**
@@ -231,10 +267,26 @@ class UsageEmitter {
   async emitAgentExecution(
     tenantId: string,
     requestId: string,
+    agentUuid: string,
+    workloadIdentity: string,
     agentType?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "agent_executions", 1, requestId, {
-      agentType,
+    await this.emitUsage({
+      tenantId,
+      metric: "agent_executions",
+      amount: 1,
+      requestId,
+      agentUuid,
+      workloadIdentity,
+      idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+        tenantId,
+        requestId,
+        agentUuid,
+        "agent_executions"
+      ),
+      metadata: {
+        agentType,
+      },
     });
   }
 
@@ -244,9 +296,25 @@ class UsageEmitter {
   async emitAPICall(
     tenantId: string,
     requestId: string,
+    agentUuid: string,
+    workloadIdentity: string,
     endpoint?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "api_calls", 1, requestId, { endpoint });
+    await this.emitUsage({
+      tenantId,
+      metric: "api_calls",
+      amount: 1,
+      requestId,
+      agentUuid,
+      workloadIdentity,
+      idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+        tenantId,
+        requestId,
+        agentUuid,
+        "api_calls"
+      ),
+      metadata: { endpoint },
+    });
   }
 
   /**
@@ -255,9 +323,24 @@ class UsageEmitter {
   async emitStorageUsage(
     tenantId: string,
     sizeGB: number,
-    requestId: string
+    requestId: string,
+    agentUuid: string,
+    workloadIdentity: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "storage_gb", sizeGB, requestId);
+    await this.emitUsage({
+      tenantId,
+      metric: "storage_gb",
+      amount: sizeGB,
+      requestId,
+      agentUuid,
+      workloadIdentity,
+      idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+        tenantId,
+        requestId,
+        agentUuid,
+        "storage_gb"
+      ),
+    });
   }
 
   /**
@@ -266,9 +349,24 @@ class UsageEmitter {
   async emitUserSeats(
     tenantId: string,
     userCount: number,
-    requestId: string
+    requestId: string,
+    agentUuid: string,
+    workloadIdentity: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "user_seats", userCount, requestId);
+    await this.emitUsage({
+      tenantId,
+      metric: "user_seats",
+      amount: userCount,
+      requestId,
+      agentUuid,
+      workloadIdentity,
+      idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+        tenantId,
+        requestId,
+        agentUuid,
+        "user_seats"
+      ),
+    });
   }
 }
 
