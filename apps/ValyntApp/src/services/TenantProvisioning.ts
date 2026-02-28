@@ -222,6 +222,7 @@ export async function provisionTenant(
     organizationId: config.organizationId,
   });
 
+  // service_role usage is permitted here for tenant provisioning only
   try {
     // Step 1: Create organization
     logger.debug('Provisioning step 1/6: Creating organization');
@@ -336,7 +337,7 @@ export async function provisionTenant(
     };
   } catch (error) {
     errors.push(`Fatal provisioning error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-     
+
     return {
       success: false,
       organizationId: config.organizationId,
@@ -470,7 +471,7 @@ async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
 
   // 2. Ensure global roles exist and assign owner
   const defaultRoles = ['owner', 'admin', 'member', 'viewer'];
-   
+
   for (const roleName of defaultRoles) {
     // Check if role exists globally
     const { data: existingRoles, error: roleError } = await supabase

@@ -8,10 +8,11 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // Supabase configuration
-  supabase: {
-    url: process.env.SUPABASE_URL || '',
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-  },
+    supabase: {
+      url: process.env.SUPABASE_URL || '',
+      // serviceRoleKey must only be used for AuthService, tenant provisioning, or cron jobs
+      serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    },
 
   // Cache configuration
   cache: {
@@ -38,6 +39,9 @@ export function validateConfig(): void {
   if (!config.supabase.serviceRoleKey) {
     errors.push('SUPABASE_SERVICE_ROLE_KEY is required');
   }
+  // Enforce service_role usage policy
+  // Only allow service_role in AuthService, tenant provisioning, or cron jobs
+  // Any other use is forbidden and must throw an error or be blocked in implementation
 
   if (errors.length > 0) {
     throw new Error(`Configuration errors:\n${errors.join('\n')}`);

@@ -47,10 +47,30 @@ for (const file of files) {
     changed = true;
   }
 
-  // Save if changed
+  // Save if changed and run basic integrity checks
   if (changed) {
     fs.writeFileSync(file, content, 'utf8');
+
+    try {
+      // run ESLint on the modified file to catch syntax or style issues
+      const { execSync } = require('child_process');
+      execSync(`pnpm run lint -- --fix --file ${file}`, { stdio: 'inherit' });
+    } catch (e) {
+      console.error(`Lint check failed for ${file}:`, e.message || e);
+      // continue, we don't want the script to crash; CI will catch errors later
+    }
   }
 }
 
-// TODO: Add code integrity validation and summary reporting as needed.
+// After processing all files, run a global type check and report summary
+try {
+  const { execSync } = require('child_process');
+  console.log('Running global type check...');
+  execSync('pnpm run tsc --noEmit', { stdio: 'inherit' });
+  console.log('Type check passed.');
+} catch (e) {
+  console.error('Type check failed after lint fixes:', e.message || e);
+}
+
+// Summary: the "lint-fix-todo.log" file already contains a record of all
+// modifications. Future enhancements could parse it and show a concise report.

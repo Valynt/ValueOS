@@ -68,7 +68,7 @@ export class ValueFabricService {
     const cached = this.getCachedData(ValueFabricService.capabilityCache, cacheKey);
     if (cached) return cached;
 
-    let query = this.supabase.from("capabilities").select("*").eq("is_active", true);
+    let query = this.supabase.from("capabilities").select("*").eq("is_active", true).eq("tenant_id", filters?.tenantId ?? this.getTenantId());
 
     if (filters?.category) {
       query = query.eq("category", filters.category);
@@ -98,6 +98,7 @@ export class ValueFabricService {
       .from("capabilities")
       .select("*")
       .eq("id", id)
+      .eq("tenant_id", this.getTenantId())
       .maybeSingle();
 
     if (error) throw error;
@@ -109,7 +110,7 @@ export class ValueFabricService {
   ): Promise<Capability> {
     const { data, error } = await this.supabase
       .from("capabilities")
-      .insert(capability)
+      .insert({ ...capability, tenant_id: this.getTenantId() })
       .select()
       .single();
 
@@ -128,14 +129,16 @@ export class ValueFabricService {
       .from("capabilities")
       .select("*")
       .eq("id", id)
+      .eq("tenant_id", this.getTenantId())
       .single();
 
     if (fetchError) throw fetchError;
 
     const { data, error } = await this.supabase
       .from("capabilities")
-      .update(updates)
+      .update({ ...updates, tenant_id: this.getTenantId() })
       .eq("id", id)
+      .eq("tenant_id", this.getTenantId())
       .select()
       .single();
 
@@ -166,7 +169,7 @@ export class ValueFabricService {
     const cached = this.getCachedData(ValueFabricService.useCaseCache, cacheKey);
     if (cached) return cached;
 
-    let query = this.supabase.from("use_cases").select("*");
+    let query = this.supabase.from("use_cases").select("*").eq("tenant_id", filters?.tenantId ?? this.getTenantId());
 
     if (filters?.persona) {
       query = query.eq("persona", filters.persona);
@@ -196,6 +199,7 @@ export class ValueFabricService {
       .from("use_cases")
       .select("*")
       .eq("id", id)
+      .eq("tenant_id", this.getTenantId())
       .maybeSingle();
 
     if (error) throw error;
@@ -210,6 +214,7 @@ export class ValueFabricService {
       .from("use_cases")
       .select("*")
       .eq("id", useCaseId)
+      .eq("tenant_id", this.getTenantId())
       .single();
 
     if (useCaseError) throw useCaseError;
@@ -217,7 +222,8 @@ export class ValueFabricService {
     const { data: capabilityLinks, error: linksError } = await this.supabase
       .from("use_case_capabilities")
       .select("capability_id, relevance_score")
-      .eq("use_case_id", useCaseId);
+      .eq("use_case_id", useCaseId)
+      .eq("tenant_id", this.getTenantId());
 
     if (linksError) throw linksError;
 
@@ -230,7 +236,8 @@ export class ValueFabricService {
     const { data: capabilities, error: capError } = await this.supabase
       .from("capabilities")
       .select("*")
-      .in("id", capabilityIds);
+      .in("id", capabilityIds)
+      .eq("tenant_id", this.getTenantId());
 
     if (capError) throw capError;
 

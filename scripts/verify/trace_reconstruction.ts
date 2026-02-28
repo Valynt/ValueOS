@@ -9,7 +9,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function getRows(table: string, sessionId: string) {
-  const { data, error } = await supabase.from(table).select('*').eq('session_id', sessionId).order('created_at', { ascending: true });
+  const { data, error } = await supabase.from(table).select('*').eq('session_id', sessionId).eq('organization_id', process.env.ORGANIZATION_ID).order('created_at', { ascending: true });
   if (error) throw error;
   return data || [];
 }

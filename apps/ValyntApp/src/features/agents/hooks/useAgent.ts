@@ -78,17 +78,40 @@ export function useAgent(agentId: string) {
     [agentId]
   );
 
-  const executeAction = useCallback(async (_actionId: string) => {
+  const executeAction = useCallback(async (actionId: string) => {
     setStatus("executing");
     try {
-      // TODO: Implement actual action execution
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // call backend endpoint for agent action execution
+      const response = await fetch(`/api/agents/${agentId}/actions/${actionId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      // optionally append a system message or update session based on result
+      const systemMsg: AgentMessage = {
+        id: `msg_${Date.now()}`,
+        agentId,
+        type: "system",
+        content: `Action ${actionId} executed: ${result?.message ?? 'success'}`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, systemMsg]);
+
       setStatus("completed");
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Action failed");
       setStatus("error");
+      throw err;
     }
-  }, []);
+  }, [agentId]);
 
   const reset = useCallback(() => {
     setStatus("idle");

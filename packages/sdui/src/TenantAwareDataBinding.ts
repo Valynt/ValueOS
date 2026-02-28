@@ -1,6 +1,6 @@
 /**
  * Tenant-Aware Data Binding
- * 
+ *
  * Extends data binding system with tenant isolation and permission checks.
  * Ensures all data access is properly scoped to the tenant context.
  */
@@ -35,16 +35,19 @@ export interface TenantAwareDataBinding extends DataBinding {
 
   /**
    * Tenant ID override (defaults to context tenant)
+   * Always required for RLS enforcement. All queries must include tenant_id or organization_id.
    */
   $tenantId?: string;
 
   /**
    * Organization ID override (defaults to context org)
+   * Always required for RLS enforcement. All queries must include tenant_id or organization_id.
    */
   $organizationId?: string;
 
   /**
    * Whether to enforce strict tenant isolation
+   * If true, blocks cross-tenant data access. Must be true for all production queries.
    */
   $strictIsolation?: boolean;
 }

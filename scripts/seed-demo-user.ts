@@ -115,6 +115,7 @@ async function seedDemoData() {
       tenant_id: tenant.id,
       role: "admin",
       is_active: true,
+      organization_id: tenant.organization_id,
     });
 
     if (userTenantError) {

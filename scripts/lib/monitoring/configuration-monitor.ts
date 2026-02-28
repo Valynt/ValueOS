@@ -1,6 +1,6 @@
 /**
  * Configuration Monitoring Service
- * 
+ *
  * Monitors configuration changes and triggers alerts
  */
 
@@ -184,8 +184,9 @@ export class ConfigurationMonitor {
   ): Promise<void> {
     const supabase = await createClient();
 
-    // Create alert record
-    await supabase.from('alerts').insert({
+      // Create alert record
+      await supabase.from('alerts').insert({
+        organization_id: event.organizationId,
       rule_id: rule.id,
       rule_name: rule.name,
       severity: rule.severity,
@@ -329,7 +330,7 @@ This alert was triggered because: ${rule.name}
     // Increment configuration change counter
     // Track by category, setting, organization
     // This would integrate with your metrics system (Prometheus, DataDog, etc.)
-    
+
     const metrics = {
       'configuration.changes.total': 1,
       [`configuration.changes.${event.category}`]: 1,
