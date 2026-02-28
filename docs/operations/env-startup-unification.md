@@ -56,6 +56,9 @@ Canonical names include:
 - `NATS_URL`
 - `APP_ENV`
 
+Compose now enforces required values (not inline credential fallbacks) for `DATABASE_URL` using `${DATABASE_URL:?...}` across base and profile files.
+Development defaults must be provided via mode env files (for example `ops/env/.env.local`) generated from `ops/env/.env.local.example`.
+
 ### Canonical migration runner + shims
 
 - Implemented deterministic migration runner: `scripts/db/apply-migrations.sh`.

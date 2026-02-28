@@ -53,21 +53,21 @@ services:
       postgres:
         condition: service_healthy
 
-  storage:
+ storage:
     image: supabase/storage-api:v0.46.4
     profiles: ["supabase"]
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${PGDATABASE:-valueos}
-      POSTGRES_USER: ${PGUSER:-postgres}
-      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your local env file before starting compose}
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}
+      # Database Connection (Consolidated)
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.local}
+      
+      # Auth & Security
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file}
       ANON_KEY: ${SUPABASE_ANON_KEY:-}
       SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      
+      # Storage Config
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
-      DATABASE_URL: postgres://${PGUSER:-postgres}:${PGPASSWORD:?Set PGPASSWORD in your local env file before starting compose}@postgres:5432/${PGDATABASE:-valueos}
     depends_on:
       postgres:
         condition: service_healthy

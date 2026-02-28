@@ -1,6 +1,7 @@
 /**
  * Centralized, environment-aware, and schema-validated configuration.
  */
+import { parseCorsAllowlist } from "@shared/config/cors";
 import { getEnvVar, env as runtimeEnv } from "@shared/lib/env";
 import { z } from "zod";
 
@@ -140,11 +141,6 @@ const DEFAULT_DB_POOL_CONNECTION_TIMEOUT_MS = 5_000;
 const DEFAULT_DB_POOL_STATEMENT_TIMEOUT_MS = 30_000;
 const DEFAULT_DB_POOL_QUERY_TIMEOUT_MS = 30_000;
 
-const parseCorsOrigins = (value?: string) =>
-  (value ? value.split(",") : defaultCorsOrigins)
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-
 export const settings = {
   ...parsedSettings,
   API_PORT: Number(parsedSettings.API_PORT) || DEFAULT_API_PORT,
@@ -160,6 +156,13 @@ export const settings = {
       parsedSettings.DATABASE_POOL_QUERY_TIMEOUT_MS ?? DEFAULT_DB_POOL_QUERY_TIMEOUT_MS,
   },
   security: {
-    corsOrigins: parseCorsOrigins(parsedSettings.CORS_ALLOWED_ORIGINS),
+    corsOrigins: parseCorsAllowlist(
+      parsedSettings.CORS_ALLOWED_ORIGINS ?? defaultCorsOrigins.join(","),
+      {
+        source: "CORS_ALLOWED_ORIGINS",
+        credentials: true,
+        requireNonEmpty: true,
+      }
+    ),
   },
 };

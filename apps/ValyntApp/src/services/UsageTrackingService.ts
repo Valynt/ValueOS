@@ -11,6 +11,7 @@ import { getConfig } from "../config/environment";
 import { logger } from "../lib/logger";
 import { supabase as publicSupabase } from "../lib/supabase";
 
+import { api } from "./api/client";
 import { isWithinLimits, TenantLimits, TenantUsage } from "./TenantProvisioning";
 
 
@@ -147,7 +148,7 @@ export async function getUsage(organizationId: string, period?: string): Promise
     return cached;
   }
 
-  const client = serviceRoleSupabase || publicSupabase;
+  const client = publicSupabase;
 
   if (client) {
     try {
@@ -293,29 +294,12 @@ export async function canPerformAction(
   return { allowed: true };
 }
 
-// service_role:justified — server-side usage persistence bypasses RLS
-const serviceRoleSupabase = (() => {
-  try {
-    // Dynamically import to avoid pulling service-role key into browser bundles
-    const { createServerSupabaseClient } = require("../lib/supabase");
-    return createServerSupabaseClient();
-  } catch {
-    // Falls back to null in browser context; persistUsage guards against this
-    return null;
-  }
-})();
-
 /**
  * Persist usage to database (upsert into `tenant_usage` table)
  */
 async function persistUsage(usage: TenantUsage): Promise<void> {
-  if (!serviceRoleSupabase) {
-    logger.warn("Supabase client not available (browser environment)");
-    return;
-  }
-
   try {
-    const payload = {
+    await api.post("/usage/persist", {
       organization_id: usage.organizationId,
       period: usage.period,
       users: usage.users,
@@ -325,15 +309,8 @@ async function persistUsage(usage: TenantUsage): Promise<void> {
       api_calls: usage.apiCalls,
       agent_calls: usage.agentCalls,
       last_updated: usage.lastUpdated.toISOString(),
-    } as Record<string, unknown>;
-
-    const { error } = await serviceRoleSupabase.from("tenant_usage").upsert(payload).select();
-
-    if (error) {
-      logger.error("Failed to persist usage", error);
-    } else {
-      logger.debug(`Usage persisted for ${usage.organizationId}`);
-    }
+    });
+    logger.debug(`Usage persisted for ${usage.organizationId}`);
   } catch (err) {
     logger.error("Failed to persist usage", err instanceof Error ? err : undefined);
   }
@@ -374,7 +351,7 @@ export async function getUsageHistory(
   organizationId: string,
   months: number = 12
 ): Promise<TenantUsage[]> {
-  const client = serviceRoleSupabase || publicSupabase;
+  const client = publicSupabase;
 
   if (!client) {
     return [];
