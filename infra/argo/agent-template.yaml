@@ -9,112 +9,40 @@ spec:
         elements:
           - agent: benchmark
             path: infra/k8s/base/agents/benchmark
-            cpuRequest: 150m
-            memoryRequest: 384Mi
-            cpuLimit: 750m
-            memoryLimit: 1.5Gi
           - agent: communicator
             path: infra/k8s/base/agents/communicator
-            cpuRequest: 100m
-            memoryRequest: 256Mi
-            cpuLimit: 500m
-            memoryLimit: 1Gi
           - agent: company-intelligence
             path: infra/k8s/base/agents/company-intelligence
-            cpuRequest: 150m
-            memoryRequest: 384Mi
-            cpuLimit: 750m
-            memoryLimit: 1.5Gi
           - agent: coordinator
             path: infra/k8s/base/agents/coordinator
-            cpuRequest: 150m
-            memoryRequest: 384Mi
-            cpuLimit: 750m
-            memoryLimit: 1.5Gi
           - agent: expansion
             path: infra/k8s/base/agents/expansion
-            cpuRequest: 200m
-            memoryRequest: 512Mi
-            cpuLimit: 1000m
-            memoryLimit: 2Gi
           - agent: financial-modeling
             path: infra/k8s/base/agents/financial-modeling
-            cpuRequest: 200m
-            memoryRequest: 512Mi
-            cpuLimit: 1000m
-            memoryLimit: 2Gi
           - agent: groundtruth
             path: infra/k8s/base/agents/groundtruth
-            cpuRequest: 150m
-            memoryRequest: 384Mi
-            cpuLimit: 750m
-            memoryLimit: 1.5Gi
           - agent: integrity
             path: infra/k8s/base/agents/integrity
-            cpuRequest: 100m
-            memoryRequest: 256Mi
-            cpuLimit: 500m
-            memoryLimit: 1Gi
           - agent: intervention-designer
             path: infra/k8s/base/agents/intervention-designer
-            cpuRequest: 250m
-            memoryRequest: 640Mi
-            cpuLimit: 1250m
-            memoryLimit: 2.5Gi
           - agent: narrative
             path: infra/k8s/base/agents/narrative
-            cpuRequest: 200m
-            memoryRequest: 512Mi
-            cpuLimit: 1000m
-            memoryLimit: 2Gi
           - agent: opportunity
             path: infra/k8s/base/agents/opportunity
-            cpuRequest: 500m
-            memoryRequest: 1Gi
-            cpuLimit: 1500m
-            memoryLimit: 2Gi
           - agent: outcome-engineer
             path: infra/k8s/base/agents/outcome-engineer
-            cpuRequest: 250m
-            memoryRequest: 640Mi
-            cpuLimit: 1250m
-            memoryLimit: 2.5Gi
           - agent: realization
             path: infra/k8s/base/agents/realization
-            cpuRequest: 750m
-            memoryRequest: 1536Mi
-            cpuLimit: 2000m
-            memoryLimit: 3Gi
           - agent: research
             path: infra/k8s/base/agents/research
-            cpuRequest: 200m
-            memoryRequest: 512Mi
-            cpuLimit: 1000m
-            memoryLimit: 2Gi
           - agent: system-mapper
             path: infra/k8s/base/agents/system-mapper
-            cpuRequest: 200m
-            memoryRequest: 512Mi
-            cpuLimit: 1000m
-            memoryLimit: 2Gi
           - agent: target
             path: infra/k8s/base/agents/target
-            cpuRequest: 100m
-            memoryRequest: 256Mi
-            cpuLimit: 500m
-            memoryLimit: 1Gi
           - agent: value-eval
             path: infra/k8s/base/agents/value-eval
-            cpuRequest: 150m
-            memoryRequest: 384Mi
-            cpuLimit: 750m
-            memoryLimit: 1.5Gi
           - agent: value-mapping
             path: infra/k8s/base/agents/value-mapping
-            cpuRequest: 150m
-            memoryRequest: 384Mi
-            cpuLimit: 750m
-            memoryLimit: 1.5Gi
   template:
     metadata:
       name: '{{agent}}'
@@ -122,11 +50,6 @@ spec:
         app.kubernetes.io/part-of: valueos
         app.kubernetes.io/component: agent
         valueos.io/agent-name: '{{agent}}'
-      annotations:
-        valueos.io/cpu-request: '{{cpuRequest}}'
-        valueos.io/memory-request: '{{memoryRequest}}'
-        valueos.io/cpu-limit: '{{cpuLimit}}'
-        valueos.io/memory-limit: '{{memoryLimit}}'
     spec:
       project: valueos
       source:
