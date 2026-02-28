@@ -1,6 +1,6 @@
 /**
  * Usage Aggregator
- * Runs as background job to aggregate usage events into batches
+ * Runs as background job to aggregate committed usage rows into batches
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
