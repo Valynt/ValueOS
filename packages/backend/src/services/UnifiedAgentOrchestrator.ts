@@ -32,6 +32,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as z from "zod";
 
 import { getTracer } from "../config/telemetry.js";
+import { getAutonomyConfig } from "../config/autonomy.js";
 
 import { ConfidenceMonitor } from "./ConfidenceMonitor";
 import GroundtruthAPI, {
@@ -56,6 +57,7 @@ import { logger } from "../lib/logger.js";
 
 import { semanticMemory } from "./SemanticMemory.js";
 import { TenantExecutionStateService } from "./billing/TenantExecutionStateService.js";
+import { securityLogger } from "./SecurityLogger.js";
 
 // ============================================================================
 // Local Types
@@ -69,24 +71,6 @@ interface StageLifecycleRecord {
   completedAt: string;
   summary?: string;
 }
-
-// Stub for missing imports
-interface AutonomyConfig {
-  maxAutonomousActions: number;
-  requireApproval: boolean;
-  killSwitchEnabled?: boolean;
-  maxDurationMs?: number;
-  maxCostUsd?: number;
-  requireApprovalForDestructive?: boolean;
-  agentAutonomyLevels?: Record<string, string>;
-  agentKillSwitches?: Record<string, boolean>;
-  agentMaxIterations?: Record<string, number>;
-}
-declare function getAutonomyConfig(): AutonomyConfig;
-declare const securityLogger: {
-  warn: (msg: string | Record<string, unknown>, meta?: Record<string, unknown>) => void;
-  log: (msg: string | Record<string, unknown>, meta?: Record<string, unknown>) => void;
-};
 
 // ============================================================================
 // Middleware Types
@@ -3153,11 +3137,18 @@ Provide a JSON response with:
     metadata: Record<string, any>
   ): Promise<void> {
     const sequence = await this.getNextEventSequence(executionId);
+    const requestId = String(metadata.request_id ?? metadata.requestId ?? executionId);
+    const eventMetadata = {
+      ...metadata,
+      request_id: requestId,
+      evidence_link: metadata.evidence_link ?? `workflow://${executionId}/events/${sequence}`,
+    };
+
     const { error } = await supabase.from("workflow_events").insert({
       execution_id: executionId,
       event_type: eventType,
       stage_id: stageId,
-      metadata,
+      metadata: eventMetadata,
       sequence,
     });
 
@@ -3175,7 +3166,15 @@ Provide a JSON response with:
     context: Record<string, any>,
     startTime: number
   ): Promise<void> {
-    const autonomy = getAutonomyConfig();
+    const autonomy = getAutonomyConfig() as ReturnType<typeof getAutonomyConfig> & {
+      killSwitchEnabled?: boolean;
+      maxDurationMs?: number;
+      maxCostUsd?: number;
+      requireApprovalForDestructive?: boolean;
+      agentAutonomyLevels?: Record<string, string>;
+      agentKillSwitches?: Record<string, boolean>;
+      agentMaxIterations?: Record<string, number>;
+    };
 
     // Check kill switch
     if (autonomy.killSwitchEnabled) {

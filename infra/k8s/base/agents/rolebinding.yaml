@@ -7,6 +7,21 @@ subjects:
   - kind: ServiceAccount
     name: valynt-agent
     namespace: valynt-agents
+  - kind: ServiceAccount
+    name: opportunity-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: target-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: realization-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: expansion-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: integrity-agent
+    namespace: valynt-agents
 roleRef:
   kind: Role
   name: agent-role
