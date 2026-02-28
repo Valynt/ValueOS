@@ -63,6 +63,7 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
+import { getConfig } from "./config/environment.js";
 import docsApiRouter from "./docs-api/index.js";
 import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
@@ -435,6 +436,27 @@ app.use(notFoundHandler);
 // Global error handler (must be last)
 app.use(globalErrorHandler);
 
+function validateProductionMfaStartup(): void {
+  if (settings.NODE_ENV !== "production") {
+    return;
+  }
+
+  const mfaOverrideEnabled = process.env.MFA_PRODUCTION_OVERRIDE === "true";
+  const { auth } = getConfig();
+
+  if (!auth.mfaEnabled && !mfaOverrideEnabled) {
+    throw new Error(
+      "Refusing production startup: MFA is not enabled. Set MFA_ENABLED=true or set MFA_PRODUCTION_OVERRIDE=true only for emergency recovery."
+    );
+  }
+
+  if (!auth.mfaEnabled && mfaOverrideEnabled) {
+    logger.warn(
+      "Production startup override in use: MFA is disabled because MFA_PRODUCTION_OVERRIDE=true. This should only be used for emergency recovery."
+    );
+  }
+}
+
 async function startServer(): Promise<void> {
   logger.info("[Instrumentation] Starting backend server initialization");
 
@@ -456,6 +478,7 @@ async function startServer(): Promise<void> {
 
   // 2. Validate production requirements
   logger.info("[Instrumentation] Validating production requirements");
+  validateProductionMfaStartup();
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."
