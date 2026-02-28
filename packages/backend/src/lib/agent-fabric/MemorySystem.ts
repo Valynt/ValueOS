@@ -3,9 +3,15 @@
  *
  * Agent memory management for context retention, retrieval,
  * and knowledge accumulation across task executions.
+ *
+ * Supports an optional MemoryPersistenceBackend for durable storage.
+ * When a backend is configured, writes go to both the local Map cache
+ * and the persistent store. Reads prefer the backend when available,
+ * falling back to the local cache on error.
  */
 
 import { logger } from "../logger.js";
+import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
 
 export interface MemorySystemConfig {
   max_memories: number;
@@ -24,7 +30,7 @@ export interface Memory {
   created_at: string;
   accessed_at: string;
   access_count: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type MemoryType = "episodic" | "semantic" | "procedural" | "working";
@@ -43,10 +49,20 @@ export interface MemoryQuery {
 export class MemorySystem {
   private config: MemorySystemConfig;
   private memories: Map<string, Memory>;
+  private backend: MemoryPersistenceBackend | null;
 
-  constructor(config: MemorySystemConfig) {
+  constructor(config: MemorySystemConfig, backend?: MemoryPersistenceBackend) {
     this.config = config;
     this.memories = new Map();
+    this.backend = backend ?? null;
+  }
+
+  /**
+   * Attach a persistence backend after construction.
+   * Useful when the backend isn't available at MemorySystem creation time.
+   */
+  setBackend(backend: MemoryPersistenceBackend): void {
+    this.backend = backend;
   }
 
   async store(
@@ -61,12 +77,28 @@ export class MemorySystem {
       access_count: 0,
     };
 
+    // Always write to local cache for fast in-process reads
     this.memories.set(memoryId, fullMemory);
+
+    // Persist to backend if available (fire-and-log-error to avoid
+    // blocking agent execution on transient storage failures)
+    if (this.backend && this.config.enable_persistence) {
+      try {
+        await this.backend.store(fullMemory);
+      } catch (error) {
+        logger.warn("Persistent memory store failed, using local cache only", {
+          memory_id: memoryId,
+          agent_id: memory.agent_id,
+          error: (error as Error).message,
+        });
+      }
+    }
 
     logger.debug("Memory stored", {
       memory_id: memoryId,
       agent_id: memory.agent_id,
       type: memory.memory_type,
+      persisted: !!(this.backend && this.config.enable_persistence),
     });
 
     return memoryId;
@@ -77,6 +109,27 @@ export class MemorySystem {
       throw new Error("organization_id is required for tenant-scoped memory retrieval");
     }
 
+    // Try persistent backend first for cross-session recall
+    if (this.backend && this.config.enable_persistence) {
+      try {
+        const persisted = await this.backend.retrieve(query);
+        if (persisted.length > 0) {
+          return persisted;
+        }
+        // Fall through to local cache if backend returned empty
+      } catch (error) {
+        logger.warn("Persistent memory retrieval failed, falling back to local cache", {
+          agent_id: query.agent_id,
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    // Local cache fallback
+    return this.retrieveFromCache(query);
+  }
+
+  private retrieveFromCache(query: MemoryQuery): Memory[] {
     const results: Memory[] = [];
 
     for (const memory of this.memories.values()) {
@@ -103,7 +156,7 @@ export class MemorySystem {
     agentId: string,
     type: MemoryType,
     content: string,
-    metadata: Record<string, any>,
+    metadata: Record<string, unknown>,
     organizationId: string
   ): Promise<string> {
     return this.store({
@@ -111,7 +164,7 @@ export class MemorySystem {
       workspace_id: sessionId,
       content,
       memory_type: type,
-      importance: metadata.importance || 0.5,
+      importance: (metadata.importance as number) || 0.5,
       metadata: { ...metadata, organization_id: organizationId },
     });
   }
@@ -126,11 +179,27 @@ export class MemorySystem {
         }
       }
     }
+
+    // Delegate to backend (which may no-op for persistent stores)
+    if (this.backend && this.config.enable_persistence) {
+      try {
+        await this.backend.clear(agentId, workspaceId);
+      } catch (error) {
+        logger.warn("Persistent memory clear failed", {
+          agent_id: agentId,
+          error: (error as Error).message,
+        });
+      }
+    }
+
     logger.info("Memories cleared", { agent_id: agentId, count });
     return count;
   }
 }
 
-export function createMemorySystem(config: MemorySystemConfig): MemorySystem {
-  return new MemorySystem(config);
+export function createMemorySystem(
+  config: MemorySystemConfig,
+  backend?: MemoryPersistenceBackend,
+): MemorySystem {
+  return new MemorySystem(config, backend);
 }
