@@ -26,8 +26,10 @@ export function isFeatureEnabled(feature: string): boolean {
 }
 
 export function getConfig() {
+  const mfaEnabled = process.env.MFA_ENABLED === "true";
+
   return {
-    auth: { mfaEnabled: process.env.MFA_ENABLED === 'true' },
+    auth: { mfaEnabled },
     features: {
       billing: false,
       usageTracking: false,

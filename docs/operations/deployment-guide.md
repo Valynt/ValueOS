@@ -2613,6 +2613,9 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 # Security
 VITE_HTTPS_ONLY=true
 JWT_SECRET=your-jwt-secret-min-32-chars
+MFA_ENABLED=true
+# Emergency-only escape hatch; do not leave enabled
+MFA_PRODUCTION_OVERRIDE=false
 ```
 
 ### Optional but Recommended
