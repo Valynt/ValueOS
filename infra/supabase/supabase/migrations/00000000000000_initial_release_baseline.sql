@@ -1,4 +1,15 @@
 -- ============================================================================
+-- Required Extensions
+-- These must be available before any table creation. On Supabase-hosted
+-- instances they are pre-installed; on self-hosted Postgres they may need
+-- superuser privileges.
+-- ============================================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+
+-- ============================================================================
 -- Billing V2 Foundation
 -- Adds versioned pricing, meter catalog, entitlement snapshots, usage policies,
 -- billing-specific approval workflows, and hardens usage evidence chain.
