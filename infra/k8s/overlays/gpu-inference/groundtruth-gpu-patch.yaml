@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: groundtruth-agent
+  namespace: valynt-agents
+spec:
+  template:
+    spec:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+        workload.valueos.io/class: gpu-inference
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: groundtruth-agent
+          resources:
+            requests:
+              nvidia.com/mig-1g.10gb: "1"
+            limits:
+              nvidia.com/mig-1g.10gb: "1"

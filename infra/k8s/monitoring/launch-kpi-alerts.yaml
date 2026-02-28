@@ -1,0 +1,63 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: launch-kpi-alerts
+  labels:
+    app.kubernetes.io/component: launch-kpi
+spec:
+  groups:
+    - name: launch.onboarding
+      rules:
+        - alert: OnboardingProvisioningSuccessRateLow
+          expr: |
+            (
+              sum(rate(valueos_provisioning_attempts_total{result="success"}[15m]))
+              /
+              clamp_min(sum(rate(valueos_provisioning_attempts_total[15m])), 0.001)
+            ) < 0.98
+          for: 15m
+          labels:
+            severity: warning
+            component: onboarding
+            kpi: onboarding-success-rate
+          annotations:
+            summary: "Onboarding provisioning success rate is below 98%"
+            description: "Provisioning success rate is {{ $value | humanizePercentage }} in the last 15m"
+            runbook_url: "https://docs.valueos.com/runbooks/onboarding-provisioning-success-rate"
+
+    - name: launch.internal_calls
+      rules:
+        - alert: InternalCallSidecarOverheadHigh
+          expr: |
+            (
+              histogram_quantile(0.95, sum(rate(valueos_internal_call_duration_seconds_bucket{proxy_mode="mesh"}[5m])) by (le))
+              -
+              histogram_quantile(0.95, sum(rate(valueos_internal_call_duration_seconds_bucket{proxy_mode="direct"}[5m])) by (le))
+            ) > 0.01
+          for: 10m
+          labels:
+            severity: warning
+            component: mesh
+            kpi: internal-call-latency-overhead
+          annotations:
+            summary: "Sidecar overhead exceeded 10ms for internal calls"
+            description: "P95 mesh overhead is {{ $value }}s; threshold is 0.01s (10ms)"
+            runbook_url: "https://docs.valueos.com/runbooks/internal-call-mesh-latency"
+
+    - name: launch.stripe_webhooks
+      rules:
+        - alert: StripeInvoiceCreatedWebhookAckLatencyHigh
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(billing_webhook_ack_latency_seconds_bucket{event_type="invoice.created"}[5m])) by (le)
+            ) > 2
+          for: 10m
+          labels:
+            severity: critical
+            component: billing
+            kpi: stripe-webhook-ack-latency
+          annotations:
+            summary: "Stripe invoice.created webhook ACK latency exceeded 2s"
+            description: "P95 ACK latency is {{ $value }}s for invoice.created webhooks"
+            runbook_url: "https://docs.valueos.com/runbooks/stripe-webhook-ack-latency"

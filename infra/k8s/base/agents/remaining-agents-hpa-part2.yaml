@@ -5,6 +5,7 @@ metadata:
   namespace: valynt-agents
   labels:
     app: research-agent
+    autoscaling.valueos.dev/profile: queue-depth
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -16,10 +17,11 @@ spec:
     - type: External
       external:
         metric:
-          name: agent_research_load
+          name: agent_queue_depth
           selector:
             matchLabels:
-              agent_type: "research"
+              queue: agent-tasks
+              agent_type: research
         target:
           type: AverageValue
           averageValue: "8"
@@ -41,137 +43,187 @@ spec:
       policies:
         - type: Percent
           value: 25
-          periodSeconds: 120
+          periodSeconds: 60
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 0
       policies:
         - type: Percent
-          value: 100
+          value: 200
           periodSeconds: 30
         - type: Pods
-          value: 6
+          value: 10
           periodSeconds: 30
       selectPolicy: Max
+# Resolved: codex/migrate-low-frequency-agents-to-keda-scaledobject
+# Replace the HPA approach with KEDA ScaledObjects for queue-driven autoscaling
+# and true scale-to-zero for low-frequency agents.
+
+# Notes:
+# - This assumes you have KEDA installed in the cluster.
+# - This uses Prometheus as the metric source (common when you already have an
+#   `agent_queue_depth{queue="agent-tasks",agent_type="..."}` series).
+# - If your queue depth comes from another system (SQS/Rabbit/Redis/Kafka), swap
+#   the trigger type accordingly.
+# - We explicitly set `minReplicaCount: 0` for scale-to-zero.
+
 ---
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
 metadata:
   name: benchmark-agent
   namespace: valynt-agents
   labels:
     app: benchmark-agent
+    autoscaling.valueos.dev/profile: queue-depth
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: benchmark-agent
-  minReplicas: 2
-  maxReplicas: 8
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 60
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 70
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 25
-          periodSeconds: 120
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
+
+  # Scale-to-zero for low-frequency workloads
+  minReplicaCount: 0
+  maxReplicaCount: 8
+
+  # Polling + cooldown behavior (similar intent to HPA stabilization)
+  pollingInterval: 15          # seconds
+  cooldownPeriod: 300          # seconds after last trigger before scaling down
+  idleReplicaCount: 0
+
+  # Advanced behavior knobs (KEDA -> HPA behavior tuning)
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 25
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 200
+              periodSeconds: 30
+            - type: Pods
+              value: 10
+              periodSeconds: 30
+          selectPolicy: Max
+
+  triggers:
+    - type: prometheus
+      metadata:
+        # Replace with your Prometheus server endpoint (cluster DNS) if different.
+        serverAddress: http://prometheus-k8s.monitoring.svc.cluster.local:9090
+
+        # Query must return a single scalar. This computes the current queue depth.
+        query: |
+          sum(agent_queue_depth{queue="agent-tasks",agent_type="benchmark"})
+
+        # When queue depth > threshold, scale out.
+        # Equivalent-ish to HPA AverageValue "10" for this agent.
+        threshold: "10"
+
 ---
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
 metadata:
   name: narrative-agent
   namespace: valynt-agents
   labels:
     app: narrative-agent
+    autoscaling.valueos.dev/profile: queue-depth
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: narrative-agent
-  minReplicas: 2
-  maxReplicas: 8
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 60
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 70
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 25
-          periodSeconds: 120
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
+
+  minReplicaCount: 0
+  maxReplicaCount: 8
+
+  pollingInterval: 15
+  cooldownPeriod: 300
+  idleReplicaCount: 0
+
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 25
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 200
+              periodSeconds: 30
+            - type: Pods
+              value: 10
+              periodSeconds: 30
+          selectPolicy: Max
+
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-k8s.monitoring.svc.cluster.local:9090
+        query: |
+          sum(agent_queue_depth{queue="agent-tasks",agent_type="narrative"})
+        threshold: "10"
+
 ---
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
 metadata:
   name: groundtruth-agent
   namespace: valynt-agents
   labels:
     app: groundtruth-agent
+    autoscaling.valueos.dev/profile: queue-depth
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: groundtruth-agent
-  minReplicas: 2
-  maxReplicas: 6
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 60
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 70
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 25
-          periodSeconds: 120
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
+
+  minReplicaCount: 0
+  maxReplicaCount: 6
+
+  pollingInterval: 15
+  cooldownPeriod: 300
+  idleReplicaCount: 0
+
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 25
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 200
+              periodSeconds: 30
+            - type: Pods
+              value: 10
+              periodSeconds: 30
+          selectPolicy: Max
+
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-k8s.monitoring.svc.cluster.local:9090
+        query: |
+          sum(agent_queue_depth{queue="agent-tasks",agent_type="groundtruth"})
+        threshold: "12"

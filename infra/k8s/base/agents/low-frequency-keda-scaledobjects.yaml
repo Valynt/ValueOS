@@ -1,0 +1,263 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: company-intelligence-agent
+  namespace: valynt-agents
+  labels:
+    app: company-intelligence-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: company-intelligence-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 6
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: company_intelligence_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="company-intelligence"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: value-mapping-agent
+  namespace: valynt-agents
+  labels:
+    app: value-mapping-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: value-mapping-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 6
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: value_mapping_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="value-mapping"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: system-mapper-agent
+  namespace: valynt-agents
+  labels:
+    app: system-mapper-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: system-mapper-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 6
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: system_mapper_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="system-mapper"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: intervention-designer-agent
+  namespace: valynt-agents
+  labels:
+    app: intervention-designer-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: intervention-designer-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 8
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: intervention_designer_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="intervention-designer"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: outcome-engineer-agent
+  namespace: valynt-agents
+  labels:
+    app: outcome-engineer-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: outcome-engineer-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 8
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: outcome_engineer_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="outcome-engineer"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: coordinator-agent
+  namespace: valynt-agents
+  labels:
+    app: coordinator-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: coordinator-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 4
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: coordinator_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="coordinator"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: value-eval-agent
+  namespace: valynt-agents
+  labels:
+    app: value-eval-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: value-eval-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 6
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: value_eval_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="value-eval"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: communicator-agent
+  namespace: valynt-agents
+  labels:
+    app: communicator-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: communicator-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 4
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: communicator_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="communicator"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: benchmark-agent
+  namespace: valynt-agents
+  labels:
+    app: benchmark-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: benchmark-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 6
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: benchmark_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="benchmark"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: narrative-agent
+  namespace: valynt-agents
+  labels:
+    app: narrative-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: narrative-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 6
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: narrative_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="narrative"})
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: groundtruth-agent
+  namespace: valynt-agents
+  labels:
+    app: groundtruth-agent
+    scaling.valueos.io/class: low-frequency-queue
+spec:
+  scaleTargetRef:
+    name: groundtruth-agent
+  pollingInterval: 15
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 4
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        metricName: groundtruth_redis_stream_depth
+        threshold: "1"
+        activationThreshold: "1"
+        query: sum(redis_stream_length{stream="valuecanvas.events",consumer_group="groundtruth"})

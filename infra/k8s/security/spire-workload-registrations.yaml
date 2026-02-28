@@ -1,0 +1,42 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: backend-workload
+spec:
+  spiffeIDTemplate: spiffe://valueos/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}
+  podSelector:
+    matchLabels:
+      app: backend
+  workloadSelectorTemplates:
+    - k8s:ns:valynt
+    - k8s:sa:backend
+
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: core-agent-workloads
+spec:
+  spiffeIDTemplate: spiffe://valueos/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}
+  podSelector:
+    matchExpressions:
+      - key: component
+        operator: In
+        values:
+          - agent
+  workloadSelectorTemplates:
+    - k8s:ns:valynt
+    - k8s:sa:{{ .PodSpec.ServiceAccountName }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-workload-identity-contract
+  namespace: valynt
+data:
+  README: |
+    Workload identity issuance integration:
+      1. Run SPIRE server/agent manifests in infra/k8s/security.
+      2. Ensure backend + agent workloads mount the SPIRE Workload API socket (/run/spire/sockets/agent.sock).
+      3. Use issued SVID SPIFFE identity in x-spiffe-id / mTLS principals for serviceIdentityMiddleware.

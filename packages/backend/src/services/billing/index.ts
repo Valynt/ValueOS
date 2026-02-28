@@ -8,6 +8,7 @@ export { default as CustomerService } from "./CustomerService.js";
 export { default as WebhookService } from "./WebhookService.js";
 export { default as InvoiceService } from "./InvoiceService.js";
 export { default as UsageMeteringService } from "./UsageMeteringService.js";
+export { UsageLedgerIngestionService } from "./UsageLedgerIngestionService.js";
 export { default as SubscriptionService } from "./SubscriptionService.js";
 
 // V2: Versioned pricing + entitlements

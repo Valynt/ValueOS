@@ -1,0 +1,54 @@
+apiVersion: valueos.io/v1alpha1
+kind: AgentCommunicationGraph
+metadata:
+  name: core-lifecycle-agent-graph
+  namespace: valynt
+spec:
+  description: |
+    Explicit pairwise allow-list for core lifecycle fabric communications.
+    Any edge not declared here is denied by default policy.
+  agents:
+    - opportunity-agent
+    - financial-modeling-agent
+    - target-agent
+    - integrity-agent
+    - realization-agent
+    - expansion-agent
+  allowedEdges:
+    - from: opportunity-agent
+      to: financial-modeling-agent
+      port: 8080
+      protocol: TCP
+    - from: opportunity-agent
+      to: target-agent
+      port: 8080
+      protocol: TCP
+    - from: financial-modeling-agent
+      to: target-agent
+      port: 8080
+      protocol: TCP
+    - from: financial-modeling-agent
+      to: integrity-agent
+      port: 8080
+      protocol: TCP
+    - from: target-agent
+      to: integrity-agent
+      port: 8080
+      protocol: TCP
+    - from: target-agent
+      to: realization-agent
+      port: 8080
+      protocol: TCP
+    - from: integrity-agent
+      to: realization-agent
+      port: 8080
+      protocol: TCP
+    - from: realization-agent
+      to: expansion-agent
+      port: 8080
+      protocol: TCP
+  documentedExceptions:
+    - name: backend-orchestrator-ingress
+      reason: Backend orchestrator initiates execution requests into agents.
+    - name: monitoring-scrape
+      reason: Prometheus scraping across all agents for SLO and health telemetry.

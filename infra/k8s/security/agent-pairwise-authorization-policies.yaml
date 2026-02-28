@@ -1,0 +1,192 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: agent-default-deny
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  action: ALLOW
+  rules: []
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-backend-to-agents
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/backend
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+# Pairwise explicit allow-list from architecture manifest.
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-opportunity-to-financial-modeling
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: financial-modeling-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/opportunity-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-opportunity-to-target
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: target-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/opportunity-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-financial-modeling-to-target
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: target-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/financial-modeling-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-financial-modeling-to-integrity
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: integrity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/financial-modeling-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-target-to-integrity
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: integrity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/target-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-target-to-realization
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: realization-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/target-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-integrity-to-realization
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: realization-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/integrity-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-realization-to-expansion
+  namespace: valynt
+spec:
+  selector:
+    matchLabels:
+      app: expansion-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://valueos/ns/valynt/sa/realization-agent
+      to:
+        - operation:
+            ports: ["8080"]
