@@ -3127,11 +3127,18 @@ Provide a JSON response with:
     metadata: Record<string, any>
   ): Promise<void> {
     const sequence = await this.getNextEventSequence(executionId);
+    const requestId = String(metadata.request_id ?? metadata.requestId ?? executionId);
+    const eventMetadata = {
+      ...metadata,
+      request_id: requestId,
+      evidence_link: metadata.evidence_link ?? `workflow://${executionId}/events/${sequence}`,
+    };
+
     const { error } = await supabase.from("workflow_events").insert({
       execution_id: executionId,
       event_type: eventType,
       stage_id: stageId,
-      metadata,
+      metadata: eventMetadata,
       sequence,
     });
 
