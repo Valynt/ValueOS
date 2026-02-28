@@ -569,7 +569,7 @@ jobs:
       - name: Find Dockerfiles
         id: find
         run: |
-          files=$(find . -name "Dockerfile*" -not -path "*/node_modules/*" | tr '\n' ',')
+          files=$(find . -name "Dockerfile*" -not -path "*/node_modules/*" -not -path "./infra/legacy/*" -not -path "*/infra/legacy/*" | tr '\n' ',')
           echo "dockerfiles=$files" >> "$GITHUB_OUTPUT"
           if [ -z "$files" ]; then
             echo "found=false" >> "$GITHUB_OUTPUT"
