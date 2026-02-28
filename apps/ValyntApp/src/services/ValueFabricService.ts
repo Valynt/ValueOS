@@ -58,6 +58,7 @@ export class ValueFabricService {
   // =====================================================
 
   async getCapabilities(filters?: {
+    tenantId?: string;
     category?: string;
     tags?: string[];
     search?: string;
@@ -159,6 +160,7 @@ export class ValueFabricService {
   // =====================================================
 
   async getUseCases(filters?: {
+    tenantId?: string;
     persona?: string;
     industry?: string;
     is_template?: boolean;
@@ -273,7 +275,10 @@ export class ValueFabricService {
     vertical?: string;
     company_size?: string;
   }): Promise<Benchmark[]> {
-    let query = this.supabase.from("benchmarks").select("*");
+    let query = this.supabase
+      .from("benchmarks")
+      .select("*")
+      .eq("organization_id", this.getOrganizationId());
 
     if (filters.kpi_name) {
       query = query.eq("kpi_name", filters.kpi_name);
@@ -306,6 +311,7 @@ export class ValueFabricService {
     const { data, error } = await this.supabase
       .from("benchmarks")
       .select("value, percentile")
+      .eq("organization_id", this.getOrganizationId())
       .eq("kpi_name", kpiName)
       .eq("industry", industry)
       .in("percentile", [25, 50, 75, 90]);
@@ -462,6 +468,7 @@ export class ValueFabricService {
     const { data } = await this.supabase
       .from("business_objectives")
       .select("*")
+      .eq("organization_id", this.getOrganizationId())
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
@@ -470,6 +477,7 @@ export class ValueFabricService {
     const { data } = await this.supabase
       .from("value_trees")
       .select("*")
+      .eq("organization_id", this.getOrganizationId())
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
@@ -488,6 +496,7 @@ export class ValueFabricService {
     const { data } = await this.supabase
       .from("roi_models")
       .select("*")
+      .eq("organization_id", this.getOrganizationId())
       .eq("value_tree_id", valueCaseId);
     return data || [];
   }
@@ -496,6 +505,7 @@ export class ValueFabricService {
     const { data } = await this.supabase
       .from("value_commits")
       .select("*")
+      .eq("organization_id", this.getOrganizationId())
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
@@ -504,6 +514,7 @@ export class ValueFabricService {
     const { data, count } = await this.supabase
       .from("telemetry_events")
       .select("kpi_hypothesis_id, event_timestamp", { count: "exact" })
+      .eq("organization_id", this.getOrganizationId())
       .eq("value_case_id", valueCaseId);
 
     const uniqueKpis = new Set(data?.map((d) => d.kpi_hypothesis_id) || []).size;
@@ -521,6 +532,7 @@ export class ValueFabricService {
     const { data } = await this.supabase
       .from("realization_reports")
       .select("*")
+      .eq("organization_id", this.getOrganizationId())
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
@@ -529,6 +541,7 @@ export class ValueFabricService {
     const { data } = await this.supabase
       .from("expansion_models")
       .select("*")
+      .eq("organization_id", this.getOrganizationId())
       .eq("value_case_id", valueCaseId);
     return data || [];
   }
@@ -551,10 +564,20 @@ export class ValueFabricService {
   // =====================================================
 
   async getOntologyStats(): Promise<OntologyStats> {
+    const organizationId = this.getOrganizationId();
     const [capabilities, useCases, industries] = await Promise.all([
-      this.supabase.from("capabilities").select("id", { count: "exact" }),
-      this.supabase.from("use_cases").select("id", { count: "exact" }),
-      this.supabase.from("use_cases").select("industry"),
+      this.supabase
+        .from("capabilities")
+        .select("id", { count: "exact" })
+        .eq("organization_id", organizationId),
+      this.supabase
+        .from("use_cases")
+        .select("id", { count: "exact" })
+        .eq("organization_id", organizationId),
+      this.supabase
+        .from("use_cases")
+        .select("industry")
+        .eq("organization_id", organizationId),
     ]);
 
     const uniqueIndustries = [...new Set(industries.data?.map((u) => u.industry).filter(Boolean))];
@@ -671,5 +694,29 @@ export class ValueFabricService {
       logger.error("Failed to log metric change:", error);
       // Don't throw - audit logging failure shouldn't break the main operation
     }
+  }
+
+  private getTenantId(): string {
+    return this.getOrganizationId();
+  }
+
+  private getOrganizationId(): string {
+    if (typeof globalThis === "undefined") {
+      throw new Error("Organization context is unavailable in this environment");
+    }
+
+    const localStorageOrg = globalThis.localStorage?.getItem("organization_id");
+    const sessionStorageOrg = globalThis.sessionStorage?.getItem("organization_id");
+    const tenantStorageOrg =
+      globalThis.localStorage?.getItem("tenant_id") ??
+      globalThis.sessionStorage?.getItem("tenant_id");
+    const organizationId = localStorageOrg ?? sessionStorageOrg ?? tenantStorageOrg;
+
+    if (!organizationId) {
+      logger.warn("Missing organization_id for ValueFabricService query");
+      throw new Error("Missing organization context for tenant-scoped query");
+    }
+
+    return organizationId;
   }
 }
