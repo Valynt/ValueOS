@@ -119,7 +119,12 @@ import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddlewar
 import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
-import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
+import {
+  extractTenantId,
+  requireAuth,
+  requireTenantRequestAlignment,
+  verifyAccessToken,
+} from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
@@ -398,6 +403,7 @@ app.use(
   "/api/agents",
   serviceIdentityMiddleware,
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   billingAccessEnforcement,
@@ -408,6 +414,7 @@ app.use(
   "/api/groundtruth",
   serviceIdentityMiddleware,
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   billingAccessEnforcement,
