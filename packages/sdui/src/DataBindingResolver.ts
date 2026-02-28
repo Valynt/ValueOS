@@ -16,7 +16,7 @@ import {
   validateDataBinding,
 } from "./DataBindingSchema";
 import { hasPermission, TenantContext } from "./TenantContext";
-import { ToolRegistry } from "../services/ToolRegistry";
+import { ToolRegistry } from "@backend/services/ToolRegistry";
 import { createClient } from "@supabase/supabase-js";
 
 /** Minimal interface for semantic memory integration */
@@ -107,7 +107,6 @@ export class DataBindingResolver {
     this.requestQueue = new PQueue({
       concurrency: this.MAX_CONCURRENT_REQUESTS,
       timeout: this.REQUEST_TIMEOUT_MS,
-      throwOnTimeout: true,
     });
 
     this.initializeResolvers();
@@ -544,17 +543,19 @@ export class DataBindingResolver {
       // Array index: loops[0]
       const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
       if (arrayMatch) {
-        const [, key, index] = arrayMatch;
-        current = current[key]?.[parseInt(index, 10)];
+        const arrKey = arrayMatch[1]!;
+        const arrIdx = arrayMatch[2]!;
+        current = current[arrKey]?.[parseInt(arrIdx, 10)];
         continue;
       }
 
       // Array filter: filter(status=active)
       const filterMatch = part.match(/^filter\((\w+)=(.+)\)$/);
       if (filterMatch) {
-        const [, key, value] = filterMatch;
+        const filterKey = filterMatch[1]!;
+        const filterValue = filterMatch[2]!;
         if (Array.isArray(current)) {
-          current = current.filter((item) => String(item[key]) === value);
+          current = current.filter((item: Record<string, unknown>) => String(item[filterKey]) === filterValue);
         }
         continue;
       }
@@ -788,7 +789,7 @@ export class DataBindingResolver {
     if (this.cacheAccessOrder.length === 0) return;
 
     // First entry is least recently used
-    const lruKey = this.cacheAccessOrder[0];
+    const lruKey = this.cacheAccessOrder[0]!;
     this.cache.delete(lruKey);
     this.cacheAccessOrder.shift();
     this.performanceMetrics.evictionCount++;

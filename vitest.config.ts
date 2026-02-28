@@ -135,6 +135,21 @@ export default defineConfig({
           alias: valyntAppAliases,
         },
       },
+      {
+        plugins: [react()],
+        test: {
+          ...sharedTestConfig,
+          name: "sdui",
+          environment: "jsdom",
+          include: ["packages/sdui/**/*.{test,spec}.{js,ts,jsx,tsx}"],
+          exclude: sharedExclude,
+          setupFiles: ["./packages/sdui/src/__tests__/setup.ts"],
+          passWithNoTests: false,
+        },
+        resolve: {
+          alias: sharedAliases,
+        },
+      },
     ],
   },
   resolve: {

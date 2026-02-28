@@ -1,19 +1,28 @@
 /**
  * Streaming Canvas Renderer
  *
- * Renders canvas incrementally as agent generates layout
- * Shows skeleton loaders for progressive loading UX
+ * Renders canvas incrementally as agent generates layout.
+ * Shows skeleton loaders during streaming, then renders the final
+ * layout through the CanvasLayout components.
  */
 
 import React, { useEffect, useState } from "react";
 import { CanvasLayout } from "./types";
+import {
+  DashboardPanel,
+  Grid,
+  HorizontalSplit,
+  VerticalSplit,
+} from "../components/SDUI/CanvasLayout";
+import { resolveComponentWithVersion } from "../registry";
+import { ComponentErrorBoundary } from "../components/ComponentErrorBoundary";
 import { createLogger } from "@shared/lib/logger";
 
 const logger = createLogger({ component: "StreamingCanvas" });
 
 export interface StreamingCanvasProps {
   canvasId: string;
-  onEvent?: (event: any) => void;
+  onEvent?: (event: unknown) => void;
   wsUrl?: string;
 }
 
@@ -27,7 +36,6 @@ export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({
   const [chunks, setChunks] = useState<Partial<CanvasLayout>[]>([]);
 
   useEffect(() => {
-    // Connect to WebSocket for streaming updates
     const ws = new WebSocket(`${wsUrl}/${canvasId}`);
 
     ws.onopen = () => {
@@ -55,12 +63,16 @@ export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({
           setIsStreaming(false);
         }
       } catch (error) {
-        logger.error("Streaming canvas failed to parse message", error as Error, { canvasId });
+        logger.error(
+          "Streaming canvas failed to parse message",
+          error instanceof Error ? error : new Error(String(error)),
+          { canvasId }
+        );
       }
     };
 
-    ws.onerror = (error) => {
-      logger.error("Streaming canvas WebSocket error", error as Error, { canvasId });
+    ws.onerror = () => {
+      logger.error("Streaming canvas WebSocket error", new Error("WebSocket error"), { canvasId });
       setIsStreaming(false);
     };
 
@@ -82,49 +94,128 @@ export const StreamingCanvas: React.FC<StreamingCanvasProps> = ({
     return <EmptyCanvas message="Waiting for agent..." />;
   }
 
-  // Render actual layout
   return (
-    <div className="h-full w-full">
-      {/* TODO: Integrate with actual CanvasRenderer */}
-      <div className="text-white p-4">Canvas: {JSON.stringify(layout, null, 2)}</div>
+    <div className="h-full w-full" data-testid="streaming-canvas">
+      <CanvasLayoutRenderer layout={layout} />
     </div>
   );
 };
 
-/**
- * Show skeleton loaders for streaming components
- */
+// ============================================================================
+// Recursive layout renderer — maps CanvasLayout tree to React components
+// ============================================================================
+
+const MAX_DEPTH = 10;
+
+const CanvasLayoutRenderer: React.FC<{ layout: CanvasLayout; depth?: number }> = ({
+  layout,
+  depth = 0,
+}) => {
+  if (depth > MAX_DEPTH) {
+    return (
+      <div className="p-4 border border-red-500 bg-red-50 text-red-900 text-sm">
+        Layout too deeply nested (max {MAX_DEPTH}).
+      </div>
+    );
+  }
+
+  const renderChildren = (children: CanvasLayout[] | undefined) =>
+    children?.map((child, i) => (
+      <CanvasLayoutRenderer key={i} layout={child} depth={depth + 1} />
+    ));
+
+  switch (layout.type) {
+    case "VerticalSplit":
+      return (
+        <VerticalSplit ratios={layout.ratios} gap={layout.gap}>
+          {renderChildren(layout.children)}
+        </VerticalSplit>
+      );
+
+    case "HorizontalSplit":
+      return (
+        <HorizontalSplit ratios={layout.ratios} gap={layout.gap}>
+          {renderChildren(layout.children)}
+        </HorizontalSplit>
+      );
+
+    case "Grid":
+      return (
+        <Grid columns={layout.columns} rows={layout.rows} gap={layout.gap} responsive={layout.responsive}>
+          {renderChildren(layout.children)}
+        </Grid>
+      );
+
+    case "DashboardPanel":
+      return (
+        <DashboardPanel title={layout.title} collapsible={layout.collapsible}>
+          {renderChildren(layout.children)}
+        </DashboardPanel>
+      );
+
+    case "Component": {
+      const result = resolveComponentWithVersion(layout.component, layout.version);
+      if (!result || !result.component) {
+        return (
+          <div className="p-3 border border-amber-300 bg-amber-50 text-amber-800 text-sm rounded">
+            Component not found: {layout.component}
+          </div>
+        );
+      }
+      const Component = result.component;
+      return (
+        <ComponentErrorBoundary componentName={layout.component}>
+          <Component {...(layout.props ?? {})} />
+        </ComponentErrorBoundary>
+      );
+    }
+
+    default:
+      return (
+        <div className="p-3 border border-gray-300 bg-gray-50 text-gray-600 text-sm rounded">
+          Unknown layout type: {(layout as Record<string, unknown>).type as string}
+        </div>
+      );
+  }
+};
+
+// ============================================================================
+// Skeleton loaders for streaming state
+// ============================================================================
+
+const SKELETON_HEIGHTS: Record<string, string> = {
+  LineChart: "h-64",
+  BarChart: "h-64",
+  AreaChart: "h-64",
+  KPICard: "h-32",
+  MetricBadge: "h-20",
+  DataTable: "h-96",
+};
+
 const StreamingSkeletons: React.FC<{ chunks: Partial<CanvasLayout>[] }> = ({ chunks }) => {
   return (
     <div className="space-y-4 p-4 animate-pulse">
-      {chunks.map((chunk, i) => (
-        <div key={i}>
-          {chunk.type === "Component" && (chunk as any).component === "LineChart" && (
-            <div className="h-64 bg-gray-800 rounded-lg"></div>
-          )}
-          {chunk.type === "Component" && (chunk as any).component === "KPICard" && (
-            <div className="h-32 bg-gray-800 rounded-lg"></div>
-          )}
-          {chunk.type === "Component" && (chunk as any).component === "DataTable" && (
-            <div className="h-96 bg-gray-800 rounded-lg"></div>
-          )}
-          {(!chunk.type || chunk.type === "VerticalSplit" || chunk.type === "Grid") && (
-            <div className="h-48 bg-gray-800 rounded-lg"></div>
-          )}
-        </div>
-      ))}
+      {chunks.map((chunk, i) => {
+        const componentName =
+          chunk.type === "Component" ? (chunk as Record<string, unknown>).component as string : undefined;
+        const heightClass =
+          (componentName && SKELETON_HEIGHTS[componentName]) || "h-48";
+
+        return <div key={i} className={`${heightClass} bg-gray-800 rounded-lg`} />;
+      })}
     </div>
   );
 };
 
-/**
- * Empty canvas placeholder
- */
+// ============================================================================
+// Empty canvas placeholder
+// ============================================================================
+
 const EmptyCanvas: React.FC<{ message: string }> = ({ message }) => {
   return (
     <div className="flex items-center justify-center h-full w-full">
       <div className="text-center">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-4"></div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-4" />
         <p className="text-gray-400">{message}</p>
       </div>
     </div>
