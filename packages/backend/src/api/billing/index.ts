@@ -12,6 +12,7 @@ import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddl
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
 
+import executionControlRouter from './execution-control.js'
 import invoicesRouter from './invoices.js'
 import paymentMethodsRouter from './payment-methods.js'
 import planChangeRouter from './plan-change.js'
@@ -79,6 +80,15 @@ router.use(
   tenantDbContextMiddleware(),
   requirePermission('billing:manage'),
   paymentMethodsRouter
+);
+
+router.use(
+  '/execution-control',
+  requireAuth,
+  tenantContextMiddleware(),
+  tenantDbContextMiddleware(),
+  requirePermission('billing:manage'),
+  executionControlRouter
 );
 
 export default router;

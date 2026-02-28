@@ -55,6 +55,7 @@ import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend
 import { logger } from "../lib/logger.js";
 
 import { semanticMemory } from "./SemanticMemory.js";
+import { TenantExecutionStateService } from "./billing/TenantExecutionStateService.js";
 
 // ============================================================================
 // Local Types
@@ -395,6 +396,7 @@ export class UnifiedAgentOrchestrator {
   private confidenceMonitor: ConfidenceMonitor;
   private maxReRefineAttempts = 2; // Default number of refine attempts
   private middleware: AgentMiddleware[] = [];
+  private executionStateService = new TenantExecutionStateService(supabase);
 
   constructor(configOrRegistry?: Partial<OrchestratorConfig> | AgentRegistry, ...rest: any[]) {
     // Support both factory-style (single config) and full-param construction
@@ -443,6 +445,20 @@ export class UnifiedAgentOrchestrator {
 
   private initializeMiddleware(): void {
     this.middleware.push(new IntegrityVetoMiddleware(this));
+  }
+
+
+  private async assertTenantExecutionAllowed(organizationId: string): Promise<void> {
+    const state = await this.executionStateService.getActiveState(organizationId);
+    if (!state?.is_paused) {
+      return;
+    }
+
+    const pausedAt = state.paused_at ?? 'unknown';
+    const reason = state.reason ?? 'No reason provided';
+    throw new Error(
+      `Tenant execution is paused for organization ${organizationId}. reason=${reason}; paused_at=${pausedAt}`,
+    );
   }
 
   private async ensureGroundTruthInitialized(): Promise<void> {
@@ -1022,6 +1038,8 @@ export class UnifiedAgentOrchestrator {
       throw new Error("Execution envelope organization does not match workflow state");
     }
 
+    await this.assertTenantExecutionAllowed(envelope.organizationId);
+
     logger.info("Processing query asynchronously", {
       traceId,
       sessionId,
@@ -1283,6 +1301,8 @@ export class UnifiedAgentOrchestrator {
     sessionId: string,
     traceId: string = uuidv4()
   ): Promise<ProcessQueryResult> {
+    await this.assertTenantExecutionAllowed(envelope.organizationId);
+
     // Check if async execution is enabled
     const { featureFlags } = await import("../config/featureFlags.js");
     if (featureFlags.ENABLE_ASYNC_AGENT_EXECUTION) {
@@ -1751,6 +1771,8 @@ export class UnifiedAgentOrchestrator {
       throw new Error("Workflow execution is disabled");
     }
 
+    await this.assertTenantExecutionAllowed(envelope.organizationId);
+
     const traceId = uuidv4();
     logger.info("Starting workflow execution", {
       traceId,
@@ -2084,6 +2106,10 @@ Provide a JSON response with:
     const totalStages = dag.stages.length;
 
     while (completedStages.size + failedStages.size < totalStages) {
+      const organizationId = String(executionContext.organizationId ?? executionContext.tenantId ?? '');
+      if (organizationId) {
+        await this.assertTenantExecutionAllowed(organizationId);
+      }
       const readyStages = dag.stages.filter((stage) => {
         return (
           !completedStages.has(stage.id) &&

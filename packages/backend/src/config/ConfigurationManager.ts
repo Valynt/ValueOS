@@ -190,6 +190,8 @@ export class ConfigurationManager {
       },
       llmSpendingLimits: {
         organizationId,
+        dailyLimit: 100,
+        dailySpend: 0,
         monthlyHardCap: 1000,
         monthlySoftCap: 800,
         perRequestLimit: 10,
@@ -231,6 +233,12 @@ export class ConfigurationManager {
     try {
       switch (setting) {
         case 'llmSpendingLimits':
+          if (value.dailyLimit <= 0) {
+            errors.push('Daily limit must be positive');
+          }
+          if (value.dailySpend < 0) {
+            errors.push('Daily spend cannot be negative');
+          }
           if (value.monthlyHardCap <= 0) {
             errors.push('Monthly hard cap must be positive');
           }

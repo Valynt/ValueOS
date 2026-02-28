@@ -196,6 +196,25 @@ describe('UnifiedAgentOrchestrator', () => {
   });
 
   describe('Query Processing', () => {
+
+    it('should block query processing when tenant execution is paused', async () => {
+      const state = orchestrator.createInitialState('discovery');
+      vi.spyOn(orchestrator as any, 'assertTenantExecutionAllowed').mockRejectedValue(
+        new Error('Tenant execution is paused for organization org-1'),
+      );
+
+      await expect(
+        orchestrator.processQuery(
+          testEnvelope,
+          'Analyze this company',
+          state,
+          'user-123',
+          'session-456',
+          'trace-789',
+        ),
+      ).rejects.toThrow('Tenant execution is paused for organization org-1');
+    });
+
     it('should process query and return result', async () => {
       const state = orchestrator.createInitialState('discovery');
       const result = await orchestrator.processQuery(testEnvelope, 
