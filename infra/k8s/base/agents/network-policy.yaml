@@ -8,50 +8,64 @@ spec:
     matchLabels:
       component: agent
   policyTypes:
-    - Egress
+  - Ingress
+  - Egress
   egress:
-    # Allow agent status/control-plane egress to orchestrator
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: valynt
-          podSelector:
-            matchLabels:
-              component: orchestrator
-      ports:
-        - protocol: TCP
-          port: 8080
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              name: valynt-database
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              name: valynt-redis
-      ports:
-        - protocol: TCP
-          port: 6379
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              name: valynt-external
-      ports:
-        - protocol: TCP
-          port: 443
-    # Allow DNS resolution
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: valynt
+      podSelector:
+        matchLabels:
+          component: orchestrator
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: valynt-database
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: valynt-redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: valynt-external
+    ports:
+    - protocol: TCP
+      port: 443
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: valynt
+    ports:
+    - protocol: TCP
+      port: 8080
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: valynt-agents
+    ports:
+    - protocol: TCP
+      port: 8080

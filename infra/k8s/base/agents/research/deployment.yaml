@@ -10,9 +10,9 @@ metadata:
     app.kubernetes.io/component: agent
     app.kubernetes.io/part-of: valynt
   annotations:
-    valynt.io/llm-usage-limit: "350.00" # Monthly USD limit for this agent
-    valynt.io/cost-center: "agent-research"
-    valynt.io/cost-tracking: "enabled"
+    valynt.io/llm-usage-limit: '350.00'
+    valynt.io/cost-center: agent-research
+    valynt.io/cost-tracking: enabled
 spec:
   replicas: 3
   selector:
@@ -28,9 +28,9 @@ spec:
         app.kubernetes.io/component: agent
         app.kubernetes.io/part-of: valynt
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
-        prometheus.io/path: "/metrics"
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '15021'
+        prometheus.io/path: /stats/prometheus
     spec:
       serviceAccountName: valynt-agent
       securityContext:
@@ -38,21 +38,21 @@ spec:
         runAsUser: 1000
         fsGroup: 1000
       tolerations:
-        - key: "kubernetes.azure.com/scalesetpriority"
-          operator: "Equal"
-          value: "spot"
-          effect: "NoSchedule"
-        - key: "cloud.google.com/gke-spot"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"
+      - key: kubernetes.azure.com/scalesetpriority
+        operator: Equal
+        value: spot
+        effect: NoSchedule
+      - key: cloud.google.com/gke-spot
+        operator: Equal
+        value: 'true'
+        effect: NoSchedule
       containers:
       - name: research-agent
         image: ghcr.io/valynt/valueos-backend:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 8080
-          name: http
+        - containerPort: 18080
+          name: app-http
           protocol: TCP
         env:
         - name: NODE_ENV
@@ -136,25 +136,31 @@ spec:
               name: agent-config
               key: enable-request-tracing
         - name: AGENT_NAME
-          value: "research"
+          value: research
         - name: AGENT_TYPE
-          value: "research"
+          value: research
         - name: EXPOSE_PORT
-          value: "8080"
+          value: '18080'
+        - name: PORT
+          value: '18080'
+        - name: HOST
+          value: 127.0.0.1
+        - name: BIND_ADDRESS
+          value: 127.0.0.1
         envFrom:
         - secretRef:
             name: agent-secrets
         resources:
           requests:
-            cpu: "200m"
-            memory: "512Mi"
+            cpu: 200m
+            memory: 512Mi
           limits:
-            cpu: "1000m"
-            memory: "2Gi"
+            cpu: 1000m
+            memory: 2Gi
         livenessProbe:
           httpGet:
             path: /health
-            port: 8080
+            port: app-http
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -162,7 +168,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: 8080
+            port: app-http
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
@@ -180,11 +186,121 @@ spec:
           mountPath: /tmp
         - name: cache-volume
           mountPath: /app/cache
+      - name: opa-ext-authz
+        image: openpolicyagent/opa:0.68.0-envoy
+        args:
+        - run
+        - --server
+        - --config-file=/config/opa-config.yaml
+        - /policy/policy.rego
+        ports:
+        - name: opa-http
+          containerPort: 8181
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /health?plugins
+            port: opa-http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: opa-http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: agent-sidecar-policy
+          mountPath: /policy
+          readOnly: true
+        - name: agent-sidecar-config
+          mountPath: /config
+          readOnly: true
+      - name: auth-proxy
+        image: envoyproxy/envoy:v1.30-latest
+        args:
+        - -c
+        - /etc/envoy/envoy.yaml
+        - --service-cluster
+        - agent-auth-proxy
+        ports:
+        - name: proxy-http
+          containerPort: 8080
+          protocol: TCP
+        - name: proxy-admin
+          containerPort: 15021
+          protocol: TCP
+        - name: proxy-egress
+          containerPort: 15001
+          protocol: TCP
+        env:
+        - name: JWT_ISSUER
+          valueFrom:
+            configMapKeyRef:
+              name: agent-sidecar-config
+              key: jwt_issuer
+        - name: JWT_AUDIENCE
+          valueFrom:
+            configMapKeyRef:
+              name: agent-sidecar-config
+              key: jwt_audience
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: proxy-admin
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: proxy-admin
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: agent-sidecar-config
+          mountPath: /etc/envoy
+          readOnly: true
+        - name: agent-sidecar-certs
+          mountPath: /etc/agent-certs
+          readOnly: true
       volumes:
       - name: tmp-volume
         emptyDir: {}
       - name: cache-volume
         emptyDir: {}
+      - name: agent-sidecar-config
+        configMap:
+          name: agent-sidecar-config
+      - name: agent-sidecar-policy
+        configMap:
+          name: agent-sidecar-policy
+      - name: agent-sidecar-certs
+        secret:
+          secretName: agent-sidecar-certs
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
