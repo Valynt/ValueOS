@@ -71,7 +71,7 @@ import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
-import { registerDevRoutes } from "./routes/devRoutes.js";
+import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 
@@ -461,6 +461,8 @@ function validateProductionMfaStartup(): void {
 
 async function startServer(): Promise<void> {
   logger.info("[Instrumentation] Starting backend server initialization");
+
+  assertDevRoutesConfiguration();
 
   // 0. Setup global error handlers for unhandled rejections/exceptions
   logger.info("[Instrumentation] Setting up global error handlers");
