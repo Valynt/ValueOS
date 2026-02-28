@@ -1,5 +1,9 @@
 # Deploy to Production
 
+> **Note:** Production deployment uses Docker Compose (`ops/compose/compose.yml`).
+> Kubernetes manifests in `infra/k8s/` are aspirational and not validated for v1.
+> See `ops/STAGING_DEPLOY_CHECKLIST.md` for the first-deploy checklist.
+
 ## Prerequisites
 
 - Docker + Docker Compose v2

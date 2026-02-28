@@ -46,14 +46,51 @@ export interface MemoryQuery {
   organization_id: string;
 }
 
+export interface Episode {
+  id: string;
+  session_id: string;
+  agent_id: string;
+  episode_type: string;
+  task_intent: string;
+  context: Record<string, unknown>;
+  initial_state: Record<string, unknown>;
+  final_state: Record<string, unknown>;
+  success: boolean;
+  reward_score: number;
+  duration_seconds: number;
+  created_at: string;
+  summary?: string;
+}
+
+export interface EpisodeInput {
+  sessionId: string;
+  agentId: string;
+  episodeType: string;
+  taskIntent: string;
+  context: Record<string, unknown>;
+  initialState: Record<string, unknown>;
+  finalState: Record<string, unknown>;
+  success: boolean;
+  rewardScore: number;
+  durationSeconds: number;
+}
+
+export interface ConsolidationResult {
+  episodicMerged: number;
+  semanticCreated: number;
+  workingPruned: number;
+}
+
 export class MemorySystem {
   private config: MemorySystemConfig;
   private memories: Map<string, Memory>;
+  private episodes: Map<string, Episode>;
   private backend: MemoryPersistenceBackend | null;
 
   constructor(config: MemorySystemConfig, backend?: MemoryPersistenceBackend) {
     this.config = config;
     this.memories = new Map();
+    this.episodes = new Map();
     this.backend = backend ?? null;
   }
 
@@ -79,6 +116,11 @@ export class MemorySystem {
 
     // Always write to local cache for fast in-process reads
     this.memories.set(memoryId, fullMemory);
+
+    // Enforce max_memories limit by evicting least important
+    if (this.memories.size > this.config.max_memories) {
+      this.evictLeastImportant();
+    }
 
     // Persist to backend if available (fire-and-log-error to avoid
     // blocking agent execution on transient storage failures)
@@ -169,6 +211,191 @@ export class MemorySystem {
     });
   }
 
+  /**
+   * Store an episodic memory entry for quick retrieval by content similarity.
+   */
+  async storeEpisodicMemory(
+    sessionId: string,
+    agentId: string,
+    content: string,
+    metadata: Record<string, unknown>,
+    organizationId: string,
+    extra?: Record<string, unknown>
+  ): Promise<string> {
+    return this.store({
+      agent_id: agentId,
+      workspace_id: sessionId,
+      content,
+      memory_type: "episodic",
+      importance: 0.6,
+      metadata: {
+        ...metadata,
+        ...extra,
+        organization_id: organizationId,
+      },
+    });
+  }
+
+  /**
+   * Store a full episode record (agent invocation lifecycle).
+   */
+  async storeEpisode(input: EpisodeInput): Promise<string> {
+    const episodeId = `ep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const episode: Episode = {
+      id: episodeId,
+      session_id: input.sessionId,
+      agent_id: input.agentId,
+      episode_type: input.episodeType,
+      task_intent: input.taskIntent,
+      context: input.context,
+      initial_state: input.initialState,
+      final_state: input.finalState,
+      success: input.success,
+if (!epOrgId || epOrgId !== organizationId) continue;
+      duration_seconds: input.durationSeconds,
+      created_at: new Date().toISOString(),
+    };
+
+    this.episodes.set(episodeId, episode);
+
+    logger.debug("Episode stored", {
+      episode_id: episodeId,
+      agent_id: input.agentId,
+      success: input.success,
+    });
+
+    return episodeId;
+  }
+
+  /**
+   * Retrieve similar past episodes for context enrichment.
+   * Matches by agent type and task intent similarity.
+   */
+  async retrieveSimilarEpisodes(
+    context: Record<string, unknown>,
+    limit: number = 5,
+    organizationId?: string
+  ): Promise<Episode[]> {
+    const agentId = context.agent as string | undefined;
+    const query = context.query as string | undefined;
+
+    const results: Episode[] = [];
+
+    for (const episode of this.episodes.values()) {
+      if (agentId && episode.agent_id !== agentId) continue;
+
+      // Tenant isolation
+      if (organizationId) {
+        const epOrgId = episode.context?.organizationId ?? episode.context?.tenantId;
+        if (epOrgId && epOrgId !== organizationId) continue;
+      }
+
+      // Simple text similarity: check if query terms appear in task_intent
+      if (query) {
+        const queryTerms = query.toLowerCase().split(/\s+/);
+        const intentLower = episode.task_intent.toLowerCase();
+        const matchCount = queryTerms.filter((term) => intentLower.includes(term)).length;
+        if (matchCount === 0) continue;
+      }
+
+      results.push(episode);
+    }
+
+    results.sort((a, b) => b.reward_score - a.reward_score);
+    return results.slice(0, limit);
+  }
+
+  /**
+   * Consolidate memory: merge short-term episodic into long-term semantic.
+   *
+   * 1. Find episodic memories with high access counts (frequently retrieved)
+   * 2. Merge them into semantic memories with higher importance
+   * 3. Prune working memory entries older than TTL
+   */
+  async consolidate(organizationId: string): Promise<ConsolidationResult> {
+    let episodicMerged = 0;
+    let semanticCreated = 0;
+    let workingPruned = 0;
+
+    const now = Date.now();
+    const ttlMs = (this.config.ttl_seconds || 3600) * 1000;
+
+    const episodicByAgent = new Map<string, Memory[]>();
+    for (const memory of this.memories.values()) {
+      if (memory.metadata?.organization_id !== organizationId) continue;
+
+      // Prune expired working memory
+      if (memory.memory_type === "working") {
+        const createdAt = new Date(memory.created_at).getTime();
+        if (now - createdAt > ttlMs) {
+          this.memories.delete(memory.id);
+          workingPruned++;
+          continue;
+        }
+      }
+
+      // Collect frequently-accessed episodic memories for promotion
+      if (memory.memory_type === "episodic" && memory.access_count >= 3) {
+        const agentMemories = episodicByAgent.get(memory.agent_id) || [];
+        agentMemories.push(memory);
+        episodicByAgent.set(memory.agent_id, agentMemories);
+      }
+    }
+
+    for (const [agentId, memories] of episodicByAgent) {
+      if (memories.length < 2) continue;
+
+      const mergedContent = memories.map((m) => m.content).join(" | ");
+      const avgImportance = memories.reduce((sum, m) => sum + m.importance, 0) / memories.length;
+
+      await this.store({
+        agent_id: agentId,
+        workspace_id: memories[0].workspace_id,
+        content: `[Consolidated] ${mergedContent}`,
+        memory_type: "semantic",
+        importance: Math.min(avgImportance + 0.2, 1.0),
+        metadata: {
+          organization_id: organizationId,
+          consolidated_from: memories.map((m) => m.id),
+          consolidated_at: new Date().toISOString(),
+        },
+      });
+
+      semanticCreated++;
+      episodicMerged += memories.length;
+
+      for (const memory of memories) {
+        this.memories.delete(memory.id);
+      }
+    }
+
+    if (episodicMerged > 0 || workingPruned > 0) {
+      logger.info("Memory consolidation complete", {
+        organization_id: organizationId,
+        episodic_merged: episodicMerged,
+        semantic_created: semanticCreated,
+        working_pruned: workingPruned,
+      });
+    }
+
+    return { episodicMerged, semanticCreated, workingPruned };
+  }
+
+  /**
+   * Get memory statistics for monitoring.
+   */
+  getStats(): { totalMemories: number; totalEpisodes: number; byType: Record<string, number> } {
+    const byType: Record<string, number> = {};
+    for (const memory of this.memories.values()) {
+      byType[memory.memory_type] = (byType[memory.memory_type] || 0) + 1;
+    }
+    return {
+      totalMemories: this.memories.size,
+      totalEpisodes: this.episodes.size,
+      byType,
+    };
+  }
+
   async clear(agentId: string, workspaceId?: string): Promise<number> {
     let count = 0;
     for (const [id, memory] of this.memories.entries()) {
@@ -194,6 +421,18 @@ export class MemorySystem {
 
     logger.info("Memories cleared", { agent_id: agentId, count });
     return count;
+  }
+
+  private evictLeastImportant(): void {
+    let leastImportant: Memory | null = null;
+    for (const memory of this.memories.values()) {
+      if (!leastImportant || memory.importance < leastImportant.importance) {
+        leastImportant = memory;
+      }
+    }
+    if (leastImportant) {
+      this.memories.delete(leastImportant.id);
+    }
   }
 }
 

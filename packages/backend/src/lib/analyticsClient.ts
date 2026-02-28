@@ -1,12 +1,10 @@
 /**
  * Analytics Client
- * 
- * Client for sending analytics events
+ *
+ * Client for sending analytics events via structured logger.
  */
 
-import { createLogger } from './logger.js';
-
-const logger = createLogger({ component: 'analytics' });
+import { logger } from "./logger.js";
 
 export interface AnalyticsEvent {
   event_name: string;
@@ -25,8 +23,8 @@ export class AnalyticsClient {
 
   track(event: AnalyticsEvent): void {
     if (!this.enabled) return;
-    
-    logger.info('Analytics event', {
+
+    logger.info("Analytics event", {
       ...event,
       timestamp: event.timestamp || new Date().toISOString(),
     });
@@ -34,14 +32,14 @@ export class AnalyticsClient {
 
   identify(userId: string, traits?: Record<string, unknown>): void {
     if (!this.enabled) return;
-    
-    logger.info('Analytics identify', { userId, traits });
+
+    logger.info("Analytics identify", { userId, traits });
   }
 
   page(name: string, properties?: Record<string, unknown>): void {
     if (!this.enabled) return;
-    
-    logger.info('Analytics page', { name, properties });
+
+    logger.info("Analytics page", { name, properties });
   }
 }
 

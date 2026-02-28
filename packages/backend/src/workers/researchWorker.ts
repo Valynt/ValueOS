@@ -13,10 +13,12 @@
 import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createLogger } from '../lib/logger.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
+
+const logger = createLogger({ component: 'research-worker' });
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
-import { createLogger } from '../lib/logger.js';
 
 const logger = createLogger({ component: 'research-worker' });
 
