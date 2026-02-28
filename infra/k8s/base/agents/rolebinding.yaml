@@ -5,7 +5,58 @@ metadata:
   namespace: valynt-agents
 subjects:
   - kind: ServiceAccount
-    name: valynt-agent
+    name: opportunity-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: target-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: expansion-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: integrity-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: realization-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: company-intelligence-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: financial-modeling-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: value-mapping-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: system-mapper-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: intervention-designer-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: outcome-engineer-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: coordinator-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: value-eval-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: communicator-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: research-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: benchmark-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: narrative-agent
+    namespace: valynt-agents
+  - kind: ServiceAccount
+    name: groundtruth-agent
     namespace: valynt-agents
   - kind: ServiceAccount
     name: opportunity-agent

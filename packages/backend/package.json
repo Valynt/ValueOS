@@ -13,7 +13,8 @@
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/"
+    "lint": "eslint src/",
+    "worker:billing-aggregator": "tsx src/workers/billingAggregatorWorker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.989.0",
@@ -28,6 +29,7 @@
     "ipaddr.js": "^2.3.0",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.3",
+    "nats": "^2.29.2",
     "p-queue": "^9.1.0",
     "pg": "^8.18.0",
     "prom-client": "^15.1.3",

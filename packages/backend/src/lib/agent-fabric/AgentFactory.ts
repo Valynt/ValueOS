@@ -12,6 +12,7 @@ import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
 import { logger } from "../logger.js";
 
 import { BaseAgent } from "./agents/BaseAgent.js";
+import { ComplianceAuditorAgent } from "./agents/ComplianceAuditorAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
@@ -31,6 +32,7 @@ const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   expansion: "expansion",
   integrity: "integrity",
   realization: "realization",
+  "compliance-auditor": "integrity",
 };
 
 
@@ -53,6 +55,7 @@ const FABRIC_AGENT_CLASSES: Partial<
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
   realization: RealizationAgent,
+  "compliance-auditor": ComplianceAuditorAgent,
 };
 
 export interface AgentFactoryDeps {

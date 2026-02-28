@@ -18,6 +18,12 @@ const AdminDashboard = lazy(() => import('./AdminDashboard'));
 const UsersPage = lazy(() => import('./UsersPage'));
 const SecurityDashboard = lazy(() => import('./SecurityDashboard'));
 
+const AuditLogsPage = lazy(() => import('./compliance/AuditLogsPage').then((m) => ({ default: m.AuditLogsPage })));
+const PolicyHistoryPage = lazy(() => import('./compliance/PolicyHistoryPage').then((m) => ({ default: m.PolicyHistoryPage })));
+const RetentionPage = lazy(() => import('./compliance/RetentionPage').then((m) => ({ default: m.RetentionPage })));
+const DsrPage = lazy(() => import('./compliance/DsrPage').then((m) => ({ default: m.DsrPage })));
+const ComplianceModePage = lazy(() => import('./compliance/ComplianceModePage').then((m) => ({ default: m.ComplianceModePage })));
+
 /**
  * Placeholder for admin sections not yet implemented.
  * Shows the section name and a "coming soon" message.
@@ -152,21 +158,11 @@ export const AdminRouter: React.FC = () => {
           } />
 
           {/* 6. Compliance & Audit */}
-          <Route path="compliance/audit-logs" element={
-            <AdminPlaceholder title="Audit Logs" description="View and export activity logs for compliance and forensics" />
-          } />
-          <Route path="compliance/policy-history" element={
-            <AdminPlaceholder title="Policy History" description="Track all policy and configuration changes over time" />
-          } />
-          <Route path="compliance/retention" element={
-            <AdminPlaceholder title="Retention Schedule" description="Configure data and log retention schedules" />
-          } />
-          <Route path="compliance/dsr" element={
-            <AdminPlaceholder title="Data Subject Requests" description="Process GDPR data subject access and deletion requests" />
-          } />
-          <Route path="compliance/mode" element={
-            <AdminPlaceholder title="Compliance Mode" description="Enable SOC2, GDPR, or HIPAA compliance modes" />
-          } />
+          <Route path="compliance/audit-logs" element={<AuditLogsPage />} />
+          <Route path="compliance/policy-history" element={<PolicyHistoryPage />} />
+          <Route path="compliance/retention" element={<RetentionPage />} />
+          <Route path="compliance/dsr" element={<DsrPage />} />
+          <Route path="compliance/mode" element={<ComplianceModePage />} />
 
           {/* 7. Billing & Usage */}
           <Route path="billing/plan" element={

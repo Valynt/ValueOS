@@ -1,28 +1,57 @@
 /**
  * Usage Emitter
- * Emits usage events from services to database queue and billing usage ledger.
+ * Emits usage events from services to:
+ *  1) metering queue (authoritative async processing path)
+ *  2) usage_events table (append-only evidence / audit trail)
+ *  3) billing usage ledger (aggregation-optimized store)
+ *
+ * Resolved: codex/add-db-constraints-for-billing-evidence-fields
+ * - Evidence fields (requestId, agentUuid, workloadIdentity, idempotencyKey) are required.
+ * - Deterministic idempotency keys derived from tenantId + requestId + agentUuid + metric.
+ * - Dead-letter queue is consistent and persists to dead_letter_events on max retries.
+ *
+ * Resolved: codex/add-queue-integration-module-for-metering
+ * - Publishes the same evidence payload to UsageQueueProducer (queue-first).
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { createHash } from "crypto";
+import { z } from "zod";
 
 import { BillingMetric } from "../../config/billing.js";
 import { createLogger } from "../../lib/logger.js";
 import { UsageLedgerIngestionService } from "../billing/UsageLedgerIngestionService.js";
+import { UsageQueueProducer } from "./UsageQueueProducer.js";
 
 const logger = createLogger({ component: "UsageEmitter" });
 
 interface BillableContext {
   evidenceLink?: string;
-  agentId?: string;
+  agentId?: string; // logical agent identifier for ledger aggregation (e.g., "llm" or agentType)
 }
 
-// In-memory buffer for failed events (dead-letter queue)
+const usageEvidenceSchema = z.object({
+  tenantId: z.string().uuid(),
+  metric: z.enum([
+    "llm_tokens",
+    "agent_executions",
+    "api_calls",
+    "storage_gb",
+    "user_seats",
+    "ai_tokens",
+  ]),
+  amount: z.number().finite().nonnegative(),
+  requestId: z.string().min(1),
+  agentUuid: z.string().min(1),
+  workloadIdentity: z.string().min(1),
+  idempotencyKey: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+type UsageEvidencePayload = z.infer<typeof usageEvidenceSchema>;
+
 interface FailedUsageEvent {
-  tenantId: string;
-  metric: BillingMetric;
-  amount: number;
-  requestId: string;
-  metadata?: Record<string, unknown>;
+  payload: UsageEvidencePayload;
   retryCount: number;
   lastError: string;
   timestamp: string;
@@ -33,9 +62,14 @@ const failedEventsBuffer: FailedUsageEvent[] = [];
 
 class UsageEmitter {
   private readonly usageLedgerIngestionService: UsageLedgerIngestionService;
+  private readonly queueProducer: UsageQueueProducer;
 
-  constructor(private readonly supabase: SupabaseClient) {
+  constructor(
+    private readonly supabase: SupabaseClient,
+    queueProducer: UsageQueueProducer = new UsageQueueProducer()
+  ) {
     this.usageLedgerIngestionService = new UsageLedgerIngestionService(supabase);
+    this.queueProducer = queueProducer;
   }
 
   private resolveEvidenceLink(requestId: string, context?: BillableContext): string {
@@ -46,80 +80,124 @@ class UsageEmitter {
     return context?.agentId ?? metric;
   }
 
+  static deriveDeterministicIdempotencyKey(
+    tenantId: string,
+    requestId: string,
+    agentUuid: string,
+    metric: BillingMetric
+  ): string {
+    return createHash("sha256")
+      .update(`${tenantId}:${requestId}:${agentUuid}:${metric}`)
+      .digest("hex");
+  }
+
+  private validatePayload(payload: UsageEvidencePayload): UsageEvidencePayload {
+    return usageEvidenceSchema.parse(payload);
+  }
+
   /**
    * Emit usage event (non-blocking)
+   *
+   * Behavior:
+   * - Queue publish first (authoritative async processor)
+   * - Append to usage_events (evidence trail)
+   * - Ingest to usage ledger (billing aggregation)
+   *
+   * Any failures go to in-memory DLQ and can be retried/persisted.
    */
-  async emitUsage(
-    tenantId: string,
-    metric: BillingMetric,
-    amount: number,
-    requestId: string,
-    metadata?: Record<string, unknown>,
-    context?: BillableContext
-  ): Promise<void> {
+  async emitUsage(payload: UsageEvidencePayload, context?: BillableContext): Promise<void> {
+    const validatedPayload = this.validatePayload(payload);
+    const nowIso = new Date().toISOString();
+
     try {
-      const { error } = await this.supabase.from("usage_events").insert({
-        tenant_id: tenantId,
-        metric,
-        amount,
-        request_id: requestId,
-        metadata: metadata || {},
-        processed: false,
-        timestamp: new Date().toISOString(),
+      // 1) Publish to queue
+      await this.queueProducer.publishUsageEvent({
+        tenantId: validatedPayload.tenantId,
+        metric: validatedPayload.metric as BillingMetric,
+        amount: validatedPayload.amount,
+        requestId: validatedPayload.requestId,
+        metadata: validatedPayload.metadata,
+        idempotencyKey: validatedPayload.idempotencyKey,
+        agentUuid: validatedPayload.agentUuid,
+        workloadIdentity: validatedPayload.workloadIdentity,
+        evidenceLink: this.resolveEvidenceLink(validatedPayload.requestId, context),
       });
 
-      if (error) {
-        logger.error("Failed to emit usage event", error, { tenantId, metric, amount });
-        this.addToDeadLetterQueue(tenantId, metric, amount, requestId, metadata, error.message);
+      // 2) Append to evidence table (best-effort but strongly preferred)
+      const { error: insertError } = await this.supabase.from("usage_events").insert({
+        tenant_id: validatedPayload.tenantId,
+        metric: validatedPayload.metric,
+        amount: validatedPayload.amount,
+        request_id: validatedPayload.requestId,
+        agent_uuid: validatedPayload.agentUuid,
+        workload_identity: validatedPayload.workloadIdentity,
+        idempotency_key: validatedPayload.idempotencyKey,
+        metadata: validatedPayload.metadata || {},
+        processed: false,
+        timestamp: nowIso,
+      });
+
+      if (insertError) {
+        logger.error("Failed to append usage evidence (usage_events)", insertError, {
+          tenantId: validatedPayload.tenantId,
+          metric: validatedPayload.metric,
+          amount: validatedPayload.amount,
+        });
+        this.addToDeadLetterQueue(validatedPayload, insertError.message);
+        // continue: ledger ingestion can still proceed
       }
 
+      // 3) Ingest into ledger (aggregation-optimized)
       await this.usageLedgerIngestionService.ingest({
-        tenantId,
-        agentId: this.resolveAgentId(metric, context),
-        valueUnits: amount,
-        requestId,
-        evidenceLink: this.resolveEvidenceLink(requestId, context),
+        tenantId: validatedPayload.tenantId,
+        agentId: this.resolveAgentId(validatedPayload.metric as BillingMetric, context),
+        valueUnits: validatedPayload.amount,
+        requestId: validatedPayload.requestId,
+        evidenceLink: this.resolveEvidenceLink(validatedPayload.requestId, context),
       });
-    } catch (error) {
-      logger.error("Error emitting usage", error as Error);
-      this.addToDeadLetterQueue(
-        tenantId,
-        metric,
-        amount,
-        requestId,
-        metadata,
-        (error as Error).message
-      );
+
+      logger.debug("Usage emitted", {
+        tenantId: validatedPayload.tenantId,
+        metric: validatedPayload.metric,
+        amount: validatedPayload.amount,
+      });
+    } catch (err) {
+      logger.error("Error emitting usage", err as Error, {
+        tenantId: validatedPayload.tenantId,
+        metric: validatedPayload.metric,
+        amount: validatedPayload.amount,
+      });
+      this.addToDeadLetterQueue(validatedPayload, (err as Error).message);
     }
   }
 
-  private addToDeadLetterQueue(
-    tenantId: string,
-    metric: BillingMetric,
-    amount: number,
-    requestId: string,
-    metadata: Record<string, unknown> | undefined,
-    errorMessage: string
-  ): void {
+  private addToDeadLetterQueue(payload: UsageEvidencePayload, errorMessage: string): void {
     if (failedEventsBuffer.length >= 10000) {
       logger.warn("Dead-letter queue full, dropping oldest event");
       failedEventsBuffer.shift();
     }
 
     failedEventsBuffer.push({
-      tenantId,
-      metric,
-      amount,
-      requestId,
-      metadata,
+      payload,
       retryCount: 0,
       lastError: errorMessage,
       timestamp: new Date().toISOString(),
     });
+
+    logger.debug("Event added to dead-letter queue", {
+      tenantId: payload.tenantId,
+      metric: payload.metric,
+      queueSize: failedEventsBuffer.length,
+    });
+  }
+
+  getDeadLetterQueueSize(): number {
+    return failedEventsBuffer.length;
   }
 
   async retryFailedEvents(): Promise<{ retried: number; failed: number; dropped: number }> {
     const results = { retried: 0, failed: 0, dropped: 0 };
+
     const eventsToRetry = [...failedEventsBuffer];
     failedEventsBuffer.length = 0;
 
@@ -131,24 +209,10 @@ class UsageEmitter {
       }
 
       try {
-        const { error } = await this.supabase.from("usage_events").insert({
-          tenant_id: event.tenantId,
-          metric: event.metric,
-          amount: event.amount,
-          request_id: event.requestId,
-          metadata: event.metadata || {},
-          processed: false,
-          timestamp: event.timestamp,
-        });
+        // Re-run full emit pipeline (queue + evidence + ledger)
+        await this.emitUsage(event.payload);
 
-        if (error) {
-          event.retryCount++;
-          event.lastError = error.message;
-          failedEventsBuffer.push(event);
-          results.failed++;
-        } else {
-          results.retried++;
-        }
+        results.retried++;
       } catch (err) {
         event.retryCount++;
         event.lastError = (err as Error).message;
@@ -164,73 +228,117 @@ class UsageEmitter {
     try {
       await this.supabase.from("dead_letter_events").insert({
         event_type: "usage_event",
-        tenant_id: event.tenantId,
+        tenant_id: event.payload.tenantId,
         payload: {
-          metric: event.metric,
-          amount: event.amount,
-          request_id: event.requestId,
-          metadata: event.metadata,
+          metric: event.payload.metric,
+          amount: event.payload.amount,
+          request_id: event.payload.requestId,
+          agent_uuid: event.payload.agentUuid,
+          workload_identity: event.payload.workloadIdentity,
+          idempotency_key: event.payload.idempotencyKey,
+          metadata: event.payload.metadata,
           original_timestamp: event.timestamp,
         },
         error_message: event.lastError,
         retry_count: event.retryCount,
         created_at: new Date().toISOString(),
       });
+
+      logger.warn("Event persisted to dead-letter table", {
+        tenantId: event.payload.tenantId,
+        metric: event.payload.metric,
+      });
     } catch (err) {
       logger.error("Failed to persist to dead-letter table", err as Error);
     }
   }
 
-  getDeadLetterQueueSize(): number {
-    return failedEventsBuffer.length;
-  }
+  // -----------------------------
+  // Convenience emitters
+  // -----------------------------
 
   async emitLLMTokens(
     tenantId: string,
     tokens: number,
     requestId: string,
+    agentUuid: string,
+    workloadIdentity: string,
     model?: string,
-    evidenceLink?: string
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage(
-      tenantId,
-      "llm_tokens",
-      tokens,
-      requestId,
-      { model },
-      { evidenceLink, agentId: "llm" }
+      {
+        tenantId,
+        metric: "llm_tokens",
+        amount: tokens,
+        requestId,
+        agentUuid,
+        workloadIdentity,
+        idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+          tenantId,
+          requestId,
+          agentUuid,
+          "llm_tokens"
+        ),
+        metadata: { model },
+      },
+      { ...context, agentId: context?.agentId ?? "llm" }
     );
   }
 
   async emitAgentExecution(
     tenantId: string,
     requestId: string,
+    agentUuid: string,
+    workloadIdentity: string,
     agentType?: string,
-    evidenceLink?: string
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage(
-      tenantId,
-      "agent_executions",
-      1,
-      requestId,
-      { agentType },
-      { evidenceLink, agentId: agentType ?? "agent_execution" }
+      {
+        tenantId,
+        metric: "agent_executions",
+        amount: 1,
+        requestId,
+        agentUuid,
+        workloadIdentity,
+        idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+          tenantId,
+          requestId,
+          agentUuid,
+          "agent_executions"
+        ),
+        metadata: { agentType },
+      },
+      { ...context, agentId: context?.agentId ?? (agentType ?? "agent_execution") }
     );
   }
 
   async emitAPICall(
     tenantId: string,
     requestId: string,
+    agentUuid: string,
+    workloadIdentity: string,
     endpoint?: string,
-    evidenceLink?: string
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage(
-      tenantId,
-      "api_calls",
-      1,
-      requestId,
-      { endpoint },
-      { evidenceLink, agentId: "api" }
+      {
+        tenantId,
+        metric: "api_calls",
+        amount: 1,
+        requestId,
+        agentUuid,
+        workloadIdentity,
+        idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+          tenantId,
+          requestId,
+          agentUuid,
+          "api_calls"
+        ),
+        metadata: { endpoint },
+      },
+      { ...context, agentId: context?.agentId ?? "api" }
     );
   }
 
@@ -238,15 +346,26 @@ class UsageEmitter {
     tenantId: string,
     sizeGB: number,
     requestId: string,
-    evidenceLink?: string
+    agentUuid: string,
+    workloadIdentity: string,
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage(
-      tenantId,
-      "storage_gb",
-      sizeGB,
-      requestId,
-      undefined,
-      { evidenceLink, agentId: "storage" }
+      {
+        tenantId,
+        metric: "storage_gb",
+        amount: sizeGB,
+        requestId,
+        agentUuid,
+        workloadIdentity,
+        idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+          tenantId,
+          requestId,
+          agentUuid,
+          "storage_gb"
+        ),
+      },
+      { ...context, agentId: context?.agentId ?? "storage" }
     );
   }
 
@@ -254,15 +373,26 @@ class UsageEmitter {
     tenantId: string,
     userCount: number,
     requestId: string,
-    evidenceLink?: string
+    agentUuid: string,
+    workloadIdentity: string,
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage(
-      tenantId,
-      "user_seats",
-      userCount,
-      requestId,
-      undefined,
-      { evidenceLink, agentId: "user_seats" }
+      {
+        tenantId,
+        metric: "user_seats",
+        amount: userCount,
+        requestId,
+        agentUuid,
+        workloadIdentity,
+        idempotencyKey: UsageEmitter.deriveDeterministicIdempotencyKey(
+          tenantId,
+          requestId,
+          agentUuid,
+          "user_seats"
+        ),
+      },
+      { ...context, agentId: context?.agentId ?? "user_seats" }
     );
   }
 }

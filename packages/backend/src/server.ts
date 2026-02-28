@@ -41,8 +41,10 @@ import analyticsRouter from "./api/analytics.js";
 import authRouter from "./api/auth.js";
 import billingRouter from "./api/billing/index.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
+import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
 import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
 import crmRouter from "./api/crm.js";
+import complianceRouter from "./api/compliance.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
 import domainPacksRouter from "./api/domainPacks.js";
@@ -119,7 +121,12 @@ import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddlewar
 import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
-import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
+import {
+  extractTenantId,
+  requireAuth,
+  requireTenantRequestAlignment,
+  verifyAccessToken,
+} from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
 import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
@@ -394,10 +401,12 @@ app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/admin/security", securityMonitoringRouter);
+app.use("/api/admin/compliance", complianceRouter);
 app.use(
   "/api/agents",
   serviceIdentityMiddleware,
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   billingAccessEnforcement,
@@ -408,6 +417,7 @@ app.use(
   "/api/groundtruth",
   serviceIdentityMiddleware,
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
   billingAccessEnforcement,
@@ -434,6 +444,7 @@ app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
 app.use("/api/onboarding", onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
+app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
 // Mount checkpoint HITL endpoints
 const orchestrator = getUnifiedOrchestrator();
