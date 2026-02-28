@@ -36,7 +36,6 @@ const FABRIC_AGENT_CLASSES: Partial<
   Record<string, new (config: AgentConfig, organizationId: string, memorySystem: MemorySystem, llmGateway: LLMGateway, circuitBreaker: CircuitBreaker) => BaseAgent>
 > = {
   opportunity: OpportunityAgent,
-  financial_modeling: FinancialModelingAgent,
   target: TargetAgent,
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
