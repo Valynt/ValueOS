@@ -46,7 +46,9 @@ import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
 import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
+import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend.js";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { semanticMemory } from "./SemanticMemory.js";
 
 // ============================================================================
 // Local Types
@@ -407,7 +409,10 @@ export class UnifiedAgentOrchestrator {
       this.registry = new AgentRegistry();
       this.routingLayer = new AgentRoutingLayer();
       this.circuitBreakers = new CircuitBreakerManager();
-      this.memorySystem = new MemorySystem({ max_memories: 1000, enable_persistence: false });
+      this.memorySystem = new MemorySystem(
+        { max_memories: 1000, enable_persistence: true },
+        new SupabaseMemoryBackend(semanticMemory),
+      );
       this.llmGateway = new LLMGateway({ provider: "openai", model: "gpt-4o-mini" });
       this.messageBroker = new AgentMessageBroker();
       this.agentMessageQueue = new AgentMessageQueue();

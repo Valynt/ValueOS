@@ -21,9 +21,11 @@ import { getRedisClient } from "../lib/redis";
 import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator.js"
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
+import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend";
 import { CircuitBreaker } from "../config/secrets/CircuitBreaker";
 import { AgentFactory } from "../lib/agent-fabric/AgentFactory";
 import { llmConfig } from "../config/llm.js"
+import { semanticMemory } from "./SemanticMemory.js";
 
 // Create and configure the service collection
 export function configureServices() {
@@ -68,15 +70,18 @@ export function configureServices() {
       })
   );
 
-  // MemorySystem: in-memory agent memory (semantic, episodic, procedural, working).
+  // MemorySystem: agent memory with Supabase-backed persistence for cross-session recall.
   services.addSingleton(
     SERVICE_TOKENS.MEMORY_SYSTEM,
     () =>
-      new MemorySystem({
-        max_memories: 1000,
-        enable_persistence: false,
-        vector_search_enabled: false,
-      })
+      new MemorySystem(
+        {
+          max_memories: 1000,
+          enable_persistence: true,
+          vector_search_enabled: true,
+        },
+        new SupabaseMemoryBackend(semanticMemory),
+      )
   );
 
   // AgentFactory: creates fabric agent instances with injected LLMGateway,
