@@ -14,6 +14,7 @@
 import { Server as HTTPServer } from "http";
 import { Server as HTTPSServer } from "https";
 
+import { parseCorsAllowlist } from "../../../shared/src/config/cors";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis } from "ioredis";
 import { Server, Socket } from "socket.io";
@@ -67,9 +68,18 @@ export class WebSocketServer {
   private cache = getCache();
 
   constructor(httpServer: HTTPServer | HTTPSServer) {
+    const corsOrigins = parseCorsAllowlist(
+      process.env.CORS_ORIGIN || process.env.CORS_ORIGINS,
+      {
+        source: "CORS_ORIGIN/CORS_ORIGINS",
+        credentials: true,
+        requireNonEmpty: true,
+      }
+    );
+
     this.io = new Server(httpServer, {
       cors: {
-        origin: process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || "",
+        origin: corsOrigins,
         methods: ["GET", "POST"],
         credentials: true,
       },

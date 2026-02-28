@@ -1,5 +1,7 @@
 import type { Application } from "express";
 
+import { logger } from "../lib/logger.js";
+
 const DEFAULT_DEV_ROUTE_HOST_ALLOWLIST = ["localhost", "127.0.0.1", "::1"];
 
 function normalizeHost(input: string): string {
@@ -24,13 +26,26 @@ export function getDevRouteHostAllowlist(): string[] {
 }
 
 export function shouldEnableDevRoutes(): boolean {
-  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const nodeEnv = process.env.NODE_ENV;
+  if (!nodeEnv) {
+    return false;
+  }
+
   const isNonProduction = nodeEnv !== "production";
   return isNonProduction && process.env.ENABLE_DEV_ROUTES === "true";
 }
 
 function getDevRoutesModulePath(): string {
   return process.env.VALUEOS_DEV_ROUTES_MODULE_PATH ?? "./dev.js";
+export function assertDevRoutesConfiguration(): void {
+  const enableDevRoutes = process.env.ENABLE_DEV_ROUTES === "true";
+  const nodeEnv = process.env.NODE_ENV;
+
+  if (enableDevRoutes && nodeEnv === "production") {
+    throw new Error(
+      "Invalid configuration: ENABLE_DEV_ROUTES=true is not allowed when NODE_ENV=production. Disable dev routes or set NODE_ENV to a non-production value."
+    );
+  }
 }
 
 export function isDevRouteHostAllowed(hostname: string | undefined): boolean {
@@ -66,6 +81,11 @@ export async function registerDevRoutes(app: Application): Promise<boolean> {
   };
 
   const devRouter = devRoutesModule.default;
+  logger.warn("Dev routes are enabled in a non-production environment", {
+    nodeEnv: process.env.NODE_ENV,
+  });
+
+  const { default: devRouter } = await import("./dev.js");
   app.use("/api/dev", devRouter);
   return true;
 }

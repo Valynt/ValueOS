@@ -9,11 +9,11 @@ services:
       GOTRUE_DB_DRIVER: postgres
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-valueos_dev}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
-      SITE_URL: ${SITE_URL:-http://localhost:${WEB_PORT:-5173}}
-      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${WEB_PORT:-5173}}
+      DB_NAME: ${PGDATABASE:-valueos}
+      DB_USER: ${PGUSER:-postgres}
+      DB_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your local env file before starting compose}
+      SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:${FRONTEND_PORT:-5173}}
       GOTRUE_API_URL: http://localhost:${AUTH_PORT:-9999}
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:${AUTH_PORT:-9999}}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}
@@ -28,7 +28,7 @@ services:
     image: postgrest/postgrest:v12.0.2
     profiles: ["supabase"]
     environment:
-      PGRST_DB_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
+      PGRST_DB_URI: postgres://${PGUSER:-postgres}:${PGPASSWORD:?Set PGPASSWORD in your local env file before starting compose}@postgres:5432/${PGDATABASE:-valueos}
       PGRST_DB_SCHEMA: public
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}
@@ -44,30 +44,30 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-valueos_dev}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
+      DB_NAME: ${PGDATABASE:-valueos}
+      DB_USER: ${PGUSER:-postgres}
+      DB_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your local env file before starting compose}
       PORT: 4000
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}
     depends_on:
       postgres:
         condition: service_healthy
 
-  storage:
+ storage:
     image: supabase/storage-api:v0.46.4
     profiles: ["supabase"]
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-valueos_dev}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file before starting compose}
-      ANON_KEY: ${ANON_KEY:-}
-      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:-}
+      # Database Connection (Consolidated)
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.local}
+      
+      # Auth & Security
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your local env file}
+      ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      
+      # Storage Config
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}@postgres:5432/${POSTGRES_DB:-valueos_dev}
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,7 +80,7 @@ services:
     environment:
       SUPABASE_URL: http://rest:3000
       STUDIO_PG_META_URL: http://rest:3000
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local env file before starting compose}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in your local env file before starting compose}
     depends_on:
       postgres:
         condition: service_healthy
@@ -96,7 +96,7 @@ services:
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
     depends_on: [auth, rest, realtime, storage]
     ports:
-      - "${KONG_PROXY_PORT:-8000}:8000"
+      - "${KONG_PROXY_PORT:-54321}:8000"
       - "${KONG_ADMIN_PORT:-8001}:8001"
 
 volumes:

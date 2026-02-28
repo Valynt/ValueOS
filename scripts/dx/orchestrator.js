@@ -414,7 +414,16 @@ function resolveLocalPostgresHost() {
   }
 
   try {
-    const containerInfo = runCommand("docker inspect valueos-postgres", { silent: true });
+    const containerId = runCommand(
+      "docker compose -f ops/compose/compose.yml ps -q postgres",
+      { silent: true }
+    ).trim();
+
+    if (!containerId) {
+      throw new Error("postgres service container not found");
+    }
+
+    const containerInfo = runCommand(`docker inspect ${containerId}`, { silent: true });
     const parsed = JSON.parse(containerInfo)[0];
     const networks = parsed?.NetworkSettings?.Networks || {};
     const networkName = Object.keys(networks)[0];
@@ -450,7 +459,7 @@ async function startSupabase(supabaseMode) {
 
   if (supabaseMode?.mode === "skip") {
     log.warn("Supabase skipped (DX_SKIP_SUPABASE=1)");
-    log.info("Using valueos-postgres container on port 5432 for development");
+    log.info("Using postgres service on port 5432 for development");
     return;
   }
 
@@ -461,7 +470,7 @@ async function startSupabase(supabaseMode) {
 
   if (!checkDockerAvailable()) {
     log.warn("Docker not available - skipping Supabase");
-    log.info("Using valueos-postgres container on port 5432 for development");
+    log.info("Using postgres service on port 5432 for development");
     return;
   }
 

@@ -52,20 +52,34 @@ CREATE TABLE IF NOT EXISTS public.billing_price_versions (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     version_tag text NOT NULL,
     plan_tier text NOT NULL,
+    tenant_id uuid,
     definition jsonb NOT NULL,
     status text NOT NULL DEFAULT 'draft',
     activated_at timestamptz,
     archived_at timestamptz,
     created_at timestamptz DEFAULT now(),
     CONSTRAINT billing_price_versions_status_check CHECK (status IN ('draft', 'active', 'archived')),
-    CONSTRAINT billing_price_versions_plan_tier_check CHECK (plan_tier IN ('free', 'standard', 'enterprise')),
-    CONSTRAINT billing_price_versions_tag_tier_unique UNIQUE (version_tag, plan_tier)
+    CONSTRAINT billing_price_versions_plan_tier_check CHECK (plan_tier IN ('free', 'standard', 'enterprise'))
 );
 
 COMMENT ON TABLE public.billing_price_versions IS 'Immutable versioned pricing definitions per plan tier';
 
 CREATE INDEX IF NOT EXISTS idx_billing_price_versions_active
-    ON public.billing_price_versions (plan_tier, status) WHERE status = 'active';
+    ON public.billing_price_versions (plan_tier, status) WHERE status = 'active' AND tenant_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_billing_price_versions_tenant_tier_status
+    ON public.billing_price_versions (tenant_id, plan_tier, status);
+
+CREATE INDEX IF NOT EXISTS idx_billing_price_versions_tenant_created_at
+    ON public.billing_price_versions (tenant_id, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_price_versions_global_tag_tier_unique
+    ON public.billing_price_versions (version_tag, plan_tier)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_price_versions_tenant_tag_tier_unique
+    ON public.billing_price_versions (tenant_id, version_tag, plan_tier)
+    WHERE tenant_id IS NOT NULL;
 
 -- Seed v1 pricing from current PLANS config
 INSERT INTO public.billing_price_versions (version_tag, plan_tier, definition, status, activated_at)
@@ -322,13 +336,26 @@ ALTER TABLE public.billing_approval_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_approval_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.entitlement_snapshots ENABLE ROW LEVEL SECURITY;
 
--- billing_meters: read-only for all authenticated users (catalog data)
+-- billing_meters is intentionally global catalog metadata (no tenant data).
+-- Exception is explicit: meter definitions are product-wide constants and do
+-- not encode usage, entitlement, or customer-specific state.
+-- Risk acceptance: authenticated read-only access is allowed; anon access is
+-- denied in production posture.
 CREATE POLICY billing_meters_select ON public.billing_meters
     FOR SELECT TO authenticated USING (true);
 
--- billing_price_versions: read-only for authenticated (catalog data)
+-- billing_price_versions: tenant-scoped read access via tenant-linked
+-- subscriptions, enforced from JWT tenant_id context.
 CREATE POLICY billing_price_versions_select ON public.billing_price_versions
-    FOR SELECT TO authenticated USING (true);
+    FOR SELECT TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1
+            FROM public.subscriptions s
+            WHERE s.price_version_id = billing_price_versions.id
+              AND s.tenant_id = (auth.jwt() ->> 'tenant_id')::uuid
+        )
+    );
 
 -- usage_policies: tenant-scoped
 CREATE POLICY usage_policies_tenant ON public.usage_policies
@@ -361,14 +388,10 @@ GRANT ALL ON public.billing_approval_policies TO service_role;
 GRANT ALL ON public.billing_approval_requests TO service_role;
 GRANT ALL ON public.entitlement_snapshots TO service_role;
 
--- authenticated gets SELECT on catalog tables
+-- authenticated gets scoped access required by application paths
 GRANT SELECT ON public.billing_meters TO authenticated;
 GRANT SELECT ON public.billing_price_versions TO authenticated;
 GRANT SELECT ON public.usage_policies TO authenticated;
 GRANT SELECT ON public.billing_approval_policies TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.billing_approval_requests TO authenticated;
 GRANT SELECT ON public.entitlement_snapshots TO authenticated;
-
--- anon gets SELECT on catalog tables only
-GRANT SELECT ON public.billing_meters TO anon;
-GRANT SELECT ON public.billing_price_versions TO anon;

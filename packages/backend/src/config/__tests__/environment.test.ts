@@ -16,11 +16,19 @@ import {
 } from '../environment';
 
 describe('Environment Configuration', () => {
+  const originalCorsOrigins = process.env.CORS_ORIGINS;
+
   beforeEach(() => {
+    process.env.CORS_ORIGINS = process.env.CORS_ORIGINS || "http://localhost:5173";
     resetConfig();
   });
 
   afterEach(() => {
+    if (originalCorsOrigins === undefined) {
+      delete process.env.CORS_ORIGINS;
+    } else {
+      process.env.CORS_ORIGINS = originalCorsOrigins;
+    }
     resetConfig();
   });
 
@@ -151,6 +159,23 @@ describe('Environment Configuration', () => {
       expect(isFeatureEnabled('agentFabric')).toBe(config.features.agentFabric);
       expect(isFeatureEnabled('workflow')).toBe(config.features.workflow);
       expect(isFeatureEnabled('compliance')).toBe(config.features.compliance);
+    });
+  });
+
+
+  describe('MFA configuration', () => {
+    it('enables MFA when MFA_ENABLED=true', () => {
+      process.env.MFA_ENABLED = 'true';
+      const config = getConfig();
+
+      expect(config.auth.mfaEnabled).toBe(true);
+    });
+
+    it('defaults MFA to disabled when MFA_ENABLED is not explicitly true', () => {
+      delete process.env.MFA_ENABLED;
+      const config = getConfig();
+
+      expect(config.auth.mfaEnabled).toBe(false);
     });
   });
 

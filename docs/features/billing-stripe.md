@@ -597,13 +597,13 @@ This migration introduces tenant-scoped billing primitives that keep every query
 
 ## RLS posture
 
-Every billing table enables RLS and uses the same CRUD policy set:
+Billing tables that carry tenant-owned data enforce tenant isolation from JWT context claims.
 
-- **Select**: `organization_id = auth.get_current_org_id()`
-- **Insert**: `WITH CHECK (organization_id = auth.get_current_org_id())`
-- **Update/Delete**: Require matching `organization_id` for the row being modified.
+- Tenant-owned tables (`usage_policies`, `billing_approval_policies`, `billing_approval_requests`, `entitlement_snapshots`) scope access with `tenant_id = (auth.jwt() ->> 'tenant_id')::uuid` and apply the same predicate in `WITH CHECK` for writable tables.
+- `billing_price_versions` is readable only when the caller tenant is linked through its own `subscriptions` rows.
+- `billing_meters` is an explicit global exception by design: authenticated read-only catalog access, no `anon` grant in production posture.
 
-These policies pair with the existing `auth.get_current_org_id()` helper to guarantee tenant isolation for plans, subscriptions, usage, and invoices.
+This keeps customer data tenant-scoped while allowing a shared meter definition catalog.
 
 ## Rollout notes
 

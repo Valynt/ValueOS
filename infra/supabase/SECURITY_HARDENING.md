@@ -154,6 +154,24 @@ SELECT * FROM recent_confidence_violations;
 - [ ] Query plans show index usage
 - [ ] No significant performance degradation
 
+
+## Billing catalog + tenant-scoped policy posture
+
+Billing migrations follow JWT claim-based tenant scoping for all tenant data tables:
+
+- `usage_policies`, `billing_approval_policies`, `billing_approval_requests`, and `entitlement_snapshots` enforce `tenant_id = (auth.jwt() ->> 'tenant_id')::uuid` in policy predicates (USING and WITH CHECK where writes are allowed).
+- `billing_price_versions` is read-scoped to the caller tenant context via linked `subscriptions` rows, preventing broad catalog visibility.
+
+### Explicit global-table exception
+
+`billing_meters` is intentionally global because it is a static product meter catalog (no customer- or tenant-owned records). Risk acceptance is limited to authenticated read-only access.
+
+- `authenticated`: `SELECT` only
+- `anon`: no direct grant in production posture
+- `service_role`: full access for provisioning/ops paths
+
+This exception is documented in migration comments and covered by billing RLS tests to ensure other billing tables remain tenant-isolated.
+
 ## Validation Commands
 
 ```bash

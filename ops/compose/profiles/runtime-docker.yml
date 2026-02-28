@@ -48,7 +48,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-cloud-dev}
       NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in ops/env/.env.local (example: postgresql://valueos_dev:change-me-dev-password@postgres:5432/valueos)}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}

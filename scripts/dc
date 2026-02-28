@@ -14,7 +14,6 @@ OBSERVABILITY_PROFILE_COMPOSE_FILE="${ROOT}/ops/compose/profiles/observability.y
 
 ENV_FILE="${ROOT}/ops/env/.env.ports"
 LEGACY_ENV_FILE="${ROOT}/.env.ports"
-ENV_EXAMPLE_FILE="${ROOT}/ops/env/.env.ports.example"
 
 [[ -f "${COMPOSE_FILE}" ]] || { echo "Missing compose file: ${COMPOSE_FILE}" >&2; exit 1; }
 
@@ -37,7 +36,6 @@ Env files:
   * ops/env/.env.local      (optional app-level env vars)
   * ops/env/.env.ports      (preferred deterministic port bindings)
   * .env.ports              (legacy fallback)
-  * ops/env/.env.ports.example (final fallback)
 
 Profiles:
   * You may pass `--profile <name>` directly; those flags are forwarded unchanged.
@@ -106,13 +104,11 @@ if [[ -f "${APP_ENV_FILE}" ]]; then
   compose_args+=(--env-file "${APP_ENV_FILE}")
 fi
 
-# Preferred deterministic port bindings for this repo (with legacy + example fallbacks).
+# Preferred deterministic port bindings for this repo (with legacy fallback).
 if [[ -f "${ENV_FILE}" ]]; then
   compose_args+=(--env-file "${ENV_FILE}")
 elif [[ -f "${LEGACY_ENV_FILE}" ]]; then
   compose_args+=(--env-file "${LEGACY_ENV_FILE}")
-elif [[ -f "${ENV_EXAMPLE_FILE}" ]]; then
-  compose_args+=(--env-file "${ENV_EXAMPLE_FILE}")
 fi
 
 exec "${DOCKER_BIN}" compose "${compose_args[@]}" "$@"
