@@ -366,63 +366,32 @@ export async function createOrganization(config: TenantConfig): Promise<void> {
   const limits = config.limits || TIER_LIMITS[config.tier];
   const features = config.features || TIER_FEATURES[config.tier];
 
-  // 1. Insert into organizations
-  // Using 'organizations' table (from Jules branch) but including settings logic (from Main branch)
-  const { error } = await supabase.from('organizations').insert({
-    id: config.organizationId,
-    tenant_id: config.organizationId, // Assuming 1:1 mapping for now
-    name: config.name,
-    tier: dbTier,
-    is_active: true,
-    settings: {
+  const payload = {
+    p_organization_id: config.organizationId,
+    p_name: config.name,
+    p_plan_tier: dbTier,
+    p_owner_user_id: config.ownerId,
+    p_settings: {
       ...config.settings,
       tier: config.tier,
       limits,
       features,
     },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).select().single();
+  };
+
+  const { data: provisionedOrganizationId, error } = await supabase.rpc('provision_tenant', payload);
 
   if (error) {
-    // Idempotency: If duplicate key, fetch existing
-    if (error.code === '23505') { // Unique violation
-      logger.info('Organization already exists, retrieving existing record', { organizationId: config.organizationId });
-      const existing = await supabase
-        .from('organizations')
-        .select()
-        .eq('id', config.organizationId)
-        .single();
-
-      if (existing.error) {
-        throw new Error(`Failed to retrieve existing organization: ${existing.error.message}`);
-      }
-      // Organization exists, we can proceed
-    } else {
-      throw new Error(`Failed to create organization: ${error.message}`);
-    }
+    throw new Error(`Failed to provision tenant via RPC: ${error.message}`);
   }
 
-  // 2. Insert owner membership
-  // Using user_tenants as the join table (from Jules branch)
-  const { error: membershipError } = await supabase.from('user_tenants').insert({
-    user_id: config.ownerId,
-    tenant_id: config.organizationId,
-    status: 'active',
-    role: 'owner', // Attempting to set role if schema permits
-  }).select().single();
-
-  if (membershipError) {
-    // Check if membership already exists (idempotency)
-    if (membershipError.code === '23505') {
-       logger.info('User membership already exists', { userId: config.ownerId, tenantId: config.organizationId });
-       // We can consider this a success for idempotency
-    } else {
-       throw new Error(`Organization created but failed to assign owner membership: ${membershipError.message}`);
-    }
+  if (provisionedOrganizationId !== config.organizationId) {
+    throw new Error(
+      `Provisioned organization ID mismatch. Expected ${config.organizationId}, received ${provisionedOrganizationId}`
+    );
   }
 
-  logger.debug(`Organization ${config.organizationId} created and owner assigned`);
+  logger.debug(`Organization ${config.organizationId} provisioned via RPC`);
 }
 
 /**
