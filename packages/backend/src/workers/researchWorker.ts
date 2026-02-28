@@ -13,10 +13,14 @@
 import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger.js';
+import { createLogger } from '../lib/logger.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
+
+const logger = createLogger({ component: 'research-worker' });
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
+
+const logger = createLogger({ component: 'research-worker' });
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -117,7 +121,7 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
   _worker = new Worker<ResearchJobInput>(
     RESEARCH_QUEUE_NAME,
     async (job: Job<ResearchJobInput>) => {
-      logger.info(`[research-worker] Processing job ${job.data.jobId} for tenant ${job.data.tenantId}`);
+      logger.info('Processing job', { jobId: job.data.jobId, tenantId: job.data.tenantId });
       const result = await processResearchJob(job.data, supabase, llm);
 
       if (result.status === 'failed') {
@@ -137,14 +141,14 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
   );
 
   _worker.on('completed', (job) => {
-    logger.info(`[research-worker] Job ${job.id} completed`);
+    logger.info('Job completed', { jobId: job.id });
   });
 
   _worker.on('failed', (job, err) => {
-    console.error(`[research-worker] Job ${job?.id} failed:`, err.message);
+    logger.error('Job failed', { jobId: job?.id, error: err.message });
   });
 
-  logger.info(`[research-worker] Listening on queue "${RESEARCH_QUEUE_NAME}"`);
+  logger.info('Listening on queue', { queue: RESEARCH_QUEUE_NAME });
   return _worker;
 }
 
@@ -156,6 +160,6 @@ const isDirectRun = process.argv[1]?.endsWith('researchWorker.ts')
   || process.argv[1]?.endsWith('researchWorker.js');
 
 if (isDirectRun) {
-  logger.info("[research-worker] Starting as standalone process");
+  logger.info('Starting as standalone process');
   initResearchWorker();
 }

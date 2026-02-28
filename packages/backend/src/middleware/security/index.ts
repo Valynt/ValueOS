@@ -207,7 +207,7 @@ export function apiSecurityMiddleware() {
  * ```
  */
 export function applySecurityMiddleware(
-  app: { use: (middleware: any) => void },
+  app: { use: (middleware: unknown) => void },
   options: SecurityMiddlewareOptions = {}
 ): void {
   app.use(createSecurityMiddleware(options));

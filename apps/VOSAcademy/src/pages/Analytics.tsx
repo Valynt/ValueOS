@@ -13,6 +13,7 @@ import { Activity, Award, BarChart3, BookOpen, Calendar, Download, Filter, Targe
 import { SidebarLayout } from '@/components/SidebarLayout';
 import { trpc } from '@/lib/trpc';
 import { KnowledgeGainReport } from '@/lib/knowledge-gain';
+import { logger } from '@/lib/logger';
 
 // Analytics data types
 interface UserStats {
@@ -225,7 +226,7 @@ export default function Analytics() {
 
   const exportAnalytics = () => {
     // Export functionality would be implemented here
-    console.log('Exporting analytics data...');
+    logger.debug("Exporting analytics data");
   };
 
   return (

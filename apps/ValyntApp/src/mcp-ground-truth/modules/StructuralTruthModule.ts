@@ -9,6 +9,7 @@
  */
 
 import { BaseModule } from "../core/BaseModule";
+import { logger } from "@/lib/logger";
 import {
   ALL_ESO_KPIS,
   EXTENDED_ESO_EDGES,
@@ -146,9 +147,10 @@ export class ESOModule extends BaseModule {
       this.personaIndex.set(persona.persona, persona);
     }
 
-    console.log(
-      `ESO Module initialized: ${this.kpiIndex.size} KPIs, ${EXTENDED_ESO_EDGES.length} edges`
-    );
+    logger.info("ESO Module initialized", {
+      kpis: this.kpiIndex.size,
+      edges: EXTENDED_ESO_EDGES.length,
+    });
   }
 
   getTools() {

@@ -3,6 +3,8 @@
  * These are exposed to the browser via Vite's VITE_ prefix
  */
 
+import { logger } from './logger';
+
 const REQUIRED_CLIENT_ENV_VARS = [
   'VITE_OAUTH_PORTAL_URL',
   'VITE_APP_ID',
@@ -55,7 +57,7 @@ function validateClientEnv() {
     return false;
   }
 
-  console.log('[ENV] Client environment validation passed');
+  logger.info("Client environment validation passed");
   return true;
 }
 

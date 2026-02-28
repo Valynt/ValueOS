@@ -1,13 +1,15 @@
+import { Request, Response, NextFunction } from "express";
 import { createHistogram } from "../config/telemetry.js"
 import { logger } from "@shared/lib/logger";
+import type { Histogram } from "@opentelemetry/api";
 
 const WINDOW_SIZE = 120;
 const latencyWindows = new Map<string, number[]>();
 const criticalRoutes = ["/api/llm/chat", "/api/billing", "/api/queue"];
 
-let latencyHistogram: any = null;
+let latencyHistogram: Histogram | null = null;
 
-async function getLatencyHistogram() {
+async function getLatencyHistogram(): Promise<Histogram> {
   if (!latencyHistogram) {
     latencyHistogram = await createHistogram(
       "api.request.duration",
@@ -52,7 +54,7 @@ export function getLatencySnapshot() {
 }
 
 export function latencyMetricsMiddleware() {
-  return (req: any, res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
 
     res.on("finish", async () => {

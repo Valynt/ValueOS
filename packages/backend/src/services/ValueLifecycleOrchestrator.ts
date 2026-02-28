@@ -664,17 +664,36 @@ export class ValueLifecycleOrchestrator {
 
   private getAgentForStage(stage: LifecycleStage, context: LifecycleContext): BaseAgent {
     const agentConfig: AgentConfig = {
-      id: `${stage}-agent`, // Or a more sophisticated ID
-      organizationId: context.organizationId,
-      userId: context.userId,
-      sessionId: context.sessionId,
-      supabase: this.supabase,
-      llmGateway: this.llmGateway,
-      memorySystem: this.memorySystem,
-      auditLogger: this.auditLogger,
+      id: `${stage}-agent`,
+      name: stage,
+      type: stage,
+      lifecycle_stage: stage,
+      capabilities: [],
+      model: { provider: 'custom', model_name: 'default' },
+      prompts: { system_prompt: '', user_prompt_template: '' },
+      parameters: {
+        timeout_seconds: 30,
+        max_retries: 3,
+        retry_delay_ms: 1000,
+        enable_caching: true,
+        enable_telemetry: true,
+      },
+      constraints: {
+        max_input_tokens: 4096,
+        max_output_tokens: 4096,
+        allowed_actions: [],
+        forbidden_actions: [],
+        required_permissions: [],
+      },
     };
 
-    const agents: Record<LifecycleStage, new (config: AgentConfig) => BaseAgent> = {
+    const agents: Record<LifecycleStage, new (
+      config: AgentConfig,
+      organizationId: string,
+      memorySystem: MemorySystem,
+      llmGateway: LLMGateway,
+      circuitBreaker: CircuitBreaker,
+    ) => BaseAgent> = {
       opportunity: OpportunityAgent,
       target: TargetAgent,
       expansion: ExpansionAgent,
@@ -683,7 +702,14 @@ export class ValueLifecycleOrchestrator {
     };
 
     const AgentClass = agents[stage];
-    return new AgentClass(agentConfig);
+    const circuitBreaker = new CircuitBreaker();
+    return new AgentClass(
+      agentConfig,
+      context.organizationId,
+      this.memorySystem,
+      this.llmGateway,
+      circuitBreaker,
+    );
   }
 
   private async validatePrerequisites(
