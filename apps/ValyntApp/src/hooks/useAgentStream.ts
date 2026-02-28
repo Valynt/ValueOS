@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AgentOrchestratorAdapter } from "@/services/AgentOrchestratorAdapter";
+import { agentOrchestrator } from "@/services/AgentOrchestratorAdapter";
 import { RedisStreamBroker } from "@/services/messaging/RedisStreamBroker";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
@@ -61,7 +61,7 @@ interface AgentStreamResult {
 export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStreamResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const adapterRef = useRef<AgentOrchestratorAdapter | null>(null);
+  const adapterRef = useRef<typeof agentOrchestrator | null>(null);
   const brokerRef = useRef<RedisStreamBroker | null>(null);
   const sessionIdRef = useRef<string>(options.sessionId || uuidv4());
 
@@ -161,7 +161,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
         // For now, still use adapter as fallback, but in full implementation
         // this would be handled entirely by the stream
         if (!adapterRef.current) {
-          adapterRef.current = new AgentOrchestratorAdapter();
+          adapterRef.current = agentOrchestrator;
         }
 
         const response = await adapterRef.current.processQuery(content, {
