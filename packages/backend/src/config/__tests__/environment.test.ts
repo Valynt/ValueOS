@@ -16,11 +16,19 @@ import {
 } from '../environment';
 
 describe('Environment Configuration', () => {
+  const originalCorsOrigins = process.env.CORS_ORIGINS;
+
   beforeEach(() => {
+    process.env.CORS_ORIGINS = process.env.CORS_ORIGINS || "http://localhost:5173";
     resetConfig();
   });
 
   afterEach(() => {
+    if (originalCorsOrigins === undefined) {
+      delete process.env.CORS_ORIGINS;
+    } else {
+      process.env.CORS_ORIGINS = originalCorsOrigins;
+    }
     resetConfig();
   });
 

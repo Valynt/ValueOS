@@ -2,6 +2,8 @@
  * Environment Configuration - Re-export from shared
  */
 
+import { parseCorsAllowlist } from "@shared/config/cors";
+
 export { getEnvironment, isProduction, isDevelopment, isTest } from "@shared/config/environment";
 
 export type AppEnvironment = "development" | "staging" | "production" | "test";
@@ -26,6 +28,12 @@ export function isFeatureEnabled(feature: string): boolean {
 }
 
 export function getConfig() {
+  const corsOrigins = parseCorsAllowlist(process.env.CORS_ORIGINS, {
+    source: "CORS_ORIGINS",
+    credentials: true,
+    requireNonEmpty: true,
+  });
+
   return {
     auth: { mfaEnabled: process.env.MFA_ENABLED === 'true' },
     features: {
@@ -65,7 +73,7 @@ export function getConfig() {
     security: {
       csrfEnabled: process.env.CSRF_ENABLED !== "false",
       rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== "false",
-      corsOrigins: process.env.CORS_ORIGINS || "",
+      corsOrigins,
     },
   };
 }
