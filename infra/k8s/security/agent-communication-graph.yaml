@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lifecycle-agent-communication-graph
+  namespace: valynt-agents
+  labels:
+    app.kubernetes.io/part-of: valynt
+    security.valynt.io/purpose: communication-allowlist
+  annotations:
+    security.valynt.io/source: apps/ValyntApp/src/data/lifecycleWorkflows.ts
+    security.valynt.io/notes: >-
+      Defines lifecycle DAG communication allowlist as
+      source-agent -> destination service/agent -> port/protocol.
+data:
+  graph.yaml: |
+    lifecycle_dag:
+      - source: opportunity-agent
+        destination: target-agent
+        port: 8080
+        protocol: TCP
+      - source: target-agent
+        destination: realization-agent
+        port: 8080
+        protocol: TCP
+      - source: realization-agent
+        destination: expansion-agent
+        port: 8080
+        protocol: TCP
+      - source: expansion-agent
+        destination: integrity-agent
+        port: 8080
+        protocol: TCP
+
+    shared_service_dependencies:
+      - source: [opportunity-agent, target-agent, realization-agent, expansion-agent, integrity-agent]
+        destination: workflow-orchestrator
+        namespace: valynt
+        port: 8080
+        protocol: TCP
+      - source: [opportunity-agent, target-agent, realization-agent, expansion-agent, integrity-agent]
+        destination: postgres
+        namespace: valynt-database
+        port: 5432
+        protocol: TCP
+      - source: [opportunity-agent, target-agent, realization-agent, expansion-agent, integrity-agent]
+        destination: redis
+        namespace: valynt-redis
+        port: 6379
+        protocol: TCP
+      - source: [opportunity-agent, target-agent, realization-agent, expansion-agent, integrity-agent]
+        destination: external-https
+        namespace: valynt-external
+        port: 443
+        protocol: TCP
+      - source: [opportunity-agent, target-agent, realization-agent, expansion-agent, integrity-agent]
+        destination: kube-dns
+        namespace: kube-system
+        port: 53
+        protocol: UDP/TCP

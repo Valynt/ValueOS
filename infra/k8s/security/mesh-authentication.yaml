@@ -31,27 +31,6 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: agents-allow-api-and-proxy
-  namespace: valynt
-spec:
-  selector:
-    matchLabels:
-      component: agent
-  action: ALLOW
-  rules:
-    - from:
-        - source:
-            principals:
-              - spiffe://valynt/api-gateway
-              - spiffe://valynt/llm-proxy
-      to:
-        - operation:
-            ports: ["8080"]
-
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
   name: redis-allow-mesh-identities
   namespace: valynt
 spec:
