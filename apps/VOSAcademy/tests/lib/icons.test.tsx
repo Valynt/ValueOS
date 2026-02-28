@@ -22,7 +22,7 @@ describe('Icons System', () => {
       const icon = vi.fn(() => mockIcon())
 
       // Test the SafeIcon function directly
-      const result = SafeIcon(icon, 'Test Icon')
+      const result = SafeIcon(icon)
       expect(result).toBeDefined()
     })
 
@@ -31,7 +31,7 @@ describe('Icons System', () => {
         throw new Error('Failed to load')
       })
 
-      const result = SafeIcon(failingIcon, 'Failing Icon')
+      const result = SafeIcon(failingIcon)
       expect(result).toBeDefined()
     })
   })

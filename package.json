@@ -188,6 +188,7 @@
     "dev:frontend": "bash scripts/dev/start-frontend.sh",
     "dev:backend": "bash scripts/dev/start-backend.sh",
     "build": "turbo run build",
+    "stability-seal": "node scripts/stability-seal.cjs",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "lint:custom-fix": "node .github/scripts/lint-custom-fix.js",
     "check:todo-metadata": "node .github/scripts/check-todo-metadata.cjs"
