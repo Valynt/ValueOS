@@ -15,7 +15,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/Dockerfile.backend
-    container_name: valueos-backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,7 +43,6 @@ services:
       context: ../..
       dockerfile: infra/docker/Dockerfile.frontend
       target: development
-    container_name: valueos-frontend
     depends_on:
       - backend
     environment:
@@ -69,7 +67,6 @@ services:
   postgres:
     <<: *common
     image: postgres:15-alpine
-    container_name: valueos-postgres
     environment:
       POSTGRES_DB: ${PGDATABASE:-valueos}
       POSTGRES_USER: ${PGUSER:-postgres}
@@ -89,7 +86,6 @@ services:
   redis:
     <<: *common
     image: redis:7-alpine
-    container_name: valueos-redis
     command: >-
       redis-server
       --appendonly yes

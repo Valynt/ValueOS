@@ -149,10 +149,17 @@ check(
 
 if (dockerAvailable()) {
   try {
-    const containers = execSync("docker ps --format '{{.Names}}'", { encoding: "utf8" });
-    const expected = ["valueos-postgres", "valueos-redis"];
-    expected.forEach((name) => {
-      warn(`Container ${name}`, containers.includes(name), "Run: pnpm run dx:up to start services");
+    const runningServices = execSync(
+      "docker compose -f ops/compose/compose.yml ps --services --status running",
+      { encoding: "utf8" }
+    );
+    const expected = ["postgres", "redis"];
+    expected.forEach((service) => {
+      warn(
+        `Service ${service}`,
+        runningServices.includes(service),
+        "Run: pnpm run dx:up to start services"
+      );
     });
   } catch {
     log.warn("Could not check Docker containers");
