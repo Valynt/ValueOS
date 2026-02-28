@@ -118,7 +118,31 @@ See `DEPLOYMENT_GUIDE.md` for detailed deployment instructions.
 For launch-day agent rollout, apply the ApplicationSet once and let ArgoCD create/sync all per-agent Applications automatically:
 
 ```bash
-kubectl apply -f infra/argo/agent-template.yaml
+kubectl apply -f infra/argocd/valueos-agents-appset.yaml
 ```
 
-This command bootstraps all agent apps in `valynt-agents` with automated sync, prune, and self-heal enabled.
+This command bootstraps all agent apps in `valueos-agents` with automated sync, prune, and self-heal enabled.
+
+## ArgoCD app operations
+
+Sync the orchestrator application:
+
+```bash
+argocd app sync valueos-orchestrator
+```
+
+Check health of all agent applications from Argo CD:
+
+```bash
+argocd app get valueos-agent-opportunity
+argocd app list --project valueos | rg valueos-agent-
+```
+
+Validate runtime health in the `valueos-agents` namespace:
+
+```bash
+kubectl get pods -n valueos-agents
+kubectl get deploy -n valueos-agents
+kubectl get hpa -n valueos-agents
+kubectl get events -n valueos-agents --sort-by=.metadata.creationTimestamp | tail -n 20
+```
