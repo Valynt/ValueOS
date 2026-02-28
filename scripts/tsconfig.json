@@ -24,10 +24,15 @@
     ]
   },
   "include": [
-    "**/*"
+    "**/*",
+    "stubs.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "app/**",
+    "legacy/**",
+    "dev/**",
+    "ci/**"
   ]
 }

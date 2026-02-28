@@ -36,9 +36,9 @@ export class CleanTenantFactory {
   /**
    * Create a clean tenant with randomized ID
    */
-  async createCleanTenant(overrides: Partial<any> = {}): Promise<{
+  async createCleanTenant(overrides: Partial<Record<string, unknown>> = {}): Promise<{
     tenantId: string;
-    tenant: any;
+    tenant: Record<string, unknown>;
     cleanup: () => Promise<void>;
   }> {
     const tenantId = generateRandomTenantId();
@@ -81,11 +81,11 @@ export class CleanTenantFactory {
    */
   async createMultipleCleanTenants(
     count: number,
-    overrides: Partial<any>[] = []
+    overrides: Partial<Record<string, unknown>>[] = []
   ): Promise<
     Array<{
       tenantId: string;
-      tenant: any;
+      tenant: Record<string, unknown>;
       cleanup: () => Promise<void>;
     }>
   > {

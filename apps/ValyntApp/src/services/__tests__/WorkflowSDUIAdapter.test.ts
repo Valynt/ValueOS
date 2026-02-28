@@ -103,13 +103,12 @@ describe('WorkflowSDUIAdapter', () => {
   describe('updateProgress', () => {
     it('should generate progress update actions', async () => {
       const progress: WorkflowProgress = {
-        workflowId: 'workflow-1',
-        currentStage: 'stage-2',
-        currentStageIndex: 1,
-        totalStages: 5,
-        completedStages: ['stage-1'],
-        status: 'in_progress',
-        percentComplete: 20,
+        workspace_id: 'workspace-1',
+        workflow_id: 'workflow-1',
+        current_stage: 'stage-2',
+        completed_stages: ['stage-1'],
+        total_stages: 5,
+        progress_percentage: 20,
       };
 
       const actions = await adapter.updateProgress('workflow-1', progress);
@@ -120,14 +119,13 @@ describe('WorkflowSDUIAdapter', () => {
 
     it('should include estimated time if available', async () => {
       const progress: WorkflowProgress = {
-        workflowId: 'workflow-1',
-        currentStage: 'stage-2',
-        currentStageIndex: 1,
-        totalStages: 5,
-        completedStages: ['stage-1'],
-        status: 'in_progress',
-        percentComplete: 20,
-        estimatedTimeRemaining: 300,
+        workspace_id: 'workspace-1',
+        workflow_id: 'workflow-1',
+        current_stage: 'stage-2',
+        completed_stages: ['stage-1'],
+        total_stages: 5,
+        progress_percentage: 20,
+        estimated_time_remaining: 300,
       };
 
       const actions = await adapter.updateProgress('workflow-1', progress);
@@ -135,20 +133,19 @@ describe('WorkflowSDUIAdapter', () => {
       expect(actions.length).toBeGreaterThan(0);
       const timeAction = actions.find((a) =>
         a.type === 'mutate_component' &&
-        a.mutations?.some((m: unknown) => m.path === 'props.estimatedTimeRemaining')
+        a.mutations?.some((m: any) => m.path === 'props.estimatedTimeRemaining')
       );
       expect(timeAction).toBeDefined();
     });
 
     it('should handle errors gracefully', async () => {
       const progress: WorkflowProgress = {
-        workflowId: 'workflow-1',
-        currentStage: 'stage-2',
-        currentStageIndex: 1,
-        totalStages: 5,
-        completedStages: ['stage-1'],
-        status: 'in_progress',
-        percentComplete: 20,
+        workspace_id: 'workspace-1',
+        workflow_id: 'workflow-1',
+        current_stage: 'stage-2',
+        completed_stages: ['stage-1'],
+        total_stages: 5,
+        progress_percentage: 20,
       };
 
       vi.spyOn(adapter as any, 'createMutateAction').mockImplementation(() => {
@@ -181,7 +178,8 @@ describe('WorkflowSDUIAdapter', () => {
       const schema = await adapter.showStageComponents('opportunity', 'workspace-1');
 
       expect(schema).toBeDefined();
-      expect(schema.sections.length).toBeGreaterThan(0);
+      expect(schema.sections?.[0]?.component).toBe('InfoBanner');
+      expect(schema.sections?.[0]?.props?.title).toContain('opportunity');
       expect(canvasSchemaService.generateSchema).toHaveBeenCalledWith(
         'workspace-1',
         expect.objectContaining({
@@ -209,6 +207,8 @@ describe('WorkflowSDUIAdapter', () => {
       const schema = await adapter.showStageComponents('target', 'workspace-1');
 
       expect(schema).toBeDefined();
+      expect(schema.sections?.[0]?.component).toBe('InfoBanner');
+      expect(schema.sections?.[0]?.props?.title).toContain('Target');
       expect(canvasSchemaService.generateSchema).toHaveBeenCalledWith(
         'workspace-1',
         expect.objectContaining({
@@ -225,103 +225,101 @@ describe('WorkflowSDUIAdapter', () => {
       const schema = await adapter.showStageComponents('opportunity', 'workspace-1');
 
       expect(schema).toBeDefined();
-      expect(schema.sections[0].component).toBe('InfoBanner');
-      expect(schema.sections[0].props.title).toContain('opportunity');
+      expect(schema.sections?.[0]?.component).toBe('InfoBanner');
+      expect(schema.sections?.[0]?.props?.title).toContain('opportunity');
     });
+  }););
   });
-
   describe('onStageCompletion', () => {
     it('should generate actions for completed stage', async () => {
-      const event: StageCompletionEvent = {
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        stageId: 'stage-1',
-        lifecycleStage: 'opportunity',
-        status: 'completed',
-        duration: 5000,
-        timestamp: Date.now(),
+      const event: StageCompletionEvent = {ed stage', async () => {
+        workspace_id: 'workspace-1',ent = {
+        stage_id: 'stage-1',pace-1',
+        lifecycle_stage: 'opportunity',
+        status: 'completed',portunity',
+        output_data: {},ed',
+        timestamp: Date.now().toString(),
+      };timestamp: Date.now().toString(),
       };
-
       const actions = await adapter.onStageCompletion(event);
-
+      const actions = await adapter.onStageCompletion(event);
       expect(actions.length).toBeGreaterThan(0);
       expect(actions.some((a) => a.type === 'mutate_component')).toBe(true);
+    });xpect(actions.some((a) => a.type === 'mutate_component')).toBe(true);
     });
-
     it('should show success indicator for completed stage', async () => {
-      const event: StageCompletionEvent = {
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        stageId: 'stage-1',
-        lifecycleStage: 'opportunity',
-        status: 'completed',
-        duration: 5000,
-        timestamp: Date.now(),
+      const event: StageCompletionEvent = {ompleted stage', async () => {
+        workspace_id: 'workspace-1',ent = {
+        stage_id: 'stage-1',pace-1',
+        lifecycle_stage: 'opportunity',
+        status: 'completed',portunity',
+        output_data: {},ed',
+        timestamp: Date.now().toString(),
+      };timestamp: Date.now().toString(),
       };
-
       const actions = await adapter.onStageCompletion(event);
-
+      const actions = await adapter.onStageCompletion(event);
       const successAction = actions.find((a) =>
-        a.type === 'mutate_component' &&
-        (a as any).mutations?.some((m: unknown) => m.value === 'check-circle')
-      );
+        a.type === 'mutate_component' &&((a) =>
+        (a as any).mutations?.some((m: any) => m.value === 'check-circle')
+      );(a as any).mutations?.some((m: any) => m.value === 'check-circle')
       expect(successAction).toBeDefined();
+    });xpect(successAction).toBeDefined();
     });
-
     it('should show error indicator for failed stage', async () => {
-      const event: StageCompletionEvent = {
-        workflowId: 'workflow-1',
-        executionId: 'exec-1',
-        stageId: 'stage-1',
-        lifecycleStage: 'opportunity',
-        status: 'failed',
-        duration: 5000,
-        timestamp: Date.now(),
+      const event: StageCompletionEvent = {led stage', async () => {
+        workspace_id: 'workspace-1',ent = {
+        stage_id: 'stage-1',pace-1',
+        lifecycle_stage: 'opportunity',
+        status: 'failed','opportunity',
+        output_data: {},,
+        timestamp: Date.now().toString(),
+      };timestamp: Date.now().toString(),
       };
-
       const actions = await adapter.onStageCompletion(event);
-
+      const actions = await adapter.onStageCompletion(event);
       const errorAction = actions.find((a) =>
-        a.type === 'mutate_component' &&
-        (a as any).mutations?.some((m: unknown) => m.value === 'x-circle')
-      );
+        a.type === 'mutate_component' &&a) =>
+        (a as any).mutations?.some((m: any) => m.value === 'x-circle')
+      );(a as any).mutations?.some((m: any) => m.value === 'x-circle')
       expect(errorAction).toBeDefined();
-    });
+    });xpect(errorAction).toBeDefined();
+  }););
   });
-
   describe('onWorkflowComplete', () => {
     it('should generate completion actions', async () => {
-      const context = {
+      const context = { completion actions', async () => {
         workspaceId: 'workspace-1',
+      };workspaceId: 'workspace-1',
       };
-
       const actions = await adapter.onWorkflowComplete(
-        'workflow-1',
-        'exec-1',
-        context
+        'workflow-1', await adapter.onWorkflowComplete(
+        'exec-1',-1',
+        context',
+      );context
       );
-
       expect(actions.length).toBeGreaterThan(0);
       expect(actions.some((a) => a.type === 'mutate_component')).toBe(true);
-      expect(actions.some((a) => a.type === 'add_component')).toBe(true);
+      expect(actions.some((a) => a.type === 'add_component')).toBe(true);e);
+    });xpect(actions.some((a) => a.type === 'add_component')).toBe(true);
     });
-
     it('should show completion message', async () => {
-      const context = {
+      const context = {pletion message', async () => {
         workspaceId: 'workspace-1',
+      };workspaceId: 'workspace-1',
       };
-
       const actions = await adapter.onWorkflowComplete(
-        'workflow-1',
-        'exec-1',
-        context
+        'workflow-1', await adapter.onWorkflowComplete(
+        'exec-1',-1',
+        context',
+      );context
       );
-
       const alertAction = actions.find((a) =>
-        a.type === 'add_component' &&
+        a.type === 'add_component' &&d((a) =>
         (a as any).component?.component === 'Alert'
-      );
+      );(a as any).component?.component === 'Alert'
       expect(alertAction).toBeDefined();
-    });
-  });
+    });xpect(alertAction).toBeDefined();
+  }););
+}););
 });

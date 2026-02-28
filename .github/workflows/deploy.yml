@@ -380,6 +380,9 @@ jobs:
     environment:
       name: staging
       url: https://staging.valueos.app
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      SUPABASE_ORG_ID: ${{ secrets.STAGING_SUPABASE_ORG_ID }}
     steps:
       - uses: actions/checkout@v4
 

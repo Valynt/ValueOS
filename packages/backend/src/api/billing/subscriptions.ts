@@ -8,7 +8,7 @@ import SubscriptionService from "../../services/billing/SubscriptionService.js";
 import { PlanTier } from "../../config/billing.js";
 import { createLogger } from "@shared/lib/logger";
 
-const router = express.Router();
+const router: express.Router = express.Router();
 const logger = createLogger({ component: "SubscriptionsAPI" });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
@@ -84,7 +84,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
  */
 router.put("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const { planTier } = req.body;
 
     if (!tenantId) {
@@ -143,7 +143,7 @@ router.delete("/", async (req: Request, res: Response): Promise<void> => {
  */
 router.post("/preview", async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const { planTier } = req.body;
 
     if (!tenantId) {

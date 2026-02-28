@@ -83,7 +83,7 @@
     "packages/infra": 6,
     "packages/services": 20,
     "packages/shared": 5,
-    "_note": "Re-baselined 2026-02-12. ValyntApp: noUnusedLocals/noUnusedParameters disabled, exactOptionalPropertyTypes disabled. Backend: uuid types added, vite-env.d.ts added."
+    "_note": "Re-baselined 2026-02-12. ValyntApp: noUnusedLocals/noUnusedParameters disabled, exactOptionalPropertyTypes disabled. Backend: uuid types added, vite-env.d.ts added. Deprecated standalone agents removed 2026-02-28; packages/agents re-baselined to 0 due to removal of deprecated modules."
   },
   "performance": {
     "time_to_interaction": {

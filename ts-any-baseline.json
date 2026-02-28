@@ -1,6 +1,6 @@
 {
-  "baseline": 1977,
-  "updated_at": "2026-02-13T22:09:46Z",
+  "baseline": 1700,
+  "updated_at": "2026-02-28T00:00:00Z",
   "target": 100,
   "monthly_target_strategy": "3% reduction per package per month (minimum 1)",
   "packages": {
@@ -9,7 +9,7 @@
       "monthly_reduction": 3
     },
     "apps/ValyntApp": {
-      "baseline": 839,
+      "baseline": 700,
       "monthly_reduction": 26
     },
     "apps/mcp-dashboard": {
@@ -21,7 +21,7 @@
       "monthly_reduction": 1
     },
     "packages/backend": {
-      "baseline": 712,
+      "baseline": 600,
       "monthly_reduction": 22
     },
     "packages/components": {
@@ -45,8 +45,12 @@
       "monthly_reduction": 1
     },
     "packages/shared": {
-      "baseline": 36,
+      "baseline": 32,
       "monthly_reduction": 2
+    },
+    "packages/agents": {
+      "baseline": 0,
+      "monthly_reduction": 1
     }
   },
   "note": "Run 'bash scripts/ts-any-ratchet.sh --update' after reducing any count"

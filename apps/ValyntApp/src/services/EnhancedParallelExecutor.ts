@@ -74,7 +74,7 @@ export interface TaskResult {
   taskId: string;
   agentType: AgentType;
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
   duration: number;
   tokens?: {
@@ -531,9 +531,9 @@ export class EnhancedParallelExecutor {
    * Get execution statistics
    */
   getExecutionStats(): {
-    circuitBreakerStats: any;
-    contextStats: any;
-    sharedContextStats: any;
+    circuitBreakerStats: unknown;
+    contextStats: unknown;
+    sharedContextStats: unknown;
   } {
     return {
       circuitBreakerStats: this.circuitBreakerManager.getAllCategoryStats(),

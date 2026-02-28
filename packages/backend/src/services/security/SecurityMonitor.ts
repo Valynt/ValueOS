@@ -208,9 +208,11 @@ export class SecurityMonitor {
   private async analyzeAuditLogs(): Promise<void> {
     try {
       const oneMinuteAgo = new Date(Date.now() - 60000);
+      const organizationId = await this.sharedContext.getOrganizationId();
       const recentLogs = await this.auditLogger.query({
         startDate: oneMinuteAgo,
         limit: 1000,
+        organizationId,
       });
 
       // Analyze for patterns

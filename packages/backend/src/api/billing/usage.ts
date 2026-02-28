@@ -26,8 +26,8 @@ router.use(serviceIdentityMiddleware);
 // Get comprehensive usage dashboard data
 router.get('/dashboard', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
-    const subscriptionId = (req as any).user?.subscriptionId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
+    const subscriptionId = req.user?.subscriptionId as string | undefined;
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized: No tenant context' });
       return;
@@ -58,7 +58,7 @@ router.get('/dashboard', async (req: Request, res: Response): Promise<void> => {
 // Get real-time quota tracking data
 router.get('/quota-tracking', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized: No tenant context' });
       return;
@@ -81,8 +81,8 @@ router.get('/quota-tracking', async (req: Request, res: Response): Promise<void>
 // Get invoice preview UI data
 router.get('/invoice-preview', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
-    const subscriptionId = (req as any).user?.subscriptionId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
+    const subscriptionId = req.user?.subscriptionId as string | undefined;
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized: No tenant context' });
       return;
@@ -107,7 +107,7 @@ router.get('/invoice-preview', async (req: Request, res: Response): Promise<void
 // Get spend estimation forecasting data
 router.get('/spend-forecasting', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized: No tenant context' });
       return;
@@ -135,7 +135,7 @@ router.get('/spend-forecasting', async (req: Request, res: Response): Promise<vo
 // TODO: implement ledger query via UsageAggregator once getRatedLedgerEntries is available
 router.get('/ledger/:dateRange', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized: No tenant context' });
       return;
@@ -157,7 +157,7 @@ router.get('/ledger/:dateRange', async (req: Request, res: Response): Promise<vo
 // Export usage data
 router.get('/export', async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId as string | undefined;
+    const tenantId = req.tenantId as string | undefined;
     if (!tenantId) {
       res.status(401).json({ error: 'Unauthorized: No tenant context' });
       return;
