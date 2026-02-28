@@ -36,9 +36,8 @@ resources:
 - groundtruth/deployment.yaml
 - core-lifecycle-hpa.yaml
 - analysis-agents-hpa.yaml
-- design-agents-hpa.yaml
-- remaining-agents-hpa-part1.yaml
 - remaining-agents-hpa-part2.yaml
+- low-frequency-keda-scaledobjects.yaml
 labels:
 - pairs:
     app.kubernetes.io/part-of: valynt
