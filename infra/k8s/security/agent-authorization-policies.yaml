@@ -1,0 +1,102 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: opportunity-agent-ingress-allow
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opportunity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://cluster.local/ns/valynt/sa/valynt-orchestrator
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: target-agent-ingress-allow
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: target-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://cluster.local/ns/valynt/sa/valynt-orchestrator
+              - spiffe://cluster.local/ns/valynt-agents/sa/opportunity-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: realization-agent-ingress-allow
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: realization-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://cluster.local/ns/valynt/sa/valynt-orchestrator
+              - spiffe://cluster.local/ns/valynt-agents/sa/target-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: expansion-agent-ingress-allow
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: expansion-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://cluster.local/ns/valynt/sa/valynt-orchestrator
+              - spiffe://cluster.local/ns/valynt-agents/sa/realization-agent
+      to:
+        - operation:
+            ports: ["8080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: integrity-agent-ingress-allow
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: integrity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - spiffe://cluster.local/ns/valynt/sa/valynt-orchestrator
+              - spiffe://cluster.local/ns/valynt-agents/sa/expansion-agent
+      to:
+        - operation:
+            ports: ["8080"]

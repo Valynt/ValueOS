@@ -3,7 +3,7 @@
  * ValueOS Chaos Suite
  *
  * Implements comprehensive chaos engineering experiments for SRE validation:
- * 1. Agent Killer: Random pod restarts during DAG execution
+ * 1. Agent-Fabric Killer: Random pod restarts during DAG execution
  * 2. State Recovery: WorkflowExecutionStore persistence validation
  * 3. Redis Partitioning: Connection loss simulation with DLQ verification
  */
@@ -107,7 +107,14 @@ class ValueOSChaosSuite {
 
         if (status === "RUNNING") {
           // Randomly kill an agent pod (simulate container restart)
-          const agents = ["OpportunityAgent", "AnalysisAgent", "StrategyAgent", "ExecutionAgent"];
+          const agents = [
+            "OpportunityAgent",
+            "TargetAgent",
+            "FinancialModelingAgent",
+            "IntegrityAgent",
+            "RealizationAgent",
+            "ExpansionAgent",
+          ];
           const targetAgent = agents[Math.floor(Math.random() * agents.length)];
 
           console.warn(`🔥 Killing agent pod: ${targetAgent}`);

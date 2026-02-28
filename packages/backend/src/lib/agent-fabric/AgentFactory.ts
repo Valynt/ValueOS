@@ -14,6 +14,7 @@ import { logger } from "../logger.js";
 import { BaseAgent } from "./agents/BaseAgent.js";
 import { ComplianceAuditorAgent } from "./agents/ComplianceAuditorAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
+import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
 import { OpportunityAgent } from "./agents/OpportunityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
@@ -26,6 +27,7 @@ import { MemorySystem } from "./MemorySystem.js";
 // Maps agent type strings to lifecycle stages for config construction
 const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   opportunity: "opportunity",
+  "financial-modeling": "modeling",
   target: "target",
   expansion: "expansion",
   integrity: "integrity",
@@ -33,11 +35,22 @@ const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   "compliance-auditor": "integrity",
 };
 
+
+const STAGE_AGENT_TYPE_MAP: Record<LifecycleStage, string> = {
+  opportunity: "opportunity",
+  modeling: "financial-modeling",
+  target: "target",
+  realization: "realization",
+  expansion: "expansion",
+  integrity: "integrity",
+};
+
 // Maps agent types to their fabric agent classes.
 const FABRIC_AGENT_CLASSES: Partial<
   Record<string, new (config: AgentConfig, organizationId: string, memorySystem: MemorySystem, llmGateway: LLMGateway, circuitBreaker: CircuitBreaker) => BaseAgent>
 > = {
   opportunity: OpportunityAgent,
+  "financial-modeling": FinancialModelingAgent,
   target: TargetAgent,
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
@@ -164,7 +177,7 @@ export class AgentFactory {
    * Convenience wrapper that maps stage names to agent types.
    */
   createForStage(stage: LifecycleStage, organizationId: string): BaseAgent {
-    return this.create(stage, organizationId);
+    return this.create(STAGE_AGENT_TYPE_MAP[stage], organizationId);
   }
 }
 

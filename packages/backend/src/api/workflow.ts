@@ -9,6 +9,7 @@ import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
+import { createBillingAccessEnforcement } from '../middleware/billingAccessEnforcement.js'
 
 const router = Router();
 router.use(securityHeadersMiddleware);
@@ -16,6 +17,7 @@ router.use(serviceIdentityMiddleware);
 router.use(requireAuth);
 router.use(tenantContextMiddleware());
 router.use(tenantDbContextMiddleware());
+router.use(createBillingAccessEnforcement());
 router.use(requirePermission('agents:execute'));
 
 const workflowExplainParamsSchema: ValidationSchema = {

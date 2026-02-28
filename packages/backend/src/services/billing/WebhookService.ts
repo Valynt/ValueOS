@@ -6,7 +6,7 @@
 
 import type { BillingEvent } from "@shared/types/billing-events";
 
-import { STRIPE_CONFIG } from "../../config/billing.js"
+import { GRACE_PERIOD_MS, STRIPE_CONFIG } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
 import { supabase } from '../../lib/supabase.js';
 import {
@@ -14,6 +14,7 @@ import {
   recordInvoiceEvent,
   recordStripeWebhook,
 } from "../../metrics/billingMetrics";
+import { securityAuditService } from "../SecurityAuditService.js";
 
 import InvoiceService from "./InvoiceService.js"
 import StripeService from "./StripeService.js"
@@ -54,6 +55,60 @@ class WebhookService {
         logger.error("Billing event listener error", err as Error);
       }
     }
+  }
+
+  /**
+   * Persist tenant billing enforcement status for access control middleware.
+   */
+  private async setTenantEnforcementState(
+    tenantId: string,
+    state: {
+      accessMode: "full_access" | "grace_period" | "restricted";
+      gracePeriodEnforcement: boolean;
+      gracePeriodStartedAt?: string | null;
+      gracePeriodExpiresAt?: string | null;
+      reason?: string | null;
+    },
+    triggerEventType: string
+  ): Promise<void> {
+    const payload = {
+      access_mode: state.accessMode,
+      grace_period_enforcement: state.gracePeriodEnforcement,
+      grace_period_started_at: state.gracePeriodStartedAt ?? null,
+      grace_period_expires_at: state.gracePeriodExpiresAt ?? null,
+      enforcement_reason: state.reason ?? null,
+      enforcement_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await supabase
+      .from("billing_customers")
+      .update(payload)
+      .eq("tenant_id", tenantId);
+
+    await supabase
+      .from("tenants")
+      .update(payload)
+      .eq("id", tenantId);
+
+    await securityAuditService.logRequestEvent({
+      requestId: `billing-enforcement-${triggerEventType}-${tenantId}-${Date.now()}`,
+      actor: "stripe_webhook",
+      action: "tenant_billing_enforcement_transition",
+      resource: "tenant_billing_enforcement",
+      requestPath: `/api/billing/webhooks/${triggerEventType}`,
+      eventType: "billing.enforcement.transition",
+      severity: state.accessMode === "restricted" ? "high" : "medium",
+      statusCode: 200,
+      eventData: {
+        tenant_id: tenantId,
+        access_mode: state.accessMode,
+        grace_period_enforcement: state.gracePeriodEnforcement,
+        grace_period_started_at: state.gracePeriodStartedAt ?? null,
+        grace_period_expires_at: state.gracePeriodExpiresAt ?? null,
+        reason: state.reason ?? null,
+      },
+    });
   }
 
   /**
@@ -243,6 +298,18 @@ class WebhookService {
     const tenantId = await this.resolveTenantId(invoice.customer);
 
     if (tenantId) {
+      await this.setTenantEnforcementState(
+        tenantId,
+        {
+          accessMode: "full_access",
+          gracePeriodEnforcement: false,
+          gracePeriodStartedAt: null,
+          gracePeriodExpiresAt: null,
+          reason: null,
+        },
+        event.type
+      );
+
       this.emitBillingEvent({
         type: "billing.payment.status_updated",
         payload: {
@@ -277,6 +344,21 @@ class WebhookService {
       .single();
 
     if (customer) {
+      const graceStartedAt = new Date().toISOString();
+      const graceExpiresAt = new Date(Date.now() + GRACE_PERIOD_MS).toISOString();
+
+      await this.setTenantEnforcementState(
+        customer.tenant_id,
+        {
+          accessMode: "grace_period",
+          gracePeriodEnforcement: true,
+          gracePeriodStartedAt: graceStartedAt,
+          gracePeriodExpiresAt: graceExpiresAt,
+          reason: "payment_failed",
+        },
+        event.type
+      );
+
       // Create payment failed alert
       await supabase.from("usage_alerts").insert({
         tenant_id: customer.tenant_id,
@@ -304,6 +386,7 @@ class WebhookService {
       logger.warn("Payment failed", {
         tenantId: customer.tenant_id,
         invoiceId: invoice.id,
+        gracePeriodExpiresAt: graceExpiresAt,
       });
     }
     recordInvoiceEvent(event.type);
@@ -341,6 +424,39 @@ class WebhookService {
       .eq("stripe_subscription_id", subscription.id);
 
     if (prevSub && prevSub.status !== subscription.status) {
+      if (prevSub.tenant_id) {
+        if (subscription.status === "active" || subscription.status === "trialing") {
+          await this.setTenantEnforcementState(
+            prevSub.tenant_id,
+            {
+              accessMode: "full_access",
+              gracePeriodEnforcement: false,
+              gracePeriodStartedAt: null,
+              gracePeriodExpiresAt: null,
+              reason: null,
+            },
+            event.type
+          );
+        }
+
+        if (subscription.status === "past_due" || subscription.status === "unpaid") {
+          const graceStartedAt = new Date().toISOString();
+          const graceExpiresAt = new Date(Date.now() + GRACE_PERIOD_MS).toISOString();
+
+          await this.setTenantEnforcementState(
+            prevSub.tenant_id,
+            {
+              accessMode: "grace_period",
+              gracePeriodEnforcement: true,
+              gracePeriodStartedAt: graceStartedAt,
+              gracePeriodExpiresAt: graceExpiresAt,
+              reason: `subscription_${subscription.status}`,
+            },
+            event.type
+          );
+        }
+      }
+
       this.emitBillingEvent({
         type: "billing.subscription.changed",
         payload: {
@@ -392,6 +508,18 @@ class WebhookService {
         .from("billing_customers")
         .update({ status: "cancelled" })
         .eq("tenant_id", sub.tenant_id);
+
+      await this.setTenantEnforcementState(
+        sub.tenant_id,
+        {
+          accessMode: "restricted",
+          gracePeriodEnforcement: false,
+          gracePeriodStartedAt: null,
+          gracePeriodExpiresAt: null,
+          reason: "subscription_canceled",
+        },
+        event.type
+      );
     }
 
     logger.info("Subscription deleted", { subscriptionId: subscription.id });

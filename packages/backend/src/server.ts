@@ -42,7 +42,9 @@ import authRouter from "./api/auth.js";
 import billingRouter from "./api/billing/index.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
 import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
+import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
 import crmRouter from "./api/crm.js";
+import complianceRouter from "./api/compliance.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
 import domainPacksRouter from "./api/domainPacks.js";
@@ -51,6 +53,7 @@ import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import integrationsRouter from "./api/integrations.js";
 import llmRouter from "./api/llm.js";
+import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
 import projectsRouter from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
@@ -70,6 +73,9 @@ import { validateEnvOrThrow } from "./config/validateEnv.js";
 import { getConfig } from "./config/environment.js";
 import docsApiRouter from "./docs-api/index.js";
 import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
+import { createServerSupabaseClient } from "./lib/supabase.js";
+import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookService.js";
+import { NotificationActionSigner } from "./services/approvals/NotificationActionSigner.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 const initializeContext = async () => {};
@@ -115,9 +121,15 @@ import { serviceIdentityMiddleware } from "./middleware/serviceIdentityMiddlewar
 import { cspReportHandler, securityHeadersMiddleware } from "./middleware/securityHeaders.js";
 import { cachingMiddleware } from "./middleware/cachingMiddleware.js";
 import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/securityMiddleware.js";
-import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
+import {
+  extractTenantId,
+  requireAuth,
+  requireTenantRequestAlignment,
+  verifyAccessToken,
+} from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
+import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/SecurityAuditService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
@@ -141,6 +153,8 @@ const agentExecutionLimiter = createRateLimiter("strict", {
   message: "Too many agent calls. Please wait before trying again.",
   skip: (req) => req.method === "GET",
 });
+
+const billingAccessEnforcement = createBillingAccessEnforcement();
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
@@ -370,6 +384,9 @@ app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cs
 // Secret Health Check Endpoint
 app.get("/health/secrets", secretHealthMiddleware());
 
+// Well-known MCP discovery document
+app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
+
 // Mount routes
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
@@ -384,12 +401,15 @@ app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/admin/security", securityMonitoringRouter);
+app.use("/api/admin/compliance", complianceRouter);
 app.use(
   "/api/agents",
   serviceIdentityMiddleware,
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
+  billingAccessEnforcement,
   agentExecutionLimiter,
   agentsRouter
 );
@@ -397,12 +417,15 @@ app.use(
   "/api/groundtruth",
   serviceIdentityMiddleware,
   requireAuth,
+  requireTenantRequestAlignment(),
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
+  billingAccessEnforcement,
   agentExecutionLimiter,
   groundtruthRouter
 );
 app.use("/api/llm", llmRouter);
+app.use("/api/mcp", mcpDiscoveryRouter);
 app.use("/api", workflowRouter);
 app.use(
   "/api/documents",
@@ -433,6 +456,36 @@ if (checkpointMiddleware) {
     tenantContextMiddleware(),
     createCheckpointRouter(checkpointMiddleware),
   );
+
+  const signer = new NotificationActionSigner({
+    secret: process.env.APPROVAL_ACTION_SECRET || "dev-approval-action-secret",
+  });
+  const supabaseClient = createServerSupabaseClient();
+  const webhookService = new ApprovalWebhookService({
+    signer,
+    checkpointMiddleware,
+    webhookSigningSecret: process.env.APPROVAL_WEBHOOK_SECRET || "dev-approval-webhook-secret",
+    transitionApprovalRequest: async ({ requestId, tenantId, approved, actorId, reason }) => {
+      await supabaseClient
+        .from("approval_requests")
+        .update({
+          status: approved ? "approved" : "rejected",
+          updated_at: new Date().toISOString(),
+          metadata: {
+            decision_source: "webhook",
+            actor_id: actorId,
+            reason: reason || null,
+          },
+        })
+        .eq("id", requestId)
+        .eq("tenant_id", tenantId);
+    },
+    audit: async (event, details) => {
+      logger.info(`approval_webhook:${event}`, details);
+    },
+  });
+
+  app.use("/api/approvals/webhooks", createApprovalWebhookRouter(webhookService));
 }
 
 await registerDevRoutes(app);
