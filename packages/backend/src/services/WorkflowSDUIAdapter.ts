@@ -7,13 +7,32 @@
 
 import { logger } from '../lib/logger.js'
 import { SDUIPageDefinition } from '@sdui/schema';
-import { SDUIUpdate } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
 import {
   StageCompletionEvent,
-  StageTransitionEvent,
   WorkflowProgress,
 } from '../types/workflow-sdui';
+
+// StageTransitionEvent is not in workflow-sdui; define locally
+interface StageTransitionEvent {
+  workflowId: string;
+  executionId: string;
+  fromStage: string | null;
+  toStage: string;
+  fromLifecycleStage: LifecycleStage | null;
+  toLifecycleStage: LifecycleStage;
+  timestamp: number;
+  context: Record<string, unknown>;
+}
+
+// SDUIUpdate shape used by this adapter (differs from sdui-integration.SDUIUpdate)
+interface SDUIUpdate {
+  type: string;
+  workspaceId: string;
+  actions: AtomicUIAction[];
+  timestamp: number;
+  source: string;
+}
 import {
   AtomicUIAction,
   createAddAction,
@@ -46,8 +65,8 @@ export class WorkflowSDUIAdapter {
         executionId: context.executionId || workflowId,
         fromStage,
         toStage,
-        fromLifecycleStage: this.getLifecycleStage(fromStage),
-        toLifecycleStage: this.getLifecycleStage(toStage),
+        fromLifecycleStage: this.getLifecycleStage(fromStage) ?? null,
+        toLifecycleStage: this.getLifecycleStage(toStage) ?? "opportunity",
         timestamp: Date.now(),
         context,
       };
@@ -106,7 +125,7 @@ export class WorkflowSDUIAdapter {
   ): Promise<AtomicUIAction[]> {
     logger.info('Updating workflow progress UI', {
       workflowId,
-      percentComplete: progress.percentComplete,
+      percentComplete: progress.progress_percentage,
     });
 
     const actions: AtomicUIAction[] = [];
@@ -120,12 +139,12 @@ export class WorkflowSDUIAdapter {
             {
               path: 'props.percentComplete',
               operation: 'set',
-              value: progress.percentComplete,
+              value: progress.progress_percentage,
             },
             {
               path: 'props.currentStage',
               operation: 'set',
-              value: progress.currentStage,
+              value: progress.current_stage,
             },
           ],
           'Update workflow progress'
@@ -140,20 +159,20 @@ export class WorkflowSDUIAdapter {
             {
               path: 'props.currentStageIndex',
               operation: 'set',
-              value: progress.currentStageIndex,
+              value: progress.completed_stages.length,
             },
             {
               path: 'props.completedStages',
               operation: 'set',
-              value: progress.completedStages,
+              value: progress.completed_stages,
             },
           ],
           'Update stage indicator'
         )
       );
 
-      // If estimated time available, update it
-      if (progress.estimatedTimeRemaining !== undefined) {
+      // If estimated completion available, update it
+      if (progress.estimated_completion !== undefined) {
         actions.push(
           createMutateAction(
             { type: 'ProgressBar', props: { workflowId } },
@@ -161,7 +180,7 @@ export class WorkflowSDUIAdapter {
               {
                 path: 'props.estimatedTimeRemaining',
                 operation: 'set',
-                value: progress.estimatedTimeRemaining,
+                value: progress.estimated_completion,
               },
             ],
             'Update estimated time'
@@ -198,9 +217,14 @@ export class WorkflowSDUIAdapter {
     try {
       // Generate schema for the specific stage
       const schema = await canvasSchemaService.generateSchema(workspaceId, {
+        workspace_id: workspaceId,
         workspaceId,
+        organization_id: '',
+        user_id: 'system',
         userId: 'system',
+        lifecycle_stage: stage,
         lifecycleStage: stage,
+        permissions: {} as import('../types/sdui-integration').WorkspacePermissions,
       });
 
       logger.info('Generated stage-specific schema', {
@@ -242,8 +266,8 @@ export class WorkflowSDUIAdapter {
     event: StageCompletionEvent
   ): Promise<AtomicUIAction[]> {
     logger.info('Handling stage completion', {
-      workflowId: event.workflowId,
-      stageId: event.stageId,
+      workspaceId: event.workspace_id,
+      stageId: event.stage_id,
       status: event.status,
     });
 
@@ -253,7 +277,7 @@ export class WorkflowSDUIAdapter {
       // Update stage status indicator
       actions.push(
         createMutateAction(
-          { id: `stage-${event.stageId}` },
+          { id: `stage-${event.stage_id}` },
           [
             {
               path: 'props.status',
@@ -261,12 +285,12 @@ export class WorkflowSDUIAdapter {
               value: event.status,
             },
             {
-              path: 'props.duration',
+              path: 'props.completedAt',
               operation: 'set',
-              value: event.duration,
+              value: event.timestamp,
             },
           ],
-          `Mark stage ${event.stageId} as ${event.status}`
+          `Mark stage ${event.stage_id} as ${event.status}`
         )
       );
 
@@ -274,7 +298,7 @@ export class WorkflowSDUIAdapter {
       if (event.status === 'completed') {
         actions.push(
           createMutateAction(
-            { id: `stage-${event.stageId}` },
+            { id: `stage-${event.stage_id}` },
             [
               {
                 path: 'props.icon',
@@ -296,7 +320,7 @@ export class WorkflowSDUIAdapter {
       if (event.status === 'failed') {
         actions.push(
           createMutateAction(
-            { id: `stage-${event.stageId}` },
+            { id: `stage-${event.stage_id}` },
             [
               {
                 path: 'props.icon',
@@ -315,12 +339,12 @@ export class WorkflowSDUIAdapter {
       }
 
       logger.info('Generated stage completion actions', {
-        workflowId: event.workflowId,
+        workspaceId: event.workspace_id,
         actionCount: actions.length,
       });
     } catch (error) {
       logger.error('Failed to generate stage completion actions', {
-        workflowId: event.workflowId,
+        workspaceId: event.workspace_id,
         error: error instanceof Error ? error.message : String(error),
       });
     }

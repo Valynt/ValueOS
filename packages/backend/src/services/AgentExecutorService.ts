@@ -5,18 +5,33 @@
  * and publishes agent response events.
  */
 
+import { randomUUID } from "node:crypto";
 import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
 import { EventProducer, getEventProducer } from "./EventProducer.js"
 import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
 import { EventSourcingService, getEventSourcingService } from "./EventSourcingService.js"
 import {
   AgentRequestEvent,
-  AgentResponseEvent,
   BaseEvent,
   createBaseEvent,
   Event,
   EVENT_TOPICS,
 } from "@shared/types/events";
+
+// AgentResponseEvent is not in shared types; define locally
+interface AgentResponseEvent extends BaseEvent {
+  type: "agent.response";
+  payload: {
+    agentId: string;
+    userId: string;
+    sessionId: string;
+    tenantId: string;
+    response: unknown;
+    success: boolean;
+    error?: string;
+    duration_ms: number;
+  };
+}
 import { AgentType } from "./agent-types.js"
 import { logger } from "../lib/logger.js"
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
@@ -35,7 +50,7 @@ export class AgentExecutorService {
           {
             eventType: "agent.request",
             handler: async (event: BaseEvent) => {
-              await this.handleAgentRequest(event as AgentRequestEvent);
+              await this.handleAgentRequest(event as unknown as AgentRequestEvent);
             },
           },
         ]
@@ -105,65 +120,66 @@ export class AgentExecutorService {
       const latency = Date.now() - startTime;
 
       // Create agent response event
+      const responsePayload = {
+        agentId: payload.agentId,
+        userId: payload.userId,
+        sessionId: payload.sessionId,
+        tenantId: payload.tenantId,
+        response: response.data || response,
+        success: response.success !== false,
+        error: response.success === false ? response.error : undefined,
+        duration_ms: latency,
+      };
+
       const agentResponseEvent: AgentResponseEvent = {
-        ...createBaseEvent("agent.response", event.correlationId, "agent-executor"),
-        eventType: "agent.response" as const,
-        payload: {
-          agentId: payload.agentId,
-          userId: payload.userId,
-          sessionId: payload.sessionId,
-          tenantId: payload.tenantId,
-          response: response.data || response,
-          error: response.success === false ? response.error : undefined,
-          latency,
-          tokens: response.metadata?.tokens,
-          cost: response.metadata?.tokens ? response.metadata.tokens.total * 0.00001 : undefined,
-          cached: false,
-          status: response.success !== false ? "success" : "error",
-        },
+        type: "agent.response",
+        payload: responsePayload,
+        correlationId: event.correlationId,
+        meta: { eventId: randomUUID(), timestamp: new Date().toISOString(), source: "agent-executor" },
       };
 
       // Publish response event
-      await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, agentResponseEvent);
+      await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, agentResponseEvent as unknown as BaseEvent);
 
       // Broadcast to realtime clients in the tenant
       try {
         const broadcastService = (await import("./RealtimeBroadcastService.js")).getRealtimeBroadcastService();
         broadcastService.broadcastToTenant(
-          agentResponseEvent.payload.tenantId,
+          responsePayload.tenantId,
           "agent.reasoning.update",
           {
-            agentId: agentResponseEvent.payload.agentId,
-            sessionId: agentResponseEvent.payload.sessionId,
-            response: agentResponseEvent.payload.response,
-            status: agentResponseEvent.payload.status,
+            agentId: responsePayload.agentId,
+            sessionId: responsePayload.sessionId,
+            response: responsePayload.response,
+            success: responsePayload.success,
             correlationId: agentResponseEvent.correlationId,
             timestamp: agentResponseEvent.meta?.timestamp || new Date().toISOString(),
           }
         );
 
         // If IntegrityAgent reported a resolved issue, emit a dedicated event
-        if (agentResponseEvent.payload.agentId === "IntegrityAgent" && agentResponseEvent.payload.response && (agentResponseEvent.payload.response.resolvedIssueId || agentResponseEvent.payload.response.issueId)) {
-          const issueId = agentResponseEvent.payload.response.resolvedIssueId || agentResponseEvent.payload.response.issueId;
-          broadcastService.broadcastToTenant(agentResponseEvent.payload.tenantId, "integrity.issue.resolved", {
+        const responseData = responsePayload.response as Record<string, unknown> | null;
+        if (responsePayload.agentId === "IntegrityAgent" && responseData && (responseData.resolvedIssueId || responseData.issueId)) {
+          const issueId = responseData.resolvedIssueId || responseData.issueId;
+          broadcastService.broadcastToTenant(responsePayload.tenantId, "integrity.issue.resolved", {
             issueId,
-            agentId: agentResponseEvent.payload.agentId,
-            result: agentResponseEvent.payload.response,
+            agentId: responsePayload.agentId,
+            result: responseData,
           });
         }
       } catch (bErr) {
-        logger.warn("Realtime broadcast failed", bErr instanceof Error ? bErr.message : String(bErr));
+        logger.warn("Realtime broadcast failed", { error: bErr instanceof Error ? bErr.message : String(bErr) });
       }
 
       // Store events for audit trail
-      await this.eventSourcing.storeEvent(event);
-      await this.eventSourcing.storeEvent(agentResponseEvent);
+      await this.eventSourcing.storeEvent(event as unknown as BaseEvent);
+      await this.eventSourcing.storeEvent(agentResponseEvent as unknown as BaseEvent);
 
       // Update audit projection
       await this.eventSourcing.updateProjection(
         "agent-performance",
         payload.agentId,
-        event,
+        event as unknown as BaseEvent,
         this.createAgentPerformanceUpdater()
       );
 
@@ -184,22 +200,23 @@ export class AgentExecutorService {
 
       // Create error response event
       const errorResponseEvent: AgentResponseEvent = {
-        ...createBaseEvent("agent.response", event.correlationId, "agent-executor"),
-        eventType: "agent.response" as const,
+        type: "agent.response",
         payload: {
           agentId: payload.agentId,
           userId: payload.userId,
           sessionId: payload.sessionId,
           tenantId: payload.tenantId,
           response: null,
+          success: false,
           error: error instanceof Error ? error.message : "Unknown error",
-          latency,
-          status: "error",
+          duration_ms: latency,
         },
+        correlationId: event.correlationId,
+        meta: { eventId: randomUUID(), timestamp: new Date().toISOString(), source: "agent-executor" },
       };
 
       // Publish error response event
-      await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, errorResponseEvent);
+      await this.eventProducer.publish(EVENT_TOPICS.AGENT_RESPONSES, errorResponseEvent as unknown as BaseEvent);
       // Broadcast response to websocket subscribers (tenant-scoped)
       try {
         const { getRealtimeBroadcastService } = await import("./RealtimeBroadcastService.js");
@@ -209,33 +226,23 @@ export class AgentExecutorService {
           {
             agentId: payload.agentId,
             sessionId: payload.sessionId,
-            response: agentResponseEvent.payload.response,
-            latency: agentResponseEvent.payload.latency,
-            status: agentResponseEvent.payload.status,
+            response: null,
+            success: false,
+            error: errorResponseEvent.payload.error,
           }
         );
-
-        // If integrity resolution was performed, emit specific event
-        const resp = agentResponseEvent.payload.response as any;
-        if (payload.agentId === "IntegrityAgent" && resp && resp.resolvedIssueId) {
-          getRealtimeBroadcastService().broadcastToTenant(
-            payload.tenantId,
-            "integrity.issue.resolved",
-            { issueId: resp.resolvedIssueId, resolution: resp.resolution, agentId: payload.agentId }
-          );
-        }
       } catch (err) {
-        logger.warn("Realtime broadcast failed, continuing", err instanceof Error ? err.message : String(err));
+        logger.warn("Realtime broadcast failed, continuing", { error: err instanceof Error ? err.message : String(err) });
       }
       // Store events for audit trail
-      await this.eventSourcing.storeEvent(event);
-      await this.eventSourcing.storeEvent(errorResponseEvent);
+      await this.eventSourcing.storeEvent(event as unknown as BaseEvent);
+      await this.eventSourcing.storeEvent(errorResponseEvent as unknown as BaseEvent);
 
       // Update error metrics
       await this.eventSourcing.updateProjection(
         "agent-errors",
         payload.agentId,
-        event,
+        event as unknown as BaseEvent,
         this.createAgentErrorUpdater(error as Error)
       );
 
@@ -253,18 +260,18 @@ export class AgentExecutorService {
   ): Promise<void> {
     try {
       const dlqEvent: BaseEvent = {
-        ...createBaseEvent("agent.dlq", originalEvent.correlationId, "agent-executor"),
-        metadata: {
-          originalEventId: originalEvent.eventId,
-          originalEventType: originalEvent.eventType,
+        type: "agent.dlq",
+        correlationId: originalEvent.correlationId,
+        payload: {
+          originalEventType: originalEvent.type,
           errorMessage: error.message,
           errorName: error.name,
-          errorStack: error.stack,
           failedAt: new Date().toISOString(),
           agentId: originalEvent.payload.agentId,
           userId: originalEvent.payload.userId,
           tenantId: originalEvent.payload.tenantId,
         },
+        meta: { eventId: randomUUID(), timestamp: new Date().toISOString(), source: "agent-executor" },
       };
 
       await this.eventProducer.publish(EVENT_TOPICS.DEAD_LETTER, dlqEvent);
@@ -286,7 +293,7 @@ export class AgentExecutorService {
    */
   private createAgentPerformanceUpdater() {
     return (currentData: any, event: Event) => {
-      const agentEvent = event as AgentRequestEvent;
+      const agentEvent = event as unknown as AgentRequestEvent;
       if (!currentData) {
         currentData = {
           agentId: agentEvent.payload.agentId,
@@ -315,7 +322,7 @@ export class AgentExecutorService {
    */
   private createAgentErrorUpdater(error: Error) {
     return (currentData: any, event: Event) => {
-      const agentEvent = event as AgentRequestEvent;
+      const agentEvent = event as unknown as AgentRequestEvent;
       if (!currentData) {
         currentData = {
           agentId: agentEvent.payload.agentId,

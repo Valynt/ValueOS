@@ -18,13 +18,14 @@ import { normalizeExecutionRequest } from "../types/execution";
 import { AuditLogService } from "./AuditLogService.js";
 import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from "./UnifiedAgentOrchestrator.js";
 import { AgentAPI, getAgentAPI } from "./AgentAPI.js";
+import type { AgentType } from "./agent-types.js";
 import { ComponentMutationService } from "./ComponentMutationService.js";
 import { manifestoEnforcer } from "./ManifestoEnforcer.js";
 import { atomicActionExecutor } from "./AtomicActionExecutor.js";
 import { canvasSchemaService } from "./CanvasSchemaService.js";
 import { EnforcementResult, enforceRules } from "../lib/rules";
 import { workspaceStateService } from "./WorkspaceStateService.js";
-import { LifecycleContext, ValueTreeService } from "./ValueTreeService.js";
+import { LifecycleContext, ValueTreeService, ValueTreeUpdate } from "./ValueTreeService.js";
 import { getSupabaseClient } from "../lib/supabase.js";
 import { SDUIPageDefinition } from "@sdui/schema";
 import { assumptionService } from "./AssumptionService.js";
@@ -166,7 +167,7 @@ export class ActionRouter {
       }
 
       // Execute handler
-      const result = await handler(validatedAction, validatedContext);
+      const result = await handler.execute(validatedAction, validatedContext);
 
       // Log action to audit trail
       await this.logAction(validatedAction, validatedContext, result, Date.now() - startTime);
@@ -243,25 +244,54 @@ export class ActionRouter {
     context: ActionContext
   ): Promise<ManifestoCheckResult> {
     try {
-      // Use ManifestoEnforcer for comprehensive rule checking
-      const result = await manifestoEnforcer.checkAction(action, context);
+      // ManifestoEnforcer uses sdui-integration types; adapt to shared types
+      const result = await manifestoEnforcer.checkAction(
+        action as unknown as Parameters<typeof manifestoEnforcer.checkAction>[0],
+        context as unknown as Parameters<typeof manifestoEnforcer.checkAction>[1]
+      );
+
+      // sdui-integration types have optional violations/warnings
+      const rawViolations = result.violations ?? [];
+      const rawWarnings = result.warnings ?? [];
 
       // Log violations and warnings
-      if (result.violations.length > 0) {
+      if (rawViolations.length > 0) {
         logger.warn("Manifesto rule violations detected", {
           actionType: action.type,
-          violations: result.violations.map((v) => v.rule),
+          violations: rawViolations.map((v) => v.ruleId),
         });
       }
 
-      if (result.warnings.length > 0) {
+      if (rawWarnings.length > 0) {
         logger.info("Manifesto rule warnings", {
           actionType: action.type,
-          warnings: result.warnings.map((w) => w.rule),
+          warnings: rawWarnings,
         });
       }
 
-      return result;
+      // Normalize violations to shared ManifestoViolation shape
+      const violations: ManifestoCheckResult["violations"] = rawViolations.map(
+        (v) => ({
+          ruleId: v.ruleId ?? "unknown",
+          ruleName: v.ruleName ?? "unknown",
+          severity: v.severity as "error" | "warning" | "info",
+          message: v.message ?? "",
+          path: v.path,
+          suggestion: v.suggestion,
+        })
+      );
+
+      // sdui-integration warnings are strings; wrap into ManifestoViolation shape
+      const warnings: ManifestoCheckResult["warnings"] = rawWarnings.map(
+        (w) => ({
+          ruleId: "manifesto-warning",
+          ruleName: "Manifesto Warning",
+          severity: "warning" as const,
+          message: typeof w === "string" ? w : String(w),
+        })
+      );
+
+      return { allowed: result.allowed ?? true, violations, warnings };
     } catch (error) {
       logger.error("Failed to check Manifesto rules", {
         actionType: action.type,
@@ -274,7 +304,9 @@ export class ActionRouter {
         violations: [],
         warnings: [
           {
-            rule: "SYSTEM",
+            ruleId: "SYSTEM",
+            ruleName: "System",
+            severity: "warning",
             message: "Manifesto rules check failed",
             suggestion: "Manual review recommended",
           },
@@ -312,14 +344,14 @@ export class ActionRouter {
           userId: context.userId,
           tenantId: context.workspaceId,
           violations: governanceResult.violations.map((v) => `${v.ruleId}: ${v.message}`),
-          globalRulesChecked: governanceResult.metadata.globalRulesChecked,
-          localRulesChecked: governanceResult.metadata.localRulesChecked,
+          globalRulesChecked: governanceResult.metadata?.globalRulesChecked,
+          localRulesChecked: governanceResult.metadata?.localRulesChecked,
         });
       } else {
         logger.debug("Governance rules passed", {
           actionType: action.type,
-          globalRulesChecked: governanceResult.metadata.globalRulesChecked,
-          localRulesChecked: governanceResult.metadata.localRulesChecked,
+          globalRulesChecked: governanceResult.metadata?.globalRulesChecked,
+          localRulesChecked: governanceResult.metadata?.localRulesChecked,
           warnings: governanceResult.warnings.length,
         });
       }
@@ -334,22 +366,15 @@ export class ActionRouter {
       // CRITICAL: On governance failure, BLOCK action (fail-closed)
       return {
         allowed: false,
-        globalResults: [],
-        localResults: [],
         violations: [
           {
             ruleId: "SYSTEM",
             ruleName: "Governance System Error",
-            category: "systemic_safety",
             severity: "critical",
             message: "Governance rules enforcement failed - action blocked for safety",
-            details: { error: error instanceof Error ? error.message : String(error) },
           },
         ],
         warnings: [],
-        fallbackActions: [],
-        userMessages: ["System safety check failed. Action cannot proceed."],
-        executionTimeMs: 0,
         metadata: {
           globalRulesChecked: 0,
           localRulesChecked: 0,
@@ -403,14 +428,17 @@ export class ActionRouter {
    */
   private validateValueTreeStructure(updates: unknown): boolean {
     // Check if updates maintain standard structure
-    if (!updates) return true;
+    if (!updates || typeof updates !== "object") return true;
+
+    const record = updates as Record<string, unknown>;
 
     // If updating structure, ensure it has required fields
-    if (updates.structure) {
+    if (record.structure && typeof record.structure === "object") {
+      const structure = record.structure as Record<string, unknown>;
       return (
-        updates.structure.capabilities !== undefined &&
-        updates.structure.outcomes !== undefined &&
-        updates.structure.kpis !== undefined
+        structure.capabilities !== undefined &&
+        structure.outcomes !== undefined &&
+        structure.kpis !== undefined
       );
     }
 
@@ -422,10 +450,12 @@ export class ActionRouter {
    */
   private validateAssumptionEvidence(updates: unknown): boolean {
     // Check if assumption has evidence source
-    if (!updates) return true;
+    if (!updates || typeof updates !== "object") return true;
 
-    if (updates.source) {
-      return updates.source !== "estimate" && updates.source.length > 0;
+    const record = updates as Record<string, unknown>;
+
+    if (typeof record.source === "string") {
+      return record.source !== "estimate" && record.source.length > 0;
     }
 
     return true;
@@ -435,7 +465,10 @@ export class ActionRouter {
    * Register action handler
    */
   registerHandler(actionType: string, handler: ActionHandler | ((action: CanonicalAction, context: ActionContext) => Promise<ActionResult>)): void {
-    this.handlers.set(actionType, typeof handler === "function" ? { name: actionType, execute: handler } : handler);
+    const normalized: ActionHandler = typeof handler === "function"
+      ? { name: actionType, execute: handler as ActionHandler["execute"] }
+      : handler;
+    this.handlers.set(actionType, normalized);
     logger.debug("Registered action handler", { actionType });
   }
 
@@ -450,10 +483,11 @@ export class ActionRouter {
       }
 
       try {
-        const execution = normalizeExecutionRequest(
-          "action-router",
-          action.execution || context.execution
-        );
+        const rawExecution = (action.execution ?? context.execution ?? {}) as Record<string, unknown>;
+        const execution = normalizeExecutionRequest({
+          agent_id: "action-router",
+          ...rawExecution,
+        });
         const agentContext = {
           ...execution.parameters,
           ...action.payload,
@@ -471,8 +505,8 @@ export class ActionRouter {
 
         // Route to agent API
         const result = await this.agentAPI.invokeAgent({
-          agent: action.agentId,
-          query: action.input,
+          agent: action.agentId as AgentType,
+          query: String(action.input ?? ""),
           context: agentContext,
         });
 
@@ -501,13 +535,13 @@ export class ActionRouter {
           actor: { id: context.userId },
           organizationId: context.organizationId || "unknown",
           entryPoint: "action-router",
-          reason: action.reason || "workflow-step",
+          reason: "workflow-step",
           timestamps: { requestedAt: new Date().toISOString() },
         } as const;
         const result = await this.orchestrator.executeWorkflow(
           envelope,
           action.workflowId,
-          { ...action.input, ...context },
+          { stepId: action.stepId, ...context },
           context.userId
         );
 
@@ -553,7 +587,7 @@ export class ActionRouter {
 
         const result = await this.valueTreeService.updateValueTree(
           action.treeId,
-          action.updates,
+          action.updates as ValueTreeUpdate,
           lifecycleContext
         );
 
@@ -587,10 +621,10 @@ export class ActionRouter {
       try {
         const result = await assumptionService.updateAssumption(
           action.assumptionId,
-          action.updates,
+          action.updates as Record<string, unknown>,
           {
             userId: context.userId,
-            auth0Sub: typeof context.metadata?.auth0_sub === "string" ? context.metadata.auth0_sub : undefined,
+            externalSub: typeof context.metadata?.auth0_sub === "string" ? context.metadata.auth0_sub : undefined,
             sessionId: context.sessionId,
             valueCaseId: context.workspaceId,
             organizationId: context.organizationId,
@@ -629,13 +663,13 @@ export class ActionRouter {
         let blob: Blob;
 
         if (format === "pdf") {
-          // Assume artifactType is the element ID for visual exports
-          blob = await exportToPDF(artifactType, { format: "pdf", filename });
+          blob = await exportToPDF({ artifactType }, { filename });
         } else if (format === "png") {
-          blob = await exportToPNG(artifactType, { format: "png", filename });
+          blob = await exportToPNG(artifactType, { filename });
         } else if (format === "excel" || format === "csv") {
           // For data exports, fetch data from workspace state
-          const state = await workspaceStateService.getState(context.workspaceId);
+          const workspaceId = context.workspaceId ?? "";
+          const state = await workspaceStateService.getState(workspaceId);
           let dataToExport: unknown[] = [];
 
           // Strategy:
@@ -654,7 +688,6 @@ export class ActionRouter {
             // Fallback: if artifactType doesn't match a specific key,
             // check if there is any data to export at all
             if (state.data && Object.keys(state.data).length > 0) {
-              // Default to wrapping state.data in array
               dataToExport = [state.data];
             } else {
               return { success: false, error: `No data found for artifact type: ${artifactType}` };
@@ -662,9 +695,10 @@ export class ActionRouter {
           }
 
           if (format === "csv") {
-            blob = await exportToCSV(dataToExport, { format: "excel" }); // format here is ExportOptions, conceptually 'data'
+            const csvContent = exportToCSV(dataToExport);
+            blob = new Blob([csvContent], { type: "text/csv" });
           } else {
-            blob = await exportToExcel(dataToExport, { format: "excel", sheetName: artifactType });
+            blob = await exportToExcel(dataToExport, { sheetName: artifactType });
           }
         } else {
           return { success: false, error: `Unsupported format: ${format}` };
@@ -686,16 +720,17 @@ export class ActionRouter {
     });
 
     // openAuditTrail handler
-    this.registerHandler("openAuditTrail", async (action: CanonicalAction, _context: ActionContext): Promise<ActionResult> => {
+    this.registerHandler("openAuditTrail", async (action: CanonicalAction, context: ActionContext): Promise<ActionResult> => {
       if (action.type !== "openAuditTrail") {
         return { success: false, error: "Invalid action type" };
       }
 
       try {
         const logs = await this.auditLogService.query({
+          tenantId: context.organizationId,
           resourceId: action.entityId,
           resourceType: action.entityType,
-          limit: 100, // Default limit
+          limit: 100,
         });
 
         return {
@@ -722,7 +757,7 @@ export class ActionRouter {
 
       try {
         // Get current schema
-        const currentSchema = canvasSchemaService.getCachedSchema(context.workspaceId);
+        const currentSchema = await canvasSchemaService.getCachedSchema(context.workspaceId ?? "");
 
         if (!currentSchema) {
           return {
@@ -739,21 +774,23 @@ export class ActionRouter {
           };
         }
 
-        const { component } = found;
+        const componentData = found.component as Record<string, unknown>;
+        const componentName = typeof componentData.component === "string" ? componentData.component : "unknown";
+        const componentProps = componentData.props ?? {};
 
         // Construct context for agent
         const explanationContext = {
           ...context,
-          componentName: component.component,
-          componentProps: component.props,
+          componentName,
+          componentProps,
           topic: action.topic,
         };
 
         // Use invokeAgent with 'narrative' agent
         const agentResponse = await this.agentAPI.invokeAgent({
           agent: "narrative",
-          query: `Explain the "${action.topic}" for the component "${component.component}".
-The component has the following configuration: ${JSON.stringify(component.props, null, 2)}.
+          query: `Explain the "${action.topic}" for the component "${componentName}".
+The component has the following configuration: ${JSON.stringify(componentProps, null, 2)}.
 Please provide a clear, concise explanation suitable for a user.`,
           context: explanationContext,
         });
@@ -823,7 +860,7 @@ Please provide a clear, concise explanation suitable for a user.`,
 
       try {
         // Get current schema
-        const currentSchema = canvasSchemaService.getCachedSchema(context.workspaceId);
+        const currentSchema = await canvasSchemaService.getCachedSchema(context.workspaceId ?? "");
 
         if (!currentSchema) {
           return {
@@ -832,17 +869,15 @@ Please provide a clear, concise explanation suitable for a user.`,
           };
         }
 
-        // Execute atomic action
+        // Execute atomic action — action.action is a string descriptor parsed by the executor
         const executionResult = await atomicActionExecutor.executeAction(
-          action.action,
+          action.action as unknown as Parameters<typeof atomicActionExecutor.executeAction>[0],
           currentSchema,
-          context.workspaceId
+          context.workspaceId ?? ""
         );
 
         // If successful, update cached schema
         if (executionResult.success) {
-          // Cache the updated schema
-          // Note: In production, this would trigger a proper schema update
           logger.info("Atomic action executed successfully", {
             executionId: executionResult.executionId,
             affectedComponents: executionResult.actionResult.affected_components.length,
@@ -855,7 +890,6 @@ Please provide a clear, concise explanation suitable for a user.`,
             executionId: executionResult.executionId,
             ...executionResult.actionResult,
           },
-          atomicActions: executionResult.success ? [action.action] : undefined,
         };
       } catch (error) {
         return {
@@ -866,9 +900,12 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // requestOverride handler
-    this.registerHandler("requestOverride", async (action: unknown, context) => {
+    this.registerHandler("requestOverride", async (action: CanonicalAction, context: ActionContext) => {
       try {
-        const { actionId, violations, justification } = action as any;
+        const record = action as unknown as Record<string, unknown>;
+        const actionId = record.actionId as string;
+        const violations = record.violations as Parameters<typeof manifestoEnforcer.requestOverride>[2];
+        const justification = record.justification as string;
 
         const requestId = await manifestoEnforcer.requestOverride(
           actionId,
@@ -890,9 +927,11 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // approveOverride handler
-    this.registerHandler("approveOverride", async (action: unknown, context) => {
+    this.registerHandler("approveOverride", async (action: CanonicalAction, context: ActionContext) => {
       try {
-        const { requestId, reason } = action as any;
+        const record = action as unknown as Record<string, unknown>;
+        const requestId = record.requestId as string;
+        const reason = record.reason as string;
 
         await manifestoEnforcer.decideOverride(requestId, true, context.userId, reason);
 
@@ -909,9 +948,11 @@ Please provide a clear, concise explanation suitable for a user.`,
     });
 
     // rejectOverride handler
-    this.registerHandler("rejectOverride", async (action: unknown, context) => {
+    this.registerHandler("rejectOverride", async (action: CanonicalAction, context: ActionContext) => {
       try {
-        const { requestId, reason } = action as any;
+        const record = action as unknown as Record<string, unknown>;
+        const requestId = record.requestId as string;
+        const reason = record.reason as string;
 
         await manifestoEnforcer.decideOverride(requestId, false, context.userId, reason);
 
@@ -982,22 +1023,22 @@ Please provide a clear, concise explanation suitable for a user.`,
       return null;
     }
 
+    const record = props as Record<string, unknown>;
+
     // Check if current object is a component (heuristic)
-    // It's a component if it has 'component' field and we are traversing objects that could be components
-    if (props.component && typeof props.component === "string") {
-      if (props.props?.id === componentId) {
+    if (record.component && typeof record.component === "string") {
+      const innerProps = record.props as Record<string, unknown> | undefined;
+      if (innerProps?.id === componentId) {
         return { component: props, path: currentPath };
       }
-      // Also check if the object itself has an id
-      if (props.id === componentId) {
+      if (record.id === componentId) {
         return { component: props, path: currentPath };
       }
     }
 
     // Recurse into keys
-    for (const key of Object.keys(props)) {
-      // If the value is an object or array, recurse
-      const value = props[key];
+    for (const key of Object.keys(record)) {
+      const value = record[key];
       if (typeof value === "object" && value !== null) {
         const result = this.findComponentInProps(value, componentId, `${currentPath}.${key}`);
         if (result) return result;

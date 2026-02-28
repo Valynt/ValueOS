@@ -15,13 +15,13 @@ import { llmConfig } from '../config/llm.js'
 import { getUIGenerationTracker } from './UIGenerationTracker.js'
 import { validateComponentSelection } from '@sdui/ComponentToolRegistry';
 import { ComponentMutationService } from './ComponentMutationService.js'
-import { AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
+import { CircuitBreaker as AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
 import {
   AtomicUIAction,
   validateAtomicAction,
 } from '@sdui/AtomicUIActions';
-import type { SDUIPageDefinition } from '@sdui/types';
+import type { SDUIPageDefinition } from '@sdui/schema';
 import type { Subgoal } from '../types/Subgoal';
 
 export interface UIEvaluationResult {
@@ -63,7 +63,7 @@ export class UIRefinementLoop {
   };
 
   constructor() {
-    this.llmGateway = new LLMGateway(llmConfig.provider, llmConfig.gatingEnabled);
+    this.llmGateway = new LLMGateway(llmConfig.provider);
     this.tracker = getUIGenerationTracker();
     this.mutationService = new ComponentMutationService();
     this.config = {
@@ -151,12 +151,10 @@ export class UIRefinementLoop {
   async evaluateLayout(
     layout: SDUIPageDefinition,
     subgoal: Subgoal,
-    circuitBreaker?: AgentCircuitBreaker
+    _circuitBreaker?: AgentCircuitBreaker,
+    _taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<UIEvaluationResult> {
-    const messages = [
-      {
-        role: 'system' as const,
-        content: `You are a UI/UX expert evaluating interface designs. Evaluate the UI layout and provide:
+    const prompt = `You are a UI/UX expert evaluating interface designs. Evaluate the UI layout and provide:
 1. Overall score (0-100)
 2. Strengths (what works well)
 3. Weaknesses (what needs improvement)
@@ -172,29 +170,19 @@ Output valid JSON matching this structure:
   "suggestions": string[],
   "component_issues": [{"component": string, "issue": string, "severity": "low"|"medium"|"high"}],
   "layout_issues": [{"issue": string, "severity": "low"|"medium"|"high"}]
-}`,
-      },
-      {
-        role: 'user' as const,
-        content: `Evaluate this UI layout:
+}
+
+Evaluate this UI layout:
 
 Task: ${subgoal.description}
-Task Type: ${subgoal.subgoal_type}
+Task Type: ${subgoal.status}
 
 Layout:
 ${JSON.stringify(layout, null, 2)}
 
-Data to Display:
-${JSON.stringify(subgoal.output, null, 2)}
+Evaluate the layout's effectiveness for this task.`;
 
-Evaluate the layout's effectiveness for this task.`,
-      },
-    ];
-
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
-    const response = await secureLLMComplete(this.llmGateway, messages, {
-      temperature: 0.3,
-      organizationId: subgoal.organizationId,
+    const response = await secureLLMComplete(prompt, {
       serviceName: 'UIRefinementLoop',
       operation: 'evaluateUI',
     });
@@ -202,7 +190,7 @@ Evaluate the layout's effectiveness for this task.`,
     // Parse response
     let evaluation: UIEvaluationResult;
     try {
-      let jsonContent = response.content.trim();
+      let jsonContent = response.trim();
       if (jsonContent.startsWith('```')) {
         jsonContent = jsonContent.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
       }
@@ -229,7 +217,8 @@ Evaluate the layout's effectiveness for this task.`,
     currentLayout: SDUIPageDefinition,
     evaluation: UIEvaluationResult,
     subgoal: Subgoal,
-    circuitBreaker?: AgentCircuitBreaker
+    circuitBreaker?: AgentCircuitBreaker,
+    _taskContext?: import('../lib/agent-fabric/TaskContext').TaskContext
   ): Promise<SDUIPageDefinition> {
     // Check if we should use partial mutations
     if (this.config.usePartialMutations && this.shouldUsePartialMutation(evaluation)) {
@@ -318,20 +307,16 @@ Generate minimal atomic actions to fix these specific issues.`,
       },
     ];
 
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
-    const response = await secureLLMComplete(this.llmGateway, messages, {
-      temperature: 0.3,
-      organizationId: taskContext?.organizationId,
-      userId: taskContext?.userId,
+    const prompt = messages.map((m) => `${m.role}: ${m.content}`).join('\n\n');
+    const response = await secureLLMComplete(prompt, {
       serviceName: 'UIRefinementLoop',
       operation: 'generateMutations',
-      taskContext,
     });
 
     // Parse actions
     let actions: AtomicUIAction[];
     try {
-      let jsonContent = response.content.trim();
+      let jsonContent = response.trim();
       if (jsonContent.startsWith('```')) {
         jsonContent = jsonContent.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
       }
@@ -420,20 +405,16 @@ Generate an improved layout that addresses these issues.`,
       },
     ];
 
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
-    const response = await secureLLMComplete(this.llmGateway, messages, {
-      temperature: 0.4,
-      organizationId: taskContext?.organizationId,
-      userId: taskContext?.userId,
+    const prompt = messages.map((m) => `${m.role}: ${m.content}`).join('\n\n');
+    const response = await secureLLMComplete(prompt, {
       serviceName: 'UIRefinementLoop',
       operation: 'refineLayout',
-      taskContext,
     });
 
     // Parse response
     let refinedLayout: SDUIPageDefinition;
     try {
-      let jsonContent = response.content.trim();
+      let jsonContent = response.trim();
       if (jsonContent.startsWith('```')) {
         jsonContent = jsonContent.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
       }
@@ -447,7 +428,7 @@ Generate an improved layout that addresses these issues.`,
     // Validate refined layout
     const validation = this.validateLayout(refinedLayout);
     if (!validation.valid) {
-      logger.warn('Refined layout validation failed:', validation.errors);
+      logger.warn('Refined layout validation failed', { errors: validation.errors });
       return currentLayout;
     }
 
@@ -503,20 +484,16 @@ Generate atomic actions to fulfill this request.`,
       },
     ];
 
-    // SECURITY FIX: Use secureLLMComplete instead of direct llmGateway.complete()
-    const response = await secureLLMComplete(this.llmGateway, messages, {
-      temperature: 0.2,
-      organizationId: taskContext?.organizationId,
-      userId: taskContext?.userId,
+    const prompt = messages.map((m) => `${m.role}: ${m.content}`).join('\n\n');
+    const response = await secureLLMComplete(prompt, {
       serviceName: 'UIRefinementLoop',
       operation: 'generateUserRequestedMutations',
-      taskContext,
     });
 
     // Parse actions
     let actions: AtomicUIAction[];
     try {
-      let jsonContent = response.content.trim();
+      let jsonContent = response.trim();
       if (jsonContent.startsWith('```')) {
         jsonContent = jsonContent.replace(/```json?\n?/g, '').replace(/```\n?$/g, '');
       }
