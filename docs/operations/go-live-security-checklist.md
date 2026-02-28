@@ -177,3 +177,17 @@
 ---
 
 *This checklist supplements the existing [Launch Readiness](./launch-readiness.md) runbook. All critical items must be resolved and verified before production traffic is enabled.*
+
+
+## Mesh identity and principal hardening (agent workloads)
+
+- [ ] Verify no agent deployment uses a shared ServiceAccount (`valynt-agent`).
+- [ ] Verify each agent deployment uses `serviceAccountName: <agent-name>-agent`.
+- [ ] Run the CI-equivalent gate locally and archive output in go-live evidence:
+  ```bash
+  node scripts/ci/check-agent-service-accounts.mjs
+  ```
+- [ ] Verify Istio principals in `infra/k8s/security/mesh-authentication.yaml` follow:
+  - `cluster.local/ns/valynt-agents/sa/<agent-name>-agent`
+  - `cluster.local/ns/valynt/sa/valynt-backend`
+- [ ] If trust domain is customized, explicitly document the non-default domain in release notes and update all AuthorizationPolicy principal values before deploy.

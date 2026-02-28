@@ -1,0 +1,114 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: observability-sli-rules
+  labels:
+    app.kubernetes.io/component: observability
+spec:
+  groups:
+    - name: onboarding.provision_tenant
+      interval: 30s
+      rules:
+        - record: onboarding:provision_tenant:total_rate5m
+          expr: |
+            sum(rate(provision_tenant_calls_total[5m]))
+
+        - record: onboarding:provision_tenant:success_rate5m
+          expr: |
+            sum(rate(provision_tenant_calls_total{status="success"}[5m]))
+            /
+            clamp_min(onboarding:provision_tenant:total_rate5m, 0.000001)
+
+        - record: onboarding:provision_tenant:error_rate5m
+          expr: |
+            sum(rate(provision_tenant_calls_total{status="error"}[5m]))
+            /
+            clamp_min(onboarding:provision_tenant:total_rate5m, 0.000001)
+
+    - name: mesh.latency
+      interval: 30s
+      rules:
+        - record: app:request_latency_seconds:p95
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(valuecanvas_http_request_duration_ms_bucket[5m])) by (le)
+            ) / 1000
+
+        - record: app:request_latency_seconds_no_proxy:p95
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(valuecanvas_http_request_duration_ms_bucket{proxy="disabled"}[5m])) by (le)
+            ) / 1000
+
+        - record: mesh:request_latency_seconds:p95
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(istio_request_duration_milliseconds_bucket{reporter="destination"}[5m])) by (le)
+            ) / 1000
+
+        - record: mesh:latency_overhead_ms:p95
+          expr: |
+            clamp_min(
+              (mesh:request_latency_seconds:p95 - app:request_latency_seconds:p95) * 1000,
+              0
+            )
+
+    - name: billing.stripe_ack
+      interval: 30s
+      rules:
+        - record: billing:stripe_invoice_created_ack_latency_seconds:p95
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(billing_stripe_webhook_ack_latency_seconds_bucket{event_type="invoice.created"}[5m])) by (le)
+            )
+
+    - name: observability.alerts
+      interval: 30s
+      rules:
+        - alert: ProvisionTenantSuccessRateLow
+          expr: |
+            onboarding:provision_tenant:success_rate5m < 0.99
+          for: 15m
+          labels:
+            severity: warning
+            component: onboarding
+          annotations:
+            summary: "Provision tenant success rate dropped below 99%"
+            description: "Current 5m success rate is {{ $value | humanizePercentage }}"
+
+        - alert: ProvisionTenantErrorRateHigh
+          expr: |
+            onboarding:provision_tenant:error_rate5m > 0.05
+          for: 10m
+          labels:
+            severity: critical
+            component: onboarding
+          annotations:
+            summary: "Provision tenant error rate above 5%"
+            description: "Current 5m error rate is {{ $value | humanizePercentage }}"
+
+        - alert: MeshAddedLatencyP95TooHigh
+          expr: |
+            mesh:latency_overhead_ms:p95 > 10
+          for: 10m
+          labels:
+            severity: warning
+            component: mesh
+          annotations:
+            summary: "Service mesh latency overhead exceeds 10ms at p95"
+            description: "Current added p95 latency is {{ $value }}ms"
+
+        - alert: StripeInvoiceCreatedAckLatencyP95High
+          expr: |
+            billing:stripe_invoice_created_ack_latency_seconds:p95 > 2
+          for: 10m
+          labels:
+            severity: critical
+            component: billing
+          annotations:
+            summary: "Stripe invoice.created ACK latency p95 exceeds 2s"
+            description: "Current invoice.created ACK latency p95 is {{ $value }}s"

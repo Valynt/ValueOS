@@ -1,10 +1,60 @@
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
 metadata:
+  name: company-intelligence-agent
+  namespace: valynt-agents
+  labels:
+    app: company-intelligence-agent
+    autoscaling.valueos.dev/profile: queue-depth
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: company-intelligence-agent
+
+  # Scale-to-zero
+  minReplicaCount: 0
+  maxReplicaCount: 8
+
+  # Similar intent to prior HPA stabilization
+  pollingInterval: 15
+  cooldownPeriod: 300
+  idleReplicaCount: 0
+
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 25
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 200
+              periodSeconds: 30
+            - type: Pods
+              value: 10
+              periodSeconds: 30
+          selectPolicy: Max
+
+  triggers:
+    - type: prometheus
+      metadata:
+        # Replace if your Prometheus service name/namespace differs.
+        serverAddress: http://prometheus-k8s.monitoring.svc.cluster.local:9090
+        query: |
+          sum(agent_queue_depth{queue="agent-tasks",agent_type="company-intelligence"})
+        threshold: "10"
   name: financial-modeling-agent
   namespace: valynt-agents
   labels:
     app: financial-modeling-agent
+    autoscaling.valueos.dev/profile: queue-depth
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -16,39 +66,92 @@ spec:
     - type: External
       external:
         metric:
-          name: agent_processing_time
+          name: agent_queue_depth
           selector:
             matchLabels:
-              agent_type: "financial-modeling"
+              queue: agent-tasks
+              agent_type: financial-modeling
         target:
           type: AverageValue
-          averageValue: "30s"
+          averageValue: "8"
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 70
+          averageUtilization: 65
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 75
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
         - type: Percent
           value: 25
-          periodSeconds: 120
+          periodSeconds: 60
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 0
       policies:
         - type: Percent
-          value: 100
+          value: 200
           periodSeconds: 30
         - type: Pods
-          value: 6
+          value: 10
           periodSeconds: 30
       selectPolicy: Max
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: value-mapping-agent
+  namespace: valynt-agents
+  labels:
+    app: value-mapping-agent
+    autoscaling.valueos.dev/profile: queue-depth
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: value-mapping-agent
+
+  # Scale-to-zero
+  minReplicaCount: 0
+  maxReplicaCount: 8
+
+  # Similar intent to prior HPA stabilization
+  pollingInterval: 15
+  cooldownPeriod: 300
+  idleReplicaCount: 0
+
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 25
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 200
+              periodSeconds: 30
+            - type: Pods
+              value: 10
+              periodSeconds: 30
+          selectPolicy: Max
+
+  triggers:
+    - type: prometheus
+      metadata:
+        # Replace if your Prometheus service name/namespace differs.
+        serverAddress: http://prometheus-k8s.monitoring.svc.cluster.local:9090
+        query: |
+          sum(agent_queue_depth{queue="agent-tasks",agent_type="value-mapping"})
+        threshold: "10"

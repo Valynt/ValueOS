@@ -8,7 +8,7 @@
  * - Billing integration
  */
 
-import { PlanTier } from '../config/billing.js'
+import { PlanTier, PLANS } from '../config/billing.js'
 import { getConfig } from '../config/environment.js'
 import { logger } from '../lib/logger.js'
 import { createServerSupabaseClient } from '../lib/supabase.js'
@@ -39,6 +39,7 @@ export interface TenantConfig {
   tier: TenantTier;
   ownerId: string;
   ownerEmail: string;
+  provisioningRequestKey?: string;
   settings?: Record<string, any>;
   features?: string[];
   limits?: TenantLimits;
@@ -550,7 +551,9 @@ export async function createTeamsAndRoles(config: TenantConfig): Promise<void> {
 /**
  * Initialize billing
  */
-async function initializeBilling(config: TenantConfig): Promise<void> {
+export async function initializeBilling(config: TenantConfig): Promise<void> {
+  const supabase = createServerSupabaseClient();
+
   logger.info('Initializing billing integration', {
     organizationId: config.organizationId,
     tier: config.tier
@@ -584,11 +587,46 @@ async function initializeBilling(config: TenantConfig): Promise<void> {
 
     // 4. Create subscription
     // Use mapped plan tier
-    await SubscriptionService.createSubscription(
+    const subscription = await SubscriptionService.createSubscription(
       config.organizationId,
       planTier
       // Note: trial days could be passed here if needed based on policy
     );
+
+    const subscriptionRecord = subscription as unknown as {
+      stripe_customer_id: string;
+      stripe_subscription_id: string;
+      status: string;
+    };
+    const requestKey = config.provisioningRequestKey || `tenant-provision-${config.organizationId}-${Date.now()}`;
+    const { data: provisioningData, error: provisioningError } = await supabase.rpc(
+      'tenant_provisioning_workflow',
+      {
+        p_tenant_id: config.organizationId,
+        p_organization_name: config.name,
+        p_owner_user_id: config.ownerId,
+        p_selected_tier: planTier,
+        p_stripe_customer_id: subscriptionRecord.stripe_customer_id,
+        p_stripe_subscription_id: subscriptionRecord.stripe_subscription_id,
+        p_subscription_status: subscriptionRecord.status,
+        p_subscription_billing_period: PLANS[planTier].billingPeriod,
+        p_subscription_amount: PLANS[planTier].price,
+        p_subscription_currency: 'usd',
+        p_request_key: requestKey,
+      }
+    );
+
+    if (provisioningError) {
+      throw new Error(`Failed tenant provisioning billing workflow: ${provisioningError.message}`);
+    }
+
+    logger.info('Tenant provisioning workflow pinned billing price version', {
+      organizationId: config.organizationId,
+      subscriptionId: provisioningData?.subscription_id,
+      priceVersionId: provisioningData?.price_version_id,
+      entitlementSnapshotId: provisioningData?.entitlement_snapshot_id,
+      requestKey,
+    });
 
     logger.debug(`Billing initialized successfully for ${config.organizationId}`);
   } catch (error) {
@@ -603,7 +641,7 @@ async function initializeBilling(config: TenantConfig): Promise<void> {
 /**
  * Map tenant tier to billing plan tier
  */
-function mapTenantToPlan(tier: TenantTier): PlanTier {
+export function mapTenantToPlan(tier: TenantTier): PlanTier {
   switch (tier) {
     case 'free':
       return 'free';

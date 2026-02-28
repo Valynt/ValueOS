@@ -75,6 +75,7 @@ status: deprecated
    - API: `npm run test:smoke -- --env production`
    - UI: hit `https://app.valuecanvas.com/health` and confirm `200` + build hash.
    - Run policy checks: `npm run lint:policies` if applicable.
+   - **Blocking launch chaos/smoke suite**: `node scripts/chaos/launch-chaos-smoke.mjs` (must pass all three mandatory checks and publish `launch-chaos-results.json`).
 5. **Post-deploy validation**
    - Check Grafana dashboard `00-Prod Overview` for error rates, latency, and queue depth.
    - Review Supabase logs for RLS errors using `docs/operations/troubleshooting/rls-failures.md` queries.

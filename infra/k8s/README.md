@@ -53,6 +53,47 @@ infra/infra/k8s/
         └── deployment-patch.yaml
 ```
 
+
+## Agent Workload Identity (Istio + Kubernetes)
+
+### ServiceAccount naming convention
+
+Every agent deployment under `infra/k8s/base/agents/*/deployment.yaml` must use a dedicated ServiceAccount named:
+
+- `<agent-name>-agent`
+
+Examples:
+- `opportunity-agent`
+- `financial-modeling-agent`
+- `value-eval-agent`
+
+The shared `valynt-agent` ServiceAccount is prohibited for agent workloads.
+
+### SPIFFE principal convention
+
+Agent authorization policies in `infra/k8s/security/mesh-authentication.yaml` assume Istio's default trust domain (`cluster.local`) and namespace-local identities:
+
+- `cluster.local/ns/valynt-agents/sa/<agent-name>-agent`
+
+Caller identities from the backend namespace use:
+
+- `cluster.local/ns/valynt/sa/valynt-backend`
+
+If your mesh trust domain is customized, update all principal strings consistently in policy manifests and runbooks before rollout.
+
+### Validation gates
+
+CI enforces ServiceAccount isolation with:
+
+```bash
+node scripts/ci/check-agent-service-accounts.mjs
+```
+
+This check fails when any agent deployment:
+- uses `serviceAccountName: valynt-agent`,
+- reuses a ServiceAccount already assigned to another agent deployment, or
+- references a ServiceAccount not declared in `infra/k8s/base/agents/serviceaccounts.yaml`.
+
 ## Prerequisites
 
 1. **EKS Cluster** running (created by Terraform)
