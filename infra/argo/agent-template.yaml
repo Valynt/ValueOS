@@ -1,0 +1,67 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: valynt-agents
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - agent: benchmark
+            path: infra/k8s/base/agents/benchmark
+          - agent: communicator
+            path: infra/k8s/base/agents/communicator
+          - agent: company-intelligence
+            path: infra/k8s/base/agents/company-intelligence
+          - agent: coordinator
+            path: infra/k8s/base/agents/coordinator
+          - agent: expansion
+            path: infra/k8s/base/agents/expansion
+          - agent: financial-modeling
+            path: infra/k8s/base/agents/financial-modeling
+          - agent: groundtruth
+            path: infra/k8s/base/agents/groundtruth
+          - agent: integrity
+            path: infra/k8s/base/agents/integrity
+          - agent: intervention-designer
+            path: infra/k8s/base/agents/intervention-designer
+          - agent: narrative
+            path: infra/k8s/base/agents/narrative
+          - agent: opportunity
+            path: infra/k8s/base/agents/opportunity
+          - agent: outcome-engineer
+            path: infra/k8s/base/agents/outcome-engineer
+          - agent: realization
+            path: infra/k8s/base/agents/realization
+          - agent: research
+            path: infra/k8s/base/agents/research
+          - agent: system-mapper
+            path: infra/k8s/base/agents/system-mapper
+          - agent: target
+            path: infra/k8s/base/agents/target
+          - agent: value-eval
+            path: infra/k8s/base/agents/value-eval
+          - agent: value-mapping
+            path: infra/k8s/base/agents/value-mapping
+  template:
+    metadata:
+      name: '{{agent}}-agent'
+      labels:
+        app.kubernetes.io/part-of: valynt
+        app.kubernetes.io/component: agent
+        valueos.io/agent: '{{agent}}'
+    spec:
+      project: valynt
+      source:
+        repoURL: https://github.com/ValueOS/ValueOS.git
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: valynt-agents
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
