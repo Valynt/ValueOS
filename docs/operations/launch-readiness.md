@@ -86,4 +86,51 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
 
+## Billing Sign-off: Early-Adopter `price_version_id` Audit
+
+Run this check before launch approval to confirm every early-adopter tenant is pinned to a valid billing price version.
+
+### Deterministic cohort definition
+
+The cohort is defined in SQL and must remain deterministic for launch sign-off:
+
+- `acme-corp`
+- `techstart-inc`
+- `demo-org`
+
+Source of truth: `infra/supabase/audits/early_adopter_subscription_price_version_audit.sql`.
+
+### Execution steps
+
+1. Export a privileged database connection string:
+
+   ```bash
+   export DATABASE_URL="postgresql://<user>:<password>@<host>:5432/postgres"
+   ```
+
+2. Execute the audit wrapper:
+
+   ```bash
+   scripts/billing/audit-early-adopter-price-versions.sh
+   ```
+
+### Expected output for sign-off
+
+- The query prints one row per target tenant with `audit_status = ok`.
+- The script ends with:
+
+  ```text
+  PASS: early-adopter subscription price version audit completed.
+  [audit-early-adopter-price-versions] Audit completed successfully.
+  ```
+
+### Failure conditions (No-Go)
+
+The script exits non-zero and blocks sign-off if any target tenant is:
+
+- missing from `organizations` (`missing_tenant`)
+- missing all `subscriptions` (`missing_subscription`)
+- using `subscriptions.price_version_id IS NULL` (`null_price_version_id`)
+- using a `price_version_id` that does not resolve in `billing_price_versions` (`invalid_price_version_id`)
+
 ---
