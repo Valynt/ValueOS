@@ -9,7 +9,15 @@
 import { z } from "zod";
 
 import type { AgentType } from "../../../services/agent-types.js";
-import type { AgentConfig, AgentOutput, AgentOutputStatus, LifecycleContext, LifecycleStage } from "../../../types/agent.js";
+import type {
+  AgentConfig,
+  AgentOutput,
+  AgentOutputMetadata,
+  AgentOutputStatus,
+  ConfidenceLevel,
+  LifecycleContext,
+  LifecycleStage,
+} from "../../../types/agent.js";
 import { logger } from "../../logger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
