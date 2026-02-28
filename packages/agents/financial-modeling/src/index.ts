@@ -1,9 +1,12 @@
 /**
- * Financial Modeling Agent
+ * Financial Modeling Agent (Standalone Microservice)
  *
- * Builds Value Trees from confirmed hypotheses using the LLMGateway.
- * Replaces mock data with structured LLM calls, Zod-validated output,
- * and idempotency key support.
+ * @deprecated This standalone Express-based agent is superseded by the
+ * agent-fabric implementation at
+ * packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts
+ * which uses secureInvoke, memory integration, domain pack context,
+ * and MCP Ground Truth grounding. This service will be removed in a
+ * future release.
  */
 
 import express from "express";

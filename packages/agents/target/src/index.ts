@@ -1,6 +1,11 @@
 /**
- * Target Agent
- * Identifies and analyzes strategic targets and goals
+ * Target Agent (Standalone Microservice)
+ *
+ * @deprecated This standalone Express-based agent is superseded by the
+ * agent-fabric implementation at
+ * packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts
+ * which uses secureInvoke, memory integration, and Zod validation.
+ * This service will be removed in a future release.
  */
 
 import express from "express";

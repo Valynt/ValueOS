@@ -1,6 +1,11 @@
 /**
- * Realization Agent
- * Analyzes how to realize and execute strategic plans and opportunities
+ * Realization Agent (Standalone Microservice)
+ *
+ * @deprecated This standalone Express-based agent uses mock data and is
+ * superseded by the agent-fabric implementation at
+ * packages/backend/src/lib/agent-fabric/agents/RealizationAgent.ts
+ * which uses secureInvoke, memory integration, and Zod validation.
+ * This service will be removed in a future release.
  */
 
 import express from "express";
