@@ -32,6 +32,31 @@ spec:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE"]
             paths: ["/health", "/metrics", "/api/*"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["valueos-issuer"]
+        - key: request.auth.claims[sub]
+          values: ["*"]
+        - key: request.auth.claims[aud]
+          values: ["valueos-agent-api", "valueos-internal"]
+        - key: request.auth.claims[tenant_id]
+          values: ["*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/valynt-agents/sa/valynt-agent"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/health", "/metrics", "/api/*"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["valueos-issuer"]
+        - key: request.auth.claims[sub]
+          values: ["*"]
+        - key: request.auth.claims[aud]
+          values: ["valueos-agent-api", "valueos-internal"]
+        - key: request.auth.claims[organization_id]
+          values: ["*"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -51,6 +76,52 @@ spec:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE"]
             paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["valueos-issuer"]
+        - key: request.auth.claims[sub]
+          values: ["*"]
+        - key: request.auth.claims[aud]
+          values: ["valueos-agent-api", "valueos-internal"]
+        - key: request.auth.claims[tenant_id]
+          values: ["*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/backend"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["valueos-issuer"]
+        - key: request.auth.claims[sub]
+          values: ["*"]
+        - key: request.auth.claims[aud]
+          values: ["valueos-agent-api", "valueos-internal"]
+        - key: request.auth.claims[organization_id]
+          values: ["*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-agent-api-missing-tenant-claims
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      component: agent
+  action: DENY
+  rules:
+    - to:
+        - operation:
+            methods: ["POST", "PUT", "PATCH", "DELETE"]
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[tenant_id]
+          notValues: ["*"]
+        - key: request.auth.claims[organization_id]
+          notValues: ["*"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy

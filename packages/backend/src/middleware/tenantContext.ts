@@ -40,7 +40,26 @@ type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-loo
 
 type TenantContextUser = {
   role?: string | string[];
+  tenant_id?: string;
+  organization_id?: string;
   app_metadata?: { roles?: unknown; tier?: string };
+};
+
+const isAgentEndpoint = (req: Request): boolean => {
+  const endpoint = req.originalUrl || req.path || "";
+  return endpoint.startsWith("/api/agents") || endpoint.startsWith("/api/groundtruth");
+};
+
+const resolveJwtTenantClaim = (req: Request): string | null => {
+  const user = ((req as any).user ?? null) as TenantContextUser | null;
+  if (typeof user?.tenant_id === "string" && user.tenant_id.length > 0) {
+    return user.tenant_id;
+  }
+  if (typeof user?.organization_id === "string" && user.organization_id.length > 0) {
+    return user.organization_id;
+  }
+  const reqTenantId = (req as any).tenantId;
+  return typeof reqTenantId === "string" && reqTenantId.length > 0 ? reqTenantId : null;
 };
 
 const resolveRoles = (user: TenantContextUser | undefined): string[] => {
@@ -180,6 +199,21 @@ export const tenantContextMiddleware = (enforce = true) => {
         });
       }
       return next();
+    }
+
+    const jwtTenantId = resolveJwtTenantClaim(req);
+    if (isAgentEndpoint(req) && jwtTenantId && jwtTenantId !== resolvedTenantId) {
+      logger.warn("Agent tenant context diverges from JWT tenant claim", {
+        userId,
+        jwtTenantId,
+        resolvedTenantId,
+        source: tenantSource,
+        path: req.originalUrl || req.path,
+      });
+      return res.status(403).json({
+        error: "tenant_mismatch",
+        message: "Requested tenant does not match authenticated tenant.",
+      });
     }
 
     const tenantExists = await verifyTenantExists(resolvedTenantId);

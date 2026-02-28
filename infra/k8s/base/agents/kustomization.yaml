@@ -4,6 +4,8 @@ metadata:
   name: valynt-agents
   namespace: valynt-agents
 resources:
+# Sidecar injection strategy: explicit per-pod annotations in each agent deployment
+# (`sidecar.istio.io/inject: "true"`) to avoid accidental namespace-level drift.
 - namespace.yaml
 - configmap.yaml
 - sidecar-proxy-resources.yaml
