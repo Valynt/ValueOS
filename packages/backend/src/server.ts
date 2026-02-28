@@ -117,6 +117,7 @@ import { csrfProtectionMiddleware, csrfTokenMiddleware } from "./middleware/secu
 import { extractTenantId, requireAuth, verifyAccessToken } from "./middleware/auth.js";
 import { tenantContextMiddleware } from "./middleware/tenantContext.js";
 import { tenantDbContextMiddleware } from "./middleware/tenantDbContext.js";
+import { createBillingAccessEnforcement } from "./middleware/billingAccessEnforcement.js";
 import { initSecrets, settings } from "./config/settings.js";
 import { securityAuditService } from "./services/SecurityAuditService.js";
 import { isConsentRegistryConfigured } from "./services/consentRegistry.js";
@@ -140,6 +141,8 @@ const agentExecutionLimiter = createRateLimiter("strict", {
   message: "Too many agent calls. Please wait before trying again.",
   skip: (req) => req.method === "GET",
 });
+
+const billingAccessEnforcement = createBillingAccessEnforcement();
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId: string;
@@ -389,6 +392,7 @@ app.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
+  billingAccessEnforcement,
   agentExecutionLimiter,
   agentsRouter
 );
@@ -398,6 +402,7 @@ app.use(
   requireAuth,
   tenantContextMiddleware(),
   tenantDbContextMiddleware(),
+  billingAccessEnforcement,
   agentExecutionLimiter,
   groundtruthRouter
 );
