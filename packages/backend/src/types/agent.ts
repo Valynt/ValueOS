@@ -87,7 +87,6 @@ export interface LifecycleContext {
   workspace_data: WorkspaceData;
   user_inputs: Record<string, unknown>;
   metadata?: Record<string, unknown>;
-  supabaseClient?: unknown;
 }
 
 export interface WorkspaceData {

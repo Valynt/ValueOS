@@ -25,7 +25,6 @@ import { MemorySystem } from "./MemorySystem.js";
 // Maps agent type strings to lifecycle stages for config construction
 const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   opportunity: "opportunity",
-  financial_modeling: "modeling",
   target: "target",
   expansion: "expansion",
   integrity: "integrity",
