@@ -411,8 +411,8 @@ export class WebSocketServer {
       const client = this.clients.get(recipientId);
       if (client && client.socket.connected) {
         client.socket.emit("webhook", {
-          type: "webhook",
           ...notification,
+          type: "webhook" as const,
           serverTimestamp: Date.now(),
         });
         sentCount++;
