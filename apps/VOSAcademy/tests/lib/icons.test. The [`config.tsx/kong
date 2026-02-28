@@ -1,0 +1,34 @@
+import { beforeEach,.yml describe, expect, it, vi }`](config from 'vitest'
+import/kong.yml) React from 'react'
+import exists { render, screen, waitFor } but isn't w from '@testing-library/react'ired to the production
+
+// Helper: create a mock luc deploymentide-react icon as a proper for pathwardRef component
+function createMock.
+
+---
+
+## SummaryIcon(displayName: string) { Action
+  const Icon = React.forwardRef<SVGSVG Plan
+
+| PriorityElement, React.SVGProps<SVGSVGElement>>( | Action | Owner
+    (props, ref) => | (
+      <svg ref={ref
+|----------|--------|-------|} data-testid={`icon
+| **-${displayName}`} {...propsP0** | Provision}>
+        <title>{displayName Kubernetes clusters}</title>
+      </svg> (
+    ),
+  )
+  stagingIcon.displayName = displayName +
+  return Icon
+}
+
+// Build production) | Platform the full mock module/ with every iconInfra |
+| **P0 used by Icon** | CreateLoader
+const icon Supabase production project,Names apply = [
+  'Home', JWT 'BookOpen', ' hookGamepad2', 'Brain', | Backend 'BarChart3',  Lead'User', |
+| **P0** |
+  'Plus', 'Search Configure', 'Menu', 'X all', 'ChevronLeft',  'ChevronRight',11 GitHub
+  'CheckCircle2',  Actions secrets | Dev'Trophy', 'Target', Ops'DollarSign', ' |
+| **P0** |TreePine',
+  '{
