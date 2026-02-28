@@ -254,7 +254,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
         }
 
         // Execute runnable tasks concurrently
-        const batchResults = await this.executeRunnableParallelTasks(runnableTasks, plan.maxConcurrency);
+        const batchResults = await this.executeRunnableTasks(runnableTasks, plan.maxConcurrency);
 
         // Process results
         for (const result of batchResults) {
@@ -732,7 +732,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Execute runnable tasks concurrently
    */
-  private async executeRunnableParallelTasks(
+  private async executeRunnableTasks(
     tasks: ParallelTask[],
     maxConcurrency: number
   ): Promise<TaskResult[]> {

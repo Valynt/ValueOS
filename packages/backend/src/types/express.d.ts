@@ -8,7 +8,6 @@ declare global {
         email?: string;
         roles?: string[];
         tenant_id?: string;
-        subscriptionId?: string;
         [key: string]: unknown;
       };
       tenantId?: string;

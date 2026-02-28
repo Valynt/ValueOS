@@ -1420,7 +1420,7 @@ export class UnifiedAgentOrchestrator {
           'agent.organization_id': envelope.organizationId,
         },
       },
-      async (rootSpan: Span) => {
+      async (rootSpan: any) => {
     const processQueryStart = Date.now();
 
     try {
@@ -1435,7 +1435,7 @@ export class UnifiedAgentOrchestrator {
       // startActiveSpan executes the callback synchronously, so agentType
       // is assigned before the code below runs.
       let agentType: AgentType;
-      tracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
+      tracer.startActiveSpan('agent.selectAgent', (selectSpan: any) => {
         agentType = this.selectAgent(query, currentState);
         selectSpan.setAttributes({
           'agent.selected_type': agentType,

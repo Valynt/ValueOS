@@ -7,7 +7,7 @@ import express, { Request, Response } from 'express';
 import { createLogger } from '@shared/lib/logger';
 import { PlanTier } from '../../config/billing.js';
 
-const router: express.Router = express.Router();
+const router = express.Router();
 const logger = createLogger({ component: 'BillingPlansAPI' });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({

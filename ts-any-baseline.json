@@ -1,6 +1,6 @@
 {
-  "baseline": 1700,
-  "updated_at": "2026-02-28T00:00:00Z",
+  "baseline": 1955,
+  "updated_at": "2026-02-13T22:09:46Z",
   "target": 100,
   "monthly_target_strategy": "3% reduction per package per month (minimum 1)",
   "packages": {
@@ -9,7 +9,7 @@
       "monthly_reduction": 3
     },
     "apps/ValyntApp": {
-      "baseline": 700,
+      "baseline": 839,
       "monthly_reduction": 26
     },
     "apps/mcp-dashboard": {
@@ -21,7 +21,7 @@
       "monthly_reduction": 1
     },
     "packages/backend": {
-      "baseline": 600,
+      "baseline": 712,
       "monthly_reduction": 22
     },
     "packages/components": {
@@ -45,7 +45,7 @@
       "monthly_reduction": 1
     },
     "packages/shared": {
-      "baseline": 32,
+      "baseline": 36,
       "monthly_reduction": 2
     },
     "packages/agents": {

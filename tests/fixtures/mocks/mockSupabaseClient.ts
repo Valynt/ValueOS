@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-export type TableData = Record<string, unknown[]>;
+export type TableData = Record<string, any[]>;
 
 interface RLSConfig {
   policies?: Record<string, string[]>;
@@ -8,10 +8,10 @@ interface RLSConfig {
 }
 
 class MockQueryBuilder {
-  private filters: Array<(row: Record<string, unknown>) => boolean> = [];
+  private filters: Array<(row: any) => boolean> = [];
   private orderBy?: { column: string; ascending: boolean };
   private operation: 'select' | 'insert' | 'update' | 'delete' = 'select';
-  private payload: unknown;
+  private payload: any;
   private error: Error | null = null;
   private rangeFrom?: number;
   private rangeTo?: number;
@@ -29,13 +29,13 @@ class MockQueryBuilder {
     return this;
   }
 
-  insert(payload: unknown): this {
+  insert(payload: any): this {
     this.operation = 'insert';
     this.payload = Array.isArray(payload) ? payload : [payload];
     return this;
   }
 
-  update(payload: unknown): this {
+  update(payload: any): this {
     this.operation = 'update';
     this.payload = payload;
     return this;
@@ -46,17 +46,17 @@ class MockQueryBuilder {
     return this;
   }
 
-  eq(column: string, value: unknown): this {
+  eq(column: string, value: any): this {
     this.filters.push(row => row[column] === value);
     return this;
   }
 
-  in(column: string, values: unknown[]): this {
+  in(column: string, values: any[]): this {
     this.filters.push(row => values.includes(row[column]));
     return this;
   }
 
-  contains(column: string, values: unknown[]): this {
+  contains(column: string, values: any[]): this {
     this.filters.push(row => {
       const current = row[column] || [];
       return values.every(v => current.includes(v));
@@ -93,7 +93,7 @@ class MockQueryBuilder {
     return Promise.resolve({ data: data[0], error: null });
   }
 
-  then(resolve: (value: unknown) => void, reject: (reason: unknown) => void) {
+  then(resolve: any, reject: any) {
     return Promise.resolve(this.executeResponse()).then(resolve, reject);
   }
 

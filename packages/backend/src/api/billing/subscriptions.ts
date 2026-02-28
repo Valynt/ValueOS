@@ -8,7 +8,7 @@ import SubscriptionService from "../../services/billing/SubscriptionService.js";
 import { PlanTier } from "../../config/billing.js";
 import { createLogger } from "@shared/lib/logger";
 
-const router: express.Router = express.Router();
+const router = express.Router();
 const logger = createLogger({ component: "SubscriptionsAPI" });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({

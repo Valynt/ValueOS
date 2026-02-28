@@ -34,10 +34,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  interface LoginLocationState {
-    from?: { pathname?: string };
-  }
-  const from = (location.state as LoginLocationState)?.from?.pathname || "/";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const from = (location.state as any)?.from?.pathname || "/";
 
   const resolveAuthCode = (err: unknown): string | undefined => {
     if (err instanceof AuthenticationError) {
