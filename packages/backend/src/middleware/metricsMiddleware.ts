@@ -1,3 +1,4 @@
+import { Request, Response, NextFunction } from "express";
 import registry, { httpRequestDuration, httpRequestsTotal } from "../lib/metrics/httpMetrics.js";
 
 /**
@@ -5,7 +6,7 @@ import registry, { httpRequestDuration, httpRequestsTotal } from "../lib/metrics
  * Metrics use the valuecanvas_http_* naming convention to match SLO alert rules.
  */
 export function metricsMiddleware() {
-  return (req: any, res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const startMs = performance.now();
     res.on("finish", () => {
       const durationMs = performance.now() - startMs;

@@ -1,5 +1,6 @@
 // Stub CommandPaletteProvider for development
 import { createContext, ReactNode, useContext } from "react";
+import { logger } from "@/lib/logger";
 
 interface CommandPaletteContextType {
   openCommandPalette: () => void;
@@ -9,7 +10,7 @@ const CommandPaletteContext = createContext<CommandPaletteContextType | undefine
 
 export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   const openCommandPalette = () => {
-    console.log("Open command palette");
+    logger.debug("Open command palette");
   };
 
   return (

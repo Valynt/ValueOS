@@ -7,9 +7,11 @@ import { analyticsClient } from "./lib/analyticsClient";
 import { validateFrontendStartupEnv } from "./config/startupEnvValidator";
 import { logger } from "./lib/logger";
 
-// Debug: Log env values before validation
-console.log("[DEBUG] VITE_SUPABASE_URL:", import.meta.env.VITE_SUPABASE_URL);
-console.log("[DEBUG] VITE_SUPABASE_ANON_KEY:", import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + "...");
+// Validate env values before startup
+logger.debug("Startup env check", {
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL ? "set" : "missing",
+  supabaseKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? "set" : "missing",
+});
 
 validateFrontendStartupEnv(import.meta.env as Record<string, string | undefined>);
 

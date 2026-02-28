@@ -299,8 +299,9 @@ export function requireRole(role: Role | Role[]) {
             .select("roles(name)")
             .eq("membership_id", membership.id);
 
-          const customRoleNames = (customRoles || []).map((row: any) => {
-            const roleObj = Array.isArray(row.roles) ? row.roles[0] : row.roles;
+          const customRoleNames = (customRoles || []).map((row: Record<string, unknown>) => {
+            const roles = row.roles as { name?: string } | Array<{ name?: string }> | undefined;
+            const roleObj = Array.isArray(roles) ? roles[0] : roles;
             return roleObj?.name?.split(":", 3)?.[2] || roleObj?.name;
           });
 
@@ -558,7 +559,7 @@ export async function checkPermission(
  * @param resource The resource being accessed (optional)
  * @returns boolean or Promise<boolean> indicating access
  */
-export type Policy<T = any> = (user: any, resource?: T) => boolean | Promise<boolean>;
+export type Policy<T = unknown> = (user: Record<string, unknown>, resource?: T) => boolean | Promise<boolean>;
 
 /**
  * Require policy middleware (ABAC)

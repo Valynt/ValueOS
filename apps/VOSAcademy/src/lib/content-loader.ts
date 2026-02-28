@@ -4,6 +4,7 @@
  */
 
 import { CurriculumModule, getCurriculumForRole } from '../data/curriculum';
+import { logger } from './logger';
 
 export interface ContentLoaderOptions {
   source: 'json' | 'api' | 'file';
@@ -65,7 +66,7 @@ export async function loadContentFromApi(endpoint: string, options: any = {}): P
   try {
     // In a real implementation, this would make an API call
     // For now, return mock data
-    console.log(`Loading content from API: ${endpoint}`, options);
+    logger.debug("Loading content from API", { endpoint, options });
 
     return {
       modules: [],
@@ -139,7 +140,7 @@ export function mergeContent(
 ): any {
   // In a real implementation, this would intelligently merge content
   // For now, just return the new content
-  console.log('Merging content:', { existing: existingCurriculum, new: newContent, options });
+  logger.debug("Merging content", { overwrite: options.overwrite });
 
   return {
     ...existingCurriculum,

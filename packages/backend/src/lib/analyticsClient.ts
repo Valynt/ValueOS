@@ -1,15 +1,18 @@
-/* eslint-disable no-console */
 /**
  * Analytics Client
  * 
  * Client for sending analytics events
  */
 
+import { createLogger } from './logger.js';
+
+const logger = createLogger({ component: 'analytics' });
+
 export interface AnalyticsEvent {
   event_name: string;
   user_id?: string;
   organization_id?: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   timestamp?: string;
 }
 
@@ -23,22 +26,22 @@ export class AnalyticsClient {
   track(event: AnalyticsEvent): void {
     if (!this.enabled) return;
     
-    console.log('Analytics event', {
+    logger.info('Analytics event', {
       ...event,
       timestamp: event.timestamp || new Date().toISOString(),
     });
   }
 
-  identify(userId: string, traits?: Record<string, any>): void {
+  identify(userId: string, traits?: Record<string, unknown>): void {
     if (!this.enabled) return;
     
-    console.log('Analytics identify', { userId, traits });
+    logger.info('Analytics identify', { userId, traits });
   }
 
-  page(name: string, properties?: Record<string, any>): void {
+  page(name: string, properties?: Record<string, unknown>): void {
     if (!this.enabled) return;
     
-    console.log('Analytics page', { name, properties });
+    logger.info('Analytics page', { name, properties });
   }
 }
 

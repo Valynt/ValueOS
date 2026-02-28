@@ -44,6 +44,7 @@ import type {
 // Services
 import { conversationsService } from "@/services/conversations";
 import { artifactsService } from "@/services/artifacts";
+import { logger } from "@/lib/logger";
 
 // Artifact components
 import { ArtifactRenderer } from "@/features/workspace/artifacts/ArtifactRenderer";
@@ -182,10 +183,10 @@ export function CaseWorkspace() {
     persistArtifacts: !!caseId, // Enable artifact persistence when we have a case ID
     persistMessages: !!caseId, // Enable message persistence when we have a case ID
     onArtifactPersisted: (artifact, persistedId) => {
-      console.log(`Artifact "${artifact.title}" persisted with ID: ${persistedId}`);
+      logger.debug("Artifact persisted", { title: artifact.title, persistedId });
     },
     onMessagesPersisted: (count) => {
-      console.log(`Persisted ${count} messages to backend`);
+      logger.debug("Messages persisted", { count });
     },
   });
 
@@ -210,9 +211,10 @@ export function CaseWorkspace() {
         // Load into store
         if (uiMessages.length > 0 || Object.keys(artifactsMap).length > 0) {
           loadSession(uiMessages, artifactsMap);
-          console.log(
-            `Loaded session: ${uiMessages.length} messages, ${Object.keys(artifactsMap).length} artifacts`
-          );
+          logger.debug("Loaded session", {
+            messages: uiMessages.length,
+            artifacts: Object.keys(artifactsMap).length,
+          });
         }
       } catch (error) {
         // Session load failure is not critical - user can start fresh

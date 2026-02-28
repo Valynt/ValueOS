@@ -13,6 +13,7 @@ import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
 import { CurriculumModule, getCurriculumForRole } from "@/data/curriculum";
 import { getModuleStatus } from "@/lib/progress-logic";
 import { downloadFile } from "@/lib/download";
+import { logger } from "@/lib/logger";
 
 type PillarResource = {
   id?: number | string;
@@ -45,17 +46,17 @@ export default function PillarOverview() {
 
   const handleStartModule = (moduleId: string) => {
     // TODO: Implement module start logic
-    console.log('Starting module:', moduleId);
+    logger.debug("Starting module", { moduleId });
   };
 
   const handleCompleteModule = (moduleId: string) => {
     // TODO: Implement module completion logic
-    console.log('Completing module:', moduleId);
+    logger.debug("Completing module", { moduleId });
   };
 
   const handleDownloadResource = async (resource: PillarResource) => {
     if (!resource.fileUrl) {
-      console.log('Download requested for:', resource.title);
+      logger.debug("Download requested", { title: resource.title });
       return;
     }
 

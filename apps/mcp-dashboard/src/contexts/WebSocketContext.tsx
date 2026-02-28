@@ -9,6 +9,7 @@ import React, {
 import { io, Socket } from "socket.io-client";
 
 import { secureTokenStorage } from "../index";
+import { logger } from "../lib/logger";
 
 import { useAuth } from "./AuthContext";
 
@@ -115,13 +116,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     newSocket.on("connect", () => {
       setIsConnected(true);
       setConnectionStatus("connected");
-      console.log("WebSocket connected securely");
+      logger.info("WebSocket connected securely");
     });
 
     newSocket.on("disconnect", (reason) => {
       setIsConnected(false);
       setConnectionStatus("disconnected");
-      console.log("WebSocket disconnected:", reason);
+      logger.info("WebSocket disconnected", { reason: String(reason) });
 
       // If disconnected due to authentication error, clear token
       if (reason.toString().includes("auth") || reason.toString().includes("unauthorized")) {
@@ -158,7 +159,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
     // Welcome message handler
     newSocket.on("welcome", (data) => {
-      console.log("WebSocket welcome:", data);
+      logger.debug("WebSocket welcome", { data });
     });
 
     // Subscription error handler

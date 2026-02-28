@@ -1,4 +1,5 @@
-/* eslint-disable no-console */
+import { logger } from "./logger";
+
 type AnalyticsInitOptions = {
   betaCohort?: boolean;
 };
@@ -34,35 +35,35 @@ function enrichWithTimeToFirstValue(event: string, properties?: Record<string, u
 // Stub analytics client for development
 export const analyticsClient = {
   initialize: (options: AnalyticsInitOptions = {}) => {
-    console.log("Analytics initialize:", options);
+    logger.debug("Analytics initialize", { options });
   },
   identify: (userId: string, traits?: Record<string, unknown>) => {
-    console.log("Analytics identify:", userId, traits);
+    logger.debug("Analytics identify", { userId, traits });
   },
-  track: (event: string, properties?: Record<string, any>) => {
+  track: (event: string, properties?: Record<string, unknown>) => {
     if (event === "user_created") {
       storeUserCreatedAt(Date.now());
     }
     const enriched = enrichWithTimeToFirstValue(event, properties);
-    console.log("Analytics track:", event, enriched);
+    logger.debug("Analytics track", { event, properties: enriched });
   },
   trackEvent: (eventName: string, eventParams?: Record<string, unknown>) => {
-    console.log("Analytics trackEvent:", eventName, eventParams);
+    logger.debug("Analytics trackEvent", { eventName, eventParams });
   },
   trackWorkflowEvent: (eventName: string, workflow: string, properties?: Record<string, unknown>) => {
     const enriched = enrichWithTimeToFirstValue(eventName, {
       ...properties,
       workflow,
     });
-    console.log("Analytics workflow event:", eventName, enriched);
+    logger.debug("Analytics workflow event", { eventName, properties: enriched });
   },
   trackPageView: (pagePath: string, pageTitle: string) => {
-    console.log("Analytics trackPageView:", pagePath, pageTitle);
+    logger.debug("Analytics trackPageView", { pagePath, pageTitle });
   },
-  identifyUser: (userId: string, traits?: Record<string, any>) => {
-    console.log("Analytics identifyUser:", userId, traits);
+  identifyUser: (userId: string, traits?: Record<string, unknown>) => {
+    logger.debug("Analytics identifyUser", { userId, traits });
   },
   resetAnalytics: () => {
-    console.log("Analytics reset");
+    logger.debug("Analytics reset");
   },
 };

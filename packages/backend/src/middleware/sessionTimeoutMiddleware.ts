@@ -88,14 +88,21 @@ function extractToken(req: Request): string | null {
   return null;
 }
 
-function extractTenantId(claims: JwtPayload | null, user?: any): string | undefined {
+interface UserWithMetadata {
+  user_metadata?: { tenant_id?: string };
+  app_metadata?: { tenant_id?: string };
+  tenant_id?: string;
+}
+
+function extractTenantId(claims: JwtPayload | null, user?: UserWithMetadata): string | undefined {
+  const appMeta = claims?.app_metadata as Record<string, unknown> | undefined;
   return (
     (claims?.tenant_id as string | undefined) ??
     (claims?.organization_id as string | undefined) ??
-    (claims?.app_metadata as any)?.tenant_id ??
-    (user?.user_metadata?.tenant_id as string | undefined) ??
-    (user?.app_metadata?.tenant_id as string | undefined) ??
-    (user?.tenant_id as string | undefined)
+    (appMeta?.tenant_id as string | undefined) ??
+    user?.user_metadata?.tenant_id ??
+    user?.app_metadata?.tenant_id ??
+    user?.tenant_id
   );
 }
 

@@ -3,6 +3,8 @@
  * Ensures consistent behavior across different browsers
  */
 
+import { logger } from './logger';
+
 export const browserSupport = {
   // Check for modern browser features
   supportsIntersectionObserver: () => 'IntersectionObserver' in window,
@@ -16,18 +18,18 @@ export const browserSupport = {
     // Intersection Observer polyfill
     if (!browserSupport.supportsIntersectionObserver()) {
       import('intersection-observer').then(() => {
-        console.log('Intersection Observer polyfill loaded');
+        logger.debug("Intersection Observer polyfill loaded");
       }).catch(() => {
-        console.warn('Failed to load Intersection Observer polyfill');
+        logger.warn("Failed to load Intersection Observer polyfill");
       });
     }
 
     // Resize Observer polyfill
     if (!browserSupport.supportsResizeObserver()) {
       import('resize-observer-polyfill').then(() => {
-        console.log('Resize Observer polyfill loaded');
+        logger.debug("Resize Observer polyfill loaded");
       }).catch(() => {
-        console.warn('Failed to load Resize Observer polyfill');
+        logger.warn("Failed to load Resize Observer polyfill");
       });
     }
   },

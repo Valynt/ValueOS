@@ -1,5 +1,6 @@
 // Stub ToastProvider for development
 import { createContext, ReactNode, useContext } from "react";
+import { logger } from "@/lib/logger";
 
 interface ToastContextType {
   showToast: (message: string, type?: "success" | "error" | "info") => void;
@@ -9,8 +10,7 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const showToast = (message: string, type?: "success" | "error" | "info") => {
-    console.log("Toast:", message, type);
-    // In a real implementation, this would show a toast notification
+    logger.debug("Toast", { message, type });
   };
 
   return <ToastContext.Provider value={{ showToast }}>{children}</ToastContext.Provider>;

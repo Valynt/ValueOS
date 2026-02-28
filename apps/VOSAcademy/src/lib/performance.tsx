@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { logger } from './logger';
 
 // Lazy loading hook for components
 export function useLazyLoad<T extends HTMLElement = HTMLElement>(options?: IntersectionObserverInit) {
@@ -203,7 +204,7 @@ export function usePerformanceMonitor(componentName: string) {
     const renderTime = endTime - startTime.current;
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(`${componentName} render #${renderCount.current} took ${renderTime.toFixed(2)}ms`);
+      logger.debug("Render timing", { component: componentName, render: renderCount.current, ms: renderTime.toFixed(2) });
     }
 
     startTime.current = performance.now();
