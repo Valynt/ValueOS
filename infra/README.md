@@ -112,3 +112,13 @@ This infrastructure supports multiple deployment targets:
 - **Production**: Kubernetes with full observability stack
 
 See `DEPLOYMENT_GUIDE.md` for detailed deployment instructions.
+
+## ArgoCD launch-day one-command sync
+
+For launch-day agent rollout, apply the ApplicationSet once and let ArgoCD create/sync all per-agent Applications automatically:
+
+```bash
+kubectl apply -f infra/argo/agent-template.yaml
+```
+
+This command bootstraps all agent apps in `valynt-agents` with automated sync, prune, and self-heal enabled.

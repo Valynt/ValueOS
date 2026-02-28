@@ -224,18 +224,27 @@ export async function provisionTenant(
   });
 
   // service_role usage is permitted here for tenant provisioning only
+  let provisionedOrganizationId = config.organizationId;
+
   try {
+    let provisionedConfig = { ...config };
+
     // Step 1: Create organization
     logger.debug('Provisioning step 1/6: Creating organization');
     try {
-      await createOrganization(config);
+      const organizationId = await createOrganization(config);
+      provisionedOrganizationId = organizationId;
+      provisionedConfig = {
+        ...config,
+        organizationId,
+      };
       resources.organization = true;
-      logger.info('Organization created', { organizationId: config.organizationId });
+      logger.info('Organization created', { organizationId });
     } catch (error) {
       const msg = `Failed to create organization: ${error instanceof Error ? error.message : 'Unknown error'}`;
       errors.push(msg);
       logger.error('Organization creation failed', error instanceof Error ? error : undefined, {
-        organizationId: config.organizationId,
+        organizationId: provisionedOrganizationId,
       });
       // Organization is foundational, rethrow to abort
       throw new Error(msg);
@@ -244,24 +253,24 @@ export async function provisionTenant(
     // Step 2: Initialize settings
     logger.debug('Provisioning step 2/6: Initializing settings');
     try {
-      await initializeSettings(config);
+      await initializeSettings(provisionedConfig);
       resources.settings = true;
-      logger.info('Settings initialized', { organizationId: config.organizationId });
+      logger.info('Settings initialized', { organizationId: provisionedConfig.organizationId });
     } catch (error) {
       const msg = `Failed to initialize settings: ${error instanceof Error ? error.message : 'Unknown error'}`;
       errors.push(msg);
       logger.error('Settings initialization failed', error instanceof Error ? error : undefined, {
-        organizationId: config.organizationId,
+        organizationId: provisionedOrganizationId,
       });
     }
 
     // Step 3: Create default team and roles
     logger.debug('Provisioning step 3/6: Creating teams and roles');
     try {
-      await createTeamsAndRoles(config);
+      await createTeamsAndRoles(provisionedConfig);
       resources.teams = true;
       resources.roles = true;
-      logger.info('Teams and roles created', { organizationId: config.organizationId });
+      logger.info('Teams and roles created', { organizationId: provisionedConfig.organizationId });
     } catch (error) {
       const msg = `Failed to create teams/roles: ${error instanceof Error ? error.message : 'Unknown error'}`;
       errors.push(msg);
@@ -275,15 +284,15 @@ export async function provisionTenant(
     if (appConfig.features.billing) {
       logger.debug('Provisioning step 4/6: Initializing billing');
       try {
-        await initializeBilling(config);
+        await initializeBilling(provisionedConfig);
         resources.billing = true;
-        logger.info('Billing initialized', { organizationId: config.organizationId });
+        logger.info('Billing initialized', { organizationId: provisionedConfig.organizationId });
       } catch (error) {
-    logger.error('Billing initialization failed', error instanceof Error ? error : undefined, {
-      organizationId: config.organizationId
+        logger.error('Billing initialization failed', error instanceof Error ? error : undefined, {
+          organizationId: provisionedOrganizationId,
         });
-    // Re-throw to be handled by the caller (provisionTenant)
-    throw error;
+        // Re-throw to be handled by the caller (provisionTenant)
+        throw error;
       }
     } else {
       logger.debug('Provisioning step 4/6: Billing disabled');
@@ -294,9 +303,9 @@ export async function provisionTenant(
     if (appConfig.features.usageTracking) {
       logger.debug('Provisioning step 5/6: Initializing usage tracking');
       try {
-        await initializeUsageTracking(config);
+        await initializeUsageTracking(provisionedConfig);
         resources.usage = true;
-        logger.info('Usage tracking initialized', { organizationId: config.organizationId });
+        logger.info('Usage tracking initialized', { organizationId: provisionedConfig.organizationId });
       } catch (error) {
         const msg = `Failed to initialize usage tracking: ${error instanceof Error ? error.message : 'Unknown error'}`;
         warnings.push(msg);
@@ -312,8 +321,8 @@ export async function provisionTenant(
     // Step 6: Send welcome email
     logger.debug('Provisioning step 6/6: Sending welcome email');
     try {
-      await sendWelcomeEmail(config);
-      logger.info('Welcome email sent', { organizationId: config.organizationId });
+      await sendWelcomeEmail(provisionedConfig);
+      logger.info('Welcome email sent', { organizationId: provisionedConfig.organizationId });
     } catch (error) {
       const msg = `Failed to send welcome email: ${error instanceof Error ? error.message : 'Unknown error'}`;
       warnings.push(msg);
@@ -329,7 +338,7 @@ export async function provisionTenant(
 
     return {
       success,
-      organizationId: config.organizationId,
+      organizationId: provisionedOrganizationId,
       status,
       createdAt: new Date(),
       resources,
@@ -341,7 +350,7 @@ export async function provisionTenant(
 
     return {
       success: false,
-      organizationId: config.organizationId,
+      organizationId: provisionedOrganizationId,
       status: 'provisioning',
       createdAt: new Date(),
       resources,
@@ -354,76 +363,24 @@ export async function provisionTenant(
 /**
  * Create organization in database
  */
-export async function createOrganization(config: TenantConfig): Promise<void> {
+export async function createOrganization(config: TenantConfig): Promise<string> {
   const supabase = createServerSupabaseClient();
 
-  // Map tiers: starter -> professional
-  let dbTier = config.tier;
-  if (config.tier === 'starter') {
-    dbTier = 'professional' as any;
-  }
-
-  // Calculate default limits and features (merged from Main branch)
-  const limits = config.limits || TIER_LIMITS[config.tier];
-  const features = config.features || TIER_FEATURES[config.tier];
-
-  // 1. Insert into organizations
-  // Using 'organizations' table (from Jules branch) but including settings logic (from Main branch)
-  const { error } = await supabase.from('organizations').insert({
-    id: config.organizationId,
-    tenant_id: config.organizationId, // Assuming 1:1 mapping for now
-    name: config.name,
-    tier: dbTier,
-    is_active: true,
-    settings: {
-      ...config.settings,
-      tier: config.tier,
-      limits,
-      features,
-    },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }).select().single();
+  const { data, error } = await supabase.rpc('provision_tenant', {
+    organization_name: config.name,
+    user_id: config.ownerId,
+  });
 
   if (error) {
-    // Idempotency: If duplicate key, fetch existing
-    if (error.code === '23505') { // Unique violation
-      logger.info('Organization already exists, retrieving existing record', { organizationId: config.organizationId });
-      const existing = await supabase
-        .from('organizations')
-        .select()
-        .eq('id', config.organizationId)
-        .single();
-
-      if (existing.error) {
-        throw new Error(`Failed to retrieve existing organization: ${existing.error.message}`);
-      }
-      // Organization exists, we can proceed
-    } else {
-      throw new Error(`Failed to create organization: ${error.message}`);
-    }
+    throw new Error(`Failed to create organization: ${error.message}`);
   }
 
-  // 2. Insert owner membership
-  // Using user_tenants as the join table (from Jules branch)
-  const { error: membershipError } = await supabase.from('user_tenants').insert({
-    user_id: config.ownerId,
-    tenant_id: config.organizationId,
-    status: 'active',
-    role: 'owner', // Attempting to set role if schema permits
-  }).select().single();
-
-  if (membershipError) {
-    // Check if membership already exists (idempotency)
-    if (membershipError.code === '23505') {
-       logger.info('User membership already exists', { userId: config.ownerId, tenantId: config.organizationId });
-       // We can consider this a success for idempotency
-    } else {
-       throw new Error(`Organization created but failed to assign owner membership: ${membershipError.message}`);
-    }
+  if (!data || typeof data !== 'string') {
+    throw new Error('Failed to create organization: provisioning RPC returned invalid tenant identifier');
   }
 
-  logger.debug(`Organization ${config.organizationId} created and owner assigned`);
+  logger.debug(`Organization ${data} created and owner assigned`);
+  return data;
 }
 
 /**
