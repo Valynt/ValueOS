@@ -22,6 +22,31 @@ data:
           - record: slo:target:queue_health
             expr: vector(0.99)
 
+
+          - record: slo:target:agent_cold_start
+            expr: vector(0.95)
+
+          # Agent cold-start SLI (enqueue-to-ready <= 45s)
+          - record: slo:agent_cold_start:good_rate5m
+            expr: |
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[5m]))
+              /
+              sum(rate(agent_enqueue_to_ready_seconds_count[5m]))
+
+          - record: slo:agent_cold_start:good_rate1h
+            expr: |
+              sum(rate(agent_enqueue_to_ready_seconds_bucket{le="45"}[1h]))
+              /
+              sum(rate(agent_enqueue_to_ready_seconds_count[1h]))
+
+          - record: slo:agent_cold_start:error_budget_burn_rate5m
+            expr: |
+              (1 - slo:agent_cold_start:good_rate5m) / (1 - slo:target:agent_cold_start)
+
+          - record: slo:agent_cold_start:error_budget_burn_rate1h
+            expr: |
+              (1 - slo:agent_cold_start:good_rate1h) / (1 - slo:target:agent_cold_start)
+
           # API availability SLI (non-5xx over total)
           - record: slo:api_availability:ratio_rate5m
             expr: |
@@ -160,3 +185,17 @@ data:
             annotations:
               summary: "Queue health error budget burn rate is critically high"
               description: "Queue health burn-rate exceeded 14.4x in 5m and 1h windows"
+
+
+          - alert: AgentColdStartSLOBurnRateTooHigh
+            expr: |
+              slo:agent_cold_start:error_budget_burn_rate5m > 14.4
+              and
+              slo:agent_cold_start:error_budget_burn_rate1h > 14.4
+            for: 5m
+            labels:
+              severity: critical
+              slo: agent-cold-start
+            annotations:
+              summary: "Agent cold-start enqueue-to-ready SLO burn rate is critically high"
+              description: "Cold-start burn-rate exceeded 14.4x in 5m and 1h windows"
