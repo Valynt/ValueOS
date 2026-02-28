@@ -48,29 +48,31 @@ export function LoginPage() {
     }
   };
 
-  const handleBypass = async () => {
-    setLoading(true);
-    setError("");
+  const handleBypass = import.meta.env.DEV
+    ? async () => {
+      setLoading(true);
+      setError("");
 
-    const devEmail = import.meta.env.VITE_DEV_EMAIL;
-    const devPassword = import.meta.env.VITE_DEV_PASSWORD;
+      const devEmail = import.meta.env.VITE_DEV_EMAIL;
+      const devPassword = import.meta.env.VITE_DEV_PASSWORD;
 
-    if (!devEmail || !devPassword) {
-      setError("Dev credentials not configured in environment");
-      setLoading(false);
-      return;
+      if (!devEmail || !devPassword) {
+        setError("Dev credentials not configured in environment");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        await login({ email: devEmail, password: devPassword });
+        navigate(from, { replace: true });
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Bypass failed";
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
     }
-
-    try {
-      await login({ email: devEmail, password: devPassword });
-      navigate(from, { replace: true });
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Bypass failed";
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+    : undefined;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black p-4">

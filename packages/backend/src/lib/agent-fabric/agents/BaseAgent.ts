@@ -197,9 +197,9 @@ export abstract class BaseAgent {
       const kfResultPromise = this.validateWithKnowledgeFabric(response.content);
 
       // Validate response with Zod (fails fast on bad JSON)
-      let parsedJson;
+// ...existing code...
       try {
-        parsedJson = JSON.parse(response.content);
+        const parsedJson = JSON.parse(response.content);
       } catch (err) {
         logger.error("Failed to parse LLM response as JSON", {
           agent: this.name,
@@ -210,6 +210,7 @@ export abstract class BaseAgent {
         throw new Error("LLM response was not valid JSON: " + (err as Error).message);
       }
       const parsed = zodSchema.parse(parsedJson);
+// ...existing code...
 
       // Run multi-signal hallucination detection
       const hallucinationResult = await this.checkHallucination(
