@@ -41,6 +41,7 @@ import analyticsRouter from "./api/analytics.js";
 import authRouter from "./api/auth.js";
 import billingRouter from "./api/billing/index.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
+import { complianceEvidenceRouter } from "./api/complianceEvidence.js";
 import crmRouter from "./api/crm.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
@@ -420,6 +421,7 @@ app.use("/api/integrations", integrationsRouter);
 app.use("/api/crm", crmRouter);
 app.use("/api/onboarding", onboardingRouter);
 app.use("/api/v1/domain-packs", domainPacksRouter);
+app.use("/api/compliance/evidence", requireAuth, tenantContextMiddleware(), complianceEvidenceRouter);
 
 // Mount checkpoint HITL endpoints
 const orchestrator = getUnifiedOrchestrator();
