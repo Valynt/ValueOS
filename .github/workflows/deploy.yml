@@ -291,6 +291,16 @@ jobs:
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.backend-build.outputs.digest }}"
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign backend image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}@${{ steps.backend-build.outputs.digest }}"
+
       # ── Frontend ─────────────────────────────────────────────────────────
       - name: Frontend Docker metadata
         id: frontend-meta
@@ -322,6 +332,13 @@ jobs:
         run: |
           IMAGE_REF="${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}@${{ steps.frontend-build.outputs.digest }}"
           echo "image_ref=${IMAGE_REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Sign frontend image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes \
+            "${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}@${{ steps.frontend-build.outputs.digest }}"
 
   verify-supply-chain:
     name: Verify Supply Chain Artifacts
