@@ -70,9 +70,9 @@ class WebhookService {
       );
 
       return event;
-    } catch (error: any) {
-      logger.error("Webhook signature verification failed", error);
-      throw new Error(`Webhook verification failed: ${error.message}`);
+    } catch (error: unknown) {
+      logger.error("Webhook signature verification failed", error instanceof Error ? error : undefined);
+      throw new Error(`Webhook verification failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

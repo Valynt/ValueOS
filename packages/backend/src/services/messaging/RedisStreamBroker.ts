@@ -104,8 +104,8 @@ export class RedisStreamBroker {
           stream: this.streamName,
           group: this.groupName,
         });
-      } catch (error: any) {
-        if (error?.message?.includes("BUSYGROUP")) {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message?.includes("BUSYGROUP")) {
           this.log.debug("Consumer group already exists", {
             stream: this.streamName,
             group: this.groupName,
@@ -127,8 +127,8 @@ export class RedisStreamBroker {
           group: groupName,
           index: i,
         });
-      } catch (error: any) {
-        if (error?.message?.includes("BUSYGROUP")) {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message?.includes("BUSYGROUP")) {
           this.log.debug("Consumer group already exists", {
             stream: this.streamName,
             group: groupName,

@@ -321,8 +321,8 @@ export class AgentQueryService {
       }
 
       return await response.json();
-    } catch (error: any) {
-      if (error.name === "AbortError") {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") {
         throw new TimeoutError("The request timed out after 30 seconds.");
       }
       throw error;

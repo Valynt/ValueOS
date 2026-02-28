@@ -4,6 +4,7 @@
  */
 
 import express, { Request, Response } from 'express';
+import { logger } from '../../lib/logger.js';
 import MetricsCollector from '../../services/metering/MetricsCollector.js';
 import { EntitlementsService } from '../../services/billing/EntitlementsService.js';
 import { InvoiceMathEngine } from '../../services/billing/InvoiceMathEngine.js';
@@ -49,7 +50,7 @@ router.get('/dashboard', async (req: Request, res: Response): Promise<void> => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error fetching usage dashboard data:', error);
+    logger.error('Error fetching usage dashboard data', error instanceof Error ? error : undefined);
     res.status(500).json({ error: 'Failed to fetch usage dashboard data' });
   }
 });
@@ -72,7 +73,7 @@ router.get('/quota-tracking', async (req: Request, res: Response): Promise<void>
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error fetching quota tracking data:', error);
+    logger.error('Error fetching quota tracking data', error instanceof Error ? error : undefined);
     res.status(500).json({ error: 'Failed to fetch quota tracking data' });
   }
 });
@@ -98,7 +99,7 @@ router.get('/invoice-preview', async (req: Request, res: Response): Promise<void
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error fetching invoice preview data:', error);
+    logger.error('Error fetching invoice preview data', error instanceof Error ? error : undefined);
     res.status(500).json({ error: 'Failed to fetch invoice preview data' });
   }
 });
@@ -125,7 +126,7 @@ router.get('/spend-forecasting', async (req: Request, res: Response): Promise<vo
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error fetching spend forecasting data:', error);
+    logger.error('Error fetching spend forecasting data', error instanceof Error ? error : undefined);
     res.status(500).json({ error: 'Failed to fetch spend forecasting data' });
   }
 });
@@ -148,7 +149,7 @@ router.get('/ledger/:dateRange', async (req: Request, res: Response): Promise<vo
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error fetching ledger data:', error);
+    logger.error('Error fetching ledger data', error instanceof Error ? error : undefined);
     res.status(500).json({ error: 'Failed to fetch ledger data' });
   }
 });
@@ -189,7 +190,7 @@ router.get('/export', async (req: Request, res: Response): Promise<void> => {
       res.json(usageData);
     }
   } catch (error) {
-    console.error('Error exporting usage data:', error);
+    logger.error('Error exporting usage data', error instanceof Error ? error : undefined);
     res.status(500).json({ error: 'Failed to export usage data' });
   }
 });

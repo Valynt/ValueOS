@@ -398,7 +398,7 @@ jobs:
           run_install: false
 
       - name: Install Supabase CLI
-        run: pnpm add -g supabase@latest
+        run: pnpm add -g supabase@2.67.1
 
       - name: Run database migrations (staging)
         env:
@@ -500,8 +500,8 @@ jobs:
           filename: infra/testing/load-test.k6.js
         env:
           BASE_URL: https://staging.valueos.app
-          VUS: "20"
-          DURATION: "1m"
+          VUS: "100"
+          DURATION: "5m"
 
 
   preprod-slo-guard:
@@ -567,7 +567,7 @@ jobs:
           run_install: false
 
       - name: Install Supabase CLI
-        run: pnpm add -g supabase@latest
+        run: pnpm add -g supabase@2.67.1
 
       - name: Run database migrations (production)
         env:

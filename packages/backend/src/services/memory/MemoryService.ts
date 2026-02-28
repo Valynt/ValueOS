@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { logger } from "../../lib/logger.js";
 import {
   Artifact,
   ArtifactMetadata,
@@ -220,7 +221,7 @@ export class MemoryService {
 
       return run.id;
     } catch (err) {
-      console.error("Failed to log model run:", err);
+      logger.error("Failed to log model run", err instanceof Error ? err : undefined);
       throw new MemoryServiceError("Telemetry logging failed", err);
     }
   }

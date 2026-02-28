@@ -1,17 +1,18 @@
 /**
  * Task #020: ValueMetricsTracker
- * 
+ *
  * Tracks and measures value delivered to users across the platform
  */
 
 import { supabase } from '../lib/supabase.js'
 import { analyticsClient } from '../lib/analyticsClient';
+import { logger } from '../lib/logger.js';
 
 export interface ValueMetric {
   id: string;
   user_id: string;
   organization_id: string;
-  metric_type: 
+  metric_type:
     | 'time_saved'
     | 'revenue_identified'
     | 'cost_reduced'
@@ -65,7 +66,7 @@ export class ValueMetricsTracker {
         ...metric.context,
       });
     } catch (error) {
-      console.error('Failed to track value metric:', error);
+      logger.error('Failed to track value metric', error instanceof Error ? error : undefined);
     }
   }
 
@@ -176,7 +177,7 @@ export class ValueMetricsTracker {
 
       return this.calculateSummary(userId, metrics || []);
     } catch (error) {
-      console.error('Failed to get value summary:', error);
+      logger.error('Failed to get value summary', error instanceof Error ? error : undefined);
       return this.getEmptySummary(userId);
     }
   }
@@ -303,7 +304,7 @@ export class ValueMetricsTracker {
         rank: idx + 1,
       }));
     } catch (error) {
-      console.error('Failed to get value leaderboard:', error);
+      logger.error('Failed to get value leaderboard', error instanceof Error ? error : undefined);
       return [];
     }
   }
@@ -348,7 +349,7 @@ export class ValueMetricsTracker {
         value,
       }));
     } catch (error) {
-      console.error('Failed to get value time series:', error);
+      logger.error('Failed to get value time series', error instanceof Error ? error : undefined);
       return [];
     }
   }

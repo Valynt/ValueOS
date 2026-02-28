@@ -1,11 +1,12 @@
 /**
  * Task #013: Demo Analytics Service
- * 
+ *
  * Tracks demo completion rates and identifies drop-off points
  */
 
 import { supabase } from '../lib/supabase.js'
 import { analyticsClient } from '../lib/analyticsClient';
+import { logger } from '../lib/logger.js';
 
 export interface DemoEvent {
   id: string;
@@ -66,7 +67,7 @@ export class DemoAnalyticsService {
         ...event.metadata,
       });
     } catch (error) {
-      console.error('Failed to track demo event:', error);
+      logger.error('Failed to track demo event', error instanceof Error ? error : undefined);
     }
   }
 
@@ -97,7 +98,7 @@ export class DemoAnalyticsService {
 
       return this.calculateAnalytics(events || [], demoType);
     } catch (error) {
-      console.error('Failed to get demo analytics:', error);
+      logger.error('Failed to get demo analytics', error instanceof Error ? error : undefined);
       return this.getEmptyAnalytics(demoType);
     }
   }
@@ -158,7 +159,7 @@ export class DemoAnalyticsService {
     stepStarts.forEach((starts, stepId) => {
       const completions = stepCompletions.get(stepId) || 0;
       const dropOffs = starts - completions;
-      
+
       if (dropOffs > 0) {
         dropOffPoints.push({
           step_id: stepId,
@@ -219,7 +220,7 @@ export class DemoAnalyticsService {
    */
   async getDropOffFunnel(organizationId: string, demoType: string): Promise<Array<{ step: string; users: number; dropOffRate: number }>> {
     const analytics = await this.getDemoAnalytics(organizationId, demoType);
-    
+
     const funnel: Array<{ step: string; users: number; dropOffRate: number }> = [
       {
         step: 'Started',

@@ -35,7 +35,7 @@ class ProblemMonitorService {
    */
   start(): void {
     if (this.isRunning) {
-      console.warn("⚠️ Problem monitor is already running");
+      logger.warn("Problem monitor is already running");
       return;
     }
 
@@ -107,7 +107,7 @@ class ProblemMonitorService {
       try {
         listener(stats);
       } catch (error) {
-        console.error("Error in problem monitor listener:", error);
+        logger.error("Error in problem monitor listener", error instanceof Error ? error : undefined);
       }
     });
   }

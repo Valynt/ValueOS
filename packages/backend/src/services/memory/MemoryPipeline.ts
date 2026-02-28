@@ -233,7 +233,7 @@ export class MemoryPipeline {
           }
         }
       } catch (extractError) {
-        console.error(`Extraction failed for chunk ${chunk.id}:`, extractError);
+        logger.error(`Extraction failed for chunk ${chunk.id}`, extractError instanceof Error ? extractError : undefined);
       }
     }
 
