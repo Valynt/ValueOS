@@ -56,6 +56,7 @@ import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend
 import { logger } from "../lib/logger.js";
 
 import { semanticMemory } from "./SemanticMemory.js";
+import { complianceEvidenceService } from "./ComplianceEvidenceService.js";
 import { securityLogger } from "./SecurityLogger.js";
 
 // ============================================================================
@@ -3449,6 +3450,67 @@ Provide a JSON response with:
 
   getProgress(state: WorkflowState, totalStages: number = 5): number {
     return Math.round((state.completed_steps.length / totalStages) * 100);
+  }
+
+
+  async collectScheduledComplianceEvidence(tenantId: string): Promise<void> {
+    await this.collectComplianceEvidence(tenantId, "scheduled", "compliance_scheduler");
+  }
+
+  async collectEventDrivenComplianceEvidence(tenantId: string, eventSource: string): Promise<void> {
+    await this.collectComplianceEvidence(tenantId, "event", eventSource);
+  }
+
+  private async collectComplianceEvidence(
+    tenantId: string,
+    triggerType: "scheduled" | "event",
+    triggerSource: string,
+  ): Promise<void> {
+    if (!tenantId) {
+      throw new Error("tenantId is required for compliance evidence collection");
+    }
+
+    const lifecycleAgents = [
+      "opportunity-agent",
+      "target-agent",
+      "financial-modeling-agent",
+      "integrity-agent",
+      "realization-agent",
+      "expansion-agent",
+      "compliance-auditor-agent",
+    ];
+
+    const agentEvidence = lifecycleAgents.map((agentId) => {
+      const record = this.registry.getAgent(agentId);
+      return {
+        agent_id: agentId,
+        status: record?.status ?? "unknown",
+        load: record?.load ?? null,
+        last_heartbeat: record?.last_heartbeat ?? null,
+      };
+    });
+
+    const serviceEvidence = {
+      message_broker_ready: Boolean(this.messageBroker),
+      queue_ready: Boolean(this.agentMessageQueue),
+      memory_backend_ready: Boolean(this.memorySystem),
+      llm_gateway_ready: Boolean(this.llmGateway),
+      circuit_breaker_ready: Boolean(this.circuitBreakers),
+    };
+
+    await complianceEvidenceService.appendEvidence({
+      tenantId,
+      actorPrincipal: "unified-agent-orchestrator",
+      actorType: "service",
+      triggerType,
+      triggerSource,
+      evidence: {
+        tenant_id: tenantId,
+        collected_at: new Date().toISOString(),
+        agent_evidence: agentEvidence,
+        service_evidence: serviceEvidence,
+      },
+    });
   }
 }
 
