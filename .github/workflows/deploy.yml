@@ -400,6 +400,7 @@ jobs:
 
       - name: Run database migrations (staging)
         env:
+          # [Secret] STAGING_DATABASE_URL: Staging DB connection string for migrations and app config
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: |
           if [ -z "${DATABASE_URL}" ]; then
@@ -412,6 +413,7 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p ~/.kube
+          # [Secret] KUBE_CONFIG_STAGING: Base64-encoded kubeconfig for staging cluster authentication
           echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
 
       - name: Deploy with kustomize (blue-green)
@@ -510,7 +512,9 @@ jobs:
     steps:
       - name: Check pre-production burn-rate alerts
         env:
+          # [Secret] ALERTMANAGER_STAGING_URL: Staging Alertmanager endpoint for SLO notifications
           ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_STAGING_URL }}
+          # [Secret] ALERTMANAGER_STAGING_TOKEN: Staging Alertmanager API token for authentication
           ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_STAGING_TOKEN }}
           ALERT_NAME_REGEX: ${{ env.SLO_ALERT_NAME_REGEX }}
         run: |
@@ -569,6 +573,7 @@ jobs:
 
       - name: Run database migrations (production)
         env:
+          # [Secret] PRODUCTION_DATABASE_URL: Production DB connection string for migrations and app config
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
         run: |
           if [ -z "${DATABASE_URL}" ]; then
@@ -581,6 +586,7 @@ jobs:
       - name: Configure kubeconfig
         run: |
           mkdir -p ~/.kube
+          # [Secret] KUBE_CONFIG_PRODUCTION: Base64-encoded kubeconfig for production cluster authentication
           echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
 
       - name: Blue-green deploy
@@ -676,9 +682,13 @@ jobs:
     steps:
       - name: Generate weekly SLO and incident report
         env:
+          # [Secret] PROMETHEUS_PRODUCTION_URL: Production Prometheus endpoint for monitoring integration
           PROMETHEUS_URL: ${{ secrets.PROMETHEUS_PRODUCTION_URL }}
+          # [Secret] PROMETHEUS_PRODUCTION_TOKEN: Production Prometheus API token for authentication
           PROMETHEUS_TOKEN: ${{ secrets.PROMETHEUS_PRODUCTION_TOKEN }}
+          # [Secret] ALERTMANAGER_PRODUCTION_URL: Production Alertmanager endpoint for notifications
           ALERTMANAGER_URL: ${{ secrets.ALERTMANAGER_PRODUCTION_URL }}
+          # [Secret] ALERTMANAGER_PRODUCTION_TOKEN: Production Alertmanager API token for authentication
           ALERTMANAGER_TOKEN: ${{ secrets.ALERTMANAGER_PRODUCTION_TOKEN }}
         run: |
           set -euo pipefail
