@@ -251,7 +251,7 @@ export function logDataAccess(
       ...log.metadata,
       ...(result.error ? { error: result.error } : {})
     }
-  ).catch(err => {
+  ).catch((err: unknown) => {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[AUDIT LOGGER ERROR]', err);
     }

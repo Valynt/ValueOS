@@ -19,7 +19,7 @@
 
 import { CanvasDelta, CanvasLayout } from "./types";
 import { logger } from "@shared/lib/logger";
-import { immutableNestedUpdate, immutableUpdate } from "../../utils/immutableUtils";
+import { immutableNestedUpdate, immutableUpdate } from "../utils/immutableUtils";
 
 export class CanvasPatcher {
   /**
@@ -47,7 +47,7 @@ export class CanvasPatcher {
             newLayout = immutableNestedUpdate(
               newLayout,
               op.path.split("/").filter(Boolean),
-              (current) => {
+              (current: unknown) => {
                 if (Array.isArray(current)) {
                   return [...current, op.value];
                 }
@@ -55,19 +55,26 @@ export class CanvasPatcher {
               }
             );
             break;
-          case "remove":
-            newLayout = immutableNestedUpdate(
-              newLayout,
-              op.path.split("/").filter(Boolean),
-              (current) => {
-                if (Array.isArray(current)) {
-                  return current.filter(
-                    (_, index) => index !== parseInt(op.path.split("/").pop() || "-1")
-                  );
+          case "remove": {
+            const segments = op.path.split("/").filter(Boolean);
+            const removeIndex = parseInt(segments[segments.length - 1] || "-1", 10);
+            const parentPath = segments.slice(0, -1);
+
+            if (parentPath.length > 0 && !isNaN(removeIndex)) {
+              // Navigate to parent array and splice out the index
+              newLayout = immutableNestedUpdate(
+                newLayout,
+                parentPath,
+                (current: unknown) => {
+                  if (Array.isArray(current)) {
+                    return current.filter((_: unknown, i: number) => i !== removeIndex);
+                  }
+                  return current;
                 }
-                return current;
-              }
-            );
+              );
+            }
+            break;
+          }
             break;
           case "update_props":
             newLayout = this.updateComponentPropsImmutable(newLayout, op.componentId, op.props);
@@ -102,7 +109,7 @@ export class CanvasPatcher {
   private static updateComponentPropsImmutable(
     layout: CanvasLayout,
     componentId: string,
-    newProps: Record<string, any>
+    newProps: Record<string, unknown>
   ): CanvasLayout {
     if (layout.type === "Component" && layout.componentId === componentId) {
       return immutableUpdate(layout, { props: { ...layout.props, ...newProps } });
@@ -125,7 +132,7 @@ export class CanvasPatcher {
   private static updateComponentDataImmutable(
     layout: CanvasLayout,
     componentId: string,
-    newData: any
+    newData: unknown
   ): CanvasLayout {
     if (layout.type === "Component" && layout.componentId === componentId) {
       return immutableUpdate(layout, { props: { ...layout.props, data: newData } });
