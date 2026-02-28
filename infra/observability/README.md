@@ -16,6 +16,7 @@ This README is the canonical index for ValueOS observability assets: metrics, lo
 | [`grafana/dashboards/dashboard-provider.yml`](./grafana/dashboards/dashboard-provider.yml) | Dashboard provisioning | Platform Observability | SRE On-Call | [`docs/runbooks/deployment-runbook.md`](../../docs/runbooks/deployment-runbook.md) |
 | [`grafana/dashboards/mission-control.json`](./grafana/dashboards/mission-control.json) | Cross-service operational visibility dashboard | Product Engineering | Platform Observability | [`docs/operations/incident-response.md`](../../docs/operations/incident-response.md) |
 | [`grafana/dashboards/agent-performance.json`](./grafana/dashboards/agent-performance.json) | Agent runtime performance dashboard | Agent Platform Team | Platform Observability | [`docs/operations/incident-response.md`](../../docs/operations/incident-response.md) |
+| [`grafana/dashboards/launch/launch-kpis.json`](./grafana/dashboards/launch/launch-kpis.json) | Launch KPI dashboard (onboarding success, mesh overhead, Stripe webhook ACK latency) | Product Engineering | Platform Observability | [`docs/operations/incident-response.md`](../../docs/operations/incident-response.md) |
 | [`SLOs.md`](./SLOs.md) | SLO definitions and ownership | Service Owners | SRE On-Call | [`docs/operations/incident-response.md`](../../docs/operations/incident-response.md) |
 
 ## Alert routing

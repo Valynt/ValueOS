@@ -58,6 +58,23 @@ spec:
             description: "p99 latency is {{ $value }}s over the last 5 minutes"
             runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-latency"
 
+
+        - alert: AgentFabricColdStartEnqueueToReadyP95High
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(agent_enqueue_to_ready_seconds_bucket[5m])) by (le, agent)
+            ) > 45
+          for: 10m
+          labels:
+            severity: warning
+            component: agent-fabric
+            slo: cold-start
+          annotations:
+            summary: "Agent enqueue-to-ready p95 cold-start latency is high"
+            description: "Agent {{ $labels.agent }} cold-start p95 is {{ $value }}s over the last 5 minutes"
+            runbook_url: "https://docs.valueos.com/runbooks/agent-fabric-cold-start"
+
         - alert: AgentFabricSecurityEventsSpike
           expr: |
             rate(agent_fabric_security_events_total[5m]) > 0

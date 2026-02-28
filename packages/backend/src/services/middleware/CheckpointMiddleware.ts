@@ -1,13 +1,5 @@
 /**
  * CheckpointMiddleware — HITL approval gate for high-risk agent actions.
- *
- * When the RiskClassifier flags an action, execution pauses and a checkpoint
- * is created. A human must approve or reject via the REST API before the
- * pipeline continues.
- *
- * In-memory Promise map provides the fast path for single-node setups.
- * Checkpoint state is also persisted to WorkspaceStateService for
- * restartability and UI querying.
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -28,10 +20,6 @@ import {
   DEFAULT_CHECKPOINT_CONFIG,
 } from './types.js';
 
-// ---------------------------------------------------------------------------
-// Pending checkpoint waiter stored in-memory
-// ---------------------------------------------------------------------------
-
 export interface PendingCheckpoint {
   resolve: (decision: 'approved') => void;
   reject: (error: Error) => void;
@@ -39,24 +27,26 @@ export interface PendingCheckpoint {
   record: CheckpointRecord;
 }
 
-// ---------------------------------------------------------------------------
-// Dependencies injected into the middleware
-// ---------------------------------------------------------------------------
-
 export interface CheckpointDeps {
-  /** Persist / retrieve checkpoint state */
   workspaceStateService: {
     updateState(workspaceId: string, updates: Record<string, unknown>): Promise<unknown>;
   };
-  /** Push real-time notification to the UI */
   realtimeUpdateService: {
     pushUpdate(workspaceId: string, update: Record<string, unknown>): Promise<void>;
   };
+  approvalNotifier?: {
+    notifyApprovalRequested(input: {
+      checkpointId: string;
+      approvalRequestId: string;
+      tenantId: string;
+      agentName: string;
+      action: string;
+      description: string;
+      actorId?: string;
+    }): Promise<void>;
+  };
+  onAuditEvent?: (event: string, details: Record<string, unknown>) => Promise<void>;
 }
-
-// ---------------------------------------------------------------------------
-// CheckpointMiddleware
-// ---------------------------------------------------------------------------
 
 export class CheckpointMiddleware implements AgentMiddleware {
   public readonly name = 'checkpoint';
@@ -65,10 +55,6 @@ export class CheckpointMiddleware implements AgentMiddleware {
   private riskClassifier: RiskClassifier;
   private deps: CheckpointDeps;
 
-  /**
-   * In-memory map of pending checkpoints.
-   * Exposed as `readonly` so the REST endpoint can resolve/reject them.
-   */
   readonly pending = new Map<string, PendingCheckpoint>();
 
   constructor(
@@ -89,19 +75,16 @@ export class CheckpointMiddleware implements AgentMiddleware {
       return next();
     }
 
-    // Bypass for privileged roles
     const roles = context.envelope?.actor?.roles;
     if (this.riskClassifier.canBypass(roles)) {
       return next();
     }
 
     const classification = this.riskClassifier.classify(context);
-
     if (!classification.requiresApproval) {
       return next();
     }
 
-    // --- High-risk path: create checkpoint and wait ---
     const checkpointId = uuidv4();
     const record: CheckpointRecord = {
       checkpointId,
@@ -115,19 +98,10 @@ export class CheckpointMiddleware implements AgentMiddleware {
       timeoutMs: this.config.defaultTimeoutMs,
     };
 
-    // Persist checkpoint state
     await this.persistCheckpoint(record, context);
-
-    // Push notification to UI
     await this.notifyUI(record, context);
+    await this.notifyApprovalChannel(record, context);
 
-    logger.info('Checkpoint created, awaiting human approval', {
-      checkpointId,
-      riskLevel: classification.riskLevel,
-      agentType: context.agentType,
-    });
-
-    // Await approval via in-memory Promise
     try {
       await this.awaitApproval(checkpointId, record);
     } catch (err) {
@@ -158,7 +132,6 @@ export class CheckpointMiddleware implements AgentMiddleware {
       throw err;
     }
 
-    // Approved — update record and continue
     record.status = 'approved';
     record.resolvedAt = new Date().toISOString();
     await this.persistCheckpoint(record, context);
@@ -168,14 +141,6 @@ export class CheckpointMiddleware implements AgentMiddleware {
     return next();
   }
 
-  // ---------------------------------------------------------------------------
-  // Public API used by the REST endpoint
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Resolve a pending checkpoint (approve or reject).
-   * Returns `true` if the checkpoint was found and resolved.
-   */
   resolveCheckpoint(
     checkpointId: string,
     decision: 'approved' | 'rejected',
@@ -202,16 +167,44 @@ export class CheckpointMiddleware implements AgentMiddleware {
     return true;
   }
 
-  /**
-   * Get a pending checkpoint record by ID (for the REST endpoint).
-   */
   getCheckpoint(checkpointId: string): CheckpointRecord | undefined {
     return this.pending.get(checkpointId)?.record;
   }
 
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
+  private async notifyApprovalChannel(
+    record: CheckpointRecord,
+    context: AgentMiddlewareContext,
+  ): Promise<void> {
+    if (!this.deps.approvalNotifier) {
+      return;
+    }
+
+    const tenantId = context.envelope?.organizationId ?? 'default';
+    try {
+      await this.deps.approvalNotifier.notifyApprovalRequested({
+        checkpointId: record.checkpointId,
+        approvalRequestId: record.checkpointId,
+        tenantId,
+        agentName: context.agentType,
+        action: context.envelope?.intent ?? 'unknown',
+        description: `Human approval required for ${context.agentType} action ${context.envelope?.intent ?? 'unknown'}.`,
+        actorId: context.userId,
+      });
+
+      if (this.deps.onAuditEvent) {
+        await this.deps.onAuditEvent('approval_request_sent', {
+          checkpointId: record.checkpointId,
+          tenantId,
+          agentType: context.agentType,
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to send approval notification', {
+        checkpointId: record.checkpointId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   private awaitApproval(
     checkpointId: string,
@@ -227,13 +220,9 @@ export class CheckpointMiddleware implements AgentMiddleware {
     });
   }
 
-  private async persistCheckpoint(
-    record: CheckpointRecord,
-    context: AgentMiddlewareContext,
-  ): Promise<void> {
+  private async persistCheckpoint(record: CheckpointRecord, context: AgentMiddlewareContext): Promise<void> {
     try {
-      const workspaceId =
-        context.envelope?.organizationId ?? 'default';
+      const workspaceId = context.envelope?.organizationId ?? 'default';
       await this.deps.workspaceStateService.updateState(workspaceId, {
         [`checkpoint:${record.checkpointId}`]: record,
       });
@@ -245,13 +234,9 @@ export class CheckpointMiddleware implements AgentMiddleware {
     }
   }
 
-  private async notifyUI(
-    record: CheckpointRecord,
-    context: AgentMiddlewareContext,
-  ): Promise<void> {
+  private async notifyUI(record: CheckpointRecord, context: AgentMiddlewareContext): Promise<void> {
     try {
-      const workspaceId =
-        context.envelope?.organizationId ?? 'default';
+      const workspaceId = context.envelope?.organizationId ?? 'default';
       await this.deps.realtimeUpdateService.pushUpdate(workspaceId, {
         type: 'human_intervention_required',
         source: 'checkpoint_middleware',

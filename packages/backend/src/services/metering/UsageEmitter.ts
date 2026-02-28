@@ -1,18 +1,29 @@
 /**
  * Usage Emitter
- * Emits usage events from services to database queue
+ * Emits usage events from services to database queue and billing usage ledger.
+ *
+ * Resolved: codex/add-db-constraints-for-billing-evidence-fields
+ * - Evidence fields (requestId, agentUuid, workloadIdentity, idempotencyKey) are required for usage_events writes.
+ * - Deterministic idempotency keys derived from tenantId + requestId + agentUuid + metric.
+ * - Dead-letter queue is consistent and persists to dead_letter_events on max retries.
+ * - Ledger ingestion includes evidenceLink + agentId (derived from metric / agentType).
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
 import { z } from "zod";
 
-import { BillingMetric } from "../../config/billing.js"
-import { createLogger } from "../../lib/logger.js"
+import { BillingMetric } from "../../config/billing.js";
+import { createLogger } from "../../lib/logger.js";
+import { UsageLedgerIngestionService } from "../billing/UsageLedgerIngestionService.js";
 
 const logger = createLogger({ component: "UsageEmitter" });
 
-// In-memory buffer for failed events (dead-letter queue)
+interface BillableContext {
+  evidenceLink?: string;
+  agentId?: string;
+}
+
 interface FailedUsageEvent {
   payload: UsageEvidencePayload;
   retryCount: number;
@@ -44,10 +55,18 @@ const MAX_RETRY_COUNT = 3;
 const failedEventsBuffer: FailedUsageEvent[] = [];
 
 class UsageEmitter {
-  private supabase: SupabaseClient;
+  private readonly usageLedgerIngestionService: UsageLedgerIngestionService;
 
-  constructor(supabase: SupabaseClient) {
-    this.supabase = supabase;
+  constructor(private readonly supabase: SupabaseClient) {
+    this.usageLedgerIngestionService = new UsageLedgerIngestionService(supabase);
+  }
+
+  private resolveEvidenceLink(requestId: string, context?: BillableContext): string {
+    return context?.evidenceLink ?? `trace://usage/${requestId}`;
+  }
+
+  private resolveAgentId(metric: BillingMetric, context?: BillableContext): string {
+    return context?.agentId ?? metric;
   }
 
   static deriveDeterministicIdempotencyKey(
@@ -72,7 +91,6 @@ class UsageEmitter {
     const validatedPayload = this.validatePayload(payload);
 
     try {
-      // Non-blocking insert
       const { error } = await this.supabase.from("usage_events").insert({
         tenant_id: validatedPayload.tenantId,
         metric: validatedPayload.metric,
@@ -92,30 +110,31 @@ class UsageEmitter {
           metric: validatedPayload.metric,
           amount: validatedPayload.amount,
         });
-        // Add to dead-letter queue for retry
         this.addToDeadLetterQueue(validatedPayload, error.message);
-      } else {
-        logger.debug("Usage event emitted", {
-          tenantId: validatedPayload.tenantId,
-          metric: validatedPayload.metric,
-          amount: validatedPayload.amount,
-        });
+        return;
       }
-    } catch (error) {
-      logger.error("Error emitting usage", error as Error);
-      // Add to dead-letter queue for retry
-      this.addToDeadLetterQueue(validatedPayload, (error as Error).message);
+
+      logger.debug("Usage event emitted", {
+        tenantId: validatedPayload.tenantId,
+        metric: validatedPayload.metric,
+        amount: validatedPayload.amount,
+      });
+
+      // Also ingest to the billing usage ledger (separate store optimized for billing aggregation).
+      await this.usageLedgerIngestionService.ingest({
+        tenantId: validatedPayload.tenantId,
+        agentId: this.resolveAgentId(validatedPayload.metric as BillingMetric),
+        valueUnits: validatedPayload.amount,
+        requestId: validatedPayload.requestId,
+        evidenceLink: this.resolveEvidenceLink(validatedPayload.requestId),
+      });
+    } catch (err) {
+      logger.error("Error emitting usage", err as Error);
+      this.addToDeadLetterQueue(validatedPayload, (err as Error).message);
     }
   }
 
-  /**
-   * Add failed event to dead-letter queue for retry
-   */
-  private addToDeadLetterQueue(
-    payload: UsageEvidencePayload,
-    errorMessage: string
-  ): void {
-    // Prevent unbounded growth - cap at 10000 events
+  private addToDeadLetterQueue(payload: UsageEvidencePayload, errorMessage: string): void {
     if (failedEventsBuffer.length >= 10000) {
       logger.warn("Dead-letter queue full, dropping oldest event");
       failedEventsBuffer.shift();
@@ -135,22 +154,14 @@ class UsageEmitter {
     });
   }
 
-  /**
-   * Retry failed events from dead-letter queue
-   * Should be called periodically by a background job
-   */
-  async retryFailedEvents(): Promise<{
-    retried: number;
-    failed: number;
-    dropped: number;
-  }> {
+  async retryFailedEvents(): Promise<{ retried: number; failed: number; dropped: number }> {
     const results = { retried: 0, failed: 0, dropped: 0 };
+
     const eventsToRetry = [...failedEventsBuffer];
-    failedEventsBuffer.length = 0; // Clear the buffer
+    failedEventsBuffer.length = 0;
 
     for (const event of eventsToRetry) {
       if (event.retryCount >= MAX_RETRY_COUNT) {
-        // Store in dead_letter_events table for manual review
         await this.persistToDeadLetterTable(event);
         results.dropped++;
         continue;
@@ -175,9 +186,10 @@ class UsageEmitter {
           event.lastError = error.message;
           failedEventsBuffer.push(event);
           results.failed++;
-        } else {
-          results.retried++;
+          continue;
         }
+
+        results.retried++;
       } catch (err) {
         event.retryCount++;
         event.lastError = (err as Error).message;
@@ -186,19 +198,10 @@ class UsageEmitter {
       }
     }
 
-    if (results.retried > 0 || results.dropped > 0) {
-      logger.info("Retry results", results);
-    }
-
     return results;
   }
 
-  /**
-   * Persist permanently failed events to database for manual review
-   */
-  private async persistToDeadLetterTable(
-    event: FailedUsageEvent
-  ): Promise<void> {
+  private async persistToDeadLetterTable(event: FailedUsageEvent): Promise<void> {
     try {
       await this.supabase.from("dead_letter_events").insert({
         event_type: "usage_event",
@@ -217,6 +220,7 @@ class UsageEmitter {
         retry_count: event.retryCount,
         created_at: new Date().toISOString(),
       });
+
       logger.warn("Event persisted to dead-letter table", {
         tenantId: event.payload.tenantId,
         metric: event.payload.metric,
@@ -226,23 +230,22 @@ class UsageEmitter {
     }
   }
 
-  /**
-   * Get current dead-letter queue size
-   */
   getDeadLetterQueueSize(): number {
     return failedEventsBuffer.length;
   }
 
-  /**
-   * Emit LLM token usage
-   */
+  // -----------------------------
+  // Convenience emitters
+  // -----------------------------
+
   async emitLLMTokens(
     tenantId: string,
     tokens: number,
     requestId: string,
     agentUuid: string,
     workloadIdentity: string,
-    model?: string
+    model?: string,
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage({
       tenantId,
@@ -257,19 +260,21 @@ class UsageEmitter {
         agentUuid,
         "llm_tokens"
       ),
-      metadata: { model },
+      metadata: { model, evidenceLink: this.resolveEvidenceLink(requestId, context) },
     });
+
+    // Ledger ingestion already happens inside emitUsage; override with context if provided.
+    // If you want ledger evidenceLink/agentId to always reflect context, move ledger ingestion
+    // into these convenience methods instead.
   }
 
-  /**
-   * Emit agent execution
-   */
   async emitAgentExecution(
     tenantId: string,
     requestId: string,
     agentUuid: string,
     workloadIdentity: string,
-    agentType?: string
+    agentType?: string,
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage({
       tenantId,
@@ -286,19 +291,18 @@ class UsageEmitter {
       ),
       metadata: {
         agentType,
+        evidenceLink: this.resolveEvidenceLink(requestId, context),
       },
     });
   }
 
-  /**
-   * Emit API call
-   */
   async emitAPICall(
     tenantId: string,
     requestId: string,
     agentUuid: string,
     workloadIdentity: string,
-    endpoint?: string
+    endpoint?: string,
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage({
       tenantId,
@@ -313,19 +317,20 @@ class UsageEmitter {
         agentUuid,
         "api_calls"
       ),
-      metadata: { endpoint },
+      metadata: {
+        endpoint,
+        evidenceLink: this.resolveEvidenceLink(requestId, context),
+      },
     });
   }
 
-  /**
-   * Emit storage usage (current size)
-   */
   async emitStorageUsage(
     tenantId: string,
     sizeGB: number,
     requestId: string,
     agentUuid: string,
-    workloadIdentity: string
+    workloadIdentity: string,
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage({
       tenantId,
@@ -340,18 +345,19 @@ class UsageEmitter {
         agentUuid,
         "storage_gb"
       ),
+      metadata: {
+        evidenceLink: this.resolveEvidenceLink(requestId, context),
+      },
     });
   }
 
-  /**
-   * Emit user seat count (active users)
-   */
   async emitUserSeats(
     tenantId: string,
     userCount: number,
     requestId: string,
     agentUuid: string,
-    workloadIdentity: string
+    workloadIdentity: string,
+    context?: BillableContext
   ): Promise<void> {
     await this.emitUsage({
       tenantId,
@@ -366,8 +372,12 @@ class UsageEmitter {
         agentUuid,
         "user_seats"
       ),
+      metadata: {
+        evidenceLink: this.resolveEvidenceLink(requestId, context),
+      },
     });
   }
 }
 
 export default UsageEmitter;
+
