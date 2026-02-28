@@ -240,7 +240,7 @@ export class MemorySystem {
   /**
    * Store a full episode record (agent invocation lifecycle).
    */
-  async storeEpisode(input: EpisodeInput): Promise<string> {
+  async storeEpisode(input: EpisodeInput, organizationId: string): Promise<string> {
     const episodeId = `ep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const episode: Episode = {
       id: episodeId,
@@ -248,7 +248,7 @@ export class MemorySystem {
       agent_id: input.agentId,
       episode_type: input.episodeType,
       task_intent: input.taskIntent,
-      context: input.context,
+      context: { ...input.context, organizationId },
       initial_state: input.initialState,
       final_state: input.finalState,
       success: input.success,
@@ -262,6 +262,7 @@ export class MemorySystem {
       episode_id: episodeId,
       agent_id: input.agentId,
       success: input.success,
+      organization_id: organizationId,
     });
 
     return episodeId;
@@ -273,8 +274,8 @@ export class MemorySystem {
    */
   async retrieveSimilarEpisodes(
     context: Record<string, unknown>,
-    limit: number = 5,
-    organizationId?: string
+    organizationId: string,
+    limit: number = 5
   ): Promise<Episode[]> {
     const agentId = context.agent as string | undefined;
     const query = context.query as string | undefined;
@@ -284,11 +285,9 @@ export class MemorySystem {
     for (const episode of this.episodes.values()) {
       if (agentId && episode.agent_id !== agentId) continue;
 
-      // Tenant isolation
-      if (organizationId) {
-        const epOrgId = episode.context?.organizationId ?? episode.context?.tenantId;
-        if (epOrgId && epOrgId !== organizationId) continue;
-      }
+      // Strict tenant isolation
+      const epOrgId = episode.context?.organizationId ?? episode.context?.tenantId;
+      if (!epOrgId || epOrgId !== organizationId) continue;
 
       // Simple text similarity: check if query terms appear in task_intent
       if (query) {
@@ -396,21 +395,23 @@ export class MemorySystem {
     };
   }
 
-  async clear(agentId: string, workspaceId?: string): Promise<number> {
+  async clear(agentId: string, organizationId: string, workspaceId?: string): Promise<number> {
     let count = 0;
     for (const [id, memory] of this.memories.entries()) {
-      if (memory.agent_id === agentId) {
-        if (!workspaceId || memory.workspace_id === workspaceId) {
-          this.memories.delete(id);
-          count++;
-        }
+      if (
+        memory.agent_id === agentId &&
+        memory.metadata?.organization_id === organizationId &&
+        (!workspaceId || memory.workspace_id === workspaceId)
+      ) {
+        this.memories.delete(id);
+        count++;
       }
     }
 
     // Delegate to backend (which may no-op for persistent stores)
     if (this.backend && this.config.enable_persistence) {
       try {
-        await this.backend.clear(agentId, workspaceId);
+        await this.backend.clear(agentId, organizationId, workspaceId);
       } catch (error) {
         logger.warn("Persistent memory clear failed", {
           agent_id: agentId,
@@ -419,7 +420,7 @@ export class MemorySystem {
       }
     }
 
-    logger.info("Memories cleared", { agent_id: agentId, count });
+    logger.info("Memories cleared", { agent_id: agentId, organization_id: organizationId, count });
     return count;
   }
 

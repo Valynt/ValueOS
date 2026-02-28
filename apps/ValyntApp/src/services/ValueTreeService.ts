@@ -1,6 +1,6 @@
 /**
  * Value Tree Service with Atomic Updates
- * 
+ *
  * Manages value tree operations with optimistic locking and impact analysis.
  */
 
@@ -43,6 +43,7 @@ export interface LifecycleContext {
   userId: string;
   organizationId?: string;
   sessionId?: string;
+  supabaseClient?: import('@supabase/supabase-js').SupabaseClient;
 }
 
 export interface ValueImpactAnalysis {

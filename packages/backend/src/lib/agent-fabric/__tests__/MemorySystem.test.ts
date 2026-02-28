@@ -87,7 +87,7 @@ describe("MemorySystem", () => {
         metadata: { organization_id: ORG_ID },
       });
 
-      const count = await ms.clear("agent-1");
+      const count = await ms.clear("agent-1", ORG_ID);
       expect(count).toBe(1);
 
       const results = await ms.retrieve({
@@ -221,8 +221,8 @@ describe("MemorySystem", () => {
     });
 
     it("delegates clear to backend", async () => {
-      await ms.clear("agent-1", "ws-1");
-      expect(backend.clear).toHaveBeenCalledWith("agent-1", "ws-1");
+      await ms.clear("agent-1", ORG_ID, "ws-1");
+      expect(backend.clear).toHaveBeenCalledWith("agent-1", ORG_ID, "ws-1");
     });
   });
 

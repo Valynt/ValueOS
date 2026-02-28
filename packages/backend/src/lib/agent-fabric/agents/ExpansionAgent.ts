@@ -319,8 +319,14 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     context: LifecycleContext,
     analysis: ExpansionAnalysis,
   ): Promise<void> {
+    // Mitigation: Cap items processed from LLM output to prevent memory exhaustion/DoS
+    // Limit to 20 per category (opportunities, gap_analysis, new_cycle_recommendations)
+    const cappedOpportunities = analysis.opportunities.slice(0, 20);
+    const cappedGaps = analysis.gap_analysis.slice(0, 20);
+    const cappedCycles = analysis.new_cycle_recommendations.slice(0, 20);
+
     // Store each expansion opportunity
-    for (const opportunity of analysis.opportunities) {
+    for (const opportunity of cappedOpportunities) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -350,7 +356,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     }
 
     // Store gap analysis items
-    for (const gap of analysis.gap_analysis) {
+    for (const gap of cappedGaps) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -378,7 +384,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     }
 
     // Store new cycle seeds — these can be picked up by OpportunityAgent
-    for (const cycle of analysis.new_cycle_recommendations) {
+    for (const cycle of cappedCycles) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -496,36 +502,5 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
   // Helpers
   // -------------------------------------------------------------------------
 
-  private toConfidenceLevel(score: number): ConfidenceLevel {
-    if (score >= 0.85) return 'very_high';
-    if (score >= 0.7) return 'high';
-    if (score >= 0.5) return 'medium';
-    if (score >= 0.3) return 'low';
-    return 'very_low';
-  }
-
-  private buildOutput(
-    result: Record<string, unknown>,
-    status: AgentOutput['status'],
-    confidence: ConfidenceLevel,
-    startTime: number,
-    extra?: { reasoning?: string; suggested_next_actions?: string[] },
-  ): AgentOutput {
-    const metadata: AgentOutputMetadata = {
-      execution_time_ms: Date.now() - startTime,
-      model_version: this.version,
-      timestamp: new Date().toISOString(),
-    };
-    return {
-      agent_id: this.name,
-      agent_type: 'expansion',
-      lifecycle_stage: 'expansion',
-      status,
-      result,
-      confidence,
-      reasoning: extra?.reasoning,
-      suggested_next_actions: extra?.suggested_next_actions,
-      metadata,
-    };
-  }
+  // ...existing code...
 }

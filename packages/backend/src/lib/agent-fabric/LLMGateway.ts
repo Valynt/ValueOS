@@ -157,21 +157,7 @@ export class LLMGateway {
       return this.executeTogetherCompletion(request, startTime);
     }
 
-    return {
-      id: `llm_${Date.now()}`,
-      model: request.model || this.config.model,
-      content: 'LLM Gateway placeholder response',
-      finish_reason: 'stop',
-      usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
-      },
-      metadata: {
-        ...(request.metadata || {}),
-        duration_ms: Date.now() - startTime,
-      },
-    };
+      throw new Error('Provider not implemented: ' + this.config.provider);
   }
 
   protected async executeTogetherCompletion(

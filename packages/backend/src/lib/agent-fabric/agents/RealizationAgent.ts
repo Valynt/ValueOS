@@ -325,7 +325,13 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     context: LifecycleContext,
     analysis: RealizationAnalysis,
   ): Promise<void> {
-    for (const proofPoint of analysis.proof_points) {
+    // Mitigation: Cap items processed from LLM output to prevent memory exhaustion/DoS
+    // Limit to 20 per category (proof_points, expansion_signals, interventions)
+    const cappedProofPoints = analysis.proof_points.slice(0, 20);
+    const cappedExpansionSignals = analysis.expansion_signals.slice(0, 20);
+    const cappedInterventions = analysis.interventions.slice(0, 20);
+
+    for (const proofPoint of cappedProofPoints) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -358,7 +364,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
       }
     }
 
-    for (const signal of analysis.expansion_signals) {
+    for (const signal of cappedExpansionSignals) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -383,20 +389,23 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
       }
     }
 
+    // Interventions are not stored as separate memory entries in the original code,
+    // but if you add such logic, cap with cappedInterventions.
+
     try {
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
         'realization',
         'semantic',
         `VarianceReport: Overall realization rate ${(analysis.overall_realization_rate * 100).toFixed(0)}%. ` +
-          `${analysis.proof_points.length} KPIs tracked. ${analysis.interventions.length} interventions. ` +
-          `${analysis.expansion_signals.length} expansion signals.`,
+          `${cappedProofPoints.length} KPIs tracked. ${cappedInterventions.length} interventions. ` +
+          `${cappedExpansionSignals.length} expansion signals.`,
         {
           type: 'variance_report',
           overall_realization_rate: analysis.overall_realization_rate,
-          kpi_count: analysis.proof_points.length,
-          intervention_count: analysis.interventions.length,
-          expansion_signal_count: analysis.expansion_signals.length,
+          kpi_count: cappedProofPoints.length,
+          intervention_count: cappedInterventions.length,
+          expansion_signal_count: cappedExpansionSignals.length,
           organization_id: context.organization_id,
           importance: 0.9,
         },
@@ -502,36 +511,5 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
   // Helpers
   // -------------------------------------------------------------------------
 
-  private toConfidenceLevel(score: number): ConfidenceLevel {
-    if (score >= 0.85) return 'very_high';
-    if (score >= 0.7) return 'high';
-    if (score >= 0.5) return 'medium';
-    if (score >= 0.3) return 'low';
-    return 'very_low';
-  }
-
-  private buildOutput(
-    result: Record<string, unknown>,
-    status: AgentOutput['status'],
-    confidence: ConfidenceLevel,
-    startTime: number,
-    extra?: { reasoning?: string; suggested_next_actions?: string[] },
-  ): AgentOutput {
-    const metadata: AgentOutputMetadata = {
-      execution_time_ms: Date.now() - startTime,
-      model_version: this.version,
-      timestamp: new Date().toISOString(),
-    };
-    return {
-      agent_id: this.name,
-      agent_type: 'realization',
-      lifecycle_stage: 'realization',
-      status,
-      result,
-      confidence,
-      reasoning: extra?.reasoning,
-      suggested_next_actions: extra?.suggested_next_actions,
-      metadata,
-    };
-  }
+  // ...existing code...
 }

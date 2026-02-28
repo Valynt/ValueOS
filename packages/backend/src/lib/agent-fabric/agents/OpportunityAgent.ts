@@ -163,8 +163,7 @@ export class OpportunityAgent extends BaseAgent {
 
     try {
       // Pass supabase client from context if available (set by orchestrator)
-      const supabaseClient = (context as Record<string, unknown>).supabaseClient as
-        import('@supabase/supabase-js').SupabaseClient | undefined;
+      const supabaseClient = context.supabaseClient;
       return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
     } catch (err) {
       logger.warn('Failed to load domain pack context, proceeding without it', {
@@ -332,7 +331,10 @@ Generate a JSON object with:
     context: LifecycleContext,
     analysis: OpportunityAnalysis,
   ): Promise<void> {
-    for (const hypothesis of analysis.hypotheses) {
+    // Mitigation: Cap hypotheses processed from LLM output to prevent memory exhaustion/DoS
+    // Limit to 20 hypotheses
+    const cappedHypotheses = analysis.hypotheses.slice(0, 20);
+    for (const hypothesis of cappedHypotheses) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -457,37 +459,5 @@ Generate a JSON object with:
   // Helpers
   // -------------------------------------------------------------------------
 
-  private toConfidenceLevel(score: number): ConfidenceLevel {
-    if (score >= 0.85) return 'very_high';
-    if (score >= 0.7) return 'high';
-    if (score >= 0.5) return 'medium';
-    if (score >= 0.3) return 'low';
-    return 'very_low';
-  }
-
-  private buildOutput(
-    result: Record<string, any>,
-    status: AgentOutput['status'],
-    confidence: ConfidenceLevel,
-    startTime: number,
-    extra?: { reasoning?: string; suggested_next_actions?: string[] },
-  ): AgentOutput {
-    const metadata: AgentOutputMetadata = {
-      execution_time_ms: Date.now() - startTime,
-      model_version: this.version,
-      timestamp: new Date().toISOString(),
-    };
-
-    return {
-      agent_id: this.name,
-      agent_type: 'opportunity',
-      lifecycle_stage: 'opportunity',
-      status,
-      result,
-      confidence,
-      reasoning: extra?.reasoning,
-      suggested_next_actions: extra?.suggested_next_actions,
-      metadata,
-    };
-  }
+  // ...existing code...
 }

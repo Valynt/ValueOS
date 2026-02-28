@@ -25,5 +25,5 @@ export interface MemoryPersistenceBackend {
    * Delete memories for an agent, optionally scoped to a workspace.
    * Returns the count of deleted records.
    */
-  clear(agentId: string, workspaceId?: string): Promise<number>;
+  clear(agentId: string, organizationId: string, workspaceId?: string): Promise<number>;
 }

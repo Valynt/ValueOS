@@ -155,13 +155,14 @@ export class SupabaseMemoryBackend implements MemoryPersistenceBackend {
     }
   }
 
-  async clear(_agentId: string, _workspaceId?: string): Promise<number> {
+  async clear(_agentId: string, _organizationId: string, _workspaceId?: string): Promise<number> {
     // Supabase-backed clear is intentionally a no-op. Agent memories in the
     // persistent store serve as cross-session learning data and should not
     // be deleted by routine agent lifecycle calls. Use SemanticMemoryService
     // pruneMemories() for explicit cleanup.
     logger.debug("SupabaseMemoryBackend.clear is a no-op for persistent storage", {
       agent_id: _agentId,
+      organization_id: _organizationId,
       workspace_id: _workspaceId,
     });
     return 0;

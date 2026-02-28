@@ -174,8 +174,7 @@ export class IntegrityAgent extends BaseAgent {
     if (!valueCaseId || !context.organization_id) return empty;
 
     try {
-      const supabaseClient = (context as Record<string, unknown>).supabaseClient as
-        import('@supabase/supabase-js').SupabaseClient | undefined;
+      const supabaseClient = context.supabaseClient;
       return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
     } catch (err) {
       logger.warn('IntegrityAgent: failed to load domain pack context', {
@@ -386,18 +385,21 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     analysis: IntegrityAnalysis,
     vetoDecision: VetoDecision,
   ): Promise<void> {
+    // Mitigation: Cap claim validations processed from LLM output to prevent memory exhaustion/DoS
+    // Limit to 20 claim validations
+    const cappedClaimValidations = analysis.claim_validations.slice(0, 20);
     try {
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
         'integrity',
         'semantic',
-        `Integrity validation: ${analysis.claim_validations.length} claims checked. ` +
-          `${analysis.claim_validations.filter(c => c.verdict === 'supported').length} supported. ` +
+        `Integrity validation: ${cappedClaimValidations.length} claims checked. ` +
+          `${cappedClaimValidations.filter(c => c.verdict === 'supported').length} supported. ` +
           (vetoDecision.veto ? 'VETOED.' : vetoDecision.reRefine ? 'Re-refinement requested.' : 'Passed.'),
         {
           type: 'integrity_validation',
-          claim_count: analysis.claim_validations.length,
-          supported_count: analysis.claim_validations.filter(c => c.verdict === 'supported').length,
+          claim_count: cappedClaimValidations.length,
+          supported_count: cappedClaimValidations.filter(c => c.verdict === 'supported').length,
           scores: {
             data_quality: analysis.data_quality_score,
             logical_consistency: analysis.logical_consistency_score,
@@ -501,36 +503,5 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
   // Helpers
   // -------------------------------------------------------------------------
 
-  private toConfidenceLevel(score: number): ConfidenceLevel {
-    if (score >= 0.85) return 'very_high';
-    if (score >= 0.7) return 'high';
-    if (score >= 0.5) return 'medium';
-    if (score >= 0.3) return 'low';
-    return 'very_low';
-  }
-
-  private buildOutput(
-    result: Record<string, any>,
-    status: AgentOutput['status'],
-    confidence: ConfidenceLevel,
-    startTime: number,
-    extra?: { reasoning?: string; suggested_next_actions?: string[] },
-  ): AgentOutput {
-    const metadata: AgentOutputMetadata = {
-      execution_time_ms: Date.now() - startTime,
-      model_version: this.version,
-      timestamp: new Date().toISOString(),
-    };
-    return {
-      agent_id: this.name,
-      agent_type: 'integrity',
-      lifecycle_stage: 'integrity',
-      status,
-      result,
-      confidence,
-      reasoning: extra?.reasoning,
-      suggested_next_actions: extra?.suggested_next_actions,
-      metadata,
-    };
-  }
+  // ...existing code...
 }

@@ -14,7 +14,6 @@ import { logger } from "../logger.js";
 import { BaseAgent } from "./agents/BaseAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
-import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
 import { OpportunityAgent } from "./agents/OpportunityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";

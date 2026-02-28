@@ -70,6 +70,44 @@ export abstract class BaseAgent {
     this.knowledgeFabricValidator = null;
   }
 
+    /**
+     * Converts a numeric score to a confidence level string.
+     */
+    protected toConfidenceLevel(score: number): ConfidenceLevel {
+      if (score >= 0.85) return 'very_high';
+      if (score >= 0.7) return 'high';
+      if (score >= 0.5) return 'medium';
+      if (score >= 0.3) return 'low';
+      return 'very_low';
+    }
+
+    /**
+     * Builds a standardized AgentOutput object.
+     */
+    protected buildOutput(
+      result: Record<string, unknown>,
+      status: AgentOutput['status'],
+      confidence: ConfidenceLevel,
+      startTime: number,
+      extra?: { reasoning?: string; suggested_next_actions?: string[]; warnings?: string[] },
+    ): AgentOutput {
+      const metadata: AgentOutputMetadata = {
+        execution_time_ms: Date.now() - startTime,
+        model_version: this.version,
+        timestamp: new Date().toISOString(),
+      };
+      return {
+        agent_id: this.name,
+        agent_type: this.lifecycleStage,
+        lifecycle_stage: this.lifecycleStage,
+        status,
+        result,
+        confidence,
+        metadata,
+        ...(extra || {}),
+      };
+    }
+
   /**
    * Inject a KnowledgeFabricValidator for hallucination detection.
    * Called by AgentFactory after construction.
@@ -90,7 +128,7 @@ export abstract class BaseAgent {
       });
       return false;
     }
-    this.organizationId = context.organization_id;
+    // organizationId is set in constructor; do not mutate here
     return true;
   }
 
@@ -240,12 +278,12 @@ export abstract class BaseAgent {
         this.name
       );
     } catch (err) {
-      logger.warn("Knowledge Fabric validation failed, defaulting to pass", {
+      logger.error("Knowledge Fabric validation failed, defaulting to fail", {
         agent_id: this.name,
         error: (err as Error).message,
       });
       return {
-        passed: true,
+        passed: false,
         confidence: 0.5,
         contradictions: [],
         benchmarkMisalignments: [],
@@ -439,8 +477,19 @@ export abstract class BaseAgent {
           }
         }
       }
-    } catch {
-      // Memory unavailable — skip cross-reference silently
+    } catch (err) {
+      // Log error with context for visibility
+      console.error('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', {
+        agent: this.name,
+        organizationId: this.organizationId,
+        error: err,
+      });
+      // Escalate if error indicates tenant isolation violation
+      if (err && typeof err.message === 'string' && err.message.includes('tenant')) {
+        // Optionally, escalate or rethrow for audit trail
+        throw new Error(`Tenant isolation violation in crossReferenceMemory: ${err.message}`);
+      }
+      // Otherwise, skip cross-reference but error is now visible
     }
   }
 

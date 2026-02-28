@@ -209,7 +209,7 @@ describe("SupabaseMemoryBackend", () => {
 
   describe("clear", () => {
     it("is a no-op that returns 0", async () => {
-      const count = await backend.clear("agent-1", "ws-1");
+      const count = await backend.clear("agent-1", "org-1", "ws-1");
       expect(count).toBe(0);
     });
   });

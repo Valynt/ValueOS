@@ -41,6 +41,7 @@ export interface LifecycleContext {
   organizationId?: string;
   sessionId?: string;
   metadata?: Record<string, unknown>;
+  supabaseClient?: import('@supabase/supabase-js').SupabaseClient;
 }
 
 export interface StageInput {

@@ -576,36 +576,5 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
   // Helpers
   // -------------------------------------------------------------------------
 
-  private toConfidenceLevel(score: number): ConfidenceLevel {
-    if (score >= 0.85) return 'very_high';
-    if (score >= 0.7) return 'high';
-    if (score >= 0.5) return 'medium';
-    if (score >= 0.3) return 'low';
-    return 'very_low';
-  }
-
-  private buildOutput(
-    result: Record<string, unknown>,
-    status: AgentOutput['status'],
-    confidence: ConfidenceLevel,
-    startTime: number,
-    extra?: { reasoning?: string; suggested_next_actions?: string[] },
-  ): AgentOutput {
-    const metadata: AgentOutputMetadata = {
-      execution_time_ms: Date.now() - startTime,
-      model_version: this.version,
-      timestamp: new Date().toISOString(),
-    };
-    return {
-      agent_id: this.name,
-      agent_type: 'financial_modeling',
-      lifecycle_stage: 'modeling',
-      status,
-      result,
-      confidence,
-      reasoning: extra?.reasoning,
-      suggested_next_actions: extra?.suggested_next_actions,
-      metadata,
-    };
-  }
+  // ...existing code...
 }
