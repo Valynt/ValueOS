@@ -12,6 +12,15 @@ declare global {
       };
       tenantId?: string;
       sessionId?: string;
+      userId?: string;
+      requestId?: string;
+      usageContext?: {
+        tenantId: string;
+        userId?: string;
+        metric: string;
+        entitlementCheck: unknown;
+        timestamp: string;
+      };
     }
   }
 }

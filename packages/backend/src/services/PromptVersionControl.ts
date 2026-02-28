@@ -39,7 +39,7 @@ export interface PromptExecution {
   id: string;
   promptVersionId: string;
   userId: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   renderedPrompt: string;
   response: string;
   latency: number;
@@ -81,8 +81,7 @@ export interface ABTest {
 }
 
 export class PromptVersionControlService {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private supabase: any;
+  private supabase: ReturnType<typeof createClient>;
   private cache: Map<string, PromptVersion> = new Map();
 
   constructor() {
