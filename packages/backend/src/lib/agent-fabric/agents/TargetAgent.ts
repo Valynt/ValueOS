@@ -413,9 +413,11 @@ Generate a JSON object with:
     analysis: TargetAnalysis,
     causalResults: CausalTrace[],
   ): Promise<void> {
-    // Store each KPI definition
-    for (let i = 0; i < analysis.kpi_definitions.length; i++) {
-      const kpi = analysis.kpi_definitions[i];
+    // Mitigation: Cap KPI definitions processed from LLM output to prevent memory exhaustion/DoS
+    // Limit to 20 KPI definitions
+    const cappedKpiDefinitions = analysis.kpi_definitions.slice(0, 20);
+    for (let i = 0; i < cappedKpiDefinitions.length; i++) {
+      const kpi = cappedKpiDefinitions[i];
       const causal = causalResults[i];
       try {
         await this.memorySystem.storeSemanticMemory(
