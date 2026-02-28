@@ -36,7 +36,7 @@ export const DX_ERRORS: Record<string, DXError> = {
     code: "DX_ERR_004",
     message: "Database connection refused",
     cause: "Postgres container is not reachable or not started",
-    fix: "Run: docker ps | grep postgres && docker logs valueos-postgres",
+    fix: "Run: docker compose -f ops/compose/compose.yml ps postgres && docker compose -f ops/compose/compose.yml logs postgres",
     docsUrl: "docs/DX_TROUBLESHOOTING.md#err-004",
   },
   ERR_005: {

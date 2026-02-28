@@ -105,10 +105,10 @@ check(
   "DX containers running",
   () => {
     try {
-      const output = runCommand("docker ps --format '{{.Names}}'");
-      return (
-        output.includes("valueos-postgres") && output.includes("valueos-redis")
+      const output = runCommand(
+        "docker compose -f ops/compose/compose.yml ps --services --status running"
       );
+      return output.includes("postgres") && output.includes("redis");
     } catch {
       return false;
     }
@@ -122,7 +122,7 @@ check(
   "Postgres accessible",
   () => {
     try {
-      runCommand("docker exec valueos-postgres pg_isready -U postgres");
+      runCommand("docker compose -f ops/compose/compose.yml exec -T postgres pg_isready -U postgres");
       return true;
     } catch {
       return false;
@@ -136,7 +136,7 @@ check(
   "Redis accessible",
   () => {
     try {
-      runCommand("docker exec valueos-redis redis-cli ping");
+      runCommand("docker compose -f ops/compose/compose.yml exec -T redis redis-cli ping");
       return true;
     } catch {
       return false;
