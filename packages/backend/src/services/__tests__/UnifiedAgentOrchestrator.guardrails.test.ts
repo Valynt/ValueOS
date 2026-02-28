@@ -243,7 +243,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
       // Wait for async execution to attempt destructive action
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const status = await orchestrator.getExecutionStatus(executionId);
+      const status = await orchestrator.getExecutionStatus(executionId, envelope.organizationId);
       expect(status?.status).toBe('failed');
       expect(status?.error_message).toContain('Destructive action requires approval');
     });
@@ -428,7 +428,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
       // Wait for execution to hit limit
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const status = await orchestrator.getExecutionStatus(executionId);
+      const status = await orchestrator.getExecutionStatus(executionId, envelope.organizationId);
       expect(status?.status).toBe('failed');
       expect(status?.error_message).toContain('iteration limit exceeded');
     });
