@@ -26,18 +26,18 @@ export class ModelService {
   private valueCommitRepo: ValueCommitRepository;
 
   constructor(context: LifecycleContext) {
-    const tenantId = context.tenantId || context.organization_id;
+    const tenantId = context.organization_id;
     if (!tenantId) {
-      throw new Error("Tenant ID is required to initialize ModelService");
+      throw new Error("Tenant ID (organization_id) is required to initialize ModelService");
     }
     this.context = context;
-    this.roiModelRepo = new RoiModelRepository(tenantId);
-    this.kpiTargetRepo = new KpiTargetRepository(tenantId);
-    this.valueTreeRepo = new ValueTreeRepository(tenantId);
-    this.valueTreeNodeRepo = new ValueTreeNodeRepository(tenantId);
-    this.valueTreeLinkRepo = new ValueTreeLinkRepository(tenantId);
-    this.roiModelCalcRepo = new RoiModelCalculationRepository(tenantId);
-    this.valueCommitRepo = new ValueCommitRepository(tenantId);
+    this.roiModelRepo = new RoiModelRepository();
+    this.kpiTargetRepo = new KpiTargetRepository();
+    this.valueTreeRepo = new ValueTreeRepository();
+    this.valueTreeNodeRepo = new ValueTreeNodeRepository();
+    this.valueTreeLinkRepo = new ValueTreeLinkRepository();
+    this.roiModelCalcRepo = new RoiModelCalculationRepository();
+    this.valueCommitRepo = new ValueCommitRepository();
   }
 
   /**
@@ -48,8 +48,8 @@ export class ModelService {
     userName: string;
     userEmail: string;
   }> {
-    const { userId } = this.context;
-    const tenantId = this.context.tenantId || this.context.organization_id;
+    const userId = this.context.user_id;
+    const tenantId = this.context.organization_id;
 
     try {
       if (!tenantId) throw new Error("No tenant ID in context");
@@ -138,12 +138,14 @@ export class ModelService {
 
       // Log provenance for value_tree creation
       logAudit("value_tree", valueTreeId, {
-        name: output.valueTree.name,
+        name: (output.valueTree as Record<string, unknown>)?.name ?? "Unnamed",
         value_case_id: valueCaseId,
       });
 
       // 2. Create Value Tree Nodes and Links
-      for (const node of output.businessCase.nodes) {
+      const bcNodes = ((output.businessCase ?? {}) as Record<string, unknown>).nodes as Array<Record<string, unknown>> ?? [];
+      const bcLinks = ((output.businessCase ?? {}) as Record<string, unknown>).links as Array<Record<string, unknown>> ?? [];
+      for (const node of bcNodes) {
         await this.valueTreeNodeRepo.create({
           value_tree_id: valueTreeId,
           node_id: node.node_id,
@@ -153,15 +155,12 @@ export class ModelService {
           properties: {},
         });
       }
-      for (const link of output.businessCase.links) {
-        // No casting needed with TargetAgentLink type
+      for (const link of bcLinks) {
         const { data: parentNode } = await this.valueTreeNodeRepo.findById(
-          valueTreeId,
-          link.parent_node_id
+          String(link.parent_node_id)
         );
         const { data: childNode } = await this.valueTreeNodeRepo.findById(
-          valueTreeId,
-          link.child_node_id
+          String(link.child_node_id)
         );
 
         if (parentNode && childNode) {
@@ -177,9 +176,10 @@ export class ModelService {
       }
 
       // 3. Create ROI Model
+      const roiModelInput = output.roiModel ?? {};
       const { data: roiModelData, error: roiError } =
         await this.roiModelRepo.create({
-          ...output.roiModel,
+          ...roiModelInput,
           value_tree_id: valueTreeId,
         });
       if (roiError)
@@ -189,19 +189,21 @@ export class ModelService {
 
       // Log provenance for roi_model creation
       logAudit("roi_model", roiModelId, {
-        name: output.roiModel.name,
+        name: (roiModelInput as Record<string, unknown>).name ?? "Unnamed",
         value_tree_id: valueTreeId,
       });
 
       // 4. Create ROI Model Calculations
-      for (const calc of output.businessCase.calculations) {
+      const bc = (output.businessCase ?? {}) as Record<string, unknown>;
+      const calculations = (bc.calculations as Array<Record<string, unknown>>) ?? [];
+      for (const calc of calculations) {
         const { data: calcData } = await this.roiModelCalcRepo.create({
           roi_model_id: roiModelId,
           ...calc,
           input_variables: calc.input_variables || [],
           source_references: calc.source_references || {},
           reasoning_trace:
-            calc.reasoning_trace || output.businessCase.reasoning,
+            calc.reasoning_trace || bc.reasoning,
         });
 
         // Log provenance for calculation creation
@@ -215,9 +217,10 @@ export class ModelService {
       }
 
       // 5. Create Value Commit
+      const valueCommitInput = (output as unknown as Record<string, unknown>).valueCommit as Record<string, unknown> ?? {};
       const { data: commitData, error: commitError } =
         await this.valueCommitRepo.create({
-          ...output.valueCommit,
+          ...valueCommitInput,
           value_tree_id: valueTreeId,
           value_case_id: valueCaseId,
         });
@@ -235,7 +238,8 @@ export class ModelService {
       });
 
       // 6. Create KPI Targets
-      for (const target of output.businessCase.kpi_targets) {
+      const kpiTargets = (bc.kpi_targets as Array<Record<string, unknown>>) ?? [];
+      for (const target of kpiTargets) {
         await this.kpiTargetRepo.create({
           value_commit_id: valueCommitId,
           kpi_hypothesis_id: "", // This seems to be missing from the agent output
@@ -258,30 +262,29 @@ export class ModelService {
 
       // Manual Rollback / Compensation
       // Delete in reverse order of creation
+      // Compensation: delete in reverse order of creation
+      // Repositories are stubs — delete is a no-op until implemented
+      const deleteIfExists = async (repo: { findById: (id: string) => Promise<unknown> }, id: string, label: string) => {
+        try {
+          const deleteMethod = (repo as unknown as Record<string, unknown>).delete;
+          if (typeof deleteMethod === "function") {
+            await (deleteMethod as (id: string) => Promise<void>)(id);
+          } else {
+            logger.warn(`Rollback skipped: ${label} repository has no delete method`, { id });
+          }
+        } catch (rollbackError) {
+          logger.error(`Failed to rollback ${label}`, { rollbackError });
+        }
+      };
+
       if (createdArtifacts.valueCommitId) {
-        try {
-          await this.valueCommitRepo.delete(createdArtifacts.valueCommitId);
-        } catch (rollbackError) {
-          logger.error("Failed to rollback value commit", { rollbackError });
-        }
+        await deleteIfExists(this.valueCommitRepo, createdArtifacts.valueCommitId, "value commit");
       }
-
       if (createdArtifacts.roiModelId) {
-        try {
-          await this.roiModelRepo.delete(createdArtifacts.roiModelId);
-        } catch (rollbackError) {
-          logger.error("Failed to rollback ROI model", { rollbackError });
-        }
+        await deleteIfExists(this.roiModelRepo, createdArtifacts.roiModelId, "ROI model");
       }
-
       if (createdArtifacts.valueTreeId) {
-        try {
-          // Deleting the value tree should cascade delete nodes and links if DB is configured correctly,
-          // but we rely on the repo delete method.
-          await this.valueTreeRepo.delete(createdArtifacts.valueTreeId);
-        } catch (rollbackError) {
-          logger.error("Failed to rollback value tree", { rollbackError });
-        }
+        await deleteIfExists(this.valueTreeRepo, createdArtifacts.valueTreeId, "value tree");
       }
 
       throw error;

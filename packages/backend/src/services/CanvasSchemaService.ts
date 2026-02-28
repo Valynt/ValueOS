@@ -19,9 +19,11 @@ import {
 } from "@sdui/AtomicUIActions";
 import {
   ActionResult,
+  ActionType,
   CanonicalAction,
   SchemaCacheEntry,
   WorkspaceContext,
+  WorkspaceData,
   WorkspaceState,
 } from "../types/sdui-integration";
 import { LifecycleStage } from "../types/workflow";
@@ -127,7 +129,7 @@ export class CanvasSchemaService {
       });
 
       // Return fallback schema
-      return this.generateFallbackSchema(context.lifecycleStage);
+      return this.generateFallbackSchema((context.lifecycleStage ?? "opportunity") as LifecycleStage);
     }
   }
 
@@ -147,8 +149,9 @@ export class CanvasSchemaService {
     try {
       // If action result includes schema update, use it
       if (result.schemaUpdate) {
-        await this.cacheSchema(workspaceId, result.schemaUpdate);
-        return result.schemaUpdate;
+        const schemaUpdate = result.schemaUpdate as SDUIPageDefinition;
+        await this.cacheSchema(workspaceId, schemaUpdate);
+        return schemaUpdate;
       }
 
       // If action result includes atomic actions, apply them
@@ -206,7 +209,7 @@ export class CanvasSchemaService {
         return null;
       }
 
-      return cached.schema;
+      return cached.schema as unknown as SDUIPageDefinition;
     } catch (error) {
       logger.error("Failed to get cached schema", {
         workspaceId,
@@ -242,11 +245,10 @@ export class CanvasSchemaService {
     try {
       const cacheKey = `${this.CACHE_PREFIX}${workspaceId}`;
       const entry: SchemaCacheEntry = {
-        schema,
+        schema: schema as unknown as Record<string, unknown>,
+        hash: hashObject(schema),
         timestamp: Date.now(),
         ttl: this.CACHE_TTL,
-        workspaceId,
-        version: schema.version,
       };
       await this.cacheService.set(cacheKey, entry, {
         ttl: this.CACHE_TTL * 1000,
@@ -275,7 +277,8 @@ export class CanvasSchemaService {
   ): Promise<string> {
     try {
       // Step 1: Calculate content hash
-      const { hash, size } = await hashObject(schema);
+      const hash = hashObject(schema);
+      const size = JSON.stringify(schema).length;
 
       // Step 2: Store schema by hash (immutable, long TTL)
       await this.cacheService.setCAS(hash, schema, { namespace: "schema" });
@@ -437,20 +440,23 @@ export class CanvasSchemaService {
 
       // Build workspace state
       const state: WorkspaceState = {
+        workspace_id: workspaceId,
         workspaceId,
+        lifecycle_stage: lifecycleStage,
         lifecycleStage,
+        current_view: lifecycleStage,
         currentWorkflowId: workflowExecution?.workflow_definition_id,
         currentStageId: workflowExecution?.current_stage || undefined,
-        data: {
-          workflowStatus: workflowExecution?.status,
-          workflowContext: workflowExecution?.context,
-        },
+        data: {} as WorkspaceData,
+        ui_state: { loading: false, errors: [], notifications: [] } as unknown as import("../types/sdui-integration").UIState,
+        validation_state: { is_valid: true, errors: [], warnings: [] } as unknown as import("../types/sdui-integration").ValidationState,
+        sync_status: { synced: true, last_sync: new Date().toISOString() } as unknown as import("../types/sdui-integration").SyncStatus,
         metadata: {
           ...context.metadata,
-          userId: context.userId,
-          sessionId: context.sessionId,
+          userId: context.userId ?? context.user_id,
+          sessionId: context.sessionId ?? context.session_id,
         },
-        lastUpdated: Date.now(),
+        last_updated: new Date().toISOString(),
         version: 1,
       };
 
@@ -469,11 +475,17 @@ export class CanvasSchemaService {
 
       // Return fallback state
       return {
+        workspace_id: workspaceId,
         workspaceId,
-        lifecycleStage: context.lifecycleStage,
-        data: {},
+        lifecycle_stage: context.lifecycleStage ?? context.lifecycle_stage ?? "opportunity",
+        lifecycleStage: context.lifecycleStage ?? context.lifecycle_stage ?? "opportunity",
+        current_view: "opportunity",
+        data: {} as WorkspaceData,
+        ui_state: { loading: false, errors: [], notifications: [] } as unknown as import("../types/sdui-integration").UIState,
+        validation_state: { is_valid: true, errors: [], warnings: [] } as unknown as import("../types/sdui-integration").ValidationState,
+        sync_status: { synced: true, last_sync: new Date().toISOString() } as unknown as import("../types/sdui-integration").SyncStatus,
         metadata: context.metadata || {},
-        lastUpdated: Date.now(),
+        last_updated: new Date().toISOString(),
         version: 1,
       };
     }
@@ -487,8 +499,9 @@ export class CanvasSchemaService {
     context: WorkspaceContext
   ): Promise<LifecycleStage> {
     // If context provides lifecycle stage, use it
-    if (context.lifecycleStage) {
-      return context.lifecycleStage;
+    const stage = context.lifecycleStage ?? context.lifecycle_stage;
+    if (stage) {
+      return stage as LifecycleStage;
     }
 
     // Otherwise, infer from workflow state or data availability
@@ -527,7 +540,8 @@ export class CanvasSchemaService {
       });
 
       // Fetch data based on lifecycle stage
-      const data: any = {
+      const wsId = state.workspaceId ?? state.workspace_id;
+      const data: Record<string, unknown> = {
         businessCase: null,
         systemMap: null,
         valueTree: null,
@@ -540,50 +554,51 @@ export class CanvasSchemaService {
       // Fetch business case if available
       const userId = state.metadata?.userId as string | undefined;
       data.businessCase = await this.fetchBusinessCase(
-        state.workspaceId,
+        wsId,
         userId
       );
 
       // Fetch stage-specific data
-      switch (state.lifecycleStage) {
+      const stage = state.lifecycleStage ?? state.lifecycle_stage;
+      switch (stage) {
         case "opportunity":
-          data.systemMap = await this.fetchSystemMap(state.workspaceId);
-          data.personas = await this.fetchPersonas(state.workspaceId);
-          data.kpis = await this.fetchKPIs(state.workspaceId);
+          data.systemMap = await this.fetchSystemMap(wsId);
+          data.personas = await this.fetchPersonas(wsId);
+          data.kpis = await this.fetchKPIs(wsId);
           break;
 
         case "target":
-          data.systemMap = await this.fetchSystemMap(state.workspaceId);
-          data.interventions = await this.fetchInterventions(state.workspaceId);
+          data.systemMap = await this.fetchSystemMap(wsId);
+          data.interventions = await this.fetchInterventions(wsId);
           data.outcomeHypotheses = await this.fetchOutcomeHypotheses(
-            state.workspaceId
+            wsId
           );
-          data.kpis = await this.fetchKPIs(state.workspaceId);
+          data.kpis = await this.fetchKPIs(wsId);
           break;
 
         case "expansion":
-          data.valueTree = await this.fetchValueTree(state.workspaceId);
-          data.kpis = await this.fetchKPIs(state.workspaceId);
-          data.gaps = await this.fetchGaps(state.workspaceId);
-          data.roi = await this.fetchROI(state.workspaceId);
+          data.valueTree = await this.fetchValueTree(wsId);
+          data.kpis = await this.fetchKPIs(wsId);
+          data.gaps = await this.fetchGaps(wsId);
+          data.roi = await this.fetchROI(wsId);
           break;
 
         case "integrity":
           data.manifestoResults = await this.fetchManifestoResults(
-            state.workspaceId
+            wsId
           );
           data.assumptions = await this.fetchAssumptions(
-            state.workspaceId,
+            wsId,
             data.businessCase
           );
           break;
 
         case "realization":
-          data.feedbackLoops = await this.fetchFeedbackLoops(state.workspaceId);
+          data.feedbackLoops = await this.fetchFeedbackLoops(wsId);
           data.realizationData = await this.fetchRealizationMetrics(
-            state.workspaceId
+            wsId
           );
-          data.kpis = await this.fetchKPIs(state.workspaceId);
+          data.kpis = await this.fetchKPIs(wsId);
           break;
       }
 
@@ -591,7 +606,7 @@ export class CanvasSchemaService {
         workspaceId: state.workspaceId,
         hasBusinessCase: !!data.businessCase,
         hasSystemMap: !!data.systemMap,
-        kpiCount: data.kpis?.length || 0,
+        kpiCount: Array.isArray(data.kpis) ? data.kpis.length : 0,
       });
 
       return data;
@@ -779,16 +794,16 @@ export class CanvasSchemaService {
 
       // 3. Fallback: Use structural truth data
       // We map the structural personas to the format expected by the UI
-      return EXTENDED_STRUCTURAL_PERSONA_MAPS.map((p) => ({
-        id: p.persona, // Use persona key as ID
-        name: this.formatPersonaName(p.persona),
-        role: p.persona,
-        primaryPain: p.primaryPain,
-        painDescription: p.painDescription,
-        keyKPIs: p.keyKPIs,
-        financialDriver: p.financialDriver,
-        typicalGoals: p.typicalGoals,
-        communicationPreference: p.communicationPreference,
+      return Object.entries(EXTENDED_STRUCTURAL_PERSONA_MAPS).map(([key, p]) => ({
+        id: key,
+        name: this.formatPersonaName(key),
+        role: key,
+        primaryPain: p.primaryPain as string | undefined,
+        painDescription: p.painDescription as string | undefined,
+        keyKPIs: p.keyKPIs as string[] | undefined,
+        financialDriver: p.financialDriver as string | undefined,
+        typicalGoals: p.typicalGoals as string[] | undefined,
+        communicationPreference: p.communicationPreference as string | undefined,
       }));
     } catch (error) {
       logger.error("Failed to fetch personas", {
@@ -1109,7 +1124,7 @@ export class CanvasSchemaService {
       // Calculations are already ordered by database if not we sort them
       const calculations = (roiModel.roi_model_calculations || []).sort(
         (a: ROIModelCalculation, b: ROIModelCalculation) =>
-          a.calculation_order - b.calculation_order
+          new Date(a.calculation_date).getTime() - new Date(b.calculation_date).getTime()
       );
 
       // Clean up the model object to remove the extra nested data if strict typing needed
@@ -1258,11 +1273,10 @@ export class CanvasSchemaService {
       let relevantTraces = ALL_VMRT_SEEDS;
 
       if (industry) {
-        const industryTraces = ALL_VMRT_SEEDS.filter(
-          (t) =>
-            t.context?.organization?.industry?.toLowerCase() ===
-            industry.toLowerCase()
-        );
+        const industryTraces = ALL_VMRT_SEEDS.filter((t) => {
+          const org = t.context?.organization as Record<string, unknown> | undefined;
+          return org?.industry?.toString().toLowerCase() === industry.toLowerCase();
+        });
         if (industryTraces.length > 0) {
           relevantTraces = industryTraces;
         }
@@ -1271,16 +1285,19 @@ export class CanvasSchemaService {
       // Extract all assumptions from reasoning steps
       const assumptions: VMRTAssumption[] = relevantTraces.flatMap(
         (trace) =>
-          trace.reasoningSteps?.flatMap((step) => step.assumptions || []) || []
+          trace.reasoningSteps?.flatMap((step) => {
+            const s = step as Record<string, unknown>;
+            return (s.assumptions as VMRTAssumption[] | undefined) || [];
+          }) || []
       );
 
-      // Deduplicate by factor name, keeping the one with higher confidence
+      // Deduplicate by id, keeping the one with higher confidence
       const uniqueAssumptions = Array.from(
         assumptions
           .reduce((map, assumption) => {
-            const existing = map.get(assumption.factor);
+            const existing = map.get(assumption.id);
             if (!existing || assumption.confidence > existing.confidence) {
-              map.set(assumption.factor, assumption);
+              map.set(assumption.id, assumption);
             }
             return map;
           }, new Map<string, VMRTAssumption>())
@@ -1402,9 +1419,9 @@ export class CanvasSchemaService {
   /**
    * Select appropriate template based on workspace state
    */
-  private selectTemplate(state: WorkspaceState, data: any): LifecycleStage {
+  private selectTemplate(state: WorkspaceState, _data: unknown): LifecycleStage {
     // Template selection based on lifecycle stage
-    return state.lifecycleStage;
+    return (state.lifecycleStage ?? state.lifecycle_stage ?? "opportunity") as LifecycleStage;
   }
 
   /**
@@ -1782,29 +1799,22 @@ export class CanvasSchemaService {
    * Extract workspace context from action
    */
   private extractContextFromAction(action: CanonicalAction): WorkspaceContext {
-    // Extract context based on action type
-    switch (action.type) {
-      case "navigateToStage":
-        return {
-          workspaceId: "",
-          userId: "",
-          lifecycleStage: action.stage,
-        };
+    const baseContext: WorkspaceContext = {
+      workspace_id: action.workspaceId ?? "",
+      organization_id: action.context?.organization_id ?? "",
+      user_id: action.context?.user_id ?? "",
+      lifecycle_stage: "opportunity",
+      permissions: { can_edit: true, can_view: true, can_delete: false, can_share: false } as unknown as import("../types/sdui-integration").WorkspacePermissions,
+    };
 
-      case "saveWorkspace":
-        return {
-          workspaceId: action.workspaceId,
-          userId: "",
-          lifecycleStage: "opportunity",
-        };
-
-      default:
-        return {
-          workspaceId: "",
-          userId: "",
-          lifecycleStage: "opportunity",
-        };
+    // Extract stage from action payload if available
+    const payload = action.payload as unknown as Record<string, unknown> | undefined;
+    if (payload?.stage && typeof payload.stage === "string") {
+      baseContext.lifecycle_stage = payload.stage;
+      baseContext.lifecycleStage = payload.stage;
     }
+
+    return baseContext;
   }
 }
 
