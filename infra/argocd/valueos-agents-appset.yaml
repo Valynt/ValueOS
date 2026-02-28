@@ -1,0 +1,241 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: valueos-agents
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - list:
+        elements:
+          - agentName: opportunity
+            imageName: ghcr.io/valynt/agent-opportunity
+            imageTag: latest
+            cpuRequest: 500m
+            cpuLimit: 1500m
+            memoryRequest: 1Gi
+            memoryLimit: 2Gi
+            envAgentName: opportunity
+            envAgentType: opportunity
+            maxConcurrentRequests: "10"
+          - agentName: target
+            imageName: ghcr.io/valynt/agent-target
+            imageTag: latest
+            cpuRequest: 100m
+            cpuLimit: 500m
+            memoryRequest: 256Mi
+            memoryLimit: 1Gi
+            envAgentName: target
+            envAgentType: target
+            maxConcurrentRequests: "6"
+          - agentName: expansion
+            imageName: ghcr.io/valynt/agent-expansion
+            imageTag: latest
+            cpuRequest: 200m
+            cpuLimit: 1000m
+            memoryRequest: 512Mi
+            memoryLimit: 2Gi
+            envAgentName: expansion
+            envAgentType: expansion
+            maxConcurrentRequests: "6"
+          - agentName: integrity
+            imageName: ghcr.io/valynt/agent-integrity
+            imageTag: latest
+            cpuRequest: 100m
+            cpuLimit: 500m
+            memoryRequest: 256Mi
+            memoryLimit: 1Gi
+            envAgentName: integrity
+            envAgentType: integrity
+            maxConcurrentRequests: "5"
+          - agentName: realization
+            imageName: ghcr.io/valynt/agent-realization
+            imageTag: latest
+            cpuRequest: 750m
+            cpuLimit: 2000m
+            memoryRequest: 1536Mi
+            memoryLimit: 3Gi
+            envAgentName: realization
+            envAgentType: realization
+            maxConcurrentRequests: "8"
+          - agentName: company-intelligence
+            imageName: ghcr.io/valynt/agent-company-intelligence
+            imageTag: latest
+            cpuRequest: 150m
+            cpuLimit: 750m
+            memoryRequest: 384Mi
+            memoryLimit: 1.5Gi
+            envAgentName: company-intelligence
+            envAgentType: company-intelligence
+            maxConcurrentRequests: "6"
+          - agentName: financial-modeling
+            imageName: ghcr.io/valynt/agent-financial-modeling
+            imageTag: latest
+            cpuRequest: 200m
+            cpuLimit: 1000m
+            memoryRequest: 512Mi
+            memoryLimit: 2Gi
+            envAgentName: financial-modeling
+            envAgentType: financial-modeling
+            maxConcurrentRequests: "6"
+          - agentName: value-mapping
+            imageName: ghcr.io/valynt/agent-value-mapping
+            imageTag: latest
+            cpuRequest: 150m
+            cpuLimit: 750m
+            memoryRequest: 384Mi
+            memoryLimit: 1.5Gi
+            envAgentName: value-mapping
+            envAgentType: value-mapping
+            maxConcurrentRequests: "6"
+          - agentName: system-mapper
+            imageName: ghcr.io/valynt/agent-system-mapper
+            imageTag: latest
+            cpuRequest: 200m
+            cpuLimit: 1000m
+            memoryRequest: 512Mi
+            memoryLimit: 2Gi
+            envAgentName: system-mapper
+            envAgentType: system-mapper
+            maxConcurrentRequests: "6"
+          - agentName: intervention-designer
+            imageName: ghcr.io/valynt/agent-intervention-designer
+            imageTag: latest
+            cpuRequest: 250m
+            cpuLimit: 1250m
+            memoryRequest: 640Mi
+            memoryLimit: 2.5Gi
+            envAgentName: intervention-designer
+            envAgentType: intervention-designer
+            maxConcurrentRequests: "6"
+          - agentName: outcome-engineer
+            imageName: ghcr.io/valynt/agent-outcome-engineer
+            imageTag: latest
+            cpuRequest: 250m
+            cpuLimit: 1250m
+            memoryRequest: 640Mi
+            memoryLimit: 2.5Gi
+            envAgentName: outcome-engineer
+            envAgentType: outcome-engineer
+            maxConcurrentRequests: "6"
+          - agentName: coordinator
+            imageName: ghcr.io/valynt/agent-coordinator
+            imageTag: latest
+            cpuRequest: 150m
+            cpuLimit: 750m
+            memoryRequest: 384Mi
+            memoryLimit: 1.5Gi
+            envAgentName: coordinator
+            envAgentType: coordinator
+            maxConcurrentRequests: "6"
+          - agentName: value-eval
+            imageName: ghcr.io/valynt/agent-value-eval
+            imageTag: latest
+            cpuRequest: 150m
+            cpuLimit: 750m
+            memoryRequest: 384Mi
+            memoryLimit: 1.5Gi
+            envAgentName: value-eval
+            envAgentType: value-eval
+            maxConcurrentRequests: "6"
+          - agentName: communicator
+            imageName: ghcr.io/valynt/agent-communicator
+            imageTag: latest
+            cpuRequest: 100m
+            cpuLimit: 500m
+            memoryRequest: 256Mi
+            memoryLimit: 1Gi
+            envAgentName: communicator
+            envAgentType: communicator
+            maxConcurrentRequests: "5"
+          - agentName: research
+            imageName: ghcr.io/valynt/agent-research
+            imageTag: latest
+            cpuRequest: 200m
+            cpuLimit: 1000m
+            memoryRequest: 512Mi
+            memoryLimit: 2Gi
+            envAgentName: research
+            envAgentType: research
+            maxConcurrentRequests: "6"
+          - agentName: benchmark
+            imageName: ghcr.io/valynt/agent-benchmark
+            imageTag: latest
+            cpuRequest: 150m
+            cpuLimit: 750m
+            memoryRequest: 384Mi
+            memoryLimit: 1.5Gi
+            envAgentName: benchmark
+            envAgentType: benchmark
+            maxConcurrentRequests: "6"
+          - agentName: narrative
+            imageName: ghcr.io/valynt/agent-narrative
+            imageTag: latest
+            cpuRequest: 200m
+            cpuLimit: 1000m
+            memoryRequest: 512Mi
+            memoryLimit: 2Gi
+            envAgentName: narrative
+            envAgentType: narrative
+            maxConcurrentRequests: "6"
+          - agentName: groundtruth
+            imageName: ghcr.io/valynt/agent-groundtruth
+            imageTag: latest
+            cpuRequest: 150m
+            cpuLimit: 750m
+            memoryRequest: 384Mi
+            memoryLimit: 1.5Gi
+            envAgentName: groundtruth
+            envAgentType: groundtruth
+            maxConcurrentRequests: "6"
+  template:
+    metadata:
+      name: valueos-agent-{{ .agentName }}
+      labels:
+        app.kubernetes.io/part-of: valueos-agents
+        valueos.io/agent: '{{ .agentName }}'
+    spec:
+      project: valueos
+      source:
+        repoURL: https://github.com/valynt/ValueOS.git
+        targetRevision: HEAD
+        path: infra/k8s/overlays/agents/{{ .agentName }}
+        kustomize:
+          patches:
+            - target:
+                kind: Deployment
+                name: '{{ .agentName }}-agent'
+              patch: |-
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: {{ .agentName }}-agent
+                spec:
+                  template:
+                    spec:
+                      containers:
+                        - name: {{ .agentName }}-agent
+                          image: {{ .imageName }}:{{ .imageTag }}
+                          resources:
+                            requests:
+                              cpu: {{ .cpuRequest }}
+                              memory: {{ .memoryRequest }}
+                            limits:
+                              cpu: {{ .cpuLimit }}
+                              memory: {{ .memoryLimit }}
+                          env:
+                            - name: AGENT_NAME
+                              value: {{ .envAgentName }}
+                            - name: AGENT_TYPE
+                              value: {{ .envAgentType }}
+                            - name: MAX_CONCURRENT_REQUESTS
+                              value: '{{ .maxConcurrentRequests }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: valueos-agents
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
