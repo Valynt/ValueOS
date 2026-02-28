@@ -14,6 +14,7 @@ import { CircuitBreaker } from "./CircuitBreaker.js";
 import { BaseAgent } from "./agents/BaseAgent.js";
 import { OpportunityAgent } from "./agents/OpportunityAgent.js";
 import { TargetAgent } from "./agents/TargetAgent.js";
+import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
@@ -23,19 +24,19 @@ import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
 const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   opportunity: "opportunity",
   target: "target",
+  "financial-modeling": "target", // financial modeling is part of the DRAFTING/target phase
   expansion: "expansion",
   integrity: "integrity",
   realization: "realization",
 };
 
 // Maps agent types to their fabric agent classes.
-// Only lifecycle agents have fabric implementations; support agents
-// (research, narrative, etc.) are not yet implemented as fabric agents.
 const FABRIC_AGENT_CLASSES: Partial<
   Record<string, new (config: AgentConfig, organizationId: string, memorySystem: MemorySystem, llmGateway: LLMGateway, circuitBreaker: CircuitBreaker) => BaseAgent>
 > = {
   opportunity: OpportunityAgent,
   target: TargetAgent,
+  "financial-modeling": FinancialModelingAgent,
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
   realization: RealizationAgent,
