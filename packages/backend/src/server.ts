@@ -41,6 +41,7 @@ import analyticsRouter from "./api/analytics.js";
 import authRouter from "./api/auth.js";
 import billingRouter from "./api/billing/index.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
+import { createApprovalWebhookRouter } from "./api/approvalWebhooks.js";
 import crmRouter from "./api/crm.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
@@ -70,6 +71,9 @@ import { validateEnvOrThrow } from "./config/validateEnv.js";
 import { getConfig } from "./config/environment.js";
 import docsApiRouter from "./docs-api/index.js";
 import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
+import { createServerSupabaseClient } from "./lib/supabase.js";
+import { ApprovalWebhookService } from "./services/approvals/ApprovalWebhookService.js";
+import { NotificationActionSigner } from "./services/approvals/NotificationActionSigner.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 const initializeContext = async () => {};
@@ -441,6 +445,36 @@ if (checkpointMiddleware) {
     tenantContextMiddleware(),
     createCheckpointRouter(checkpointMiddleware),
   );
+
+  const signer = new NotificationActionSigner({
+    secret: process.env.APPROVAL_ACTION_SECRET || "dev-approval-action-secret",
+  });
+  const supabaseClient = createServerSupabaseClient();
+  const webhookService = new ApprovalWebhookService({
+    signer,
+    checkpointMiddleware,
+    webhookSigningSecret: process.env.APPROVAL_WEBHOOK_SECRET || "dev-approval-webhook-secret",
+    transitionApprovalRequest: async ({ requestId, tenantId, approved, actorId, reason }) => {
+      await supabaseClient
+        .from("approval_requests")
+        .update({
+          status: approved ? "approved" : "rejected",
+          updated_at: new Date().toISOString(),
+          metadata: {
+            decision_source: "webhook",
+            actor_id: actorId,
+            reason: reason || null,
+          },
+        })
+        .eq("id", requestId)
+        .eq("tenant_id", tenantId);
+    },
+    audit: async (event, details) => {
+      logger.info(`approval_webhook:${event}`, details);
+    },
+  });
+
+  app.use("/api/approvals/webhooks", createApprovalWebhookRouter(webhookService));
 }
 
 await registerDevRoutes(app);
