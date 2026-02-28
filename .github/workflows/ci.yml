@@ -203,6 +203,12 @@ jobs:
       - name: Kubernetes architecture conformance
         run: node scripts/ci/check-k8s-architecture-conformance.mjs
 
+      - name: Agent service account isolation check
+        run: node scripts/ci/check-agent-service-accounts.mjs
+
+      - name: Agent policy guardrails
+        run: node scripts/ci/check-agent-policy-guardrails.mjs
+
       - name: Versioned router compatibility tests
         run: pnpm exec vitest run packages/backend/src/__tests__/versioning.contract.test.ts apps/ValyntApp/src/backend/__tests__/versioning.contract.test.ts
 

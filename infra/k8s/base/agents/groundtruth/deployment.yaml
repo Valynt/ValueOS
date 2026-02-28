@@ -32,7 +32,7 @@ spec:
         prometheus.io/port: '15021'
         prometheus.io/path: /stats/prometheus
     spec:
-      serviceAccountName: valynt-agent
+      serviceAccountName: groundtruth-agent
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

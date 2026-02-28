@@ -1,14 +1,20 @@
 /**
  * Usage Emitter
- * Emits usage events from services to database queue
+ * Emits usage events from services to database queue and billing usage ledger.
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js";
 
-import { BillingMetric } from "../../config/billing.js"
-import { createLogger } from "../../lib/logger.js"
+import { BillingMetric } from "../../config/billing.js";
+import { createLogger } from "../../lib/logger.js";
+import { UsageLedgerIngestionService } from "../billing/UsageLedgerIngestionService.js";
 
 const logger = createLogger({ component: "UsageEmitter" });
+
+interface BillableContext {
+  evidenceLink?: string;
+  agentId?: string;
+}
 
 // In-memory buffer for failed events (dead-letter queue)
 interface FailedUsageEvent {
@@ -16,7 +22,7 @@ interface FailedUsageEvent {
   metric: BillingMetric;
   amount: number;
   requestId: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   retryCount: number;
   lastError: string;
   timestamp: string;
@@ -26,10 +32,18 @@ const MAX_RETRY_COUNT = 3;
 const failedEventsBuffer: FailedUsageEvent[] = [];
 
 class UsageEmitter {
-  private supabase: SupabaseClient;
+  private readonly usageLedgerIngestionService: UsageLedgerIngestionService;
 
-  constructor(supabase: SupabaseClient) {
-    this.supabase = supabase;
+  constructor(private readonly supabase: SupabaseClient) {
+    this.usageLedgerIngestionService = new UsageLedgerIngestionService(supabase);
+  }
+
+  private resolveEvidenceLink(requestId: string, context?: BillableContext): string {
+    return context?.evidenceLink ?? `trace://usage/${requestId}`;
+  }
+
+  private resolveAgentId(metric: BillingMetric, context?: BillableContext): string {
+    return context?.agentId ?? metric;
   }
 
   /**
@@ -40,10 +54,10 @@ class UsageEmitter {
     metric: BillingMetric,
     amount: number,
     requestId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>,
+    context?: BillableContext
   ): Promise<void> {
     try {
-      // Non-blocking insert
       const { error } = await this.supabase.from("usage_events").insert({
         tenant_id: tenantId,
         metric,
@@ -55,26 +69,19 @@ class UsageEmitter {
       });
 
       if (error) {
-        logger.error("Failed to emit usage event", error, {
-          tenantId,
-          metric,
-          amount,
-        });
-        // Add to dead-letter queue for retry
-        this.addToDeadLetterQueue(
-          tenantId,
-          metric,
-          amount,
-          requestId,
-          metadata,
-          error.message
-        );
-      } else {
-        logger.debug("Usage event emitted", { tenantId, metric, amount });
+        logger.error("Failed to emit usage event", error, { tenantId, metric, amount });
+        this.addToDeadLetterQueue(tenantId, metric, amount, requestId, metadata, error.message);
       }
+
+      await this.usageLedgerIngestionService.ingest({
+        tenantId,
+        agentId: this.resolveAgentId(metric, context),
+        valueUnits: amount,
+        requestId,
+        evidenceLink: this.resolveEvidenceLink(requestId, context),
+      });
     } catch (error) {
       logger.error("Error emitting usage", error as Error);
-      // Add to dead-letter queue for retry
       this.addToDeadLetterQueue(
         tenantId,
         metric,
@@ -86,18 +93,14 @@ class UsageEmitter {
     }
   }
 
-  /**
-   * Add failed event to dead-letter queue for retry
-   */
   private addToDeadLetterQueue(
     tenantId: string,
     metric: BillingMetric,
     amount: number,
     requestId: string,
-    metadata: Record<string, any> | undefined,
+    metadata: Record<string, unknown> | undefined,
     errorMessage: string
   ): void {
-    // Prevent unbounded growth - cap at 10000 events
     if (failedEventsBuffer.length >= 10000) {
       logger.warn("Dead-letter queue full, dropping oldest event");
       failedEventsBuffer.shift();
@@ -113,30 +116,15 @@ class UsageEmitter {
       lastError: errorMessage,
       timestamp: new Date().toISOString(),
     });
-
-    logger.debug("Event added to dead-letter queue", {
-      tenantId,
-      metric,
-      queueSize: failedEventsBuffer.length,
-    });
   }
 
-  /**
-   * Retry failed events from dead-letter queue
-   * Should be called periodically by a background job
-   */
-  async retryFailedEvents(): Promise<{
-    retried: number;
-    failed: number;
-    dropped: number;
-  }> {
+  async retryFailedEvents(): Promise<{ retried: number; failed: number; dropped: number }> {
     const results = { retried: 0, failed: 0, dropped: 0 };
     const eventsToRetry = [...failedEventsBuffer];
-    failedEventsBuffer.length = 0; // Clear the buffer
+    failedEventsBuffer.length = 0;
 
     for (const event of eventsToRetry) {
       if (event.retryCount >= MAX_RETRY_COUNT) {
-        // Store in dead_letter_events table for manual review
         await this.persistToDeadLetterTable(event);
         results.dropped++;
         continue;
@@ -169,19 +157,10 @@ class UsageEmitter {
       }
     }
 
-    if (results.retried > 0 || results.dropped > 0) {
-      logger.info("Retry results", results);
-    }
-
     return results;
   }
 
-  /**
-   * Persist permanently failed events to database for manual review
-   */
-  private async persistToDeadLetterTable(
-    event: FailedUsageEvent
-  ): Promise<void> {
+  private async persistToDeadLetterTable(event: FailedUsageEvent): Promise<void> {
     try {
       await this.supabase.from("dead_letter_events").insert({
         event_type: "usage_event",
@@ -197,78 +176,94 @@ class UsageEmitter {
         retry_count: event.retryCount,
         created_at: new Date().toISOString(),
       });
-      logger.warn("Event persisted to dead-letter table", {
-        tenantId: event.tenantId,
-        metric: event.metric,
-      });
     } catch (err) {
       logger.error("Failed to persist to dead-letter table", err as Error);
     }
   }
 
-  /**
-   * Get current dead-letter queue size
-   */
   getDeadLetterQueueSize(): number {
     return failedEventsBuffer.length;
   }
 
-  /**
-   * Emit LLM token usage
-   */
   async emitLLMTokens(
     tenantId: string,
     tokens: number,
     requestId: string,
-    model?: string
+    model?: string,
+    evidenceLink?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "llm_tokens", tokens, requestId, { model });
+    await this.emitUsage(
+      tenantId,
+      "llm_tokens",
+      tokens,
+      requestId,
+      { model },
+      { evidenceLink, agentId: "llm" }
+    );
   }
 
-  /**
-   * Emit agent execution
-   */
   async emitAgentExecution(
     tenantId: string,
     requestId: string,
-    agentType?: string
+    agentType?: string,
+    evidenceLink?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "agent_executions", 1, requestId, {
-      agentType,
-    });
+    await this.emitUsage(
+      tenantId,
+      "agent_executions",
+      1,
+      requestId,
+      { agentType },
+      { evidenceLink, agentId: agentType ?? "agent_execution" }
+    );
   }
 
-  /**
-   * Emit API call
-   */
   async emitAPICall(
     tenantId: string,
     requestId: string,
-    endpoint?: string
+    endpoint?: string,
+    evidenceLink?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "api_calls", 1, requestId, { endpoint });
+    await this.emitUsage(
+      tenantId,
+      "api_calls",
+      1,
+      requestId,
+      { endpoint },
+      { evidenceLink, agentId: "api" }
+    );
   }
 
-  /**
-   * Emit storage usage (current size)
-   */
   async emitStorageUsage(
     tenantId: string,
     sizeGB: number,
-    requestId: string
+    requestId: string,
+    evidenceLink?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "storage_gb", sizeGB, requestId);
+    await this.emitUsage(
+      tenantId,
+      "storage_gb",
+      sizeGB,
+      requestId,
+      undefined,
+      { evidenceLink, agentId: "storage" }
+    );
   }
 
-  /**
-   * Emit user seat count (active users)
-   */
   async emitUserSeats(
     tenantId: string,
     userCount: number,
-    requestId: string
+    requestId: string,
+    evidenceLink?: string
   ): Promise<void> {
-    await this.emitUsage(tenantId, "user_seats", userCount, requestId);
+    await this.emitUsage(
+      tenantId,
+      "user_seats",
+      userCount,
+      requestId,
+      undefined,
+      { evidenceLink, agentId: "user_seats" }
+    );
   }
 }
 

@@ -42,6 +42,18 @@ Authoritative operational runbook for production deployments. This runbook is th
 2. If migration-related, follow backward-compatible rollback policy and execute guarded schema rollback only if approved.
 3. Validate auth, tenancy, billing, and workflow core paths.
 
+
+## Agent identity policy validation (required)
+- Confirm each agent deployment in `infra/k8s/base/agents/*/deployment.yaml` uses a dedicated ServiceAccount (`<agent-name>-agent`), never `valynt-agent`.
+- Validate before promotion:
+  ```bash
+  node scripts/ci/check-agent-service-accounts.mjs
+  ```
+- Confirm Istio AuthorizationPolicy principals match the expected trust domain and namespace format:
+  - `cluster.local/ns/valynt-agents/sa/<agent-name>-agent`
+  - `cluster.local/ns/valynt/sa/valynt-backend`
+- If the cluster trust domain is not `cluster.local`, update `infra/k8s/security/mesh-authentication.yaml` and re-run validation prior to deployment.
+
 ## Evidence & Audit
 - Attach CI run URL, release ID, and smoke test evidence to the release record.
 - Record incident ticket reference for any degraded deploy.
