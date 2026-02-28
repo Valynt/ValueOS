@@ -1,6 +1,8 @@
 ---
 title: Deployment Guide (Legacy Consolidated)
 owner: team-platform
+canonical: ../../DEPLOY.md
+note: "Canonical deployment guide is DEPLOY.md at repo root. This file is retained for reference."
 escalation_path: "pagerduty://valueos-primary -> slack:#incident-response -> email:platform-leadership@valueos.com"
 review_date: 2026-05-31
 status: deprecated

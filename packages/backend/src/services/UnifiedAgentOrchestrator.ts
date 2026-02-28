@@ -2558,11 +2558,38 @@ Provide a JSON response with:
       async (execSpan: any) => {
         const execStart = Date.now();
         const agentType = stage.agent_type as AgentType;
+        const sessionId = context.sessionId || `session_${Date.now()}`;
+        const orgId = context.organizationId || context.tenantId || "";
         const agentContext: AgentContext = {
           userId: context.userId,
-          sessionId: context.sessionId,
+          sessionId,
           metadata: { currentStage: stage.id },
         };
+
+        // Retrieve relevant memory before execution
+        let memoryContext: Record<string, unknown> = {};
+        try {
+          const memories = await this.memorySystem.retrieve({
+            agent_id: agentType,
+            organization_id: orgId,
+            workspace_id: sessionId,
+            limit: 5,
+          });
+          if (memories.length > 0) {
+            memoryContext = {
+              pastMemories: memories.map((m) => ({
+                content: m.content,
+                type: m.memory_type,
+                importance: m.importance,
+              })),
+            };
+          }
+        } catch (memErr) {
+          logger.warn("Failed to retrieve memory for stage execution", {
+            stage_id: stage.id,
+            error: memErr instanceof Error ? memErr.message : String(memErr),
+          });
+        }
 
         try {
           // Use SecureMessageBus for inter-agent communication
@@ -2572,7 +2599,7 @@ Provide a JSON response with:
             {
               action: "execute",
               description: stage.description || `Execute ${stage.id}`,
-              context: agentContext,
+              context: { ...agentContext, ...memoryContext },
             },
             {
               priority: "normal",
@@ -2584,7 +2611,38 @@ Provide a JSON response with:
             throw new Error(`Agent communication failed: ${messageResult.error}`);
           }
 
-          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          const durationMs = Date.now() - execStart;
+
+          // Store execution episode in memory
+          try {
+            await this.memorySystem.storeEpisode({
+              sessionId,
+              agentId: agentType,
+              episodeType: "stage_execution",
+              taskIntent: stage.description || stage.id,
+              context: { organizationId: orgId, stageId: stage.id },
+              initialState: context,
+              finalState: messageResult.data as Record<string, unknown> ?? {},
+              success: true,
+              rewardScore: 0.8,
+              durationSeconds: durationMs / 1000,
+            });
+
+            await this.memorySystem.storeEpisodicMemory(
+              sessionId,
+              agentType,
+              `Executed stage ${stage.id}: ${stage.description || stage.agent_type}`,
+              { success: true, durationMs },
+              orgId
+            );
+          } catch (memErr) {
+            logger.warn("Failed to store execution memory", {
+              stage_id: stage.id,
+              error: memErr instanceof Error ? memErr.message : String(memErr),
+            });
+          }
+
+          execSpan.setAttributes({ 'agent.latency_ms': durationMs });
           execSpan.setStatus({ code: SpanStatusCode.OK });
           execSpan.end();
 
@@ -2595,7 +2653,27 @@ Provide a JSON response with:
             output: messageResult.data,
           };
         } catch (err) {
-          execSpan.setAttributes({ 'agent.latency_ms': Date.now() - execStart });
+          const durationMs = Date.now() - execStart;
+
+          // Store failure episode
+          try {
+            await this.memorySystem.storeEpisode({
+              sessionId,
+              agentId: agentType,
+              episodeType: "stage_execution",
+              taskIntent: stage.description || stage.id,
+              context: { organizationId: orgId, stageId: stage.id },
+              initialState: context,
+              finalState: { error: err instanceof Error ? err.message : String(err) },
+              success: false,
+              rewardScore: 0.1,
+              durationSeconds: durationMs / 1000,
+            });
+          } catch {
+            // Don't let memory failures mask the original error
+          }
+
+          execSpan.setAttributes({ 'agent.latency_ms': durationMs });
           execSpan.setStatus({
             code: SpanStatusCode.ERROR,
             message: err instanceof Error ? err.message : String(err),

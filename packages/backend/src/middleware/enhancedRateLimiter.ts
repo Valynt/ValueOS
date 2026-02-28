@@ -15,6 +15,7 @@ import { MLAnomalyDetectionService } from '../services/MLAnomalyDetectionService
 import { DistributedAttackDetectionService } from '../services/DistributedAttackDetectionService';
 import { RateLimitEscalationService } from '../services/RateLimitEscalationService';
 import { SecurityEvent } from '../services/AdvancedThreatDetectionService';
+import type { AuthenticatedRequest } from './auth.js';
 
 // Enhanced interfaces for monitoring
 export interface RateLimitMetrics {
@@ -96,7 +97,7 @@ export class EnhancedRateLimiter {
 
     return async (req: Request, res: Response, next: NextFunction) => {
       const startTime = Date.now();
-      let securityContext: any = {};
+      let securityContext: Record<string, unknown> = {};
 
       try {
         // Generate rate limit key
@@ -127,7 +128,7 @@ export class EnhancedRateLimiter {
         securityContext = await this.performSecurityAnalysis(req, key, tier);
 
         // Update request with security context
-        (req as any).securityContext = securityContext;
+        (req as Record<string, unknown>).securityContext = securityContext;
 
         // Set rate limit headers
         this.setRateLimitHeaders(res, rateLimitResult, adjustedLimit);
@@ -153,13 +154,13 @@ export class EnhancedRateLimiter {
     tier: string
   ): Promise<{
     riskScore: number;
-    anomalies: any[];
+    anomalies: Array<Record<string, unknown>>;
     isDistributedAttack: boolean;
     recommendations: string[];
   }> {
     const startTime = Date.now();
     let riskScore = 0;
-    const anomalies: any[] = [];
+    const anomalies: Array<Record<string, unknown>> = [];
     let isDistributedAttack = false;
     const recommendations: string[] = [];
 
@@ -167,8 +168,8 @@ export class EnhancedRateLimiter {
       // Create security event for analysis
       const securityEvent: SecurityEvent = {
         id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        tenantId: (req as any).tenantId || 'default',
-        userId: (req as any).user?.id,
+        tenantId: (req as AuthenticatedRequest).tenantId || 'default',
+        userId: (req as AuthenticatedRequest).user?.id,
         eventType: 'api.request',
         severity: 'low',
         source: 'rate_limiter',
@@ -285,7 +286,7 @@ export class EnhancedRateLimiter {
   private async handleBlockedRequest(
     req: Request,
     res: Response,
-    escalationStatus: any
+    escalationStatus: Record<string, unknown>
   ): Promise<void> {
     this.dashboard.blockedRequests++;
 
@@ -310,16 +311,16 @@ export class EnhancedRateLimiter {
   private async handleRateLimitExceeded(
     req: Request,
     res: Response,
-    rateLimitResult: any,
-    securityContext: any
+    rateLimitResult: Record<string, unknown>,
+    securityContext: Record<string, unknown>
   ): Promise<void> {
     this.dashboard.rateLimitedRequests++;
 
     // Create security event for rate limit violation
     const securityEvent: SecurityEvent = {
       id: `rate_limit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      tenantId: (req as any).tenantId || 'default',
-      userId: (req as any).user?.id,
+      tenantId: (req as AuthenticatedRequest).tenantId || 'default',
+      userId: (req as AuthenticatedRequest).user?.id,
       eventType: 'rate_limit.exceeded',
       severity: 'medium',
       source: 'rate_limiter',
@@ -433,7 +434,7 @@ export class EnhancedRateLimiter {
   /**
    * Update request metrics
    */
-  private updateRequestMetrics(key: string, tier: string, config: any): void {
+  private updateRequestMetrics(key: string, tier: string, config: Record<string, unknown>): void {
     let metrics = this.metrics.get(key);
 
     if (!metrics) {
@@ -467,7 +468,7 @@ export class EnhancedRateLimiter {
   /**
    * Set rate limit headers
    */
-  private setRateLimitHeaders(res: Response, rateLimitResult: any, limit: number): void {
+  private setRateLimitHeaders(res: Response, rateLimitResult: Record<string, unknown>, limit: number): void {
     res.setHeader('X-RateLimit-Limit', limit);
     res.setHeader('X-RateLimit-Remaining', Math.max(0, limit - rateLimitResult.currentCount));
     res.setHeader('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
@@ -545,8 +546,8 @@ export class EnhancedRateLimiter {
    * Default key generator
    */
   private defaultKeyGenerator(req: Request): string {
-    const tenantId = (req as any).tenantId || 'default';
-    const userId = (req as any).user?.id;
+    const tenantId = (req as AuthenticatedRequest).tenantId || 'default';
+    const userId = (req as AuthenticatedRequest).user?.id;
     const ip = req.ip || 'unknown';
 
     if (userId) {

@@ -20,6 +20,7 @@ import {
   USER_ROLE_PERMISSIONS,
   USER_ROLES,
 } from "@shared/lib/permissions";
+import type { AuthenticatedRequest } from "./auth.js";
 
 // Re-export unified Permission type
 export type Permission = UnifiedPermission;
@@ -116,7 +117,7 @@ async function hasPermission(
       } else {
         const grantedPermissions: string[] = [];
         for (const row of customRolePermissions || []) {
-          const rolePermissions = (row as any).role_permissions;
+          const rolePermissions = (row as Record<string, unknown>).role_permissions;
           const normalized = Array.isArray(rolePermissions) ? rolePermissions : [rolePermissions];
           for (const rp of normalized) {
             const perm = Array.isArray(rp?.permissions) ? rp.permissions[0] : rp?.permissions;
@@ -168,7 +169,8 @@ export function requirePermission(
     next: NextFunction
   ) {
     try {
-      const user = req.user as any;
+      const authReq = req as AuthenticatedRequest;
+      const user = authReq.user;
 
       if (!user) {
         logger.warn("Permission check failed: No user", { permission });
@@ -179,7 +181,7 @@ export function requirePermission(
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || (req as any).tenantId;
+      const tenantId = user.tenant_id || authReq.tenantId;
 
       if (!tenantId) {
         logger.warn("Permission check failed: No tenant", {
@@ -245,7 +247,8 @@ export function requireRole(role: Role | Role[]) {
 
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = req.user as any;
+      const authReq = req as AuthenticatedRequest;
+      const user = authReq.user;
 
       if (!user) {
         return res.status(401).json({
@@ -255,7 +258,7 @@ export function requireRole(role: Role | Role[]) {
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || (req as any).tenantId;
+      const tenantId = user.tenant_id || authReq.tenantId;
 
       if (!tenantId) {
         return res.status(400).json({
@@ -299,12 +302,13 @@ export function requireRole(role: Role | Role[]) {
             .select("roles(name)")
             .eq("membership_id", membership.id);
 
-          const customRoleNames = (customRoles || []).map((row: any) => {
+          const customRoleNames = (customRoles || []).map((row: Record<string, unknown>) => {
             const roleObj = Array.isArray(row.roles) ? row.roles[0] : row.roles;
-            return roleObj?.name?.split(":", 3)?.[2] || roleObj?.name;
+            const roleRecord = roleObj as Record<string, unknown> | undefined;
+            return (roleRecord?.name as string)?.split(":", 3)?.[2] || roleRecord?.name;
           });
 
-          hasRole = customRoleNames.some((customRoleName: string) => roles.includes(customRoleName as Role));
+          hasRole = customRoleNames.some((customRoleName) => roles.includes(customRoleName as Role));
         }
       }
 
@@ -345,7 +349,8 @@ export function requireOwnership(
 ) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = req.user as any;
+      const authReq = req as AuthenticatedRequest;
+      const user = authReq.user;
 
       if (!user) {
         return res.status(401).json({
@@ -408,7 +413,8 @@ export function requireOwnership(
 export function requireAnyPermission(...permissions: Permission[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = req.user as any;
+      const authReq = req as AuthenticatedRequest;
+      const user = authReq.user;
 
       if (!user) {
         return res.status(401).json({
@@ -418,7 +424,7 @@ export function requireAnyPermission(...permissions: Permission[]) {
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || (req as any).tenantId;
+      const tenantId = user.tenant_id || authReq.tenantId;
 
       if (!tenantId) {
         return res.status(400).json({
@@ -476,7 +482,8 @@ export function requireAnyPermission(...permissions: Permission[]) {
 export function requireAllPermissions(...permissions: Permission[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = req.user as any;
+      const authReq = req as AuthenticatedRequest;
+      const user = authReq.user;
 
       if (!user) {
         return res.status(401).json({
@@ -486,7 +493,7 @@ export function requireAllPermissions(...permissions: Permission[]) {
       }
 
       const userId = user.id;
-      const tenantId = user.tenant_id || (req as any).tenantId;
+      const tenantId = user.tenant_id || authReq.tenantId;
 
       if (!tenantId) {
         return res.status(400).json({
@@ -558,7 +565,7 @@ export async function checkPermission(
  * @param resource The resource being accessed (optional)
  * @returns boolean or Promise<boolean> indicating access
  */
-export type Policy<T = any> = (user: any, resource?: T) => boolean | Promise<boolean>;
+export type Policy<T = unknown> = (user: AuthenticatedRequest["user"], resource?: T) => boolean | Promise<boolean>;
 
 /**
  * Require policy middleware (ABAC)
@@ -569,7 +576,7 @@ export function requirePolicy<T>(
 ) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = (req as any).user;
+      const user = (req as AuthenticatedRequest).user;
 
       if (!user) {
         return res.status(401).json({

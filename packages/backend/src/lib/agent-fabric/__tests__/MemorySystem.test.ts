@@ -23,6 +23,8 @@ function createMockBackend(): MemoryPersistenceBackend & {
 const ORG_ID = "org-test-123";
 
 describe("MemorySystem", () => {
+  // ── In-memory only (no backend) ──────────────────────────────────
+
   describe("without backend (in-memory only)", () => {
     let ms: MemorySystem;
 
@@ -96,6 +98,8 @@ describe("MemorySystem", () => {
     });
   });
 
+  // ── Persistence backend ──────────────────────────────────────────
+
   describe("with persistence backend", () => {
     let ms: MemorySystem;
     let backend: ReturnType<typeof createMockBackend>;
@@ -152,7 +156,6 @@ describe("MemorySystem", () => {
     it("falls back to local cache when backend retrieve fails", async () => {
       backend.retrieve.mockRejectedValue(new Error("Supabase down"));
 
-      // Store locally first
       await ms.store({
         agent_id: "agent-1",
         workspace_id: "ws-1",
@@ -206,7 +209,6 @@ describe("MemorySystem", () => {
 
       expect(id).toMatch(/^mem_/);
 
-      // Force local cache retrieval by making backend return empty
       backend.retrieve.mockResolvedValue([]);
 
       const results = await ms.retrieve({
@@ -223,6 +225,8 @@ describe("MemorySystem", () => {
       expect(backend.clear).toHaveBeenCalledWith("agent-1", "ws-1");
     });
   });
+
+  // ── setBackend ───────────────────────────────────────────────────
 
   describe("setBackend", () => {
     it("allows attaching a backend after construction", async () => {
@@ -243,6 +247,8 @@ describe("MemorySystem", () => {
       expect(backend.store).toHaveBeenCalledTimes(1);
     });
   });
+
+  // ── storeSemanticMemory ──────────────────────────────────────────
 
   describe("storeSemanticMemory", () => {
     it("delegates to store with correct field mapping", async () => {
@@ -267,6 +273,236 @@ describe("MemorySystem", () => {
       expect(stored.workspace_id).toBe("session-1");
       expect(stored.memory_type).toBe("episodic");
       expect(stored.metadata?.organization_id).toBe(ORG_ID);
+    });
+  });
+
+  // ── storeEpisodicMemory ──────────────────────────────────────────
+
+  describe("storeEpisodicMemory", () => {
+    it("stores episodic memory with correct type", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+      await ms.storeEpisodicMemory(
+        "session-1",
+        "agent-a",
+        "Processed query about pricing",
+        { success: true },
+        ORG_ID,
+      );
+
+      const results = await ms.retrieve({
+        agent_id: "agent-a",
+        organization_id: ORG_ID,
+        memory_type: "episodic",
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].memory_type).toBe("episodic");
+    });
+  });
+
+  // ── Episodes ─────────────────────────────────────────────────────
+
+  describe("episodes", () => {
+    let ms: MemorySystem;
+
+    beforeEach(() => {
+      ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+    });
+
+    it("stores and retrieves episodes", async () => {
+      const episodeId = await ms.storeEpisode({
+        sessionId: "session-1",
+        agentId: "opportunity",
+        episodeType: "agent_invocation",
+        taskIntent: "Analyze customer churn",
+        context: { organizationId: ORG_ID },
+        initialState: { query: "churn analysis" },
+        finalState: { result: "5% churn rate" },
+        success: true,
+        rewardScore: 0.9,
+        durationSeconds: 2.5,
+      });
+
+      expect(episodeId).toMatch(/^ep_/);
+
+      const similar = await ms.retrieveSimilarEpisodes(
+        { agent: "opportunity", query: "customer churn" },
+        5,
+        ORG_ID,
+      );
+
+      expect(similar).toHaveLength(1);
+      expect(similar[0].task_intent).toBe("Analyze customer churn");
+    });
+
+    it("filters episodes by organization (tenant isolation)", async () => {
+      await ms.storeEpisode({
+        sessionId: "s1",
+        agentId: "opportunity",
+        episodeType: "test",
+        taskIntent: "Analyze revenue",
+        context: { organizationId: "org-a" },
+        initialState: {},
+        finalState: {},
+        success: true,
+        rewardScore: 0.8,
+        durationSeconds: 1,
+      });
+
+      await ms.storeEpisode({
+        sessionId: "s2",
+        agentId: "opportunity",
+        episodeType: "test",
+        taskIntent: "Analyze revenue",
+        context: { organizationId: "org-b" },
+        initialState: {},
+        finalState: {},
+        success: true,
+        rewardScore: 0.7,
+        durationSeconds: 1,
+      });
+
+      const resultsA = await ms.retrieveSimilarEpisodes(
+        { agent: "opportunity", query: "revenue" },
+        10,
+        "org-a",
+      );
+
+      expect(resultsA).toHaveLength(1);
+      expect(resultsA[0].context.organizationId).toBe("org-a");
+    });
+  });
+
+  // ── Consolidation ────────────────────────────────────────────────
+
+  describe("consolidation", () => {
+    it("promotes frequently-accessed episodic memories to semantic", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+      await ms.storeEpisodicMemory("s1", "agent-a", "Memory 1", {}, ORG_ID);
+      await ms.storeEpisodicMemory("s1", "agent-a", "Memory 2", {}, ORG_ID);
+
+      // Simulate frequent access (3+ times)
+      for (let i = 0; i < 4; i++) {
+        await ms.retrieve({
+          agent_id: "agent-a",
+          organization_id: ORG_ID,
+          memory_type: "episodic",
+        });
+      }
+
+      const result = await ms.consolidate(ORG_ID);
+
+      expect(result.episodicMerged).toBe(2);
+      expect(result.semanticCreated).toBe(1);
+
+      const semanticResults = await ms.retrieve({
+        agent_id: "agent-a",
+        organization_id: ORG_ID,
+        memory_type: "semantic",
+      });
+
+      expect(semanticResults).toHaveLength(1);
+      expect(semanticResults[0].content).toContain("[Consolidated]");
+    });
+
+    it("prunes expired working memory", async () => {
+      const ms = new MemorySystem({
+        max_memories: 100,
+        ttl_seconds: 1,
+        enable_persistence: false,
+      });
+
+      await ms.store({
+        agent_id: "agent-a",
+        workspace_id: "s1",
+        content: "Working memory",
+        memory_type: "working",
+        importance: 0.5,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      // Wait for TTL to expire
+      await new Promise((r) => setTimeout(r, 1100));
+
+      const result = await ms.consolidate(ORG_ID);
+      expect(result.workingPruned).toBe(1);
+    });
+  });
+
+  // ── Stats ────────────────────────────────────────────────────────
+
+  describe("getStats", () => {
+    it("returns memory statistics", async () => {
+      const ms = new MemorySystem({ max_memories: 100, enable_persistence: false });
+
+      await ms.storeSemanticMemory("s1", "a1", "episodic", "test", {}, ORG_ID);
+      await ms.storeEpisodicMemory("s1", "a1", "test2", {}, ORG_ID);
+      await ms.storeEpisode({
+        sessionId: "s1",
+        agentId: "a1",
+        episodeType: "test",
+        taskIntent: "test",
+        context: {},
+        initialState: {},
+        finalState: {},
+        success: true,
+        rewardScore: 0.5,
+        durationSeconds: 1,
+      });
+
+      const stats = ms.getStats();
+      expect(stats.totalMemories).toBe(2);
+      expect(stats.totalEpisodes).toBe(1);
+      expect(stats.byType.episodic).toBe(2);
+    });
+  });
+
+  // ── Eviction ─────────────────────────────────────────────────────
+
+  describe("eviction", () => {
+    it("evicts least important memory when max is reached", async () => {
+      const ms = new MemorySystem({ max_memories: 2, enable_persistence: false });
+
+      await ms.store({
+        agent_id: "a1",
+        workspace_id: "s1",
+        content: "Low importance",
+        memory_type: "episodic",
+        importance: 0.1,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      await ms.store({
+        agent_id: "a1",
+        workspace_id: "s1",
+        content: "High importance",
+        memory_type: "episodic",
+        importance: 0.9,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      await ms.store({
+        agent_id: "a1",
+        workspace_id: "s1",
+        content: "Medium importance",
+        memory_type: "episodic",
+        importance: 0.5,
+        metadata: { organization_id: ORG_ID },
+      });
+
+      const stats = ms.getStats();
+      expect(stats.totalMemories).toBe(2);
+
+      const results = await ms.retrieve({
+        agent_id: "a1",
+        organization_id: ORG_ID,
+      });
+
+      const contents = results.map((r) => r.content);
+      expect(contents).not.toContain("Low importance");
+      expect(contents).toContain("High importance");
     });
   });
 });
