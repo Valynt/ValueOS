@@ -1,6 +1,6 @@
 import { DataIngestionAdapter, IngestionConfig } from "../types.js";
-import { RateLimiter } from "../utils/rateLimiter.js";
 import { Cache } from "../utils/cache.js";
+import { RateLimiter } from "../utils/rateLimiter.js";
 
 export class CensusAdapter implements DataIngestionAdapter {
   name = "Census";

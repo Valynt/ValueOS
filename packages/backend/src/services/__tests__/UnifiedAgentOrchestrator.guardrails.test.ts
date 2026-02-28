@@ -4,8 +4,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator.js'
+
 import * as autonomyModule from '../../config/autonomy.js'
+import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator.js'
 
 // Mock Supabase
 vi.mock('../../lib/supabase', () => ({

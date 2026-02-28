@@ -1,5 +1,5 @@
-import React from "react";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
+import React from "react";
 
 export interface ConfidenceData {
   score: number; // 0-1

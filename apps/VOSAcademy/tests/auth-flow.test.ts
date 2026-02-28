@@ -1,8 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
+
 import jwt from 'jsonwebtoken';
-import { createSessionToken, getSessionFromRequest, parseCookies, validateSessionToken } from '../src/data/_core/session';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { handleOAuthCallback, handleOAuthLogin } from '../src/data/_core/oauth';
+import { createSessionToken, getSessionFromRequest, parseCookies, validateSessionToken } from '../src/data/_core/session';
 
 // Mock database
 vi.mock('../src/data/db', () => ({

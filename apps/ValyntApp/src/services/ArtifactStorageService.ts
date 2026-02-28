@@ -6,17 +6,17 @@
  * and automated retention policies for artifact files
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { EventEmitter } from "events";
 
+import { createClient } from "@supabase/supabase-js";
+
+import { logger } from "../lib/logger";
 import {
   ArtifactFormat,
   ArtifactStorageMetadata,
   RetentionPolicy,
 } from "../types/artifact";
-
 import { Database } from "../types/database";
-import { logger } from "../lib/logger";
 
 // ============================================================================
 // Configuration

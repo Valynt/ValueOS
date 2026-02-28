@@ -1,5 +1,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { CacheService } from '../CacheService.js'
 
 // Mock redis

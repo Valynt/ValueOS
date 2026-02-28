@@ -8,11 +8,14 @@
  * Created: 2024-11-29
  */
 
-import { CronJob } from 'cron';
-import { logger } from '../../lib/logger';
-import type { ISecretProvider, RotationPolicy } from './ISecretProvider';
 import { EventEmitter } from 'events';
+
 import { auditLogService } from '@backend/services/AuditLogService';
+import { CronJob } from 'cron';
+
+import { logger } from '../../lib/logger';
+
+import type { ISecretProvider, RotationPolicy } from './ISecretProvider';
 
 /**
  * Rotation job configuration

@@ -1,7 +1,3 @@
-import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Progress } from "../../../components/ui/progress";
-import { Badge } from "../../../components/ui/badge";
 import {
   Award,
   BookOpen,
@@ -15,6 +11,11 @@ import {
   TrendingUp
 } from "lucide-react";
 import { Link } from "react-router-dom";
+
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Progress } from "../../../components/ui/progress";
 
 export default function AcademyDashboard() {
   // Mock data - replace with real data from backend

@@ -5,8 +5,8 @@
  * Enforces circuit breakers when fiscal limits are exceeded.
  */
 
-import { logger } from "../utils/logger";
 import { getEnvVar } from "../lib/env";
+import { logger } from "../utils/logger";
 
 const DEFAULT_MAX_COST = 50;
 const DEFAULT_MAX_TOKENS = 200_000;

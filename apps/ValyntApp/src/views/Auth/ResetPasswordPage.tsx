@@ -3,10 +3,11 @@
  * Request password reset email
  */
 
+import { AlertCircle, CheckCircle, Mail } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+
 import { useAuth } from '../../contexts/AuthContext';
-import { AlertCircle, CheckCircle, Mail } from 'lucide-react';
 
 export function ResetPasswordPage() {
   const [email, setEmail] = useState('');

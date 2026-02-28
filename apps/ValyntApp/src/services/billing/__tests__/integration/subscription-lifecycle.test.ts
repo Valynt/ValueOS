@@ -5,7 +5,13 @@
  * CRITICAL: These tests validate the complete billing flow.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  createBillingCustomer,
+  createCompleteBillingSetup,
+} from "../__helpers__/billing-factories";
 import {
   assertRecordExists,
   cleanupBillingTables,
@@ -13,14 +19,9 @@ import {
   seedTestData,
 } from "../__helpers__/db-helpers";
 import {
-  createBillingCustomer,
-  createCompleteBillingSetup,
-} from "../__helpers__/billing-factories";
-import {
   createMockStripeClient,
   createMockStripeSubscription,
 } from "../__helpers__/stripe-mocks";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Mock Stripe service
 vi.mock("../../StripeService", () => ({

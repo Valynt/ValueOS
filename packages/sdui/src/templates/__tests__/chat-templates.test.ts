@@ -4,13 +4,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
+import type { WorkflowState } from '../../../repositories/WorkflowStateRepository';
 import {
   CHAT_TEMPLATES,
   generateChatSDUIPage,
   getAvailableStages,
   hasTemplateForStage,
 } from '../chat-templates';
-import type { WorkflowState } from '../../../repositories/WorkflowStateRepository';
 
 const createMockWorkflowState = (stage: string): WorkflowState => ({
   currentStage: stage,

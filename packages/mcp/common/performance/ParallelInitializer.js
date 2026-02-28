@@ -5,6 +5,7 @@
  * connection pooling, batch processing, and resource optimization.
  */
 import { EventEmitter } from "events";
+
 import { logger } from "../../lib/logger";
 // ============================================================================
 // Connection Pool

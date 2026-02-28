@@ -4,10 +4,12 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
+
+import { BillingMetric } from '../../config/billing.js';
+import { createLogger } from '../../lib/logger.js';
+
 import { BillingApprovalService } from './BillingApprovalService.js';
 import EntitlementSnapshotService from './EntitlementSnapshotService.js';
-import { createLogger } from '../../lib/logger.js';
-import { BillingMetric } from '../../config/billing.js';
 
 const logger = createLogger({ component: 'TempCapIncreaseService' });
 const billingApprovalService = new BillingApprovalService();

@@ -1,7 +1,9 @@
 import express from 'express';
-import { webhookHandlers } from './handlers.js';
+
 import { config } from '../config/index.js';
 import { logger } from '../utils/logger.js';
+
+import { webhookHandlers } from './handlers.js';
 
 const router = express.Router();
 

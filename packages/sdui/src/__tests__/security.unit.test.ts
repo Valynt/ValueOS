@@ -6,6 +6,14 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+
+import {
+  checkCriticalThresholds,
+  getMetricSummary,
+  getSecurityMetrics,
+  incrementSecurityMetric,
+  resetSecurityMetrics,
+} from '../security/metrics';
 import {
   getXSSStats,
   resetXSSStats,
@@ -14,13 +22,6 @@ import {
   sanitizeString,
   XSS_TEST_VECTORS,
 } from '../security/sanitization';
-import {
-  checkCriticalThresholds,
-  getMetricSummary,
-  getSecurityMetrics,
-  incrementSecurityMetric,
-  resetSecurityMetrics,
-} from '../security/metrics';
 
 describe('XSS Sanitization', () => {
   beforeEach(() => {

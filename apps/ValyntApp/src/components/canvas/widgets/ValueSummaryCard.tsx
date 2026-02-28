@@ -3,8 +3,9 @@
  * Displays ROI metrics in a summary card format
  */
 
-import React from "react";
 import { BarChart3, TrendingUp, Users } from "lucide-react";
+import React from "react";
+
 import type { WidgetProps } from "../CanvasHost";
 
 interface ValueSummaryData {

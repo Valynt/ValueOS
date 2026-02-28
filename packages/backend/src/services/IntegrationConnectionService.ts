@@ -5,9 +5,10 @@
  * Uses service-role Supabase client + TenantAwareService checks for defense-in-depth.
  */
 
-import { TenantAwareService } from "./TenantAwareService.js";
-import { AuthorizationError, NotFoundError, ValidationError } from "./errors.js";
 import { createLogger } from "@shared/lib/logger";
+
+import { AuthorizationError, NotFoundError, ValidationError } from "./errors.js";
+import { TenantAwareService } from "./TenantAwareService.js";
 
 const logger = createLogger({ component: "IntegrationConnectionService" });
 

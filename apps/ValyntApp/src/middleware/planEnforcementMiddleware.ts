@@ -4,13 +4,14 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import UsageCache from '../services/metering/UsageCache';
-import GracePeriodService from '../services/metering/GracePeriodService';
+
 import { BillingMetric, isHardCap, PlanTier } from '../config/billing';
-import { Logger } from '../utils/logger';
-import SubscriptionService from '../services/billing/SubscriptionService';
 import { createServerSupabaseClient } from '../lib/supabase';
+import SubscriptionService from '../services/billing/SubscriptionService';
 import { llmCostTracker } from '../services/LLMCostTracker';
+import GracePeriodService from '../services/metering/GracePeriodService';
+import UsageCache from '../services/metering/UsageCache';
+import { Logger } from '../utils/logger';
 
 const logger = new Logger({ component: 'PlanEnforcementMiddleware' });
 const PLAN_TIERS: PlanTier[] = ['free', 'standard', 'enterprise'];

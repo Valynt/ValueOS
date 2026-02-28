@@ -5,6 +5,7 @@
  * Uses best-effort lookup strategies including SEC company list and LLM reasoning.
  */
 
+import { logger } from "../../lib/logger";
 import { BaseModule } from "../core/BaseModule";
 import {
   ConfidenceTier,
@@ -14,7 +15,6 @@ import {
   ModuleRequest,
   ModuleResponse,
 } from "../types";
-import { logger } from "../../lib/logger";
 
 /**
  * Entity Mapping Module

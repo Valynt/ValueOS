@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { describe, it, expect } from "vitest";
+
+import { describe, expect, it } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "..");
 const dockerfiles = [

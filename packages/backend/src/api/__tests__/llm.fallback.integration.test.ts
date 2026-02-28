@@ -1,6 +1,6 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import request from 'supertest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Ensure logger/tenant middleware do not interfere
 vi.mock('@shared/lib/logger');

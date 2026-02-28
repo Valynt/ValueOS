@@ -4,8 +4,9 @@
  * Extended Opportunity template with System Mapping panel.
  */
 
-import type { SDUIPageDefinition } from "../schema";
 import type { SystemMap } from "@valueos/sdui-types";
+
+import type { SDUIPageDefinition } from "../schema";
 
 /**
  * Generate SOF-enhanced Opportunity page

@@ -6,6 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AgentAPI, AgentRequest } from '../AgentAPI';
 
 // Mock dependencies

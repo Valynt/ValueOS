@@ -1,7 +1,8 @@
-import { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, Home, MessageSquare, RefreshCw, Wifi, WifiOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Component, ErrorInfo, ReactNode } from "react";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   children: ReactNode;

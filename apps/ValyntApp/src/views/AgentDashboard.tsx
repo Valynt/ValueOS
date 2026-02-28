@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import Header from '../components/Layout/Header';
 import { AlertTriangle, Bell, ChevronRight, FileText, Globe, Package, X } from 'lucide-react';
+import { useState } from 'react';
+
 import AgentBadge from '../components/Agents/AgentBadge';
+import Header from '../components/Layout/Header';
 
 const kpiCards = [
   { label: 'Realization Rate', value: '108%', subtext: '+8% vs Plan', highlight: true, confidence: 94 },

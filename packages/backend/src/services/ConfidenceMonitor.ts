@@ -6,6 +6,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+
 import { logger } from '../lib/logger.js'
 
 export interface ConfidenceMetrics {

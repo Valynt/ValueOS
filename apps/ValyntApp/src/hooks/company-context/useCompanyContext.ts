@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+
 import type {
   CompanyCapability,
   CompanyClaimGovernance,
@@ -14,6 +14,8 @@ import type {
   OnboardingPhase3Input,
   OnboardingPhase4Input,
 } from "./types";
+
+import { supabase } from "@/lib/supabase";
 
 const QUERY_KEY = "company-context";
 

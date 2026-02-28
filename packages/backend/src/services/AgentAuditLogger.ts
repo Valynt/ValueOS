@@ -5,14 +5,15 @@
  * database persistence and query capabilities.
  */
 
-import { logger } from "../lib/logger.js"
-import { supabase } from "../lib/supabase.js"
-import { AgentContext, AgentType } from "./agent-types.js"
 import {
   decrypt,
   encrypt,
   generateEncryptionKey,
 } from "../lib/crypto/CryptoUtils";
+import { logger } from "../lib/logger.js"
+import { supabase } from "../lib/supabase.js"
+
+import { AgentContext, AgentType } from "./agent-types.js"
 
 /**
  * Audit log entry

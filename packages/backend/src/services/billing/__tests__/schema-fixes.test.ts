@@ -6,11 +6,12 @@
 /// <reference types="vitest/globals" />
 
 // Vitest provides globals automatically with globals: true in config
-import { PLANS } from "../../../config/billing.js"
-import SubscriptionService from "../SubscriptionService.js"
-import CustomerService from "../CustomerService.js"
 import { createClient } from "@supabase/supabase-js";
 import { vi } from "vitest";
+
+import { PLANS } from "../../../config/billing.js"
+import CustomerService from "../CustomerService.js"
+import SubscriptionService from "../SubscriptionService.js"
 
 // Mock environment variables
 process.env.VITE_SUPABASE_URL = "https://test.supabase.co";

@@ -11,11 +11,14 @@
  * Uses in-memory store with Redis fallback for production
  */
 
-import { NextFunction, Request, Response } from "express";
 import { logger } from "@shared/lib/logger";
-import { RateLimitKeyService } from "../services/RateLimitKeyService.js"
-import { RedisRateLimitStore } from "./redisRateLimitStore.js"
+import { NextFunction, Request, Response } from "express";
+
 import { createCounter } from "../lib/observability/index.js";
+import { RateLimitKeyService } from "../services/RateLimitKeyService.js"
+
+import { RedisRateLimitStore } from "./redisRateLimitStore.js"
+
 
 /**
  * Rate limit tier

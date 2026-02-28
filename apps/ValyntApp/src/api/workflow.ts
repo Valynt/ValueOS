@@ -1,14 +1,15 @@
 import { Request, Response, Router } from 'express';
-import { supabase } from '../lib/supabase';
+
 import { logger } from '../lib/logger';
+import { supabase } from '../lib/supabase';
+import { requireAuth } from '../middleware/auth';
+import { validateRequest } from '../middleware/inputValidation';
 import { rateLimiters } from '../middleware/rateLimiter';
+import { requirePermission } from '../middleware/rbac';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
-import { validateRequest } from '../middleware/inputValidation';
-import { requirePermission } from '../middleware/rbac';
-import { requireAuth } from '../middleware/auth';
 import { tenantContextMiddleware } from '../middleware/tenantContext';
-import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = Router();
 router.use(securityHeadersMiddleware);

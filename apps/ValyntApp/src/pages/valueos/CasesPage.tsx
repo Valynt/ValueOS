@@ -5,8 +5,6 @@
  * Fetches real data from Supabase via useCasesList hook.
  */
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   ArrowUpDown,
@@ -17,14 +15,17 @@ import {
   RefreshCw,
   TrendingUp,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { useCasesList, usePortfolioValue } from "@/hooks/useCases";
+import { cn } from "@/lib/utils";
 import type { ValueCaseWithRelations } from "@/services/supabase/types";
 
 type CaseStatus = "draft" | "in-progress" | "committed" | "closed" | "review" | "published";

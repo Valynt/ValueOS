@@ -1,13 +1,15 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+
 import { afterEach, describe, expect, it } from 'vitest';
-import { type MCPTool, ToolRegistry } from '../ToolRegistry.js';
+
 import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
+import { resetAgentPolicyServiceForTests } from '../policy/AgentPolicyService.js';
 import {
   PolicyEnforcementError,
 } from '../policy/PolicyEnforcement.js';
-import { resetAgentPolicyServiceForTests } from '../policy/AgentPolicyService.js';
+import { type MCPTool, ToolRegistry } from '../ToolRegistry.js';
 
 function setupPolicies() {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'policy-test-'));

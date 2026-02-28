@@ -3,8 +3,8 @@
  * Provides analytics and insights for the referral program
  */
 
-import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { createLogger } from '@shared/lib/logger';
+import { createServerSupabaseClient } from '@shared/lib/supabase';
 
 const logger = createLogger({ component: 'ReferralAnalytics' });
 

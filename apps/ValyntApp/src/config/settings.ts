@@ -1,8 +1,10 @@
 /**
  * Centralized, environment-aware, and schema-validated configuration.
  */
-import { z } from "zod";
 import fs from "fs";
+
+import { z } from "zod";
+
 import { getEnvVar, env as runtimeEnv } from "../lib/env";
 
 const DEFAULT_API_PORT = 3000;

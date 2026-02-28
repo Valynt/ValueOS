@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AuditLogService } from '../AuditLogService.js'
 
 const mockInsert = vi.fn();

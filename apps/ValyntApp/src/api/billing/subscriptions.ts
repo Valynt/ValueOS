@@ -4,10 +4,11 @@
  */
 
 import express, { Request, Response } from 'express';
-import SubscriptionService from '../../services/billing/SubscriptionService';
+
 import { PlanTier } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
+import SubscriptionService from '../../services/billing/SubscriptionService';
 
 const router = express.Router();
 const logger = createLogger({ component: 'SubscriptionsAPI' });

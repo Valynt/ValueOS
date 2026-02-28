@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
 import { redactSecrets } from '../secretsRedaction.js';
 
 describe('redactSecrets', () => {

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
 import {
   ALLOWED_ASSUMPTION_UNITS,
   ALLOWED_KPI_UNITS,
@@ -18,7 +20,6 @@ import {
   validateLlmLimits,
   validatePack,
 } from '../validate.js';
-import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
 
 // ============================================================================
 // Fixtures

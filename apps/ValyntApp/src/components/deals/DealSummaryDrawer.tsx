@@ -21,6 +21,14 @@ import {
   TrendingUp,
   User,
 } from 'lucide-react';
+
+import type { Deal } from './DealStatusCapsule';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
   SheetContent,
@@ -28,13 +36,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import type { Deal } from './DealStatusCapsule';
+
 
 export interface DealSummaryDrawerProps {
   /** Whether the drawer is open */

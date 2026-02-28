@@ -5,8 +5,9 @@
  * structured logging, compliance features, and audit trail management.
  */
 
-import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
+
+import { logger } from "../../utils/logger";
 
 // ============================================================================
 // Audit Types

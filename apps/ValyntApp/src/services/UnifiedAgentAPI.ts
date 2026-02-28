@@ -14,24 +14,27 @@
  * - Full observability and audit logging
  */
 
-import { logger } from "../lib/logger";
-import { v4 as uuidv4 } from "uuid";
-import { CircuitBreakerManager } from "./CircuitBreaker";
-import { AgentRecord, AgentRegistry } from "./AgentRegistry";
 import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
-import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
-import { AgentType } from "./agent-types";
-import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
+import { v4 as uuidv4 } from "uuid";
+
+import {
+  createInputGuardrailTripwire,
+  validateAlertDetails,
+} from "../contracts/alert-details";
 import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
+import { logger } from "../lib/logger";
+import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
+
+import { AgentType } from "./agent-types";
+import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger";
+import { AgentRecord, AgentRegistry } from "./AgentRegistry";
+import { CircuitBreakerManager } from "./CircuitBreaker";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestOptions,
   GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
-import {
-  createInputGuardrailTripwire,
-  validateAlertDetails,
-} from "../contracts/alert-details";
+
 
 // ============================================================================
 // Types

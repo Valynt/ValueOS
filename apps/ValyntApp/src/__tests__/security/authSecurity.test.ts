@@ -4,9 +4,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { csrfProtection } from "../../lib/csrfProtection";
 import { authRateLimiter } from "../../lib/rateLimiter";
 import { secureTokenStorage } from "../../lib/secureStorage";
-import { csrfProtection } from "../../lib/csrfProtection";
 import { securityLogger } from "../../lib/securityLogger";
 import { authService } from "../../services/authServiceAbstraction";
 

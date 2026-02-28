@@ -4,7 +4,6 @@
  * Logo, colors, fonts, boilerplate, team signatures.
  */
 
-import { useState } from "react";
 import {
   Download,
   Eye,
@@ -14,12 +13,14 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { useState } from "react";
+
+import { SettingsRow, SettingsSection } from "@/components/settings";
+import { UserAvatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { SimpleSelect } from "@/components/ui/select";
-import { UserAvatar } from "@/components/ui/avatar";
-import { SettingsRow, SettingsSection } from "@/components/settings";
 import { cn } from "@/lib/utils";
 
 interface BrandColors {

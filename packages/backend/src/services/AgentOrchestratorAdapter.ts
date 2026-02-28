@@ -16,7 +16,15 @@
  *   // Works with unified implementation
  */
 
+import { v4 as uuidv4 } from 'uuid';
+
 import { featureFlags } from '../config/featureFlags.js'
+import { logger } from '../lib/logger.js'
+import { getSupabaseClient } from '../lib/supabase.js'
+import { WorkflowState } from '../repositories/WorkflowStateRepository';
+import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
+
+import { AgentQueryService } from './AgentQueryService.js'
 import {
   AgentResponse,
   ExecutionEnvelope,
@@ -24,12 +32,6 @@ import {
   StreamingUpdate,
   UnifiedAgentOrchestrator,
 } from './UnifiedAgentOrchestrator';
-import { AgentQueryService } from './AgentQueryService.js'
-import { getSupabaseClient } from '../lib/supabase.js'
-import { logger } from '../lib/logger.js'
-import { WorkflowState } from '../repositories/WorkflowStateRepository';
-import { v4 as uuidv4 } from 'uuid';
-import { ExecutionRequest, normalizeExecutionRequest } from '../types/execution';
 
 /**
  * Adapter class that provides backward compatibility for the unified orchestrator

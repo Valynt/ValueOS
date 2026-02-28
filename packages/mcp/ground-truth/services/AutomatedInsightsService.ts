@@ -13,17 +13,18 @@
  * actionable business insights and strategic recommendations.
  */
 
-import {
-  SentimentAnalysisService,
-  SentimentResult,
-} from "./SentimentAnalysisService";
+import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
+
 import {
   ForecastingResult,
   PredictiveModelingService,
   TrendAnalysisResult,
 } from "./PredictiveModelingService";
-import { getCache } from "../core/Cache";
-import { logger } from "../../lib/logger";
+import {
+  SentimentAnalysisService,
+  SentimentResult,
+} from "./SentimentAnalysisService";
 
 export interface CompanyInsightsRequest {
   companyName: string;

@@ -5,7 +5,6 @@
  * Allows adjusting assumptions and seeing real-time ROI impact.
  */
 
-import { useCallback, useMemo, useState } from 'react';
 import { 
   DollarSign, 
   Download, 
@@ -14,9 +13,11 @@ import {
   RefreshCw,
   TrendingUp,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useCallback, useMemo, useState } from 'react';
+
 import { KPICards, type KPIData } from '@/features/workspace/components/KPICards';
 import { exportToPdf } from '@/features/workspace/services/exportPdf';
+import { cn } from '@/lib/utils';
 
 // Value driver definition
 interface ValueDriver {

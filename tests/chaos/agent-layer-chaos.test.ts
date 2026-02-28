@@ -8,16 +8,17 @@
  * - Circuit breaker overload scenarios
  */
 
-import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { logger } from "../lib/logger";
+import { getRedisClient } from "../lib/redisClient";
+import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
+import { AgentType } from "../services/agent-types";
 import {
   AgentMessageQueue,
   getAgentMessageQueue,
 } from "../services/AgentMessageQueue";
-import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
-import { getRedisClient } from "../lib/redisClient";
 import { getEventProducer } from "../services/EventProducer";
-import { logger } from "../lib/logger";
-import { AgentType } from "../services/agent-types";
 
 // Mock external dependencies
 vi.mock("../lib/redisClient");

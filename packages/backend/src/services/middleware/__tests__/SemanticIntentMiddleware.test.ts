@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SemanticIntentMiddleware } from '../SemanticIntentMiddleware.js';
+
 import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import { SemanticIntentMiddleware } from '../SemanticIntentMiddleware.js';
 
 // Mock logger and supabase
 vi.mock('../../../lib/logger.js', () => ({

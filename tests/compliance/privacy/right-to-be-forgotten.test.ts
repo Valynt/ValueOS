@@ -10,8 +10,8 @@
  * maintaining audit trails for compliance.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 describe('Right to Be Forgotten (GDPR Article 17)', () => {
   let adminClient: SupabaseClient;

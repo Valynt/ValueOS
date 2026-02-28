@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import { runAgentWithBudget } from '../../packages/agent-fabric/runAgentWithBudget';
 
 // Simulate a mock for LLMCostTracker

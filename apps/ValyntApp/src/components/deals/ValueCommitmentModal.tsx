@@ -12,8 +12,15 @@
  *    Flags "Ready for CRM Sync".
  */
 
-import { useState } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, Link2, Lock } from 'lucide-react';
+import { useState } from 'react';
+
+import type { Deal } from './DealStatusCapsule';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -22,13 +29,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import type { Deal } from './DealStatusCapsule';
+
 
 export interface ValueCommitment {
   totalValue: number;

@@ -2,19 +2,20 @@
  * Main router index
  * Combines all domain-specific routers into the application router
  */
-import { router } from "../_core/trpc";
 import { systemRouter } from "../_core/systemRouter";
+import { router } from "../_core/trpc";
+
+import { aiRouter } from "./ai.router";
+import { analyticsRouter } from "./analytics.router";
 import { authRouter } from "./auth.router";
-import { userRouter } from "./user.router";
+import { certificationsRouter } from "./certifications.router";
+import { maturityRouter } from "./maturity.router";
 import { pillarsRouter } from "./pillars.router";
 import { progressRouter } from "./progress.router";
 import { quizRouter } from "./quiz.router";
-import { certificationsRouter } from "./certifications.router";
-import { maturityRouter } from "./maturity.router";
 import { resourcesRouter } from "./resources.router";
-import { aiRouter } from "./ai.router";
 import { simulationsRouter } from "./simulations.router";
-import { analyticsRouter } from "./analytics.router";
+import { userRouter } from "./user.router";
 
 /**
  * Application router

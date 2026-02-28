@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
 import {
   CHAT_WORKFLOW_STAGES,
   checkStageTransition,

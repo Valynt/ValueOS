@@ -9,15 +9,21 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  healthcareRevenueCycleScenario as scenario,
-} from '../datasets/ground-truth/healthcare-revenue-cycle.js';
-import { buildEvidenceBundle, classifyEvidence } from '../../core/EvidenceTiering.js';
+
 import {
   computeConfidence,
   scoreClaimConfidence,
   type TransparencyLevel,
 } from '../../core/ConfidenceScorer.js';
+import { buildEvidenceBundle, classifyEvidence } from '../../core/EvidenceTiering.js';
+import type { FinancialModelingEvalCase } from '../datasets/agent-evals/financial-modeling-agent.js';
+import type { GroundtruthEvalCase } from '../datasets/agent-evals/groundtruth-agent.js';
+import type { NarrativeEvalCase } from '../datasets/agent-evals/narrative-agent.js';
+import type { OpportunityEvalCase } from '../datasets/agent-evals/opportunity-agent.js';
+import type { RedTeamEvalCase } from '../datasets/agent-evals/red-team-agent.js';
+import {
+  healthcareRevenueCycleScenario as scenario,
+} from '../datasets/ground-truth/healthcare-revenue-cycle.js';
 import {
   runEvalChecks,
   validateFinancialModelingResponse,
@@ -26,11 +32,6 @@ import {
   validateOpportunityResponse,
   validateRedTeamResponse,
 } from '../harness.js';
-import type { OpportunityEvalCase } from '../datasets/agent-evals/opportunity-agent.js';
-import type { FinancialModelingEvalCase } from '../datasets/agent-evals/financial-modeling-agent.js';
-import type { GroundtruthEvalCase } from '../datasets/agent-evals/groundtruth-agent.js';
-import type { NarrativeEvalCase } from '../datasets/agent-evals/narrative-agent.js';
-import type { RedTeamEvalCase } from '../datasets/agent-evals/red-team-agent.js';
 
 // ============================================================================
 // Scenario Integrity

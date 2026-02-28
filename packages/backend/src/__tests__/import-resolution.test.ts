@@ -3,10 +3,11 @@
  * Ensures all TypeScript imports can be resolved at runtime
  */
 
-import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+
+import { describe, expect, it } from "vitest";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

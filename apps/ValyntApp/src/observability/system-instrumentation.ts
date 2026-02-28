@@ -10,8 +10,9 @@
  * - Dependency health
  */
 
-import { logger, Metrics, withSpan } from "./instrumentation";
 import type { Span } from "@opentelemetry/api";
+
+import { logger, Metrics, withSpan } from "./instrumentation";
 
 // ============================================================================
 // SYSTEM RELIABILITY METRICS

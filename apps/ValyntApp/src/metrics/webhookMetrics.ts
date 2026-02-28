@@ -1,4 +1,5 @@
 import { Counter } from 'prom-client';
+
 import { getMetricsRegistry } from '../middleware/metricsMiddleware';
 
 const registry = getMetricsRegistry();

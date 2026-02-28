@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WebScraperService } from '../WebScraperService';
 import * as dns from 'dns';
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { WebScraperService } from '../WebScraperService';
 
 vi.mock('dns', () => ({
   resolve: vi.fn(),

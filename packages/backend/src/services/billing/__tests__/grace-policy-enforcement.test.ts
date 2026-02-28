@@ -6,8 +6,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { EntitlementsService } from '../EntitlementsService.js';
+
 import { BillingMetric } from '../../../config/billing.js';
+import { EntitlementsService } from '../EntitlementsService.js';
 
 // Test constants
 const GRACE_PERIOD_HOURS = 24;

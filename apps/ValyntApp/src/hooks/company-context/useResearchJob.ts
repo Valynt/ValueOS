@@ -8,8 +8,10 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+
 import type { ResearchJob, ResearchSuggestion, SuggestionEntityType } from "./types";
+
+import { supabase } from "@/lib/supabase";
 
 const RESEARCH_KEY = "research-job";
 const SUGGESTIONS_KEY = "research-suggestions";

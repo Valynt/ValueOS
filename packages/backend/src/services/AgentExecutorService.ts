@@ -6,10 +6,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
-import { EventProducer, getEventProducer } from "./EventProducer.js"
-import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
-import { EventSourcingService, getEventSourcingService } from "./EventSourcingService.js"
+
 import {
   AgentRequestEvent,
   BaseEvent,
@@ -17,6 +14,11 @@ import {
   Event,
   EVENT_TOPICS,
 } from "@shared/types/events";
+
+import { createEventConsumer, EventConsumer } from "./EventConsumer.js"
+import { EventProducer, getEventProducer } from "./EventProducer.js"
+import { EventSourcingService, getEventSourcingService } from "./EventSourcingService.js"
+import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js"
 
 // AgentResponseEvent is not in shared types; define locally
 interface AgentResponseEvent extends BaseEvent {
@@ -33,6 +35,7 @@ interface AgentResponseEvent extends BaseEvent {
   };
 }
 import { AgentType } from "./agent-types.js"
+
 import { logger } from "../lib/logger.js"
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
 

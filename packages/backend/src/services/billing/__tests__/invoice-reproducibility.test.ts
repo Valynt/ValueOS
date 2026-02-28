@@ -5,9 +5,10 @@
  * multiple times with the same input data, ensuring auditability and consistency.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { InvoiceMathEngine } from '../InvoiceMathEngine.js';
 import { createClient } from '@supabase/supabase-js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { InvoiceMathEngine } from '../InvoiceMathEngine.js';
 
 // Mock Supabase for testing
 const mockSupabase = {

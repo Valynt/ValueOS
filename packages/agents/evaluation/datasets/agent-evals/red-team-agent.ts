@@ -7,6 +7,7 @@
  */
 
 import { z } from 'zod';
+
 import type { Objection } from '../../../orchestration/agents/RedTeamAgent.js';
 
 export const RedTeamEvalCaseSchema = z.object({

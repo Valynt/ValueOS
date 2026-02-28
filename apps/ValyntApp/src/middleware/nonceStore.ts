@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+
 import type { RedisClientType } from 'redis';
 
 /**

@@ -1,17 +1,18 @@
-import { Link, useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { Link, useLocation } from "wouter";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { APP_TITLE } from "@/const";
-import { trpc } from "@/lib/trpc";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { APP_TITLE } from "@/const";
+import { useAuth } from "@/hooks/useAuth";
 import { Icons } from "@/lib/icons";
+import { trpc } from "@/lib/trpc";
 
 interface SidebarLayoutProps {
   children: React.ReactNode;

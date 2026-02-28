@@ -14,18 +14,17 @@
  * targets, and for IntegrityAgent to validate.
  */
 
-import { BaseAgent } from './BaseAgent.js';
-import { z } from 'zod';
 import Decimal from 'decimal.js';
-import { logger } from '../../logger.js';
+import { z } from 'zod';
+
 import {
-  calculateNPV,
   calculateIRR,
+  calculateNPV,
   calculatePayback,
   calculateROI,
+  roundTo,
   sensitivityAnalysis,
   toDecimalArray,
-  roundTo,
 } from '../../../domain/economic-kernel/economic_kernel.js';
 import type {
   AgentOutput,
@@ -33,6 +32,9 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
+import { logger } from '../../logger.js';
+
+import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation

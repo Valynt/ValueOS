@@ -5,8 +5,9 @@
  * and frequently accessed data with intelligent invalidation strategies.
  */
 
-import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
+
+import { logger } from "../../lib/logger.js"
 import {
   deleteCache,
   deleteCachePattern,

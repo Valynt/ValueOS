@@ -3,8 +3,8 @@
  * Prevents abuse of public customer endpoints
  */
 
-import { NextFunction, Request, Response } from 'express';
 import { logger } from '@shared/lib/logger';
+import { NextFunction, Request, Response } from 'express';
 
 interface RateLimitStore {
   [key: string]: {

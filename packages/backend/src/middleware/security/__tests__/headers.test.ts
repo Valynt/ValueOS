@@ -2,16 +2,10 @@
  * Security Headers Middleware Tests
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import express, { Express } from 'express';
 import request from 'supertest';
-import {
-  buildCspHeader,
-  buildHstsHeader,
-  buildPermissionsPolicy,
-  createSecurityHeadersMiddleware,
-  getApiSafeCspConfig,
-} from '../headers';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import {
   CspConfig,
   HstsConfig,
@@ -19,6 +13,13 @@ import {
   SecurityConfig,
   setSecurityConfig,
 } from '../config';
+import {
+  buildCspHeader,
+  buildHstsHeader,
+  buildPermissionsPolicy,
+  createSecurityHeadersMiddleware,
+  getApiSafeCspConfig,
+} from '../headers';
 
 describe('Security Headers Middleware', () => {
   let app: Express;

@@ -12,10 +12,12 @@
  * - Prevents error propagation
  */
 
-import React, { Component, ErrorInfo, ReactNode } from "react";
-import { logger } from "@shared/lib/logger";
-import { getTracer } from "../../lib/observability";
 import { SpanStatusCode } from "@opentelemetry/api";
+import { logger } from "@shared/lib/logger";
+import React, { Component, ErrorInfo, ReactNode } from "react";
+
+import { getTracer } from "../../lib/observability";
+
 
 interface Props {
   /** Unique identifier for this component instance */

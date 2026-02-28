@@ -1,25 +1,26 @@
 import React, { useEffect, useMemo } from "react";
+
+import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
+import { SectionErrorFallback } from "./components/SDUI";
 import {
   DashboardPanel,
   Grid,
   HorizontalSplit,
   VerticalSplit,
 } from "./components/SDUI/CanvasLayout/index";
-import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
-import { SectionErrorFallback } from "./components/SDUI";
-import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
-import { RegistryPlaceholderComponent, resolveComponentWithVersion } from "./registry";
+import { DataBindingResolver } from "./DataBindingResolver";
+import { DataSourceContext } from "./DataBindingSchema";
 import {
   preloadCriticalComponents,
   resolveComponentLazy,
 } from "./LazyComponentRegistry";
-import { DataBindingResolver } from "./DataBindingResolver";
-import { DataSourceContext } from "./DataBindingSchema";
-import { useValidatedDataBindings } from "./typeSafeHydration";
-import { sanitizeProps } from "./security/sanitization";
-import { incrementSecurityMetric } from "./security/metrics";
 import { createLogger } from "./lib/logger";
+import { RegistryPlaceholderComponent, resolveComponentWithVersion } from "./registry";
+import { SDUIComponentSection, SDUIPageDefinition, validateSDUISchema } from "./schema";
 import { useSchemaStore } from "./SchemaStore";
+import { incrementSecurityMetric } from "./security/metrics";
+import { sanitizeProps } from "./security/sanitization";
+import { useValidatedDataBindings } from "./typeSafeHydration";
 
 const logger = createLogger({ component: "SDUIRenderer" });
 

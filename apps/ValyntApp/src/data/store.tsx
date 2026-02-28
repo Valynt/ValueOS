@@ -1,7 +1,8 @@
 // /workspaces/ValueOS/src/data/store.ts
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { Artifact, AuditEvent, Benchmark, Deal, Hypothesis, ROIModel, Stakeholder, User, ValueDriver, ValueRealization } from './types';
+
 import * as fixtures from './fixtures';
+import { Artifact, AuditEvent, Benchmark, Deal, Hypothesis, ROIModel, Stakeholder, User, ValueDriver, ValueRealization } from './types';
 
 interface State {
   users: User[];

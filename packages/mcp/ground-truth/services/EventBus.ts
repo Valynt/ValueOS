@@ -11,6 +11,7 @@
  */
 
 import { createClient, RedisClientType } from "redis";
+
 import { logger } from "../../lib/logger.js";
 import { getCache } from "../core/Cache.js";
 

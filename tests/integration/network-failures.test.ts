@@ -7,7 +7,7 @@
  * - Request/response corruption
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("Network Failure Handling", () => {
   describe("Network Disconnection", () => {

@@ -4,11 +4,14 @@
  */
 
 import React from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+
 import type { PlanAssumption, WorkflowStepState } from "../types";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 
 interface PlanPhaseProps {
   steps: WorkflowStepState[];

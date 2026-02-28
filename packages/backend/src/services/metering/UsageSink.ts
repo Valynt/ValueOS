@@ -3,9 +3,9 @@
  * Submits aggregated usage to Stripe (runs as background job)
  */
 
-import UsageMeteringService from '../billing/UsageMeteringService.js'
 import { createLogger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js';
+import UsageMeteringService from '../billing/UsageMeteringService.js'
 
 const logger = createLogger({ component: 'UsageSink' });
 

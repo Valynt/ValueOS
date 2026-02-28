@@ -10,12 +10,13 @@
  */
 
 import { FormulaInput, StructuralTruth } from '../structural/structural-truth';
-import CausalTruth from './causal-truth-enhanced';
-import { BusinessAction } from './causal-truth';
 import { 
   StructuralIndustry, 
   StructuralPersona,
 } from '../types/structural-truth';
+
+import { BusinessAction } from './causal-truth';
+import CausalTruth from './causal-truth-enhanced';
 
 // ============================================================================
 // BUSINESS CASE TYPES

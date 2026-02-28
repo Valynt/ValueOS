@@ -6,17 +6,17 @@
  * the HypothesisLoop to be tested end-to-end without LLM calls.
  */
 
+import type { ProvenanceRecord, ProvenanceStore } from '../../memory/provenance/index.js';
+import type { DLQEventEmitter, DLQStore } from '../core/DeadLetterQueue.js';
+import type { IdempotencyStore } from '../core/IdempotencyGuard.js';
+import type { SagaAuditLogger, SagaEventEmitter, SagaPersistence, SagaSnapshot, SagaTransitionRecord } from '../core/ValueCaseSaga.js';
+import type { RedTeamAgent, RedTeamInput, RedTeamOutput } from '../orchestration/agents/RedTeamAgent.js';
 import type {
   FinancialModelingAgentInterface,
   GroundTruthAgentInterface,
   NarrativeAgentInterface,
   OpportunityAgentInterface,
 } from '../orchestration/HypothesisLoop.js';
-import type { RedTeamAgent, RedTeamInput, RedTeamOutput } from '../orchestration/agents/RedTeamAgent.js';
-import type { IdempotencyStore } from '../core/IdempotencyGuard.js';
-import type { DLQEventEmitter, DLQStore } from '../core/DeadLetterQueue.js';
-import type { SagaAuditLogger, SagaEventEmitter, SagaPersistence, SagaSnapshot, SagaTransitionRecord } from '../core/ValueCaseSaga.js';
-import type { ProvenanceRecord, ProvenanceStore } from '../../memory/provenance/index.js';
 
 // ============================================================================
 // Mock Opportunity Agent

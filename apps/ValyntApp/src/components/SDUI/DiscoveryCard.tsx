@@ -9,9 +9,11 @@
  * - Visual Hierarchy: status badge + confidence meter in F-pattern scan zone
  */
 
-import React from "react";
 import { Search, Tag, X } from "lucide-react";
+import React from "react";
+
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
+
 import { cn } from "@/lib/utils";
 
 export interface DiscoveryCardProps {

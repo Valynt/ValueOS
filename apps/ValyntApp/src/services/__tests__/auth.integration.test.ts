@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthService } from "../AuthService";
+
 import {
   createLoginCredentials,
   createMockSession,
@@ -13,6 +13,7 @@ import {
   createSuccessfulSignupResponse,
 } from "../../test-utils/auth.fixtures";
 import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
+import { AuthService } from "../AuthService";
 
 // Setup mocks
 const mocks = setupAuthMocks();

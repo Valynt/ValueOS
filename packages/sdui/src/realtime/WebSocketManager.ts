@@ -5,8 +5,9 @@
  * and channel subscription system for real-time data streams.
  */
 
-import { TenantContext } from "../TenantContext";
 import { createLogger } from "@shared/lib/logger";
+
+import { TenantContext } from "../TenantContext";
 
 /**
  * WebSocket connection state

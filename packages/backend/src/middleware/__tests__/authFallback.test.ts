@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import jwt from 'jsonwebtoken';
 import { __setEnvSourceForTests } from '@shared/lib/env';
+import jwt from 'jsonwebtoken';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const redisExists = vi.fn();
 const auditLog = vi.fn().mockResolvedValue({ id: 'audit-id' });

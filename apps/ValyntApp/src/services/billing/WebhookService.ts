@@ -3,13 +3,14 @@
  * Handles Stripe webhook signature verification and event processing
  */
 
-import StripeService from './StripeService';
-import InvoiceService from './InvoiceService';
 import { STRIPE_CONFIG } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { getSupabaseClient } from '../../lib/supabase';
 import { recordBillingJobFailure, recordInvoiceEvent, recordStripeWebhook } from '../../metrics/billingMetrics';
 import { recordWebhookRejection } from '../../metrics/webhookMetrics';
-import { getSupabaseClient } from '../../lib/supabase';
+
+import InvoiceService from './InvoiceService';
+import StripeService from './StripeService';
 
 const logger = createLogger({ component: 'WebhookService' });
 

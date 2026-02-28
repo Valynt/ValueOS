@@ -7,6 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { HubSpotProvider } from '../HubSpotProvider.js';
 
 describe('HubSpotProvider', () => {

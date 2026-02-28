@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { getDatabaseUrl } from './env.js';
 
 const configSchema = z.object({

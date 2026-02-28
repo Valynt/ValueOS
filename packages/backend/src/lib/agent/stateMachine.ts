@@ -1,5 +1,6 @@
-import type { AgentEvent, AgentState } from "./types";
 import { workflowExecutionStore } from "../../services/WorkflowExecutionStore";
+
+import type { AgentEvent, AgentState } from "./types";
 
 class PersistentAgentStateMachine {
   private id: string;

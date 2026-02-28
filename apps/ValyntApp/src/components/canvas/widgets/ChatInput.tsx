@@ -3,8 +3,9 @@
  * Input for follow-up questions to the agent
  */
 
-import React, { useState } from "react";
 import { MessageSquare } from "lucide-react";
+import React, { useState } from "react";
+
 import type { WidgetProps } from "../CanvasHost";
 
 interface ChatInputData {

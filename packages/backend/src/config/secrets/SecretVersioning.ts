@@ -9,6 +9,7 @@
  */
 
 import { logger } from '../../lib/logger.js'
+
 import type { ISecretProvider, SecretMetadata, SecretValue } from './ISecretProvider.js'
 
 /**

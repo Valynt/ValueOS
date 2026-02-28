@@ -5,20 +5,23 @@
  * editable assumptions, estimated duration, and approve/reject actions.
  */
 
-import { useState } from "react";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Circle,
   Clock,
   Edit3,
-  ChevronDown,
-  ChevronUp,
   ShieldCheck,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+
+import type { PlanAssumption, WorkflowStepState } from "../../agent/types";
+
 import { Badge } from "@/components/ui/badge";
-import type { WorkflowStepState, PlanAssumption } from "../../agent/types";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
 
 interface PlanApprovalGateProps {
   steps: WorkflowStepState[];

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+
+import { describe, expect, it } from 'vitest';
 
 describe('DevContainer Playwright Subagent', () => {
   it('includes the Playwright subagent in compose file', () => {

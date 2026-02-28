@@ -11,10 +11,10 @@
  * @since 2024-01-01
  */
 
-import React, { useState } from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import React, { useState } from 'react';
 import { FC, ReactNode } from 'react';
 import { vi } from 'vitest';
 
@@ -22,8 +22,8 @@ import { vi } from 'vitest';
 import ChatCanvasLayout from '../../src/components/ChatCanvas/ChatCanvasLayout';
 import { useCanvasCommand } from '../../src/hooks/useCanvasCommand';
 import { useCommandProcessor } from '../../src/hooks/useCommandProcessor';
-import { WorkflowStateService } from '../../src/services/WorkflowStateService';
 import { CommandProcessor } from '../../src/lib/commands/CommandProcessor';
+import { WorkflowStateService } from '../../src/services/WorkflowStateService';
 
 // Mock imports - these would be properly imported in a real setup
 const mockSupabase = {
@@ -55,14 +55,14 @@ vi.mock('../../src/components/ChatCanvas/ChatCanvasLayout', () => ({
 
 // Import mock builders for cleaner test setup
 import {
-  createMockUser,
+  createErrorTestSetup,
+  createMockAgentChatService,
   createMockCase,
-  createMockWorkflowState,
   createMockSDUIPage,
   createMockSupabase,
-  createMockAgentChatService,
-  createStandardTestSetup,
-  createErrorTestSetup
+  createMockUser,
+  createMockWorkflowState,
+  createStandardTestSetup
 } from './test-utils/mockBuilders';
 
 // Mock imports - these would be properly imported in a real setup

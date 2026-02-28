@@ -9,9 +9,6 @@
  * - Accessibility options
  */
 
-import React, { useMemo } from "react";
-import { SettingsSection } from "../../components/settings";
-import { useSettingsGroup } from "../../lib/settingsRegistry";
 import {
   Calendar,
   Clock,
@@ -22,6 +19,10 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
+import React, { useMemo } from "react";
+
+import { SettingsSection } from "../../components/settings";
+import { useSettingsGroup } from "../../lib/settingsRegistry";
 
 interface UserAppearanceProps {
   userId: string;

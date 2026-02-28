@@ -9,21 +9,22 @@
  * - Rate limiting (strict by default)
  */
 
-import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter.js"
-import { requireAuth } from "../middleware/auth.js"
-import { requireMFA } from "../middleware/mfa.js"
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
-import { authService } from "../services/AuthService.js"
-import { AuthenticationError, ValidationError } from "../services/errors.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
-import { auditLogService } from "../services/AuditLogService.js"
 import { createServerSupabaseClient } from "@shared/lib/supabase";
-import { sanitizeErrorMessage } from "../utils/security.js"
+import { Request, Response } from "express";
+
 import { getConfig } from "../config/environment.js"
-import { userProfileDirectoryService } from "../services/UserProfileDirectoryService.js"
+import { requireAuth } from "../middleware/auth.js"
 import { authRateLimiter, recordAuthFailure } from "../middleware/authRateLimiter.js"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
+import { requireMFA } from "../middleware/mfa.js"
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { auditLogService } from "../services/AuditLogService.js"
+import { authService } from "../services/AuthService.js"
+import { AuthenticationError, ValidationError } from "../services/errors.js"
+import { userProfileDirectoryService } from "../services/UserProfileDirectoryService.js"
+import { sanitizeErrorMessage } from "../utils/security.js"
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");

@@ -3,11 +3,13 @@
  * Stripe webhook endpoint with security hardening
  */
 
-import express, { Request, Response } from 'express';
-import WebhookService from '../../services/billing/WebhookService.js';
-import { createLogger } from '@shared/lib/logger';
-import { recordStripeWebhook } from '../../metrics/billingMetrics.js';
 import { getSupabaseConfig } from '@shared/lib/env';
+import { createLogger } from '@shared/lib/logger';
+import express, { Request, Response } from 'express';
+
+import { recordStripeWebhook } from '../../metrics/billingMetrics.js';
+import WebhookService from '../../services/billing/WebhookService.js';
+
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });

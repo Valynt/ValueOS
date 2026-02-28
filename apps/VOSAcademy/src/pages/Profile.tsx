@@ -1,22 +1,24 @@
-import { useAuth } from "@/hooks/useAuth";
+import { Award, BookOpen, Briefcase, CheckCircle, Target, TrendingUp, User } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Link } from "wouter";
+
+import MaturityAssessment from "@/components/MaturityAssessment";
 import { PageShell } from "@/components/PageShell";
+import RoleMaturityTrack from "@/components/RoleMaturityTrack";
 import { SectionCard } from "@/components/SectionCard";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
-import { trpc } from "@/lib/trpc";
-import { Award, BookOpen, Briefcase, CheckCircle, Target, TrendingUp, User } from "lucide-react";
-import { Link } from "wouter";
-import { useState } from "react";
-import { toast } from "sonner";
-import MaturityAssessment from "@/components/MaturityAssessment";
-import RoleMaturityTrack from "@/components/RoleMaturityTrack";
-import { getCurriculumForRole, MATURITY_LEVELS } from "@/data/curriculum";
-import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
+import { getCurriculumForRole, MATURITY_LEVELS } from "@/data/curriculum";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
+import { trpc } from "@/lib/trpc";
+
 
 export default function Profile() {
   const { user, loading, isAuthenticated } = useAuth();

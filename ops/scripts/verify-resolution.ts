@@ -1,7 +1,8 @@
-import config from "../../vitest.config";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+
+import config from "../../vitest.config";
 
 // Handling __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);

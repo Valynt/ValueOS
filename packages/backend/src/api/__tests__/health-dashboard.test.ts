@@ -1,9 +1,10 @@
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import express from 'express';
-import request from 'supertest';
 import fs from 'fs';
 import path from 'path';
+
+import express from 'express';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies to isolate the router
 vi.mock('@shared/lib/health/metrics', () => ({

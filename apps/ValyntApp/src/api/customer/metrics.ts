@@ -4,10 +4,12 @@
  */
 
 import { Request, Response } from 'express';
-import { customerAccessService } from '../../services/CustomerAccessService';
-import { supabase } from '../../lib/supabase';
-import { logger } from '../../lib/logger';
 import { z } from 'zod';
+
+import { logger } from '../../lib/logger';
+import { supabase } from '../../lib/supabase';
+import { customerAccessService } from '../../services/CustomerAccessService';
+
 
 // Request validation schema
 const MetricsRequestSchema = z.object({

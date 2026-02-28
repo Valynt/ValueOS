@@ -16,6 +16,7 @@
 
 import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
+
 import { createLogger } from '../lib/logger.js';
 
 const logger = createLogger({ component: 'CrmWorker' });

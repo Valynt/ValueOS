@@ -6,12 +6,13 @@
  * against GroundTruth benchmarks (ESO KPIs, VMRT traces).
  */
 
-import { logger } from "../logger.js";
-import type { MemorySystem } from "./MemorySystem.js";
 import type {
   GroundTruthIntegrationService,
   ValidationResult as GTValidationResult,
 } from "../../services/GroundTruthIntegrationService.js";
+import { logger } from "../logger.js";
+
+import type { MemorySystem } from "./MemorySystem.js";
 
 // ============================================================================
 // Types

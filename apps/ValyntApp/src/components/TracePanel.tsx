@@ -1,6 +1,6 @@
 // /workspaces/ValueOS/apps/ValyntApp/src/components/TracePanel.tsx
-import React from "react";
 import { CheckCircle } from "lucide-react";
+import React from "react";
 
 interface TraceStep {
   step: string;

@@ -2,10 +2,12 @@
  * MFA Service Tests
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as OTPAuth from "otpauth";
-import { MFAService } from "../MFAService.js";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import * as OTPAuth from "otpauth";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { MFAService } from "../MFAService.js";
+
 
 vi.mock("../../lib/logger");
 vi.mock("@simplewebauthn/server", () => ({

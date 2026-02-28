@@ -5,20 +5,24 @@
  * with compensation patterns for failure recovery.
  */
 
-import { OpportunityAgent } from "../lib/agent-fabric/agents/OpportunityAgent";
-import { TargetAgent } from "../lib/agent-fabric/agents/TargetAgent";
-import { ExpansionAgent } from "../lib/agent-fabric/agents/ExpansionAgent";
-import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent";
-import { RealizationAgent } from "../lib/agent-fabric/agents/RealizationAgent";
-import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
-import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
-import { logger } from "../lib/logger.js"
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-
-import { TargetAgentInputSchema } from "../validators/agentInputs.js";
 import { z } from "zod";
+
+import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
+import { ExpansionAgent } from "../lib/agent-fabric/agents/ExpansionAgent";
+import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent";
+import { OpportunityAgent } from "../lib/agent-fabric/agents/OpportunityAgent";
+import { RealizationAgent } from "../lib/agent-fabric/agents/RealizationAgent";
+import { TargetAgent } from "../lib/agent-fabric/agents/TargetAgent";
+import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { ValidationError } from "../lib/errors.js";
+import { logger } from "../lib/logger.js"
+import { CircuitBreaker } from "../lib/resilience/CircuitBreaker";
+import { TargetAgentInputSchema } from "../validators/agentInputs.js";
+
+
 
 export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";
 
@@ -103,12 +107,12 @@ export class ValidationError extends Error {
   }
 }
 
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
-import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
 import { AgentConfig } from "../types/agent";
-import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore.js"
+
 import { AuditTrailService, getAuditTrailService } from "./security/AuditTrailService.js";
+import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore.js"
+
 import { DLQAlert } from "../lib/agent-fabric/FabricMonitor";
 
 import {
@@ -118,20 +122,21 @@ import {
   RedTeamAgent,
   ValueCaseSaga
 } from "@valueos/agents";
+
 import {
-  DomainSagaEventEmitter,
-  SagaAuditTrailLogger,
-  SupabaseSagaPersistence
-} from "./workflows/SagaAdapters.js";
+  AgentServiceAdapter,
+  RedTeamLLMAdapter
+} from "./workflows/AgentAdapters.js";
 import {
   DomainDLQEventEmitter,
   RedisDLQStore,
   RedisIdempotencyStore
 } from "./workflows/RedisAdapters.js";
 import {
-  AgentServiceAdapter,
-  RedTeamLLMAdapter
-} from "./workflows/AgentAdapters.js";
+  DomainSagaEventEmitter,
+  SagaAuditTrailLogger,
+  SupabaseSagaPersistence
+} from "./workflows/SagaAdapters.js";
 
 // ... (other imports remain the same) ...
 

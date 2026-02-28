@@ -13,6 +13,7 @@ import {
   DependencyUnavailableError,
   executeWithResilience,
 } from '../resilience.js';
+
 import type { LLMResponse } from './LLMGateway.js';
 
 // ---------------------------------------------------------------------------

@@ -4,14 +4,15 @@
  * Handles approval workflow for agent actions requiring human oversight.
  */
 
-import { Request, Response, Router } from 'express';
 import { type SupabaseClient } from '@supabase/supabase-js';
+import { Request, Response, Router } from 'express';
+
+import { createRequestSupabaseClient } from '../lib/supabase';
+import { auditBulkDelete } from '../middleware/auditHooks';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
 import { logger } from '../utils/logger';
-import { auditBulkDelete } from '../middleware/auditHooks';
-import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
-import { createRequestSupabaseClient } from '../lib/supabase';
 
 const router = Router();
 router.use(requestAuditMiddleware());

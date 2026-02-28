@@ -5,8 +5,8 @@
  * including concurrent execution, memory usage, and cleanup.
  */
 
-import { createToolExecutor, executeMCPTool, getAllTools } from "../MCPTools.js"
 import { mcpGroundTruthService } from "../MCPGroundTruthService.js"
+import { createToolExecutor, executeMCPTool, getAllTools } from "../MCPTools.js"
 
 // Mock dependencies
 vi.mock("../MCPGroundTruthService");

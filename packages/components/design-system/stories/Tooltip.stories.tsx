@@ -1,7 +1,8 @@
 import React from "react";
+
 import "../src/css/tokens.css";
-import { Tooltip } from "../src/primitives/Tooltip";
 import { Button } from "../src/primitives/Button";
+import { Tooltip } from "../src/primitives/Tooltip";
 
 export default {
   title: "DesignSystem/Tooltip",

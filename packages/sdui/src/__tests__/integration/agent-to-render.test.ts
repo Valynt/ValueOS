@@ -8,11 +8,12 @@
  * 4. Error handling → Graceful degradation
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { renderPage } from "../../engine/renderPage";
-import { useCanvasStore } from "../../canvas/CanvasStore";
-import { SDUIPageDefinition } from "../../schema";
 import * as React from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { useCanvasStore } from "../../canvas/CanvasStore";
+import { renderPage } from "../../engine/renderPage";
+import { SDUIPageDefinition } from "../../schema";
 
 describe("Agent to Render Integration Tests", () => {
   beforeEach(() => {

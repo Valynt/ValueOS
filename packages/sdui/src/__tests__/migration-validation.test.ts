@@ -6,6 +6,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { logger } from "../../lib/logger";
 import {
   canMigrate,
   getMigrationPath,
@@ -18,7 +20,6 @@ import {
   validateMigration,
 } from "../migrations";
 import { SDUIPageDefinition, validateSDUISchema } from "../schema";
-import { logger } from "../../lib/logger";
 
 // Mock logger to avoid console output during tests
 vi.mock("../../lib/logger", () => ({

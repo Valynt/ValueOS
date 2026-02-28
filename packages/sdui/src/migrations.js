@@ -44,9 +44,11 @@
  *
  * ──────────────────────────────────────────────────────────────────
  */
-import logger from "../../shared/src/lib/logger.js";
-import { validateSDUISchema } from "./schema";
 import { createHash } from "crypto";
+
+import logger from "../../shared/src/lib/logger.js";
+
+import { validateSDUISchema } from "./schema";
 /**
  * Registry of all schema migrations
  */

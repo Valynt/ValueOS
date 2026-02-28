@@ -5,24 +5,25 @@
  * encryption, and audit logging flows.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  SecureSharedContext,
-  getSecureSharedContext,
-} from "../../src/services/SecureSharedContext";
-import { AgentAuditLogger, getAuditLogger } from "../../src/services/AgentAuditLogger";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { SecureMessageBus, secureMessageBus } from "../../src/lib/agent-fabric/SecureMessageBus";
-import { AgentMessageBroker, getAgentMessageBroker } from "../../src/services/AgentMessageBroker";
 import { createAgentIdentity } from "../../src/lib/auth/AgentIdentity";
 import { AgentRole } from "../../src/lib/auth/AgentIdentity";
 import {
-  generateKeyPair,
-  encrypt,
   decrypt,
+  encrypt,
+  generateEncryptionKey,
+  generateKeyPair,
   signMessage,
   verifySignature,
-  generateEncryptionKey,
 } from "../../src/lib/crypto/CryptoUtils";
+import { AgentAuditLogger, getAuditLogger } from "../../src/services/AgentAuditLogger";
+import { AgentMessageBroker, getAgentMessageBroker } from "../../src/services/AgentMessageBroker";
+import {
+  getSecureSharedContext,
+  SecureSharedContext,
+} from "../../src/services/SecureSharedContext";
 
 describe("Security Integration Tests", () => {
   let sharedContext: SecureSharedContext;

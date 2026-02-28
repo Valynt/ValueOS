@@ -9,9 +9,10 @@
  * - Useful for debugging, monitoring, and startup verification
  */
 
-import { validateLLMConfig } from '../../config/validateEnv';
-import { getConfig } from '../../config/environment';
 import { createLogger } from '@shared/lib/logger';
+
+import { getConfig } from '../../config/environment';
+import { validateLLMConfig } from '../../config/validateEnv';
 
 const healthLogger = createLogger({ component: 'ConfigHealth' });
 import type { ComponentHealth, ConfigHealth, HealthStatus } from '../../types/health';

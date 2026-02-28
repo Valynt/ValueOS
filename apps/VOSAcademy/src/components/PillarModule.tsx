@@ -3,12 +3,13 @@
  * Displays individual module content with progress tracking and unlocking logic
  */
 
-import { useState } from "react";
-import { SectionCard } from "@/components/SectionCard";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { BookOpen, CheckCircle2, Clock, Lock, Play, Target } from "lucide-react";
+import { useState } from "react";
+
+import { SectionCard } from "@/components/SectionCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { CurriculumModule } from "@/data/curriculum";
 import { ModuleStatus } from "@/lib/progress-logic";
 

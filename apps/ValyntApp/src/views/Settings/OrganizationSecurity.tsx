@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { SettingsSection } from '../../components/settings';
 import {
   AlertCircle, Check, Clock, Globe, Key, Lock, Plus, Shield, Trash2, Users
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+
+import { SettingsSection } from '../../components/settings';
 
 interface AllowedDomain {
   id: string;
@@ -23,8 +24,8 @@ interface AuthPolicy {
   idleTimeoutMinutes: number;
   maxConcurrentSessions: number;
 }
-import { analyticsClient } from '../../lib/analyticsClient';
 import { useDebouncedState } from '../../hooks/useDebounce';
+import { analyticsClient } from '../../lib/analyticsClient';
 
 export const OrganizationSecurity: React.FC = () => {
   const [policy, setPolicy] = useState<AuthPolicy>({

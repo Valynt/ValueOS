@@ -3,7 +3,6 @@
  * Generate test data for billing entities
  */
 
-import { BillingMetric, PlanTier } from "../../config/billing";
 import type {
   BillingCustomer,
   Invoice,
@@ -15,6 +14,7 @@ import type {
   UsageQuota,
   WebhookEvent,
 } from "../../../types/billing";
+import { BillingMetric, PlanTier } from "../../config/billing";
 
 let idCounter = 0;
 const generateId = () => `test-${Date.now()}-${++idCounter}`;

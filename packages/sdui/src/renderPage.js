@@ -1,15 +1,18 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { logger } from "@shared/lib/logger";
 import React from "react";
-import { MotionMasterProvider } from "./MotionMaster";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+
+
 import { ErrorBoundary } from "../components/Common/ErrorBoundary";
 import { SectionErrorFallback, UnknownComponentFallback } from "../components/SDUI";
-import { SDUIValidationError, validateSDUISchema, } from "./schema";
-import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
-import { resolveComponent } from "./registry";
-import { useDataHydration } from "./hooks/useDataHydration";
+
 import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
 import { LoadingFallback } from "./components/LoadingFallback";
+import { useDataHydration } from "./hooks/useDataHydration";
+import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
+import { MotionMasterProvider } from "./MotionMaster";
+import { resolveComponent } from "./registry";
+import { SDUIValidationError, validateSDUISchema, } from "./schema";
 /**
  * Context for passing render options down to child components
  */

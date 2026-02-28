@@ -4,14 +4,15 @@
  */
 
 import express, { Request, Response } from 'express';
+
 import { logger } from '../../lib/logger.js';
-import MetricsCollector from '../../services/metering/MetricsCollector.js';
+import { supabase } from '../../lib/supabase.js';
+import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.js';
+import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js';
 import { EntitlementsService } from '../../services/billing/EntitlementsService.js';
 import { InvoiceMathEngine } from '../../services/billing/InvoiceMathEngine.js';
 import PriceVersionService from '../../services/billing/PriceVersionService.js';
-import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.js';
-import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js';
-import { supabase } from '../../lib/supabase.js';
+import MetricsCollector from '../../services/metering/MetricsCollector.js';
 
 const router = express.Router();
 

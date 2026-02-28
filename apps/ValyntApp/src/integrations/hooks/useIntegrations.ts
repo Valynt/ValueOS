@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { api } from "@/api/client/unified-api-client";
+
 import type {
   IntegrationConnection,
   IntegrationCredentialsInput,
@@ -7,6 +7,8 @@ import type {
   IntegrationStatus,
 } from "../types";
 import { PROVIDERS } from "../types";
+
+import { api } from "@/api/client/unified-api-client";
 
 const mapStatus = (status?: string): IntegrationStatus => {
   switch (status) {

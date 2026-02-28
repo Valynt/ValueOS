@@ -7,24 +7,23 @@
  * Integrates with agent store and mock stream for MVP.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
-  Send,
   Clock,
   Loader2,
   PlayCircle,
   Send,
+  Send,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { UserAvatar } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
-// Agent store and types
+import { UserAvatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ValueDriverSelector } from "@/components/value-drivers";
 import {
   selectActiveArtifact,
   selectArtifacts,
@@ -33,18 +32,17 @@ import {
   selectOverallProgress,
   useAgentStore,
 } from "@/features/workspace/agent/store";
-import { useAgentStream } from "@/features/workspace/agent/useAgentStream";
+
+// Agent store and types
 import type {
   AgentPhase,
   Artifact,
   ConversationMessage,
   WorkflowStepState,
 } from "@/features/workspace/agent/types";
+import { useAgentStream } from "@/features/workspace/agent/useAgentStream";
 
 // Services
-import { conversationsService } from "@/services/conversations";
-import { artifactsService } from "@/services/artifacts";
-import { logger } from "@/lib/logger";
 
 // Artifact components
 import { ArtifactRenderer } from "@/features/workspace/artifacts/ArtifactRenderer";
@@ -54,23 +52,26 @@ import { ArtifactStack } from "@/features/workspace/artifacts/ArtifactStack";
 import { FloatingToolbar } from "@/features/workspace/components/FloatingToolbar";
 import { KPICards, type KPIData } from "@/features/workspace/components/KPICards";
 import { ShareModal } from "@/features/workspace/components/ShareModal";
-import { exportToPdf } from "@/features/workspace/services/exportPdf";
 
 // Agent state UI components
 import {
-  PlanApprovalGate,
-  ExecuteStreamingPanel,
   ClarifyPanel,
-  ReviewDiffPanel,
-  FinalizePanel,
   ErrorRecoveryModal,
+  ExecuteStreamingPanel,
+  FinalizePanel,
+  PlanApprovalGate,
   ResumePanel,
+  ReviewDiffPanel,
 } from "@/features/workspace/components/states";
+import { exportToPdf } from "@/features/workspace/services/exportPdf";
 
 // Value Drivers
-import { ValueDriverSelector } from "@/components/value-drivers";
-import { ValueDriver } from "@/types/valueDriver";
 import { useCase } from "@/hooks/useCases";
+import { logger } from "@/lib/logger";
+import { cn } from "@/lib/utils";
+import { artifactsService } from "@/services/artifacts";
+import { conversationsService } from "@/services/conversations";
+import { ValueDriver } from "@/types/valueDriver";
 
 export function CaseWorkspace() {
   const { caseId } = useParams();

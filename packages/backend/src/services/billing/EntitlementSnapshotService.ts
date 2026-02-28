@@ -7,11 +7,13 @@
  * (superseded_at IS NULL).
  */
 
+import type { EnforcementMode, MeterKey } from "@shared/types/billing-events";
 import { type SupabaseClient } from "@supabase/supabase-js";
+
 import { createLogger } from "../../lib/logger.js";
+
 import PriceVersionService from "./PriceVersionService.js";
 import type { MeterPricing, PriceVersionDefinition } from "./PriceVersionService.js";
-import type { EnforcementMode, MeterKey } from "@shared/types/billing-events";
 
 const logger = createLogger({ component: "EntitlementSnapshotService" });
 

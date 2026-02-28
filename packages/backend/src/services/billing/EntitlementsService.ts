@@ -6,9 +6,11 @@
  * comes from the billing_price_versions table.
  */
 
-import { type SupabaseClient } from '@supabase/supabase-js';
-import { createLogger } from '../../lib/logger.js';
 import type { EnforcementMode, MeterKey } from '@shared/types/billing-events';
+import { type SupabaseClient } from '@supabase/supabase-js';
+
+import { createLogger } from '../../lib/logger.js';
+
 import EntitlementSnapshotService from './EntitlementSnapshotService.js';
 import type { EntitlementSnapshot, MeterEntitlement } from './EntitlementSnapshotService.js';
 

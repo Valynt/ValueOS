@@ -5,11 +5,12 @@
  * and dynamic fault injection capabilities for Redis and PostgreSQL.
  */
 
-import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
+import express, { Express, NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import { Client } from "pg";
 import { createClient as createRedisClient, RedisClientType } from "redis";
+
 import agentsRouter from "../../packages/backend/src/api/agents";
 
 /**

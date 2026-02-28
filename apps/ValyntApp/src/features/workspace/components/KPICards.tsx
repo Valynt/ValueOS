@@ -5,8 +5,9 @@
  * Inspired by ValueCanvas dashboard mockups.
  */
 
-import React from 'react';
 import { AlertTriangle, Clock, TrendingUp } from 'lucide-react';
+import React from 'react';
+
 import { cn } from '@/lib/utils';
 
 export interface KPIData {

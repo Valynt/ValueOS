@@ -3,8 +3,10 @@
  */
 
 import type { Meta, StoryObj } from '@storybook/react';
-import { UserNotifications } from './UserNotifications';
+
 import { settingsRegistry } from '../../lib/settingsRegistry';
+
+import { UserNotifications } from './UserNotifications';
 
 const meta: Meta<typeof UserNotifications> = {
   title: 'Settings/UserNotifications',

@@ -4,6 +4,7 @@
  */
 
 import { vi } from "vitest";
+
 import { createMockSession, createMockUser } from "./auth.fixtures";
 
 /**

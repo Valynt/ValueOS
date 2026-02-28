@@ -6,9 +6,9 @@
  */
 
 import type { CrmProviderInterface } from './CrmProviderInterface.js';
-import type { CrmProvider } from './types.js';
-import { SalesforceProvider } from './SalesforceProvider.js';
 import { HubSpotProvider } from './HubSpotProvider.js';
+import { SalesforceProvider } from './SalesforceProvider.js';
+import type { CrmProvider } from './types.js';
 
 const providers = new Map<CrmProvider, CrmProviderInterface>();
 

@@ -1,5 +1,5 @@
-import { UnifiedTruthLayer } from "../src/mcp-ground-truth/core/UnifiedTruthLayer";
 import { logger } from "../src/lib/logger";
+import { UnifiedTruthLayer } from "../src/mcp-ground-truth/core/UnifiedTruthLayer";
 
 // Mock logger
 logger.info = () => {};

@@ -1,9 +1,13 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Progress } from "./ui/progress";
-import { Button } from "./ui/button";
-import { Icons } from "../lib/icons";
 import { Award, CheckCircle, Download } from "lucide-react";
+
+import { Icons } from "../lib/icons";
+
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Progress } from "./ui/progress";
+
+
 
 interface Certification {
   id: number;

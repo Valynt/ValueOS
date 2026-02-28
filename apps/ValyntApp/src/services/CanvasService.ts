@@ -1,6 +1,6 @@
-import { getSupabaseClient } from "../lib/supabase";
-import { logger } from "../lib/logger";
 import type { Canvas, CanvasEdge, CanvasNode, CanvasNodeType } from "../features/canvas/types";
+import { logger } from "../lib/logger";
+import { getSupabaseClient } from "../lib/supabase";
 
 export class CanvasService {
   /**

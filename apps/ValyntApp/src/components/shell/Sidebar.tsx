@@ -3,7 +3,6 @@
  * Static navigation component with tenant context
  */
 
-import React from "react";
 import {
   BookOpen,
   ChevronRight,
@@ -15,6 +14,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import React from "react";
 
 export interface ValueCase {
   id: string;

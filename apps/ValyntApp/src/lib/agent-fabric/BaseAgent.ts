@@ -5,13 +5,10 @@
  * lifecycle management, and integration with agent-fabric services.
  */
 
-import { logger } from "../../utils/logger";
-import { v4 as uuidv4 } from "uuid";
-import { LLMGateway, LLMRequest, LLMResponse } from "./LLMGateway";
-import { MemoryEntry, MemoryQuery, MemorySystem } from "./MemorySystem";
-import { AuditLevel, AuditLogger } from "./AuditLogger";
 import { createClient } from "@supabase/supabase-js";
+import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
+
 import { AgentType } from "../../services/agent-types";
 import { ConfidenceLevel } from "../../services/agent-types";
 import {
@@ -27,6 +24,11 @@ import {
   ReasoningTrace,
   ValidationResult,
 } from "../../services/agents/core/IAgent";
+import { logger } from "../../utils/logger";
+
+import { AuditLevel, AuditLogger } from "./AuditLogger";
+import { LLMGateway, LLMRequest, LLMResponse } from "./LLMGateway";
+import { MemoryEntry, MemoryQuery, MemorySystem } from "./MemorySystem";
 
 // ============================================================================
 // MARL Types

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+
 import { CodeSandbox } from '../CodeSandbox';
 
 describe('CodeSandbox', () => {

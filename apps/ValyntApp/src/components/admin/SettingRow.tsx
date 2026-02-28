@@ -1,6 +1,9 @@
 import React from 'react';
-import { ScopeBadge } from './ScopeBadge';
+
 import type { SensitivityLevel, SettingScope } from '../../lib/adminNavigation';
+
+import { ScopeBadge } from './ScopeBadge';
+
 import { cn } from '@/lib/utils';
 
 interface SettingRowProps {

@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { SettingsSection } from '../../components/settings';
 import {
   Activity, Calendar, ChevronDown, Download, FileText, Filter,
   Loader2, Search, Settings, Shield, User, Users
 } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+
+import { SettingsSection } from '../../components/settings';
 
 interface AuditLogType {
   id: string;

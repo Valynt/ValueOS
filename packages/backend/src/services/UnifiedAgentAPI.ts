@@ -14,24 +14,26 @@
  * - Full observability and audit logging
  */
 
-import { logger } from "../lib/logger.js"
-import { v4 as uuidv4 } from "uuid";
-import { CircuitBreakerManager } from "./CircuitBreaker.js"
-import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
 import { SDUIPageDefinition, validateSDUISchema } from "@sdui/schema";
-import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
-import { AgentType } from "./agent-types.js"
-import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
 import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
+import { v4 as uuidv4 } from "uuid";
+
+import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
+import { logger } from "../lib/logger.js"
+import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
+import type { LifecycleContext } from "../types/agent.js";
+
+import { AgentType } from "./agent-types.js"
+import { getAuditLogger, logAgentResponse } from "./AgentAuditLogger.js"
+import { AgentRecord, AgentRegistry } from "./AgentRegistry.js"
+import { cacheService } from "./CacheService.js"
+import { CircuitBreakerManager } from "./CircuitBreaker.js"
+import { getService, hasService, SERVICE_TOKENS } from "./DependencyInjectionContainer.js";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
   GroundtruthRequestOptions,
   GroundtruthRequestPayload,
 } from "./GroundtruthAPI";
-import { cacheService } from "./CacheService.js"
-import { AgentFactory } from "../lib/agent-fabric/AgentFactory.js";
-import { getService, hasService, SERVICE_TOKENS } from "./DependencyInjectionContainer.js";
-import type { LifecycleContext } from "../types/agent.js";
 
 // ============================================================================
 // Types

@@ -3,8 +3,27 @@
  * Handles session management and authentication operations
  */
 
+import { Session, User } from "@supabase/supabase-js";
+
 import { logger } from "../../lib/logger";
+import { getConfig } from "../config/environment";
+import { enforceSessionTimeouts } from "../middleware/sessionTimeoutMiddleware";
+import {
+  checkPasswordBreach,
+  consumeAuthRateLimit,
+  RateLimitExceededError,
+  resetRateLimit,
+} from "../security";
+import { fetchWithCSRF } from "../security/CSRFProtection";
+import {
+  ABSOLUTE_TIMEOUT_MS,
+  CLOCK_SKEW_MS,
+  IDLE_TIMEOUT_MS,
+} from "../security/sessionTimeoutConfig";
+import { sanitizeErrorMessage, validatePassword } from "../utils/security";
+
 import { BaseService } from "./BaseService";
+import { clientRateLimit } from "./ClientRateLimit";
 import {
   AuthenticationError,
   RateLimitError,
@@ -13,25 +32,9 @@ import {
   TokenAuthenticationError,
   ValidationError,
 } from "./errors";
-import { Session, User } from "@supabase/supabase-js";
-import { sanitizeErrorMessage, validatePassword } from "../utils/security";
-import { securityLogger } from "./SecurityLogger";
-import { getConfig } from "../config/environment";
-import {
-  checkPasswordBreach,
-  consumeAuthRateLimit,
-  RateLimitExceededError,
-  resetRateLimit,
-} from "../security";
-import { clientRateLimit } from "./ClientRateLimit";
 import { mfaService } from "./MFAService";
-import { fetchWithCSRF } from "../security/CSRFProtection";
-import {
-  ABSOLUTE_TIMEOUT_MS,
-  CLOCK_SKEW_MS,
-  IDLE_TIMEOUT_MS,
-} from "../security/sessionTimeoutConfig";
-import { enforceSessionTimeouts } from "../middleware/sessionTimeoutMiddleware";
+import { securityLogger } from "./SecurityLogger";
+
 
 export interface LoginCredentials {
   email: string;

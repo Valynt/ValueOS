@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-// @ts-ignore - Verification of alias resolution
 import * as DesignSystem from "@valueos/design-system";
+import { describe, expect, it } from "vitest";
+// @ts-ignore - Verification of alias resolution
 
 describe("Critical Alias Resolution Smoke Test", () => {
   it("should successfully import @valueos/design-system", () => {

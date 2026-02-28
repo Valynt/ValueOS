@@ -5,35 +5,36 @@
  * Replaces generic chat interface with deal-centric workflow.
  */
 
+import { ArrowLeft, Download, FileText, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
+import { useToast } from "@/components/Common/Toast";
+import { BenchmarkComparisonPanel } from "@/components/deals/BenchmarkComparisonPanel";
+import { BusinessCaseGenerator } from "@/components/deals/BusinessCaseGenerator";
 import { DealImportModal } from "@/components/deals/DealImportModal";
 import { DealSelector } from "@/components/deals/DealSelector";
 import { LifecycleStageNav } from "@/components/deals/LifecycleStageNav";
-import { BusinessCaseGenerator } from "@/components/deals/BusinessCaseGenerator";
+import { OpportunityAnalysisPanel } from "@/components/deals/OpportunityAnalysisPanel";
 import {
   type BuyerPersona,
   PersonaSelector,
 } from "@/components/deals/PersonaSelector";
-import { OpportunityAnalysisPanel } from "@/components/deals/OpportunityAnalysisPanel";
-import { BenchmarkComparisonPanel } from "@/components/deals/BenchmarkComparisonPanel";
-import { type ValueCase, valueCaseService } from "@/services/ValueCaseService";
 import { ShareCustomerButton } from "@/components/deals/ShareCustomerButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { useToast } from "@/components/Common/Toast";
-import { logger } from "@/lib/logger";
-import { ArrowLeft, Download, FileText, Loader2 } from "lucide-react";
-import type { LifecycleStage } from "@/types/vos";
-import { useAuth } from "@/contexts/AuthContext";
-import { useExport } from "@/utils/export";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { logger } from "@/lib/logger";
+import { type ValueCase, valueCaseService } from "@/services/ValueCaseService";
+import type { LifecycleStage } from "@/types/vos";
+import { useExport } from "@/utils/export";
 
 export function DealsView() {
   const navigate = useNavigate();

@@ -3,9 +3,9 @@
  * Emits usage events from services to database queue
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase';
 import { BillingMetric } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { createServerSupabaseClient } from '../../lib/supabase';
 
 const logger = createLogger({ component: 'UsageEmitter' });
 

@@ -10,8 +10,9 @@
  * - Accessibility: role="alert", keyboard-navigable actions
  */
 
-import React, { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, Info, ShieldAlert, XCircle } from "lucide-react";
+import React, { useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 export type ViolationSeverity = "critical" | "high" | "medium" | "low";

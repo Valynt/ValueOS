@@ -12,9 +12,9 @@
  *
  * Node Mapping: [NODE: Tier_2_Proxy], [NODE: Private_Entity_Estimation]
  */
+import { logger } from "../../lib/logger";
 import { BaseModule } from "../core/BaseModule";
 import { ErrorCodes, GroundTruthError, } from "../types";
-import { logger } from "../../lib/logger";
 /**
  * Private Company Module - Tier 2 Estimation Engine
  *

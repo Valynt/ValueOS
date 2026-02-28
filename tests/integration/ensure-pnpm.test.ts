@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { execFile } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
-import { execFile } from 'child_process';
+
+import { describe, expect, it } from 'vitest';
 const execFileAsync = promisify(execFile);
 
 describe('DevContainer ensure-pnpm script', () => {

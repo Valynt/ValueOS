@@ -5,6 +5,7 @@
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
 import { ConfigurationPanel } from '../ConfigurationPanel';
 import '@testing-library/jest-dom';
 

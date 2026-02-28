@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
 const SupabaseContext = createContext<SupabaseClient | null>(null)
 

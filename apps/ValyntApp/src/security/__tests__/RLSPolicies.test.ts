@@ -8,8 +8,9 @@
  * Run with: npm test -- src/test/security/RLSPolicies.test.ts
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { dataProtectionConfig } from '../../config/dataProtection';
 
 // Test configuration

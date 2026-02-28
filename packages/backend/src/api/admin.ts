@@ -4,18 +4,19 @@
  * Tenant user administration with RBAC enforcement.
  */
 
-import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter.js"
-import { requireAuth } from "../middleware/auth.js"
-import { tenantContextMiddleware } from "../middleware/tenantContext.js"
-import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
-import { requireAllPermissions, requirePermission } from "../middleware/rbac.js"
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
-import { adminUserService } from "../services/AdminUserService.js"
-import { adminRoleService } from "../services/AdminRoleService.js"
-import { auditLogService } from "../services/AuditLogService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
+import { Request, Response } from "express";
+
+import { requireAuth } from "../middleware/auth.js"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
+import { requireAllPermissions, requirePermission } from "../middleware/rbac.js"
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { tenantContextMiddleware } from "../middleware/tenantContext.js"
+import { tenantDbContextMiddleware } from "../middleware/tenantDbContext.js"
+import { adminRoleService } from "../services/AdminRoleService.js"
+import { adminUserService } from "../services/AdminUserService.js"
+import { auditLogService } from "../services/AuditLogService.js"
 
 const logger = createLogger({ component: "AdminAPI" });
 const router = createSecureRouter("strict");

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+
 import { suggestionEngine } from '../SuggestionEngine.js';
 import type { SuggestionContext } from '../SuggestionEngine.js';
 

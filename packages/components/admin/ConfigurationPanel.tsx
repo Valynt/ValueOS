@@ -6,25 +6,26 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
 import { AlertCircle, Check, CheckSquare, Command, Download, Filter, GitCompare, History, Loader2, RefreshCw, Save, Search, Sparkles, Upload, X } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 
-import { OrganizationSettings } from './configuration/OrganizationSettings';
-import { AISettings } from './configuration/AISettings';
 import { CommandPalette } from './CommandPalette';
-import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+import { AISettings } from './configuration/AISettings';
 import { ChangeHistorySidebar } from './configuration/ChangeHistorySidebar';
 import { ConfigurationDiffViewer } from './configuration/ConfigurationDiffViewer';
 import { ExportImportDialog } from './configuration/ExportImportDialog';
+import { OrganizationSettings } from './configuration/OrganizationSettings';
 import { TemplatesDialog } from './configuration/TemplatesDialog';
+import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ConfigurationPanelProps {
   organizationId: string;

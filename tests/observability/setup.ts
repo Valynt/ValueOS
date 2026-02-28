@@ -3,7 +3,8 @@
  * Manages observability stack lifecycle for all tests
  */
 
-import { beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll } from "vitest";
+
 import { DockerComposeHelper } from "./helpers/docker-compose.helper";
 
 const dockerHelper = new DockerComposeHelper();

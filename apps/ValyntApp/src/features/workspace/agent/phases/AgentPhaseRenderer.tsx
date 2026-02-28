@@ -6,10 +6,10 @@
 
 import React, { useCallback, useMemo } from "react";
 
-import { cn } from "@/lib/utils";
 
 import { selectArtifacts, useAgentStore } from "../store";
 import { useAgentPhase } from "../useAgentPhase";
+
 import { ClarifyPhase } from "./ClarifyPhase";
 import { ErrorOverlay } from "./ErrorOverlay";
 import { ExecutePhase } from "./ExecutePhase";
@@ -18,6 +18,8 @@ import { IdlePhase } from "./IdlePhase";
 import { PlanPhase } from "./PlanPhase";
 import { ResumePhase } from "./ResumePhase";
 import { ReviewPhase } from "./ReviewPhase";
+
+import { cn } from "@/lib/utils";
 
 interface AgentPhaseRendererProps {
   /** Called when user submits a message (idle or clarify) */

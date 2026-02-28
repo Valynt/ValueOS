@@ -3,14 +3,15 @@
  * Provides authentication state and methods throughout the app
  */
 
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
-import { createLogger } from "../lib/logger";
-import { computePermissions, UserClaims } from "../types/security";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+
 import { analyticsClient } from "../lib/analyticsClient";
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
 import { getSupabaseConfig } from "../lib/env";
+import { createLogger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
+import { computePermissions, UserClaims } from "../types/security";
 
 const logger = createLogger({ component: "AuthContext" });
 

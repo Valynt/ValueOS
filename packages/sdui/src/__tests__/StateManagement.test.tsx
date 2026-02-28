@@ -5,17 +5,18 @@
  * caching, and state synchronization across components.
  */
 
-import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
+import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { DataBindingResolver } from '../../sdui/DataBindingResolver';
+import { DataBinding, DataSourceContext } from '../../sdui/DataBindingSchema';
 import {
   clearAllHydrationCache,
   getHydrationCacheStats,
   useDataHydration,
 } from '../../sdui/hooks/useDataHydration';
 import { useDataBindings } from '../../sdui/useDataBinding';
-import { DataBinding, DataSourceContext } from '../../sdui/DataBindingSchema';
 
 describe('StateManagement - Data Binding Resolution', () => {
   let resolver: DataBindingResolver;

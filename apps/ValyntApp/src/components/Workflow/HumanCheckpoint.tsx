@@ -11,8 +11,9 @@
  * - 5-Second Rule: immediately clear what action is needed
  */
 
-import React, { useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, User, XCircle } from "lucide-react";
+import React, { useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 export interface CheckpointSummaryItem {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 import { createAgentInfrastructureMocks, createBoltClientMock } from '../fixtures/mocks/mockSupabaseClient';

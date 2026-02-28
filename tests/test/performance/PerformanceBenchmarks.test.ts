@@ -6,11 +6,12 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
-import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
+
 import { ExpansionAgent } from '../../lib/agent-fabric/agents/ExpansionAgent';
 import { IntegrityAgent } from '../../lib/agent-fabric/agents/IntegrityAgent';
+import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { RealizationAgent } from '../../lib/agent-fabric/agents/RealizationAgent';
+import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
 const runPerf = process.env.RUN_PERF_TESTS === 'true';

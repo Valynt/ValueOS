@@ -4,11 +4,13 @@
  */
 
 import { vi } from "vitest";
-import { createMockStripeClient } from "./stripe-mocks";
-import { createCompleteBillingSetup } from "./billing-factories";
+
 import type { PlanTier } from "../../config/billing";
 // Import StripeService for spyOn
 import StripeService from "../../StripeService";
+
+import { createCompleteBillingSetup } from "./billing-factories";
+import { createMockStripeClient } from "./stripe-mocks";
 
 /**
  * Setup mock Stripe for tests

@@ -12,8 +12,9 @@
  * - Tenant provisioning
  */
 
-import { NextFunction, Request, Response } from "express";
 import { auditLogService } from "@backend/services/AuditLogService";
+import { NextFunction, Request, Response } from "express";
+
 import { logger } from "../utils/logger";
 
 /**

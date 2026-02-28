@@ -6,6 +6,7 @@
  */
 
 import * as React from 'react';
+
 import { getSecurityConfig } from './SecurityConfig';
 
 /**

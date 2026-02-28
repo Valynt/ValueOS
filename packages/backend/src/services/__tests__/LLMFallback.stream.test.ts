@@ -8,9 +8,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { llmFallback } from "../LLMFallback.js"
-import { llmCostTracker } from "../LLMCostTracker.js"
+
 import { llmCache } from "../LLMCache.js"
+import { llmCostTracker } from "../LLMCostTracker.js"
+import { llmFallback } from "../LLMFallback.js"
 
 // Mock dependencies
 vi.mock("../../utils/logger", () => ({

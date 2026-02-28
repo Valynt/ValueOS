@@ -4,7 +4,8 @@
  * Simple tests to verify core functionality works
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+
 import { ConfigurationManager, ConfigurationValidator } from "../../src/mcp-common";
 
 describe("Basic MCP Functionality", () => {

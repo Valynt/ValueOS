@@ -5,8 +5,8 @@
  * including hash validation, input sanitization, and permission boundary testing.
  */
 
-import { MCPFinancialGroundTruthServer } from "../MCPServer";
 import { logger } from "../../../lib/logger";
+import { MCPFinancialGroundTruthServer } from "../MCPServer";
 
 // Mock dependencies
 jest.mock("../../../lib/logger");

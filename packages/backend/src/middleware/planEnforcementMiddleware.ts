@@ -3,14 +3,15 @@
  * Checks usage quotas before allowing requests
  */
 
-import { NextFunction, Request, Response } from 'express';
-import UsageCache from '../services/metering/UsageCache';
-import GracePeriodService from '../services/metering/GracePeriodService';
-import { BillingMetric, isHardCap, PlanTier } from '../config/billing';
 import { createLogger } from '@shared/lib/logger';
-import SubscriptionService from '../services/billing/SubscriptionService';
 import { createServerSupabaseClient } from '@shared/lib/supabase';
+import { NextFunction, Request, Response } from 'express';
+
+import { BillingMetric, isHardCap, PlanTier } from '../config/billing';
+import SubscriptionService from '../services/billing/SubscriptionService';
 import { llmCostTracker } from '../services/LLMCostTracker.js';
+import GracePeriodService from '../services/metering/GracePeriodService';
+import UsageCache from '../services/metering/UsageCache';
 import { getAuditTrailService } from '../services/security/AuditTrailService.js';
 
 const logger = createLogger({ component: 'PlanEnforcementMiddleware' });

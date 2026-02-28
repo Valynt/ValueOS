@@ -7,7 +7,7 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { cn } from '@/lib/utils';
+
 import type {
   Artifact,
   ArtifactContent,
@@ -16,6 +16,8 @@ import type {
   MarkdownContent,
   TableContent
 } from '../agent/types';
+
+import { cn } from '@/lib/utils';
 
 interface ArtifactRendererProps {
   artifact: Artifact;

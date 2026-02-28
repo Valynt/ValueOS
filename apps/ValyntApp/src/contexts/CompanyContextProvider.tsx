@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useContext } from "react";
-import { useCompanyContext, useOnboardingStatus } from "@/hooks/company-context";
+
 import { useTenant } from "@/contexts/TenantContext";
+import { useCompanyContext, useOnboardingStatus } from "@/hooks/company-context";
 import type { CompanyValueContext } from "@/hooks/company-context/types";
 
 interface CompanyContextState {

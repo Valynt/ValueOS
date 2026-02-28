@@ -8,8 +8,9 @@
  * ensuring integrity for compliance audits.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { SecurityAuditEvent } from '@/types/security';
 
 describe('Audit Log Immutability', () => {

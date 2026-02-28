@@ -5,8 +5,8 @@
  * Uses feature flag to enable/disable real API calls.
  */
 
-import { supabase } from "../lib/supabase";
 import { createLogger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
 
 const logger = createLogger({ component: "TenantAPI" });
 

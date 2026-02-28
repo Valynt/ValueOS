@@ -3,14 +3,15 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActionRouter } from '../ActionRouter';
-import { ActionContext, CanonicalAction } from '../../types/sdui-integration';
+
 import { ExecutionRequest } from '../../types/execution';
-import { AuditLogService } from '../AuditLogService';
-import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';
+import { ActionContext, CanonicalAction } from '../../types/sdui-integration';
+import { ActionRouter } from '../ActionRouter';
 import { AgentAPI } from '../AgentAPI';
-import { ComponentMutationService } from '../ComponentMutationService';
 import { assumptionService } from '../AssumptionService';
+import { AuditLogService } from '../AuditLogService';
+import { ComponentMutationService } from '../ComponentMutationService';
+import { UnifiedAgentOrchestrator } from '../UnifiedAgentOrchestrator';
 
 // Mock dependencies
 vi.mock('../AuditLogService');

@@ -5,13 +5,14 @@
  * Restricted to admin users with the `users.delete` permission.
  */
 
-import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter.js";
-import { requireAuth } from "../middleware/auth.js";
-import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { requirePermission } from "../middleware/rbac.js";
 import { createLogger } from "@shared/lib/logger";
+import { Request, Response } from "express";
+
 import { createServerSupabaseClient } from "../lib/supabase.js";
+import { requireAuth } from "../middleware/auth.js";
+import { requirePermission } from "../middleware/rbac.js";
+import { createSecureRouter } from "../middleware/secureRouter.js";
+import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 
 const logger = createLogger({ component: "DSR-API" });
 const router = createSecureRouter("strict");

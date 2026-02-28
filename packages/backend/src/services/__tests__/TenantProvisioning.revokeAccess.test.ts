@@ -1,7 +1,8 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { integrationControlService } from '../IntegrationControlService.js'
+
 import { auditLogService } from '../AuditLogService.js'
+import { integrationControlService } from '../IntegrationControlService.js'
 
 // Mock dependencies
 vi.mock('../IntegrationControlService', () => ({

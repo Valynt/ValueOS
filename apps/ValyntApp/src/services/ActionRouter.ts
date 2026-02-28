@@ -6,6 +6,10 @@
  */
 
 import { logger } from '../lib/logger';
+import { EnforcementResult, enforceRules } from '../lib/rules';
+import { getSupabaseClient } from '../lib/supabase';
+import { SDUIPageDefinition } from '../sdui/schema';
+import { normalizeExecutionRequest } from '../types/execution';
 import {
   ActionContext,
   ActionHandler,
@@ -14,20 +18,6 @@ import {
   ManifestoCheckResult,
   ValidationResult,
 } from '../types/sdui-integration';
-import { normalizeExecutionRequest } from '../types/execution';
-import { AuditLogService } from './AuditLogService';
-import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
-import { AgentAPI, getAgentAPI } from './AgentAPI';
-import { ComponentMutationService } from './ComponentMutationService';
-import { manifestoEnforcer } from './ManifestoEnforcer';
-import { atomicActionExecutor } from './AtomicActionExecutor';
-import { canvasSchemaService } from './CanvasSchemaService';
-import { EnforcementResult, enforceRules } from '../lib/rules';
-import { workspaceStateService } from './WorkspaceStateService';
-import { LifecycleContext, ValueTreeService } from './ValueTreeService';
-import { getSupabaseClient } from '../lib/supabase';
-import { SDUIPageDefinition } from '../sdui/schema';
-import { assumptionService } from './AssumptionService';
 import {
   downloadBlob,
   exportToCSV,
@@ -36,6 +26,18 @@ import {
   exportToPNG,
   generateFilename
 } from '../utils/export';
+
+import { AgentAPI, getAgentAPI } from './AgentAPI';
+import { assumptionService } from './AssumptionService';
+import { atomicActionExecutor } from './AtomicActionExecutor';
+import { AuditLogService } from './AuditLogService';
+import { canvasSchemaService } from './CanvasSchemaService';
+import { ComponentMutationService } from './ComponentMutationService';
+import { manifestoEnforcer } from './ManifestoEnforcer';
+import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from './UnifiedAgentOrchestrator';
+import { LifecycleContext, ValueTreeService } from './ValueTreeService';
+import { workspaceStateService } from './WorkspaceStateService';
+
 
 /**
  * Action Router

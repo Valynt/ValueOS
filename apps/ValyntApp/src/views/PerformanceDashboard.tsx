@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Clock3, Loader2, RefreshCcw } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+
 import { supabase } from '../lib/supabase';
 
 interface PerformanceMetric {

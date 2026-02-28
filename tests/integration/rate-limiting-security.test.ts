@@ -4,16 +4,17 @@
  * Comprehensive test suite covering all threat scenarios and edge cases
  */
 
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from '@jest/globals';
+
 import { AdvancedThreatDetectionService } from '../src/services/AdvancedThreatDetectionService';
+import { DynamicBaselineService } from '../src/services/DynamicBaselineService';
+import { MLAnomalyDetectionService } from '../src/services/MLAnomalyDetectionService';
+import { RateLimitKeyService } from '../src/services/RateLimitKeyService';
+import { RateLimitMetricsService } from '../src/services/RateLimitMetricsService';
+import { redisCircuitBreaker } from '../src/services/RedisCircuitBreaker';
 import { SecurityAutomationService } from '../src/services/SecurityAutomationService';
 import { SecurityEnforcementService } from '../src/services/SecurityEnforcementService';
-import { DynamicBaselineService } from '../src/services/DynamicBaselineService';
 import { SecurityEventValidator } from '../src/services/SecurityEventValidator';
-import { RateLimitKeyService } from '../src/services/RateLimitKeyService';
-import { redisCircuitBreaker } from '../src/services/RedisCircuitBreaker';
-import { RateLimitMetricsService } from '../src/services/RateLimitMetricsService';
-import { MLAnomalyDetectionService } from '../src/services/MLAnomalyDetectionService';
 
 // Mock Supabase client
 const mockSupabase = {

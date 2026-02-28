@@ -6,10 +6,11 @@
  */
 
 import { z } from "zod";
+
+import { logger } from "../../../../lib/logger.js"
+import { supabase } from "../../../../lib/supabase.js"
 import { BaseSemanticTool } from "../../base-tool.js"
 import { AgentContext } from "../../types.js"
-import { supabase } from "../../../../lib/supabase.js"
-import { logger } from "../../../../lib/logger.js"
 
 // Constants
 const ACTIVATION_CODE_MIN_LENGTH = 6;

@@ -12,6 +12,7 @@
 
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
+
 import { getEventBus } from "./EventBus";
 
 export interface TraceSpan {

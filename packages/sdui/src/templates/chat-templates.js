@@ -6,10 +6,10 @@
  *
  * Phase 3: SDUI Template System
  */
-import { generateOpportunityPage } from './chat-opportunity-template';
-import { generateTargetPage } from './chat-target-template';
-import { generateRealizationPage } from './chat-realization-template';
 import { generateExpansionPage } from './chat-expansion-template';
+import { generateOpportunityPage } from './chat-opportunity-template';
+import { generateRealizationPage } from './chat-realization-template';
+import { generateTargetPage } from './chat-target-template';
 /**
  * Template registry mapping lifecycle stages to generators
  */

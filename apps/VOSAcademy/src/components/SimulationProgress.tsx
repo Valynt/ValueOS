@@ -1,9 +1,3 @@
-import { PageShell } from "@/components/PageShell";
-import { KpiCard } from "@/components/KpiCard";
-import { RecommendationsCard } from "@/components/RecommendationsCard";
-import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Clock, Loader2, Target, TrendingUp, Trophy, XCircle } from "lucide-react";
 import {
   CartesianGrid,
@@ -20,6 +14,14 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+
+import { KpiCard } from "@/components/KpiCard";
+import { PageShell } from "@/components/PageShell";
+import { RecommendationsCard } from "@/components/RecommendationsCard";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { trpc } from "@/lib/trpc";
+
 
 export function SimulationProgress() {
   const { data: analytics, isLoading } = trpc.simulations.getAnalytics.useQuery();

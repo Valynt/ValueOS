@@ -19,8 +19,9 @@
  */
 import { isDevelopment, isProduction, isTest } from "../config/environment";
 import { getTraceContextForLogging } from "../config/telemetry";
-import { sanitizeError, sanitizeForLogging, sanitizeRequest, sanitizeUser, validateLogMessage, } from "./piiFilter";
+
 import { getContext } from "./context";
+import { sanitizeError, sanitizeForLogging, sanitizeRequest, sanitizeUser, validateLogMessage, } from "./piiFilter";
 class Logger {
     minLevel;
     listeners = [];

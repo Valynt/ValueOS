@@ -1,6 +1,7 @@
+import { render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+
 import { RouteGuard } from "@/components/RouteGuard";
 import { catchAllRoute, protectedRoutes, publicRoutes } from "@/routes";
 

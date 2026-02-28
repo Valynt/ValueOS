@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import CustomerService from '../CustomerService';
+
 import SecurityEnforcementService from '../../SecurityEnforcementService';
+import CustomerService from '../CustomerService';
 
 vi.mock('../../SecurityEnforcementService');
 

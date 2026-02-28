@@ -5,20 +5,23 @@
  * animated progress bar, elapsed time, and cancel action.
  */
 
-import { useState, useEffect, useRef } from "react";
 import {
+  AlertCircle,
   CheckCircle2,
   Circle,
+  Loader2,
   PlayCircle,
-  AlertCircle,
   SkipForward,
   XCircle,
-  Loader2,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState } from "react";
+
 import type { WorkflowStepState } from "../../agent/types";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 
 interface ExecuteStreamingPanelProps {
   steps: WorkflowStepState[];

@@ -4,12 +4,12 @@
  * Integrates with secure storage, rate limiting, CSRF protection, and persistence
  */
 
-import { secureTokenStorage } from "../lib/secureStorage";
-import { authRateLimiter } from "../lib/rateLimiter";
-import { csrfProtection } from "../lib/csrfProtection";
 import { authPersistence } from "../lib/authPersistence";
-import { sessionManager } from "../lib/sessionManager";
+import { csrfProtection } from "../lib/csrfProtection";
+import { authRateLimiter } from "../lib/rateLimiter";
+import { secureTokenStorage } from "../lib/secureStorage";
 import { securityLogger } from "../lib/securityLogger";
+import { sessionManager } from "../lib/sessionManager";
 
 // Types
 export interface LoginCredentials {

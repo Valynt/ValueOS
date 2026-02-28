@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
+import { describe, expect, it, vi } from "vitest";
+
+import { getDatabaseUrl } from "../../config/database.js"
 import { tenantContextMiddleware } from "../tenantContext.js"
 import { tenantDbContextMiddleware } from "../tenantDbContext.js"
-import { getDatabaseUrl } from "../../config/database.js"
 
 const testTenantId = "00000000-0000-0000-0000-000000000001";
 

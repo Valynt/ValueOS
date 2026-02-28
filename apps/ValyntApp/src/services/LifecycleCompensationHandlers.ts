@@ -4,10 +4,9 @@
  * Specific compensation logic for each lifecycle stage
  */
 
-import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { LifecycleStage } from './ValueLifecycleOrchestrator';
-import { SnapshotManager } from './SnapshotManager';
+
+import { logger } from '../lib/logger';
 import { CompensationEvent } from '../types/CompensationEvent';
 
 /**
@@ -459,8 +458,10 @@ let handlersInstance: LifecycleCompensationHandlers | null = null;
 /**
  * Get or create handlers instance
  */
-import { SnapshotManager } from './SnapshotManager';
 import { AuditTrailService } from './AuditTrailService';
+import { SnapshotManager } from './SnapshotManager';
+import { SnapshotManager } from './SnapshotManager';
+import { LifecycleStage } from './ValueLifecycleOrchestrator';
 
 export function getLifecycleCompensationHandlers(
   supabase: SupabaseClient,

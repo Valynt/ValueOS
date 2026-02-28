@@ -17,6 +17,7 @@
  */
 
 import { logger } from '../lib/logger.js'
+
 import { agentChatService } from './AgentChatService.js'
 
 export type WorkflowStage = 'opportunity' | 'target' | 'realization' | 'expansion';

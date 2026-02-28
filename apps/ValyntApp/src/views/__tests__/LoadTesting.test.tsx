@@ -5,10 +5,11 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import ROICalculator from '../ROICalculator';
-import ImpactCascade from '../ImpactCascade';
+
 import { ScenarioSelector } from '../../components/SDUI/ScenarioSelector';
+import ImpactCascade from '../ImpactCascade';
 import QuantumView from '../QuantumView';
+import ROICalculator from '../ROICalculator';
 
 describe('Load Testing - Template Performance Under Stress', () => {
   describe('Trinity Dashboard Load Tests', () => {

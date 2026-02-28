@@ -7,6 +7,7 @@
 
 import { logger } from '../lib/logger';
 import { SDUIUpdate, WorkspaceState } from '../types/sdui-integration';
+
 import { WebSocketManager, WebSocketMessage } from './WebSocketManager';
 import { workspaceStateService } from './WorkspaceStateService';
 

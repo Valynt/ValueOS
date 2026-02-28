@@ -12,22 +12,24 @@
  * @security Level: Critical - All methods enforce tenant isolation
  */
 
+import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
+
+import { AgentType } from "../../../services/agent-types";
+import { ConfidenceLevel } from "../../../services/agent-types";
 import { logger } from "../../../utils/logger";
+import { AuditLogger } from "../AuditLogger";
 import {
   assertHighConfidence,
   assertProvenance,
   GroundTruthMetadata,
   validateGroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
-import { v4 as uuidv4 } from "uuid";
 import { LLMGateway, LLMResponse } from "../LLMGateway";
 import { MemoryQuery, MemorySystem } from "../MemorySystem";
-import { AuditLogger } from "../AuditLogger";
-import { z } from "zod";
+
 
 // Import types from the correct location
-import { AgentType } from "../../../services/agent-types";
-import { ConfidenceLevel } from "../../../services/agent-types";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENUMS & CONSTANTS

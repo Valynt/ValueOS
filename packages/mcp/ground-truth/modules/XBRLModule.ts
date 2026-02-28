@@ -9,6 +9,7 @@
  * Standard: XBRL US GAAP Taxonomy
  */
 
+import { logger } from '../../lib/logger';
 import { BaseModule } from '../core/BaseModule';
 import {
   ErrorCodes,
@@ -20,7 +21,6 @@ import {
   XBRLFactRequest,
   XBRLTrendData,
 } from '../types';
-import { logger } from '../../lib/logger';
 
 interface XBRLConfig {
   userAgent: string;

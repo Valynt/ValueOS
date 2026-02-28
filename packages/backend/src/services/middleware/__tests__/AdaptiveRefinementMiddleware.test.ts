@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AdaptiveRefinementMiddleware } from '../AdaptiveRefinementMiddleware.js';
+
 import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import { AdaptiveRefinementMiddleware } from '../AdaptiveRefinementMiddleware.js';
 
 // Mock logger
 vi.mock('../../../lib/logger.js', () => ({

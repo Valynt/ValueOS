@@ -5,9 +5,7 @@
  * Enables agents to modify specific components without full page regeneration.
  */
 
-import { ExecutionContext, Tool, ToolResult } from '../services/ToolRegistry';
-import { ComponentMutationService } from '../services/ComponentMutationService';
-import { SDUIPageDefinition } from '../sdui/schema';
+import { logger } from '../lib/logger';
 import {
   AtomicUIAction,
   ComponentSelector,
@@ -16,7 +14,9 @@ import {
   createRemoveAction,
   validateAtomicAction,
 } from '../sdui/AtomicUIActions';
-import { logger } from '../lib/logger';
+import { SDUIPageDefinition } from '../sdui/schema';
+import { ComponentMutationService } from '../services/ComponentMutationService';
+import { ExecutionContext, Tool, ToolResult } from '../services/ToolRegistry';
 
 /**
  * Mutate Component Tool

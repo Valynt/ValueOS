@@ -33,16 +33,16 @@ vi.mock("../../CircuitBreaker.js", () => ({
 
 // --- Imports ---
 
-import { BaseAgent } from "../BaseAgent";
-import { LLMGateway } from "../../LLMGateway";
-import { MemorySystem } from "../../MemorySystem";
-import { CircuitBreaker } from "../../CircuitBreaker";
 import type {
   AgentConfig,
   AgentOutput,
   LifecycleContext,
 } from "../../../../types/agent";
+import { CircuitBreaker } from "../../CircuitBreaker";
 import type { HallucinationCheckResult } from "../../KnowledgeFabricValidator";
+import { LLMGateway } from "../../LLMGateway";
+import { MemorySystem } from "../../MemorySystem";
+import { BaseAgent } from "../BaseAgent";
 
 // --- Concrete subclass for testing abstract BaseAgent ---
 

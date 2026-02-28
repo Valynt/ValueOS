@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import * as React from "react";
 import { render } from "@testing-library/react";
+import * as React from "react";
+import { describe, expect, it, vi } from "vitest";
 
 // Mock dependencies that might be heavy or require browser APIs not in happy-dom
 vi.mock("./services/ClientRateLimit", () => ({

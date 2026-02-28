@@ -4,18 +4,19 @@
  * Tests for workflow saga pattern with compensation
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import {
-  resetWorkflowLifecycleIntegration,
-  WorkflowLifecycleIntegration
-} from '../../services/WorkflowLifecycleIntegration';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { AuditTrailService } from '../../services/AuditTrailService';
 import {
   LifecycleCompensationHandlers,
   resetLifecycleCompensationHandlers
 } from '../../services/LifecycleCompensationHandlers';
 import { SnapshotManager } from '../../services/SnapshotManager';
-import { AuditTrailService } from '../../services/AuditTrailService';
+import {
+  resetWorkflowLifecycleIntegration,
+  WorkflowLifecycleIntegration
+} from '../../services/WorkflowLifecycleIntegration';
 
 // Mock Supabase client
 const mockSupabase = createClient(

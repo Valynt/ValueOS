@@ -7,9 +7,6 @@
 
 import { logger } from "../../lib/logger";
 import { supabase } from "../../lib/supabase";
-import { HubSpotModule } from "../modules/HubSpotModule";
-import { SalesforceModule } from "../modules/SalesforceModule";
-import { CRMConfigManager } from "../config/CRMConfigManager";
 import {
   MCPCRMError,
   MCPErrorCodes,
@@ -17,6 +14,9 @@ import {
   MCPResponseBuilder,
   ParallelInitializer,
 } from "../../mcp-common";
+import { CRMConfigManager } from "../config/CRMConfigManager";
+import { HubSpotModule } from "../modules/HubSpotModule";
+import { SalesforceModule } from "../modules/SalesforceModule";
 import {
   CRMActivity,
   CRMConnection,

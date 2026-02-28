@@ -9,10 +9,11 @@
  *
  * Optimized for low-latency streaming analysis with incremental processing.
  */
-import { SentimentAnalysisService, } from "./SentimentAnalysisService";
-import { getEventBus } from "./EventBus";
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
+
+import { getEventBus } from "./EventBus";
+import { SentimentAnalysisService, } from "./SentimentAnalysisService";
 export class StreamingSentimentAnalyzer {
     sentimentService;
     eventBus = getEventBus();

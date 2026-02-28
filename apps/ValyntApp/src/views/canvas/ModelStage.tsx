@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -12,6 +11,8 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
+import { useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 // Inline-editable number

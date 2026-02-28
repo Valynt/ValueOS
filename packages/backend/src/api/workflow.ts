@@ -1,11 +1,12 @@
-import { Request, Response, Router } from 'express';
 import { logger } from '@shared/lib/logger';
+import { Request, Response, Router } from 'express';
+
+import { requireAuth } from '../middleware/auth.js'
+import { validateRequest, type ValidationSchema } from '../middleware/inputValidation.js'
 import { rateLimiters } from '../middleware/rateLimiter.js'
+import { requirePermission } from '../middleware/rbac.js'
 import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
-import { validateRequest, type ValidationSchema } from '../middleware/inputValidation.js'
-import { requirePermission } from '../middleware/rbac.js'
-import { requireAuth } from '../middleware/auth.js'
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
 

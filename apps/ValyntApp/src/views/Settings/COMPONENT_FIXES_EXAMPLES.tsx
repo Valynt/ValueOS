@@ -8,6 +8,7 @@
  */
 
 import React, { useMemo } from 'react';
+
 import { useSettings, useSettingsGroup } from '../../lib/settingsRegistry';
 
 // ============================================================================

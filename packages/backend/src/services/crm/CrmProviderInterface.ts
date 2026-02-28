@@ -6,6 +6,7 @@
  */
 
 import type { Request } from 'express';
+
 import type {
   CanonicalAccount,
   CanonicalOpportunity,

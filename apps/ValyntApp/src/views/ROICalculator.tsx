@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   DollarSign,
   Loader2,
@@ -9,12 +8,14 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { useDrawer } from "../contexts/DrawerContext";
+import { useState } from "react";
+
 import AgentBadge from "../components/Agents/AgentBadge";
 import ConfidenceIndicator from "../components/Agents/ConfidenceIndicator";
-import Tooltip from "../components/ui/tooltip";
 import { HelpTooltip } from "../components/HelpTooltip";
 import { ReasoningViewer } from "../components/ReasoningViewer";
+import Tooltip from "../components/ui/tooltip";
+import { useDrawer } from "../contexts/DrawerContext";
 
 export default function ROICalculator() {
   const [showReasoning, setShowReasoning] = useState(false);

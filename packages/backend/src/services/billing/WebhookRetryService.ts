@@ -3,9 +3,10 @@
  * Handles retrying failed webhook events with exponential backoff
  */
 
-import WebhookService from './WebhookService.js'
 import { createLogger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js';
+
+import WebhookService from './WebhookService.js'
 
 const logger = createLogger({ component: 'WebhookRetryService' });
 

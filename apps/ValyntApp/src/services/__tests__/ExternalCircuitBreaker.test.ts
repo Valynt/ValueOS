@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+
+import { logger } from '../../lib/logger';
 import { CircuitBreakerManager } from '../CircuitBreaker';
 import { ExternalCircuitBreaker } from '../ExternalCircuitBreaker';
-import { logger } from '../../lib/logger';
 
 vi.mock('../../lib/logger', () => ({
   logger: {

@@ -58,8 +58,8 @@ vi.mock("../../lib/crypto/CryptoUtils", () => ({
 
 // --- Imports ---
 
-import { AgentAuditLogger, getAuditLogger } from "../AgentAuditLogger";
 import type { AgentType } from "../agent-types";
+import { AgentAuditLogger, getAuditLogger } from "../AgentAuditLogger";
 
 // --- Helpers ---
 

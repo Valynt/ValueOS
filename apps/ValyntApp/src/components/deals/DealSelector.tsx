@@ -5,7 +5,6 @@
  * Used when no deal is currently selected in the DealsView.
  */
 
-import { useEffect, useState } from 'react';
 import {
   Building2,
   Clock,
@@ -15,10 +14,12 @@ import {
   Search,
   TrendingUp,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { type ValueCase, valueCaseService } from '@/services/ValueCaseService';

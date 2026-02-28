@@ -5,9 +5,10 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+
 import { LoadingSpinner } from "../../components/common/LoadingSpinner";
 import { createLogger } from "../../lib/logger";
+import { supabase } from "../../lib/supabase";
 
 const logger = createLogger({ component: "AuthCallback" });
 

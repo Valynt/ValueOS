@@ -10,7 +10,7 @@
  * Acceptance Criteria: Automatic failover with minimal downtime
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Failover Tests', () => {
   describe('Database Failover', () => {

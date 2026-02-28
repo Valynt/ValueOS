@@ -5,12 +5,13 @@
  */
 
 import { Request, Response, Router } from 'express';
-import { logger } from '../utils/logger';
-import { csrfProtectionMiddleware, securityHeadersMiddleware } from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
-import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
+
 import { rateLimiters } from '../middleware/rateLimiter';
 import { requirePermission } from '../middleware/rbac';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
+import { csrfProtectionMiddleware, securityHeadersMiddleware } from '../middleware/securityMiddleware';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
+import { logger } from '../utils/logger';
 
 interface LineageMetadata {
   source_origin: string;

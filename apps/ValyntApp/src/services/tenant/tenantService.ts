@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+
 import type { Tenant, TenantSettings } from "./types";
 
 class TenantService {

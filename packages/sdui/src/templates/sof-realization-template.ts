@@ -4,8 +4,9 @@
  * Extended Realization template with Feedback Loop Viewer and System Stability.
  */
 
-import type { SDUIPageDefinition } from "../schema";
 import type { FeedbackLoop, InterventionPoint, SystemMap } from "@valueos/sdui-types";
+
+import type { SDUIPageDefinition } from "../schema";
 
 /**
  * Generate SOF-enhanced Realization page

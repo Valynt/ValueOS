@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
 import { Camera, MessageSquareText, Send } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { analyticsClient } from "@/lib/analyticsClient";
 import { getConsoleLogs, startConsoleCapture } from "@/utils/consoleRecorder";
 

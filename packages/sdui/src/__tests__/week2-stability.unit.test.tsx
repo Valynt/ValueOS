@@ -4,6 +4,8 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+
+import { getSecurityMetrics, resetSecurityMetrics } from '../security/metrics';
 import {
   createSessionContext,
   getSessionTimeRemaining,
@@ -12,7 +14,6 @@ import {
   updateSessionActivity,
   validateSession,
 } from '../security/sessionValidation';
-import { getSecurityMetrics, resetSecurityMetrics } from '../security/metrics';
 
 describe('Week 2: Stability & Monitoring', () => {
   beforeEach(() => {

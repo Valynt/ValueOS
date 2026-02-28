@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
-import { Logger } from '../utils/logger';
+
 import { getUserTenantId, verifyTenantExists, verifyTenantMembership } from '../lib/tenantVerification';
+import { Logger } from '../utils/logger';
 
 type TenantCandidateSource = 'service-header' | 'user-claim' | 'request' | 'none';
 

@@ -8,8 +8,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AgentQueryService } from '../services/AgentQueryService';
+
 import { createBoltClientMock } from '../../test/mocks/mockSupabaseClient';
+import { AgentQueryService } from '../services/AgentQueryService';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
 const describeMaybe = runIntegration ? describe : describe.skip;

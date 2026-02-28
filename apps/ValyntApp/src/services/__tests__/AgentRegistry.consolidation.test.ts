@@ -5,6 +5,11 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+
+import {
+  AgentRecord as CanonicalAgentRecord,
+  AgentRegistration as CanonicalAgentRegistration,
+} from '../../types/agent';
 import {
   AgentRecord,
   AgentRegistration,
@@ -14,10 +19,6 @@ import {
   RoutingContext,
   toCanonicalRecord,
 } from '../AgentRegistry';
-import {
-  AgentRecord as CanonicalAgentRecord,
-  AgentRegistration as CanonicalAgentRegistration,
-} from '../../types/agent';
 
 describe('AgentRegistry', () => {
   let registry: AgentRegistry;

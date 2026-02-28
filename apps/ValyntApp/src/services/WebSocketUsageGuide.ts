@@ -5,9 +5,10 @@
  * system in the ValueCanvas application.
  */
 
-import { webSocketManager } from './WebSocketManager';
-import { robustConnectionManager } from './RobustConnectionManager';
 import { logger } from '../lib/logger';
+
+import { robustConnectionManager } from './RobustConnectionManager';
+import { webSocketManager } from './WebSocketManager';
 
 // Local helper types for the usage guide
 type WSMessage = { type?: string; payload?: unknown; strategy?: string; [key: string]: unknown };

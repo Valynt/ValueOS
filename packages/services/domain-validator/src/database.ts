@@ -3,6 +3,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
 import { config } from './config';
 import { logger } from './logger';
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { storage, STORAGE_KEYS } from "./index";
 
 describe("storage service", () => {

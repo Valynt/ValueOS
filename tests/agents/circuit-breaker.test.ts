@@ -49,8 +49,8 @@ vi.mock("../../apps/ValyntApp/src/services/CostGovernanceService", () => ({
 }));
 
 import {
-  CircuitBreakerManager,
   type CircuitBreakerConfig,
+  CircuitBreakerManager,
 } from "../../apps/ValyntApp/src/services/CircuitBreaker";
 import { ExternalCircuitBreaker } from "../../apps/ValyntApp/src/services/ExternalCircuitBreaker";
 import { LLMFallbackService } from "../../apps/ValyntApp/src/services/LLMFallback";

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
 import { ReasoningLoggerMiddleware } from '../ReasoningLoggerMiddleware.js';
 import type { ReasoningChain } from '../ReasoningLoggerMiddleware.js';
-import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
 
 // Mock logger
 vi.mock('../../../lib/logger.js', () => ({

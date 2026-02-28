@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from "../lib/logger";
+
 import { RateLimitConfig, rateLimitService } from "./RateLimitService";
 
 const logger = createLogger({ component: "ClientRateLimit" });

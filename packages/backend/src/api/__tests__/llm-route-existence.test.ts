@@ -1,6 +1,6 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import request from "supertest";
 import jwt from "jsonwebtoken";
+import request from "supertest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@shared/lib/logger", () => ({
   createLogger: () => ({

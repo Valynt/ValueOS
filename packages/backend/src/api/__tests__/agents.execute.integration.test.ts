@@ -1,7 +1,7 @@
-import request from 'supertest';
 import jwt from 'jsonwebtoken';
-import WebSocket from 'ws';
+import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import WebSocket from 'ws';
 
 process.env.NODE_ENV = 'test';
 const jwtSecret = 'test-websocket-secret';

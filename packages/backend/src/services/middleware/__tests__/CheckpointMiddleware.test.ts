@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CheckpointMiddleware } from '../CheckpointMiddleware.js';
+
 import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import { CheckpointMiddleware } from '../CheckpointMiddleware.js';
 
 // ---------------------------------------------------------------------------
 // Mocks

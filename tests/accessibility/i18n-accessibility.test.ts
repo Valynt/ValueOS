@@ -10,7 +10,7 @@
  * Acceptance Criteria: Accessibility features work correctly across all supported locales
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Internationalization Accessibility Tests', () => {
   describe('Language Declaration', () => {

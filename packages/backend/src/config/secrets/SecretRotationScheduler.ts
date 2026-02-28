@@ -8,15 +8,18 @@
  * Created: 2024-11-29
  */
 
+import { EventEmitter } from "events";
+
 import { CronJob } from "cron";
+
 import { logger } from "../../lib/logger.js"
+import { auditLogService } from "../../services/AuditLogService.js"
+
 import type {
   ISecretProvider,
   RotationPolicy,
   SecretMetadata,
 } from "./ISecretProvider";
-import { EventEmitter } from "events";
-import { auditLogService } from "../../services/AuditLogService.js"
 
 /**
  * Rotation job configuration

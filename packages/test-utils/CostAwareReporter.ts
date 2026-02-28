@@ -1,5 +1,6 @@
-import { Reporter, TaskResultPack, Vitest } from 'vitest';
 import fs from 'fs';
+
+import { Reporter, TaskResultPack, Vitest } from 'vitest';
 
 export default class CostAwareReporter implements Reporter {
   onFinished(files: TaskResultPack[], vitest: Vitest) {

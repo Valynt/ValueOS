@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { SidebarLayout } from '../../src/components/SidebarLayout'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { trpc } from '../../src/lib/trpc'
 
 // Mock wouter

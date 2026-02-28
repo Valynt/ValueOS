@@ -1,8 +1,10 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
-import { getSessionFromRequest, validateSessionToken } from "./session";
+
 import type { User } from "../../drizzle/schema";
+
 import { applyRateLimitHeaders, buildRateLimitKey, checkRateLimit, getRateLimitIdentifiers, throwRateLimitExceeded } from "./error-handling";
+import { getSessionFromRequest, validateSessionToken } from "./session";
 
 export const createContext = async (opts: CreateHTTPContextOptions) => {
   const sessionToken = getSessionFromRequest(opts.req);

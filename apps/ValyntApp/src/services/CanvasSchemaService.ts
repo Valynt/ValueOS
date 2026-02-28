@@ -5,9 +5,16 @@
  * This is the "brain" of the SDUI system that decides what UI to show.
  */
 
+import { hashObject, shortHash } from '../lib/contentHash';
 import { logger } from '../lib/logger';
-import { SDUIComponentSection, SDUIPageDefinition } from '../sdui/schema';
+import { getSupabaseClient } from '../lib/supabase';
 import { AddComponentAction, AtomicUIAction, ComponentSelector, MutateComponentAction, PropertyMutation, RemoveComponentAction, ReorderComponentsAction, UpdateLayoutAction } from '../sdui/AtomicUIActions';
+import { SDUIComponentSection, SDUIPageDefinition } from '../sdui/schema';
+import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-template';
+import { generateSOFIntegrityPage } from '../sdui/templates/sof-integrity-template';
+import { generateSOFOpportunityPage } from '../sdui/templates/sof-opportunity-template';
+import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-template';
+import { generateSOFTargetPage } from '../sdui/templates/sof-target-template';
 import {
   ActionResult,
   CanonicalAction,
@@ -15,23 +22,19 @@ import {
   WorkspaceContext,
   WorkspaceState,
 } from '../types/sdui-integration';
-import { LifecycleStage } from '../types/workflow';
-import { CacheService } from './CacheService';
-import { ValueFabricService } from './ValueFabricService';
-import { getSupabaseClient } from '../lib/supabase';
-import { generateSOFOpportunityPage } from '../sdui/templates/sof-opportunity-template';
-import { generateSOFTargetPage } from '../sdui/templates/sof-target-template';
-import { generateSOFExpansionPage } from '../sdui/templates/sof-expansion-template';
-import { generateSOFIntegrityPage } from '../sdui/templates/sof-integrity-template';
-import { generateSOFRealizationPage } from '../sdui/templates/sof-realization-template';
-import { hashObject, shortHash } from '../lib/contentHash';
-import { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
-import { ROIModel, ROIModelCalculation } from '../types/vos';
-import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
-import { VMRTAssumption } from '../types/vmrt';
-import { ManifestoValidationResult } from '../types/vos';
-import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from '../types/structural-data';
 import { OutcomeHypothesis } from '../types/sof';
+import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from '../types/structural-data';
+import { VMRTAssumption } from '../types/vmrt';
+import { ROIModel, ROIModelCalculation } from '../types/vos';
+import { ManifestoValidationResult } from '../types/vos';
+import { ALL_VMRT_SEEDS } from '../types/vos-pt1-seed';
+import { LifecycleStage } from '../types/workflow';
+
+import { CacheService } from './CacheService';
+import { ROIFormulaInterpreter } from './ROIFormulaInterpreter';
+import { ValueFabricService } from './ValueFabricService';
+
+
 
 /**
  * Schema head pointer - points to current schema hash

@@ -3,9 +3,10 @@
  * Provides comprehensive JSON schema validation and input sanitization
  */
 
-import { createLogger } from '../logger';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
+
+import { createLogger } from '../logger';
 
 const logger = createLogger({ component: 'InputValidation' });
 

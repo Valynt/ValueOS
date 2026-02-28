@@ -1,8 +1,9 @@
 import { logger } from "@shared/lib/logger";
-import React, { Component, ErrorInfo, ReactNode } from "react";
 import { CheckCircle, Clock, RefreshCw, Shield, XCircle, Zap } from "lucide-react";
-import { captureException } from "../../lib/sentry";
+import React, { Component, ErrorInfo, ReactNode } from "react";
+
 import { isDevelopment, isProduction } from "../../config/environment";
+import { captureException } from "../../lib/sentry";
 import { sduiTelemetry, TelemetryEventType } from "../../lib/telemetry/SDUITelemetry";
 
 /**

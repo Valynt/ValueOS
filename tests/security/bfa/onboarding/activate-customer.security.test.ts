@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { supabase } from "../../../../src/lib/supabase";
 import { ActivateCustomer } from "../../../../src/services/bfa/tools/onboarding/activate-customer";
 import { AgentContext } from "../../../../src/services/bfa/types";
-import { supabase } from "../../../../src/lib/supabase";
 
 // Mock dependencies
 vi.mock("../../../../src/lib/supabase", () => ({

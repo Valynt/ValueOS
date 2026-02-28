@@ -3,8 +3,8 @@
  * Role-based access control and permission checking
  */
 
-import { TenantAwareService } from './TenantAwareService';
 import { AuthorizationError, NotFoundError } from './errors';
+import { TenantAwareService } from './TenantAwareService';
 
 export type Permission =
   | 'user.view'

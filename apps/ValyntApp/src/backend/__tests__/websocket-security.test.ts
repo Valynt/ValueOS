@@ -7,8 +7,9 @@
  *
  * @security P1 - WebSocket auth hardening
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { IncomingMessage } from "http";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Test the getWebSocketToken logic in isolation
 // Since it's a private function, we test the behavior through a test harness

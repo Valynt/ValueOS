@@ -4,11 +4,12 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
-import { BillingMetric, USAGE_CACHE_TTL } from '../../config/billing';
-import { createLogger } from '../../lib/logger';
-import { getEnvVar } from '../../lib/env';
-import { createServerSupabaseClient } from '../../lib/supabase';
 import Redis, { type RedisClientType } from 'redis';
+
+import { BillingMetric, USAGE_CACHE_TTL } from '../../config/billing';
+import { getEnvVar } from '../../lib/env';
+import { createLogger } from '../../lib/logger';
+import { createServerSupabaseClient } from '../../lib/supabase';
 
 // Constants
 const PERCENTAGE_MULTIPLIER = 100;

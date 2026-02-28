@@ -6,10 +6,11 @@
  */
 
 import { logger } from '../lib/logger';
-import { SDUIPageDefinition } from '../sdui/schema';
 import { ActionResult, AtomicUIAction } from '../sdui/AtomicUIActions';
-import { ComponentMutationService } from './ComponentMutationService';
+import { SDUIPageDefinition } from '../sdui/schema';
+
 import { canvasSchemaService } from './CanvasSchemaService';
+import { ComponentMutationService } from './ComponentMutationService';
 
 /**
  * Execution result with rollback support

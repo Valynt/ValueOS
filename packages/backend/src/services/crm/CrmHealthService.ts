@@ -5,8 +5,9 @@
  * data for CRM integrations per tenant/provider.
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import type { CrmProvider } from './types.js';
 
 const logger = createLogger({ component: 'CrmHealthService' });

@@ -16,10 +16,11 @@
  * Updated: 2025-01-14
  */
 
+import { EventEmitter } from "events";
 import { promises as fs, FSWatcher, watch } from "fs";
 import { join } from "path";
+
 import { logger } from "../../lib/logger.js"
-import { EventEmitter } from "events";
 
 /**
  * Secret file change event

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AdversarialIOMiddleware } from '../AdversarialIOMiddleware.js';
+
 import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import { AdversarialIOMiddleware } from '../AdversarialIOMiddleware.js';
 
 // ---------------------------------------------------------------------------
 // Mocks

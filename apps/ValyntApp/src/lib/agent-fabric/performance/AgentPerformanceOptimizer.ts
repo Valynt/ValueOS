@@ -8,8 +8,9 @@
  * - Adaptive performance tuning
  */
 
-import { logger } from "../../../utils/logger";
 import { EventEmitter } from "events";
+
+import { logger } from "../../../utils/logger";
 
 export interface PerformanceConfig {
   /** Enable performance optimization */

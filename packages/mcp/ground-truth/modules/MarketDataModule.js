@@ -9,9 +9,9 @@
  *
  * Security: IL4 with API key rotation
  */
+import { logger } from '../../lib/logger';
 import { BaseModule } from '../core/BaseModule';
 import { ErrorCodes, GroundTruthError, } from '../types';
-import { logger } from '../../lib/logger';
 /**
  * Market Data Module - Tier 2 Market Intelligence
  *

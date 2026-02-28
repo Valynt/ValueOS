@@ -8,11 +8,12 @@
  * - PATCH /api/v1/agent-sessions/:id - Update session
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { testAdminClient, TEST_TENANT_A, TEST_TENANT_B } from "../../setup";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { TEST_TENANT_A, TEST_TENANT_B, testAdminClient } from "../../setup";
 import {
-  createTestAgentSession,
   cleanupTestTables,
+  createTestAgentSession,
   generateTestId,
 } from "../../test-utils";
 

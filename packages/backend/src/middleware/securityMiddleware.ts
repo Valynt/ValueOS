@@ -8,7 +8,9 @@
  */
 
 import crypto from "node:crypto";
+
 import { NextFunction, Request, Response } from "express";
+
 import { getSecurityHeaders } from "../security/SecurityHeaders.js";
 export { sessionTimeoutMiddleware } from "./sessionTimeoutMiddleware.js";
 

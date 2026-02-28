@@ -1,11 +1,13 @@
 import { Job, Queue, Worker } from "bullmq";
-import { logger } from "../lib/logger.js"
-import { getAgentAPI } from "./AgentAPI.js"
-import { AgentType } from "./agent-types.js"
+
 import {
   getAgentMessageQueueConfig,
 } from "../config/ServiceConfigManager";
+import { logger } from "../lib/logger.js"
 import { registerShutdownHandler } from "../lib/shutdown/gracefulShutdown.js"
+
+import { AgentType } from "./agent-types.js"
+import { getAgentAPI } from "./AgentAPI.js"
 
 export interface AgentInvocationJob {
   agent: AgentType;

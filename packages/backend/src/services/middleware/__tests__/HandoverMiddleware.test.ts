@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { HandoverMiddleware } from '../HandoverMiddleware.js';
+
 import type { AgentMiddlewareContext, AgentResponse } from '../../UnifiedAgentOrchestrator.js';
+import { HandoverMiddleware } from '../HandoverMiddleware.js';
 
 // ---------------------------------------------------------------------------
 // Mocks

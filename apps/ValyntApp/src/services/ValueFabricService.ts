@@ -12,15 +12,18 @@
  * - Ontology versioning
  */
 
-import { logger } from "../lib/logger";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { llmProxyClient } from "./LlmProxyClient";
+
+import { logger } from "../lib/logger";
 import type {
   Benchmark,
   Capability,
   UseCase,
   ValueFabricSnapshot,
 } from "../types/vos";
+
+import { llmProxyClient } from "./LlmProxyClient";
+
 
 export interface SemanticSearchResult<T> {
   item: T;

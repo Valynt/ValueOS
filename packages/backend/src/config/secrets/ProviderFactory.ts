@@ -8,15 +8,17 @@
  * Created: 2024-11-29
  */
 
+import { logger } from "../../lib/logger.js"
+
+import { AWSSecretProvider } from "./AWSSecretProvider.js"
+import { FallbackSecretProvider } from "./FallbackSecretProvider.js"
 import type {
   IProviderFactory,
   ISecretProvider,
   ProviderConfig,
 } from "./ISecretProvider";
-import { AWSSecretProvider } from "./AWSSecretProvider.js"
 import { VaultSecretProvider } from "./VaultSecretProvider.js"
-import { FallbackSecretProvider } from "./FallbackSecretProvider.js"
-import { logger } from "../../lib/logger.js"
+
 
 /**
  * Provider factory implementation

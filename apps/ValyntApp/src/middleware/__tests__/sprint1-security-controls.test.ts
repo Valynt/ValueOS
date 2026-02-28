@@ -9,6 +9,7 @@
  * @security These tests validate P0/P1 security controls
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { serviceIdentityMiddleware } from "../serviceIdentityMiddleware";
 
 // Mock the autonomy config module

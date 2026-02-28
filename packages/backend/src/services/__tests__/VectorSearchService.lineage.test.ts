@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { VectorSearchService } from '../VectorSearchService.js'
 
 describe('VectorSearchService lineage enforcement', () => {

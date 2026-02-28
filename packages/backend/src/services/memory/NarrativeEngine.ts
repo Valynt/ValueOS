@@ -1,4 +1,9 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+
+import { DomainPackService } from "../domain-packs/DomainPackService.js";
+
+import { MemoryService } from "./MemoryService.js"
+import { ModelRunEngine } from "./ModelRunEngine.js"
 import {
   Fact,
   FactStatus,
@@ -9,9 +14,7 @@ import {
   PersonaType,
   UUID,
 } from "./types";
-import { MemoryService } from "./MemoryService.js"
-import { ModelRunEngine } from "./ModelRunEngine.js"
-import { DomainPackService } from "../domain-packs/DomainPackService.js";
+
 
 export class NarrativeEngine {
   constructor(

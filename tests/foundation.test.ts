@@ -5,9 +5,10 @@
  * capabilities and factory for isolated tenant data.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { LLMProviderMock, LLMFailureMode } from "../LLMProviderMock";
-import { InfrastructureFaultInjector, FaultMode } from "../integration/testcontainers-global-setup";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { FaultMode, InfrastructureFaultInjector } from "../integration/testcontainers-global-setup";
+import { LLMFailureMode, LLMProviderMock } from "../LLMProviderMock";
 import { CleanTenantFactory, generateRandomTenantId } from "../test-utils";
 
 describe("Robust Testing Foundation", () => {

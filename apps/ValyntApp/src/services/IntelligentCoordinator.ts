@@ -5,8 +5,10 @@
  * and maintaining the existing 15-agent architecture.
  */
 
-import { logger } from '../lib/logger';
 import { randomUUID } from 'crypto';
+
+import { logger } from '../lib/logger';
+
 import { AgentType } from './agent-types';
 import { getUnifiedAgentAPI } from './UnifiedAgentAPI';
 

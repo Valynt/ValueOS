@@ -5,8 +5,9 @@
  * Used by agents to fetch authoritative financial data before generating responses.
  */
 
-import { logger } from '../lib/logger.js'
 import { getGroundtruthConfig, isBrowser } from '../lib/env.js';
+import { logger } from '../lib/logger.js'
+
 import { ExternalCircuitBreaker } from './ExternalCircuitBreaker.js';
 
 // MCP Server type (dynamic import to avoid circular deps)

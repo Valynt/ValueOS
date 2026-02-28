@@ -1,5 +1,6 @@
-import request from "supertest";
 import express from "express";
+import request from "supertest";
+
 import agentsRouter from "../../api/agents";
 import { getEventProducer } from "../../services/EventProducer";
 

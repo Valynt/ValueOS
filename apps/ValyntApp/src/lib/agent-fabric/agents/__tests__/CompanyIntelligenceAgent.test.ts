@@ -1,10 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CompanyIntelligenceAgent } from '../CompanyIntelligenceAgent';
-import { AgentConfig } from '../BaseAgent';
+
+import { AuditLogger } from '../../AuditLogger';
 import { LLMGateway } from '../../LLMGateway';
 import { MemorySystem } from '../../MemorySystem';
-import { AuditLogger } from '../../AuditLogger';
-import { createClient } from '@supabase/supabase-js';
+import { AgentConfig } from '../BaseAgent';
+import { CompanyIntelligenceAgent } from '../CompanyIntelligenceAgent';
 
 // Mock dependencies
 const mockLLMGateway = {

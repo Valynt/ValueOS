@@ -5,14 +5,15 @@
  * recursion depth, and other security measures.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { SDUIRenderer } from '../renderer';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { DataBindingResolver } from '../DataBindingResolver';
-import { runSanitizationSelfTest, sanitizeProps, sanitizeString, XSS_TEST_VECTORS } from '../security/sanitization';
-import { getSecurityMetrics, incrementSecurityMetric, resetSecurityMetrics } from '../security/metrics';
-import { TenantContext } from '../TenantContext';
 import { DataSourceContext } from '../DataBindingSchema';
+import { SDUIRenderer } from '../renderer';
+import { getSecurityMetrics, incrementSecurityMetric, resetSecurityMetrics } from '../security/metrics';
+import { runSanitizationSelfTest, sanitizeProps, sanitizeString, XSS_TEST_VECTORS } from '../security/sanitization';
+import { TenantContext } from '../TenantContext';
 
 describe('SDUI Security - XSS Protection', () => {
   beforeEach(() => {

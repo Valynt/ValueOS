@@ -1,4 +1,3 @@
-import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,6 +13,8 @@ import {
   Plus,
   User,
 } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+
 import { cn } from "@/lib/utils";
 
 const opp = {

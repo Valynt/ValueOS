@@ -4,18 +4,19 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  RateLimiter,
-  sanitizeUserInput,
-  validatePassword,
-} from "../../utils/security";
-import { AuthService } from "../AuthService";
+
 import {
   createSignupData,
   TEST_EMAILS,
   TEST_PASSWORDS,
 } from "../../test-utils/auth.fixtures";
 import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
+import {
+  RateLimiter,
+  sanitizeUserInput,
+  validatePassword,
+} from "../../utils/security";
+import { AuthService } from "../AuthService";
 
 // Setup mocks
 const mocks = setupAuthMocks();

@@ -6,6 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+
 import { InterventionDesignerAgent } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/InterventionDesignerAgent';
 import type { InterventionPoint, SystemMap } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/sof-types';
 

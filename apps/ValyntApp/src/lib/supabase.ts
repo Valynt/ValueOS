@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+
 import { logger } from "./logger";
 
 const logPrefix = "[Supabase]";

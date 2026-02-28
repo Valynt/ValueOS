@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { crmFieldMapper } from '../CRMFieldMapper.js'
 import { CRMContact, CRMDeal } from '@mcp/crm/types';
+import { describe, expect, it } from 'vitest';
+
+import { crmFieldMapper } from '../CRMFieldMapper.js'
 
 const baseDeal: CRMDeal = {
   id: 'deal-1',

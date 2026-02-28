@@ -4,9 +4,9 @@
  * Registers all Systemic Outcome Framework components with the SDUI system.
  */
 
-import { SystemMapCanvas } from '../components/SOF/SystemMapCanvas';
-import { InterventionPointCard } from '../components/SOF/InterventionPointCard';
 import { FeedbackLoopViewer } from '../components/SOF/FeedbackLoopViewer';
+import { InterventionPointCard } from '../components/SOF/InterventionPointCard';
+import { SystemMapCanvas } from '../components/SOF/SystemMapCanvas';
 
 /**
  * SOF Component Registry

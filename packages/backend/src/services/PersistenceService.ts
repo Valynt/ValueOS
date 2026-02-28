@@ -1,7 +1,7 @@
+import { featureFlags } from "../config/featureFlags.js"
 import { logger } from "../lib/logger.js"
 import { supabase } from "../lib/supabase.js"
 import { CanvasComponent } from "../types";
-import { featureFlags } from "../config/featureFlags.js"
 
 export interface BusinessCase {
   id: string;

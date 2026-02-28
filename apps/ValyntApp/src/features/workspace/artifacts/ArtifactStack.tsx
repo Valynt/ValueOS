@@ -4,9 +4,11 @@
  * Sidebar list of artifacts with selection and status indicators.
  */
 
-import { cn } from '@/lib/utils';
-import type { Artifact } from '../agent/types';
 import { BarChart3, FileCheck, FileText, TrendingUp } from 'lucide-react';
+
+import type { Artifact } from '../agent/types';
+
+import { cn } from '@/lib/utils';
 
 interface ArtifactStackProps {
   artifacts: Artifact[];

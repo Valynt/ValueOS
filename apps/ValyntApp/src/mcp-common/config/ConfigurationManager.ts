@@ -7,6 +7,7 @@
 
 import { existsSync, readFileSync, unwatchFile, watchFile } from "fs";
 import { join, resolve } from "path";
+
 import { logger } from "../../lib/logger";
 
 // ============================================================================

@@ -5,11 +5,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { agentOutputListener } from '../services/AgentOutputListener';
 import { agentSDUIAdapter } from '../services/AgentSDUIAdapter';
+import { workflowEventListener } from '../services/WorkflowEventListener';
 import { workflowSDUIAdapter } from '../services/WorkflowSDUIAdapter';
 import { workspaceStateService } from '../services/WorkspaceStateService';
-import { agentOutputListener } from '../services/AgentOutputListener';
-import { workflowEventListener } from '../services/WorkflowEventListener';
 import { SystemMapperOutput } from '../types/agent-output';
 import { WorkflowProgress } from '../types/workflow-sdui';
 

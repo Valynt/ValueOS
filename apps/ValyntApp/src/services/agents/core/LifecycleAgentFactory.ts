@@ -7,10 +7,13 @@
  * with a centralized, testable factory pattern.
  */
 
-import { AgentConfiguration, IAgent, IAgentFactory } from "./IAgent";
-import { AgentType } from "../../agent-types";
-import { logger } from "../../../utils/logger";
 import { createClient } from "@supabase/supabase-js";
+
+import { logger } from "../../../utils/logger";
+import { AgentType } from "../../agent-types";
+
+import { AgentConfiguration, IAgent, IAgentFactory } from "./IAgent";
+
 
 // TODO(ticket:VOS-DEBT-1427 owner:team-valueos date:2026-02-13): Import these when agent-fabric is migrated
 // import { LLMGateway } from '../../lib/agent-fabric/LLMGateway';

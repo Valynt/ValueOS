@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+
 import type { Invoice, PlanTier, Subscription, UsageMetric } from "@/features/billing";
 
 interface BillingServiceConfig {

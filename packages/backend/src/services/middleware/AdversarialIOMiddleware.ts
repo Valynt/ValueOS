@@ -9,13 +9,14 @@
  */
 
 import { logger } from '../../lib/logger.js';
+import { AuditLogService } from '../AuditLogService.js';
+import { GroundtruthAPI } from '../GroundtruthAPI.js';
 import {
   AgentMiddleware,
   AgentMiddlewareContext,
   AgentResponse,
 } from '../UnifiedAgentOrchestrator.js';
-import { AuditLogService } from '../AuditLogService.js';
-import { GroundtruthAPI } from '../GroundtruthAPI.js';
+
 import {
   AdversarialIOConfig,
   DEFAULT_ADVERSARIAL_IO_CONFIG,

@@ -5,25 +5,27 @@
  * with compensation patterns for failure recovery.
  */
 
-import { OpportunityAgent } from "../lib/agent-fabric/agents/OpportunityAgent";
-import { TargetAgent } from "../lib/agent-fabric/agents/TargetAgent";
-import { ExpansionAgent } from "../lib/agent-fabric/agents/ExpansionAgent";
-import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent";
-import { RealizationAgent } from "../lib/agent-fabric/agents/RealizationAgent";
-import { CommunicatorAgent } from "../lib/agent-fabric/agents/CommunicatorAgent";
-import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
-import { CircuitBreaker } from "./CircuitBreaker";
-import { logger } from "../lib/logger";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
+
+import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
+import { CommunicatorAgent } from "../lib/agent-fabric/agents/CommunicatorAgent";
+import { ExpansionAgent } from "../lib/agent-fabric/agents/ExpansionAgent";
+import { IntegrityAgent } from "../lib/agent-fabric/agents/IntegrityAgent";
+import { OpportunityAgent } from "../lib/agent-fabric/agents/OpportunityAgent";
+import { RealizationAgent } from "../lib/agent-fabric/agents/RealizationAgent";
+import { TargetAgent } from "../lib/agent-fabric/agents/TargetAgent";
+import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
-import { AuditLogger } from "../lib/agent-fabric/AuditLogger";
-import { AgentConfig } from "./agent-types";
-import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore";
+import { logger } from "../lib/logger";
 import { TargetAgentInputSchema } from "../validators/agentInputs";
-import { z } from "zod";
+
+import { AgentConfig } from "./agent-types";
 import { agentTelemetryService } from "./agents/telemetry/AgentTelemetryService";
+import { CircuitBreaker } from "./CircuitBreaker";
+import { workflowExecutionStore, WorkflowStatus } from "./WorkflowExecutionStore";
 
 export type LifecycleStage =
   | "opportunity"

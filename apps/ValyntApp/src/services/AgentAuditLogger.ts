@@ -7,6 +7,7 @@
 
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
+
 import { AgentContext, AgentType } from './agent-types';
 
 /**

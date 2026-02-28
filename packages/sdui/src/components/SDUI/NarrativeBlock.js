@@ -1,6 +1,7 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useState } from "react";
 import { AlertTriangle, ArrowUpRight, ChevronDown, ChevronRight, Clock, ExternalLink, FileText, Lightbulb, User, } from "lucide-react";
+import { useState } from "react";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 const typeConfig = {
     insight: { icon: Lightbulb, borderColor: "border-l-blue-500", iconColor: "text-blue-400" },

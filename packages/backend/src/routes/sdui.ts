@@ -15,9 +15,10 @@
 type LifecycleStage = "opportunity" | "target" | "realization" | "expansion" | "integrity";
 
 import { Request, Response, Router } from "express";
-import logger from "../../../shared/src/lib/logger.js";
-import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from "../../../sdui/src/schema.js";
+
 import { migrateSchema, migrationRunner } from "../../../sdui/src/migrations.js";
+import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from "../../../sdui/src/schema.js";
+import logger from "../../../shared/src/lib/logger.js";
 import { canvasSchemaService } from "../services/CanvasSchemaService.js";
 
 const router: Router = Router();

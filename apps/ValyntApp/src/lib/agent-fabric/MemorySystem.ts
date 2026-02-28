@@ -5,8 +5,9 @@
  * vector, and provenance tracking capabilities.
  */
 
-import { logger } from "../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
+
+import { logger } from "../../utils/logger";
 
 // ============================================================================
 // Memory Types

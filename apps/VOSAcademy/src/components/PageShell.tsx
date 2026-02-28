@@ -1,5 +1,6 @@
-import { SidebarLayout } from "@/components/SidebarLayout";
 import type { ReactNode } from "react";
+
+import { SidebarLayout } from "@/components/SidebarLayout";
 
 interface PageShellProps {
   children: ReactNode;

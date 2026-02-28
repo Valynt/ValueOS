@@ -3,8 +3,8 @@
  * Handles all referral program operations
  */
 
-import { createServerSupabaseClient } from '@shared/lib/supabase';
 import { createLogger } from '@shared/lib/logger';
+import { createServerSupabaseClient } from '@shared/lib/supabase';
 import {
   ClaimReferralRequest,
   ClaimReferralResponse,

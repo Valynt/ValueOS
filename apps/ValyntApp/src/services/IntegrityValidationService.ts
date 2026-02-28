@@ -13,9 +13,10 @@
  */
 
 import { logger } from '../lib/logger';
-import { AdversarialValidator } from './AdversarialValidator';
-import { SDUIPageDefinition } from '../sdui/schema';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
+import { SDUIPageDefinition } from '../sdui/schema';
+
+import { AdversarialValidator } from './AdversarialValidator';
 import { AgentMemoryService } from './AgentMemoryService';
 
 // ============================================================================

@@ -6,7 +6,6 @@
  * and recent cases from Supabase.
  */
 
-import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   FileText,
@@ -16,9 +15,11 @@ import {
   TrendingUp,
   Upload,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";

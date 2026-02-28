@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { RiskClassifier } from '../RiskClassifier.js';
+
 import type { AgentMiddlewareContext } from '../../UnifiedAgentOrchestrator.js';
+import { RiskClassifier } from '../RiskClassifier.js';
 
 function makeContext(overrides: Partial<AgentMiddlewareContext> = {}): AgentMiddlewareContext {
   return {

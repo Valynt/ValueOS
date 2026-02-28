@@ -4,8 +4,8 @@
  * This file demonstrates common usage patterns for the MCP server.
  */
 
-import { createDevServer, createMCPServer } from '../index';
 import { logger } from "../../lib/logger";
+import { createDevServer, createMCPServer } from '../index';
 
 /**
  * Example 1: Get authoritative financials for a public company

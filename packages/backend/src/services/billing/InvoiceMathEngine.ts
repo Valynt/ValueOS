@@ -3,10 +3,12 @@
  * Deterministic invoice calculation engine
  */
 
-import { type SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
-import { createLogger } from '../../lib/logger.js';
+
+import { type SupabaseClient } from '@supabase/supabase-js';
+
 import { BillingMetric } from '../../config/billing.js';
+import { createLogger } from '../../lib/logger.js';
 
 const logger = createLogger({ component: 'InvoiceMathEngine' });
 

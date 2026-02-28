@@ -59,8 +59,8 @@ vi.mock('../../services/metering/UsageCache', () => ({
 }));
 
 import authRouter from '../auth';
-import queueRouter from '../queue';
 import usageRouter from '../billing/usage';
+import queueRouter from '../queue';
 
 const csrfToken = 'test-token';
 const csrfHeaders = {

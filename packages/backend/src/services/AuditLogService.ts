@@ -14,9 +14,10 @@
 // Browser-compatible hash function (replaces Node.js crypto)
 import { logger } from "../lib/logger.js";
 import { sanitizeForLogging } from "../lib/piiFilter.js";
-import { BaseService } from "./BaseService.js";
 import { createServerSupabaseClient } from "../lib/supabase.js";
 import { AuditLogEntry } from "../types";
+
+import { BaseService } from "./BaseService.js";
 
 export interface AuditLogCreateInput {
   userId: string;

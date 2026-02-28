@@ -8,6 +8,7 @@
  * Compliance: SOX, RegTech, Zero-Trust Architecture
  */
 
+import { logger } from "../../lib/logger";
 import { BaseModule } from "../core/BaseModule";
 import { getCache } from "../core/Cache";
 import {
@@ -20,7 +21,6 @@ import {
   ModuleRequest,
   ModuleResponse,
 } from "../types";
-import { logger } from "../../lib/logger";
 
 interface EDGARConfig {
   userAgent: string; // Required by SEC: "Company Name contact@email.com"

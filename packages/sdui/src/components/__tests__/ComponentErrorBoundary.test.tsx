@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { ComponentErrorBoundary } from '../ComponentErrorBoundary';
-import { captureException } from '../../../lib/sentry';
+
 import { isDevelopment, isProduction } from '../../../config/environment';
+import { captureException } from '../../../lib/sentry';
+import { ComponentErrorBoundary } from '../ComponentErrorBoundary';
 
 vi.mock('../../../lib/sentry', () => ({
   captureException: vi.fn(),

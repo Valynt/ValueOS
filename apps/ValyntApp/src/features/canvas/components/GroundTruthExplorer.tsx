@@ -1,11 +1,15 @@
 import React, { useState } from "react";
+
+import type { ESOIndustry } from "../../../types/eso";
 import { useGroundTruth } from "../hooks/useGroundTruth";
-import { Card } from "@/components/ui/card";
+
+import { ConfidenceBadge } from "./ConfidenceBadge";
+
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ConfidenceBadge } from "./ConfidenceBadge";
-import type { ESOIndustry } from "../../../types/eso";
+
 
 export const GroundTruthExplorer: React.FC = () => {
   const { fetchMetricBenchmark, isLoading, error } = useGroundTruth();

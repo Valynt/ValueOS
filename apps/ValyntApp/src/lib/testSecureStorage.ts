@@ -3,8 +3,8 @@
  * Run this to verify encryption/decryption works
  */
 
-import { secureTokenStorage } from "./secureStorage.js";
 import { logger } from "./logger";
+import { secureTokenStorage } from "./secureStorage.js";
 
 // Test data
 const testData = {

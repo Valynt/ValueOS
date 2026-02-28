@@ -1,4 +1,7 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
   Cache,
   LoadingSpinner,
@@ -8,8 +11,6 @@ import {
   useLazyLoad,
   useThrottle
 } from '../../src/lib/performance'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 // Mock IntersectionObserver
 const mockIntersectionObserver = vi.fn()

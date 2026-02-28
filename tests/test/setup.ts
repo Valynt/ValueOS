@@ -4,8 +4,8 @@
  * Global test configuration and setup for Vitest.
  */
 
-import { afterEach, expect, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { afterEach, expect, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
 // Cleanup after each test

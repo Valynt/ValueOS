@@ -13,6 +13,8 @@
 import { ErrorRequestHandler, NextFunction, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { ZodError } from 'zod';
+
+import { getTraceContextForLogging, recordSpanException } from '../config/telemetry.js'
 import {
   AppError,
   getSafeErrorMessage,
@@ -23,7 +25,6 @@ import {
 } from '../lib/errors';
 import { logger } from '../lib/logger.js'
 import { redactSensitiveData } from '../lib/redaction.js'
-import { getTraceContextForLogging, recordSpanException } from '../config/telemetry.js'
 
 // ============================================================================
 // Types

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Link, NavLink, useMatch, useResolvedPath } from "react-router-dom";
+
 import { usePrefetch } from "../../hooks/usePrefetch";
 
 interface PrefetchLinkProps {

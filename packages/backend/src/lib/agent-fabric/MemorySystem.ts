@@ -11,6 +11,7 @@
  */
 
 import { logger } from "../logger.js";
+
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
 
 export interface MemorySystemConfig {

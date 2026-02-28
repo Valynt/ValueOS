@@ -8,6 +8,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+
 import { supabase } from '@/lib/supabase';
 import { SemanticMemoryService } from '@/services/SemanticMemory';
 

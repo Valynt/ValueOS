@@ -10,7 +10,7 @@
  * - GET /api/billing/invoices - Get invoice history
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the API client
 vi.mock("@/services/api/client", () => ({

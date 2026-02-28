@@ -3,16 +3,17 @@
  * Tests the full integration with Tempo distributed tracing service
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
-import { TempoClient } from "../helpers/tempo-client";
-import { trace, context } from "@opentelemetry/api";
+import { context, trace } from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { Resource } from "@opentelemetry/resources";
 import {
   BasicTracerProvider,
   BatchSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { Resource } from "@opentelemetry/resources";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
+import { beforeAll, describe, expect, it } from "vitest";
+
+import { TempoClient } from "../helpers/tempo-client";
 
 describe("Tempo Integration Tests", () => {
   let tempoClient: TempoClient;

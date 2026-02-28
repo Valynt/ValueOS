@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
 import Decimal from "decimal.js";
+import { describe, expect, it, vi } from "vitest";
+
 import { IntegrityService } from "../../apps/ValyntApp/src/features/workflow/services/IntegrityService";
 
 describe("Modeling Accuracy & Integrity Veto", () => {

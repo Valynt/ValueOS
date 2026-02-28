@@ -5,9 +5,9 @@
  * for intelligent request routing.
  */
 
-import { LLMCostTracker } from './LLMCostTracker.js';
-import { FallbackAIService } from './FallbackAIService.js';
 import { CostAwareRouter } from './CostAwareRouter.js';
+import { FallbackAIService } from './FallbackAIService.js';
+import { LLMCostTracker } from './LLMCostTracker.js';
 
 export interface RoutingRequest {
   tenantId: string;

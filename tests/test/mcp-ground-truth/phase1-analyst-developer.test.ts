@@ -6,6 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { createDevServer, MCPFinancialGroundTruthServer } from '../../src/mcp-ground-truth';
 
 describe('Phase 1: Analyst/Developer Feature Set', () => {

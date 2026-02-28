@@ -5,12 +5,22 @@
  * Uses Zustand for reactive state.
  */
 
-import { create } from "zustand";
 import { createIntegrityValidationService } from "@services/IntegrityValidationService";
 import {
   ContentType,
   ValidationLevel,
 } from "@services/IntegrityValidationService";
+import { create } from "zustand";
+
+import { logger } from "../../../lib/logger";
+
+import {
+  type AgentAction,
+  type AgentTransitionEvent,
+  buildTransitionContext,
+  resolveTransition,
+  transition,
+} from "./state-machine";
 import type {
   AgentEvent,
   AgentPhase,
@@ -20,14 +30,6 @@ import type {
   PlanAssumption,
   WorkflowStepState,
 } from "./types";
-import {
-  transition,
-  buildTransitionContext,
-  type AgentAction,
-  type AgentTransitionEvent,
-  resolveTransition,
-} from "./state-machine";
-import { logger } from "../../../lib/logger";
 
 /**
  * Map incoming phase_changed targets to state machine events.

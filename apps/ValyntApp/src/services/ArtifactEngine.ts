@@ -5,8 +5,9 @@
  * This service orchestrates artifact generation, versioning, branding, and distribution
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { EventEmitter } from "events";
+
+import { createClient } from "@supabase/supabase-js";
 
 import {
   Artifact,
@@ -27,7 +28,6 @@ import {
   ScheduledReport,
   UpdateArtifact,
 } from "../types/artifact";
-
 import { Database } from "../types/database";
 
 // ============================================================================

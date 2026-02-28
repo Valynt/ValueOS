@@ -17,7 +17,9 @@ import {
   RotateSecretCommand,
   SecretsManagerClient,
 } from '@aws-sdk/client-secrets-manager';
+
 import { logger } from '../../lib/logger';
+
 import type {
   AuditAction,
   AuditResult,

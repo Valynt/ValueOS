@@ -1,13 +1,15 @@
-import { useAuth } from "@/hooks/useAuth";
+import { BookOpen, Download, FileSpreadsheet, FileText, Presentation, Search } from "lucide-react";
+import { useState } from "react";
+import { Link } from "wouter";
+
 import { SidebarLayout } from "@/components/SidebarLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { APP_LOGO, APP_TITLE } from "@/const";
-import { BookOpen, Download, FileSpreadsheet, FileText, Presentation, Search } from "lucide-react";
-import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+
 
 type ResourceItem = {
   id?: number | string;

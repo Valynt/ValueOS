@@ -5,8 +5,10 @@
  */
 
 import { Clock, Edit3, Eye, MessageSquare, UserCheck } from 'lucide-react';
-import { GuestPermissions } from '@/GuestAccessService';
+
 import { getGuestPermissionManager } from '../guestPermissions';
+
+import { GuestPermissions } from '@/GuestAccessService';
 
 export interface GuestBadgeProps {
   guestName: string;

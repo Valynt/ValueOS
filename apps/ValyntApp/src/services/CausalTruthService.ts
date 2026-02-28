@@ -5,8 +5,9 @@
  * Enables evidence-based value predictions and confidence calibration.
  */
 
-import { logger } from "../lib/logger";
 import fs from "fs/promises";
+
+import { logger } from "../lib/logger";
 
 // ============================================================================
 // Types

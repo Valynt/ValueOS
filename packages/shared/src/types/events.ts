@@ -1,4 +1,5 @@
 import { logger } from "../lib/logger";
+
 import type { BillingEvent } from "./billing-events";
 /**
  * Typed Domain Events

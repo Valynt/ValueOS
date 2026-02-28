@@ -6,6 +6,7 @@
  */
 
 import { api } from './api/client';
+
 import type { ConversationMessage } from '@/features/workspace/agent/types';
 
 // ============================================================================

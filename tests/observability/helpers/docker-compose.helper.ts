@@ -3,8 +3,9 @@
  * Manages lifecycle of observability stack for testing
  */
 
-import { execSync, spawn, ChildProcess } from "child_process";
+import { ChildProcess, execSync, spawn } from "child_process";
 import { promisify } from "util";
+
 import axios from "axios";
 
 const sleep = promisify(setTimeout);

@@ -4,15 +4,16 @@
  * Resolves data bindings in SDUI components with automatic refresh.
  */
 
+import { logger } from "@shared/lib/logger";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { DataBindingResolver } from "./DataBindingResolver";
 import {
   DataBinding,
   DataSourceContext,
   isDataBinding,
   ResolvedBinding,
 } from "./DataBindingSchema";
-import { DataBindingResolver } from "./DataBindingResolver";
-import { logger } from "@shared/lib/logger";
 
 /**
  * Hook options

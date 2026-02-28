@@ -1,7 +1,4 @@
 import React, { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Bar,
   BarChart,
@@ -12,6 +9,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
 interface MetricVariance {
   name: string;

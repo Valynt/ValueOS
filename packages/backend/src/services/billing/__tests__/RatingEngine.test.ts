@@ -5,9 +5,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { EntitlementSnapshot } from "../EntitlementSnapshotService";
 import type { PriceVersionDefinition } from "../PriceVersionService";
 import type { RatingContext, UsageAggregate } from "../RatingEngine";
-import type { EntitlementSnapshot } from "../EntitlementSnapshotService";
 
 // ---------------------------------------------------------------------------
 // Mock setup

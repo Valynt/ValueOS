@@ -6,11 +6,12 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
 import { CostAwareRouter } from '../CostAwareRouter.js';
 import { CostAwareRoutingService } from '../CostAwareRoutingService.js';
-import { LLMCostTracker } from '../LLMCostTracker.js';
 import { FallbackAIService } from '../FallbackAIService.js';
-import { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
+import { LLMCostTracker } from '../LLMCostTracker.js';
 
 // Mock CostAwareRouter
 vi.mock('../CostAwareRouter.js', () => ({

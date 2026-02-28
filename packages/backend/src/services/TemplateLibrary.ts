@@ -1,6 +1,7 @@
+import { createCurrencyBinding, createMetricBinding } from '@sdui/DataBindingSchema';
+
 import { logger } from '../lib/logger.js'
 import { CanvasComponent } from '../types';
-import { createCurrencyBinding, createMetricBinding } from '@sdui/DataBindingSchema';
 
 // ============================================================================
 // Template Type Definitions (Discriminated Union)

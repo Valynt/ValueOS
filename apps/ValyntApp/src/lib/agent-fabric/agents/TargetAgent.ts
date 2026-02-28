@@ -5,14 +5,15 @@
  * ensuring targets are measurable, achievable, and aligned with business objectives.
  */
 
-import { BaseAgent, ValueLifecycleStage } from "../BaseAgent";
-import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
-import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
 import { z } from "zod";
+
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import {
   AdvancedCausalEngine,
   getAdvancedCausalEngine,
 } from "../../../services/reasoning/AdvancedCausalEngine";
+import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
+import { BaseAgent, ValueLifecycleStage } from "../BaseAgent";
 
 // ============================================================================
 // Target Agent Schemas

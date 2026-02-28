@@ -6,7 +6,10 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+
+import { logger } from "../../lib/logger.js";
 import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import {
   ConversationSession,
   CreateMessageRequest,
@@ -15,7 +18,6 @@ import {
   MessageMetadata,
   MessageRole,
 } from './types';
-import { logger } from "../../lib/logger.js";
 
 // Simple logger
 const logger = {

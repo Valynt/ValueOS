@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { CacheEncryption } from "../CacheEncryption.js"
 
 vi.mock('../../../lib/logger', () => ({

@@ -5,10 +5,13 @@
  * automated compliance checking, and enhanced audit trails for enterprise security.
  */
 
-import { logger } from "../../lib/logger";
-import { EventEmitter } from "events";
-import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
+import { EventEmitter } from "events";
+
+import { v4 as uuidv4 } from "uuid";
+
+import { logger } from "../../lib/logger";
+
 
 // ============================================================================
 // Types

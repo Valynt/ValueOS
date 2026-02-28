@@ -3,12 +3,13 @@
  * Tests UI interactions, form validation, and OAuth button interactions
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import { LoginPage } from "../LoginPage";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { AuthContext } from "../../../contexts/AuthContext";
 import { AuthenticationError, RateLimitError } from "../../../services/errors";
+import { LoginPage } from "../LoginPage";
 
 // Mock useNavigate
 const mockNavigate = vi.fn();

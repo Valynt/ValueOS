@@ -4,6 +4,7 @@
  */
 
 import Stripe from 'stripe';
+
 import { STRIPE_CONFIG } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 

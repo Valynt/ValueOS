@@ -7,10 +7,18 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { HypothesisLoop } from '../../orchestration/HypothesisLoop.js';
-import { SagaState, ValueCaseSaga } from '../../core/ValueCaseSaga.js';
-import { IdempotencyGuard } from '../../core/IdempotencyGuard.js';
+
 import { DeadLetterQueue } from '../../core/DeadLetterQueue.js';
+import { IdempotencyGuard } from '../../core/IdempotencyGuard.js';
+import { SagaState, ValueCaseSaga } from '../../core/ValueCaseSaga.js';
+import { HypothesisLoop } from '../../orchestration/HypothesisLoop.js';
+import type { LoopProgress } from '../../orchestration/HypothesisLoop.js';
+import {
+  failureFixture,
+  happyPathFixture,
+  type LoopFixture,
+  revisionPathFixture,
+} from '../datasets/integration/hypothesis-loop-fixtures.js';
 import {
   createMockAuditLogger,
   createMockDLQStore,
@@ -23,13 +31,6 @@ import {
   createMockRedTeamAgent,
   createMockSagaPersistence,
 } from '../mock-agents.js';
-import {
-  failureFixture,
-  happyPathFixture,
-  type LoopFixture,
-  revisionPathFixture,
-} from '../datasets/integration/hypothesis-loop-fixtures.js';
-import type { LoopProgress } from '../../orchestration/HypothesisLoop.js';
 
 // ============================================================================
 // Helpers

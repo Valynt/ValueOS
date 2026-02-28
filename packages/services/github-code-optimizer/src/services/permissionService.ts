@@ -1,6 +1,7 @@
 import { Repository } from '../types/index.js';
-import { githubClient } from './githubClient.js';
 import { logger } from '../utils/logger.js';
+
+import { githubClient } from './githubClient.js';
 
 export async function checkPermissions(repository: Repository, username: string): Promise<boolean> {
   try {

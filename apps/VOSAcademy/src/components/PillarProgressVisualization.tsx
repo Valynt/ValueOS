@@ -3,10 +3,11 @@
  * Shows visual progress through pillar modules and maturity levels
  */
 
+import { CheckCircle2, Circle, Lock, Target, TrendingUp } from "lucide-react";
+
 import { SectionCard } from "@/components/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Circle, Lock, Target, TrendingUp } from "lucide-react";
 import { CurriculumModule } from "@/data/curriculum";
 import { ModuleStatus } from "@/lib/progress-logic";
 

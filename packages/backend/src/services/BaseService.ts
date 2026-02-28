@@ -7,9 +7,11 @@
  * - Error handling
  */
 
-import { supabase } from "../lib/supabase.js"
-import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors.js"
 import { createLogger } from "@shared/lib/logger";
+
+import { supabase } from "../lib/supabase.js"
+
+import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors.js"
 
 // Null-safe supabase proxy that throws clear errors when client is unavailable
 const createSupabaseProxy = () => {

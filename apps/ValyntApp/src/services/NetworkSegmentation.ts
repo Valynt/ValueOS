@@ -3,11 +3,12 @@
  * Implements network-level segmentation and access controls for AI agents
  */
 
-import { logger } from "../lib/logger";
-import { clientRateLimit } from "../services/ClientRateLimit";
-import { assertSafeUrl } from "../security/ssrfGuard";
-import { securityEvents } from "../security/securityLogger";
 import { fetch } from "undici";
+
+import { logger } from "../lib/logger";
+import { securityEvents } from "../security/securityLogger";
+import { assertSafeUrl } from "../security/ssrfGuard";
+import { clientRateLimit } from "../services/ClientRateLimit";
 
 const logger = logger;
 

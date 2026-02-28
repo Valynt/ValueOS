@@ -6,6 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { WebhookService } from '../WebhookService.js';
 
 // Mock Stripe webhook data

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { getValueCommitmentsForCase } from '../../domain/value/db/rows';
+
 import { fromValueCommitments } from '../../domain/value/adapters/valueCommit.adapter';
+import { getValueCommitmentsForCase } from '../../domain/value/db/rows';
 
 export class ValueCommitService {
   constructor(private supabase: ReturnType<typeof createClient>) {}

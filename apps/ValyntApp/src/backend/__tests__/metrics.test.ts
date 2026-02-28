@@ -1,6 +1,7 @@
 import request from 'supertest';
-import app from '../server';
+
 import { getMetricsRegistry } from '../../middleware/metricsMiddleware';
+import app from '../server';
 
 describe('Prometheus metrics', () => {
   afterEach(() => {

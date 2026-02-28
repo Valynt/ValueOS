@@ -6,9 +6,11 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+
+import { logger } from "../utils/logger";
+
 import { CircuitBreakerManager } from "./CircuitBreaker";
 import { ExternalCircuitBreaker } from "./ExternalCircuitBreaker";
-import { logger } from "../utils/logger";
 
 export interface MemoryEntry {
   id: string;

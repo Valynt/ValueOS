@@ -6,6 +6,7 @@
  * BLS API: https://www.bls.gov/developers/
  */
 import { logger } from "../../lib/logger";
+
 import { fetchWithRetry } from "./utils/fetchWithRetry";
 export class BLSClient {
     baseUrl = "https://api.bls.gov/publicAPI/v2/timeseries/data";

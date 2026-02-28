@@ -6,7 +6,10 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+
+import { logger } from "../../lib/logger.js";
 import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import {
   Artifact,
   ArtifactContent,
@@ -17,7 +20,6 @@ import {
   PaginatedResponse,
   UpdateArtifactRequest,
 } from './types';
-import { logger } from "../../lib/logger.js";
 // Simple logger
 const logger = {
   info: (msg: string, data?: Record<string, unknown>) => logger.info(`[INFO] ${msg}`, JSON.stringify(data || {})),

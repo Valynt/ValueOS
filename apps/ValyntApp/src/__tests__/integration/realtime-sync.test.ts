@@ -5,6 +5,7 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { getRealtimeService } from '../../lib/realtime/supabaseRealtime';
 import type { CanvasElement } from '../../lib/realtime/supabaseRealtime';
 

@@ -1,5 +1,5 @@
-import { Skeleton } from "./ui/skeleton";
 import { Shimmer } from "./ui/Shimmer";
+import { Skeleton } from "./ui/skeleton";
 
 export function DashboardLayoutSkeleton() {
   return (

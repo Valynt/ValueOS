@@ -3,6 +3,7 @@
  */
 
 import { ComponentType } from 'react';
+
 import { SDUIComponentSection, SDUIPageDefinition } from './schema';
 
 /**

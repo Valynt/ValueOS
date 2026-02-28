@@ -1,6 +1,7 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useState } from "react";
 import { AlertTriangle, CheckCircle, Eye, EyeOff, XCircle } from "lucide-react";
+import { useState } from "react";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+
 import { ConfidenceDisplay } from "./ConfidenceDisplay";
 export const IntegrityVetoPanel = ({ issues, onResolve, onDismiss, className = "", }) => {
     const [selectedIssue, setSelectedIssue] = useState(null);

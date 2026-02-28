@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+
 import { getEnvVar, getSupabaseConfig } from "./env";
 // Simple fetch wrapper with retry for transient network/server errors
 const MAX_RETRY_ATTEMPTS = 3;

@@ -7,9 +7,9 @@
  * performance trend analysis for agent optimization.
  */
 
-import { AgentType } from "../../agent-types";
 import { AgentHealthStatus } from "../../../types/agent";
 import { logger } from "../../../utils/logger";
+import { AgentType } from "../../agent-types";
 import { agentTelemetryService, AgentTelemetrySummary } from "../telemetry/AgentTelemetryService";
 
 // ============================================================================

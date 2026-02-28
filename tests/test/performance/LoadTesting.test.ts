@@ -6,9 +6,10 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+
+import { ExpansionAgent } from '../../lib/agent-fabric/agents/ExpansionAgent';
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
-import { ExpansionAgent } from '../../lib/agent-fabric/agents/ExpansionAgent';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
 const runPerf = process.env.RUN_PERF_TESTS === 'true';

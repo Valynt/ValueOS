@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 
 export interface UsageMetrics {
   seats: { used: number; total: number };

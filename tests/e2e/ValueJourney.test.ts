@@ -6,11 +6,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OpportunityAgent } from '../../src/lib/agent-fabric/agents/OpportunityAgent';
-import { TargetAgent } from '../../src/lib/agent-fabric/agents/TargetAgent';
+
 import { ExpansionAgent } from '../../src/lib/agent-fabric/agents/ExpansionAgent';
 import { IntegrityAgent } from '../../src/lib/agent-fabric/agents/IntegrityAgent';
+import { OpportunityAgent } from '../../src/lib/agent-fabric/agents/OpportunityAgent';
 import { RealizationAgent } from '../../src/lib/agent-fabric/agents/RealizationAgent';
+import { TargetAgent } from '../../src/lib/agent-fabric/agents/TargetAgent';
 import { createAgentInfrastructureMocks, createBoltClientMock } from '../fixtures/mocks/mockSupabaseClient';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';

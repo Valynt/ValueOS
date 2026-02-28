@@ -8,10 +8,12 @@
  * Created: 2024-11-29
  */
 
-import type { IProviderFactory, ISecretProvider, ProviderConfig } from './ISecretProvider';
-import { AWSSecretProvider } from './AWSSecretProvider';
-import { VaultSecretProvider } from './VaultSecretProvider';
 import { logger } from '../../lib/logger';
+
+import { AWSSecretProvider } from './AWSSecretProvider';
+import type { IProviderFactory, ISecretProvider, ProviderConfig } from './ISecretProvider';
+import { VaultSecretProvider } from './VaultSecretProvider';
+
 
 /**
  * Provider factory implementation

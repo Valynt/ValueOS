@@ -4,8 +4,8 @@
  * Repository pattern for workflow state persistence and retrieval
  */
 
-import { createServerSupabaseClient } from '../lib/supabase.js';
 import { logger } from '../lib/logger.js';
+import { createServerSupabaseClient } from '../lib/supabase.js';
 import { getCurrentTenantContext } from '../middleware/tenantContext.js'
 
 export interface WorkflowState {

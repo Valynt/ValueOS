@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod';
+
 import { DbValidationError } from './errors.js'
 
 export interface SanitizedStringOptions {

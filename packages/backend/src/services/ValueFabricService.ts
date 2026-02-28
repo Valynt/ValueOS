@@ -12,10 +12,10 @@
  * - Ontology versioning
  */
 
-import { logger } from "../lib/logger.js";
 import { SupabaseClient } from "@supabase/supabase-js";
+
+import { logger } from "../lib/logger.js";
 import { supabase } from "../lib/supabase.js";
-import { llmProxyClient } from "./LlmProxyClient.js";
 import type {
   Benchmark,
   Capability,
@@ -23,6 +23,8 @@ import type {
   ValueFabricSnapshot,
   VMRTTrace,
 } from "../types/vos";
+
+import { llmProxyClient } from "./LlmProxyClient.js";
 
 export interface SemanticSearchResult<T> {
   item: T;

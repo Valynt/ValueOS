@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from "react";
 import { Loader2, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+import type { ChatMessage } from "../types";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { ChatMessage } from "../types";
+
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];

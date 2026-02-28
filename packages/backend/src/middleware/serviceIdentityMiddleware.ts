@@ -1,8 +1,11 @@
 import { createHash, createHmac, randomUUID as nodeRandomUUID, timingSafeEqual } from 'crypto';
-import jwt, { JwtPayload } from 'jsonwebtoken';
+
 import { NextFunction, Request, Response } from 'express';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+
 import { getAutonomyConfig } from "../config/autonomy.js"
 import { logger } from '../lib/logger.js';
+
 import { nonceStore, NonceStoreUnavailableError } from './nonceStore.js'
 
 const browserRandomUUID = (): string | null => {

@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect } from "react";
+
 import { useESOStore } from "../stores/esoStore";
 
 export interface ESOConfig {

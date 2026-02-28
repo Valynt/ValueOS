@@ -3,12 +3,13 @@
  * Modern authentication with email/password and OAuth
  */
 
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import React, { useCallback, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+
 import { useAuth } from "../../contexts/AuthContext";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { MFASetup } from "../Settings/MFASetup";
 import { AuthenticationError, ValidationError } from "../../services/errors";
+import { MFASetup } from "../Settings/MFASetup";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");

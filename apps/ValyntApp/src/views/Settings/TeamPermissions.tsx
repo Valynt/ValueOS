@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { SettingsSection } from '../../components/settings';
 import { AlertCircle, Check, Crown, Info, Shield, User, Users, X } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { SettingsSection } from '../../components/settings';
 
 type TeamMemberRole = 'owner' | 'admin' | 'member' | 'viewer';
 

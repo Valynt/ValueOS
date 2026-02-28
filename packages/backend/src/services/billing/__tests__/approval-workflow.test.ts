@@ -5,9 +5,10 @@
  * ensuring proper request routing, approval processes, and security.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BillingApprovalService } from '../BillingApprovalService.js';
 import { createClient } from '@supabase/supabase-js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { BillingApprovalService } from '../BillingApprovalService.js';
 
 // Mock data
 const mockTenantId = 'test-tenant-approval';

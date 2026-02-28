@@ -6,14 +6,15 @@
 
 'use client';
 
+import { AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { type ConfigurationTemplate, configurationTemplates } from '@/lib/configuration-templates';
 

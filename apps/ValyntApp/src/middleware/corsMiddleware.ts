@@ -7,8 +7,9 @@
  */
 
 import { NextFunction, Request, Response } from "express";
-import { getSecurityConfig } from "../security/SecurityConfig";
+
 import { getCORSHeaders, isOriginAllowed } from "../security/CORSValidator";
+import { getSecurityConfig } from "../security/SecurityConfig";
 import { logger } from "../utils/logger";
 
 /**

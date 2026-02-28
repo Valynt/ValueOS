@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { RateLimitKeyService } from '../RateLimitKeyService.js'
 
 describe('RateLimitKeyService', () => {

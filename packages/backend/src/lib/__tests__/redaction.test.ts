@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
 import { redactHeaders, redactSensitiveData } from '../redaction.js'
 
 describe('redaction utilities', () => {

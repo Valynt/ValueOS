@@ -2,8 +2,9 @@
  * Testing Utilities for Permission Testing and Integration Tests
  */
 
-import { logger } from '../lib/logger';
 import { Permission } from '@backend/services/PermissionService';
+
+import { logger } from '../lib/logger';
 
 export type RoleType = 'admin' | 'moderator' | 'member' | 'guest' | 'owner';
 

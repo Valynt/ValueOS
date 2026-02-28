@@ -4,9 +4,11 @@
  * Manages versioning, A/B testing, and optimization of LLM prompts
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { logger } from '../utils/logger.js'
 import crypto from 'crypto';
+
+import { createClient } from '@supabase/supabase-js';
+
+import { logger } from '../utils/logger.js'
 
 export interface PromptVersion {
   id: string;

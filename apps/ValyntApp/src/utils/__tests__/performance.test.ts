@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { debounce, PERFORMANCE_BENCHMARKS, performanceMonitor } from '../performance';
 
 describe('PerformanceMonitor', () => {

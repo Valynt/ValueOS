@@ -4,9 +4,9 @@
  */
 
 import { BillingMetric } from '../../config/billing.js'
-import { UsageSummary } from '../../types/billing';
 import { createLogger } from '../../lib/logger.js'
 import { supabase } from '../../lib/supabase.js';
+import { UsageSummary } from '../../types/billing';
 
 const logger = createLogger({ component: 'MetricsCollector' });
 

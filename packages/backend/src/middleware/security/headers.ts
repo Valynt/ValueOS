@@ -10,8 +10,10 @@
  * - Content-Security-Policy
  */
 
-import { NextFunction, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
+
+import { NextFunction, Request, Response } from 'express';
+
 import { CspConfig, getSecurityConfig, HstsConfig } from './config.js'
 
 // ============================================================================

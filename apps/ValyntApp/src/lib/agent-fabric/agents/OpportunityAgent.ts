@@ -5,12 +5,6 @@
  * focusing on value creation potential and strategic alignment.
  */
 
-import { BaseAgent } from "../BaseAgent";
-import {
-  assertHighConfidence,
-  assertProvenance,
-  validateGroundTruthMetadata,
-} from "../ground-truth/GroundTruthValidator";
 import {
   AgentCapability,
   AgentRequest,
@@ -19,6 +13,12 @@ import {
   ConfidenceLevel,
 } from "../../../services/agents/core/IAgent";
 import { AgentConfig } from "../../../types/agent";
+import { BaseAgent } from "../BaseAgent";
+import {
+  assertHighConfidence,
+  assertProvenance,
+  validateGroundTruthMetadata,
+} from "../ground-truth/GroundTruthValidator";
 
 export interface OpportunityAnalysis {
   opportunityId: string;

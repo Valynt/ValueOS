@@ -5,13 +5,13 @@
  * Uses Radix DropdownMenu for accessible keyboard navigation.
  */
 
-import { useState } from "react";
-import { Check, ChevronDown, Plus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Check, ChevronDown, Plus } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { useTenant } from "@/contexts/TenantContext";
 import type { TenantInfo } from "@/api/tenant";
+import { useTenant } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
 
 function getInitials(name: string): string {

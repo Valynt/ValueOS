@@ -1,6 +1,7 @@
-import config from '../../vitest.config';
-import { fileURLToPath } from 'url';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+import config from '../../vitest.config';
 
 console.log('💨 Running Smoke Test on Package Exports...');
 

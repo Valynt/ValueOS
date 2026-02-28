@@ -1,9 +1,10 @@
-import { Toaster } from "./components/ui/sonner";
-import { TooltipProvider } from "./components/ui/tooltip";
-import { Route, Switch, useLocation } from "wouter";
 import { useEffect, useRef } from "react";
+import { Route, Switch, useLocation } from "wouter";
+
 import ErrorBoundary from "./components/ErrorBoundary";
 import { RouteGuard } from "./components/RouteGuard";
+import { Toaster } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { catchAllRoute, protectedRoutes, publicRoutes } from "./routes";
 

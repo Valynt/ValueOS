@@ -11,11 +11,12 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
 process.env.STRIPE_SECRET_KEY = "sk_test_stripe_key";
 
 // Vitest provides globals automatically with globals: true in config
-import { PLANS } from "../../../config/billing";
-import SubscriptionService from "../SubscriptionService";
-import CustomerService from "../CustomerService";
 import * as supabaseClient from "@supabase/supabase-js";
 import { vi } from "vitest";
+
+import { PLANS } from "../../../config/billing";
+import CustomerService from "../CustomerService";
+import SubscriptionService from "../SubscriptionService";
 
 describe("SaaS Schema Architecture Fixes", () => {
   let subscriptionService: ReturnType<typeof SubscriptionService>;

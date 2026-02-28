@@ -5,15 +5,16 @@
  * Maps 1:1 with tenant user management but exposed via /api/teams/:tenantId/...
  */
 
-import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter.js"
-import { requireAuth } from "../middleware/auth.js"
-import { tenantContextMiddleware } from "../middleware/tenantContext.js"
-import { requirePermission } from "../middleware/rbac.js"
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
-import { adminUserService } from "../services/AdminUserService.js"
 import { createLogger } from "@shared/lib/logger";
 import { sanitizeForLogging } from "@shared/lib/piiFilter";
+import { Request, Response } from "express";
+
+import { requireAuth } from "../middleware/auth.js"
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js"
+import { requirePermission } from "../middleware/rbac.js"
+import { createSecureRouter } from "../middleware/secureRouter.js"
+import { tenantContextMiddleware } from "../middleware/tenantContext.js"
+import { adminUserService } from "../services/AdminUserService.js"
 
 const logger = createLogger({ component: "TeamsAPI" });
 const router = createSecureRouter("strict");

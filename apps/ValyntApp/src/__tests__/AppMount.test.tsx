@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
-import React from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { BootstrapGuard } from "../components/Common/BootstrapGuard";
+import React from "react";
 import { MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import * as bootstrapModule from "../bootstrap";
+import { BootstrapGuard } from "../components/Common/BootstrapGuard";
 import * as useBootstrapModule from "../hooks/useBootstrap";
 
 // Mock the useBootstrap hook to control its behavior

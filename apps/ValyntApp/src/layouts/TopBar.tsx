@@ -1,11 +1,11 @@
-import { Search, Bell, Sparkles, Menu } from "lucide-react";
+import { Bell, Menu, Search, Sparkles } from "lucide-react";
 import { KeyboardEvent, useMemo, useState } from "react";
 
+import { TenantSwitcher } from "@/components/tenant/TenantSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
 import { useTenant } from "@/contexts/TenantContext";
 import { useNavigationPersonalization } from "@/hooks/useNavigationPersonalization";
-import { TenantSwitcher } from "@/components/tenant/TenantSwitcher";
 import { cn } from "@/lib/utils";
 
 interface TopBarProps {

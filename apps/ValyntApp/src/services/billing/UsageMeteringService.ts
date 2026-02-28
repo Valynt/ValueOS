@@ -3,10 +3,11 @@
  * Submits aggregated usage to Stripe with idempotency
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase';
-import StripeService from './StripeService';
-import { UsageAggregate } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
+import { createServerSupabaseClient } from '../../lib/supabase';
+import { UsageAggregate } from '../../types/billing';
+
+import StripeService from './StripeService';
 
 const logger = createLogger({ component: 'UsageMeteringService' });
 

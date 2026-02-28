@@ -1,6 +1,7 @@
-import { build } from 'esbuild';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+
+import { build } from 'esbuild';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, '../..');

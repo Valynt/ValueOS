@@ -1,6 +1,3 @@
-import React, { useState } from "react";
-import { SettingsSection } from "../../components/settings";
-import { SettingsDangerZone } from "../../components/Settings/SettingsDangerZone";
 import { logger } from "@lib/logger";
 import {
   AlertCircle,
@@ -17,6 +14,10 @@ import {
   Shield,
   Smartphone,
 } from "lucide-react";
+import React, { useState } from "react";
+
+import { SettingsSection } from "../../components/settings";
+import { SettingsDangerZone } from "../../components/Settings/SettingsDangerZone";
 import { defaultPasswordPolicy, validatePassword } from "../../utils/security";
 
 interface PasswordStrength {

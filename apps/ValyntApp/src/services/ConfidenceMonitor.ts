@@ -6,12 +6,13 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { logger } from "../lib/logger";
+
 import {
   assertHighConfidence,
   assertProvenance,
   validateGroundTruthMetadata,
 } from "../lib/agent-fabric/ground-truth/GroundTruthValidator";
+import { logger } from "../lib/logger";
 
 export interface ConfidenceMetrics {
   agentType: string;

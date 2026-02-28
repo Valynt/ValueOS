@@ -8,14 +8,6 @@
  * - get_similar_traces: Find relevant VMRT examples for reasoning
  */
 
-import { BaseModule } from "../core/BaseModule";
-import { logger } from "@/lib/logger";
-import {
-  ALL_ESO_KPIS,
-  EXTENDED_ESO_EDGES,
-  EXTENDED_PERSONA_MAPS,
-} from "../../types/eso-data";
-import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
 import { checkBenchmarkAlignment } from "../../types/eso";
 import type {
   ESOEdge,
@@ -23,6 +15,15 @@ import type {
   ESOKPINode,
   ESOPersonaValueMap,
 } from "../../types/eso";
+import {
+  ALL_ESO_KPIS,
+  EXTENDED_ESO_EDGES,
+  EXTENDED_PERSONA_MAPS,
+} from "../../types/eso-data";
+import { ALL_VMRT_SEEDS } from "../../types/vos-pt1-seed";
+import { BaseModule } from "../core/BaseModule";
+
+import { logger } from "@/lib/logger";
 
 // ============================================================================
 // Types

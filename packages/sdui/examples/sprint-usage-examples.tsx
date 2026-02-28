@@ -5,12 +5,12 @@
  * Demonstrates how to use the new features implemented in the sprint
  */
 
-import React from "react";
+import { cached, globalCache } from "@sdui/cache";
 import { ComponentErrorBoundary } from "@sdui/components/ComponentErrorBoundary";
 import { migrateSchema, migrationRunner } from "@sdui/migrations";
 import { resolveComponent, versionedRegistry } from "@sdui/registry";
-import { cached, globalCache } from "@sdui/cache";
 import { renderPage } from "@sdui/renderPage";
+import React from "react";
 
 // Example 1: Enhanced Error Boundary with Circuit Breaker
 function RobustComponent({ data }: { data: any }) {

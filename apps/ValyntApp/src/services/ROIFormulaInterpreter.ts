@@ -17,6 +17,7 @@
 
 // import { logger } from '../lib/logger';
 import { SupabaseClient } from '@supabase/supabase-js';
+
 import type {
   FormulaContext,
   FormulaResult,
@@ -26,6 +27,7 @@ import type {
   SensitivityAnalysis,
   SensitivityScenario
 } from '../types/vos';
+
 import { securityLogger } from './SecurityLogger';
 
 export class ROIFormulaInterpreter {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { Cache } from "../cache.js";
 
 describe("Cache", () => {

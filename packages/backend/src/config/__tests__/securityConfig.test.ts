@@ -3,9 +3,11 @@
  * Comprehensive tests for all security features
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Request, Response } from "express";
 import * as dns from "node:dns/promises";
+
+import { Request, Response } from "express";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   applySecurityHeaders,
   developmentSecurityConfig,

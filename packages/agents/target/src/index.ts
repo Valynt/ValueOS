@@ -8,11 +8,11 @@
  * Identifies and analyzes strategic targets and goals
  */
 
-import express from "express";
 import { createServer, startServer } from "@valueos/agent-base";
 import { getConfig } from "@valueos/agent-base";
 import { logger } from "@valueos/agent-base";
 import { metrics } from "@valueos/agent-base";
+import express from "express";
 import { z } from "zod";
 
 // Agent-specific types

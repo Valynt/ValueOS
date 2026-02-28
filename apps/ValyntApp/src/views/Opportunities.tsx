@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -17,9 +16,11 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
+
 import { useDomainPacks } from "@/hooks/useDomainPacks";
+import { cn } from "@/lib/utils";
 
 // -- Types --
 type CaseStatus = "running" | "needs-input" | "paused" | "review" | "complete";

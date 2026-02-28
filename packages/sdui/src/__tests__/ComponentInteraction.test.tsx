@@ -5,13 +5,14 @@
  * and interactive component behaviors in SDUI system.
  */
 
-import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SDUIRenderer } from '../../sdui/renderer';
-import { ComponentTargeting } from '../../sdui/ComponentTargeting';
+
 import { AtomicUIActions } from '../../sdui/AtomicUIActions';
+import { ComponentTargeting } from '../../sdui/ComponentTargeting';
 import { hotSwapComponent, resetRegistry } from '../../sdui/registry';
+import { SDUIRenderer } from '../../sdui/renderer';
 import { SDUIPageDefinition } from '../../sdui/schema';
 
 describe('ComponentInteraction - Dynamic Rendering', () => {

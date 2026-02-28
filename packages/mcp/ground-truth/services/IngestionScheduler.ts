@@ -4,8 +4,8 @@
  * Schedules and triggers periodic ingestion jobs for authoritative data sources (SEC, BLS, etc).
  * Uses setInterval for MVP; production should use a robust job scheduler.
  */
-import { MCPFinancialGroundTruthServer } from "../core/MCPServer.js";
 import { logger } from "../../lib/logger.js";
+import { MCPFinancialGroundTruthServer } from "../core/MCPServer.js";
 
 export class IngestionScheduler {
   private server: MCPFinancialGroundTruthServer;

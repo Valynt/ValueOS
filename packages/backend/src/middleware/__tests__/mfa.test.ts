@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { requireMFA } from '../mfa.js'
+
 import { mfaService } from '../../services/MFAService.js'
+import { requireMFA } from '../mfa.js'
 
 // Mock logger
 vi.mock('@shared/lib/logger', () => ({

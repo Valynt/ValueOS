@@ -4,17 +4,20 @@
  */
 
 import express from "express";
-import subscriptionsRouter from "./subscriptions";
-import usageRouter from "./usage";
-import invoicesRouter from "./invoices";
-import webhooksRouter from "./webhooks";
-import checkoutRouter from "./checkout";
+
+import { requireAuth } from "../../middleware/auth";
+import { requirePermission } from "../../middleware/rbac";
+import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware";
 import { securityHeadersMiddleware } from "../../middleware/securityMiddleware";
 import { serviceIdentityMiddleware } from "../../middleware/serviceIdentityMiddleware";
-import { requirePermission } from "../../middleware/rbac";
-import { requireAuth } from "../../middleware/auth";
 import { tenantContextMiddleware } from "../../middleware/tenantContext";
-import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware";
+
+import checkoutRouter from "./checkout";
+import invoicesRouter from "./invoices";
+import subscriptionsRouter from "./subscriptions";
+import usageRouter from "./usage";
+import webhooksRouter from "./webhooks";
+
 
 const router = express.Router();
 

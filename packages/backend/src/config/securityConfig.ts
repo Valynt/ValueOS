@@ -3,9 +3,10 @@
  * Comprehensive security headers, policies, and configurations
  */
 
-import { Request, Response } from "express";
 import * as dns from "node:dns/promises";
 import * as net from "node:net";
+
+import { Request, Response } from "express";
 
 // Security Headers Configuration
 export interface SecurityHeadersConfig {

@@ -8,8 +8,9 @@
  * - Ask AI → SDUI render smoke (when a case is available)
  */
 
-import { expect, Page, test } from '@playwright/test';
 import { Buffer } from 'buffer';
+
+import { expect, Page, test } from '@playwright/test';
 
 const TIMEOUT = {
   navigation: 15000,

@@ -4,11 +4,13 @@
  */
 
 import React from "react";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { useAgentPhase } from "../useAgentPhase";
+
 import { AGENT_STATE_CONFIG } from "../state-machine";
 import type { AgentPhase } from "../types";
+import { useAgentPhase } from "../useAgentPhase";
+
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface PhaseIndicatorProps {
   /** Override phase (otherwise reads from store) */

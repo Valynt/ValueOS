@@ -8,11 +8,12 @@
 
 import { ServiceMessageBusAdapter } from "../lib/agent-fabric/ServiceMessageBusAdapter";
 import { logger } from "../lib/logger";
-import { canvasSchemaService } from "./CanvasSchemaService";
-import { workflowSDUIAdapter } from "./WorkflowSDUIAdapter";
-import { getStageById } from "./workflows/WorkflowDAGDefinitions";
-import { StageCompletionEvent, WorkflowProgress } from "../types/workflow-sdui";
 import { StageStatus } from "../types/workflow";
+import { StageCompletionEvent, WorkflowProgress } from "../types/workflow-sdui";
+
+import { canvasSchemaService } from "./CanvasSchemaService";
+import { getStageById } from "./workflows/WorkflowDAGDefinitions";
+import { workflowSDUIAdapter } from "./WorkflowSDUIAdapter";
 
 /**
  * Workflow event types

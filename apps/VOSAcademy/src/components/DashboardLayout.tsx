@@ -1,5 +1,24 @@
+import {
+  Award,
+  BookOpen,
+  Brain,
+  FileText,
+  Gamepad2,
+  LayoutDashboard,
+  LogOut,
+  PanelLeft,
+  Users,
+} from "lucide-react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
+import { useLocation } from "wouter";
+
+import { APP_LOGO, APP_TITLE, getLoginUrl } from "../const";
 import { useAuth } from "../hooks/useAuth";
+import { useMobile } from "../hooks/useMobile";
+
+import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,23 +38,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "./ui/sidebar";
-import { APP_LOGO, APP_TITLE, getLoginUrl } from "../const";
-import { useMobile } from "../hooks/useMobile";
-import {
-  Award,
-  BookOpen,
-  Brain,
-  FileText,
-  Gamepad2,
-  LayoutDashboard,
-  LogOut,
-  PanelLeft,
-  Users,
-} from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
-import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
-import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },

@@ -3,8 +3,9 @@
  * ⌘K modal for AI agent invocation
  */
 
-import React, { useEffect, useRef, useState } from "react";
 import { Search, Sparkles, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 interface CommandBarProps {

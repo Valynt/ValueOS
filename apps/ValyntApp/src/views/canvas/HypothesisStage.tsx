@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -18,9 +16,12 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { useParams } from "react-router-dom";
+
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
 import { type MergedKPI, useHardenAllKPIs, useHardenKPI, useMergedContext } from "@/hooks/useDomainPacks";
+import { cn } from "@/lib/utils";
 
 // Inline-editable text field
 function EditableField({

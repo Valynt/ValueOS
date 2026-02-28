@@ -3,8 +3,9 @@
  * Tests real-time monitoring, filtering, buffering, and statistics
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { AgentActivityMonitor } from "../AgentActivityMonitor";
 
 // Mock dependencies

@@ -1,5 +1,5 @@
-import { Optimization } from '../types/index.js';
 import { queryTestGeneration } from '../services/aiService.js';
+import { Optimization } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
 export async function generateTests(optimization: Optimization): Promise<string | null> {

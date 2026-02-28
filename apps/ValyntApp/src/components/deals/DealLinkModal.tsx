@@ -9,8 +9,13 @@
  * 4. System establishes deal_id on the value_case record
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import { Building2, Calendar, DollarSign, ExternalLink, Loader2, Search } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+
+import type { Deal } from './DealStatusCapsule';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -19,12 +24,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import type { Deal } from './DealStatusCapsule';
+
 
 export interface CRMDeal extends Deal {
   company: string;

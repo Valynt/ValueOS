@@ -5,13 +5,15 @@
  * maintaining security boundaries and dependency management.
  */
 
-import { logger } from '../lib/logger';
-import { AgentType } from './agent-types';
-import { getUnifiedAgentAPI } from './UnifiedAgentAPI';
-import { getCategorizedCircuitBreakerManager } from './CircuitBreakerManager';
-import { getSecureSharedContext } from './SecureSharedContext';
-import { getContextOptimizer } from './ContextOptimizer';
 import { randomUUID } from 'crypto';
+
+import { logger } from '../lib/logger';
+
+import { AgentType } from './agent-types';
+import { getCategorizedCircuitBreakerManager } from './CircuitBreakerManager';
+import { getContextOptimizer } from './ContextOptimizer';
+import { getSecureSharedContext } from './SecureSharedContext';
+import { getUnifiedAgentAPI } from './UnifiedAgentAPI';
 
 // ============================================================================
 // Types

@@ -3,13 +3,14 @@
  * Tests for audit trail functionality, security, performance, and accessibility
  */
 
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { AuditTrailDashboard } from '../../src/views/AuditTrailDashboard';
-import { useAuditTrail } from '../../src/hooks/useAuditTrail';
+
+import { secureMessageBus } from '../../lib/agent-fabric/SecureMessageBus';
 import { PermissionMiddleware } from '../../lib/auth/PermissionMiddleware';
 import { auditLogService } from '../../services/AuditLogService';
-import { secureMessageBus } from '../../lib/agent-fabric/SecureMessageBus';
+import { useAuditTrail } from '../../src/hooks/useAuditTrail';
+import { AuditTrailDashboard } from '../../src/views/AuditTrailDashboard';
 
 // Mock dependencies
 jest.mock('../../src/hooks/useAuditTrail');

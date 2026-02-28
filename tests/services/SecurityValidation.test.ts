@@ -5,11 +5,12 @@
  * context sharing, message signing, and access control.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { SecureSharedContext } from '../../src/services/SecureSharedContext';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { SecureMessageBus } from '../../src/lib/agent-fabric/SecureMessageBus';
-import { SecurityMonitor } from '../../src/services/security/SecurityMonitor';
 import { AgentType } from '../../src/services/agent-types';
+import { SecureSharedContext } from '../../src/services/SecureSharedContext';
+import { SecurityMonitor } from '../../src/services/security/SecurityMonitor';
 
 // ============================================================================
 // Mock Setup

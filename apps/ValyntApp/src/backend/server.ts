@@ -3,62 +3,66 @@
  * Minimal Express server for secure billing operations
  */
 
-import express from "express";
-import cors from "cors";
 import { createServer, type IncomingMessage } from "http";
+
+import cors from "cors";
+import express from "express";
 import { WebSocket, WebSocketServer } from "ws";
-import billingRouter from "../api/billing";
-import agentsRouter from "../api/agents";
-import canvasRouter from "../api/canvas";
-import groundtruthRouter from "../api/groundtruth";
-import llmRouter from "../api/llm";
-import workflowRouter from "../api/workflow";
-import documentRouter from "../api/documents";
-import healthRouter, { markAsShuttingDown } from "../api/health";
-import authRouter from "../api/auth";
+
 import adminRouter from "../api/admin";
-import projectsRouter from "../api/projects";
+import agentsRouter from "../api/agents";
+import authRouter from "../api/auth";
+import billingRouter from "../api/billing";
+import canvasRouter from "../api/canvas";
 import customerRouter from "../api/customer";
-import docsApiRouter from "./docs-api";
+import documentRouter from "../api/documents";
+import groundtruthRouter from "../api/groundtruth";
+import healthRouter, { markAsShuttingDown } from "../api/health";
+import llmRouter from "../api/llm";
+import projectsRouter from "../api/projects";
+import workflowRouter from "../api/workflow";
 import {
   initializeSecretVolumeWatcher,
   secretVolumeWatcher,
 } from "../config/secrets/SecretVolumeWatcher";
-import { Logger } from "../utils/logger";
-import { createVersionedApiRouter } from "./versioning";
-import { initializeContext } from "../lib/context";
-import { tracingMiddleware } from "../config/telemetry";
-import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
-import {
-  getLatencySnapshot,
-  latencyMetricsMiddleware,
-} from "../middleware/latencyMetricsMiddleware";
-import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
-import { createRateLimiter } from "../middleware/rateLimiter";
-import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
-import { cspReportHandler, securityHeadersMiddleware } from "../middleware/securityHeaders";
-import {
-  csrfProtectionMiddleware,
-  csrfTokenMiddleware,
-} from "../middleware/securityMiddleware";
-import { sessionTimeoutMiddleware } from "../middleware/sessionTimeoutMiddleware";
-import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
-import { tenantContextMiddleware } from "../middleware/tenantContext";
 import { settings } from "../config/settings";
 import { validateBackendStartupEnv } from "../config/startupEnvValidator";
-import { isConsentRegistryConfigured } from "../services/consentRegistry";
-import { TenantContextResolver } from "../services/TenantContextResolver";
-import { errorHandler } from "../middleware/errorHandler";
-import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
-import { llmQueue } from "../services/MessageQueue";
-import { agentOrchestrator } from "../services/AgentOrchestratorAdapter";
-import { getAgentMessageBroker } from "../services/AgentMessageBroker";
+import { tracingMiddleware } from "../config/telemetry";
+import { initializeContext } from "../lib/context";
 import {
   configureGracefulShutdown,
   initiateGracefulShutdown,
   registerShutdownHandler,
   wireProcessShutdownSignals,
 } from "../lib/shutdown/gracefulShutdown";
+import { extractTenantId, requireAuth, verifyAccessToken } from "../middleware/auth";
+import { errorHandler } from "../middleware/errorHandler";
+import {
+  getLatencySnapshot,
+  latencyMetricsMiddleware,
+} from "../middleware/latencyMetricsMiddleware";
+import { getMetricsRegistry, metricsMiddleware } from "../middleware/metricsMiddleware";
+import { createRateLimiter } from "../middleware/rateLimiter";
+import { requestAuditMiddleware } from "../middleware/requestAuditMiddleware";
+import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
+import { cspReportHandler, securityHeadersMiddleware } from "../middleware/securityHeaders";
+import {
+  csrfProtectionMiddleware,
+  csrfTokenMiddleware,
+} from "../middleware/securityMiddleware";
+import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware";
+import { sessionTimeoutMiddleware } from "../middleware/sessionTimeoutMiddleware";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { Logger } from "../utils/logger";
+
+import docsApiRouter from "./docs-api";
+import { createVersionedApiRouter } from "./versioning";
+
+import { isConsentRegistryConfigured } from "../services/consentRegistry";
+import { TenantContextResolver } from "../services/TenantContextResolver";
+import { llmQueue } from "../services/MessageQueue";
+import { agentOrchestrator } from "../services/AgentOrchestratorAdapter";
+import { getAgentMessageBroker } from "../services/AgentMessageBroker";
 
 validateBackendStartupEnv();
 

@@ -1,13 +1,16 @@
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '../lib/logger.js'
+
 import {
   assertEntryPointAccess,
   EntryPoint,
   IntentBinding,
   KernelIntent,
 } from '../config/entrypoints';
-import { Permission } from './PermissionService.js'
+import { logger } from '../lib/logger.js'
 import { LifecycleStage } from '../types/workflow';
+
+import { Permission } from './PermissionService.js'
+
 
 export type CanonicalKernelEventType =
   | 'ExecutionStarted'

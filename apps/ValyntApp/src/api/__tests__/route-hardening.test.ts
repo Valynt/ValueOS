@@ -179,12 +179,13 @@ process.env.STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_t
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost';
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'service-role-key';
 
-import authRouter from '../auth';
 import adminRouter from '../admin';
 import agentsRouter from '../agents';
 import approvalsRouter from '../approvals';
+import authRouter from '../auth';
 import billingRouter from '../billing';
 import canvasRouter from '../canvas';
+import customerRouter from '../customer';
 import docsRouter from '../docs';
 import documentsRouter from '../documents';
 import groundtruthRouter from '../groundtruth';
@@ -194,7 +195,6 @@ import llmRouter from '../llm';
 import projectsRouter from '../projects';
 import queueRouter from '../queue';
 import workflowRouter from '../workflow';
-import customerRouter from '../customer';
 
 function collectMiddlewareNames(router: any): string[] {
   const names: string[] = [];

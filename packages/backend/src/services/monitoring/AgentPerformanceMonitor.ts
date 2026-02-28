@@ -5,8 +5,9 @@
  * and real-time metrics collection with alerting capabilities.
  */
 
-import { logger } from "../../lib/logger.js"
 import { EventEmitter } from "events";
+
+import { logger } from "../../lib/logger.js"
 
 // ============================================================================
 // Types

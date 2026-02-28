@@ -3,14 +3,15 @@
  * Verifies user sessions using Supabase auth
  */
 
+import { authService } from '@backend/services/AuthService';
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { authService } from '@backend/services/AuthService';
-import { AuthenticationError } from '../services/errors';
-import { Logger } from '../utils/logger';
+
+import { getEnvVar } from '../lib/env';
 import { sanitizeForLogging } from '../lib/piiFilter';
 import { createRequestSupabaseClient } from '../lib/supabase';
-import { getEnvVar } from '../lib/env';
+import { AuthenticationError } from '../services/errors';
+import { Logger } from '../utils/logger';
 
 const logger = new Logger({ component: 'AuthMiddleware' });
 

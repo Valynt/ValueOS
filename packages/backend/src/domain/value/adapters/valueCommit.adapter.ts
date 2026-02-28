@@ -1,6 +1,6 @@
+import { ValueCommitmentRow } from '../db/rows';
 import { ValueCommit } from '../dto';
 import { ValueCommitSchema } from '../schemas/valueCommit.schema';
-import { ValueCommitmentRow } from '../db/rows';
 
 export function fromValueCommitments(rows: ValueCommitmentRow[]): ValueCommit[] {
   return rows.map(row => {

@@ -5,6 +5,7 @@
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { type PersonaAnalysis, type PersonaType, QuantumView } from '../QuantumView';
 
 // Mock dependencies

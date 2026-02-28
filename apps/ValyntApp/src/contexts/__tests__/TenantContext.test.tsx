@@ -2,12 +2,13 @@
  * TenantContext Tests
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import { TenantProvider, useTenant } from "../TenantContext";
-import { AuthProvider } from "../AuthContext";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import * as tenantApi from "../../api/tenant";
+import { AuthProvider } from "../AuthContext";
+import { TenantProvider, useTenant } from "../TenantContext";
 
 vi.mock("../../api/tenant", () => ({
   fetchUserTenants: vi.fn(),

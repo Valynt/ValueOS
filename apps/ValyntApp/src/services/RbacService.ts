@@ -1,4 +1,5 @@
 import { logger } from "../lib/logger";
+
 import { AuthorizationError } from "./errors";
 
 export type Permission = SecretPermission | TeamPermission;

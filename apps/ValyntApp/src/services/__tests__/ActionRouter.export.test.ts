@@ -2,9 +2,10 @@
  * @vitest-environment jsdom
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import * as ExportUtils from '../../utils/export';
 import { ActionRouter } from '../ActionRouter';
 import { workspaceStateService } from '../WorkspaceStateService';
-import * as ExportUtils from '../../utils/export';
 
 // Mock dependencies
 vi.mock('../WorkspaceStateService', () => ({

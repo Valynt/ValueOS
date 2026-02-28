@@ -18,14 +18,16 @@ import {
   useState,
 } from "react";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+
 import { fetchUserTenants, isTenantApiEnabled, TenantInfo } from "../api/tenant";
-import { createLogger } from "../lib/logger";
 import { analyticsClient } from "../lib/analyticsClient";
+import { createLogger } from "../lib/logger";
+
+import { useAuth } from "./AuthContext";
 
 const logger = createLogger({ component: "TenantContext" });
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 
 /**
  * Tenant context state

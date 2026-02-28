@@ -4,20 +4,21 @@
  * Member table with search, role assignment, and invite functionality.
  */
 
-import { useEffect, useState } from "react";
 import { ChevronRight, RotateCw, UserPlus } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+
+import { useToast } from "@/components/common/Toast";
+import { InviteModal } from "@/components/settings/InviteModal";
 import { UserAvatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
-import { InviteModal } from "@/components/settings/InviteModal";
-import { supabase } from "@/lib/supabase";
-import { rbacService } from "@/services/RbacService";
-import { useToast } from "@/components/common/Toast";
 import { useAuth } from "@/hooks/useAuth";
 import { logger } from "@/lib/logger";
+import { supabase } from "@/lib/supabase";
+import { rbacService } from "@/services/RbacService";
 
 interface TeamMember {
   id: string;

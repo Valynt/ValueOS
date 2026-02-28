@@ -76,9 +76,9 @@ vi.mock("../../env", () => ({
 }));
 
 import { AgentFactory } from "../AgentFactory";
+import { CircuitBreaker } from "../CircuitBreaker";
 import { LLMGateway } from "../LLMGateway";
 import { MemorySystem } from "../MemorySystem";
-import { CircuitBreaker } from "../CircuitBreaker";
 
 describe("AgentFactory", () => {
   let factory: AgentFactory;

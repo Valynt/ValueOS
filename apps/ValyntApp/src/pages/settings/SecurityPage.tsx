@@ -4,16 +4,18 @@
  * Row-based list pattern for password, 2FA, and sessions.
  */
 
-import { useState } from "react";
 import { Key, Monitor, Shield, Smartphone } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+
 import { logger } from "../../lib/logger";
+
 import {
   SettingsAlert,
   SettingsRow,
   SettingsSection,
 } from "@/components/settings";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface Session {
   id: string;

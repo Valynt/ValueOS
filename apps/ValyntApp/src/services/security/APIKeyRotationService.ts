@@ -5,10 +5,13 @@
  * SOC 2 Compliance: CC6.7 (Key Management)
  */
 
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { logger } from "@/lib/logger";
-import { auditLogService } from "../AuditLogService";
 import { fetch } from 'undici';
+
+import { auditLogService } from "../AuditLogService";
+
+import { logger } from "@/lib/logger";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
 
 export interface APIKeyRotationConfig {
   provider: "openai" | "anthropic" | "supabase" | "aws-iam" | "together_ai";

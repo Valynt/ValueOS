@@ -1,5 +1,6 @@
-import { useAuth } from "@/contexts/AuthContext";
 import type { User } from "../types";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 export function useSession() {
   const { user: supabaseUser, isAuthenticated, loading } = useAuth();

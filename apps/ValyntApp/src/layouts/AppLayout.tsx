@@ -1,6 +1,8 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+
 import { type Persona, usePersona } from "../context/PersonaContext";
+
+import { useAuth } from "@/contexts/AuthContext";
 
 export function AppLayout() {
   const { user, logout } = useAuth();

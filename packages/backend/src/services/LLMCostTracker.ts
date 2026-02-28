@@ -5,9 +5,10 @@
  * Provides cost analytics, alerts, and optimization recommendations.
  */
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { logger } from "../lib/logger.js"
 import { getEnvVar, getLLMCostTrackerConfig, getSupabaseConfig } from "@shared/lib/env";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+import { logger } from "../lib/logger.js"
 
 const TOKENS_PER_MILLION = 1_000_000;
 const SECONDS_PER_MINUTE = 60;

@@ -9,7 +9,9 @@
  */
 
 import crypto from "crypto";
+
 import { createLogger } from "../../lib/logger.js";
+
 import type { CrmProvider } from "./types.js";
 
 const logger = createLogger({ component: "OAuthStateStore" });

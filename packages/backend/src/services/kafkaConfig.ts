@@ -1,5 +1,6 @@
-import { KafkaConfig, SASLOptions } from "kafkajs";
 import fs from "node:fs";
+
+import { KafkaConfig, SASLOptions } from "kafkajs";
 
 function readOptionalFile(path?: string): Buffer | undefined {
   if (!path) return undefined;

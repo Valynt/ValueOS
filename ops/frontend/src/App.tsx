@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react'
+
 import UsageDashboard from './components/UsageDashboard'
 
 const supabase = createClient(

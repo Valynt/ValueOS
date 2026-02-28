@@ -1,18 +1,19 @@
+import { logger } from "@shared/lib/logger";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+
+import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
+import { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
 import { DataTable, InfoBanner, SectionErrorFallback, UnknownComponentFallback,
 // Fallbacks
  } from "./components/SDUI";
-import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
-import { KPIForm } from "./components/SDUI/KPIForm";
-import { InteractiveChart } from "./components/SDUI/InteractiveChart";
-import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
-import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
-import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
-import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
-import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
-import { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
 import { ComponentPreview } from "./components/SDUI";
-import { logger } from "@shared/lib/logger";
+import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
+import { InteractiveChart } from "./components/SDUI/InteractiveChart";
+import { KPIForm } from "./components/SDUI/KPIForm";
+import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
+import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
+import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
 /**
  * Versioned Component Registry
  *

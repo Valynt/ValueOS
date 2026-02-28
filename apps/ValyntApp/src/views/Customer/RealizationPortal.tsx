@@ -5,15 +5,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+
+import { BenchmarkComparison } from '../../components/Customer/BenchmarkComparison';
 import { CustomerContainer, CustomerLayout, CustomerSection } from '../../components/Customer/CustomerLayout';
-import { ValueSummaryCard } from '../../components/Customer/ValueSummaryCard';
+import { ExportActions } from '../../components/Customer/ExportActions';
 import { Metric, MetricsTable } from '../../components/Customer/MetricsTable';
 import { TrendChart, TrendDataPoint } from '../../components/Customer/TrendChart';
-import { BenchmarkComparison } from '../../components/Customer/BenchmarkComparison';
-import { ExportActions } from '../../components/Customer/ExportActions';
-import { customerAccessService } from '../../services/CustomerAccessService';
-import { logger } from '../../lib/logger';
+import { ValueSummaryCard } from '../../components/Customer/ValueSummaryCard';
 import { useErrorTracking, usePageTracking, useTokenTracking } from '../../hooks/usePortalAnalytics';
+import { logger } from '../../lib/logger';
+import { customerAccessService } from '../../services/CustomerAccessService';
 
 interface ValueCaseData {
   id: string;

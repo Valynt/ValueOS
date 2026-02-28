@@ -3,6 +3,7 @@
  */
 
 import { logger } from "@shared/lib/logger";
+
 import { SDUIComponentSection, SDUIPageDefinition } from "../schema";
 import { ComponentMetadata, RenderPerformanceMetrics } from "../types";
 

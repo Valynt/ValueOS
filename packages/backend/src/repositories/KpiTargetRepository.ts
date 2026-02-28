@@ -2,8 +2,8 @@
  * Repository Implementation
  */
 
-import { createServerSupabaseClient } from '../lib/supabase.js';
 import { logger } from '../lib/logger.js';
+import { createServerSupabaseClient } from '../lib/supabase.js';
 
 export class KpiTargetRepository {
   private supabase: ReturnType<typeof createServerSupabaseClient>;

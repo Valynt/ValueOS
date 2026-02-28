@@ -12,9 +12,10 @@
  * - Integration with WebSocket server for live alerts
  */
 
-import { WebhookNotification, WebSocketServer } from "./WebSocketServer";
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
+
+import { WebhookNotification, WebSocketServer } from "./WebSocketServer";
 
 export interface SECFiling {
   id: string;

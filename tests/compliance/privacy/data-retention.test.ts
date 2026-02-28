@@ -10,8 +10,8 @@
  * policies and automated deletion mechanisms.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('Data Retention Policy', () => {
   let adminClient: SupabaseClient;

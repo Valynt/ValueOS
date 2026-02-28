@@ -14,43 +14,39 @@
  * - Extensible: Plugin architecture for routing strategies
  */
 
-import { logger } from "../lib/logger";
 import { v4 as uuidv4 } from "uuid";
-import { CircuitBreakerManager } from "./CircuitBreaker";
-import { AgentRecord, AgentRegistry } from "./AgentRegistry";
-import { SDUIPageDefinition } from "../sdui/schema";
-import { logAgentResponse } from "./AgentAuditLogger";
-import { AgentType } from "./agent-types";
-import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
-import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
-import GroundtruthAPI, {
-  GroundtruthAPIConfig,
-  GroundtruthRequestOptions,
-  GroundtruthRequestPayload,
-} from "./GroundtruthAPI";
-import { AgentMessageBroker, getAgentMessageBroker } from "./AgentMessageBroker";
-import { WorkflowStatus } from "../types";
-import { WorkflowExecutionRecord } from "../types/workflowExecution";
-import { ExecutionRequest } from "../types/execution";
-import { WorkflowState } from "../repositories/WorkflowStateRepository";
-import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
-import { renderPage, RenderPageOptions } from "../sdui/renderPage";
-import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
-import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer";
-import { supabase } from "../lib/supabase";
-import { getAutonomyConfig } from "../config/autonomy";
+
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
 import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
 import { llmConfig } from "../config/llm";
 import { z } from "zod";
+import { getAutonomyConfig } from "../config/autonomy";
 import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager";
-import { ESOModule } from "../mcp-ground-truth/modules/StructuralTruthModule";
+
 import { EnhancedParallelExecutor, getEnhancedParallelExecutor } from "./EnhancedParallelExecutor"; // NEW: Import for parallel execution
 import {
   assertProvenance,
   validateGroundTruthMetadata,
 } from "../lib/agent-fabric/ground-truth/GroundTruthValidator";
-import { ConfidenceMonitor } from "./ConfidenceMonitor";
+import { env, getEnvVar, getGroundtruthConfig } from "../lib/env";
+import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
+import { ESOModule } from "../mcp-ground-truth/modules/StructuralTruthModule";
+import { WorkflowState } from "../repositories/WorkflowStateRepository";
+import { renderPage, RenderPageOptions } from "../sdui/renderPage";
+import { SDUIPageDefinition } from "../sdui/schema";
+import { WorkflowStatus } from "../types";
+import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
+import { ExecutionRequest } from "../types/execution";
+import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
+import { WorkflowExecutionRecord } from "../types/workflowExecution";
+
+import { AgentType } from "./agent-types";
+import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
+import { logAgentResponse } from "./AgentAuditLogger";
+import { AgentMessageBroker, getAgentMessageBroker } from "./AgentMessageBroker";
+import { AgentRecord, AgentRegistry } from "./AgentRegistry";
+import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer";
 import {
   AgentCapability,
   AgentConfiguration,
@@ -62,6 +58,13 @@ import {
   AgentResponse as RetryAgentResponse,
   ValidationResult,
 } from "./agents/core/IAgent";
+import { CircuitBreakerManager } from "./CircuitBreaker";
+import { ConfidenceMonitor } from "./ConfidenceMonitor";
+import GroundtruthAPI, {
+  GroundtruthAPIConfig,
+  GroundtruthRequestOptions,
+  GroundtruthRequestPayload,
+} from "./GroundtruthAPI";
 
 // ============================================================================
 // Types

@@ -14,6 +14,7 @@ import {
   AgentMiddlewareContext,
   AgentResponse,
 } from '../UnifiedAgentOrchestrator.js';
+
 import { CapabilityRequest, HandoverResult } from './types.js';
 
 // ---------------------------------------------------------------------------

@@ -1,9 +1,10 @@
-import Redis from "ioredis";
 import { 
   DLQEventEmitter, 
   DLQStore, 
   IdempotencyStore 
 } from "@valueos/agents";
+import Redis from "ioredis";
+
 import { logger } from "../../lib/logger.js";
 
 const redis = new Redis();

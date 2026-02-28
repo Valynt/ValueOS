@@ -4,6 +4,7 @@
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js";
+
 import { BillingMetric } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
 

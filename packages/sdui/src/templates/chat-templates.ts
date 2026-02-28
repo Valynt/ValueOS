@@ -7,13 +7,14 @@
  * Phase 3: SDUI Template System
  */
 
-import type { SDUIPageDefinition } from '../schema';
 import type { LifecycleStage, WorkflowState } from '@valueos/sdui-types';
 
-import { generateOpportunityPage } from './chat-opportunity-template';
-import { generateTargetPage } from './chat-target-template';
-import { generateRealizationPage } from './chat-realization-template';
+import type { SDUIPageDefinition } from '../schema';
+
 import { generateExpansionPage } from './chat-expansion-template';
+import { generateOpportunityPage } from './chat-opportunity-template';
+import { generateRealizationPage } from './chat-realization-template';
+import { generateTargetPage } from './chat-target-template';
 
 /**
  * Common template context for all stages

@@ -138,8 +138,8 @@ export function sanitizeLLMContent(content: string): string {
 /**
  * Enhanced security utilities using LLMSanitizer
  */
-import { llmSanitizer } from '../services/LLMSanitizer';
 import { logger } from '../lib/logger';
+import { llmSanitizer } from '../services/LLMSanitizer';
 
 /**
  * Sanitize and detect prompt injection in agent input

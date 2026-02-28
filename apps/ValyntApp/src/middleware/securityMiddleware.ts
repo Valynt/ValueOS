@@ -7,8 +7,10 @@
  * These middlewares are designed for Express-style handlers.
  */
 
-import { NextFunction, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
+
+import { NextFunction, Request, Response } from 'express';
+
 import { getSecurityHeaders } from '../security/SecurityHeaders';
 
 const CSRF_COOKIE_NAME = 'csrf_token';

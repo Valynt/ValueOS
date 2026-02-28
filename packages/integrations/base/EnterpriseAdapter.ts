@@ -6,18 +6,18 @@
  * - No app-specific logic
  */
 
+import { ConnectionError, IntegrationError } from "./errors.js";
 import type {
   FetchOptions,
   IEnterpriseAdapter,
 } from "./IEnterpriseAdapter.js";
+import { RateLimiter } from "./RateLimiter.js";
 import type {
   IntegrationConfig,
   IntegrationCredentials,
   NormalizedEntity,
   SyncResult,
 } from "./types.js";
-import { RateLimiter } from "./RateLimiter.js";
-import { ConnectionError, IntegrationError } from "./errors.js";
 
 export abstract class EnterpriseAdapter implements IEnterpriseAdapter {
   abstract readonly provider: string;

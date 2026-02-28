@@ -6,10 +6,12 @@
  */
 
 import { logger } from '../lib/logger';
-import { TenantAwareService } from './TenantAwareService';
+import { getSupabaseClient } from '../lib/supabase';
+
 import { AuditLogService } from './AuditLogService';
 import { ValidationError } from './errors';
-import { getSupabaseClient } from '../lib/supabase';
+import { TenantAwareService } from './TenantAwareService';
+
 
 const supabase = (() => { try { return getSupabaseClient(); } catch { return null as any; } })();
 

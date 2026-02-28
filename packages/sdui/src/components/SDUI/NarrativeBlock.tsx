@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -10,6 +9,8 @@ import {
   Lightbulb,
   User,
 } from "lucide-react";
+import React, { useState } from "react";
+
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
 
 export interface NarrativeBlockProps {

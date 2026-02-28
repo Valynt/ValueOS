@@ -6,8 +6,9 @@
  * and compliance-ready logging for all artifact operations
  */
 
-import { createClient } from "@supabase/supabase-js";
 import { EventEmitter } from "events";
+
+import { createClient } from "@supabase/supabase-js";
 
 import {
   Artifact,
@@ -18,7 +19,6 @@ import {
   DistributionRecord,
   RetentionPolicy,
 } from "../types/artifact";
-
 import { Database } from "../types/database";
 
 // ============================================================================

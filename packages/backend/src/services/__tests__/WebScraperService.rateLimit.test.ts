@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { WebScraperService } from "../WebScraperService";
+
 import { logger } from "../../lib/logger.js";
+import { WebScraperService } from "../WebScraperService";
 
 describe("WebScraperService rate limiting", () => {
   let scraper: WebScraperService;

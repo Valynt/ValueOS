@@ -4,6 +4,7 @@
  */
 
 import { CurriculumModule, getCurriculumForRole } from '../data/curriculum';
+
 import { logger } from './logger';
 
 export interface ContentLoaderOptions {

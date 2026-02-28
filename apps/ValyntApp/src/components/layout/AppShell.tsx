@@ -5,8 +5,6 @@
  * Based on ValueOS UX design spec.
  */
 
-import React, { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   Bell,
   Briefcase,
@@ -21,8 +19,11 @@ import {
   Target,
   Users,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+
 import { UserAvatar } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 interface NavItemProps {
   to: string;

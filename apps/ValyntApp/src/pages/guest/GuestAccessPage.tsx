@@ -5,10 +5,12 @@
  * Validates token and renders the appropriate view.
  */
 
+import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Clock, Loader2 } from 'lucide-react';
+
 import { GuestValueCalculator } from './GuestValueCalculator';
+
 import { getGuestAccessService, GuestPermissions } from '@/GuestAccessService';
 
 // Guest access token structure (matches GuestAccessService)

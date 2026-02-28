@@ -8,6 +8,12 @@
  * @security Level: Critical - Financial validation with veto authority
  */
 
+import { z } from "zod";
+
+import { AuditLogger } from "../AuditLogger";
+import { LLMGateway } from "../LLMGateway";
+import { MemorySystem } from "../MemorySystem";
+
 import {
   AgentCapability,
   AgentClassification,
@@ -22,10 +28,6 @@ import {
   ToolExecutionContext,
   ValueLifecycleStage,
 } from "./BaseAgent";
-import { z } from "zod";
-import { LLMGateway } from "../LLMGateway";
-import { MemorySystem } from "../MemorySystem";
-import { AuditLogger } from "../AuditLogger";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCHEMAS & TYPES

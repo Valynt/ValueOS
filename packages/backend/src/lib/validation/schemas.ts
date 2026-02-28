@@ -11,6 +11,8 @@
  */
 
 import { z } from 'zod';
+
+import { normalizeCompanyName, normalizeName } from './normalizers.js'
 import {
   currencySchema,
   descriptionSchema,
@@ -26,7 +28,6 @@ import {
   tagsSchema,
   uuidSchema,
 } from './zodHelpers';
-import { normalizeCompanyName, normalizeName } from './normalizers.js'
 
 // ============================================================================
 // User Schemas

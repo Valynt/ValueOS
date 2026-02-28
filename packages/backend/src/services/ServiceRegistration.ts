@@ -6,26 +6,27 @@
  * MemorySystem, CircuitBreaker) and the AgentFactory are wired together.
  */
 
+import { llmConfig } from "../config/llm.js"
+import { CircuitBreaker } from "../config/secrets/CircuitBreaker";
+import { AgentFactory } from "../lib/agent-fabric/AgentFactory";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
+import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend";
+import { logger } from "../lib/logger.js"
+import { getRedisClient } from "../lib/redis";
+import { supabase } from "../lib/supabase.js"
+
+import { getAgentAPI } from "./AgentAPI.js"
+import { getAuditLogger } from "./AgentAuditLogger.js"
+import { getAgentMessageQueue } from "./AgentMessageQueue.js"
+import { getAgentRegistry } from "./AgentRegistry.js"
+import { getAgentCache } from "./cache/AgentCache.js"
 import {
   createServiceCollection,
   SERVICE_TOKENS,
 } from "./DependencyInjectionContainer";
-import { logger } from "../lib/logger.js"
-import { getAuditLogger } from "./AgentAuditLogger.js"
-import { getAgentCache } from "./cache/AgentCache.js"
-import { getAgentRegistry } from "./AgentRegistry.js"
-import { getAgentAPI } from "./AgentAPI.js"
-import { getAgentMessageQueue } from "./AgentMessageQueue.js"
-import { supabase } from "../lib/supabase.js"
-import { getRedisClient } from "../lib/redis";
-import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator.js"
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
-import { MemorySystem } from "../lib/agent-fabric/MemorySystem";
-import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend";
-import { CircuitBreaker } from "../config/secrets/CircuitBreaker";
-import { AgentFactory } from "../lib/agent-fabric/AgentFactory";
-import { llmConfig } from "../config/llm.js"
 import { semanticMemory } from "./SemanticMemory.js";
+import { getUnifiedOrchestrator } from "./UnifiedAgentOrchestrator.js"
 
 // Create and configure the service collection
 export function configureServices() {

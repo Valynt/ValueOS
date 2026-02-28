@@ -5,9 +5,10 @@
  * failure handling, state transitions, and category-based management.
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
 import { CircuitBreakerManager } from '../src/services/CircuitBreaker';
-import { CategorizedCircuitBreakerManager, AGENT_CATEGORIES } from '../src/services/CircuitBreakerManager';
+import { AGENT_CATEGORIES, CategorizedCircuitBreakerManager } from '../src/services/CircuitBreakerManager';
 
 // ============================================================================
 // Mock Setup

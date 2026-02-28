@@ -7,6 +7,7 @@
  * Flow: CRM Deal → crm_get_deal_context → ContextInjectionBridge → TemplateDataSource
  */
 import { logger } from "../../lib/logger";
+
 import { getMCPCRMServer } from "./MCPCRMServer";
 export class ContextInjectionBridge {
     tenantId;

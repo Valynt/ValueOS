@@ -4,7 +4,8 @@
  * Tests for the centralized rate limiting service
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { MCPRateLimiter, mcpRateLimiter } from "../../src/mcp-common";
 
 describe("MCPRateLimiter", () => {

@@ -5,10 +5,11 @@
  * Enables agent-driven documentation updates based on code changes.
  */
 
-import express, { NextFunction, Request, Response } from 'express';
-import { z } from 'zod';
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
+import express, { NextFunction, Request, Response } from 'express';
+import { z } from 'zod';
+
 import { settings } from '../config/settings.js'
 
 const logger = createLogger({ component: 'DocsAPI' });

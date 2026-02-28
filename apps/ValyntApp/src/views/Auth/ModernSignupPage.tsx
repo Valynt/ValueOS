@@ -3,9 +3,10 @@
  * Sleek registration with VALYNT-style design
  */
 
+import { Eye, EyeOff } from "lucide-react";
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+
 import { useAuth } from "../../contexts/AuthContext";
 
 export function ModernSignupPage() {

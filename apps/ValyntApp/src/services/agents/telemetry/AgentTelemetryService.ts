@@ -7,15 +7,17 @@
  * with structured logging, metrics collection, and distributed tracing.
  */
 
+import { Counter, Histogram, metrics } from "@opentelemetry/api";
+import { v4 as uuidv4 } from "uuid";
+
+import { logger } from "../../../utils/logger";
+import { AgentType } from "../../agent-types";
 import {
   AgentHealthStatus,
   AgentRequest,
   AgentResponse,
 } from "../core/IAgent";
-import { AgentType } from "../../agent-types";
-import { logger } from "../../../utils/logger";
-import { v4 as uuidv4 } from "uuid";
-import { Counter, Histogram, metrics } from "@opentelemetry/api";
+
 
 // ============================================================================
 // Telemetry Types

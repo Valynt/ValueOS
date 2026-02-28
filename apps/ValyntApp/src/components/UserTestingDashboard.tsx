@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import { usePersona } from "../context/PersonaContext";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
 
 export const UserTestingDashboard: React.FC = () => {
   const { persona, setPersona } = usePersona();

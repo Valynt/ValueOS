@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { validateRedisUrlForProduction } from "../settings";
 
 describe("validateRedisUrlForProduction", () => {

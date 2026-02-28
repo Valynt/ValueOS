@@ -6,9 +6,10 @@
  * billing_approval_policies DB schema.
  */
 
+import type { ApprovalActionType, ApprovalStatus } from '@shared/types/billing-events';
+
 import { createLogger } from '../../lib/logger.js';
 import { supabase as supabaseClient } from '../../lib/supabase.js';
-import type { ApprovalActionType, ApprovalStatus } from '@shared/types/billing-events';
 
 const logger = createLogger({ component: 'BillingApprovalService' });
 

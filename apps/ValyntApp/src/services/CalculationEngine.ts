@@ -6,6 +6,7 @@
  */
 
 import { HyperFormula } from "hyperformula";
+
 import { logger } from "../lib/logger";
 
 export interface CalculationResult {

@@ -3,10 +3,11 @@
  * Accept/Edit/Reject actions, confidence badge, and source count.
  */
 
-import { useState } from "react";
 import { Check, ExternalLink, Pencil, Sparkles, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+
 import type { ResearchSuggestion } from "@/hooks/company-context/types";
+import { cn } from "@/lib/utils";
 
 interface Props {
   suggestion: ResearchSuggestion;

@@ -5,14 +5,15 @@
  * and system-wide orchestration scenarios.
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { EnhancedParallelExecutor, createParallelTask, createParallelGroup, createParallelExecutionPlan } from '../src/services/EnhancedParallelExecutor';
-import { IntelligentCoordinator } from '../src/services/IntelligentCoordinator';
-import { SecureSharedContext } from '../src/services/SecureSharedContext';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
 import { SecureMessageBus } from '../src/lib/agent-fabric/SecureMessageBus';
-import { SecurityMonitor } from '../src/services/security/SecurityMonitor';
-import { getSystemResourceMonitor } from '../src/services/monitoring/SystemResourceMonitor';
 import { AgentType } from '../src/services/agent-types';
+import { createParallelExecutionPlan, createParallelGroup, createParallelTask, EnhancedParallelExecutor } from '../src/services/EnhancedParallelExecutor';
+import { IntelligentCoordinator } from '../src/services/IntelligentCoordinator';
+import { getSystemResourceMonitor } from '../src/services/monitoring/SystemResourceMonitor';
+import { SecureSharedContext } from '../src/services/SecureSharedContext';
+import { SecurityMonitor } from '../src/services/security/SecurityMonitor';
 
 // ============================================================================
 // Mock Setup

@@ -5,8 +5,10 @@
  * Implements intelligent cache key generation and TTL management.
  */
 
-import { createClient, RedisClientType } from 'redis';
 import crypto from 'crypto';
+
+import { createClient, RedisClientType } from 'redis';
+
 import { logger } from '../utils/logger.js'
 
 export interface CacheConfig {

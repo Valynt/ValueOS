@@ -9,6 +9,7 @@
  */
 
 import { Counter, Gauge, Histogram, Register } from 'prom-client';
+
 import { logger } from '../../lib/logger';
 
 /**

@@ -9,18 +9,19 @@
  * - Rate limiting (strict by default)
  */
 
-import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter";
-import { requireAuth } from "../middleware/auth";
-import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
+import { auditLogService } from "@backend/services/AuditLogService";
 import { authService } from "@backend/services/AuthService";
-import { AuthenticationError, RateLimitError, ValidationError } from "../services/errors";
+import { Request, Response } from "express";
+
 import { createLogger } from "../lib/logger";
 import { sanitizeForLogging } from "../lib/piiFilter";
-import { auditLogService } from "@backend/services/AuditLogService";
 import { createServerSupabaseClient } from "../lib/supabase";
-import { sanitizeErrorMessage } from "../utils/security";
+import { requireAuth } from "../middleware/auth";
+import { validateRequest, ValidationSchemas } from "../middleware/inputValidation";
 import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
+import { createSecureRouter } from "../middleware/secureRouter";
+import { AuthenticationError, RateLimitError, ValidationError } from "../services/errors";
+import { sanitizeErrorMessage } from "../utils/security";
 
 const logger = createLogger({ component: "AuthAPI" });
 const router = createSecureRouter("strict");

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { createTeamsAndRoles, TenantConfig } from '../TenantProvisioning.js'
 
 // Define mocks using vi.hoisted

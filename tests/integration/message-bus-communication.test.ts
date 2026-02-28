@@ -5,15 +5,16 @@
  * and message routing functionality.
  */
 
-import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   SecureMessageBus,
   secureMessageBus,
 } from "../../src/lib/agent-fabric/SecureMessageBus";
 import { AgentIdentity, AgentRole } from "../../src/lib/auth/AgentIdentity";
-import { CircuitBreaker } from "../../src/lib/resilience/CircuitBreaker";
-import { getRedisClient } from "../../src/lib/redisClient";
 import { logger } from "../../src/lib/logger";
+import { getRedisClient } from "../../src/lib/redisClient";
+import { CircuitBreaker } from "../../src/lib/resilience/CircuitBreaker";
 
 // Mock Redis for testing
 vi.mock("../../src/lib/redisClient");

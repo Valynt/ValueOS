@@ -4,8 +4,6 @@
  * Manage value case templates - view, create, edit, delete.
  */
 
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   Check,
@@ -22,9 +20,12 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 import { DEFAULT_TEMPLATES } from '@/features/templates/defaultTemplates';
 import type { TemplateCategory, ValueCaseTemplate } from '@/features/templates/types';
+import { cn } from '@/lib/utils';
 
 const CATEGORY_CONFIG: Record<TemplateCategory, { label: string; icon: React.ComponentType<any>; color: string }> = {
   general: { label: 'General', icon: BarChart3, color: 'bg-slate-100 text-slate-600' },

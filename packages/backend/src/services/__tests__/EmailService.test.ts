@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EmailService, emailService } from '../EmailService.js'
-import { logger } from '../../lib/logger.js'
+
 import * as environmentConfig from '../../config/environment.js'
+import { logger } from '../../lib/logger.js'
+import { EmailService, emailService } from '../EmailService.js'
 
 // Mock logger
 vi.mock('../../lib/logger', () => ({

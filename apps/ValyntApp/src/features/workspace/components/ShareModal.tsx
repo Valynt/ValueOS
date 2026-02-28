@@ -4,7 +4,6 @@
  * Modal for generating and managing guest access links.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
 import {
   Check,
   Clock,
@@ -17,9 +16,11 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
+import React, { useCallback, useMemo, useState } from 'react';
+
 import { getGuestAccessService, GuestPermissions } from '@/GuestAccessService';
+import { supabase } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 
 interface ShareModalProps {
   isOpen: boolean;

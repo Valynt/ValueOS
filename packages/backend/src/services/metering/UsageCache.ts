@@ -3,12 +3,13 @@
  * Redis-backed cache for real-time usage quota checks
  */
 
+import { getEnvVar } from "@shared/lib/env";
 import { type SupabaseClient } from "@supabase/supabase-js";
+import Redis, { type RedisClientType } from "redis";
+
 import { BILLING_METRICS, USAGE_CACHE_TTL } from "../../config/billing.js"
 import type { BillingMetric } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
-import { getEnvVar } from "@shared/lib/env";
-import Redis, { type RedisClientType } from "redis";
 
 // Constants
 const PERCENTAGE_MULTIPLIER = 100;

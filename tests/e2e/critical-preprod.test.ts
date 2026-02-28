@@ -71,17 +71,17 @@ vi.mock('../../packages/backend/src/services/reasoning/AdvancedCausalEngine.js',
 // ---------------------------------------------------------------------------
 
 import { BaseAgent } from '../../packages/backend/src/lib/agent-fabric/agents/BaseAgent';
+import { CircuitBreaker } from '../../packages/backend/src/lib/agent-fabric/CircuitBreaker';
 import { LLMGateway } from '../../packages/backend/src/lib/agent-fabric/LLMGateway';
 import { MemorySystem } from '../../packages/backend/src/lib/agent-fabric/MemorySystem';
-import { CircuitBreaker } from '../../packages/backend/src/lib/agent-fabric/CircuitBreaker';
-import type { AgentConfig, AgentOutput, LifecycleContext } from '../../packages/backend/src/types/agent';
+import { MessageBus } from '../../packages/backend/src/services/MessageBus';
 import {
   ALL_WORKFLOW_DEFINITIONS,
   COMPLETE_LIFECYCLE_WORKFLOW,
   PARALLEL_LIFECYCLE_WORKFLOW,
   validateWorkflowDAG,
 } from '../../packages/backend/src/services/workflows/WorkflowDAGDefinitions';
-import { MessageBus } from '../../packages/backend/src/services/MessageBus';
+import type { AgentConfig, AgentOutput, LifecycleContext } from '../../packages/backend/src/types/agent';
 
 // ---------------------------------------------------------------------------
 // Helpers

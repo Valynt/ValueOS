@@ -3,8 +3,9 @@
  * Initialization sequence for the ValyntApp application.
  */
 
-import { getConfig, loadConfig } from "@/app/config/env";
 import { logger } from "../../lib/logger";
+
+import { getConfig, loadConfig } from "@/app/config/env";
 
 export interface BootstrapResult {
   success: boolean;

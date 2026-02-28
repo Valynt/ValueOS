@@ -5,12 +5,13 @@
  * from Together.ai API usage. Uses Redis for distributed rate limiting.
  */
 
-import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
-import { getRedisClient } from '../lib/redisClient';
-import { settings } from '../config/settings';
 import { Request, Response } from 'express';
 import { NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+
+import { settings } from '../config/settings';
+import { getRedisClient } from '../lib/redisClient';
 import { RateLimitKeyService } from '../services/RateLimitKeyService';
 import { redisCircuitBreaker } from '../services/RedisCircuitBreaker';
 import { logger } from '../utils/logger';

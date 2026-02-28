@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+
 import { isCRMUrl, parseCRMUrl } from "../crmUrlParser";
 
 describe("parseCRMUrl", () => {

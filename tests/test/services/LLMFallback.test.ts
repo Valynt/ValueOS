@@ -5,6 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { LLMFallbackService } from '../../src/services/LLMFallback';
 
 // Mock dependencies

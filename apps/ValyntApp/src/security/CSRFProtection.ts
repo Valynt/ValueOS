@@ -6,9 +6,11 @@
  */
 
 import * as React from "react";
-import { logger } from "../lib/logger";
-import { getSecurityConfig } from "./SecurityConfig";
+
 import { getConfig } from "../config/environment";
+import { logger } from "../lib/logger";
+
+import { getSecurityConfig } from "./SecurityConfig";
 
 /**
  * CSRF token configuration

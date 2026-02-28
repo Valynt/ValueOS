@@ -4,7 +4,9 @@
  */
 
 import React, { useCallback, useState } from 'react';
+
 import { logSecurityEvent, sanitizeTemplateInput, validateROIInputs, withSecurity } from '../../utils/templateSecurity';
+
 import ROICalculator from './ROICalculator';
 
 // Types with validation

@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../lib/logger.js'
+
 import { executeInWorkerSandbox } from './WorkerSandbox.js'
 
 /**

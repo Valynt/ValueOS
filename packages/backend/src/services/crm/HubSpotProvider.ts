@@ -17,8 +17,11 @@
  */
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+
 import type { Request } from 'express';
+
 import { createLogger } from '../../lib/logger.js';
+
 import type { CrmProviderInterface } from './CrmProviderInterface.js';
 import type {
   CanonicalAccount,

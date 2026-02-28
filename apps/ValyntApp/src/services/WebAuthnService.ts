@@ -10,6 +10,10 @@
  * WebAuthn provides phishing-resistant authentication
  */
 
+import type {
+  AuthenticationResponseJSON,
+  RegistrationResponseJSON,
+} from "@simplewebauthn/browser";
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -18,11 +22,9 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import type {
-  AuthenticationResponseJSON,
-  RegistrationResponseJSON,
-} from "@simplewebauthn/browser";
+
 import { logger } from "../lib/logger";
+
 import { BaseService } from "./BaseService";
 import { AuthenticationError } from "./errors";
 

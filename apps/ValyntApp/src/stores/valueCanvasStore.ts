@@ -5,10 +5,10 @@
  * Manages nodes, edges, driver values, and UI state for real-time calculations.
  */
 
-import { create } from "zustand";
-import { devtools } from "zustand/middleware";
 import { addEdge, Connection, Edge, Node } from "@xyflow/react";
 import { zundo } from "zundo";
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 
 // Types for the store
 export interface ValueDriverNode {

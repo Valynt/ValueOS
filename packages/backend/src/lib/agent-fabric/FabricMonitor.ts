@@ -1,5 +1,7 @@
 import Redis from "ioredis";
+
 import { Logger, logger } from "../logger";
+
 import { secureMessageBus } from "./SecureMessageBus";
 
 export class FabricMonitor {

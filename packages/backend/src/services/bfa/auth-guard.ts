@@ -5,9 +5,10 @@
  * Provides RBAC checks and audit logging for all BFA operations.
  */
 
-import { AgentContext, AuthorizationError } from "./types.js"
-import { toolRegistry } from "./registry.js"
 import { logger } from "../../lib/logger.js"
+
+import { toolRegistry } from "./registry.js"
+import { AgentContext, AuthorizationError } from "./types.js"
 
 /**
  * Authorization guard for enforcing access control

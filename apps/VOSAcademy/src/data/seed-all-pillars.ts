@@ -1,5 +1,6 @@
-import { getDb } from "./db";
 import { pillars, resources } from "../drizzle/schema";
+
+import { getDb } from "./db";
 
 async function seedAllPillars() {
   const db = await getDb();

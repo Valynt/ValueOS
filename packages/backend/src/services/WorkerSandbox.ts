@@ -14,6 +14,7 @@
  */
 
 import { Worker } from "node:worker_threads";
+
 import { createLogger } from "@shared/lib/logger";
 
 const logger = createLogger({ component: "WorkerSandbox" });

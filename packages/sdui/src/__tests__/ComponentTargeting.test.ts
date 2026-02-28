@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
+
 import { ComponentTargeting } from "../ComponentTargeting";
 import { SDUIPageDefinition } from "../schema";
 

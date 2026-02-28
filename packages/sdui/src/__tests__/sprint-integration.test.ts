@@ -6,11 +6,12 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { migrateSchema, MigrationResult, migrationRunner, validateMigration } from "../migrations";
+
+import { CacheFactory, globalCache } from "../cache";
 import { ComponentErrorBoundary } from "../components/ComponentErrorBoundary";
 import { fallbackRegistry, withFallback } from "../components/FallbackComponentRegistry";
+import { migrateSchema, MigrationResult, migrationRunner, validateMigration } from "../migrations";
 import { resolveComponent, versionedRegistry } from "../registry";
-import { CacheFactory, globalCache } from "../cache";
 import { validateSDUISchema } from "../schema";
 
 // Mock React for testing

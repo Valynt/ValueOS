@@ -1,4 +1,4 @@
-/* eslint-disable import/no-unresolved, import/order, import/no-internal-modules */
+ 
 /**
  * Shared TypeScript types and schemas for Server-Driven UI (SDUI) JSON payloads
  *

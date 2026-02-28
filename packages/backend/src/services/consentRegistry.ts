@@ -1,6 +1,6 @@
 import { settings } from "../config/settings.js";
-import { createServerSupabaseClient } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
+import { createServerSupabaseClient } from "../lib/supabase.js";
 import type { ConsentRegistry } from "../types/consent";
 
 const CONSENT_TABLE = "user_consents";

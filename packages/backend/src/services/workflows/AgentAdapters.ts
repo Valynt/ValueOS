@@ -5,9 +5,10 @@ import {
   OpportunityAgentInterface,
   RedTeamLLMGateway
 } from "@valueos/agents";
+import { z } from "zod";
+
 import { LLMGateway } from "../../lib/agent-fabric/LLMGateway.js";
 import { logger } from "../../lib/logger.js";
-import { z } from "zod";
 
 /**
  * Adapter for RedTeamAgent to use the core LLMGateway.

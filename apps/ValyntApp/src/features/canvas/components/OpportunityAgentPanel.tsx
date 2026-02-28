@@ -1,10 +1,12 @@
+import { Check, Edit2, X } from "lucide-react";
 import React, { useState } from "react";
+
+import { logger } from "../../../lib/logger";
 import { useAgent } from "../../agents/hooks/useAgent";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Check, Edit2, X } from "lucide-react";
-import { logger } from "../../../lib/logger";
 
 interface OpportunityAgentPanelProps {
   agentId: string;

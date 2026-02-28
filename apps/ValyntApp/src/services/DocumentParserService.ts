@@ -5,11 +5,11 @@
  * and extracting insights via LLM.
  */
 
-import { supabase } from '../lib/supabase';
-import { logger } from '../lib/logger';
+import { llmConfig } from '../config/llm';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
-import { llmConfig } from '../config/llm';
+import { logger } from '../lib/logger';
+import { supabase } from '../lib/supabase';
 
 // ============================================================================
 // Types

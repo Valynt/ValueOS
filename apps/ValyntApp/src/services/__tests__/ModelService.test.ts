@@ -1,10 +1,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ModelService } from '../ModelService';
-import { auditLogService } from '../AuditLogService';
-import { userSettingsService } from '../UserSettingsService';
+
 import { LifecycleContext } from '../../types/agent';
 import { TargetAgentOutput } from '../../types/vos';
+import { auditLogService } from '../AuditLogService';
+import { ModelService } from '../ModelService';
+import { userSettingsService } from '../UserSettingsService';
 
 // Mock dependencies
 vi.mock('../AuditLogService', () => ({

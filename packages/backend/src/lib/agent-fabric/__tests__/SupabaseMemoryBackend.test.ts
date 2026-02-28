@@ -4,8 +4,8 @@ vi.mock("../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { SupabaseMemoryBackend } from "../SupabaseMemoryBackend";
 import type { Memory } from "../MemorySystem";
+import { SupabaseMemoryBackend } from "../SupabaseMemoryBackend";
 
 const ORG_ID = "org-test-456";
 

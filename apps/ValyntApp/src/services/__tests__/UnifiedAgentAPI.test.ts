@@ -8,13 +8,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { getEnvVar } from '../../lib/env';
 import {
   getUnifiedAgentAPI,
   resetUnifiedAgentAPI,
   UnifiedAgentAPI,
   UnifiedAgentRequest,
 } from '../UnifiedAgentAPI';
-import { getEnvVar } from '../../lib/env';
 
 // Mock fetch
 global.fetch = vi.fn();

@@ -5,9 +5,10 @@
  * Supports channel subscriptions, data transformations, and automatic reconnection.
  */
 
-import { WebSocketManager } from "./WebSocketManager";
 import { DataBinding, ResolvedBinding } from "../DataBindingSchema";
 import { DataSourceContext } from "../DataBindingSchema";
+
+import { WebSocketManager } from "./WebSocketManager";
 
 /**
  * Real-time data binding configuration

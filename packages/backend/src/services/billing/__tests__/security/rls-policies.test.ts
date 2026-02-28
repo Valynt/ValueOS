@@ -8,7 +8,15 @@
 
 // @vitest-environment node
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  createBillingCustomer,
+  createInvoice,
+  createSubscription,
+  createUsageEvent,
+} from "../__helpers__/billing-factories";
 import {
   cleanupBillingTables,
   createTestUser,
@@ -16,13 +24,6 @@ import {
   getTestSupabaseClient,
   seedTestData,
 } from "../__helpers__/db-helpers";
-import {
-  createBillingCustomer,
-  createInvoice,
-  createSubscription,
-  createUsageEvent,
-} from "../__helpers__/billing-factories";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("RLS Policy Security Tests", () => {
   let supabase: SupabaseClient;

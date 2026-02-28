@@ -4,9 +4,9 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import jwt from "jsonwebtoken";
 import { afterEach, beforeEach } from "vitest";
 // Node 20+ provides global fetch, Headers, Request, Response
-import jwt from "jsonwebtoken";
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";

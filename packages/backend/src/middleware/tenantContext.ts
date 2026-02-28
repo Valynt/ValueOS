@@ -1,12 +1,14 @@
-import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import { AsyncLocalStorage } from "async_hooks";
+
 import { createLogger } from "@shared/lib/logger";
 import {
   getUserTenantId,
   verifyTenantExists,
   verifyTenantMembership,
 } from "@shared/lib/tenantVerification";
+import { NextFunction, Request, Response } from "express";
+import jwt from "jsonwebtoken";
+
 import { validateEnv } from "../config/validateEnv.js"
 
 const logger = createLogger({ component: "TenantContextMiddleware" });

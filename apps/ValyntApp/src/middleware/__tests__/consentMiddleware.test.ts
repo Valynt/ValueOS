@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { requireConsent } from '../consentMiddleware';
+import { describe, expect, it, vi } from 'vitest';
+
 import type { ConsentRegistry } from '../../types/consent';
+import { requireConsent } from '../consentMiddleware';
 
 describe('requireConsent', () => {
   it('blocks requests when consent is denied', async () => {

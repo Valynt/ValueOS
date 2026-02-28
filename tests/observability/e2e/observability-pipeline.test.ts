@@ -3,19 +3,20 @@
  * Tests the complete flow: Application → Traces → Logs → Metrics → Grafana
  */
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { LokiClient } from "../helpers/loki-client";
-import { TempoClient } from "../helpers/tempo-client";
-import { PrometheusClient } from "../helpers/prometheus-client";
-import axios from "axios";
 import { trace } from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { Resource } from "@opentelemetry/resources";
 import {
   BasicTracerProvider,
   BatchSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { Resource } from "@opentelemetry/resources";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
+import axios from "axios";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { LokiClient } from "../helpers/loki-client";
+import { PrometheusClient } from "../helpers/prometheus-client";
+import { TempoClient } from "../helpers/tempo-client";
 
 describe("Observability Pipeline - E2E Tests", () => {
   let lokiClient: LokiClient;

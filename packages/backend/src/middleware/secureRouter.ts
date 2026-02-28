@@ -1,13 +1,14 @@
 import { Router } from 'express';
+
+import { rateLimiters, RateLimitTier, type RateLimitTierValue } from './rateLimiter.js'
+import { requestAuditMiddleware } from './requestAuditMiddleware.js'
 import {
   csrfProtectionMiddleware,
   csrfTokenMiddleware,
   securityHeadersMiddleware,
 } from './securityMiddleware';
-import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware.js'
 import { serviceIdentityMiddleware } from './serviceIdentityMiddleware.js'
-import { rateLimiters, RateLimitTier, type RateLimitTierValue } from './rateLimiter.js'
-import { requestAuditMiddleware } from './requestAuditMiddleware.js'
+import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware.js'
 
 /**
  * Factory for new routers with standard security middlewares pre-applied.

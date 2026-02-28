@@ -15,8 +15,8 @@
  *   DURATION        — test duration (default 2m)
  */
 
+import { check, group, sleep } from "k6";
 import http from "k6/http";
-import { check, sleep, group } from "k6";
 import { Rate, Trend } from "k6/metrics";
 
 // ── custom metrics ──────────────────────────────────────────────────────────

@@ -3,10 +3,11 @@
  * Emits usage events after requests complete
  */
 
-import { NextFunction, Request, Response } from 'express';
-import UsageEmitter from '../services/metering/UsageEmitter';
-import { v4 as uuidv4 } from 'uuid';
 import { createLogger } from '@shared/lib/logger';
+import { NextFunction, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+
+import UsageEmitter from '../services/metering/UsageEmitter';
 
 const logger = createLogger({ component: 'UsageTrackingMiddleware' });
 

@@ -4,20 +4,11 @@
  * Tests for error mapping, masking, and middleware behavior.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import express, { Express, NextFunction, Request, Response } from 'express';
 import request from 'supertest';
-import {
-  accessLogMiddleware,
-  asyncHandler,
-  buildErrorEnvelope,
-  ErrorEnvelope,
-  globalErrorHandler,
-  notFoundHandler,
-  requestIdMiddleware,
-  TrackedRequest,
-  transformError,
-} from '../globalErrorHandler';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ZodError } from 'zod';
+
 import {
   AppError,
   ConflictError,
@@ -31,7 +22,17 @@ import {
   UnauthorizedError,
   ValidationError,
 } from '../../lib/errors';
-import { ZodError } from 'zod';
+import {
+  accessLogMiddleware,
+  asyncHandler,
+  buildErrorEnvelope,
+  ErrorEnvelope,
+  globalErrorHandler,
+  notFoundHandler,
+  requestIdMiddleware,
+  TrackedRequest,
+  transformError,
+} from '../globalErrorHandler';
 
 // Mock logger
 vi.mock('../../lib/logger', () => ({

@@ -3,9 +3,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DomainValidator } from '../src/validator';
+
 import { domainCache } from '../src/cache';
 import { domainDatabase } from '../src/database';
+import { DomainValidator } from '../src/validator';
 
 // Mock dependencies
 vi.mock('../src/cache', () => ({

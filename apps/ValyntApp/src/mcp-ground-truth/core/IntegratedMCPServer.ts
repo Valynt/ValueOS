@@ -11,13 +11,14 @@
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
-import { MCPFinancialGroundTruthServer } from "./MCPServer";
-import { StructuralTruth } from "../../structural/structural-truth";
-import CausalTruth from "../../causal/causal-truth-enhanced";
-import { EnhancedBusinessCaseGenerator } from "../../causal/business-case-generator-enhanced";
-import { ReasoningEngine } from "../../reasoning/reasoning-engine";
 import { AuditTrailManager, ComplianceMonitor } from "../../app/routes/audit/audit-trail";
+import { EnhancedBusinessCaseGenerator } from "../../causal/business-case-generator-enhanced";
+import CausalTruth from "../../causal/causal-truth-enhanced";
 import { logger } from "../../lib/logger";
+import { ReasoningEngine } from "../../reasoning/reasoning-engine";
+import { StructuralTruth } from "../../structural/structural-truth";
+
+import { MCPFinancialGroundTruthServer } from "./MCPServer";
 
 interface IntegratedMCPServerConfig {
   // Base MCP configuration

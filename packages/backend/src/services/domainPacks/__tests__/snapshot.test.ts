@@ -1,4 +1,11 @@
 import { describe, expect, it } from 'vitest';
+
+import type {
+  DomainPack,
+  DomainPackAssumption,
+  DomainPackKpi,
+  EffectiveDomainPack,
+} from '../../../api/domainPacks/types.js';
 import {
   detectDrift,
   effectiveFromSnapshot,
@@ -8,12 +15,6 @@ import {
   snapshotPack,
 } from '../snapshot.js';
 import type { DomainPackSnapshot } from '../snapshot.js';
-import type {
-  DomainPack,
-  DomainPackAssumption,
-  DomainPackKpi,
-  EffectiveDomainPack,
-} from '../../../api/domainPacks/types.js';
 
 // ============================================================================
 // Fixtures

@@ -11,9 +11,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { LLMGateway } from '../../../src/lib/agent-fabric/LLMGateway';
 import { MemorySystem } from '../../../src/lib/agent-fabric/MemorySystem';
 import { createBoltClientMock } from '../../mocks/mockSupabaseClient';
-import { LLMGateway } from '../../../src/lib/agent-fabric/LLMGateway';
 
 describe('MemorySystem - Tenant Isolation', () => {
   let memorySystem: MemorySystem;

@@ -36,7 +36,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+
 import { certifications, maturityAssessments, pillars, progress, quizQuestions, quizResults, resources, simulationAttempts, simulationScenarios, users, } from "../drizzle/schema";
+
 import { ENV } from './_core/env';
 var _db = null;
 // Lazily create the drizzle instance so local tooling can run without a DB.

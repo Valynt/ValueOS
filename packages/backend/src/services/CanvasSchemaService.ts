@@ -5,8 +5,6 @@
  * This is the "brain" of the SDUI system that decides what UI to show.
  */
 
-import { logger } from "../lib/logger.js"
-import { SDUIComponentSection, SDUIPageDefinition } from "@sdui/schema";
 import {
   AddComponentAction,
   AtomicUIAction,
@@ -17,6 +15,16 @@ import {
   ReorderComponentsAction,
   UpdateLayoutAction,
 } from "@sdui/AtomicUIActions";
+import { SDUIComponentSection, SDUIPageDefinition } from "@sdui/schema";
+import { generateSOFExpansionPage } from "@sdui/templates/sof-expansion-template";
+import { generateSOFIntegrityPage } from "@sdui/templates/sof-integrity-template";
+import { generateSOFOpportunityPage } from "@sdui/templates/sof-opportunity-template";
+import { generateSOFRealizationPage } from "@sdui/templates/sof-realization-template";
+import { generateSOFTargetPage } from "@sdui/templates/sof-target-template";
+
+import { hashObject, shortHash } from "../lib/contentHash";
+import { logger } from "../lib/logger.js"
+import { getSupabaseClient } from "../lib/supabase.js"
 import {
   ActionResult,
   ActionType,
@@ -26,23 +34,17 @@ import {
   WorkspaceData,
   WorkspaceState,
 } from "../types/sdui-integration";
-import { LifecycleStage } from "../types/workflow";
-import { CacheService } from "./CacheService.js"
-import { ValueFabricService } from "./ValueFabricService.js"
-import { getSupabaseClient } from "../lib/supabase.js"
-import { generateSOFOpportunityPage } from "@sdui/templates/sof-opportunity-template";
-import { generateSOFTargetPage } from "@sdui/templates/sof-target-template";
-import { generateSOFExpansionPage } from "@sdui/templates/sof-expansion-template";
-import { generateSOFIntegrityPage } from "@sdui/templates/sof-integrity-template";
-import { generateSOFRealizationPage } from "@sdui/templates/sof-realization-template";
-import { hashObject, shortHash } from "../lib/contentHash";
-import { ROIFormulaInterpreter } from "./ROIFormulaInterpreter.js"
-import { ROIModel, ROIModelCalculation } from "../types/vos";
-import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
+import { OutcomeHypothesis } from "../types/sof";
+import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from "../types/structural-data";
 import { VMRTAssumption } from "../types/vmrt";
 import { ManifestoValidationResult } from "../types/vos";
-import { EXTENDED_STRUCTURAL_PERSONA_MAPS } from "../types/structural-data";
-import { OutcomeHypothesis } from "../types/sof";
+import { ROIModel, ROIModelCalculation } from "../types/vos";
+import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
+import { LifecycleStage } from "../types/workflow";
+
+import { CacheService } from "./CacheService.js"
+import { ROIFormulaInterpreter } from "./ROIFormulaInterpreter.js"
+import { ValueFabricService } from "./ValueFabricService.js"
 
 
 /**

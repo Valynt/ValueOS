@@ -1,5 +1,5 @@
-import { CanvasComponent } from '../types';
 import { Suggestion } from '../components/Agent/SuggestionCard';
+import { CanvasComponent } from '../types';
 
 export interface SuggestionContext {
   components: CanvasComponent[];

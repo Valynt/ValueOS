@@ -6,9 +6,9 @@
  * without re-applying mutations.
  */
 
+import { AtomicUIAction } from "./AtomicUIActions";
 import { SDUIPageDefinition, SDUISection } from "./schema";
 import { SchemaDelta, SchemaPatcher } from "./SchemaPatcher";
-import { AtomicUIAction } from "./AtomicUIActions";
 
 export interface ActionExecutionResult {
   success: boolean;

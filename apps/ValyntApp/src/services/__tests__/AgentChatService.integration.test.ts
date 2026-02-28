@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AgentChatService } from '../AgentChatService';
+
 import { WorkflowStateRepository } from '../../repositories/WorkflowStateRepository';
+import { AgentChatService } from '../AgentChatService';
 
 // Mocks
 vi.mock('../../lib/agent-fabric/LLMGateway', () => ({

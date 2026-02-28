@@ -7,11 +7,13 @@
  */
 
 import { createHash } from 'node:crypto';
-import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import { createLogger } from '../../lib/logger.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+import { auditLogService } from '../AuditLogService.js';
+
 import { crmConnectionService } from './CrmConnectionService.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
-import { auditLogService } from '../AuditLogService.js';
 import type {
   CanonicalOpportunity,
   CrmProvider,

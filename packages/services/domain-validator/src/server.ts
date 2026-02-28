@@ -6,10 +6,11 @@
  */
 
 import express, { NextFunction, Request, Response } from 'express';
+
 import { config, validateConfig } from './config';
+import { domainDatabase } from './database';
 import { logger } from './logger';
 import { domainValidator } from './validator';
-import { domainDatabase } from './database';
 
 // Validate configuration on startup
 try {

@@ -5,10 +5,10 @@
  * Extracts sentiment, stakeholders, key asks, and suggests next steps.
  */
 
-import { logger } from '../lib/logger';
-import type TaskContext from '../lib/agent-fabric/TaskContext';
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { llmConfig } from '../config/llm';
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import type TaskContext from '../lib/agent-fabric/TaskContext';
+import { logger } from '../lib/logger';
 
 // ============================================================================
 // Types

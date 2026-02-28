@@ -5,12 +5,14 @@
  * Provides centralized state management for SDUI workspaces.
  */
 
+import { EventEmitter } from 'events';
+
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { WorkspaceState } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
+
 import { CacheService } from './CacheService';
-import { EventEmitter } from 'events';
 
 /**
  * State change callback

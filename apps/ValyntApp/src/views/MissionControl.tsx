@@ -1,4 +1,3 @@
-import React, { useMemo, useState } from "react";
 import {
   ArrowRight,
   FileBox,
@@ -9,17 +8,19 @@ import {
   Plus,
   Search,
 } from "lucide-react";
+import React, { useMemo, useState } from "react";
 import { createSearchParams, useNavigate } from "react-router-dom";
-import { Button } from "@/components/Common/Button";
+
 import { ActionCard } from "@/components/Common/ActionCard";
+import { Button } from "@/components/Common/Button";
 
 // Modals
-import { SalesCallModal } from "@/components/Modals/SalesCallModal";
 import { CRMImportModal } from "@/components/Modals/CRMImportModal";
-import { UploadNotesModal } from "@/components/Modals/UploadNotesModal";
 import { EmailAnalysisModal } from "@/components/Modals/EmailAnalysisModal";
 import { ResearchCompanyModal } from "@/components/Modals/ResearchCompanyModal";
+import { SalesCallModal } from "@/components/Modals/SalesCallModal";
 import { TemplateSelectorModal } from "@/components/Modals/TemplateSelectorModal";
+import { UploadNotesModal } from "@/components/Modals/UploadNotesModal";
 
 type ActiveModal =
   | null

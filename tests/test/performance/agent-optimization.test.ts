@@ -5,13 +5,14 @@
  * including intelligent routing, context sharing, and parallel execution.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getIntelligentCoordinator } from '../../src/services/IntelligentCoordinator';
-import { getSecureSharedContext } from '../../src/services/SecureSharedContext';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { AgentType } from '../../src/services/agent-types';
 import { getCategorizedCircuitBreakerManager } from '../../src/services/CircuitBreakerManager';
 import { getContextOptimizer } from '../../src/services/ContextOptimizer';
 import { getEnhancedParallelExecutor } from '../../src/services/EnhancedParallelExecutor';
-import { AgentType } from '../../src/services/agent-types';
+import { getIntelligentCoordinator } from '../../src/services/IntelligentCoordinator';
+import { getSecureSharedContext } from '../../src/services/SecureSharedContext';
 
 // ============================================================================
 // Test Utilities

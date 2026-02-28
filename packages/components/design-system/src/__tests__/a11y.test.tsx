@@ -1,7 +1,8 @@
-import React from "react";
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 import { axe, toHaveNoViolations } from "jest-axe";
+import React from "react";
+import { describe, expect, it } from "vitest";
+
 import { Button } from "../primitives/Button";
 import { Input } from "../primitives/Input";
 

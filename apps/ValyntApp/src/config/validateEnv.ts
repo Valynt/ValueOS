@@ -7,9 +7,10 @@
  * Architecture: Strict typing, fail-fast in production, warnings in development
  */
 
-import { llmConfig } from "./llm";
 import type { LLMProvider } from "../lib/agent-fabric/llm-types";
 import { createLogger } from "../lib/logger";
+
+import { llmConfig } from "./llm";
 
 const validationLogger = createLogger({ component: "EnvValidation" });
 

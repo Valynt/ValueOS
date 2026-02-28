@@ -9,6 +9,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { WorkflowState } from '../../repositories/WorkflowStateRepository';
 import {
   getUnifiedOrchestrator,
   ProcessQueryResult,
@@ -16,7 +18,6 @@ import {
   TaskPlanResult,
   UnifiedAgentOrchestrator,
 } from '../UnifiedAgentOrchestrator';
-import { WorkflowState } from '../../repositories/WorkflowStateRepository';
 
 const testEnvelope = {
   intent: 'unit-test',

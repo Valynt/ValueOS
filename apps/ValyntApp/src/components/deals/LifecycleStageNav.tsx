@@ -5,7 +5,6 @@
  * Shows progress through Discovery -> Modeling -> Realization -> Expansion
  */
 
-import React from 'react';
 import {
   Check,
   ChevronRight,
@@ -14,6 +13,8 @@ import {
   Target,
   TrendingUp,
 } from 'lucide-react';
+import React from 'react';
+
 import { cn } from '@/lib/utils';
 import type { LifecycleStage } from '@/types/vos';
 

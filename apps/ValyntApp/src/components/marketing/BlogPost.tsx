@@ -1,10 +1,16 @@
+import { ArrowLeft, Calendar, Clock, Share2, Tag } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, Share2, Tag } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { SafeHtml } from '../security/SafeHtml';
-import { SEO } from './SEO';
+
 import { logger } from "../../lib/logger";
+import { SafeHtml } from '../security/SafeHtml';
+
+import { SEO } from './SEO';
+
+import { supabase } from '@/lib/supabase';
+
+
+
 
 interface BlogPostData {
   id: string;

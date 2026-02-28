@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import Header from '../components/Layout/Header';
 import { ChevronDown, Edit2, GripVertical, Plus, Sparkles, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+
 import AgentBadge from '../components/Agents/AgentBadge';
-import ConfidenceIndicator from '../components/Agents/ConfidenceIndicator';
 import ChallengeCard from '../components/Agents/ChallengeCard';
+import ConfidenceIndicator from '../components/Agents/ConfidenceIndicator';
+import Header from '../components/Layout/Header';
 import { Challenge } from '../types/agents';
 
 const drivers = [

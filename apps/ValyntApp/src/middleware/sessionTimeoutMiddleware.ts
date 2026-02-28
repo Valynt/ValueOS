@@ -9,12 +9,14 @@
 
 import { NextFunction, Request, Response } from 'express';
 import { JwtPayload } from 'jsonwebtoken';
-import { verifyAccessToken } from './auth';
+
 import {
   ABSOLUTE_TIMEOUT_MS,
   CLOCK_SKEW_MS,
   IDLE_TIMEOUT_MS,
 } from '../security/sessionTimeoutConfig';
+
+import { verifyAccessToken } from './auth';
 
 // Session configuration
 const SESSION_CONFIG = {

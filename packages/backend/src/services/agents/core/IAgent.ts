@@ -7,8 +7,8 @@
  * Replaces fragmented agent patterns across the codebase with a unified approach.
  */
 
-import { AgentType } from "../../agent-types.js";
 import { ConfidenceLevel } from "../../../types/agent";
+import { AgentType } from "../../agent-types.js";
 
 // ============================================================================
 // Core Types

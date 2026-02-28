@@ -11,9 +11,9 @@
  *
  * Node Mapping: [NODE: Unified_Truth_Layer], [NODE: Data_Tier_Resolver]
  */
-import { ErrorCodes, GroundTruthError, } from "../types";
 import { logger } from "../../lib/logger";
 import { ClaimExtractor } from "../services/ClaimExtractor";
+import { ErrorCodes, GroundTruthError, } from "../types";
 /**
  * Unified Truth Layer
  *

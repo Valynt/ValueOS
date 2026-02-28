@@ -4,11 +4,12 @@
  */
 
 import express, { Request, Response } from "express";
-import CustomerService from "../../services/billing/CustomerService";
-import StripeService from "../../services/billing/StripeService";
+
 import { PLANS, type PlanTier } from "../../config/billing";
 import { createLogger } from "../../lib/logger";
 import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware";
+import CustomerService from "../../services/billing/CustomerService";
+import StripeService from "../../services/billing/StripeService";
 
 const router = express.Router();
 const logger = createLogger({ component: "BillingCheckoutAPI" });

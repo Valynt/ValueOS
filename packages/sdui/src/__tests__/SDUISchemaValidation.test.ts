@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { validateSDUISchema } from '../../sdui/schema';
 import { IntegrityTemplate, OpportunityTemplate } from '../../sdui/templates';
 

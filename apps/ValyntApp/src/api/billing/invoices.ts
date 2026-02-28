@@ -4,10 +4,11 @@
  */
 
 import express, { Request, Response } from 'express';
-import InvoiceService from '../../services/billing/InvoiceService';
+
 import { createLogger } from '../../lib/logger';
 import { auditDataExport } from '../../middleware/auditHooks';
 import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
+import InvoiceService from '../../services/billing/InvoiceService';
 
 const router = express.Router();
 const logger = createLogger({ component: 'InvoicesAPI' });

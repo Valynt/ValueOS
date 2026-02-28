@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { IntegrationConnectionService } from "../IntegrationConnectionService.js";
+
 import { AuthorizationError, ValidationError } from "../errors.js";
+import { IntegrationConnectionService } from "../IntegrationConnectionService.js";
 
 const mockLogger = {
   info: vi.fn(),

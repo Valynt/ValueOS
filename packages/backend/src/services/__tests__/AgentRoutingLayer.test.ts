@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+
 import { AgentRegistry } from '../../services/AgentRegistry.js'
 import { AgentRoutingLayer } from '../../services/AgentRoutingLayer.js'
 import { AgentRoutingScorer } from '../../services/AgentRoutingScorer.js'

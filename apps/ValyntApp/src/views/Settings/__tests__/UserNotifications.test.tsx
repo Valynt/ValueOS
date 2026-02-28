@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UserNotifications } from '../UserNotifications';
+
 import * as settingsRegistry from '../../../lib/settingsRegistry';
+import { UserNotifications } from '../UserNotifications';
 
 // Mock the settingsRegistry module
 vi.mock('../../../lib/settingsRegistry', () => ({

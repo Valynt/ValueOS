@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { ServiceUnavailableError } from '../errors.js'
 import {
   CircuitOpenError,

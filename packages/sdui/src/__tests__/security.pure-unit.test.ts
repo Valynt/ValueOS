@@ -66,6 +66,13 @@ function expect(actual: unknown) {
 
 // Import security modules
 import {
+  checkCriticalThresholds,
+  getMetricSummary,
+  getSecurityMetrics,
+  incrementSecurityMetric,
+  resetSecurityMetrics,
+} from '../security/metrics.js';
+import {
   getXSSStats,
   resetXSSStats,
   runSanitizationSelfTest,
@@ -73,13 +80,6 @@ import {
   sanitizeString,
   XSS_TEST_VECTORS,
 } from '../security/sanitization.js';
-import {
-  checkCriticalThresholds,
-  getMetricSummary,
-  getSecurityMetrics,
-  incrementSecurityMetric,
-  resetSecurityMetrics,
-} from '../security/metrics.js';
 
 // Test Suite
 async function runTests() {

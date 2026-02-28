@@ -5,10 +5,11 @@
  * and maintains data integrity across multiple runs.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import UsageAggregator from '../services/metering/UsageAggregator.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { BillingMetric } from '../../config/billing.js';
+import UsageAggregator from '../services/metering/UsageAggregator.js';
 
 // Mock Supabase client
 const mockSupabase = {

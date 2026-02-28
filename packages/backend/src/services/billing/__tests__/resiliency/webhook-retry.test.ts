@@ -6,16 +6,17 @@
  * preventing duplicate charges and missing payments.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { createWebhookEvent } from "../__helpers__/billing-factories.js"
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
   waitForCondition,
 } from "../__helpers__/db-helpers";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"
-import { createWebhookEvent } from "../__helpers__/billing-factories.js"
 import { delay } from "../__helpers__/test-fixtures.js"
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Webhook Retry and Idempotency Tests", () => {
   let supabase: SupabaseClient;

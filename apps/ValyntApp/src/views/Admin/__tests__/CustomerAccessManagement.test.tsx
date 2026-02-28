@@ -1,9 +1,11 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+
 import { CustomerAccessManagement } from "../CustomerAccessManagement";
-import { valueCaseService } from "@/services/ValueCaseService";
+
 import { customerAccessService } from "@/services/CustomerAccessService";
+import { valueCaseService } from "@/services/ValueCaseService";
 
 vi.mock("@/services/ValueCaseService", () => ({
   valueCaseService: {

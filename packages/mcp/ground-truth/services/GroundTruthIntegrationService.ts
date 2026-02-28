@@ -4,10 +4,10 @@
  * Orchestrates automated ingestion of authoritative financial data from SEC EDGAR, BLS, and other sources.
  * Ensures provenance, error handling, and multi-tenant scoping for all ingested records.
  */
-import { EDGARModule } from "../modules/EDGARModule.js";
-import { XBRLModule } from "../modules/XBRLModule.js";
-import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule.js";
 import { logger } from "../../lib/logger.js";
+import { EDGARModule } from "../modules/EDGARModule.js";
+import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule.js";
+import { XBRLModule } from "../modules/XBRLModule.js";
 
 export class GroundTruthIntegrationService {
   private edgar: EDGARModule;

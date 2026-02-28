@@ -5,22 +5,25 @@
  * Shows a summary of changes and tracks review progress.
  */
 
-import { useState } from "react";
 import {
-  Eye,
-  CheckCircle2,
-  XCircle,
-  ChevronRight,
-  FileText,
   BarChart3,
-  Table2,
   BookOpen,
+  CheckCircle2,
+  ChevronRight,
+  Eye,
+  FileText,
+  Table2,
+  XCircle,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { useState } from "react";
+
 import type { Artifact, ArtifactType } from "../../agent/types";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 
 interface ReviewDiffPanelProps {
   artifacts: Artifact[];

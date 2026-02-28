@@ -5,8 +5,9 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { logger } from "../../lib/logger";
+
 import { PlanTier } from "../../config/billing";
+import { logger } from "../../lib/logger";
 import { getSupabaseClient } from '../../lib/supabase';
 
 class TransactionalSubscriptionService {

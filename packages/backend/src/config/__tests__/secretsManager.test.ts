@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SecretsManager } from '../secretsManager.js'
+
 import { StructuredSecretAuditLogger } from '../secrets/SecretAuditLogger.js'
+import { SecretsManager } from '../secretsManager.js'
 
 vi.mock('@aws-sdk/client-secrets-manager', () => ({
   SecretsManagerClient: vi.fn().mockImplementation(() => ({

@@ -12,6 +12,8 @@
  * Node Mapping: [NODE: Unified_Truth_Layer], [NODE: Data_Tier_Resolver]
  */
 
+import { logger } from "../../lib/logger";
+import { ClaimExtractor } from "../services/ClaimExtractor";
 import {
   ConfidenceTier,
   ErrorCodes,
@@ -23,8 +25,6 @@ import {
   TruthResolutionRequest,
   TruthResolutionResult,
 } from "../types";
-import { logger } from "../../lib/logger";
-import { ClaimExtractor } from "../services/ClaimExtractor";
 
 interface UnifiedTruthConfig {
   enableFallback: boolean; // Allow fallback to lower tiers

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -14,6 +13,8 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import { useState } from "react";
+
 import { cn } from "@/lib/utils";
 
 // Collapsible section

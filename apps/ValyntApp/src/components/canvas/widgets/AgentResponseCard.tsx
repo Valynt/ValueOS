@@ -4,6 +4,7 @@
  */
 
 import { Sparkles } from "lucide-react";
+
 import type { WidgetProps } from "../CanvasHost";
 
 interface ValueDriver {

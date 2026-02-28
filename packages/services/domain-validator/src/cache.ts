@@ -3,8 +3,8 @@
  * Reduces database load by caching verified domains
  */
 
-import { logger } from './logger';
 import { config } from './config';
+import { logger } from './logger';
 
 interface CacheEntry {
   verified: boolean;

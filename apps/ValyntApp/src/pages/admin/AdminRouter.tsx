@@ -10,6 +10,7 @@
 
 import React, { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+
 import { AdminLayout } from './AdminLayout';
 
 // Existing pages that map to new routes

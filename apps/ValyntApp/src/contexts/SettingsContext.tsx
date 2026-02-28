@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import { SettingsContextType, SettingsPermission, UserPermissions } from "../legacy-migrated/types";
 import { settingsRegistry } from "../lib/settingsRegistry";
 

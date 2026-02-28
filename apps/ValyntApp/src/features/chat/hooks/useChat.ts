@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
-import type { ChatMessage } from "../types";
+
 import { api } from "../../../api/client/unified-api-client";
+import type { ChatMessage } from "../types";
 
 export function useChat(_sessionId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

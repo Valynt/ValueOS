@@ -4,11 +4,11 @@
  * Analyzes company profile, stakeholders, strategic priorities, and decision patterns.
  */
 
-import { AgentConfig, BaseAgent } from "../BaseAgent";
-import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
-import { AgentType } from "../../../types/agents";
 import { z } from "zod";
 
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
+import { AgentType } from "../../../types/agents";
+import { AgentConfig, BaseAgent } from "../BaseAgent";
 import {
   assertHighConfidence,
   assertProvenance,

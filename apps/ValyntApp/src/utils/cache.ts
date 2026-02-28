@@ -323,5 +323,6 @@ export const useCache = <T>(key: string, factory: () => Promise<T>, options: Cac
   return { data, loading, error, invalidate };
 };
 
-import { logger } from "../lib/logger";
 import * as React from "react";
+
+import { logger } from "../lib/logger";

@@ -1,9 +1,9 @@
-import express from 'express';
+import { createClient } from '@supabase/supabase-js';
 import cors from 'cors';
+import dotenv from 'dotenv';
+import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
 
 // Load environment variables
 dotenv.config();

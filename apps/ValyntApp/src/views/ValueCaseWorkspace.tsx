@@ -13,9 +13,9 @@ import { useParams } from "react-router-dom";
 
 import { CanvasHost, type SDUIWidget } from "@/components/canvas";
 import { AgentStatusIndicator } from "@/components/orchestration/AgentStatusIndicator";
+import { useTenant } from "@/contexts/TenantContext";
 import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
 import { useCanvasState } from "@/hooks/useCanvasState";
-import { useTenant } from "@/contexts/TenantContext";
 
 /**
  * Default widget layout when no server-driven layout is available.

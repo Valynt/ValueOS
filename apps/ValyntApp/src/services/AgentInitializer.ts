@@ -7,9 +7,10 @@
  * SEC-004: Uses secure logger to prevent sensitive data leakage
  */
 
-import { AgentAPI, AgentType } from "./AgentAPI";
 import { getConfig, isProduction } from "../config/environment";
 import { logger } from "../lib/logger";
+
+import { AgentAPI, AgentType } from "./AgentAPI";
 
 /**
  * Agent health status

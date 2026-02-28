@@ -3,9 +3,10 @@
  * Provides comprehensive input sanitization and validation for API endpoints
  */
 
-import { NextFunction, Request, Response } from 'express';
 import { createLogger } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
+import { NextFunction, Request, Response } from 'express';
+
 import { validatePassword } from '../utils/security.js';
 
 const logger = createLogger({ component: 'InputValidation' });

@@ -10,6 +10,7 @@
  * Security: IL4 with API key rotation
  */
 
+import { logger } from '../../lib/logger';
 import { BaseModule } from '../core/BaseModule';
 import {
   ErrorCodes,
@@ -20,7 +21,6 @@ import {
   ModuleRequest,
   ModuleResponse,
 } from '../types';
-import { logger } from '../../lib/logger';
 
 interface MarketDataConfig {
   provider: 'alphavantage' | 'polygon' | 'tiingo';

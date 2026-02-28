@@ -1,11 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
-import { SettingsSection } from "../../components/settings";
 import { Building2, Loader2, Upload, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+
+import { SettingsSection } from "../../components/settings";
 import {
   applyBrandTheme,
   VALYNT_BRAND_PRIMARY,
   VALYNT_BRAND_SECONDARY,
 } from "../../styles/brandTheme";
+
 import { ValidatedInput } from "@/components/ui/validated-input";
 
 export const OrganizationGeneral: React.FC = () => {

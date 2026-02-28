@@ -4,9 +4,9 @@ vi.mock("../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { KnowledgeFabricValidator } from "../KnowledgeFabricValidator";
-import type { MemorySystem, Memory } from "../MemorySystem";
 import type { GroundTruthIntegrationService } from "../../../services/GroundTruthIntegrationService";
+import { KnowledgeFabricValidator } from "../KnowledgeFabricValidator";
+import type { Memory, MemorySystem } from "../MemorySystem";
 
 // ---------------------------------------------------------------------------
 // Helpers

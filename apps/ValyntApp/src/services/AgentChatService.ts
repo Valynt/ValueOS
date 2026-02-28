@@ -10,34 +10,36 @@
  * - AI transparency (confidence, reasoning)
  */
 
-import { logger } from "../lib/logger";
 import { v4 as uuidv4 } from "uuid";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+
+import { checkStageTransition } from "../config/chatWorkflowConfig";
 import { llmConfig } from "../config/llm";
-import {
-  conversationHistoryService,
-  ConversationMessage,
-} from "./ConversationHistoryService";
-import { SDUIPageDefinition } from "../sdui/schema";
-import {
-  WorkflowState,
-  WorkflowStateRepository,
-} from "../repositories/WorkflowStateRepository";
-import type { LifecycleStage } from "../types/vos";
+import { detectIndustry } from "../data/industryTemplates";
 import {
   formatExampleForPrompt,
   getRelevantExamples,
 } from "../data/valueModelExamples";
-import { createToolExecutor, getAllTools } from "./MCPTools";
-import { checkStageTransition } from "../config/chatWorkflowConfig";
+import { contextFabric } from "../lib/agent-fabric/ContextFabric";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+import { logger } from "../lib/logger";
+import {
+  WorkflowState,
+  WorkflowStateRepository,
+} from "../repositories/WorkflowStateRepository";
+import { SDUIPageDefinition } from "../sdui/schema";
 import {
   generateChatSDUIPage,
   hasTemplateForStage,
 } from "../sdui/templates/chat-templates";
-import { contextFabric } from "../lib/agent-fabric/ContextFabric";
-import { detectIndustry } from "../data/industryTemplates";
-import { geminiProxyService } from "./GeminiProxyService";
+import type { LifecycleStage } from "../types/vos";
+
+import {
+  conversationHistoryService,
+  ConversationMessage,
+} from "./ConversationHistoryService";
 import { FallbackAIService } from "./FallbackAIService";
+import { geminiProxyService } from "./GeminiProxyService";
+import { createToolExecutor, getAllTools } from "./MCPTools";
 
 export interface AIResponseSchema {
   analysisSummary: string;

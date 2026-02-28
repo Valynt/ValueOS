@@ -1,9 +1,11 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowRight, BookOpen, Lightbulb, Loader2, Target, TrendingUp } from "lucide-react";
+import { useLocation } from "wouter";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpen, Lightbulb, Loader2, Target, TrendingUp } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { useLocation } from "wouter";
+
 
 export function RecommendationsCard() {
   const [, setLocation] = useLocation();

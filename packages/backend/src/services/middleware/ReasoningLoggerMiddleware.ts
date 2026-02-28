@@ -6,8 +6,10 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+
 import { logger } from '../../lib/logger.js';
 import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../UnifiedAgentOrchestrator.js';
+
 import { PrivacyScrubber } from './PrivacyScrubber.js';
 import type { ReasoningStep } from './types.js';
 

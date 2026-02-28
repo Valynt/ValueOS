@@ -14,6 +14,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
+import { financialModelingEvalCases } from '../datasets/agent-evals/financial-modeling-agent.js';
+import { groundtruthEvalCases } from '../datasets/agent-evals/groundtruth-agent.js';
+import { narrativeEvalCases } from '../datasets/agent-evals/narrative-agent.js';
+import { opportunityEvalCases } from '../datasets/agent-evals/opportunity-agent.js';
+import { redTeamEvalCases } from '../datasets/agent-evals/red-team-agent.js';
+import { GROUND_TRUTH_SCENARIOS } from '../datasets/ground-truth/index.js';
 import {
   type EvalCheck,
   type EvalResult,
@@ -25,12 +32,6 @@ import {
   validateOpportunityResponse,
   validateRedTeamResponse,
 } from '../harness.js';
-import { opportunityEvalCases } from '../datasets/agent-evals/opportunity-agent.js';
-import { financialModelingEvalCases } from '../datasets/agent-evals/financial-modeling-agent.js';
-import { groundtruthEvalCases } from '../datasets/agent-evals/groundtruth-agent.js';
-import { narrativeEvalCases } from '../datasets/agent-evals/narrative-agent.js';
-import { redTeamEvalCases } from '../datasets/agent-evals/red-team-agent.js';
-import { GROUND_TRUTH_SCENARIOS } from '../datasets/ground-truth/index.js';
 
 // ============================================================================
 // Quality Comparison Utilities

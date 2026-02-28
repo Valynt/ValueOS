@@ -4,12 +4,13 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { sanitizeProps, XSS_TEST_VECTORS } from '../security/sanitization';
+
 import {
   getSecurityMetrics,
   incrementSecurityMetric,
   resetSecurityMetrics,
 } from '../security/metrics';
+import { sanitizeProps, XSS_TEST_VECTORS } from '../security/sanitization';
 
 describe('SDUI Security Unit Tests', () => {
   beforeEach(() => {

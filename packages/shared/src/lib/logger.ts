@@ -20,6 +20,8 @@
 
 import { isDevelopment, isProduction, isTest } from "../config/environment";
 import { getTraceContextForLogging } from "../config/telemetry";
+
+import { getContext } from "./context";
 import {
   sanitizeError,
   sanitizeForLogging,
@@ -27,7 +29,6 @@ import {
   sanitizeUser,
   validateLogMessage,
 } from "./piiFilter";
-import { getContext } from "./context";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 

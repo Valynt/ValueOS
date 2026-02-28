@@ -9,7 +9,6 @@
  * - Auto-fill amount from Case Value Model
  */
 
-import React, { useCallback, useState } from 'react';
 import {
   AlertCircle,
   Building2,
@@ -19,6 +18,13 @@ import {
   ExternalLink,
   Loader2,
 } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+
+import type { Deal } from './DealStatusCapsule';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -37,9 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card } from '@/components/ui/card';
-import type { Deal } from './DealStatusCapsule';
+
 
 export interface DealImportModalProps {
   /** Whether the modal is open */

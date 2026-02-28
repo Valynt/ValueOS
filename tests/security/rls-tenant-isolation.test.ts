@@ -7,9 +7,10 @@
  * - supabase/migrations/20241213000000_fix_rls_tenant_isolation.sql
  */
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 describe("RLS Tenant Isolation - Critical Security Tests", () => {
   let tenant1Client: SupabaseClient;

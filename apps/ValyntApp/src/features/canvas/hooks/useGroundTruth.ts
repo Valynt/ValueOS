@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
-import { type GroundTruthMetric, GroundTruthService } from "../services/GroundTruthService";
+
 import type { ESOIndustry } from "../../../types/eso";
+import { type GroundTruthMetric, GroundTruthService } from "../services/GroundTruthService";
 
 export function useGroundTruth() {
   const [isLoading, setIsLoading] = useState(false);

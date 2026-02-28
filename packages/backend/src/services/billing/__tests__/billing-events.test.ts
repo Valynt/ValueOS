@@ -5,13 +5,13 @@
  * and can be used in discriminated union switches.
  */
 
-import { describe, expect, it } from "vitest";
 import type {
   BillingEvent,
   BillingEventPayload,
   BillingEventType,
   MeterKey,
 } from "@shared/types/billing-events";
+import { describe, expect, it } from "vitest";
 
 describe("Billing Event Types", () => {
   it("all event types are distinct strings", () => {

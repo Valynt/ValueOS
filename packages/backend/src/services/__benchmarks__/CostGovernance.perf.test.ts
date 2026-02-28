@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 

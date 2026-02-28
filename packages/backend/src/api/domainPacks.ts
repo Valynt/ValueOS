@@ -5,12 +5,13 @@
  * setting a pack on a value case, and hardening ghost KPIs.
  */
 
+import { createLogger } from "@shared/lib/logger";
+import { supabase } from "@shared/lib/supabase";
 import { Request, Response, Router } from "express";
 import { z } from "zod";
-import { supabase } from "@shared/lib/supabase";
-import { createLogger } from "@shared/lib/logger";
-import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js";
+
 import { requireAuth } from "../middleware/auth.js";
+import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js";
 import { tenantContextMiddleware } from "../middleware/tenantContext.js";
 import { DomainPackService } from "../services/domain-packs/index.js";
 

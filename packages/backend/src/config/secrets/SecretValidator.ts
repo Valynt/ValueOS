@@ -6,6 +6,7 @@
  */
 
 import { logger } from "../../lib/logger.js"
+
 import { createProviderFromEnv as getSecretProvider } from "./ProviderFactory.js"
 import {
   secretVolumeWatcher,

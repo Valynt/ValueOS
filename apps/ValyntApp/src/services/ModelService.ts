@@ -2,18 +2,20 @@
  * Service for managing Value Models, Business Cases, and their related artifacts.
  * This service encapsulates business logic and uses repositories for data access.
  */
+import { logger } from "../lib/logger";
+import { KpiTargetRepository } from "../repositories/KpiTargetRepository";
+import { RoiModelCalculationRepository } from "../repositories/RoiModelCalculationRepository";
+import { RoiModelRepository } from "../repositories/RoiModelRepository";
+import { ValueCommitRepository } from "../repositories/ValueCommitRepository";
+import { ValueTreeLinkRepository } from "../repositories/ValueTreeLinkRepository";
+import { ValueTreeNodeRepository } from "../repositories/ValueTreeNodeRepository";
+import { ValueTreeRepository } from "../repositories/ValueTreeRepository";
 import { LifecycleContext } from "../types/agent";
 import { TargetAgentOutput } from "../types/vos";
-import { RoiModelRepository } from "../repositories/RoiModelRepository";
-import { KpiTargetRepository } from "../repositories/KpiTargetRepository";
-import { ValueTreeRepository } from "../repositories/ValueTreeRepository";
-import { ValueTreeNodeRepository } from "../repositories/ValueTreeNodeRepository";
-import { ValueTreeLinkRepository } from "../repositories/ValueTreeLinkRepository";
-import { RoiModelCalculationRepository } from "../repositories/RoiModelCalculationRepository";
-import { ValueCommitRepository } from "../repositories/ValueCommitRepository";
+
 import { auditLogService } from "./AuditLogService";
 import { userSettingsService } from "./UserSettingsService";
-import { logger } from "../lib/logger";
+
 
 export class ModelService {
   private context: LifecycleContext;

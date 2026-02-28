@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
 import {
   ALL_WORKFLOW_DEFINITIONS,
   COMPLETE_LIFECYCLE_WORKFLOW,

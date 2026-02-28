@@ -1,12 +1,13 @@
-import { Request, Response, Router } from 'express';
-import { logger } from '@shared/lib/logger';
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
-import { rateLimiters } from '../middleware/rateLimiter.js'
-import { validateRequest } from '../middleware/inputValidation.js'
-import { requirePermission } from '../middleware/rbac.js'
 import { getEnvVar } from '@shared/lib/env';
+import { logger } from '@shared/lib/logger';
+import { Request, Response, Router } from 'express';
+
 import { getHttpStatus, isAppError } from '../lib/errors.js'
 import { resilientFetch } from '../lib/resilience.js'
+import { validateRequest } from '../middleware/inputValidation.js'
+import { rateLimiters } from '../middleware/rateLimiter.js'
+import { requirePermission } from '../middleware/rbac.js'
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js'
 
 const router = Router();
 router.use(securityHeadersMiddleware);

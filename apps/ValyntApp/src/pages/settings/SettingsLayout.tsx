@@ -5,6 +5,7 @@
  */
 
 import { NavLink, Outlet } from "react-router-dom";
+
 import { cn } from "@/lib/utils";
 
 const settingsTabs = [

@@ -1,6 +1,7 @@
-import React from 'react';
-import { SettingsSection } from '../../components/settings';
 import { Construction } from 'lucide-react';
+import React from 'react';
+
+import { SettingsSection } from '../../components/settings';
 
 interface SettingsPlaceholderProps {
   title: string;

@@ -5,8 +5,8 @@
  * Fails on serious/critical violations.
  */
 
-import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "@playwright/test";
 
 // Pages to test — add new routes here as features ship
 const PAGES = [

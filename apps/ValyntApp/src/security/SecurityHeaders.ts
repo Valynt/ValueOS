@@ -5,8 +5,9 @@
  * Includes CSP, HSTS, X-Frame-Options, and other security headers.
  */
 
-import { getSecurityConfig } from "./SecurityConfig";
 import { logger } from "../lib/logger";
+
+import { getSecurityConfig } from "./SecurityConfig";
 
 /**
  * Generate Content Security Policy header value

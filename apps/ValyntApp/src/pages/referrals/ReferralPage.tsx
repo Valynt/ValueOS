@@ -3,8 +3,8 @@
  * Main page for viewing and managing referral program
  */
 
-import React from 'react';
 import { ReferralDashboard } from '@components/referrals/ReferralDashboard';
+import React from 'react';
 
 const ReferralPage: React.FC = () => {
   return (

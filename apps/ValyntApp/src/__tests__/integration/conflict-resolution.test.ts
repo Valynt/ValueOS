@@ -5,6 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import type { CanvasElement } from '../../lib/realtime/supabaseRealtime';
 
 describe('Conflict Resolution Integration Tests', () => {

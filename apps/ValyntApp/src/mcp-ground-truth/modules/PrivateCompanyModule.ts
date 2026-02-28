@@ -13,6 +13,7 @@
  * Node Mapping: [NODE: Tier_2_Proxy], [NODE: Private_Entity_Estimation]
  */
 
+import { logger } from '../../lib/logger';
 import { BaseModule } from '../core/BaseModule';
 import {
   ErrorCodes,
@@ -23,7 +24,6 @@ import {
   ModuleResponse,
   PrivateCompanyProfile,
 } from '../types';
-import { logger } from '../../lib/logger';
 
 interface PrivateCompanyConfig {
   crunchbaseApiKey?: string;

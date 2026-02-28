@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { sduiSandboxService } from "../../services/SDUISandboxService";
 
 // Mock the SDUISanitizer

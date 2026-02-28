@@ -3,14 +3,16 @@
  * Handles claiming referral codes during signup
  */
 
+import { AlertCircle, CheckCircle, Gift } from 'lucide-react';
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { toast } from 'react-hot-toast';
+
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Badge } from '../ui/badge';
-import { AlertCircle, CheckCircle, Gift } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+
 
 interface ReferralClaimProps {
   onReferralClaimed?: (referralData: any) => void;

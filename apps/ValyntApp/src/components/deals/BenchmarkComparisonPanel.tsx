@@ -13,8 +13,9 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 

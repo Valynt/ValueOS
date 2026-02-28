@@ -5,23 +5,25 @@
  * caching, telemetry, and multi-provider support.
  */
 
-import { logger } from '../logger.js';
-import { LLMCostTracker } from '../../services/LLMCostTracker.js';
-import { CostAwareRouter } from '../../services/CostAwareRouter.js';
-import {
-  type CircuitBreakerStateInfo,
-  type LLMResilienceConfig,
-  LLMResilienceWrapper,
-} from './LLMResilience.js';
-import { getTracer } from '../../config/telemetry.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { getEnvVar } from '@shared/lib/env';
+
+import { assertModelAllowed } from '../../config/models.js';
+import { getTracer } from '../../config/telemetry.js';
+import { CostAwareRouter } from '../../services/CostAwareRouter.js';
+import { LLMCostTracker } from '../../services/LLMCostTracker.js';
 import {
   enforceBudgetPolicy,
   enforceModelPolicy,
   recordPolicyAuditEvent,
 } from '../../services/policy/PolicyEnforcement.js';
-import { assertModelAllowed } from '../../config/models.js';
+import { logger } from '../logger.js';
+
+import {
+  type CircuitBreakerStateInfo,
+  type LLMResilienceConfig,
+  LLMResilienceWrapper,
+} from './LLMResilience.js';
 
 export interface LLMGatewayConfig {
   provider: 'openai' | 'anthropic' | 'gemini' | 'custom' | 'together';

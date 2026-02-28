@@ -11,6 +11,7 @@
  */
 
 import DOMPurify from 'dompurify';
+
 import { BaseService } from './BaseService';
 
 export interface SanitizationConfig {

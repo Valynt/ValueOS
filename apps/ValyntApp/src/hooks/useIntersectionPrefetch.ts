@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+
 import { usePrefetch } from "./usePrefetch";
 
 interface UseIntersectionPrefetchOptions {

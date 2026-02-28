@@ -1,11 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
 import { CheckCircle, Loader2, Send, Wrench, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+
+import { logger } from "../lib/logger";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import { type AgentChatContext, type ChatMessage, useAgentStream } from "@/hooks/useAgentStream";
-import { logger } from "../lib/logger";
+import { cn } from "@/lib/utils";
+
 
 interface AgentChatProps {
   isOpen: boolean;

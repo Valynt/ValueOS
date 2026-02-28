@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from "react";
 import Decimal from "decimal.js";
+import React, { useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 
 interface Scenario {
   id: string;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { defaultPasswordPolicy, RateLimiter, sanitizeLLMContent, sanitizeUserInput, validatePassword } from '../../utils/security';
 
 describe('sanitizeUserInput', () => {

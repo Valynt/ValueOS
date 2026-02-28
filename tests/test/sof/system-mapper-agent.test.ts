@@ -6,8 +6,9 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SystemMapperAgent } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/SystemMapperAgent';
+
 import type { Entity, Relationship, SystemMap } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/sof-types';
+import { SystemMapperAgent } from '../../apps/ValyntApp/src/lib/agent-fabric/agents/SystemMapperAgent';
 
 describe('SystemMapperAgent', () => {
   let agent: SystemMapperAgent;

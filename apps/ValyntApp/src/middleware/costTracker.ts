@@ -5,6 +5,7 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
+
 import { Logger } from '../utils/logger';
 
 const logger = new Logger({ component: 'CostTracker' });

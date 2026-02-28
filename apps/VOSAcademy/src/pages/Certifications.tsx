@@ -1,14 +1,16 @@
-import { useAuth } from "@/hooks/useAuth";
-import { SidebarLayout } from "@/components/SidebarLayout";
+import { Award, Download, Share2 } from "lucide-react";
+import { toast } from "sonner";
+import { Link } from "wouter";
+
 import CertificationDisplay from "@/components/CertificationDisplay";
+import { SidebarLayout } from "@/components/SidebarLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { trpc } from "@/lib/trpc";
-import { Award, Download, Share2 } from "lucide-react";
-import { Link } from "wouter";
-import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import { generateCertificateId, generateCertificatePDF } from "@/lib/certificate-generator";
+import { trpc } from "@/lib/trpc";
+
 
 export default function Certifications() {
   const { user, loading: authLoading } = useAuth();

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
+
 import { ScopeBadge } from '../../components/admin/ScopeBadge';
 import {
   type AdminNavSection,
@@ -10,6 +10,8 @@ import {
   findNavItemByPath,
   searchNavItems,
 } from '../../lib/adminNavigation';
+
+import { cn } from '@/lib/utils';
 
 interface AdminLayoutProps {
   /**

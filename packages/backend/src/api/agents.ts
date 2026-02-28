@@ -1,19 +1,20 @@
-import { Request, Response, Router } from "express";
-import { modelCardService } from "../services/ModelCardService.js"
-import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
-import { rateLimiters } from "../middleware/rateLimiter.js"
 import { logger } from "@shared/lib/logger";
+import { AgentRequestEvent, createBaseEvent, EVENT_TOPICS } from "@shared/types/events";
+import { Request, Response, Router } from "express";
+import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
+
+import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
+import { rateLimiters } from "../middleware/rateLimiter.js"
 import { requirePermission } from "../middleware/rbac.js"
+import { securityHeadersMiddleware } from "../middleware/securityMiddleware.js"
+import { agentCache } from "../services/CacheService.js"
 import { getEventProducer } from "../services/EventProducer.js"
 import { getEventSourcingService } from "../services/EventSourcingService.js"
-import { AgentRequestEvent, createBaseEvent, EVENT_TOPICS } from "@shared/types/events";
-import { v4 as uuidv4 } from "uuid";
-import { getAgentAPIConfig } from "../config/ServiceConfigManager.js"
-import { z } from "zod";
-import { agentCache } from "../services/CacheService.js"
-import { getMetricsCollector } from "../services/MetricsCollector.js"
-import { sanitizeAgentInput } from "../utils/security.js"
 import { isKafkaEnabled } from "../services/kafkaConfig.js"
+import { getMetricsCollector } from "../services/MetricsCollector.js"
+import { modelCardService } from "../services/ModelCardService.js"
+import { sanitizeAgentInput } from "../utils/security.js"
 
 const router = Router();
 

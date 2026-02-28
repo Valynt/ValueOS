@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { securityHeadersMiddleware } from '../../middleware/securityMiddleware';
+
 import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
+import { securityHeadersMiddleware } from '../../middleware/securityMiddleware';
+
+import { getCustomerBenchmarks } from './benchmarks';
 import { getCustomerMetrics } from './metrics';
 import { getCustomerValueCase } from './value-case';
-import { getCustomerBenchmarks } from './benchmarks';
 
 const router = Router();
 

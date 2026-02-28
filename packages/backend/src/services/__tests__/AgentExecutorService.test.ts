@@ -1,5 +1,6 @@
-import { AgentExecutorService } from '../AgentExecutorService';
 import { createBaseEvent, EVENT_TOPICS } from '@shared/types/events';
+
+import { AgentExecutorService } from '../AgentExecutorService';
 
 vi.mock('../EventProducer', () => ({ getEventProducer: () => ({ publish: vi.fn() }), EventProducer: class {} }));
 vi.mock('../EventConsumer', () => ({ createEventConsumer: () => ({ connect: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() }), EventConsumer: class {} }));

@@ -1,6 +1,6 @@
+import { createLogger } from "@/lib/logger";
 import { supabase } from "@/lib/supabase";
 import { emailService } from "@/services/EmailService";
-import { createLogger } from "@/lib/logger";
 
 const logger = createLogger({ component: "InvitationsService" });
 

@@ -8,10 +8,11 @@
  * Created: 2024-11-29
  */
 
+import { EventEmitter } from 'events';
 import { promises as fs, FSWatcher, watch } from 'fs';
 import { join } from 'path';
+
 import { logger } from '../../lib/logger';
-import { EventEmitter } from 'events';
 
 /**
  * Secret file change event

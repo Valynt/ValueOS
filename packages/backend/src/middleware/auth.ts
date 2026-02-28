@@ -3,9 +3,10 @@
  * Verifies user sessions using Supabase auth
  */
 
+import { createHash } from 'node:crypto';
+
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { createHash } from 'node:crypto';
 
 // Re-export requireRole from rbac for convenience
 export { requireRole } from './rbac.js'
@@ -22,14 +23,15 @@ export interface AuthenticatedRequest extends Request {
   correlationId?: string;
   organizationId?: string;
 }
+import { auditLogService } from '../services/AuditLogService.js';
 import { authService } from '../services/AuthService.js'
 import { AuthenticationError } from '../services/errors.js'
+
 import { createLogger, LogContext } from '@shared/lib/logger';
 import { sanitizeForLogging } from '@shared/lib/piiFilter';
 import { createRequestSupabaseClient, getSupabaseClient } from '@shared/lib/supabase';
 import { getEnvVar } from '@shared/lib/env';
 import { getRedisClient } from '@shared/lib/redisClient';
-import { auditLogService } from '../services/AuditLogService.js';
 
 const logger = createLogger({ component: 'AuthMiddleware' });
 

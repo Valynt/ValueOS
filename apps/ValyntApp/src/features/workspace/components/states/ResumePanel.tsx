@@ -6,18 +6,21 @@
  * or start fresh.
  */
 
-import { useState, useEffect } from "react";
 import {
-  RotateCcw,
-  MessageSquare,
-  FileText,
   ArrowRight,
-  Trash2,
+  FileText,
   Loader2,
+  MessageSquare,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+
+import type { Artifact, ConversationMessage } from "../../agent/types";
+
 import { Button } from "@/components/ui/button";
-import type { ConversationMessage, Artifact } from "../../agent/types";
+import { Card } from "@/components/ui/card";
+
 
 interface ResumePanelProps {
   messages: ConversationMessage[];

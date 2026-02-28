@@ -3,8 +3,10 @@
  */
 
 import type { Meta, StoryObj } from '@storybook/react';
-import { UserAppearance } from './UserAppearance';
+
 import { settingsRegistry } from '../../lib/settingsRegistry';
+
+import { UserAppearance } from './UserAppearance';
 
 const meta: Meta<typeof UserAppearance> = {
   title: 'Settings/UserAppearance',

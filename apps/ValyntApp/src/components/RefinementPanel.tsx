@@ -1,13 +1,15 @@
+import { ArrowRight, Info, Sparkles } from "lucide-react";
 import React, { useEffect, useState } from "react";
+
 import {
   type RefinementSuggestion,
   SelfImprovementService,
 } from "../services/SelfImprovementService";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowRight, Info, Sparkles } from "lucide-react";
 
 export const RefinementPanel: React.FC = () => {
   const [suggestions, setSuggestions] = useState<RefinementSuggestion[]>([]);

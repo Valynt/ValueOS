@@ -1,8 +1,10 @@
 import { logger } from '../lib/logger';
 import { sanitizeForLogging } from '../lib/piiFilter';
-import { BaseService } from './BaseService';
-import { createServerSupabaseClient } from '../lib/supabase';
 import { captureMessage } from '../lib/sentry';
+import { createServerSupabaseClient } from '../lib/supabase';
+
+import { BaseService } from './BaseService';
+
 
 export interface RequestAuditEvent {
   requestId: string;

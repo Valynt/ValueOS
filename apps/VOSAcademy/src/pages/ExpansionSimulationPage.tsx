@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export const ExpansionSimulationPage: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);

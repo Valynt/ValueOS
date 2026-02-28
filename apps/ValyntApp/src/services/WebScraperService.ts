@@ -1,6 +1,8 @@
-import { logger } from "../lib/logger";
 import crypto from "crypto";
+
 import { createClient } from "@supabase/supabase-js";
+
+import { logger } from "../lib/logger";
 
 export interface WebScraperResult {
   url: string;

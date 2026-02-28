@@ -6,6 +6,7 @@
 
 import type { CalculatorTemplate } from '../types/calculatorTemplate';
 import { Industry, InputFieldType, MetricCategory } from '../types/calculatorTemplate';
+
 import { saasTemplate } from './templates/saas';
 
 // E-commerce Template

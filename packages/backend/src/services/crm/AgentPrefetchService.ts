@@ -6,8 +6,9 @@
  * Writes suggestions with confidence scores and provenance records.
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import { crmConnectionService } from './CrmConnectionService.js';
 import { getCrmProvider } from './CrmProviderRegistry.js';
 import type { CanonicalAccount, CrmProvider } from './types.js';

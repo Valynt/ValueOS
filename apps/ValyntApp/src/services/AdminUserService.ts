@@ -4,8 +4,9 @@
  * Handles tenant user administration with server-side permissions and audit logging.
  */
 
-import { createServerSupabaseClient } from "../lib/supabase";
 import { logger } from "../lib/logger";
+import { createServerSupabaseClient } from "../lib/supabase";
+
 import { AuditLogService } from "./AuditLogService";
 import { ValidationError } from "./errors";
 

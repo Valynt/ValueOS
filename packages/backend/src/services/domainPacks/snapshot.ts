@@ -14,6 +14,7 @@ import type {
   DomainPackKpi,
   EffectiveDomainPack,
 } from '../../api/domainPacks/types.js';
+
 import { mergePack, packToEffective } from './merge.js';
 
 // ============================================================================

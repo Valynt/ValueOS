@@ -3,7 +3,9 @@
  */
 
 import express, { NextFunction, Request, Response } from "express";
+
 import { logger } from "../lib/logger";
+
 import {
   getTraceContext,
   getTracer,

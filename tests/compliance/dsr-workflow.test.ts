@@ -5,9 +5,10 @@
  * Requires SUPABASE_SERVICE_KEY to run against a real Supabase instance.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 describe("DSR Workflow — GDPR Compliance", () => {
   let adminClient: SupabaseClient;

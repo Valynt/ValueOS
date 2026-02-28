@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ValueLifecycleOrchestrator } from "../src/services/ValueLifecycleOrchestrator";
+
 import { createBoltClientMock } from "../../../../tests/test/mocks/mockSupabaseClient";
+import { ValueLifecycleOrchestrator } from "../src/services/ValueLifecycleOrchestrator";
 import { WorkflowCompensation } from "../WorkflowCompensation";
 
 let mockSupabase: unknown;

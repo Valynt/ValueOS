@@ -131,9 +131,9 @@ vi.mock("../../repositories/WorkflowStateRepository", () => ({
 
 // --- Imports ---
 
+import { checkStageTransition } from "../../config/chatWorkflowConfig.js";
 import { AgentChatService, AIResponseSchema } from "../AgentChatService";
 import type { ChatRequest } from "../AgentChatService";
-import { checkStageTransition } from "../../config/chatWorkflowConfig.js";
 
 // --- Helpers ---
 

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { SettingsSection } from '../../components/settings';
 import {
   Calendar, Check, CreditCard, Database, Download, TrendingUp, Users, Zap
 } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { SettingsSection } from '../../components/settings';
 
 interface BillingPlan {
   id: string;

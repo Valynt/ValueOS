@@ -6,10 +6,10 @@
  * - Mock mode: uses deterministic mock responses for unit testing
  * - Live mode: calls actual agents and validates output structure/constraints
  */
-import type { OpportunityEvalCase } from './datasets/agent-evals/opportunity-agent.js';
 import type { FinancialModelingEvalCase } from './datasets/agent-evals/financial-modeling-agent.js';
 import type { GroundtruthEvalCase } from './datasets/agent-evals/groundtruth-agent.js';
 import type { NarrativeEvalCase } from './datasets/agent-evals/narrative-agent.js';
+import type { OpportunityEvalCase } from './datasets/agent-evals/opportunity-agent.js';
 import type { RedTeamEvalCase } from './datasets/agent-evals/red-team-agent.js';
 export interface EvalResult {
     caseId: string;

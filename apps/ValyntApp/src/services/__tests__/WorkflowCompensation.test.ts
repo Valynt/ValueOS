@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { WorkflowCompensation } from '../../services/WorkflowCompensation';
 import { createBoltClientMock } from '../utils/mockSupabaseClient';
 

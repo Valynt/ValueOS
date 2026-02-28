@@ -5,6 +5,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+
 import { createBoltClientMock } from '../mocks/mockSupabaseClient';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';

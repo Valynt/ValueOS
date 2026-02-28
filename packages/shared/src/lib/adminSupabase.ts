@@ -13,6 +13,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
 import { getSupabaseConfig } from "./env";
 
 let adminClient: SupabaseClient | null = null;

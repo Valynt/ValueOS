@@ -5,11 +5,13 @@
  * Provides high-level interface for surgical UI updates.
  */
 
-import { logger } from '../lib/logger.js'
-import { SDUIPageDefinition } from '@sdui/schema';
 import { ActionResult, AtomicUIAction } from '@sdui/AtomicUIActions';
-import { ComponentMutationService } from './ComponentMutationService.js'
+import { SDUIPageDefinition } from '@sdui/schema';
+
+import { logger } from '../lib/logger.js'
+
 import { canvasSchemaService } from './CanvasSchemaService.js'
+import { ComponentMutationService } from './ComponentMutationService.js'
 
 /**
  * Execution result with rollback support

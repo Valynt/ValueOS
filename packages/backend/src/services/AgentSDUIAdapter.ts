@@ -14,12 +14,14 @@
  * @see src/services/AgentIntentConverter.ts - Agent output to intent conversion
  */
 
-import { logger } from "../lib/logger.js"
-import { SDUIUpdate } from "../types/sdui-integration";
-import { AgentOutput } from "../types/agent-output";
 import { AtomicUIAction, createAddAction } from "@sdui/AtomicUIActions";
-import { intentRegistry } from "./IntentRegistry.js"
+
+import { logger } from "../lib/logger.js"
+import { AgentOutput } from "../types/agent-output";
+import { SDUIUpdate } from "../types/sdui-integration";
+
 import { agentIntentConverter } from "./AgentIntentConverter.js"
+import { intentRegistry } from "./IntentRegistry.js"
 
 /**
  * Agent SDUI Adapter

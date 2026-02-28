@@ -6,10 +6,11 @@
  */
 
 import { logger } from '../lib/logger.js'
-import { TenantAwareService } from './TenantAwareService.js'
-import { AuditLogService } from './AuditLogService.js'
 import { supabase } from '../lib/supabase.js';
+
+import { AuditLogService } from './AuditLogService.js'
 import { ValidationError } from './errors.js'
+import { TenantAwareService } from './TenantAwareService.js'
 
 export class TenantMembershipService extends TenantAwareService {
   private auditLog: AuditLogService;

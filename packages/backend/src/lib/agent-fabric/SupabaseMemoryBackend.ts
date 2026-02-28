@@ -8,8 +8,10 @@
  * preserved in metadata.
  */
 
-import { logger } from "../logger.js";
 import type { SemanticMemoryService } from "@valueos/shared";
+
+import { logger } from "../logger.js";
+
 import type { MemoryPersistenceBackend } from "./MemoryPersistenceBackend.js";
 import type { Memory, MemoryQuery, MemoryType } from "./MemorySystem.js";
 

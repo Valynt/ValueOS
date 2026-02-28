@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { ROIFormulaInterpreter } from '../../services/ROIFormulaInterpreter';
 import { createBoltClientMock } from '../utils/mockSupabaseClient';
 

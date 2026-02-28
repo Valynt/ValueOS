@@ -3,11 +3,12 @@
  * GET /api/customer/benchmarks/:token
  */
 
-import { Request, Response } from 'express';
-import { customerAccessService } from '../../services/CustomerAccessService';
-import { supabase } from '@shared/lib/supabase';
 import { logger } from '@shared/lib/logger';
+import { supabase } from '@shared/lib/supabase';
+import { Request, Response } from 'express';
 import { z } from 'zod';
+
+import { customerAccessService } from '../../services/CustomerAccessService';
 
 // Request validation schema
 const BenchmarksRequestSchema = z.object({

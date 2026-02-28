@@ -4,19 +4,20 @@
  * Enforces lineage metadata for knowledge base ingestion and RAG.
  */
 
-import { Request, Response, Router } from "express";
 import { logger } from "@shared/lib/logger";
+import { Request, Response, Router } from "express";
+
+import {
+  contentTypeValidationMiddleware,
+  fileUploadSecurityMiddleware,
+} from "../middleware/fileUploadSecurity.js";
+import { rateLimiters } from "../middleware/rateLimiter.js";
+import { requirePermission } from "../middleware/rbac.js";
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
 } from "../middleware/securityMiddleware";
 import { serviceIdentityMiddleware } from "../middleware/serviceIdentityMiddleware.js";
-import { rateLimiters } from "../middleware/rateLimiter.js";
-import { requirePermission } from "../middleware/rbac.js";
-import {
-  contentTypeValidationMiddleware,
-  fileUploadSecurityMiddleware,
-} from "../middleware/fileUploadSecurity.js";
 
 interface LineageMetadata {
   source_origin: string;

@@ -9,7 +9,9 @@
  * - Comprehensive error handling
  */
 
+import { Calendar, CreditCard, Download, TrendingUp } from 'lucide-react';
 import React from 'react';
+
 import {
   UsageMetricsGrid,
   UsageSummaryBanner,
@@ -21,7 +23,6 @@ import {
   useAsyncState,
 } from '../../components/Settings/SettingsAsyncFeedback';
 import { FullPageLoading } from '../../components/Settings/SettingsLoadingState';
-import { Calendar, CreditCard, Download, TrendingUp } from 'lucide-react';
 import { PlanConfig, PLANS, PlanTier } from '../../config/billing';
 import { Subscription } from '../../types/billing';
 

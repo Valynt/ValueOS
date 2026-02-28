@@ -11,7 +11,7 @@
  * Acceptance Criteria: Mobile accessible on iOS and Android
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Mobile Accessibility', () => {
   describe('Touch Target Sizes (WCAG 2.5.5)', () => {

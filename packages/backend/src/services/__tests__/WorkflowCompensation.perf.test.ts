@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowCompensation } from '../WorkflowCompensation.js'
+
 import { createBoltClientMock } from '../utils/mockSupabaseClient.js'
+import { WorkflowCompensation } from '../WorkflowCompensation.js'
 
 let supabaseClient: any;
 

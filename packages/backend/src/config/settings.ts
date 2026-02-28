@@ -1,8 +1,8 @@
 /**
  * Centralized, environment-aware, and schema-validated configuration.
  */
-import { z } from "zod";
 import { getEnvVar, env as runtimeEnv } from "@shared/lib/env";
+import { z } from "zod";
 
 // Define the schema for all environment variables
 const SettingsSchema = z.object({

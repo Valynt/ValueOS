@@ -5,13 +5,16 @@
  * Fetches from Supabase and provides real-time updates.
  */
 
-import { logger } from "../lib/logger";
-import type { LifecycleStage } from "../types/vos";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { TenantAwareService, type TenantContext } from "./TenantAwareService";
-import { permissionService } from "./PermissionService";
+
 import { secureTokenManager } from "../lib/auth/SecureTokenManager";
+import { logger } from "../lib/logger";
 import { createLogger } from "../lib/logger";
+import type { LifecycleStage } from "../types/vos";
+
+import { permissionService } from "./PermissionService";
+import { TenantAwareService, type TenantContext } from "./TenantAwareService";
+
 
 const debugLogger = createLogger({ component: "ValueCaseService" });
 

@@ -4,9 +4,11 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
-import { InvoiceMathEngine } from './InvoiceMathEngine.js';
-import { createLogger } from '../../lib/logger.js';
+
 import { BillingMetric } from '../../config/billing.js';
+import { createLogger } from '../../lib/logger.js';
+
+import { InvoiceMathEngine } from './InvoiceMathEngine.js';
 
 const logger = createLogger({ component: 'FinanceExportService' });
 

@@ -2,10 +2,10 @@
  * Shared health check utilities
  * Common functions for health validation across different contexts
  */
-import https from "https";
-import http from "http";
-import net from "net";
 import { execSync } from "child_process";
+import http from "http";
+import https from "https";
+import net from "net";
 /**
  * Circuit breaker states
  */

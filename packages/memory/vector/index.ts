@@ -13,6 +13,7 @@
  */
 
 import { z } from 'zod';
+
 import type { ProvenanceRecord } from '../provenance/index.js';
 
 // ============================================================================

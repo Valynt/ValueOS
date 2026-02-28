@@ -5,20 +5,21 @@
  * CRITICAL: These tests ensure revenue protection and service abuse prevention.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  assertRecordExists,
-  cleanupBillingTables,
-  getTestSupabaseClient,
-  seedTestData,
-} from "../__helpers__/db-helpers";
+
 import {
   createCompleteBillingSetup,
   createUsageAlert,
   createUsageEvent,
   createUsageQuota,
 } from "../__helpers__/billing-factories";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  assertRecordExists,
+  cleanupBillingTables,
+  getTestSupabaseClient,
+  seedTestData,
+} from "../__helpers__/db-helpers";
 
 describe("Quota Enforcement Integration Tests", () => {
   let supabase: SupabaseClient;

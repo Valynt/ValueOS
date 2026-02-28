@@ -3,7 +3,8 @@
  * Tests the full integration with Loki log aggregation service
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+
 import { LokiClient } from "../helpers/loki-client";
 
 describe("Loki Integration Tests", () => {

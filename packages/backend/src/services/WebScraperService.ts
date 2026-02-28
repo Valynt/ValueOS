@@ -1,10 +1,12 @@
-import { logger } from "../lib/logger.js";
-import * as cheerio from "cheerio";
 import crypto from "crypto";
-import { createClient, type RedisClientType } from "redis";
-import { promisify } from "util";
 import { resolve } from "dns";
+import { promisify } from "util";
+
+import * as cheerio from "cheerio";
 import * as ipaddr from "ipaddr.js";
+import { createClient, type RedisClientType } from "redis";
+
+import { logger } from "../lib/logger.js";
 
 const resolveAsync = promisify(resolve);
 

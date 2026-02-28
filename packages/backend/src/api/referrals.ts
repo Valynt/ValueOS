@@ -7,15 +7,18 @@
  * - View referral statistics and rewards
  */
 
+import { createLogger } from "@shared/lib/logger";
+import { sanitizeForLogging } from "@shared/lib/piiFilter";
 import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter.js"
+
 import { requireAuth } from "../middleware/auth.js"
 import { validateRequest } from "../middleware/inputValidation.js"
 import { createRateLimiter } from "../middleware/rateLimiter.js"
-import { referralService } from "./services/ReferralService.js"
-import { createLogger } from "@shared/lib/logger";
-import { sanitizeForLogging } from "@shared/lib/piiFilter";
+import { createSecureRouter } from "../middleware/secureRouter.js"
 import { auditLogService } from "../services/AuditLogService.js"
+
+import { referralService } from "./services/ReferralService.js"
+
 
 const logger = createLogger({ component: "ReferralAPI" });
 const router = createSecureRouter("standard");

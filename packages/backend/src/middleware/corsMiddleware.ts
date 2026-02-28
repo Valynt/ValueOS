@@ -6,10 +6,11 @@
  * API-001: Secure CORS implementation
  */
 
-import { NextFunction, Request, Response } from "express";
-import { getSecurityConfig } from "../security/SecurityConfig.js"
-import { getCORSHeaders, isOriginAllowed } from "../security/CORSValidator.js"
 import { logger } from "@shared/lib/logger";
+import { NextFunction, Request, Response } from "express";
+
+import { getCORSHeaders, isOriginAllowed } from "../security/CORSValidator.js"
+import { getSecurityConfig } from "../security/SecurityConfig.js"
 
 /**
  * CORS middleware for Express

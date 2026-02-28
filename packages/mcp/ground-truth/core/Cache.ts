@@ -5,8 +5,8 @@
  * Designed to reduce SEC API load and improve response times.
  */
 
-import { CacheEntry, CachePolicy } from "../types";
 import { logger } from "../../lib/logger";
+import { CacheEntry, CachePolicy } from "../types";
 
 export class MemoryCache {
   private cache = new Map<string, CacheEntry>();

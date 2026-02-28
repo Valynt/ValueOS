@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { resolveSupabaseMode } from "../../scripts/dx/lib/supabase-mode.js";
 
 describe("resolveSupabaseMode", () => {

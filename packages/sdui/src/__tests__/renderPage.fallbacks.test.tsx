@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
 import React from 'react';
+import { beforeEach, describe, expect, it } from 'vitest';
 import '@testing-library/jest-dom';
 import { render } from '@testing-library/react';
-import { renderPage } from '../renderPage';
+
 import { registerComponent, resetRegistry } from '../registry';
+import { renderPage } from '../renderPage';
 
 describe('renderPage SDUI fallbacks', () => {
   beforeEach(() => {

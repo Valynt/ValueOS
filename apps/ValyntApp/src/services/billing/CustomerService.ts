@@ -4,9 +4,11 @@
  */
 
 import { type SupabaseClient } from '@supabase/supabase-js';
-import StripeService from './StripeService';
-import { BillingCustomer } from '../../types/billing';
+
 import { createLogger } from '../../lib/logger';
+import { BillingCustomer } from '../../types/billing';
+
+import StripeService from './StripeService';
 
 const logger = createLogger({ component: 'CustomerService' });
 

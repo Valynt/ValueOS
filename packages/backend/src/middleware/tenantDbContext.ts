@@ -1,6 +1,7 @@
+import { createLogger } from "@shared/lib/logger";
 import type { NextFunction, Request, Response } from "express";
 import type { Pool, PoolClient } from "pg";
-import { createLogger } from "@shared/lib/logger";
+
 import { getDatabaseUrl } from "../config/database.js"
 import { settings } from "../config/settings.js"
 

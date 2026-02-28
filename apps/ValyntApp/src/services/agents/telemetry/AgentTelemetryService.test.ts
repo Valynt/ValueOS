@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { AgentRequest, AgentResponse } from "../core/IAgent";
 
 type CounterCall = { value: number; attributes?: Record<string, unknown> };

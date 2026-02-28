@@ -5,9 +5,10 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
+
+import { resetUnifiedAgentAPI, UnifiedAgentAPI } from "../services/UnifiedAgentAPI";
 import { resetWorkflowStateMachine, workflowStateMachine } from "../services/WorkflowStateMachine";
 import { WebSearchTool } from "../tools/WebSearchTool";
-import { resetUnifiedAgentAPI, UnifiedAgentAPI } from "../services/UnifiedAgentAPI";
 
 describe("Critical Fixes Verification", () => {
   describe("P0 Finding 1: Tenant Context Validation", () => {

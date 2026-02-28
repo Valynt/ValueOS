@@ -1,8 +1,15 @@
 import { logger } from "@shared/lib/logger";
 import React, { ReactElement } from "react";
-import { MotionMasterProvider } from "./MotionMaster";
+
 import { ErrorBoundary } from "../components/Common/ErrorBoundary";
 import { SectionErrorFallback, UnknownComponentFallback } from "../components/SDUI";
+
+import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
+import { LoadingFallback } from "./components/LoadingFallback";
+import { useDataHydration } from "./hooks/useDataHydration";
+import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
+import { MotionMasterProvider } from "./MotionMaster";
+import { resolveComponentFromLegacyRegistry as resolveComponent } from "./registry";
 import {
   SDUIComponentSection,
   SDUIPageDefinition,
@@ -10,11 +17,6 @@ import {
   SDUIValidationError,
   validateSDUISchema,
 } from "./schema";
-import { preloadCriticalComponents, resolveComponentLazy } from "./LazyComponentRegistry";
-import { resolveComponentFromLegacyRegistry as resolveComponent } from "./registry";
-import { useDataHydration } from "./hooks/useDataHydration";
-import { ComponentErrorBoundary } from "./components/ComponentErrorBoundary";
-import { LoadingFallback } from "./components/LoadingFallback";
 
 /**
  * Options for configuring the renderPage function behavior

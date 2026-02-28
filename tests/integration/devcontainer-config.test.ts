@@ -3,9 +3,10 @@
  * Tests Gitpod-compatible Dev Container setup
  */
 
-import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+
+import { describe, expect, it } from 'vitest';
 
 describe('Dev Container Configuration', () => {
   

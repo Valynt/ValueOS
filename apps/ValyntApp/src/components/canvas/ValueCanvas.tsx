@@ -19,20 +19,20 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Library, Redo, Settings, Undo } from 'lucide-react';
 
 import { nodeTypes } from './ValueCanvasNodes';
-import { ValueDriverLibrary } from './ValueDriverLibrary';
 import { ValueDriverEditor } from './ValueDriverEditor';
-import { PlaygroundSessionService } from '@/services/PlaygroundSessionService';
+import { ValueDriverLibrary } from './ValueDriverLibrary';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useOrganization } from '@/hooks/useOrganization';
 import { logger } from '@/lib/logger';
-
-import useValueCanvasStore, { useTemporalStore } from '@/stores/valueCanvasStore';
 import { calculationEngine } from '@/services/CalculationEngine';
+import { PlaygroundSessionService } from '@/services/PlaygroundSessionService';
+import useValueCanvasStore, { useTemporalStore } from '@/stores/valueCanvasStore';
 
 interface ValueCanvasProps {
   sessionId: string;

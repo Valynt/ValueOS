@@ -7,8 +7,8 @@
  * CRITICAL: All component props must pass through sanitizeProps() before rendering.
  */
 
-import DOMPurify from "dompurify";
 import { logger } from "@shared/lib/logger";
+import DOMPurify from "dompurify";
 
 /**
  * DOMPurify configuration for different security contexts

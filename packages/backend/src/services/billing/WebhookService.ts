@@ -4,17 +4,19 @@
  * Emits billing domain events for downstream consumers.
  */
 
-import StripeService from "./StripeService.js"
-import InvoiceService from "./InvoiceService.js"
+import type { BillingEvent } from "@shared/types/billing-events";
+
 import { STRIPE_CONFIG } from "../../config/billing.js"
 import { createLogger } from "../../lib/logger.js"
+import { supabase } from '../../lib/supabase.js';
 import {
   recordBillingJobFailure,
   recordInvoiceEvent,
   recordStripeWebhook,
 } from "../../metrics/billingMetrics";
-import type { BillingEvent } from "@shared/types/billing-events";
-import { supabase } from '../../lib/supabase.js';
+
+import InvoiceService from "./InvoiceService.js"
+import StripeService from "./StripeService.js"
 
 const logger = createLogger({ component: "WebhookService" });
 

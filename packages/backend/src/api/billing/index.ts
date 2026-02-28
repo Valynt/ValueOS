@@ -4,20 +4,23 @@
  */
 
 import express from 'express';
-import subscriptionsRouter from './subscriptions.js'
-import usageRouter from './usage.js'
-import invoicesRouter from './invoices.js'
-import summaryRouter from './summary.js'
-import plansRouter from './plans.js'
-import planChangeRouter from './plan-change.js'
-import paymentMethodsRouter from './payment-methods.js'
-import webhooksRouter from './webhooks.js'
+
+import { requireAuth } from '../../middleware/auth.js'
+import { requirePermission } from '../../middleware/rbac.js'
 import { securityHeadersMiddleware } from '../../middleware/securityMiddleware.js'
 import { serviceIdentityMiddleware } from '../../middleware/serviceIdentityMiddleware.js'
-import { requirePermission } from '../../middleware/rbac.js'
-import { requireAuth } from '../../middleware/auth.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
+
+import invoicesRouter from './invoices.js'
+import paymentMethodsRouter from './payment-methods.js'
+import planChangeRouter from './plan-change.js'
+import plansRouter from './plans.js'
+import subscriptionsRouter from './subscriptions.js'
+import summaryRouter from './summary.js'
+import usageRouter from './usage.js'
+import webhooksRouter from './webhooks.js'
+
 
 const router = express.Router();
 

@@ -1,5 +1,6 @@
 import fs from "fs";
-import { describe, it, expect } from "vitest";
+
+import { describe, expect, it } from "vitest";
 
 describe("Seed demo password", () => {
   it("has a default demo password of at least 8 characters and matches 'passw0rd'", () => {

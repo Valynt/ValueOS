@@ -1,5 +1,5 @@
-import { createServerSupabaseClient } from "../lib/supabase.js"
 import { logger } from "../lib/logger.js"
+import { createServerSupabaseClient } from "../lib/supabase.js"
 
 export interface AuthUserProfile {
   id: string;

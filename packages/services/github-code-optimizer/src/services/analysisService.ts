@@ -1,11 +1,13 @@
 import PQueue from 'p-queue';
-import { AnalysisJob, BotConfig, Optimization, Repository } from '../types/index.js';
-import { githubClient } from './githubClient.js';
-import { logAnalysisEvent, logger } from '../utils/logger.js';
-import { analyzeCode } from '../analysis/staticAnalyzer.js';
+
 import { generateOptimizations } from '../analysis/optimizationEngine.js';
-import { createPullRequest } from '../services/prService.js';
+import { analyzeCode } from '../analysis/staticAnalyzer.js';
 import { config } from '../config/index.js';
+import { createPullRequest } from '../services/prService.js';
+import { AnalysisJob, BotConfig, Optimization, Repository } from '../types/index.js';
+import { logAnalysisEvent, logger } from '../utils/logger.js';
+
+import { githubClient } from './githubClient.js';
 
 interface RepoFile {
   path: string;

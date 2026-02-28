@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { getFinancialModelForCase } from '../../domain/value/db/rows';
+
 import { fromFinancialModel } from '../../domain/value/adapters/roiModel.adapter';
+import { getFinancialModelForCase } from '../../domain/value/db/rows';
 
 export class RoiModelService {
   constructor(private supabase: ReturnType<typeof createClient>) {}

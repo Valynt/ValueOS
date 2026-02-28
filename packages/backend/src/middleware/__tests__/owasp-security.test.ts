@@ -3,18 +3,19 @@
  * Comprehensive tests for all security implementations
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Request, Response } from "express";
-import {
-  csrfProtectionMiddleware,
-  sessionSecurityMiddleware,
-} from "../securityMiddleware";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   contentTypeValidationMiddleware,
   fileUploadSecurityMiddleware,
   validateFileUpload,
 } from "../fileUploadSecurity";
 import { securityHeadersMiddleware } from "../securityHeaders";
+import {
+  csrfProtectionMiddleware,
+  sessionSecurityMiddleware,
+} from "../securityMiddleware";
 
 // Mock security logger
 vi.mock("../security/securityLogger", () => ({

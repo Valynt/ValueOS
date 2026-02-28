@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
+import type { AgentRecord, RoutingContext } from '../../services/AgentRegistry.js';
 import {
   AgentRoutingScorer,
   DEFAULT_AGENT_SCORING_WEIGHTS,
 } from '../../services/AgentRoutingScorer.js';
-import type { AgentRecord, RoutingContext } from '../../services/AgentRegistry.js';
 import type { WorkflowStage } from '../../types/workflow';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

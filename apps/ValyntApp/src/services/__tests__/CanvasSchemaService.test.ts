@@ -3,12 +3,13 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CanvasSchemaService } from '../CanvasSchemaService';
+
+import { logger } from '../../lib/logger';
 import { WorkspaceContext } from '../../types/sdui-integration';
 import { CacheService } from '../CacheService';
-import { ValueFabricService } from '../ValueFabricService';
-import { logger } from '../../lib/logger';
+import { CanvasSchemaService } from '../CanvasSchemaService';
 import { ROIFormulaInterpreter } from '../ROIFormulaInterpreter';
+import { ValueFabricService } from '../ValueFabricService';
 
 // Mock dependencies
 vi.mock('../CacheService');

@@ -12,8 +12,9 @@
  * - Accessibility features
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import "@testing-library/jest-dom";
 import { DocsViewer } from "../../../src/components/docs/DocsViewer";
 import type { DocSection, UserRole } from "../../../src/components/docs/types";

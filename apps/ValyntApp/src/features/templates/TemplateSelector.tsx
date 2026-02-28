@@ -4,7 +4,6 @@
  * Compact template picker for case creation flow.
  */
 
-import React, { useState } from 'react';
 import {
   BarChart3,
   Check,
@@ -15,9 +14,13 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState } from 'react';
+
+
 import { DEFAULT_TEMPLATES } from './defaultTemplates';
 import type { TemplateCategory, ValueCaseTemplate } from './types';
+
+import { cn } from '@/lib/utils';
 
 const CATEGORY_ICONS: Record<TemplateCategory, React.ComponentType<any>> = {
   general: BarChart3,

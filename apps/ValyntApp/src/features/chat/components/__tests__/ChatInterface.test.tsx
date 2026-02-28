@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatInterface } from "../ChatInterface";
+
 import type { ChatMessage } from "../../types";
+import { ChatInterface } from "../ChatInterface";
 
 // Mock scrollIntoView
 const scrollIntoViewMock = vi.fn();

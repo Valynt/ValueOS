@@ -3,6 +3,13 @@
  */
 
 import { z } from 'zod';
+
+import {
+  createEnumMapper,
+  sanitizedOptionalString,
+  sanitizedString,
+} from '../../lib/db/validation';
+
 import {
   DriverStatus,
   DriverType,
@@ -10,11 +17,6 @@ import {
   PersonaTag,
   SalesMotionTag,
 } from './types';
-import {
-  createEnumMapper,
-  sanitizedOptionalString,
-  sanitizedString,
-} from '../../lib/db/validation';
 
 const NAME_LIMIT = 100;
 const DESCRIPTION_LIMIT = 500;

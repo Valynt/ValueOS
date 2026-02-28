@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { setupTestDatabase } from "../__helpers__/db-helpers.js"
+
 import {
   createBillingCustomer,
   createInvoice,
 } from "../__helpers__/billing-factories";
+import { setupTestDatabase } from "../__helpers__/db-helpers.js"
 
 describe("Invoice concurrency safety", () => {
   const getSupabase = setupTestDatabase();

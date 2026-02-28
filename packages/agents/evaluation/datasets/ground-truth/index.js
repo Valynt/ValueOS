@@ -10,9 +10,9 @@
 export { saassDsoReductionScenario } from './saas-dso-reduction.js';
 export { manufacturingYieldScenario } from './manufacturing-yield.js';
 export { healthcareRevenueCycleScenario } from './healthcare-revenue-cycle.js';
-import { saassDsoReductionScenario } from './saas-dso-reduction.js';
-import { manufacturingYieldScenario } from './manufacturing-yield.js';
 import { healthcareRevenueCycleScenario } from './healthcare-revenue-cycle.js';
+import { manufacturingYieldScenario } from './manufacturing-yield.js';
+import { saassDsoReductionScenario } from './saas-dso-reduction.js';
 /** All ground truth scenarios indexed by ID */
 export const GROUND_TRUTH_SCENARIOS = {
     [saassDsoReductionScenario.meta.id]: saassDsoReductionScenario,

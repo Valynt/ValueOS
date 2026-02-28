@@ -5,7 +5,6 @@
  * Different personas have different priorities and value drivers.
  */
 
-import React from 'react';
 import {
   Briefcase,
   Check,
@@ -13,6 +12,8 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
+import React from 'react';
+
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 

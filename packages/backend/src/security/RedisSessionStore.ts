@@ -8,8 +8,8 @@
  * - Device fingerprinting support
  */
 
-import { getRedisClient } from '@shared/lib/redisClient';
 import { createLogger } from '@shared/lib/logger';
+import { getRedisClient } from '@shared/lib/redisClient';
 import { ns } from '@shared/lib/redisKeys';
 
 const logger = createLogger({ component: 'RedisSessionStore' });

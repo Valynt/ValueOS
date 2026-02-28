@@ -1,3 +1,5 @@
+import express, { Express } from 'express';
+import request from 'supertest';
 import { vi } from "vitest";
 /**
  * Value Drivers API Tests
@@ -5,15 +7,14 @@ import { vi } from "vitest";
  * Tests for: happy path, validation failure, auth failure, dependency failure
  */
 
-import request from 'supertest';
-import express, { Express } from 'express';
-import { valueDriversRouter } from '../index.js'
-import { getValueDriversRepository } from '../repository.js'
+
 import {
   DbConflictError,
   DbNotFoundError,
   TransientDbError,
 } from '../../../lib/db/errors';
+import { valueDriversRouter } from '../index.js'
+import { getValueDriversRepository } from '../repository.js'
 
 // Mock the repository
 vi.mock('../repository');

@@ -1,11 +1,13 @@
-import { useAuth } from "@/hooks/useAuth";
+import { Link } from "wouter";
+
+import AgenticTutor from "./AgenticTutor";
+
 import { PageShell } from "@/components/PageShell";
 import { SectionCard } from "@/components/SectionCard";
-import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "wouter";
-import AgenticTutor from "./AgenticTutor";
+import { Button } from "@/components/ui/button";
+import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AITutor() {
   const { user, loading, isAuthenticated } = useAuth();

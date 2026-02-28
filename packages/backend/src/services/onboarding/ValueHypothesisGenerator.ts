@@ -7,6 +7,7 @@
 
 import { logger } from '../../lib/logger.js';
 import { semanticMemory } from '../SemanticMemory.js';
+
 import type { ExtractionContext, LLMGatewayInterface } from './SuggestionExtractor.js';
 
 export interface ValueHypothesis {

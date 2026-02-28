@@ -5,7 +5,6 @@
  * Creates a customer access token and provides a shareable URL.
  */
 
-import { useCallback, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -17,7 +16,11 @@ import {
   Share2,
   Shield,
 } from 'lucide-react';
+import { useCallback, useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -42,8 +45,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { ValueCase } from '@/services/ValueCaseService';
 

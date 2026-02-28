@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { parseRetryPolicy } from '../../lib/retry/policies';
 import {
   CompensatorExecutor,
   InMemoryLogger,
@@ -7,7 +9,6 @@ import {
   RetryableError,
   TaskExecutor
 } from '../../lib/workflow/RetryExecutor';
-import { parseRetryPolicy } from '../../lib/retry/policies';
 
 describe('Retry executors', () => {
   let metrics: InMemoryMetricsRecorder;

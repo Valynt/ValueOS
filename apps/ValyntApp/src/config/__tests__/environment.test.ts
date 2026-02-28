@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import {
   getConfig,
   isDevelopment,

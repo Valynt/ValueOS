@@ -4,8 +4,9 @@
  * Extended Expansion template with System Replication and Scaling Analysis.
  */
 
-import type { SDUIPageDefinition } from "../schema";
 import type { FeedbackLoop, InterventionPoint, SystemMap } from "@valueos/sdui-types";
+
+import type { SDUIPageDefinition } from "../schema";
 
 /**
  * Generate SOF-enhanced Expansion page

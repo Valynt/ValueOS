@@ -3,10 +3,10 @@
  * Collects usage metrics from various sources for reporting
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase';
 import { BillingMetric } from '../../config/billing';
-import { UsageSummary } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
+import { createServerSupabaseClient } from '../../lib/supabase';
+import { UsageSummary } from '../../types/billing';
 
 const logger = createLogger({ component: 'MetricsCollector' });
 

@@ -11,6 +11,7 @@
 
 import { logger } from '../lib/logger.js'
 import { deleteCache, getCache, setCache } from '../lib/redis';
+
 import {
   hasConfigAccess,
   OrganizationConfiguration,

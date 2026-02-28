@@ -5,17 +5,18 @@
  * CRITICAL: These tests prevent SQL injection and data corruption attacks.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  createBillingCustomer,
+  createUsageEvent,
+} from "../__helpers__/billing-factories";
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
   seedTestData,
 } from "../__helpers__/db-helpers";
-import {
-  createBillingCustomer,
-  createUsageEvent,
-} from "../__helpers__/billing-factories";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("SQL Injection and Input Validation Tests", () => {
   let supabase: SupabaseClient;

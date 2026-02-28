@@ -6,8 +6,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { EntitlementsService } from '../EntitlementsService.js';
+
 import { BillingMetric } from '../../../config/billing.js';
+import { EntitlementsService } from '../EntitlementsService.js';
 
 // Mock data for testing
 const mockTenantId = 'test-tenant-123';

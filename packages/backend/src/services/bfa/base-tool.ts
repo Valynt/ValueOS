@@ -6,6 +6,10 @@
  */
 
 import { z } from "zod";
+
+import { logger } from "../../lib/logger.js"
+
+import { BfaTelemetry } from "./telemetry.js"
 import {
   AgentContext,
   BFAError,
@@ -14,8 +18,6 @@ import {
   ToolExecutionResult,
   ValidationError,
 } from "./types";
-import { BfaTelemetry } from "./telemetry.js"
-import { logger } from "../../lib/logger.js"
 
 /**
  * Abstract base class for semantic tools

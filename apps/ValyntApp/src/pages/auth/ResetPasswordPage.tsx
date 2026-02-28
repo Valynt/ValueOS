@@ -1,6 +1,7 @@
+import { CheckCircle, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle, Loader2, Mail } from "lucide-react";
+
 import { useAuth } from "@/contexts/AuthContext";
 
 export function ResetPasswordPage() {

@@ -1,5 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
 import { logger } from "../../lib/logger.js";
+
 import {
   Artifact,
   ArtifactMetadata,

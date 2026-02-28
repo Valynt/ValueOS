@@ -5,18 +5,21 @@
  * Displays a summary of approved artifacts and persists results.
  */
 
-import { useState, useEffect } from "react";
 import {
   CheckCircle2,
   Download,
+  Loader2,
   Share2,
   Sparkles,
-  Loader2,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+
 import type { Artifact } from "../../agent/types";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
 
 interface FinalizePanelProps {
   artifacts: Artifact[];

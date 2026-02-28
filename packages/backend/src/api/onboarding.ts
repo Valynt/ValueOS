@@ -5,14 +5,15 @@
  * listing suggestions, and accepting/rejecting suggestions.
  */
 
+import { createLogger } from '@shared/lib/logger';
+import { getRequestSupabaseClient } from '@shared/lib/supabase';
 import { Request, Response, Router } from 'express';
 import { z } from 'zod';
-import { getRequestSupabaseClient } from '@shared/lib/supabase';
-import { createLogger } from '@shared/lib/logger';
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js';
+
 import { requireAuth } from '../middleware/auth.js';
-import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { rateLimiters } from '../middleware/rateLimiter.js';
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware.js';
+import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { getResearchQueue } from '../workers/researchWorker.js';
 
 const logger = createLogger({ component: 'OnboardingAPI' });

@@ -8,6 +8,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
+
 import { logger } from "../lib/logger";
 import { WorkflowStatus } from "../types";
 

@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
 import { logger } from "../../lib/logger.js";
 
 // ============================================================================

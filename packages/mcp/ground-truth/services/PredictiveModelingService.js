@@ -11,8 +11,8 @@
  * Uses statistical methods and machine learning approaches for
  * reliable financial predictions and risk assessment.
  */
-import { getCache } from "../core/Cache";
 import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
 export class PredictiveModelingService {
     cache = getCache();
     /**

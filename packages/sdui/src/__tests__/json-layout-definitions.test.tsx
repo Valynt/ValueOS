@@ -6,6 +6,7 @@
  
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { renderPage } from '../renderPage';
 import { SDUIPageDefinition, SDUIValidationError } from '../schema';
 

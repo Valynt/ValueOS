@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ValueKernel } from '../ValueKernel.js'
+
 import { entrypointConfig, EntryPointViolationError } from '../../config/entrypoints.js'
+import { ValueKernel } from '../ValueKernel.js'
 
 const baseContext = {
   entryPoint: 'kernel:value-lifecycle' as const,

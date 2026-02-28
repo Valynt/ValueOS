@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { addServiceIdentityHeader, serviceIdentityMiddleware } from '../serviceIdentityMiddleware';
+
 import { getAutonomyConfig } from '../../config/autonomy';
+import { addServiceIdentityHeader, serviceIdentityMiddleware } from '../serviceIdentityMiddleware';
 
 vi.mock('../../config/autonomy', () => ({
   getAutonomyConfig: vi.fn(() => ({

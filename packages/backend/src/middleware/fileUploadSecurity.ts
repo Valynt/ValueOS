@@ -3,8 +3,8 @@
  * Implements OWASP file upload security recommendations
  */
 
-import { NextFunction, Request, Response } from "express";
 import { createLogger } from "@shared/lib/logger";
+import { NextFunction, Request, Response } from "express";
 
 const logger = createLogger({ component: "FileUploadSecurity" });
 

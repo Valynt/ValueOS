@@ -5,8 +5,9 @@
  * Used by agents to fetch authoritative financial data before generating responses.
  */
 
-import { logger } from '../lib/logger';
 import { env } from '../lib/env';
+import { logger } from '../lib/logger';
+
 import { ExternalCircuitBreaker } from './ExternalCircuitBreaker';
 
 // MCP Server type (dynamic import to avoid circular deps)

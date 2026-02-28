@@ -1,5 +1,5 @@
-import { logger } from "../lib/logger";
 import { getConfig } from "../config/environment";
+import { logger } from "../lib/logger";
 
 export interface EmailOptions {
   to: string;

@@ -1,5 +1,6 @@
-import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker';
 import { logger } from '../lib/logger';
+
+import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker';
 
 export type BreakerState = 'closed' | 'open' | 'half_open';
 

@@ -1,8 +1,10 @@
-import Header from '../components/Layout/Header';
+import { Activity, Power, Settings } from 'lucide-react';
+
 import AgentBadge from '../components/Agents/AgentBadge';
 import IntegrityStatusBar from '../components/Agents/IntegrityStatusBar';
+import Header from '../components/Layout/Header';
 import { AGENTS, AgentType } from '../types/agents';
-import { Activity, Power, Settings } from 'lucide-react';
+
 
 const agentsByPhase = {
   discovery: ['company-intelligence', 'opportunity'] as AgentType[],

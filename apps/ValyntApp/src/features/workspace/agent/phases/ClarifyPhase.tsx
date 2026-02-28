@@ -4,10 +4,13 @@
  */
 
 import React from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+
 import type { ClarifyOption } from "../types";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 
 interface ClarifyPhaseProps {
   question: string;

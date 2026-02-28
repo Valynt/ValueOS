@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import request from 'supertest';
 import express from 'express';
+import request from 'supertest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies BEFORE importing the router
 vi.mock('../../../services/CanvasSchemaService', () => ({
@@ -19,8 +19,9 @@ vi.mock('../../../lib/logger', () => ({
 }));
 
 // Import dependencies
-import sduiRouter from '../sdui.js'
 import { canvasSchemaService } from '../../services/CanvasSchemaService.js'
+import sduiRouter from '../sdui.js'
+
 import { SDUI_VERSION } from '@sdui/schema';
 
 // Create Express app for testing

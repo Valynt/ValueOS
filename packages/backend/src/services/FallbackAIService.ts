@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../lib/logger.js'
+
 import { AIResponseSchema } from './AgentChatService.js'
 
 export class FallbackAIService {

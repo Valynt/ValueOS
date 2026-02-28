@@ -1,5 +1,7 @@
 import React from 'react';
+
 import { SCOPE_CONFIG, type SettingScope } from '../../lib/adminNavigation';
+
 import { cn } from '@/lib/utils';
 
 interface ScopeBadgeProps {

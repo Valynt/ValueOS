@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AuthService } from '../AuthService.js'
 import { RateLimitError, ValidationError } from '../errors.js'
 

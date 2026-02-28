@@ -4,10 +4,11 @@
  */
 
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import ROICalculator from '../ROICalculator';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { DrawerContext } from '../../contexts/DrawerContext';
+import ROICalculator from '../ROICalculator';
 
 // Mock dependencies
 vi.mock('../../contexts/DrawerContext', () => ({

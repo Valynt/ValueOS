@@ -1,7 +1,8 @@
-import { Request, Response, NextFunction } from "express";
-import { createHistogram } from "../config/telemetry.js"
-import { logger } from "@shared/lib/logger";
 import type { Histogram } from "@opentelemetry/api";
+import { logger } from "@shared/lib/logger";
+import { NextFunction, Request, Response } from "express";
+
+import { createHistogram } from "../config/telemetry.js"
 
 const WINDOW_SIZE = 120;
 const latencyWindows = new Map<string, number[]>();

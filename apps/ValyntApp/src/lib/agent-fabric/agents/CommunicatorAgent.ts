@@ -5,6 +5,8 @@
  * using Multi-Agent Reinforcement Learning (MARL) for optimizing communication effectiveness.
  */
 
+import { AgentType } from "../../../services/agent-types";
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import {
   BaseAgent,
   MARLAction,
@@ -13,9 +15,7 @@ import {
   MARLRewardFunction,
   MARLState,
 } from "../BaseAgent";
-import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { BaseAgentConfig } from "../BaseAgent";
-import { AgentType } from "../../../services/agent-types";
 
 export interface CommunicationContext {
   stakeholderId: string;

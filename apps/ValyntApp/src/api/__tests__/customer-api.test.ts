@@ -2,13 +2,14 @@
  * Customer Portal API Tests
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Request, Response } from 'express';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { supabase } from '../../lib/supabase';
+import { customerAccessService } from '../../services/CustomerAccessService';
+import { getCustomerBenchmarks } from '../customer/benchmarks';
 import { getCustomerMetrics } from '../customer/metrics';
 import { getCustomerValueCase } from '../customer/value-case';
-import { getCustomerBenchmarks } from '../customer/benchmarks';
-import { customerAccessService } from '../../services/CustomerAccessService';
-import { supabase } from '../../lib/supabase';
 
 // Mock dependencies
 vi.mock('../../services/CustomerAccessService');

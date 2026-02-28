@@ -13,8 +13,8 @@
 
 import { logger } from '../lib/logger';
 import { WorkflowState } from '../repositories/WorkflowStateRepository';
-import { SDUIPageDefinition } from '../sdui/schema';
 import { CanvasLayout } from '../sdui/canvas/types';
+import { SDUIPageDefinition } from '../sdui/schema';
 
 // ============================================================================
 // Types

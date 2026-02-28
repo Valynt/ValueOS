@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+
 import { WebScraperService } from "../WebScraperService.js";
 
 describe("WebScraperService bounded-memory caching", () => {

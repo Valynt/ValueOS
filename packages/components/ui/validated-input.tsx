@@ -4,10 +4,11 @@
  * Input with inline validation feedback
  */
 
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import * as React from 'react';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface ValidatedInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

@@ -5,11 +5,15 @@
  * Updates job status and per-entity progress throughout.
  */
 
-import { type SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
+
+import { type SupabaseClient } from '@supabase/supabase-js';
 import PQueue from 'p-queue';
+
 import { logger } from '../../lib/logger.js';
-import { type CrawlResult, crawlWebsite } from './WebCrawler.js';
+import { mcpGroundTruthService } from '../MCPGroundTruthService.js';
+import { semanticMemory } from '../SemanticMemory.js';
+
 import {
   type EntityType,
   extractAllEntities,
@@ -17,8 +21,7 @@ import {
   type LLMGatewayInterface,
 } from './SuggestionExtractor.js';
 import { generateValueHypotheses } from './ValueHypothesisGenerator.js';
-import { mcpGroundTruthService } from '../MCPGroundTruthService.js';
-import { semanticMemory } from '../SemanticMemory.js';
+import { type CrawlResult, crawlWebsite } from './WebCrawler.js';
 
 // ============================================================================
 // Types

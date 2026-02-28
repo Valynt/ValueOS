@@ -5,8 +5,9 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { SessionTimeoutService } from "../SessionTimeoutService";
+
 import { getSessionTimeoutForRole } from "../../security/SecurityConfig";
+import { SessionTimeoutService } from "../SessionTimeoutService";
 
 describe("SessionTimeoutService", () => {
   let service: SessionTimeoutService;

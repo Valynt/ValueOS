@@ -4,6 +4,7 @@
  */
 
 import { AlertCircle, CheckCircle, Loader2, Sparkles } from "lucide-react";
+
 import type { AgentState } from "@/hooks/useAgentOrchestrator";
 
 interface AgentStatusIndicatorProps {

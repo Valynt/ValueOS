@@ -5,10 +5,11 @@
  * security boundaries and compliance requirements.
  */
 
+import { constantTimeCompareObjects } from '../lib/crypto/CryptoUtils';
 import { logger } from '../lib/logger.js'
+
 import { AgentType } from './agent-types.js'
 import { getAuditLogger } from './AgentAuditLogger.js'
-import { constantTimeCompareObjects } from '../lib/crypto/CryptoUtils';
 
 // ============================================================================
 // Types

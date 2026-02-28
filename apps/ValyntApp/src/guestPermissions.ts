@@ -4,8 +4,9 @@
  * Manages permission checks and access control for guest users
  */
 
-import { GuestPermissions } from '@/GuestAccessService';
 import { logger } from '../logger';
+
+import { GuestPermissions } from '@/GuestAccessService';
 
 // Permission action types
 export enum PermissionAction {

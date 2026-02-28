@@ -6,8 +6,8 @@
  * Replaces direct agent API calls with secure message passing.
  */
 
-import { logger } from "../lib/logger.js"
 import { v4 as uuidv4 } from "uuid";
+
 import { BaseAgent } from "../lib/agent-fabric/agents/BaseAgent";
 import {
   MessagePriority,
@@ -15,6 +15,7 @@ import {
   secureMessageBus,
 } from "../lib/agent-fabric/SecureMessageBus";
 import { AgentIdentity } from "../lib/auth/AgentIdentity";
+import { logger } from "../lib/logger.js"
 
 // ============================================================================
 // Types

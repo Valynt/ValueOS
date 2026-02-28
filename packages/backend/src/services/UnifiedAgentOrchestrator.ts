@@ -14,24 +14,25 @@
  * - Extensible: Plugin architecture for routing strategies
  */
 
-import { logger } from "../lib/logger.js";
-import { v4 as uuidv4 } from "uuid";
-import { getTracer } from "../config/telemetry.js";
-import { Span, SpanStatusCode } from "@opentelemetry/api";
-import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker.js";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js";
-import { SDUIPageDefinition } from "@sdui/schema";
 import { logAgentResponse } from "./AgentAuditLogger.js";
 import { AgentType } from "./agent-types.js";
-import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
-import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
+
 import {
   STRUCTURAL_TRUTH_SCHEMA_FIELDS,
   StructuralTruthModuleSchema,
 } from "@mcp/ground-truth/modules/StructuralTruthModule";
 import { assertProvenance, validateGroundTruthMetadata } from "@mcp/ground-truth/validators/GroundTruthValidator";
+import { Span, SpanStatusCode } from "@opentelemetry/api";
+import { SDUIPageDefinition } from "@sdui/schema";
+import { env, getEnvVar, getGroundtruthConfig } from "@shared/lib/env";
+import { v4 as uuidv4 } from "uuid";
+import * as z from "zod";
+
+import { getTracer } from "../config/telemetry.js";
+
 import { ConfidenceMonitor } from "./ConfidenceMonitor";
 import GroundtruthAPI, {
   GroundtruthAPIConfig,
@@ -40,14 +41,19 @@ import GroundtruthAPI, {
 } from "./GroundtruthAPI";
 import { AgentMessageBroker } from "./AgentMessageBroker";
 import { AgentMessageQueue } from "./AgentMessageQueue.js";
+
 import { WorkflowStatus } from "../types";
 import { WorkflowExecutionRecord } from "../types/workflowExecution";
 import { ExecutionRequest } from "../types/execution";
 import { WorkflowState } from "../repositories/WorkflowStateRepository";
+
 import { AgentContext, AgentResponse as APIAgentResponse, getAgentAPI } from "./AgentAPI";
+
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
 import { MemorySystem } from "../lib/agent-fabric/MemorySystem.js";
 import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend.js";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway.js";
+import { logger } from "../lib/logger.js";
+
 import { semanticMemory } from "./SemanticMemory.js";
 
 // ============================================================================
@@ -160,11 +166,11 @@ async function getRenderPage() {
   }
   return _renderPage;
 }
-import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
-import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
-import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExecutor.js";
 import { supabase } from "../lib/supabase.js";
-import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
+import { AgentHealthStatus, ConfidenceLevel } from "../types/agent";
+import { WorkflowDAG, WorkflowEvent, WorkflowStage } from "../types/workflow";
+
+import { AgentRoutingLayer, StageRoute } from "./AgentRoutingLayer.js";
 import {
   AgentCapability,
   AgentConfiguration,
@@ -176,6 +182,8 @@ import {
   AgentResponse as RetryAgentResponse,
   ValidationResult,
 } from "./agents/core/IAgent.js";
+import { AgentRetryManager, RetryOptions } from "./agents/resilience/AgentRetryManager.js";
+import { getEnhancedParallelExecutor, RunnableTask } from "./EnhancedParallelExecutor.js";
 
 // ============================================================================
 // Types

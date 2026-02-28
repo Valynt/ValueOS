@@ -4,14 +4,15 @@
  * React Flow node components for input and calculated value drivers.
  */
 
-import React, { memo, useCallback } from "react";
 import { Handle, NodeProps, Position } from "@xyflow/react";
+import { TrendingDown, TrendingUp } from "lucide-react";
+import React, { memo, useCallback } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { TrendingDown, TrendingUp } from "lucide-react";
-import useValueCanvasStore from "@/stores/valueCanvasStore";
 import { calculationEngine } from "@/services/CalculationEngine";
+import useValueCanvasStore from "@/stores/valueCanvasStore";
 
 // Input Node - for leaf drivers that users can modify
 export const InputNode = memo(({ id, data }: NodeProps) => {

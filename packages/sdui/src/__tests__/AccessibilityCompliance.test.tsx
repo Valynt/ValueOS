@@ -5,13 +5,14 @@
  * keyboard navigation, screen reader support, and focus management.
  */
 
-import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
 import { axe, toHaveNoViolations } from 'jest-axe';
+import React from 'react';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { hotSwapComponent, resetRegistry } from '../../sdui/registry';
 import { SDUIRenderer } from '../../sdui/renderer';
 import { SDUIPageDefinition } from '../../sdui/schema';
-import { hotSwapComponent, resetRegistry } from '../../sdui/registry';
 
 expect.extend(toHaveNoViolations);
 

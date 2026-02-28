@@ -10,8 +10,6 @@
  * - 5-Second Rule: breadcrumbs answer "Where am I?", nav answers "What can I do?"
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
 import {
   BarChart3,
   Briefcase,
@@ -26,6 +24,9 @@ import {
   Target,
   Users,
 } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+
 import { cn } from "@/lib/utils";
 
 const navItems = [

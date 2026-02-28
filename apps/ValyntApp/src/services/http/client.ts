@@ -3,6 +3,7 @@
  */
 
 import { getConfig } from "@app/config";
+
 import type { ApiError, ApiRequestConfig, ApiResponse } from "@/types";
 
 class HttpClient {

@@ -3,7 +3,6 @@
  * Main component for immutable audit trail viewing with compliance features
  */
 
-import React, { useEffect, useState } from 'react';
 import { 
   Activity, 
   AlertTriangle, 
@@ -20,9 +19,11 @@ import {
   ShieldCheck,
   XCircle
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+
 import { useAuditTrail } from '../hooks/useAuditTrail';
-import { AuditFilter } from '../types/audit';
 import { PermissionMiddleware } from '../lib/auth/PermissionMiddleware';
+import { AuditFilter } from '../types/audit';
 
 // Sub-components
 const FilterPanel: React.FC<{

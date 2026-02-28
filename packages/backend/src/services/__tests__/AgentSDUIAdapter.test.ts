@@ -3,13 +3,14 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AgentSDUIAdapter } from '../AgentSDUIAdapter.js'
+
 import {
   IntegrityOutput,
   RealizationOutput,
   SystemMapperOutput,
   TargetOutput,
 } from '../../types/agent-output';
+import { AgentSDUIAdapter } from '../AgentSDUIAdapter.js'
 import { canvasSchemaService } from '../CanvasSchemaService.js'
 
 // Mock dependencies

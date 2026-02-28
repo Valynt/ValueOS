@@ -3,10 +3,6 @@
  * Provides detailed analysis of quiz performance by topics and categories
  */
 
-import { SectionCard } from "@/components/SectionCard";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertTriangle,
   BookOpen,
@@ -16,6 +12,11 @@ import {
   TrendingUp,
   XCircle
 } from "lucide-react";
+
+import { SectionCard } from "@/components/SectionCard";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 interface CategoryBreakdown {
   [category: string]: {

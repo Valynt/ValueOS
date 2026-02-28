@@ -21,14 +21,15 @@ export {
 } from "./MemoryBenchmarkService";
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { MemoryService } from "./MemoryService.js"
+
+import { AccessService } from "./AccessService.js"
+import { ApprovalService } from "./ApprovalService.js"
+import { MemoryBenchmarkService } from "./MemoryBenchmarkService.js"
 import { MemoryPipeline } from "./MemoryPipeline.js"
-import { RetrievalEngine } from "./RetrievalEngine.js"
+import { MemoryService } from "./MemoryService.js"
 import { DefaultBenchmarkProvider, ModelRunEngine } from "./ModelRunEngine.js"
 import { NarrativeEngine } from "./NarrativeEngine.js"
-import { ApprovalService } from "./ApprovalService.js"
-import { AccessService } from "./AccessService.js"
-import { MemoryBenchmarkService } from "./MemoryBenchmarkService.js"
+import { RetrievalEngine } from "./RetrievalEngine.js"
 import { UUID } from "./types.js"
 
 export interface MemoryLayerConfig {

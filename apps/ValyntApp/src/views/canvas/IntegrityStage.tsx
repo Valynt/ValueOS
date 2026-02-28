@@ -10,6 +10,7 @@ import {
   ThumbsUp,
   XCircle,
 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 
 type ClaimStatus = "verified" | "flagged" | "rejected" | "pending";

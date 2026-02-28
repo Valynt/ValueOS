@@ -10,7 +10,7 @@
  * Acceptance Criteria: Accessibility features do not impact performance significantly
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Accessibility Performance Tests', () => {
   describe('Screen Reader Performance', () => {

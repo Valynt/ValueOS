@@ -48,9 +48,9 @@ vi.mock('../../services/billing/WebhookService', () => ({
   },
 }));
 
-import webhookRouter from '../billing/webhooks';
 import { getSupabaseServerConfig } from '../../lib/env';
 import { recordWebhookRejection } from '../../metrics/webhookMetrics';
+import webhookRouter from '../billing/webhooks';
 
 const mockedGetServerConfig = getSupabaseServerConfig as ReturnType<typeof vi.fn>;
 const mockedRecordRejection = recordWebhookRejection as ReturnType<typeof vi.fn>;

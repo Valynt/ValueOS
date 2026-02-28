@@ -4,8 +4,9 @@
  * Extended Target template with Intervention Designer and Outcome Hypotheses.
  */
 
-import type { SDUIPageDefinition } from "../schema";
 import type { InterventionPoint, OutcomeHypothesis, SystemMap } from "@valueos/sdui-types";
+
+import type { SDUIPageDefinition } from "../schema";
 
 /**
  * Generate SOF-enhanced Target page

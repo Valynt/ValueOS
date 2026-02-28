@@ -1,8 +1,5 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { AlertCircle, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   LineChart,
   LineChartArea,
@@ -11,7 +8,14 @@ import {
   LineChartYAxis,
   ResponsiveContainer,
 } from "recharts";
+
 import { agentTelemetryService } from "../services/agents/telemetry/AgentTelemetryService";
+
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+
+
 
 interface TelemetryData {
   systemHealth: any;

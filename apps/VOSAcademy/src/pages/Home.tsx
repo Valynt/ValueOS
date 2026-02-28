@@ -1,10 +1,11 @@
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SidebarLayout } from "@/components/SidebarLayout";
-import { getLoginUrl } from "@/data/const";
 import { ArrowRight, Award, BookOpen, Brain, Sparkles, Target, TrendingUp, Users } from "lucide-react";
 import { Link } from "wouter";
+
+import { SidebarLayout } from "@/components/SidebarLayout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getLoginUrl } from "@/data/const";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();

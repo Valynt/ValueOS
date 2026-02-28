@@ -5,17 +5,18 @@
  * IMPORTANT: These tests validate system performance and scalability.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  cleanupBillingTables,
-  getTestSupabaseClient,
-} from "../__helpers__/db-helpers";
+
 import {
   createBatchUsageEvents,
   createUsageEvent,
 } from "../__helpers__/billing-factories";
+import {
+  cleanupBillingTables,
+  getTestSupabaseClient,
+} from "../__helpers__/db-helpers";
 import { performance as perfHelpers } from "../__helpers__/test-fixtures";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Load and Stress Tests", () => {
   let supabase: SupabaseClient;

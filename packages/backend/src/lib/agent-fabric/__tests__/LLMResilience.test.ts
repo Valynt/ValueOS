@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { LLMResponse } from '../LLMGateway.js';
 import {
   _test_resetResilienceState,
   CircuitOpenError,
@@ -6,7 +8,6 @@ import {
   DependencyTimeoutError,
   LLMResilienceWrapper,
 } from '../LLMResilience.js';
-import type { LLMResponse } from '../LLMGateway.js';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,9 +1,11 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { lazy, Suspense } from "react";
-import { MarketingLayout } from "@layouts/MarketingLayout";
 import { AppLayout } from "@layouts/AppLayout";
-import { ProtectedRoute } from "./route-guards";
+import { MarketingLayout } from "@layouts/MarketingLayout";
 import { LoadingSkeleton } from "@valueos/components/ui/loading-skeleton";
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+
+import { ProtectedRoute } from "./route-guards";
+
 
 const LandingPage = lazy(() => import("@pages/marketing/LandingPage"));
 const DashboardPage = lazy(() => import("@pages/app/DashboardPage"));

@@ -11,6 +11,7 @@
  */
 
 import { logger } from "../lib/logger";
+
 import { BaseService } from "./BaseService";
 
 export interface TrustedDevice {

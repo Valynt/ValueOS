@@ -4,14 +4,14 @@
  * Provides syntax highlighting, autocomplete, and validation for value driver formulas.
  */
 
-import React, { useEffect, useRef, useState } from "react";
 import { AlertCircle, Check, Lightbulb, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-
 import { calculationEngine } from "@/services/CalculationEngine";
 import useValueCanvasStore from "@/stores/valueCanvasStore";
 

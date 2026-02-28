@@ -5,9 +5,9 @@
  * focusing on actual outcomes, lessons learned, and continuous improvement.
  */
 
-import { BaseAgent } from "../BaseAgent";
 import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { AgentConfig, AgentType, ConfidenceLevel } from "../../../types/agent";
+import { BaseAgent } from "../BaseAgent";
 import {
   assertHighConfidence,
   assertProvenance,

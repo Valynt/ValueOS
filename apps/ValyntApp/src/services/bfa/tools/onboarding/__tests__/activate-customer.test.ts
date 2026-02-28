@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ActivateCustomer } from "../activate-customer";
-import { AgentContext } from "../../../types";
-import { supabase } from "../../../../../lib/supabase";
+
 import { logger } from "../../../../../lib/logger";
+import { supabase } from "../../../../../lib/supabase";
+import { AgentContext } from "../../../types";
+import { ActivateCustomer } from "../activate-customer";
 
 // Mock dependencies
 vi.mock("../../../../../lib/supabase", () => ({

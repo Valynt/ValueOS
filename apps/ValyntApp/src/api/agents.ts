@@ -1,13 +1,14 @@
 import { Request, Response, Router } from "express";
-import { modelCardService } from "../services/ModelCardService";
-import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
-import { rateLimiters } from "../middleware/rateLimiter";
-import { validateRequest } from "../middleware/inputValidation";
+
 import { logger } from "../lib/logger";
+import { validateRequest } from "../middleware/inputValidation";
+import { rateLimiters } from "../middleware/rateLimiter";
 import { requirePermission } from "../middleware/rbac";
 import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
-import { getUnifiedAgentAPI } from "../services/UnifiedAgentAPI";
+import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
 import { AgentType } from "../services/agent-types";
+import { modelCardService } from "../services/ModelCardService";
+import { getUnifiedAgentAPI } from "../services/UnifiedAgentAPI";
 
 const router = Router();
 router.use(securityHeadersMiddleware);

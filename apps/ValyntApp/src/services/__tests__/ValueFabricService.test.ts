@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ValueFabricService } from '../../services/ValueFabricService';
 import { createBoltClientMock } from '../utils/mockSupabaseClient';
 

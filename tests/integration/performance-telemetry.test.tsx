@@ -5,12 +5,12 @@
  * These tests ensure that performance metrics are properly collected and analyzed.
  */
 
-import React, { useState } from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import React, { useState } from 'react';
 import { FC, ReactNode } from 'react';
-import { vi, beforeEach, describe, it, expect } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Import components and hooks
 import { useCanvasCommand } from '../../src/hooks/useCanvasCommand';
@@ -19,12 +19,12 @@ import { CommandProcessor } from '../../src/lib/commands/CommandProcessor';
 
 // Import mock builders
 import {
-  createMockUser,
+  createMockAgentChatService,
   createMockCase,
-  createMockWorkflowState,
   createMockSDUIPage,
   createMockSupabase,
-  createMockAgentChatService,
+  createMockUser,
+  createMockWorkflowState,
   createStandardTestSetup
 } from './test-utils/mockBuilders';
 

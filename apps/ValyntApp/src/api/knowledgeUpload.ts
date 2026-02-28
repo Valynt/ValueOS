@@ -1,11 +1,12 @@
 import { Request, Response, Router } from 'express';
-import { enforceLineage } from '../middleware/lineageValidationMiddleware';
+
 import { requireConsent } from '../middleware/consentMiddleware';
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
-import { logger } from '../utils/logger';
+import { enforceLineage } from '../middleware/lineageValidationMiddleware';
 import { requirePermission } from '../middleware/rbac';
-import { consentRegistry } from '../services/consentRegistry';
 import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
+import { consentRegistry } from '../services/consentRegistry';
+import { logger } from '../utils/logger';
 
 const router = Router();
 router.use(securityHeadersMiddleware);

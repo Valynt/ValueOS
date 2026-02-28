@@ -1,5 +1,5 @@
-import React from "react";
 import { Send, Target } from "lucide-react";
+import React from "react";
 
 export interface KPIDefinition {
   id: string;

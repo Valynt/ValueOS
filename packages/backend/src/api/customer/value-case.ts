@@ -3,15 +3,16 @@
  * GET /api/customer/value-case/:token
  */
 
-import { Request, Response } from "express";
-import { customerAccessService } from "../../services/CustomerAccessService";
-import { createServerSupabaseClient } from "../../lib/supabase.js";
 import { logger } from "@shared/lib/logger";
+import { Request, Response } from "express";
 import { z } from "zod";
-import { ValueTreeService } from "../../services/value/ValueTreeService";
-import { RoiModelService } from "../../services/value/RoiModelService";
-import { KpiTargetService } from "../../services/value/KpiTargetService";
+
 import { httpRequestDuration } from "../../lib/metrics/httpMetrics";
+import { createServerSupabaseClient } from "../../lib/supabase.js";
+import { customerAccessService } from "../../services/CustomerAccessService";
+import { KpiTargetService } from "../../services/value/KpiTargetService";
+import { RoiModelService } from "../../services/value/RoiModelService";
+import { ValueTreeService } from "../../services/value/ValueTreeService";
 
 // Request validation schema
 const ValueCaseRequestSchema = z.object({

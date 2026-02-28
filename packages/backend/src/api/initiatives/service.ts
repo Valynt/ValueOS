@@ -1,6 +1,9 @@
+import type { PoolClient } from "pg";
+
 import {
   DbValidationError,
 } from "../../lib/db/errors";
+
 import { InitiativesRepository } from "./repository.js"
 import type {
   CreateInitiativeInput,
@@ -9,7 +12,6 @@ import type {
   PaginatedResponse,
   UpdateInitiativeInput,
 } from "./types";
-import type { PoolClient } from "pg";
 
 const encodeCursor = (payload: Record<string, unknown>): string =>
   Buffer.from(JSON.stringify(payload), "utf8").toString("base64");

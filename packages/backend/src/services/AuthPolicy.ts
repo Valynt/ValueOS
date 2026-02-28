@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { AuthenticationError } from "./errors.js";
 
 export const UserMetaSchema = z.object({

@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import React from 'react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { OnboardingFlow, vosAcademyOnboardingSteps } from '../../src/components/OnboardingFlow'
 
 // Mock localStorage

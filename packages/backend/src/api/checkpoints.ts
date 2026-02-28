@@ -5,6 +5,7 @@
  */
 
 import { Request, Response, Router } from 'express';
+
 import { logger } from '../lib/logger.js';
 import { CheckpointMiddleware } from '../services/middleware/CheckpointMiddleware.js';
 

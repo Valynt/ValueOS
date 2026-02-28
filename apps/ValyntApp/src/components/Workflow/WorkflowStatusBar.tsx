@@ -10,8 +10,9 @@
  * - Accessibility: role="progressbar" with aria attributes, keyboard navigable steps
  */
 
-import React from "react";
 import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
+import React from "react";
+
 import { cn } from "@/lib/utils";
 
 export interface WorkflowStep {

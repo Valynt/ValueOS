@@ -7,9 +7,9 @@
  * - Usage metrics (query counts, cache hits)
  */
 
+import { logger } from "../lib/logger";
 import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../types/eso-data";
 import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
-import { logger } from "../lib/logger";
 
 // ============================================================================
 // Types

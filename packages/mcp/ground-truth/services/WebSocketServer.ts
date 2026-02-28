@@ -13,9 +13,11 @@
 
 import { Server as HTTPServer } from "http";
 import { Server as HTTPSServer } from "https";
-import { Server, Socket } from "socket.io";
+
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis } from "ioredis";
+import { Server, Socket } from "socket.io";
+
 import { logger } from "../../lib/logger";
 import { getCache } from "../core/Cache";
 
@@ -379,8 +381,8 @@ export class WebSocketServer {
    */
   broadcastWebhook(notification: WebhookNotification): void {
     const message = {
-      type: "webhook",
       ...notification,
+      type: "webhook" as const,
       serverTimestamp: Date.now(),
     };
 

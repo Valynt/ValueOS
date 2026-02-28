@@ -6,6 +6,7 @@
  */
 
 import { logger } from '../lib/logger';
+
 import { AgentType } from './agent-types';
 
 // ============================================================================

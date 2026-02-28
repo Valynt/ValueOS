@@ -5,7 +5,9 @@
  * Enforces governance, validates actions, and routes to appropriate handlers.
  */
 
-import { logger } from "../lib/logger.js";
+import { randomUUID } from "crypto";
+
+import { SDUIPageDefinition } from "@sdui/schema";
 import {
   ActionContext,
   ActionHandler,
@@ -14,21 +16,16 @@ import {
   ManifestoCheckResult,
   ValidationResult,
 } from "@valueos/shared/types/actions";
-import { normalizeExecutionRequest } from "../types/execution";
-import { AuditLogService } from "./AuditLogService.js";
-import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from "./UnifiedAgentOrchestrator.js";
-import { AgentAPI, getAgentAPI } from "./AgentAPI.js";
-import type { AgentType } from "./agent-types.js";
-import { ComponentMutationService } from "./ComponentMutationService.js";
-import { manifestoEnforcer } from "./ManifestoEnforcer.js";
-import { atomicActionExecutor } from "./AtomicActionExecutor.js";
-import { canvasSchemaService } from "./CanvasSchemaService.js";
+
+import { logger } from "../lib/logger.js";
 import { EnforcementResult, enforceRules } from "../lib/rules";
-import { workspaceStateService } from "./WorkspaceStateService.js";
-import { LifecycleContext, ValueTreeService, ValueTreeUpdate } from "./ValueTreeService.js";
 import { getSupabaseClient } from "../lib/supabase.js";
-import { SDUIPageDefinition } from "@sdui/schema";
-import { assumptionService } from "./AssumptionService.js";
+import {
+  ActionValidationError,
+  validateActionContext,
+  validateCanonicalAction,
+} from "../schemas/actions.schema.js";
+import { normalizeExecutionRequest } from "../types/execution";
 import {
   downloadBlob,
   exportToCSV,
@@ -37,12 +34,20 @@ import {
   exportToPNG,
   generateFilename,
 } from "../utils/export";
-import {
-  ActionValidationError,
-  validateActionContext,
-  validateCanonicalAction,
-} from "../schemas/actions.schema.js";
-import { randomUUID } from "crypto";
+
+import type { AgentType } from "./agent-types.js";
+import { AgentAPI, getAgentAPI } from "./AgentAPI.js";
+import { assumptionService } from "./AssumptionService.js";
+import { atomicActionExecutor } from "./AtomicActionExecutor.js";
+import { AuditLogService } from "./AuditLogService.js";
+import { canvasSchemaService } from "./CanvasSchemaService.js";
+import { ComponentMutationService } from "./ComponentMutationService.js";
+import { manifestoEnforcer } from "./ManifestoEnforcer.js";
+import { getUnifiedOrchestrator, UnifiedAgentOrchestrator } from "./UnifiedAgentOrchestrator.js";
+import { LifecycleContext, ValueTreeService, ValueTreeUpdate } from "./ValueTreeService.js";
+import { workspaceStateService } from "./WorkspaceStateService.js";
+
+
 
 /**
  * Action Router

@@ -2,11 +2,12 @@
  * Integration tests for server endpoints
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { domainDatabase } from '../src/database';
 import { app } from '../src/server';
 import { domainValidator } from '../src/validator';
-import { domainDatabase } from '../src/database';
 
 // Mock dependencies
 vi.mock('../src/validator', () => ({

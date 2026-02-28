@@ -5,7 +5,7 @@
  * No Supabase, no Docker, just basic test utilities.
  */
 
-import { beforeAll, afterAll } from "vitest";
+import { afterAll, beforeAll } from "vitest";
 import { vi } from "vitest";
 import '@testing-library/jest-dom';
 

@@ -7,12 +7,12 @@
  * performance optimization for frequently accessed agent responses.
  */
 
-import { AgentType } from "../../agent-types";
-import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent";
-import { logger } from "../../../utils/logger";
-import { agentTelemetryService } from "../telemetry/AgentTelemetryService";
 import { getRedisClient } from "../../../lib/redisClient";
+import { logger } from "../../../utils/logger";
+import { AgentType } from "../../agent-types";
 import { getMessageBus } from "../../MessageBus";
+import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent";
+import { agentTelemetryService } from "../telemetry/AgentTelemetryService";
 
 // ============================================================================
 // Cache Types

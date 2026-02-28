@@ -5,7 +5,6 @@
  * Uses AI to analyze and produce financial projections, benchmarks, and insights.
  */
 
-import { useCallback, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -16,11 +15,15 @@ import {
   Sparkles,
   TrendingUp,
 } from 'lucide-react';
+import { useCallback, useState } from 'react';
+
+import type { BuyerPersona } from './PersonaSelector';
+
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import type { ValueCase } from '@/services/ValueCaseService';
-import type { BuyerPersona } from './PersonaSelector';
+
 
 export interface BusinessCaseResult {
   financial: {

@@ -5,8 +5,9 @@
  * Provides performance tracking, error monitoring, and usage analytics.
  */
 
-import { AgentContext, ToolExecutionResult } from "./types";
 import { logger } from "../../lib/logger";
+
+import { AgentContext, ToolExecutionResult } from "./types";
 
 /**
  * Telemetry metrics for tool execution

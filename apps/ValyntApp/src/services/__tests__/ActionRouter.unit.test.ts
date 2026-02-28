@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ActionRouter } from '../ActionRouter';
 
 // Mock manifestoEnforcer and enforceRules to allow actions

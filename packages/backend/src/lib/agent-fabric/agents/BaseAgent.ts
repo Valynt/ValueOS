@@ -6,14 +6,15 @@
  * detection) and memory access for all lifecycle agents.
  */
 
-import { logger } from "../../logger.js";
 import { z } from "zod";
-import type { AgentConfig, AgentOutput, AgentOutputStatus, LifecycleContext, LifecycleStage } from "../../../types/agent.js";
+
 import type { AgentType } from "../../../services/agent-types.js";
-import { LLMGateway } from "../LLMGateway.js";
+import type { AgentConfig, AgentOutput, AgentOutputStatus, LifecycleContext, LifecycleStage } from "../../../types/agent.js";
+import { logger } from "../../logger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
+import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
+import { LLMGateway } from "../LLMGateway.js";
 import { MemorySystem } from "../MemorySystem.js";
-import type { KnowledgeFabricValidator, HallucinationCheckResult as KFHallucinationCheckResult } from "../KnowledgeFabricValidator.js";
 
 // ---------------------------------------------------------------------------
 // Hallucination detection types

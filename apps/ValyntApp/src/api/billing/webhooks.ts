@@ -4,13 +4,14 @@
  */
 
 import express, { Request, Response } from 'express';
-import WebhookService from '../../services/billing/WebhookService';
+
+import { getSupabaseServerConfig } from '../../lib/env';
 import { createLogger } from '../../lib/logger';
 import { recordStripeWebhook } from '../../metrics/billingMetrics';
-import { getSupabaseServerConfig } from '../../lib/env';
-import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
-import { createRateLimiter } from '../../middleware/rateLimiter';
 import { recordWebhookRejection } from '../../metrics/webhookMetrics';
+import { createRateLimiter } from '../../middleware/rateLimiter';
+import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
+import WebhookService from '../../services/billing/WebhookService';
 
 const router = express.Router();
 const logger = createLogger({ component: 'WebhooksAPI' });

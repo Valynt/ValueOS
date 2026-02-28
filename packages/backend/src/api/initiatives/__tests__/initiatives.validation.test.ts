@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { CreateInitiativeSchema } from "../types.js"
 
 describe("Initiatives validation", () => {

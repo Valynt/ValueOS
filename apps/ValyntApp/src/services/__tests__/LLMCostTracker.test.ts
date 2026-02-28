@@ -1,7 +1,8 @@
+import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { __setEnvSourceForTests } from '../../lib/env';
 import { LLMCostTracker } from '../LLMCostTracker';
-import { createClient } from '@supabase/supabase-js';
 
 vi.mock('@supabase/supabase-js', () => {
   // Create one shared mock client instance used across imports

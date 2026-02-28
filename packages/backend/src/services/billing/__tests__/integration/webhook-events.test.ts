@@ -5,7 +5,14 @@
  * These tests validate end-to-end processing of each Stripe webhook event.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  createBillingCustomer,
+  createSubscription,
+  createWebhookEvent,
+} from "../__helpers__/billing-factories";
 import {
   assertRecordExists,
   cleanupBillingTables,
@@ -13,13 +20,7 @@ import {
   seedTestData,
   waitForCondition,
 } from "../__helpers__/db-helpers";
-import {
-  createBillingCustomer,
-  createSubscription,
-  createWebhookEvent,
-} from "../__helpers__/billing-factories";
 import { createMockStripeEvent } from "../__helpers__/stripe-mocks.js"
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Webhook Event Processing E2E Tests", () => {
   let supabase: SupabaseClient;

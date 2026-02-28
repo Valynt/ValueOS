@@ -1,4 +1,5 @@
 import { and, avg, count, desc, eq, sql } from "drizzle-orm";
+
 import {
   Certification,
   certifications,
@@ -29,8 +30,9 @@ import {
   User,
   users,
 } from "../drizzle/schema";
-import { ENV } from './_core/env';
+
 import { getDbConnection } from "./_core/db-connection";
+import { ENV } from './_core/env';
 
 export async function getDb() {
   return getDbConnection();

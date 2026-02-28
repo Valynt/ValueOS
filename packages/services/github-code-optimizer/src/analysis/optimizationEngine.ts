@@ -1,5 +1,5 @@
-import { BotConfig, CodeAnalysis, Optimization } from '../types/index.js';
 import { queryAI } from '../services/aiService.js';
+import { BotConfig, CodeAnalysis, Optimization } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
 export async function generateOptimizations(

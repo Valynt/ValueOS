@@ -4,8 +4,8 @@
  * Extends the base configuration manager with CRM-specific functionality
  * and provides easy access to provider configurations and field mappings.
  */
-import { ConfigurationManager } from "../../mcp-common";
 import { logger } from "../../lib/logger";
+import { ConfigurationManager } from "../../mcp-common";
 export class CRMConfigManager {
     static instance;
     baseConfigManager;

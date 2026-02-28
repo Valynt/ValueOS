@@ -6,6 +6,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+
 import { logger } from "../lib/logger.js"
 
 export type LifecycleStage = "opportunity" | "target" | "expansion" | "integrity" | "realization";

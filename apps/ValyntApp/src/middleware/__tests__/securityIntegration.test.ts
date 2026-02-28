@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import llmRouter from '../../api/llm';
-import queueRouter from '../../api/queue';
+
+import authRouter from '../../api/auth';
 import docsRouter from '../../api/docs';
 import healthRouter from '../../api/health';
-import authRouter from '../../api/auth';
+import llmRouter from '../../api/llm';
+import queueRouter from '../../api/queue';
 
 function hasMiddleware(router: any, name: string): boolean {
   return router.stack?.some((layer: any) => (layer.name || '').includes(name));

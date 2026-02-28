@@ -3,6 +3,8 @@
  */
 
 import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { SimpleSelect } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/select";
 
 interface InviteModalProps {
   open: boolean;

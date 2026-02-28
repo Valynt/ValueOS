@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Building2,
   Clock,
@@ -11,9 +10,12 @@ import {
   Users,
 
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
+import { useState } from "react";
 import { Link } from "react-router-dom";
+
+import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
+import { cn } from "@/lib/utils";
+
 
 type Tab = "overview" | "products" | "competitors" | "personas" | "claims" | "history";
 

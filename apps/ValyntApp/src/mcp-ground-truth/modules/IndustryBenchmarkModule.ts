@@ -12,6 +12,7 @@
  * Node Mapping: [NODE: Industry_Benchmark_Module], [NODE: Tier_3_Narrative]
  */
 
+import { logger } from '../../lib/logger';
 import { BaseModule } from '../core/BaseModule';
 import {
   ErrorCodes,
@@ -22,7 +23,6 @@ import {
   ModuleResponse,
   WageData,
 } from '../types';
-import { logger } from '../../lib/logger';
 
 interface BenchmarkConfig {
   blsApiKey?: string;

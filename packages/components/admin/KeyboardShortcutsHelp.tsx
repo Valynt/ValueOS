@@ -6,6 +6,8 @@
 
 'use client';
 
+import { Command } from 'lucide-react';
+
 import {
   Dialog,
   DialogContent,
@@ -13,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Command } from 'lucide-react';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;

@@ -7,9 +7,10 @@
  * Phase 3: Stage-specific SDUI generation
  */
 
-import type { SDUIPageDefinition } from "../schema";
-import type { WorkflowState } from "../../repositories/WorkflowStateRepository";
 import { v4 as uuidv4 } from "uuid";
+
+import type { WorkflowState } from "../../repositories/WorkflowStateRepository";
+import type { SDUIPageDefinition } from "../schema";
 
 export interface ExpansionTemplateContext {
   content: string;

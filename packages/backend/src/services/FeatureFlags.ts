@@ -4,9 +4,11 @@
  * Dynamic feature flags for A/B testing, gradual rollouts, and feature toggles
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { logger } from '../utils/logger.js'
 import crypto from 'crypto';
+
+import { createClient } from '@supabase/supabase-js';
+
+import { logger } from '../utils/logger.js'
 
 export interface FeatureFlag {
   id: string;

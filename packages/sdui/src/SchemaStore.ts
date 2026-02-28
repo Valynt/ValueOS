@@ -6,9 +6,10 @@
 
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
+
+import { createLogger } from "./lib/logger";
 import { SDUIPageDefinition } from "./schema";
 import { SchemaDelta, SchemaPatcher } from "./SchemaPatcher";
-import { createLogger } from "./lib/logger";
 
 const logger = createLogger({ component: "SchemaStore" });
 

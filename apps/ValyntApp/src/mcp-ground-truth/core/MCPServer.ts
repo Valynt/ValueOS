@@ -15,16 +15,17 @@
  * - populate_value_driver_tree (Value Engineering)
  */
 
-import { UnifiedTruthLayer } from "./UnifiedTruthLayer";
+import { sha256 } from "../../lib/contentHash";
+import { logger } from "../../lib/logger";
 import { EDGARModule } from "../modules/EDGARModule";
-import { XBRLModule } from "../modules/XBRLModule";
+import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
 import { MarketDataModule } from "../modules/MarketDataModule";
 import { PrivateCompanyModule } from "../modules/PrivateCompanyModule";
-import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
 import { ESOModule } from "../modules/StructuralTruthModule";
+import { XBRLModule } from "../modules/XBRLModule";
 import { ErrorCodes, GroundTruthError } from "../types";
-import { logger } from "../../lib/logger";
-import { sha256 } from "../../lib/contentHash";
+
+import { UnifiedTruthLayer } from "./UnifiedTruthLayer";
 
 interface MCPServerConfig {
   // Module configurations

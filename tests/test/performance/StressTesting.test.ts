@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+
 import { OpportunityAgent } from '../../lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 

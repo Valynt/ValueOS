@@ -4,7 +4,6 @@
  * UI for viewing and analyzing agent interaction logs
  */
 
-import React, { useEffect, useState } from "react";
 import {
   CheckCircle,
   Clock,
@@ -15,14 +14,16 @@ import {
   TrendingUp,
   XCircle,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { ModelInfoModal } from "../../components/Settings/ModelInfoModal";
+import { AgentType } from "../../services/AgentAPI";
 import {
   AgentAuditLog,
   AuditLogFilters,
   AuditLogStats,
   getAuditLogger,
 } from "../../services/AgentAuditLogger";
-import { AgentType } from "../../services/AgentAPI";
-import { ModelInfoModal } from "../../components/Settings/ModelInfoModal";
 
 /**
  * Agent Audit Log View Component

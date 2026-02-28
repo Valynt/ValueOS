@@ -1,5 +1,6 @@
-import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker.js';
 import { logger } from '../utils/logger.js';
+
+import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker.js';
 
 export type BreakerState = 'closed' | 'open' | 'half_open';
 

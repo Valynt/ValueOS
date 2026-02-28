@@ -5,9 +5,10 @@
  * Tenants are pinned to a specific version; catalog can advance independently.
  */
 
-import { SupabaseClient } from "@supabase/supabase-js";
-import { createLogger } from "../../lib/logger.js";
 import type { EnforcementMode, MeterKey, PriceVersionStatus } from "@shared/types/billing-events";
+import { SupabaseClient } from "@supabase/supabase-js";
+
+import { createLogger } from "../../lib/logger.js";
 import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: "PriceVersionService" });

@@ -15,27 +15,32 @@
  * - populate_value_driver_tree (Value Engineering)
  */
 
-import { UnifiedTruthLayer } from "./UnifiedTruthLayer";
+import { createHash } from "crypto";
+
+import { z } from "zod";
+
+import { logger } from "../../lib/logger";
 import { EDGARModule } from "../modules/EDGARModule";
-import { XBRLModule } from "../modules/XBRLModule";
+import { EntityMappingModule } from "../modules/EntityMappingModule";
+import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
 import { MarketDataModule } from "../modules/MarketDataModule";
 import { PrivateCompanyModule } from "../modules/PrivateCompanyModule";
-import { IndustryBenchmarkModule } from "../modules/IndustryBenchmarkModule";
 import { ESOModule } from "../modules/StructuralTruthModule";
-import { EntityMappingModule } from "../modules/EntityMappingModule";
-import { ErrorCodes, GroundTruthError } from "../types";
-import { logger } from "../../lib/logger";
-import { createHash } from "crypto";
-import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
-import { PredictiveModelingService } from "../services/PredictiveModelingService";
-import { AutomatedInsightsService } from "../services/AutomatedInsightsService";
-import { GroundTruthIntegrationService } from "../services/GroundTruthIntegrationService";
-import { WebSocketServer } from "../services/WebSocketServer";
-import { SECWebhookSystem } from "../services/SECWebhookSystem";
-import { EventBus, getEventBus } from "../services/EventBus";
-import { StreamingSentimentAnalyzer } from "../services/StreamingSentimentAnalyzer";
+import { XBRLModule } from "../modules/XBRLModule";
 import { ToolSchemas } from "../schemas";
-import { z } from "zod";
+import { AutomatedInsightsService } from "../services/AutomatedInsightsService";
+import { EventBus, getEventBus } from "../services/EventBus";
+import { GroundTruthIntegrationService } from "../services/GroundTruthIntegrationService";
+import { PredictiveModelingService } from "../services/PredictiveModelingService";
+import { SECWebhookSystem } from "../services/SECWebhookSystem";
+import { SentimentAnalysisService } from "../services/SentimentAnalysisService";
+import { StreamingSentimentAnalyzer } from "../services/StreamingSentimentAnalyzer";
+import { WebSocketServer } from "../services/WebSocketServer";
+import { ErrorCodes, GroundTruthError } from "../types";
+
+
+
+import { UnifiedTruthLayer } from "./UnifiedTruthLayer";
 
 async function sha256(data: string): Promise<string> {
   return createHash("sha256").update(data).digest("hex");

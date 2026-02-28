@@ -4,11 +4,12 @@
  * Provides templates and drag-and-drop functionality for adding drivers to the canvas.
  */
 
-import React, { useState } from "react";
 import { Calculator, DollarSign, Hash, Percent, Plus, X } from "lucide-react";
+import React, { useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ValueDriverTemplate {

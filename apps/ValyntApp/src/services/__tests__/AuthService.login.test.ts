@@ -4,8 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthService } from "../AuthService";
-import { AuthenticationError, RateLimitError, ValidationError } from "../errors";
+
 import {
   createAuthErrorResponse,
   createLoginCredentials,
@@ -14,6 +13,8 @@ import {
   TEST_PASSWORDS,
 } from "../../test-utils/auth.fixtures";
 import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
+import { AuthService } from "../AuthService";
+import { AuthenticationError, RateLimitError, ValidationError } from "../errors";
 
 // Setup mocks
 const mocks = setupAuthMocks();

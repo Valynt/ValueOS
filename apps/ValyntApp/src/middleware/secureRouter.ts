@@ -1,14 +1,15 @@
 import { Router } from 'express';
+
+import { rateLimiters, RateLimitTier } from './rateLimiter';
+import { requestAuditMiddleware } from './requestAuditMiddleware';
+import { requestSanitizationMiddleware } from './requestSanitizationMiddleware';
 import {
   csrfProtectionMiddleware,
   csrfTokenMiddleware,
   securityHeadersMiddleware,
 } from './securityMiddleware';
-import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware';
 import { serviceIdentityMiddleware } from './serviceIdentityMiddleware';
-import { rateLimiters, RateLimitTier } from './rateLimiter';
-import { requestAuditMiddleware } from './requestAuditMiddleware';
-import { requestSanitizationMiddleware } from './requestSanitizationMiddleware';
+import { sessionTimeoutMiddleware } from './sessionTimeoutMiddleware';
 
 /**
  * Factory for new routers with standard security middlewares pre-applied.

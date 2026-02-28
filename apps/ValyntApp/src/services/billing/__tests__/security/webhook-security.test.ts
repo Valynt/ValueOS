@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+
 import {
   createMockStripeEvent,
 } from "../__helpers__/stripe-mocks";

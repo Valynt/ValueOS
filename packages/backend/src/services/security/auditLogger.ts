@@ -3,8 +3,8 @@
  * Sends security events to backend for SOC 2 Immutable Logging (CC6.8)
  */
 
-import { SecurityAuditEvent } from "../../types/security";
 import { logger } from "../../lib/logger.js";
+import { SecurityAuditEvent } from "../../types/security";
 
 /**
  * Sends security events to the backend for SOC 2 Immutable Logging.

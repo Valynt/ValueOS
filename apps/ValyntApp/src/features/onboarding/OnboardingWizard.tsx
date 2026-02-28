@@ -1,10 +1,11 @@
-import { useState } from "react";
 import { Check, ChevronRight, X } from "lucide-react";
+import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { analyticsClient } from "@/lib/analyticsClient";
 import { cn } from "@/lib/utils";
 import { onboardingService, type OnboardingStep } from "@/services/onboarding";
-import { analyticsClient } from "@/lib/analyticsClient";
 
 interface OnboardingWizardProps {
   onComplete?: () => void;

@@ -1,5 +1,5 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Loader2 } from 'lucide-react';
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 /**
  * Loading fallback component shown during data hydration
  *

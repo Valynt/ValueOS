@@ -1,6 +1,8 @@
 import Redis from 'ioredis';
-import { Logger, logger } from '../../utils/logger';
+
 import { createCounter, createHistogram } from '../../lib/observability';
+import { Logger, logger } from '../../utils/logger';
+
 import { EventName, EventPayloadMap, validateEventPayload } from './EventSchemas';
 
 export interface RedisStreamBrokerOptions {

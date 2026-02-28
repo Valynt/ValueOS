@@ -1,5 +1,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { createOrganization, TenantConfig } from '../TenantProvisioning';
 
 // Define mocks using vi.hoisted to ensure they are available before imports

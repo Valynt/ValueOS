@@ -1,5 +1,6 @@
-import { Link } from "react-router-dom";
 import { Github, Linkedin, Twitter } from "lucide-react";
+import { Link } from "react-router-dom";
+
 import { Logo } from "./Logo";
 
 export function Footer() {

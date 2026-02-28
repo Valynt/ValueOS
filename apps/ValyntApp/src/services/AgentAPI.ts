@@ -7,16 +7,17 @@
 
 // Re-export types from shared file to maintain backwards compatibility
 export type { AgentType, AgentContext } from './agent-types';
-import type { AgentContext, AgentType } from './agent-types';
-
-import { logger } from '../lib/logger';
-import { CircuitBreaker } from './CircuitBreaker';
-import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
-import { logAgentResponse } from './AgentAuditLogger';
 import { getConfig } from '../config/environment';
-import { llmSanitizer } from './LLMSanitizer';
-import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security';
+import { logger } from '../lib/logger';
 import { addServiceIdentityHeader } from '../middleware/serviceIdentityMiddleware';
+import { SDUIPageDefinition, validateSDUISchema } from '../sdui/schema';
+import { fetchWithCSRF, sanitizeObject, sanitizeString } from '../security';
+
+import type { AgentContext, AgentType } from './agent-types';
+import { logAgentResponse } from './AgentAuditLogger';
+import { CircuitBreaker } from './CircuitBreaker';
+import { llmSanitizer } from './LLMSanitizer';
+
 
 /**
  * Agent request payload

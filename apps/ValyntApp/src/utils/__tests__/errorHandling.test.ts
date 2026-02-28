@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { AppError, ErrorType, toUserFriendlyError } from '../errorHandling';
 
 describe('toUserFriendlyError', () => {

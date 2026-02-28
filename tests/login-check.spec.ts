@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test("login flow", async ({ page }) => {
   page.on("console", (msg) => console.log("PAGE LOG:", msg.text()));

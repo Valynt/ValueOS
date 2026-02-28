@@ -1,5 +1,9 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import * as crypto from "crypto";
+
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+import { logger } from "../../lib/logger.js";
+
 import {
   ArtifactMetadata,
   Chunk,
@@ -7,7 +11,7 @@ import {
   FactStatus,
   UUID,
 } from "./types";
-import { logger } from "../../lib/logger.js";
+
 
 async function withRetries<T>(
   fn: () => Promise<T>,

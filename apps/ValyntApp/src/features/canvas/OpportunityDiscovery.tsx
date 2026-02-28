@@ -1,6 +1,7 @@
 import React from "react";
-import { OpportunityAgentPanel } from "./components/OpportunityAgentPanel";
+
 import { GroundTruthExplorer } from "./components/GroundTruthExplorer";
+import { OpportunityAgentPanel } from "./components/OpportunityAgentPanel";
 
 export const OpportunityDiscovery: React.FC = () => {
   // For now, hardcode the agentId for OpportunityAgent

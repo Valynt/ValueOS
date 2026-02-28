@@ -1,5 +1,5 @@
-import { supabase } from '../lib/supabase.js'
 import { logger } from '../lib/logger.js'
+import { supabase } from '../lib/supabase.js'
 
 export interface AgentSuggestionEvent {
   agentId: string;

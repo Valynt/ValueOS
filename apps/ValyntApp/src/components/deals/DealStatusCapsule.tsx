@@ -9,8 +9,10 @@
  * - Linked: "[ Negotiation ] Acme Q2 Expansion ▾ (ARR: $2.1M)"
  */
 
-import { useState } from 'react';
 import { ChevronDown, Eye, Link2, Plus, Unlink } from 'lucide-react';
+import { useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,7 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 export interface Deal {

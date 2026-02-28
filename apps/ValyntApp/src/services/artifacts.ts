@@ -6,6 +6,7 @@
  */
 
 import { api } from './api/client';
+
 import type { Artifact, ArtifactContent } from '@/features/workspace/agent/types';
 import { analyticsClient } from '@/lib/analyticsClient';
 

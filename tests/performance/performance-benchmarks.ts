@@ -3,9 +3,10 @@
  */
 
 import { performance } from 'perf_hooks';
-import { renderPage } from '../../src/sdui/engine/renderPage';
-import { sduiSanitizer } from '../../src/lib/security/SDUISanitizer';
+
 import { logger } from '../../src/lib/logger';
+import { sduiSanitizer } from '../../src/lib/security/SDUISanitizer';
+import { renderPage } from '../../src/sdui/engine/renderPage';
 
 interface BenchmarkResult {
   name: string;

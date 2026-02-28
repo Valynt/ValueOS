@@ -11,7 +11,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+import { useTenant } from "@/contexts/TenantContext";
 import type {
   OnboardingPhase1Input,
   OnboardingPhase2Input,
@@ -20,7 +21,7 @@ import type {
   ResearchSuggestion,
 } from "@/hooks/company-context/types";
 import { useAcceptSuggestion, useRejectSuggestion } from "@/hooks/company-context/useResearchJob";
-import { useTenant } from "@/contexts/TenantContext";
+import { cn } from "@/lib/utils";
 
 interface Props {
   phase1: OnboardingPhase1Input;

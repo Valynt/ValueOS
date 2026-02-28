@@ -1,13 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { Skeleton } from '../skeleton';
-import { LoadingSkeleton } from '../loading-skeleton';
-import { ValidatedInput } from '../validated-input';
+
 import { Checkbox } from '../checkbox';
 import { Dialog } from '../dialog';
-import { Sheet } from '../sheet';
-import { ScrollArea } from '../scroll-area';
-import { Tooltip } from '../tooltip';
 import { HelpTooltip } from '../help-tooltip';
+import { LoadingSkeleton } from '../loading-skeleton';
+import { ScrollArea } from '../scroll-area';
+import { Sheet } from '../sheet';
+import { Skeleton } from '../skeleton';
+import { Tooltip } from '../tooltip';
+import { ValidatedInput } from '../validated-input';
 
 describe('UI Primitives Accessibility & Render', () => {
   it('renders Skeleton and LoadingSkeleton', () => {

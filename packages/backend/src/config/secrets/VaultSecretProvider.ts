@@ -8,7 +8,15 @@
  * Created: 2024-11-29
  */
 
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import * as fs from "fs";
+
 import { logger } from "../../lib/logger.js"
+
+import {
+  CircuitBreaker,
+  createConfigurableCircuitBreaker,
+} from "./CircuitBreaker";
 import type {
   AuditAction,
   AuditResult,
@@ -16,16 +24,12 @@ import type {
   SecretMetadata,
   SecretValue,
 } from "./ISecretProvider";
-import * as fs from "fs";
 import {
   SecretAuditEvent,
   StructuredSecretAuditLogger,
 } from "./SecretAuditLogger";
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
-import {
-  CircuitBreaker,
-  createConfigurableCircuitBreaker,
-} from "./CircuitBreaker";
+
+
 
 // Type definitions for node-vault (simplified)
 interface VaultClient {

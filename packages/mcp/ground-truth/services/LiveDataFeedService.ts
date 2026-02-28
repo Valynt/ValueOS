@@ -6,7 +6,6 @@
  */
 
 import { logger } from "../../lib/logger.js";
-import { SECCompanyInfo, SECEdgarClient, SECFiling, SECXBRLData } from "../clients/SECEdgarClient.js";
 import { BLSClient, BLSEmploymentData, BLSIndustryData, BLSWageData } from "../clients/BLSClient.js";
 import {
   CensusBusinessData,
@@ -14,6 +13,7 @@ import {
   CensusDemographicData,
   CensusEconomicData,
 } from "../clients/CensusClient.js";
+import { SECCompanyInfo, SECEdgarClient, SECFiling, SECXBRLData } from "../clients/SECEdgarClient.js";
 
 export interface DataFeedConfig {
   secApiKey?: string;

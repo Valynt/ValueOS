@@ -1,5 +1,3 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SettingsSection } from "../../components/settings";
 import {
   Ban,
   CheckCircle,
@@ -13,6 +11,9 @@ import {
   UserPlus,
   XCircle,
 } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+
+import { SettingsSection } from "../../components/settings";
 
 interface OrganizationUser {
   userUuid: string;
@@ -29,8 +30,8 @@ interface OrganizationUser {
   deviceListReference: string;
   department?: string;
 }
-import { analyticsClient } from "../../lib/analyticsClient";
 import { useAuth } from "../../contexts/AuthContext";
+import { analyticsClient } from "../../lib/analyticsClient";
 import { addCSRFHeader } from "../../security/CSRFProtection";
 
 const PAGE_SIZE = 10;

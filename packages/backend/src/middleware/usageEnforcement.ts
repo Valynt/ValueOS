@@ -4,10 +4,11 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
-import { EntitlementsService } from '../services/billing/EntitlementsService.js';
-import { createLogger } from '../lib/logger.js';
+
 import { BillingMetric } from '../config/billing.js';
+import { createLogger } from '../lib/logger.js';
 import { supabase } from '../lib/supabase.js';
+import { EntitlementsService } from '../services/billing/EntitlementsService.js';
 
 const logger = createLogger({ component: 'UsageEnforcementMiddleware' });
 

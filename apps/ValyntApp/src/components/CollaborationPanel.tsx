@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
+
 import {
   type CollaborationEvent,
   CollaborationService,
   type GuestToken,
 } from "../services/CollaborationService";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
 export const CollaborationPanel: React.FC = () => {

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
 import jwt from "jsonwebtoken";
+import { describe, expect, it } from "vitest";
+
 import { SecureTokenManager } from "./SecureTokenManager";
 
 describe("SecureTokenManager", () => {

@@ -16,18 +16,19 @@
 import { Request, Response, Router } from 'express';
 import express from 'express';
 import { z } from 'zod';
+
 import { createLogger } from '../lib/logger.js';
 import { requireAuth } from '../middleware/auth.js';
-import { tenantContextMiddleware } from '../middleware/tenantContext.js';
-import { requirePermission } from '../middleware/rbac.js';
 import { createRateLimiter } from '../middleware/rateLimiter.js';
-import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
-import { crmWebhookService } from '../services/crm/CrmWebhookService.js';
-import { crmHealthService } from '../services/crm/CrmHealthService.js';
-import { consumeOAuthState } from '../services/crm/OAuthStateStore.js';
-import { getCrmSyncQueue, getCrmWebhookQueue } from '../workers/crmWorker.js';
+import { requirePermission } from '../middleware/rbac.js';
+import { tenantContextMiddleware } from '../middleware/tenantContext.js';
 import { auditLogService } from '../services/AuditLogService.js';
+import { crmConnectionService } from '../services/crm/CrmConnectionService.js';
+import { crmHealthService } from '../services/crm/CrmHealthService.js';
+import { crmWebhookService } from '../services/crm/CrmWebhookService.js';
+import { consumeOAuthState } from '../services/crm/OAuthStateStore.js';
 import { CrmProviderSchema } from '../services/crm/types.js';
+import { getCrmSyncQueue, getCrmWebhookQueue } from '../workers/crmWorker.js';
 
 const logger = createLogger({ component: 'CrmAPI' });
 const router = Router();

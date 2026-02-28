@@ -1,4 +1,5 @@
 import { Session } from "@supabase/supabase-js";
+
 import { supabase } from "../supabase";
 
 const NON_SENSITIVE_STATE_KEY = "valynt.auth.state";

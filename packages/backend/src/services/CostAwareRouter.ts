@@ -7,8 +7,9 @@
  */
 
 import { logger } from "../lib/logger.js";
-import { LLMCostTracker } from "./LLMCostTracker.js";
+
 import { FallbackAIService } from "./FallbackAIService.js";
+import { LLMCostTracker } from "./LLMCostTracker.js";
 
 export interface RoutingDecision {
   useModel: string;

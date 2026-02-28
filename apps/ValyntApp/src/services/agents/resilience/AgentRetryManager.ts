@@ -7,10 +7,11 @@
  * integration, and intelligent fallback agent selection for resilient agent operations.
  */
 
-import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent";
-import { AgentType } from "../../agent-types";
-import { logger } from "../../../utils/logger";
 import { v4 as uuidv4 } from "uuid";
+
+import { logger } from "../../../utils/logger";
+import { AgentType } from "../../agent-types";
+import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent";
 import { agentTelemetryService } from "../telemetry/AgentTelemetryService";
 
 // ============================================================================

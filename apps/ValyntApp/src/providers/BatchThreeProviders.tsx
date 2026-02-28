@@ -1,10 +1,10 @@
 import { createContext, ReactNode, useContext } from "react";
 
 // Import services
+import { supabase } from "../lib/supabase";
 import { AgentRegistry } from "../services/AgentRegistry";
 import { SessionManager } from "../services/SessionManager";
 import { WorkflowStateService } from "../services/WorkflowStateService";
-import { supabase } from "../lib/supabase";
 
 /**
  * Batch 4 Providers - Service Integration

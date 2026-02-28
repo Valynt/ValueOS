@@ -4,10 +4,11 @@
  * End-to-end tests for the enhanced MCP server architecture
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { ConfigurationManager } from "../../src/mcp-common";
-import { MCPCRMServer } from "../../src/mcp-crm/core/MCPCRMServer";
 import { mcpRateLimiter } from "../../src/mcp-common";
+import { MCPCRMServer } from "../../src/mcp-crm/core/MCPCRMServer";
 import type { CRMProvider } from "../../src/mcp-crm/types";
 
 // Mock dependencies

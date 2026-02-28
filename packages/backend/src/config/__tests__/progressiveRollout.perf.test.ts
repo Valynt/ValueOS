@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { ProgressiveRollout, RolloutManager } from '../progressiveRollout.js';
 
 // Mock dependencies

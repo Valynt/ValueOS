@@ -6,6 +6,7 @@
  */
 
 import { getConfig } from "../config/environment";
+
 import { getEnvCORSOrigins, validateCORSConfig } from "./CORSValidator";
 
 /**

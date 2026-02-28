@@ -29,26 +29,29 @@ vi.mock("../../src/services/EventSourcingService");
 vi.mock("../../src/lib/logger");
 vi.mock("../../src/services/AgentMessageQueue");
 
-import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
+import { Express, NextFunction, Request, Response } from "express";
 import request from "supertest";
-import { Express, Request, Response, NextFunction } from "express";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  getAgentMessageQueueConfig,
+  getEventExecutorConfig,
+} from "../../src/config/ServiceConfigManager";
+import { logger } from "../../src/lib/logger";
+import { getRedisClient } from "../../src/lib/redisClient";
+import { AgentType } from "../../src/services/agent-types";
 import {
   AgentMessageQueue,
   getAgentMessageQueue,
 } from "../../src/services/AgentMessageQueue";
 import { getEventProducer } from "../../src/services/EventProducer";
-import { getUnifiedAgentAPI } from "../../src/services/UnifiedAgentAPI";
 import { getEventSourcingService } from "../../src/services/EventSourcingService";
-import { AgentType } from "../../src/services/agent-types";
+import { getUnifiedAgentAPI } from "../../src/services/UnifiedAgentAPI";
+
 import { createTestApp } from "./testcontainers-global-setup";
-import { getRedisClient } from "../../src/lib/redisClient";
-import { logger } from "../../src/lib/logger";
+
 
 // Import and mock ServiceConfigManager functions
-import {
-  getAgentMessageQueueConfig,
-  getEventExecutorConfig,
-} from "../../src/config/ServiceConfigManager";
 
 // Setup mock implementations at module level
 vi.mocked(getRedisClient).mockResolvedValue({

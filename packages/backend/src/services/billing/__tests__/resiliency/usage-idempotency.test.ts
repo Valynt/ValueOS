@@ -5,18 +5,19 @@
  * CRITICAL: These tests prevent duplicate charging and ensure billing accuracy.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  assertRowCount,
-  cleanupBillingTables,
-  getTestSupabaseClient,
-} from "../__helpers__/db-helpers";
+
 import {
   createBatchUsageEvents,
   createUsageAggregate,
   createUsageEvent,
 } from "../__helpers__/billing-factories";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  assertRowCount,
+  cleanupBillingTables,
+  getTestSupabaseClient,
+} from "../__helpers__/db-helpers";
 
 describe("Usage Metering Idempotency Tests", () => {
   let supabase: SupabaseClient;

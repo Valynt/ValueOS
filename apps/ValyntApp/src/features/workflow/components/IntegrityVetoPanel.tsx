@@ -1,15 +1,18 @@
-import React, { useState } from "react";
 import Decimal from "decimal.js";
+import React, { useState } from "react";
+
+import { VMRTPanel } from "../../../components/VMRTPanel";
 import {
   IntegrityService,
   type ValidationResult,
   type VMRTLog,
 } from "../services/IntegrityService";
-import { Card } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { VMRTPanel } from "../../../components/VMRTPanel";
+
 
 export const IntegrityVetoPanel: React.FC = () => {
   const [metricId, setMetricId] = useState("efficiency_gain");

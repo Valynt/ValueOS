@@ -13,8 +13,8 @@
  * LLMGateway validates the approach.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Span } from '@opentelemetry/api';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // In-memory OTel span capture

@@ -4,11 +4,12 @@
  */
 
 import express, { Request, Response } from 'express';
-import MetricsCollector from '../../services/metering/MetricsCollector';
-import UsageCache from '../../services/metering/UsageCache';
+
 import { BillingMetric } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
 import { requestSanitizationMiddleware } from '../../middleware/requestSanitizationMiddleware';
+import MetricsCollector from '../../services/metering/MetricsCollector';
+import UsageCache from '../../services/metering/UsageCache';
 
 const router = express.Router();
 const logger = createLogger({ component: 'UsageAPI' });

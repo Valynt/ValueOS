@@ -9,14 +9,13 @@
  * - Distributed rate limiting
  */
 
-import { BaseService } from "./BaseService.js"
-import { AuthenticationError, RateLimitError, ValidationError } from "./errors.js"
-import { Session, User } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
-import { sanitizeErrorMessage, validatePassword } from "../utils/security.js"
-import { securityLogger } from "./SecurityLogger.js"
-import { getConfig } from "../config/environment.js"
+
+import { getRedisClient } from "@shared/lib/redisClient";
+import { Session, User } from "@supabase/supabase-js";
 import jwt from "jsonwebtoken";
+
+import { getConfig } from "../config/environment.js"
 import {
   checkPasswordBreach,
   consumeAuthRateLimit,
@@ -24,16 +23,21 @@ import {
   resetRateLimit,
   setAuthRateLimiter,
 } from "../security";
-import { createRedisRateLimiter } from "../security/redisRateLimiter.js";
-import { clientRateLimit } from "./ClientRateLimit.js"
-import { mfaService } from "./MFAService.js"
 import { fetchWithCSRF } from "../security/CSRFProtection.js"
-import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
-import { SessionClaimsSchema } from "../types/auth.js";
+import { createRedisRateLimiter } from "../security/redisRateLimiter.js";
 import { DeviceFingerprint, getSessionStore, RedisSessionStore } from "../security/RedisSessionStore.js";
-import { getTokenRotationService } from "./TokenRotationService.js";
+import { SessionClaimsSchema } from "../types/auth.js";
+import { sanitizeErrorMessage, validatePassword } from "../utils/security.js"
+
+import { assertTenantMember, toAuthError } from "./AuthPolicy.js";
+import { BaseService } from "./BaseService.js"
+import { clientRateLimit } from "./ClientRateLimit.js"
 import { DeviceFingerprintService, getDeviceFingerprintService } from "./DeviceFingerprintService.js";
-import { getRedisClient } from "@shared/lib/redisClient";
+import { AuthenticationError, RateLimitError, ValidationError } from "./errors.js"
+import { mfaService } from "./MFAService.js"
+import { securityLogger } from "./SecurityLogger.js"
+import { getTokenRotationService } from "./TokenRotationService.js";
+
 
 export interface LoginCredentials {
   email: string;

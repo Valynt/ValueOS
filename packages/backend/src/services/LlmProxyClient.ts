@@ -1,8 +1,4 @@
 // import { logger } from '../lib/logger'; // Not used in this file
-import { supabase } from "../lib/supabase.js"
-import { securityLogger } from "./SecurityLogger.js"
-import { sanitizeLLMContent } from "../utils/security.js"
-import { llmSanitizer } from "./LLMSanitizer.js"
 import type {
   LLMConfig,
   LLMMessage,
@@ -11,6 +7,11 @@ import type {
   LLMStreamCallback,
   LLMTool,
 } from "../lib/agent-fabric/llm-types";
+import { supabase } from "../lib/supabase.js"
+import { sanitizeLLMContent } from "../utils/security.js"
+
+import { llmSanitizer } from "./LLMSanitizer.js"
+import { securityLogger } from "./SecurityLogger.js"
 import { webSocketManager } from "./WebSocketManager.js"
 import type { WebSocketMessage } from "./WebSocketManager.js"
 

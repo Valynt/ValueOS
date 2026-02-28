@@ -3,9 +3,10 @@
  * Role-based access control and permission checking
  */
 
-import { TenantAwareService } from "./TenantAwareService.js"
-import { AuthorizationError, NotFoundError } from "./errors.js"
 import { type Permission, PERMISSIONS } from "../lib/permissions";
+
+import { AuthorizationError, NotFoundError } from "./errors.js"
+import { TenantAwareService } from "./TenantAwareService.js"
 
 // Re-export Permission type for backward compatibility
 export type { Permission };

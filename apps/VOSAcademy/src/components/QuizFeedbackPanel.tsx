@@ -3,9 +3,6 @@
  * Provides instant feedback and learning reinforcement
  */
 
-import { SectionCard } from "@/components/SectionCard";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight,
   BookOpen,
@@ -15,6 +12,10 @@ import {
   Target,
   XCircle
 } from "lucide-react";
+
+import { SectionCard } from "@/components/SectionCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface FeedbackData {
   isCorrect: boolean;

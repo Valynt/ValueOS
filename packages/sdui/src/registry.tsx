@@ -1,5 +1,8 @@
+import { logger } from "@shared/lib/logger";
 import React from "react";
-import { SDUIComponentSection } from "./schema";
+
+import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
+import { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
 import {
   DataTable,
   InfoBanner,
@@ -7,23 +10,21 @@ import {
   UnknownComponentFallback,
   // Fallbacks
 } from "./components/SDUI";
-import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
-import { KPIForm } from "./components/SDUI/KPIForm";
-import { InteractiveChart } from "./components/SDUI/InteractiveChart";
-import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
-import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+import { ComponentPreview } from "./components/SDUI";
 import {
   DashboardPanel,
   Grid,
   HorizontalSplit,
   VerticalSplit,
 } from "./components/SDUI/CanvasLayout";
-import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
+import { DiscoveryCard } from "./components/SDUI/DiscoveryCard";
+import { InteractiveChart } from "./components/SDUI/InteractiveChart";
+import { KPIForm } from "./components/SDUI/KPIForm";
+import { NarrativeBlock } from "./components/SDUI/NarrativeBlock";
+import { ValueTreeCard } from "./components/SDUI/ValueTreeCard";
 import { HumanCheckpoint } from "./components/Workflow/HumanCheckpoint";
-import { ConfidenceDisplay } from "./components/Agent/ConfidenceDisplay";
-import { IntegrityVetoPanel } from "./components/Agent/IntegrityVetoPanel";
-import { ComponentPreview } from "./components/SDUI";
-import { logger } from "@shared/lib/logger";
+import { WorkflowStatusBar } from "./components/Workflow/WorkflowStatusBar";
+import { SDUIComponentSection } from "./schema";
 
 /**
  * Versioned component entry with compatibility information

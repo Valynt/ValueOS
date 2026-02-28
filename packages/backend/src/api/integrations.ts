@@ -4,20 +4,21 @@
  * Manages CRM integrations (HubSpot, Salesforce) for a tenant.
  */
 
+import { createLogger } from "@shared/lib/logger";
 import { Request, Response } from "express";
-import { createSecureRouter } from "../middleware/secureRouter.js";
+
 import { requireAuth } from "../middleware/auth.js";
-import { tenantContextMiddleware } from "../middleware/tenantContext.js";
-import { requirePermission } from "../middleware/rbac.js";
 import { validateRequest, ValidationSchemas } from "../middleware/inputValidation.js";
-import { integrationControlService } from "../services/IntegrationControlService.js";
+import { requirePermission } from "../middleware/rbac.js";
+import { createSecureRouter } from "../middleware/secureRouter.js";
+import { tenantContextMiddleware } from "../middleware/tenantContext.js";
+import { auditLogService } from "../services/AuditLogService.js";
+import { handleServiceError } from "../services/errors.js";
 import {
   integrationConnectionService,
   type IntegrationConnectPayload,
 } from "../services/IntegrationConnectionService.js";
-import { auditLogService } from "../services/AuditLogService.js";
-import { handleServiceError } from "../services/errors.js";
-import { createLogger } from "@shared/lib/logger";
+import { integrationControlService } from "../services/IntegrationControlService.js";
 
 const logger = createLogger({ component: "IntegrationsAPI" });
 const router = createSecureRouter("strict");

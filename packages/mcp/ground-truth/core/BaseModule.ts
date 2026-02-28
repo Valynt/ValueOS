@@ -5,6 +5,7 @@
  * for caching, rate limiting, error handling, and provenance tracking.
  */
 
+import { logger } from '../../lib/logger';
 import {
   ConfidenceTier,
   ErrorCodes,
@@ -15,7 +16,6 @@ import {
   ModuleResponse,
   ProvenanceInfo,
 } from '../types';
-import { logger } from '../../lib/logger';
 
 export abstract class BaseModule implements GroundTruthModule {
   abstract name: string;

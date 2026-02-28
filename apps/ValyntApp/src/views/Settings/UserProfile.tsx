@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
-import { SettingsSection } from '../../components/settings';
 import { AlertCircle, Check, Loader2, Upload, User, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+
+import { SettingsSection } from '../../components/settings';
 
 interface ProfileData {
   fullName: string;

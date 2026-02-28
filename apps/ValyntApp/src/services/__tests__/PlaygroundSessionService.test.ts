@@ -2,9 +2,9 @@
  * Tests for PlaygroundSessionService
  */
 
-import { PlaygroundSessionService } from '../PlaygroundSessionService';
-import { SDUIPageDefinition } from '../../sdui/schema';
 import { createPropertyUpdate } from '../../sdui/AtomicUIActions';
+import { SDUIPageDefinition } from '../../sdui/schema';
+import { PlaygroundSessionService } from '../PlaygroundSessionService';
 
 // Mock Redis client
 vi.mock('redis', () => ({

@@ -1,6 +1,7 @@
-import { createProviderFromEnv } from '../config/secrets/ProviderFactory';
 import type { ISecretProvider, SecretMetadata, SecretValue } from '../config/secrets/ISecretProvider';
+import { createProviderFromEnv } from '../config/secrets/ProviderFactory';
 import { logger } from '../lib/logger';
+
 import { AuthorizationError } from './errors';
 import { RbacService, RbacUser, SecretPermission } from './RbacService';
 

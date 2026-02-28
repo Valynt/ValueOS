@@ -4,7 +4,6 @@
  * List members, roles, invite new members.
  */
 
-import { useState } from "react";
 import {
   Mail,
   MoreHorizontal,
@@ -12,10 +11,14 @@ import {
   Shield,
   UserPlus,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+
+import { logger } from "../../lib/logger";
+
 import { UserAvatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
-import { logger } from "../../lib/logger";
+
 
 // Types
 interface TeamMember {

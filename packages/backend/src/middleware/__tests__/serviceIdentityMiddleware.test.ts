@@ -1,5 +1,7 @@
 import { createHash, createHmac } from 'crypto';
+
 import { describe, expect, it, vi } from 'vitest';
+
 import { addServiceIdentityHeader, serviceIdentityMiddleware } from '../serviceIdentityMiddleware.js'
 
 vi.mock('../../config/autonomy', () => ({

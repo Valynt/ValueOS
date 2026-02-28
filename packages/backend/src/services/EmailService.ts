@@ -1,5 +1,5 @@
-import { logger } from '../lib/logger.js'
 import { getConfig } from '../config/environment.js'
+import { logger } from '../lib/logger.js'
 
 export interface EmailOptions {
   to: string;

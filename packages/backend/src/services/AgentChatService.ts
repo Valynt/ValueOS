@@ -10,35 +10,37 @@
  * - AI transparency (confidence, reasoning)
  */
 
-import { logger } from "../lib/logger.js"
+import { SDUIPageDefinition } from "@sdui/schema";
+import {
+  generateChatSDUIPage,
+  hasTemplateForStage,
+} from "@sdui/templates/chat-templates";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
-import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+
+import { checkStageTransition } from "../config/chatWorkflowConfig.js"
 import { llmConfig } from "../config/llm.js"
+import { detectIndustry } from "../data/industryTemplates";
 import {
-  conversationHistoryService,
-  ConversationMessage,
-} from "./ConversationHistoryService";
-import { SDUIPageDefinition } from "@sdui/schema";
+  formatExampleForPrompt,
+  getRelevantExamples,
+} from "../data/valueModelExamples";
+import { contextFabric } from "../lib/agent-fabric/ContextFabric";
+import { LLMGateway } from "../lib/agent-fabric/LLMGateway";
+import { logger } from "../lib/logger.js"
 import {
   WorkflowState,
   WorkflowStateRepository,
 } from "../repositories/WorkflowStateRepository";
 import type { LifecycleStage } from "../types/vos";
+
 import {
-  formatExampleForPrompt,
-  getRelevantExamples,
-} from "../data/valueModelExamples";
-import { createToolExecutor, getAllTools } from "./MCPTools.js"
-import { checkStageTransition } from "../config/chatWorkflowConfig.js"
-import {
-  generateChatSDUIPage,
-  hasTemplateForStage,
-} from "@sdui/templates/chat-templates";
-import { contextFabric } from "../lib/agent-fabric/ContextFabric";
-import { detectIndustry } from "../data/industryTemplates";
-import { geminiProxyService } from "./GeminiProxyService.js"
+  conversationHistoryService,
+  ConversationMessage,
+} from "./ConversationHistoryService";
 import { FallbackAIService } from "./FallbackAIService.js"
+import { geminiProxyService } from "./GeminiProxyService.js"
+import { createToolExecutor, getAllTools } from "./MCPTools.js"
 import { RetryService } from "./RetryService.js"
 
 // ============================================================================

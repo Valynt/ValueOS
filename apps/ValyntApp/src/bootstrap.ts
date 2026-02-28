@@ -5,7 +5,6 @@
  * Ensures all systems are ready before rendering the UI.
  */
 
-import { getConfig, isDevelopment, isProduction, validateEnvironmentConfig } from "./config/environment";
 import {
   DEFAULT_AGENT_CHECK_TIMEOUT_DEV,
   DEFAULT_AGENT_CHECK_TIMEOUT_PROD,
@@ -15,11 +14,17 @@ import {
   DEFAULT_DB_MAX_RETRIES,
   DEFAULT_DB_RETRY_DELAY,
 } from "./app/config/bootstrap.constants";
-import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
-import { initializeSecurity, validateSecurity } from "./security";
+import {
+  getConfig,
+  isDevelopment,
+  isProduction,
+  validateEnvironmentConfig,
+} from "./config/environment";
+import { checkDatabaseConnection } from "./lib/database";
 import { createLogger, logger as globalLogger, setupMonitoring } from "./lib/logger";
 import { initializeSentry } from "./lib/sentry";
-import { checkDatabaseConnection } from "./lib/database";
+import { initializeSecurity, validateSecurity } from "./security";
+import { initializeAgents, SystemHealth } from "./services/AgentInitializer";
 
 /**
  * Bootstrap result
@@ -390,10 +395,9 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
   const duration = Date.now() - startTime;
 
   // Final summary
-  const BOOTSTRAP_COMPLETE_LINE = "=".repeat(50);
-  logger.debug("\n" + BOOTSTRAP_COMPLETE_LINE);
+  logger.debug("\n" + "=".repeat(50));
   logger.info("🎉 Bootstrap Complete!");
-  logger.debug(BOOTSTRAP_COMPLETE_LINE);
+  logger.debug("=".repeat(50));
   logger.info(`Duration: ${duration}ms`);
   logger.info(`Errors: ${errors.length}`);
   logger.info(`Warnings: ${warnings.length}`);

@@ -1,19 +1,20 @@
-import { useAuth } from "@/hooks/useAuth";
-import { PageShell } from "@/components/PageShell";
-import { SectionCard } from "@/components/SectionCard";
-import PillarModule from "@/components/PillarModule";
-import PillarProgressVisualization from "@/components/PillarProgressVisualization";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { APP_LOGO, APP_TITLE } from "@/const";
 import { ArrowLeft, BookOpen, CheckCircle2, Clock, Download, Lock, Target } from "lucide-react";
 import { Link, useParams } from "wouter";
-import { trpc } from "@/lib/trpc";
-import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
+
+import { PageShell } from "@/components/PageShell";
+import PillarModule from "@/components/PillarModule";
+import PillarProgressVisualization from "@/components/PillarProgressVisualization";
+import { SectionCard } from "@/components/SectionCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { APP_LOGO, APP_TITLE } from "@/const";
 import { CurriculumModule, getCurriculumForRole } from "@/data/curriculum";
-import { getModuleStatus } from "@/lib/progress-logic";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
 import { downloadFile } from "@/lib/download";
 import { logger } from "@/lib/logger";
+import { getModuleStatus } from "@/lib/progress-logic";
+import { trpc } from "@/lib/trpc";
 
 type PillarResource = {
   id?: number | string;

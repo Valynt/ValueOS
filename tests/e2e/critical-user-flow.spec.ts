@@ -5,7 +5,7 @@
  * Run with: npx playwright test tests/e2e/critical-user-flow.spec.ts
  */
 
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("Critical User Flow", () => {
   test.describe.configure({ mode: "serial" });

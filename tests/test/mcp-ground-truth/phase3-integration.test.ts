@@ -11,13 +11,14 @@
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { IntegratedMCPServer } from '../../../src/mcp-ground-truth/core/IntegratedMCPServer';
-import { StructuralTruth } from '../../../src/structural/structural-truth';
-import CausalTruth from '../../../src/causal/causal-truth-enhanced';
-import { EnhancedBusinessCaseGenerator } from '../../../src/causal/business-case-generator-enhanced';
-import { ReasoningEngine } from '../../../src/reasoning/reasoning-engine';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
 import { AuditTrailManager, ComplianceMonitor } from '../../../src/audit/audit-trail';
+import { EnhancedBusinessCaseGenerator } from '../../../src/causal/business-case-generator-enhanced';
+import CausalTruth from '../../../src/causal/causal-truth-enhanced';
+import { IntegratedMCPServer } from '../../../src/mcp-ground-truth/core/IntegratedMCPServer';
+import { ReasoningEngine } from '../../../src/reasoning/reasoning-engine';
+import { StructuralTruth } from '../../../src/structural/structural-truth';
 
 // Test configuration
 const TEST_CONFIG = {

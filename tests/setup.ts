@@ -8,10 +8,11 @@
  * 4. Configure test timeout and retry logic
  */
 
-import { config } from "dotenv";
 import { resolve } from "path";
-import { beforeAll, afterAll, beforeEach } from "vitest";
+
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { config } from "dotenv";
+import { afterAll, beforeAll, beforeEach } from "vitest";
 
 // Load test environment variables
 config({ path: resolve(process.cwd(), ".env.test") });

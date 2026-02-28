@@ -4,10 +4,12 @@
  * Tests for the MCP configuration management system
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { ConfigurationManager, ConfigurationValidator } from "../../src/mcp-common";
-import { writeFileSync, unlinkSync, existsSync } from "fs";
+import { existsSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { ConfigurationManager, ConfigurationValidator } from "../../src/mcp-common";
 
 describe("ConfigurationManager", () => {
   let configManager: ConfigurationManager;

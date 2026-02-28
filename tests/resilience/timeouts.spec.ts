@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("AgentChatInterface Resilience: Timeouts", () => {
   test("Should display Retry Interface after 30s LLM timeout", async ({

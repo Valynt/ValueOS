@@ -5,9 +5,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ExpansionAgent } from '../../src/lib/agent-fabric/agents/ExpansionAgent';
 import { OpportunityAgent } from '../../src/lib/agent-fabric/agents/OpportunityAgent';
 import { TargetAgent } from '../../src/lib/agent-fabric/agents/TargetAgent';
-import { ExpansionAgent } from '../../src/lib/agent-fabric/agents/ExpansionAgent';
 import { createAgentInfrastructureMocks, createBoltClientMock } from '../mocks/mockSupabaseClient';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';

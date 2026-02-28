@@ -9,11 +9,13 @@
  * - Windows Hello (Windows)
  */
 
-import React, { useState } from "react";
-import { AlertDialog, ConfirmDialog } from "@/components/ui";
 import { startRegistration } from "@simplewebauthn/browser";
-import { webAuthnService } from "../../services/WebAuthnService";
+import React, { useState } from "react";
+
 import { logger } from "../../lib/logger";
+import { webAuthnService } from "../../services/WebAuthnService";
+
+import { AlertDialog, ConfirmDialog } from "@/components/ui";
 
 interface WebAuthnSetupProps {
   userId: string;

@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import express from 'express';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   isDevRouteHostAllowed,

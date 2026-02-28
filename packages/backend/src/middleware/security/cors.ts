@@ -10,6 +10,7 @@
  */
 
 import { NextFunction, Request, Response } from 'express';
+
 import { CorsConfig, getSecurityConfig } from './config.js'
 
 // ============================================================================

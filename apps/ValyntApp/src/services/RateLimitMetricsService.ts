@@ -6,9 +6,11 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { TenantAwareService } from './TenantAwareService';
+
 import { log } from '../lib/logger';
+
 import { redisCircuitBreaker } from './RedisCircuitBreaker';
+import { TenantAwareService } from './TenantAwareService';
 
 export interface RateLimitMetrics {
   timestamp: Date;

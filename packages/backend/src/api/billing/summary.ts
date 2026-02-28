@@ -3,11 +3,12 @@
  * Provides tenant billing overview
  */
 
+import { createLogger } from '@shared/lib/logger';
 import express, { Request, Response } from 'express';
+
+import InvoiceService from '../../services/billing/InvoiceService.js';
 import SubscriptionService from '../../services/billing/SubscriptionService.js';
 import MetricsCollector from '../../services/metering/MetricsCollector.js';
-import InvoiceService from '../../services/billing/InvoiceService.js';
-import { createLogger } from '@shared/lib/logger';
 
 const router = express.Router();
 const logger = createLogger({ component: 'BillingSummaryAPI' });

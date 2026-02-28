@@ -4,16 +4,18 @@
  * Row-based list pattern with read-only display and Edit actions.
  */
 
-import { useState } from "react";
 import { Camera } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/ui/avatar";
+import { useState } from "react";
+
 import { logger } from "../../lib/logger";
+
 import {
   SettingsAlert,
   SettingsRow,
   SettingsSection,
 } from "@/components/settings";
+import { UserAvatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 
 interface ProfileData {
   fullName: string;

@@ -12,10 +12,11 @@
  * Combines multiple data sources and AI analysis to provide
  * actionable business insights and strategic recommendations.
  */
-import { SentimentAnalysisService, } from "./SentimentAnalysisService";
-import { PredictiveModelingService, } from "./PredictiveModelingService";
-import { getCache } from "../core/Cache";
 import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
+
+import { PredictiveModelingService, } from "./PredictiveModelingService";
+import { SentimentAnalysisService, } from "./SentimentAnalysisService";
 export class AutomatedInsightsService {
     sentimentService;
     predictiveService;

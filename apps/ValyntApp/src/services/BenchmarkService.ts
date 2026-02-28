@@ -12,6 +12,7 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+
 import type { Benchmark } from '../types/vos';
 
 export interface BenchmarkComparison {

@@ -4,6 +4,7 @@
  */
 
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { createBrowserSupabaseClient } from "@/lib/supabase";
 import { computePermissions } from "@/types/security";
 

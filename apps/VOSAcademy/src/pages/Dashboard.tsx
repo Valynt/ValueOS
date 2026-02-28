@@ -1,17 +1,3 @@
-import { useMemo } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { PageShell } from "@/components/PageShell";
-import { SectionCard } from "@/components/SectionCard";
-import { KpiCard } from "@/components/KpiCard";
-import { RecommendationsCard } from "@/components/RecommendationsCard";
-import { SidebarLayout } from "@/components/SidebarLayout";
-import { getLoginUrl } from "@/data/const";
-import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
-import { getPillarStatus } from "@/lib/progress-logic";
 import {
   Award,
   BookOpen,
@@ -26,7 +12,23 @@ import {
   TrendingUp,
   Users
 } from "lucide-react";
+import { useMemo } from "react";
 import { Link } from "wouter";
+
+import { KpiCard } from "@/components/KpiCard";
+import { PageShell } from "@/components/PageShell";
+import { RecommendationsCard } from "@/components/RecommendationsCard";
+import { SectionCard } from "@/components/SectionCard";
+import { SidebarLayout } from "@/components/SidebarLayout";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { getLoginUrl } from "@/data/const";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurriculum, useProgress } from "@/hooks/useCurriculum";
+import { getPillarStatus } from "@/lib/progress-logic";
+
 
 export default function Dashboard() {
   const { user, loading, isAuthenticated } = useAuth();

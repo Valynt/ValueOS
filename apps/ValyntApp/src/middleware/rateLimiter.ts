@@ -12,8 +12,10 @@
  */
 
 import { NextFunction, Request, Response } from "express";
-import { logger } from "../utils/logger";
+
 import { RateLimitKeyService } from "../services/RateLimitKeyService";
+import { logger } from "../utils/logger";
+
 import {
   createRateLimitStore,
   InMemoryRateLimitStore,

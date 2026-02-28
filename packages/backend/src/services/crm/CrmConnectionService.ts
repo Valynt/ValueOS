@@ -5,11 +5,12 @@
  * Uses service-role Supabase client for DB operations.
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
-import { decryptToken, encryptToken, needsReEncryption, tokenFingerprint } from './tokenEncryption.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import { getCrmProvider } from './CrmProviderRegistry.js';
 import { consumeOAuthState, createOAuthState } from './OAuthStateStore.js';
+import { decryptToken, encryptToken, needsReEncryption, tokenFingerprint } from './tokenEncryption.js';
 import type {
   CrmConnectionRow,
   CrmProvider,

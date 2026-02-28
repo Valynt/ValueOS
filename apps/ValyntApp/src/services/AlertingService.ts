@@ -6,11 +6,13 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '../lib/logger';
-import { getMetricsCollector } from './MetricsCollector';
-import { captureMessage } from '../lib/sentry';
+
 import { settings } from '../config/settings';
+import { logger } from '../lib/logger';
+import { captureMessage } from '../lib/sentry';
+
 import { emailService } from './EmailService';
+import { getMetricsCollector } from './MetricsCollector';
 
 export interface AlertThreshold {
   metricName: string;

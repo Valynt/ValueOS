@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Simulate EnhancedParallelExecutor and fallback routing
 async function simulateProviderBlackout(tasks: number) {

@@ -4,9 +4,10 @@
  * Tests for AUTH-001 MFA enforcement
  */
 
-import { describe, expect, it, vi } from "vitest";
-import { mfaService } from "../MFAService";
 import * as OTPAuth from "otpauth";
+import { describe, expect, it, vi } from "vitest";
+
+import { mfaService } from "../MFAService";
 
 // Mock dependencies
 vi.mock("../../lib/logger");

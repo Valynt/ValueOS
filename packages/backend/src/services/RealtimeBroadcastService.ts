@@ -1,7 +1,10 @@
-import { wss } from "../server";
-import { logger } from "../lib/logger.js";
-import { getBroadcastAdapter } from "./WebSocketBroadcastAdapter.js";
 import { WebSocket } from "ws";
+
+import { logger } from "../lib/logger.js";
+import { wss } from "../server";
+
+import { getBroadcastAdapter } from "./WebSocketBroadcastAdapter.js";
+
 
 interface AuthenticatedWebSocket extends WebSocket {
   tenantId: string;

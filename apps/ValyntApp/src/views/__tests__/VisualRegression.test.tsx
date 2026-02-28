@@ -5,10 +5,11 @@
 
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import ROICalculator from "../ROICalculator";
+
 import ImpactCascade from "../ImpactCascade";
 import QuantumView from "../QuantumView";
 import type { PersonaType } from "../QuantumView";
+import ROICalculator from "../ROICalculator";
 
 // Mock for visual consistency
 const expectVisualConsistency = (container: HTMLElement, expectedElements: string[]) => {

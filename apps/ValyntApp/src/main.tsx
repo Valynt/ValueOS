@@ -1,10 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+
 import { App } from "./App";
 import { bootstrap } from "./app/bootstrap";
 import "./styles/globals.css";
-import { analyticsClient } from "./lib/analyticsClient";
 import { validateFrontendStartupEnv } from "./config/startupEnvValidator";
+import { analyticsClient } from "./lib/analyticsClient";
 import { logger } from "./lib/logger";
 
 // Validate env values before startup

@@ -4,16 +4,18 @@
  * Serves OpenAPI specification and interactive documentation
  */
 
-import { Router } from 'express';
-import swaggerUi from 'swagger-ui-express';
-import YAML from 'js-yaml';
 import fs from 'fs';
 import path from 'path';
+
+import { Router } from 'express';
+import YAML from 'js-yaml';
+import swaggerUi from 'swagger-ui-express';
+
 // import { logger } from '../utils/logger';
-import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
-import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware';
 import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
+import { securityHeadersMiddleware } from '../middleware/securityMiddleware';
+import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware';
 
 const router = Router();
 router.use(requestAuditMiddleware());

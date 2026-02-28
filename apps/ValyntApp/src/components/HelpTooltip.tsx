@@ -1,5 +1,5 @@
-import React from "react";
 import { Sparkles } from "lucide-react";
+import React from "react";
 
 interface HelpTooltipProps {
   text: string;

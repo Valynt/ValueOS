@@ -5,6 +5,16 @@
  * Provides comprehensive tracking and management of value commitments throughout their lifecycle.
  */
 
+import { logger } from "../lib/logger";
+import { supabase } from "../lib/supabase";
+import {
+  CommitmentAuditSchema,
+  CommitmentMetricSchema,
+  CommitmentMilestoneSchema,
+  CommitmentRiskSchema,
+  CommitmentStakeholderSchema,
+  ValueCommitmentSchema,
+} from "../types/value-commitment-schemas.js";
 import {
   CommitmentAudit,
   CommitmentAuditInsert,
@@ -21,16 +31,7 @@ import {
   ValueCommitment,
   ValueCommitmentInsert,
 } from "../types/value-commitment-tracking.js";
-import {
-  CommitmentAuditSchema,
-  CommitmentMetricSchema,
-  CommitmentMilestoneSchema,
-  CommitmentRiskSchema,
-  CommitmentStakeholderSchema,
-  ValueCommitmentSchema,
-} from "../types/value-commitment-schemas.js";
-import { logger } from "../lib/logger";
-import { supabase } from "../lib/supabase";
+
 import { GroundTruthIntegrationService } from "./GroundTruthIntegrationService.js";
 
 export class ValueCommitmentTrackingService {

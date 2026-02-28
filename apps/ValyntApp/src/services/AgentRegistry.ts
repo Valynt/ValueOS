@@ -6,13 +6,13 @@
  * This registry manages all agent registrations, health status, and routing.
  */
 
-import { WorkflowStage } from '../types/workflow';
 import { 
   AgentHealthStatus, 
   AgentRecord as CanonicalAgentRecord,
   AgentRegistration as CanonicalAgentRegistration,
   LifecycleStage 
 } from '../types/agent';
+import { WorkflowStage } from '../types/workflow';
 
 // Re-export canonical types for backward compatibility
 export type { AgentHealthStatus } from '../types/agent';

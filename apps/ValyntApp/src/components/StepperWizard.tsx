@@ -11,8 +11,9 @@
  * - Error Prevention: disables Next when step is invalid, shows validation state
  */
 
-import React, { useCallback, useEffect, useRef } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useCallback, useEffect, useRef } from "react";
+
 import { cn } from "@/lib/utils";
 
 export type StepValidation = "valid" | "invalid" | "pending";

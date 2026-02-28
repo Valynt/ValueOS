@@ -1,5 +1,6 @@
 // Stub CommandPaletteProvider for development
 import { createContext, ReactNode, useContext } from "react";
+
 import { logger } from "@/lib/logger";
 
 interface CommandPaletteContextType {

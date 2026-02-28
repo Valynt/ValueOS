@@ -11,9 +11,10 @@
  */
 
 import { Request, Response, Router } from 'express';
+
 import { logger } from '../../lib/logger';
-import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from '../../sdui/schema';
 import { migrateSchema } from '../../sdui/migrations';
+import { SDUI_VERSION, SDUIPageDefinition, validateSDUISchema } from '../../sdui/schema';
 import { canvasSchemaService } from '../../services/CanvasSchemaService';
 import { WorkspaceContext } from '../../types/sdui-integration';
 import { LifecycleStage } from '../../types/workflow';

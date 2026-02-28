@@ -1,6 +1,7 @@
-import { test, expect } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
+
+import { expect, test } from "@playwright/test";
 
 type RouteBudgetConfig = {
   routeLoadMs: Record<string, number>;

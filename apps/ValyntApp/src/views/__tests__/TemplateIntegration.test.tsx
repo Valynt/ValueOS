@@ -4,14 +4,15 @@
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import ROICalculator from "../ROICalculator";
+import { describe, expect, it, vi } from "vitest";
+
 import ImpactCascade from "../ImpactCascade";
 // import { ScenarioSelector } from "../../components/SDUI/ScenarioSelector"; // Component not found
-import ValueCanvas from "../ValueCanvas";
 import QuantumView from "../QuantumView";
 import type { PersonaType } from "../QuantumView";
+import ROICalculator from "../ROICalculator";
+import ValueCanvas from "../ValueCanvas";
 
 vi.mock("../../components/chat-canvas/ChatCanvasLayout", () => ({
   ChatCanvasLayout: ({

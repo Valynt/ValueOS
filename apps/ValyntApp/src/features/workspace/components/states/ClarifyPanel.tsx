@@ -5,12 +5,15 @@
  * and optional freeform input. Supports keyboard navigation.
  */
 
-import { useState, useRef, useEffect } from "react";
 import { HelpCircle, Send, X } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState } from "react";
+
 import type { ClarifyOption } from "../../agent/types";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
 
 interface ClarifyPanelProps {
   question: string;

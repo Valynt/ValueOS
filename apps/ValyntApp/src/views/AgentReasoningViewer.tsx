@@ -3,7 +3,9 @@
  * Visualizes agent reasoning traces and thought chains with interactive tree view
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import { auditLogService } from "@backend/services/AuditLogService";
+import { ConfidenceDisplay } from "@valueos/sdui";
+import { IntegrityVetoPanel } from "@valueos/sdui";
 import {
   Activity,
   ArrowRight,
@@ -16,11 +18,11 @@ import {
   Target,
   XCircle,
 } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+
 import { AgentBadge } from "../components/Agents/AgentBadge";
-import { auditLogService } from "@backend/services/AuditLogService";
 import { webSocketManager } from "../services/WebSocketManager";
-import { ConfidenceDisplay } from "@valueos/sdui";
-import { IntegrityVetoPanel } from "@valueos/sdui";
+
 import "./AgentReasoningViewer.css";
 // ============================================================================
 // Types

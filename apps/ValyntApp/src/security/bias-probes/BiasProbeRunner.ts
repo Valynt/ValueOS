@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+
 import { fairnessPrompts, renderPrompt } from './fairnessPrompts';
 
 export interface ProbeResult {

@@ -3,11 +3,12 @@
  * Handles plan change preview and submission
  */
 
-import express, { Request, Response } from 'express';
-import SubscriptionService from '../../services/billing/SubscriptionService.js';
-import { BillingApprovalService } from '../../services/billing/BillingApprovalService.js';
 import { createLogger } from '@shared/lib/logger';
+import express, { Request, Response } from 'express';
+
 import { PlanTier } from '../../config/billing.js';
+import { BillingApprovalService } from '../../services/billing/BillingApprovalService.js';
+import SubscriptionService from '../../services/billing/SubscriptionService.js';
 const billingApprovalService = new BillingApprovalService();
 
 const router = express.Router();

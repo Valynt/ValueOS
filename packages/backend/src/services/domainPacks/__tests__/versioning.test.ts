@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
 import {
   assertMutable,
   assertPublishable,
@@ -14,7 +16,6 @@ import {
   parseSemver,
   validateParentNotDeprecated,
 } from '../versioning.js';
-import type { DomainPackAssumption, DomainPackKpi } from '../../../api/domainPacks/types.js';
 
 // ============================================================================
 // parseSemver / formatSemver

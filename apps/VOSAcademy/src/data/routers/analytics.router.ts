@@ -1,8 +1,9 @@
-import { z } from "zod";
 import { and, avg, count, eq, sql } from "drizzle-orm";
+import { z } from "zod";
+
+import { certifications, pillars, quizResults, simulationAttempts, users } from "../../drizzle/schema";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { certifications, pillars, quizResults, simulationAttempts, users } from "../../drizzle/schema";
 
 /**
  * Analytics router

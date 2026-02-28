@@ -5,9 +5,6 @@
  * Shows platform ROI, usage breakdown, billing details, and expansion triggers.
  */
 
-import { useState } from "react";
-import { billingService } from "@/services/billing";
-import { useToast } from "@/components/common/Toast";
 import {
   AlertTriangle,
   Briefcase,
@@ -20,11 +17,15 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+
+import { useToast } from "@/components/common/Toast";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { billingService } from "@/services/billing";
 
 // Mock data
 const PLATFORM_ROI = {
@@ -89,7 +90,7 @@ export function BillingSettings() {
     } catch (err) {
       const { showToast } = useToast();
       showToast("Failed to create checkout session", "error");
-      // eslint-disable-next-line no-console
+       
       console.error("Failed to create checkout session", err);
     }
   };

@@ -1,4 +1,4 @@
-import { test, expect, chromium } from "@playwright/test";
+import { chromium, expect, test } from "@playwright/test";
 
 test.describe("Frontend Debug Tests", () => {
   let browser;

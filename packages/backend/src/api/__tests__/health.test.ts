@@ -4,9 +4,10 @@
  * CRITICAL: Tests health check endpoints that load balancers depend on
  */
 
-import { beforeAll, describe, expect, it } from 'vitest';
-import request from 'supertest';
 import express from 'express';
+import request from 'supertest';
+import { beforeAll, describe, expect, it } from 'vitest';
+
 import healthRouter from '../health/index.js'
 
 describe('Health Check API', () => {

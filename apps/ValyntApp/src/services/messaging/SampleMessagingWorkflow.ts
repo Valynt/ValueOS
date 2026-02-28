@@ -1,6 +1,7 @@
 import { logger } from '../../utils/logger';
-import { redisStreamBroker, StreamEvent } from './RedisStreamBroker';
+
 import { EventPayloadMap } from './EventSchemas';
+import { redisStreamBroker, StreamEvent } from './RedisStreamBroker';
 
 const messageLogger = logger.withContext({ component: 'sample-messaging-workflow' });
 

@@ -1,16 +1,17 @@
 import React from "react";
-import NotFound from "@/pages/NotFound";
-import Home from "@/pages/Home";
-import Dashboard from "@/pages/Dashboard";
-import PillarOverview from "@/pages/PillarOverview";
-import Quiz from "@/pages/Quiz";
+
 import AITutor from "@/pages/AITutor";
-import Profile from "@/pages/Profile";
-import Resources from "@/pages/Resources";
-import Certifications from "@/pages/Certifications";
-import { Simulations } from "@/pages/Simulations";
-import { SimulationProgress } from "@/pages/SimulationProgress";
 import Analytics from "@/pages/Analytics";
+import Certifications from "@/pages/Certifications";
+import Dashboard from "@/pages/Dashboard";
+import Home from "@/pages/Home";
+import NotFound from "@/pages/NotFound";
+import PillarOverview from "@/pages/PillarOverview";
+import Profile from "@/pages/Profile";
+import Quiz from "@/pages/Quiz";
+import Resources from "@/pages/Resources";
+import { SimulationProgress } from "@/pages/SimulationProgress";
+import { Simulations } from "@/pages/Simulations";
 import ValueTreeBuilder from "@/pages/ValueTreeBuilder";
 
 export type RouteConfig = {

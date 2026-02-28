@@ -1,17 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import {
-  transition,
-  canTransition,
-  getValidActions,
-  buildTransitionContext,
   AGENT_STATE_CONFIG,
+  type AgentAction,
+  type AgentStateConfig,
+  type AgentTransitionEvent,
+  buildTransitionContext,
+  canTransition,
   getStateConfig,
+  getValidActions,
   getValidEvents,
   resolveTransition,
+  transition,
   type TransitionContext,
-  type AgentAction,
-  type AgentTransitionEvent,
-  type AgentStateConfig,
 } from '../state-machine';
 import type { AgentPhase } from '../types';
 

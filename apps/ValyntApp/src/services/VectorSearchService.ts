@@ -11,9 +11,9 @@
  * - Error handling
  */
 
-import { supabase } from '@/lib/supabase';
 import { getSemanticThreshold, semanticMemoryConfig } from '@/config/llm';
 import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 
 // ============================================================================
 // Types

@@ -8,6 +8,7 @@
 import { logger } from "../lib/logger";
 import { HubSpotModule } from "../mcp-crm/modules/HubSpotModule";
 import { CRMDeal } from "../mcp-crm/types";
+
 import { integrationControlService } from "./IntegrationControlService";
 
 // Create a singleton instance for now, assuming connection management is handled globally or we pass it

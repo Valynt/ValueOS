@@ -9,10 +9,11 @@
  * - Do Not Disturb mode
  */
 
+import { Bell, Loader2, Mail, MessageSquare, Smartphone } from 'lucide-react';
 import React, { useMemo } from 'react';
+
 import { SettingsSection } from '../../components/settings';
 import { useSettingsGroup } from '../../lib/settingsRegistry';
-import { Bell, Loader2, Mail, MessageSquare, Smartphone } from 'lucide-react';
 
 interface UserNotificationsProps {
   userId: string;

@@ -1,5 +1,5 @@
-import React from "react";
 import { ExternalLink } from "lucide-react";
+import React from "react";
 
 interface ReasoningViewerProps {
   reasoning: string;

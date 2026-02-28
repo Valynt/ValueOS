@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import http from 'http';
 import { spawnSync } from 'child_process';
-import path from 'path';
 import fs from 'fs';
+import http from 'http';
+import path from 'path';
+
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // ---- Named Constants ----
 const MOCK_SERVER_PORT = 30053;

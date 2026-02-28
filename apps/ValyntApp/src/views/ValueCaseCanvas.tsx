@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Clock,
@@ -8,16 +6,20 @@ import {
   RotateCcw,
   Shield,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useMergedContext } from "@/hooks/useDomainPacks";
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
 
-import { HypothesisStage } from "./canvas/HypothesisStage";
-import { ModelStage } from "./canvas/ModelStage";
-import { IntegrityStage } from "./canvas/IntegrityStage";
-import { NarrativeStage } from "./canvas/NarrativeStage";
-import { RealizationStage } from "./canvas/RealizationStage";
+
 import { AgentThread } from "./canvas/AgentThread";
 import { EvidenceDrawer } from "./canvas/EvidenceDrawer";
+import { HypothesisStage } from "./canvas/HypothesisStage";
+import { IntegrityStage } from "./canvas/IntegrityStage";
+import { ModelStage } from "./canvas/ModelStage";
+import { NarrativeStage } from "./canvas/NarrativeStage";
+import { RealizationStage } from "./canvas/RealizationStage";
+
+import { useMergedContext } from "@/hooks/useDomainPacks";
+import { cn } from "@/lib/utils";
 
 // Workflow stages — the core loop
 const stages = [

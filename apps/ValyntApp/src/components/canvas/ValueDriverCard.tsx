@@ -2,12 +2,13 @@
  * ValueDriverCard - Draggable card for value drivers on the canvas
  */
 
+import { Edit, Trash2 } from 'lucide-react';
 import React from 'react';
 import { useDrag } from 'react-dnd';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Edit, Trash2 } from 'lucide-react';
 import { CanvasComponent } from '@/types/valueDriver';
 
 interface ValueDriverCardProps {

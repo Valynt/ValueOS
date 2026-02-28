@@ -6,12 +6,12 @@
  * Exercises different evidence tiers and a critical red-team objection
  * that triggers a revision cycle.
  */
-import type { Citation, ClassifiedEvidence, EvidenceBundle, EvidenceItem } from '../../../core/EvidenceTiering.js';
-import type { ClaimConfidence } from '../../../core/ConfidenceScorer.js';
 import type { ProvenanceRecord } from '../../../../memory/provenance/index.js';
-import type { NarrativeBlock, ValueHypothesis, ValueTree } from '../../../orchestration/HypothesisLoop.js';
-import type { Objection } from '../../../orchestration/agents/RedTeamAgent.js';
+import type { ClaimConfidence } from '../../../core/ConfidenceScorer.js';
+import type { Citation, ClassifiedEvidence, EvidenceBundle, EvidenceItem } from '../../../core/EvidenceTiering.js';
 import type { SagaStateType } from '../../../core/ValueCaseSaga.js';
+import type { Objection } from '../../../orchestration/agents/RedTeamAgent.js';
+import type { NarrativeBlock, ValueHypothesis, ValueTree } from '../../../orchestration/HypothesisLoop.js';
 export declare const SCENARIO_ID = "gt-mfg-yield-001";
 export declare const VALUE_CASE_ID = "550e8400-e29b-41d4-a716-446655440002";
 export declare const TENANT_ID = "tenant-precision-mfg-001";

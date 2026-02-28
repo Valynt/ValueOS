@@ -9,11 +9,12 @@
  * When user has no tenants, redirects to /create-org so they can provision one.
  */
 
+import { AlertTriangle, LogOut, RefreshCw } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { AlertTriangle, RefreshCw, LogOut } from "lucide-react";
-import { useTenant } from "@/contexts/TenantContext";
-import { useAuth } from "@/contexts/AuthContext";
+
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 export function TenantGate() {
   const { currentTenant, isLoading, error, refreshTenants, tenants } = useTenant();

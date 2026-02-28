@@ -11,8 +11,9 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SessionData, WorkflowState, WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
+
 import { logger } from '../lib/logger.js'
+import { SessionData, WorkflowState, WorkflowStateRepository } from '../repositories/WorkflowStateRepository';
 import type { LifecycleStage } from '../types/vos';
 
 /**

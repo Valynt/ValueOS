@@ -1,7 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { SettingsSection } from "../../components/settings";
 import { logger } from "@lib/logger";
-import { useDebouncedState } from "../../hooks/useDebounce";
 import {
   AlertCircle,
   Archive,
@@ -15,6 +12,11 @@ import {
   Upload,
   Workflow,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { SettingsSection } from "../../components/settings";
+import { useDebouncedState } from "../../hooks/useDebounce";
+
 
 interface NotificationSettings {
   mentions: boolean;

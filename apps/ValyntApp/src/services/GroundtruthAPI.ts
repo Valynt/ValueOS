@@ -5,8 +5,9 @@
  * authentication, timeouts, and normalized error handling.
  */
 
-import { logger } from '../lib/logger';
 import { getGroundtruthConfig } from '../lib/env';
+import { logger } from '../lib/logger';
+
 import { CircuitBreakerConfig, CircuitBreakerManager } from './CircuitBreaker';
 import { ExternalCircuitBreaker } from './ExternalCircuitBreaker';
 

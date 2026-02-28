@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { validateEnv } from "../validateEnv.js";
 
 afterEach(() => {

@@ -6,6 +6,7 @@
  */
 
 import { vi } from 'vitest';
+
 import { WorkflowState } from '../../../src/repositories/WorkflowStateRepository';
 import { SDUIPageDefinition } from '../../../src/sdui/schema';
 

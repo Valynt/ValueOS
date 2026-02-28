@@ -9,12 +9,13 @@
  */
 
 import { ESOModule } from "@mcp/ground-truth/modules/ESOModule";
-import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../types/eso-data";
-import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
+
+import { logger } from "../lib/logger.js";
 import { checkBenchmarkAlignment } from "../types/eso";
 import type { ESOKPINode, ESOPersona, FinancialDriver } from "../types/eso";
+import { ALL_ESO_KPIS, EXTENDED_PERSONA_MAPS } from "../types/eso-data";
 import type { VMRT } from "../types/vmrt";
-import { logger } from "../lib/logger.js";
+import { ALL_VMRT_SEEDS } from "../types/vos-pt1-seed";
 
 // ============================================================================
 // Types

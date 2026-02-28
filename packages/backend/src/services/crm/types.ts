@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { EvidenceTierLabel, SourceProvenance } from '../../types/evidence.js';
 /**
  * CRM Integration Types
@@ -5,7 +7,6 @@ import type { EvidenceTierLabel, SourceProvenance } from '../../types/evidence.j
  * Shared types for the CRM provider abstraction layer.
  */
 
-import { z } from 'zod';
 
 // ============================================================================
 // Provider enum

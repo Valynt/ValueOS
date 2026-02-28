@@ -4,6 +4,7 @@
  */
 
 import { CurriculumModule, getCurriculumForRole, getRecommendedModules } from '../data/curriculum';
+
 import { canAccessPillar, getModuleStatus, getProgressStats } from './progress-logic';
 
 export interface UserContext {

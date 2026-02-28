@@ -1,10 +1,15 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { cn } from "@/lib/utils";
+
+
+import { Phase1Company } from "./onboarding/Phase1Company";
+import { Phase2Competitors } from "./onboarding/Phase2Competitors";
+import { Phase3Personas } from "./onboarding/Phase3Personas";
+import { Phase4Claims } from "./onboarding/Phase4Claims";
+import { Phase5Review } from "./onboarding/Phase5Review";
+
 import { useTenant } from "@/contexts/TenantContext";
-import { supabase } from "@/lib/supabase";
-import { clearOnboardingBypass, markOnboardingBypassed } from "@/lib/onboarding-bypass";
 import {
   useAddClaimGovernance,
   useAddCompetitors,
@@ -12,23 +17,20 @@ import {
   useCompleteOnboarding,
   useCreateCompanyContext,
 } from "@/hooks/company-context";
-import {
-  useCreateResearchJob,
-  useResearchJobStatus,
-  useResearchSuggestions,
-} from "@/hooks/company-context/useResearchJob";
 import type {
   OnboardingPhase1Input,
   OnboardingPhase2Input,
   OnboardingPhase3Input,
   OnboardingPhase4Input,
 } from "@/hooks/company-context/types";
-
-import { Phase1Company } from "./onboarding/Phase1Company";
-import { Phase2Competitors } from "./onboarding/Phase2Competitors";
-import { Phase3Personas } from "./onboarding/Phase3Personas";
-import { Phase4Claims } from "./onboarding/Phase4Claims";
-import { Phase5Review } from "./onboarding/Phase5Review";
+import {
+  useCreateResearchJob,
+  useResearchJobStatus,
+  useResearchSuggestions,
+} from "@/hooks/company-context/useResearchJob";
+import { clearOnboardingBypass, markOnboardingBypassed } from "@/lib/onboarding-bypass";
+import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 const phases = [
   { key: "company", label: "Company", step: 1 },

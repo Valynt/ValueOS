@@ -5,7 +5,6 @@
  * Inspired by ValueCanvas UI mockups.
  */
 
-import React from 'react';
 import { 
   Copy, 
   Download, 
@@ -14,6 +13,8 @@ import {
   Sparkles,
   Undo2,
 } from 'lucide-react';
+import React from 'react';
+
 import { cn } from '@/lib/utils';
 
 interface FloatingToolbarProps {

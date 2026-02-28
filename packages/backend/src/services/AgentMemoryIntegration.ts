@@ -5,12 +5,13 @@
  * Stores episodes and retrieves similar past experiences for context.
  */
 
-import { AgentAPI, AgentRequest, AgentResponse } from './AgentAPI.js'
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import { MemorySystem } from '../lib/agent-fabric/MemorySystem';
 import { SupabaseMemoryBackend } from '../lib/agent-fabric/SupabaseMemoryBackend';
 import { logger } from '../lib/logger.js'
 import { supabase } from '../lib/supabase.js'
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+
+import { AgentAPI, AgentRequest, AgentResponse } from './AgentAPI.js'
 import { semanticMemory } from './SemanticMemory.js';
 
 export interface MemoryEnhancedRequest extends AgentRequest {

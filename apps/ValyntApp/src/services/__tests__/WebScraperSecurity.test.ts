@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { WebScraperService } from "../src/services/WebScraperService";
 
 describe("WebScraperService Security Tests", () => {

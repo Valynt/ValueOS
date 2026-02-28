@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { runAgentWithBudget } from '../../packages/agent-fabric/runAgentWithBudget';
+import { describe, expect, it } from 'vitest';
+
 import { LocalGrader } from '../../packages/agent-fabric/LocalGrader';
+import { runAgentWithBudget } from '../../packages/agent-fabric/runAgentWithBudget';
 
 // Simulated golden path trace
 const goldenTrace = {

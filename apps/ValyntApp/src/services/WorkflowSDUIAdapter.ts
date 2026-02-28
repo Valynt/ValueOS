@@ -6,6 +6,11 @@
  */
 
 import { logger } from '../lib/logger';
+import {
+  AtomicUIAction,
+  createAddAction,
+  createMutateAction,
+} from '../sdui/AtomicUIActions';
 import { SDUIPageDefinition } from '../sdui/schema';
 import { SDUIUpdate } from '../types/sdui-integration';
 import { LifecycleStage } from '../types/workflow';
@@ -14,11 +19,7 @@ import {
   StageTransitionEvent,
   WorkflowProgress,
 } from '../types/workflow-sdui';
-import {
-  AtomicUIAction,
-  createAddAction,
-  createMutateAction,
-} from '../sdui/AtomicUIActions';
+
 import { canvasSchemaService } from './CanvasSchemaService';
 
 /**

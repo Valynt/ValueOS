@@ -12,8 +12,8 @@
  * reliable financial predictions and risk assessment.
  */
 
-import { getCache } from "../core/Cache";
 import { logger } from "../../lib/logger";
+import { getCache } from "../core/Cache";
 
 export interface TimeSeriesData {
   periods: string[]; // Period labels (e.g., "FY2020", "FY2021")

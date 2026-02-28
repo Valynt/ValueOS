@@ -5,6 +5,7 @@
  */
 
 import * as client from "prom-client";
+
 import registry from "../metrics/httpMetrics.js";
 
 type Labels = Record<string, string | number>;

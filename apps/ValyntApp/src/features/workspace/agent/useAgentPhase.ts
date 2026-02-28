@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useMemo } from "react";
-import { useAgentStore } from "./store";
+
 import {
   type AgentStateConfig,
   type AgentTransitionEvent,
@@ -15,6 +15,7 @@ import {
   getValidEvents,
   resolveTransition,
 } from "./state-machine";
+import { useAgentStore } from "./store";
 import type { AgentPhase } from "./types";
 
 export interface UseAgentPhaseReturn {

@@ -9,7 +9,6 @@
  * - Media uploads
  */
 
-import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle,
@@ -22,6 +21,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
 import { supabase } from "../../lib/supabase";
 
 interface DocPage {

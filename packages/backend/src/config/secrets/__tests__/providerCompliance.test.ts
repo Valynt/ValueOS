@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AWSSecretProvider } from '../AWSSecretProvider.js'
-import { VaultSecretProvider } from '../VaultSecretProvider.js'
 import { createProviderFromEnv, providerFactory } from '../ProviderFactory.js'
+import { VaultSecretProvider } from '../VaultSecretProvider.js'
 
 let sendMock: ReturnType<typeof vi.fn>;
 let mockVaultClient: any;

@@ -5,11 +5,13 @@
  * Core properties: deterministic, reproducible, append-only ledger.
  */
 
-import { type SupabaseClient } from "@supabase/supabase-js";
-import { createLogger } from "../../lib/logger.js";
 import type { MeterKey } from "@shared/types/billing-events";
-import type { MeterPricing, PriceVersion } from "./PriceVersionService.js";
+import { type SupabaseClient } from "@supabase/supabase-js";
+
+import { createLogger } from "../../lib/logger.js";
+
 import type { EntitlementSnapshot } from "./EntitlementSnapshotService.js";
+import type { MeterPricing, PriceVersion } from "./PriceVersionService.js";
 
 const logger = createLogger({ component: "RatingEngine" });
 

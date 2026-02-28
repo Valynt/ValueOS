@@ -6,12 +6,13 @@
  * Compatible with both browser and server environments.
  */
 
-import { BaseService } from "./BaseService.js"
-import { ValidationError } from "./errors.js"
+import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
+import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
-import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
+
+import { BaseService } from "./BaseService.js"
+import { ValidationError } from "./errors.js"
 import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 
 export interface MFASecret {

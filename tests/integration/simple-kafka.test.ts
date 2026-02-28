@@ -1,4 +1,4 @@
-import { Kafka, CompressionTypes, logLevel } from "kafkajs";
+import { CompressionTypes, Kafka, logLevel } from "kafkajs";
 
 describe("Simple Kafka Test", () => {
   it("should import kafka classes", () => {

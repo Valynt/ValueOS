@@ -1,8 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { paths } from "@/lib/api-types";
+
 import openapiSchema from "../docs/api/openapi.json" assert { type: "json" };
+
+import { paths } from "@/lib/api-types";
 
 const graphQlSchema = fs.readFileSync(path.join(process.cwd(), "docs/api/schema.graphql"), "utf8");
 

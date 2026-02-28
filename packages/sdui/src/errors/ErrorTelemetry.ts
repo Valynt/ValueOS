@@ -5,8 +5,9 @@
  * Includes context, breadcrumbs, and user information.
  */
 
-import { TenantContext } from "../TenantContext";
 import { createLogger } from "@shared/lib/logger";
+
+import { TenantContext } from "../TenantContext";
 
 const telemetryLogger = createLogger({ component: "ErrorTelemetry" });
 

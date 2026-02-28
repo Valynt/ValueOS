@@ -7,10 +7,10 @@
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Compliance: SOX, RegTech, Zero-Trust Architecture
  */
+import { logger } from "../../lib/logger";
 import { BaseModule } from "../core/BaseModule";
 import { getCache } from "../core/Cache";
 import { ErrorCodes, GroundTruthError, } from "../types";
-import { logger } from "../../lib/logger";
 /**
  * EDGAR Module - Tier 1 Canonical Source
  *

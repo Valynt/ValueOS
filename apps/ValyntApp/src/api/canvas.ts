@@ -1,11 +1,12 @@
 import { Request, Response, Router } from "express";
-import { canvasService } from "../services/CanvasService";
-import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
-import { rateLimiters } from "../middleware/rateLimiter";
+
 import { logger } from "../lib/logger";
 import { requireAuth } from "../middleware/auth";
-import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { rateLimiters } from "../middleware/rateLimiter";
 import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
+import { securityHeadersMiddleware } from "../middleware/securityMiddleware";
+import { tenantContextMiddleware } from "../middleware/tenantContext";
+import { canvasService } from "../services/CanvasService";
 
 const router = Router();
 

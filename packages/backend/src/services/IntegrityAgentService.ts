@@ -5,12 +5,12 @@
  * against governance standards and conservative modeling principles.
  */
 
+import { llmConfig } from '../config/llm.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
 import type TaskContext from '../lib/agent-fabric/TaskContext';
-import { logger } from '../lib/logger.js'
-import { llmConfig } from '../config/llm.js'
-import { LabSuccessCriterion, QuizQuestion } from '../types/academy.js'
 import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
+import { logger } from '../lib/logger.js'
+import { LabSuccessCriterion, QuizQuestion } from '../types/academy.js'
 
 // Lab message type (also defined in LabPanel)
 interface LabMessage {

@@ -3,8 +3,9 @@
  * Utilities for interacting with Loki in tests
  */
 
-import axios, { AxiosInstance } from "axios";
 import { promisify } from "util";
+
+import axios, { AxiosInstance } from "axios";
 
 const sleep = promisify(setTimeout);
 

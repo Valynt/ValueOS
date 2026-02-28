@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { getValueCase, listValueDriversForCase } from '../../domain/value/db/rows';
+
 import { fromValueDrivers } from '../../domain/value/adapters/valueTree.adapter';
+import { getValueCase, listValueDriversForCase } from '../../domain/value/db/rows';
 
 export class ValueTreeService {
   constructor(private supabase: ReturnType<typeof createClient>) {}

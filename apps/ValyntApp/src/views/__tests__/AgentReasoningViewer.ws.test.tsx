@@ -1,10 +1,11 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AgentReasoningViewer } from '../AgentReasoningViewer';
+import React from 'react';
+import { vi } from 'vitest';
+
 import { auditTrailService } from '../../services/AuditTrailService';
 import { webSocketManager } from '../../services/WebSocketManager';
-import { vi } from 'vitest';
+import { AgentReasoningViewer } from '../AgentReasoningViewer';
 
 vi.mock('../../services/AuditTrailService', () => ({
   auditTrailService: {

@@ -3,12 +3,13 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkflowSDUIAdapter } from '../WorkflowSDUIAdapter';
+
 import {
   StageCompletionEvent,
   WorkflowProgress,
 } from '../../types/workflow-sdui';
 import { canvasSchemaService } from '../CanvasSchemaService';
+import { WorkflowSDUIAdapter } from '../WorkflowSDUIAdapter';
 
 // Mock dependencies
 vi.mock('../CanvasSchemaService');

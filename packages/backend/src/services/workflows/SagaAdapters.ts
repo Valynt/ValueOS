@@ -6,9 +6,10 @@ import {
   SagaSnapshot,
   SagaTransitionRecord
 } from "@valueos/agents";
-import { getAuditTrailService } from "../security/AuditTrailService.js";
+
 import { logger } from "../../lib/logger.js";
 import { evidenceTierToLabel, evidenceTierToNumeric } from "../../types/evidence.js";
+import { getAuditTrailService } from "../security/AuditTrailService.js";
 
 /**
  * Supabase implementation of SagaPersistence.

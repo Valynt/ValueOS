@@ -1,5 +1,6 @@
-import express, { Router } from "express";
 import { createLogger } from "@shared/lib/logger";
+import express, { Router } from "express";
+
 import { optionalAuth } from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimiter.js";
 

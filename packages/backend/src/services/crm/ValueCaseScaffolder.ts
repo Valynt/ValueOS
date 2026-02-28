@@ -6,10 +6,11 @@
  * the agent pre-fetch job.
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { createLogger } from '../../lib/logger.js';
-import { auditLogService } from '../AuditLogService.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { getPrefetchQueue } from '../../workers/crmWorker.js';
+import { auditLogService } from '../AuditLogService.js';
+
 import type { CanonicalOpportunity, CrmProvider } from './types.js';
 
 const logger = createLogger({ component: 'ValueCaseScaffolder' });

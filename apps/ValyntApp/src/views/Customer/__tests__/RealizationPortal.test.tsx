@@ -2,11 +2,12 @@
  * Realization Portal Tests
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { RealizationPortal } from '../RealizationPortal';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { customerAccessService } from '../../../services/CustomerAccessService';
+import { RealizationPortal } from '../RealizationPortal';
 
 // Mock dependencies
 vi.mock('../../../services/CustomerAccessService');

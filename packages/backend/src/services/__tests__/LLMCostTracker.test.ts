@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { LLMCostTracker } from '../LLMCostTracker';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { logger } from '../../lib/logger.js';
+import { LLMCostTracker } from '../LLMCostTracker';
 
 type MockState = {
   filters: Array<{ op: string; column: string; value: unknown }>;

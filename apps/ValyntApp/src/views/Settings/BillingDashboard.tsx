@@ -3,11 +3,12 @@
  * Main billing page with usage, plans, and invoices
  */
 
-import React, { useEffect, useState } from "react";
 import { AlertCircle, CreditCard, FileText, TrendingUp } from "lucide-react";
+import React, { useEffect, useState } from "react";
+
+import { InvoiceList } from "../../components/Billing/InvoiceList";
 import { PlanSelector } from "../../components/Billing/PlanSelector";
 import { UsageMeter } from "../../components/Billing/UsageMeter";
-import { InvoiceList } from "../../components/Billing/InvoiceList";
 import { BillingMetric, PlanTier } from "../../config/billing";
 import { Invoice, Subscription, UsageSummary } from "../../types/billing";
 

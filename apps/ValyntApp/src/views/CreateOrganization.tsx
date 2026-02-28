@@ -6,19 +6,19 @@
  * (org record, settings, teams, roles, billing, usage tracking).
  */
 
+import { ArrowRight, Building2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, ArrowRight, Loader2 } from "lucide-react";
 import { z } from "zod";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { cn } from "@/lib/utils";
 import {
   provisionTenant,
-  type TenantTier,
   type TenantConfig,
+  type TenantTier,
 } from "@/services/TenantProvisioning";
-import { cn } from "@/lib/utils";
 
 const orgNameSchema = z
   .string()

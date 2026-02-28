@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
-import { getDb } from "./db";
+
 import { resources } from "../drizzle/schema";
+
+import { getDb } from "./db";
 
 const resourceUpdates = [
   { title: "Value Stream Mapping Template", fileUrl: "/resources/value-stream-mapping-template.md" },

@@ -10,16 +10,17 @@
  * - Tenant isolation
  */
 
-import { NextFunction, Request, Response } from "express";
-import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@shared/lib/logger";
-import { createServerSupabaseClient, getRequestSupabaseClient } from "@shared/lib/supabase";
 import {
   hasPermission as matchPermission,
   type Permission as UnifiedPermission,
   USER_ROLE_PERMISSIONS,
   USER_ROLES,
 } from "@shared/lib/permissions";
+import { createServerSupabaseClient, getRequestSupabaseClient } from "@shared/lib/supabase";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { NextFunction, Request, Response } from "express";
+
 import type { AuthenticatedRequest } from "./auth.js";
 
 // Re-export unified Permission type

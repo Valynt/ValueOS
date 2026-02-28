@@ -3,12 +3,6 @@
  * Manages quiz retakes with targeted drills and progress tracking
  */
 
-import { useState } from "react";
-import { SectionCard } from "@/components/SectionCard";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertTriangle,
   BookOpen,
@@ -19,6 +13,13 @@ import {
   Target,
   TrendingUp
 } from "lucide-react";
+import { useState } from "react";
+
+import { SectionCard } from "@/components/SectionCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 interface RetakeAttempt {
   attemptNumber: number;

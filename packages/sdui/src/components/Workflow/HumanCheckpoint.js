@@ -1,8 +1,10 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useState } from "react";
-import { RedisStreamBroker } from "../../../app/src/services/messaging/RedisStreamBroker";
-import { useAuth } from "../../../app/src/app/providers/AuthProvider";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { v4 as uuidv4 } from "uuid";
+
+import { useAuth } from "../../../app/src/app/providers/AuthProvider";
+import { RedisStreamBroker } from "../../../app/src/services/messaging/RedisStreamBroker";
+
 export const HumanCheckpoint = ({ sessionId, tenantId, onApproval, onPause, onResume, }) => {
     const [pendingActions, setPendingActions] = useState([]);
     const [isPaused, setIsPaused] = useState(false);

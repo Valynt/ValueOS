@@ -4,13 +4,14 @@
  * Validates all valid transitions, terminal states, and invalid transition rejection.
  */
 
+import type { SubscriptionStatus } from "@shared/types/billing-events";
 import { describe, expect, it } from "vitest";
+
 import {
   InvalidTransitionError,
   SubscriptionStateMachine,
 } from "../SubscriptionStateMachine";
 import type { SubscriptionEvent } from "../SubscriptionStateMachine";
-import type { SubscriptionStatus } from "@shared/types/billing-events";
 
 describe("SubscriptionStateMachine", () => {
   // ========================================================================

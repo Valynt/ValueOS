@@ -3,10 +3,11 @@
  * Tests the actual workflow explanation endpoint
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import request from 'supertest';
 import express from 'express';
 import { Client } from 'pg';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
 import { getDatabaseUrl } from '../../config/database';
 
 vi.mock('../../middleware/auth', () => ({

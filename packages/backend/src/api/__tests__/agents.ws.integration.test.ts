@@ -1,8 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import jwt from "jsonwebtoken";
-import WebSocket from "ws";
 import type { Server } from "http";
+
 import { createBaseEvent } from "@shared/types/events";
+import jwt from "jsonwebtoken";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import WebSocket from "ws";
+
+
 
 let server: Server;
 let wss: any;

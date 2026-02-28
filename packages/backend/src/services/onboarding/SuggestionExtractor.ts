@@ -6,9 +6,11 @@
  */
 
 import { z } from 'zod';
+
 import { logger } from '../../lib/logger.js';
-import type { CrawledPage } from './WebCrawler.js';
 import { semanticMemory } from '../SemanticMemory.js';
+
+import type { CrawledPage } from './WebCrawler.js';
 
 // ============================================================================
 // Types

@@ -10,8 +10,8 @@
  * - Session refresh
  */
 
-import { BaseService } from './BaseService';
 import { authService } from './AuthService';
+import { BaseService } from './BaseService';
 
 export interface SessionConfig {
   idleTimeoutMs: number;

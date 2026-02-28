@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { MessageBus } from '../../src/services/MessageBus';
 import type { CommunicationEvent } from '../../src/types/CommunicationEvent';
 

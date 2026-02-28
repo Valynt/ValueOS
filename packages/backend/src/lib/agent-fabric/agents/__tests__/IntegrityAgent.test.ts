@@ -44,11 +44,11 @@ vi.mock("../../../../services/MCPGroundTruthService.js", () => ({
 
 // --- Imports ---
 
-import { IntegrityAgent } from "../IntegrityAgent";
+import type { AgentConfig, LifecycleContext } from "../../../../types/agent";
+import { CircuitBreaker } from "../../CircuitBreaker";
 import { LLMGateway } from "../../LLMGateway";
 import { MemorySystem } from "../../MemorySystem";
-import { CircuitBreaker } from "../../CircuitBreaker";
-import type { AgentConfig, LifecycleContext } from "../../../../types/agent";
+import { IntegrityAgent } from "../IntegrityAgent";
 
 // --- Helpers ---
 

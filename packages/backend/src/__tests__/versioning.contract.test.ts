@@ -1,5 +1,6 @@
-import express from "express";
 import { AddressInfo } from "node:net";
+
+import express from "express";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createVersionedApiRouter } from "../versioning.js";

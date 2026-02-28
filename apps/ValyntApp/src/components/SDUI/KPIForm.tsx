@@ -11,8 +11,9 @@
  * - Accessibility: aria-invalid, aria-describedby for errors, proper label association
  */
 
-import React, { useMemo } from "react";
 import { AlertCircle, Send, Target } from "lucide-react";
+import React, { useMemo } from "react";
+
 import { cn } from "@/lib/utils";
 
 export interface KPIDefinition {

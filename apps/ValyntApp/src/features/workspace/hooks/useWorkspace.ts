@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Workspace, WorkspaceMember } from "../types";
+
 import { api } from "../../../services/api/client";
+import type { Workspace, WorkspaceMember } from "../types";
 
 export function useWorkspace(workspaceId?: string) {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);

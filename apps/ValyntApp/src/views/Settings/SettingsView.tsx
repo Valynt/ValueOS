@@ -1,19 +1,22 @@
 import React from 'react';
-import { SettingsProvider } from '../../contexts/SettingsContext';
+
 import { SettingsLayout } from '../../components/Settings/SettingsLayout';
+import { SettingsProvider } from '../../contexts/SettingsContext';
 import { useSettings } from '../../contexts/SettingsContext';
-import { UserProfile } from './UserProfile';
-import { UserSecurity } from './UserSecurity';
-import { TeamPermissions } from './TeamPermissions';
-import { TeamSettings } from './TeamSettings';
-import { TeamAuditLog } from './TeamAuditLog';
+import { settingsRegistry } from '../../lib/settingsRegistry';
+
+import { OrganizationBilling } from './OrganizationBilling';
 import { OrganizationGeneral } from './OrganizationGeneral';
-import { OrganizationUsers } from './OrganizationUsers';
 import { OrganizationRoles } from './OrganizationRoles';
 import { OrganizationSecurity } from './OrganizationSecurity';
-import { OrganizationBilling } from './OrganizationBilling';
+import { OrganizationUsers } from './OrganizationUsers';
 import { SettingsPlaceholder } from './SettingsPlaceholder';
-import { settingsRegistry } from '../../lib/settingsRegistry';
+import { TeamAuditLog } from './TeamAuditLog';
+import { TeamPermissions } from './TeamPermissions';
+import { TeamSettings } from './TeamSettings';
+import { UserProfile } from './UserProfile';
+import { UserSecurity } from './UserSecurity';
+
 
 const SettingsContent: React.FC = () => {
   const { currentRoute } = useSettings();

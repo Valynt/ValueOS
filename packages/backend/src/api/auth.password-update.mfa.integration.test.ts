@@ -1,7 +1,8 @@
 import express from "express";
+import * as OTPAuth from "otpauth";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as OTPAuth from "otpauth";
+
 import { requireMFA } from "../middleware/mfa.js";
 import { mfaService } from "../services/MFAService.js";
 

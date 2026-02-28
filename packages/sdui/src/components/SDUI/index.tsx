@@ -1,5 +1,5 @@
-import React, { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import React, { useState } from "react";
 
 // Placeholder components - these need to be implemented
 export const AgentResponseCard: React.FC<any> = () => (

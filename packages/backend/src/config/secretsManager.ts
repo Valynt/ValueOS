@@ -21,10 +21,12 @@ import {
   SecretsManagerClient,
   UpdateSecretCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { logger } from '../lib/logger.js'
+
 import { getEnvVar } from '../lib/env';
+import { logger } from '../lib/logger.js'
 import { createServerSupabaseClient } from '../lib/supabase.js'
 import { RbacService, type RbacUser } from '../services/RbacService.js'
+
 import { getDatabaseUrl } from './database.js'
 
 /**

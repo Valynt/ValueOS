@@ -15,15 +15,17 @@
  * + InteractiveChart).
  */
 
-import { BaseAgent } from './BaseAgent.js';
 import { z } from 'zod';
-import { logger } from '../../logger.js';
+
 import type {
   AgentOutput,
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
+import { logger } from '../../logger.js';
+
+import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation

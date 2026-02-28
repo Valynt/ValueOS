@@ -12,7 +12,9 @@
  * Node Mapping: [NODE: Industry_Benchmark_Module], [NODE: Tier_3_Narrative]
  */
 
+import { logger } from "../../lib/logger.js";
 import { BaseModule } from "../core/BaseModule.js";
+import { LiveDataFeedService } from "../services/LiveDataFeedService.js";
 import {
   ErrorCodes,
   FinancialMetric,
@@ -22,9 +24,9 @@ import {
   ModuleResponse,
   WageData,
 } from "../types/index.js";
-import { logger } from "../../lib/logger.js";
+
 import { EXPANDED_INDUSTRY_BENCHMARKS } from "./ExpandedIndustryBenchmarks.js";
-import { LiveDataFeedService } from "../services/LiveDataFeedService.js";
+
 
 interface BenchmarkConfig {
   blsApiKey?: string;

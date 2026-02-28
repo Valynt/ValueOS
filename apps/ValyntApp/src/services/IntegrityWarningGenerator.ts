@@ -5,11 +5,11 @@
  */
 
 import { logger } from '../lib/logger';
-import { ManifestoCheckResult } from '../types/sdui-integration';
 import {
   AtomicUIAction,
   createAddAction,
 } from '../sdui/AtomicUIActions';
+import { ManifestoCheckResult } from '../types/sdui-integration';
 
 /**
  * Integrity Warning Generator

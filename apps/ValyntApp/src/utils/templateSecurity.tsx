@@ -3,8 +3,8 @@
  * Provides XSS prevention, input validation, and CSRF protection for UI templates
  */
 
-import React from "react";
 import * as DOMPurify from "isomorphic-dompurify";
+import React from "react";
 
 // ============================================================================
 // XSS Prevention

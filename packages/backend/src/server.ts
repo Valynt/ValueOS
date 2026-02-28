@@ -23,48 +23,50 @@ logger.info("[Instrumentation] Environment validation passed");
 // Now safe to import modules that depend on env vars
 logger.info("[Instrumentation] Starting module imports...");
 
+import cors from "cors";
 import express from "express";
 logger.info("[Instrumentation] Express imported successfully");
 
-import cors from "cors";
 logger.info("[Instrumentation] CORS imported successfully");
 
 import { createServer, type IncomingMessage } from "http";
+
 import { WebSocket, WebSocketServer } from "ws";
-import billingRouter from "./api/billing/index.js";
-import agentsRouter from "./api/agents.js";
-import groundtruthRouter from "./api/groundtruth.js";
-import llmRouter from "./api/llm.js";
-import workflowRouter from "./api/workflow.js";
-import documentRouter from "./api/documents.js";
-import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
-import authRouter from "./api/auth.js";
+
 import adminRouter from "./api/admin.js";
-import securityMonitoringRouter from "./api/securityMonitoring.js";
-import referralsRouter from "./api/referrals.js";
-import projectsRouter from "./api/projects.js";
+import agentsRouter from "./api/agents.js";
 import analyticsRouter from "./api/analytics.js";
-import dsrRouter from "./api/dataSubjectRequests.js";
-import initiativesRouter from "./api/initiatives/index.js";
-import teamsRouter from "./api/teams.js";
-import integrationsRouter from "./api/integrations.js";
-import crmRouter from "./api/crm.js";
-import onboardingRouter from "./api/onboarding.js";
-import domainPacksRouter from "./api/domainPacks.js";
-import { initResearchWorker } from "./workers/researchWorker.js";
-import { initCrmWorkers } from "./workers/crmWorker.js";
+import authRouter from "./api/auth.js";
+import billingRouter from "./api/billing/index.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
-import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
-import docsApiRouter from "./docs-api/index.js";
-import {
-  initializeSecretVolumeWatcher,
-  secretVolumeWatcher,
-} from "./config/secrets/SecretVolumeWatcher";
+import crmRouter from "./api/crm.js";
+import dsrRouter from "./api/dataSubjectRequests.js";
+import documentRouter from "./api/documents.js";
+import domainPacksRouter from "./api/domainPacks.js";
+import groundtruthRouter from "./api/groundtruth.js";
+import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
+import initiativesRouter from "./api/initiatives/index.js";
+import integrationsRouter from "./api/integrations.js";
+import llmRouter from "./api/llm.js";
+import onboardingRouter from "./api/onboarding.js";
+import projectsRouter from "./api/projects.js";
+import referralsRouter from "./api/referrals.js";
+import securityMonitoringRouter from "./api/securityMonitoring.js";
+import teamsRouter from "./api/teams.js";
+import workflowRouter from "./api/workflow.js";
 import {
   secretHealthMiddleware,
   validateSecretsOnStartup,
 } from "./config/secrets/SecretValidator.js";
+import {
+  initializeSecretVolumeWatcher,
+  secretVolumeWatcher,
+} from "./config/secrets/SecretVolumeWatcher";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
+import docsApiRouter from "./docs-api/index.js";
+import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
+import { initCrmWorkers } from "./workers/crmWorker.js";
+import { initResearchWorker } from "./workers/researchWorker.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
 import { registerDevRoutes } from "./routes/devRoutes.js";

@@ -30,8 +30,8 @@ vi.mock("../LLMCostTracker", () => ({
   }
 }));
 
-import { LLMFallbackService } from "../LLMFallback";
 import { getEnvVar } from "../../lib/env";
+import { LLMFallbackService } from "../LLMFallback";
 
 describe("LLMFallback Service - Streaming", () => {
   beforeEach(() => {

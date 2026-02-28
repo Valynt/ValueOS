@@ -14,7 +14,7 @@ interface RedisStreamBroker {
   startConsumer(handler: (event: StreamEvent) => Promise<void>): void;
   publish(stream: string, data: Record<string, any>): Promise<void>;
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 const RedisStreamBroker = class implements RedisStreamBroker {
   constructor(_opts: { streamName: string; consumerName: string }) { }
   async initialize() { }

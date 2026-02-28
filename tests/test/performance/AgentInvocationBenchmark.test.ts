@@ -5,6 +5,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+
 import { performanceMonitor } from '../../utils/performance';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';

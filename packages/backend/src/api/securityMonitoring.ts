@@ -4,10 +4,11 @@
  */
 
 import { Request, Response, Router } from "express";
+
+import { logger } from "../lib/logger.js";
 import { requireAuth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
 import { SecurityMetricsCollector } from "../security/enhancedSecurityLogger.js";
-import { logger } from "../lib/logger.js";
 const router = Router();
 const securityLogger = logger;
 const metricsCollector = SecurityMetricsCollector.getInstance();

@@ -1,5 +1,6 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { emailService } from '../EmailService.js'
 
 // Mock dependencies

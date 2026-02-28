@@ -6,9 +6,10 @@
  * and their aggregation semantics.
  */
 
-import { SupabaseClient } from "@supabase/supabase-js";
-import { createLogger } from "../../lib/logger.js";
 import type { MeterKey } from "@shared/types/billing-events";
+import { SupabaseClient } from "@supabase/supabase-js";
+
+import { createLogger } from "../../lib/logger.js";
 import { supabase as supabaseClient } from '../../lib/supabase.js';
 
 const logger = createLogger({ component: "BillingMetersCatalog" });

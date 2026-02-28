@@ -1,10 +1,11 @@
-import { useState } from "react";
 import { Plus, Users, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { CompanyPersona, OnboardingPhase3Input } from "@/hooks/company-context/types";
-import { useAcceptSuggestion, useRejectSuggestion, useResearchSuggestions } from "@/hooks/company-context/useResearchJob";
+import { useState } from "react";
+
 import { SuggestionSection } from "@/components/onboarding/SuggestionCard";
 import { useTenant } from "@/contexts/TenantContext";
+import type { CompanyPersona, OnboardingPhase3Input } from "@/hooks/company-context/types";
+import { useAcceptSuggestion, useRejectSuggestion, useResearchSuggestions } from "@/hooks/company-context/useResearchJob";
+import { cn } from "@/lib/utils";
 
 interface Props {
   onNext: (data: OnboardingPhase3Input) => void;

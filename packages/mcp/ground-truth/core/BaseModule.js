@@ -4,8 +4,8 @@
  * Abstract base class for all Ground Truth modules with common functionality
  * for caching, rate limiting, error handling, and provenance tracking.
  */
-import { ErrorCodes, GroundTruthError, } from '../types';
 import { logger } from '../../lib/logger';
+import { ErrorCodes, GroundTruthError, } from '../types';
 export class BaseModule {
     config = {};
     initialized = false;

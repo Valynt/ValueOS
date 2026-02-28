@@ -3,8 +3,8 @@
  * Tests system behavior under various failure conditions
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('Integration Failure Scenarios', () => {
   let dbClient: Client;

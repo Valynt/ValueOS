@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
+
+import { METRIC_IDS } from '../kpi_registry';
 import {
   DomainOverlaySchema,
   safeValidateOverlay,
   validateOverlay,
   validateOverlayConsistency,
 } from '../overlay.schema';
-import { METRIC_IDS } from '../kpi_registry';
 import type { DomainOverlay } from '../overlay.schema';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

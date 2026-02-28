@@ -5,6 +5,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { checkDatabaseConnection, isDatabaseHealthy } from '../lib/database';
 import { deleteCache, getCache, initializeRedisCache, isRedisConnected, setCache } from '../lib/redis';
 

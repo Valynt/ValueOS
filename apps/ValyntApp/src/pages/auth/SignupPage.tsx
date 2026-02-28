@@ -1,9 +1,12 @@
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { Logo } from "@/components/marketing/Logo";
+
 import { logger } from "../../lib/logger";
+
+import { Logo } from "@/components/marketing/Logo";
+import { useAuth } from "@/contexts/AuthContext";
+
 
 export function SignupPage() {
   const [email, setEmail] = useState("");

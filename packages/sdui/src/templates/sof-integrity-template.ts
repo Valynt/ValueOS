@@ -4,8 +4,9 @@
  * Extended Integrity template with Governance Integration and System Health Monitoring.
  */
 
-import type { SDUIPageDefinition } from '../schema';
 import type { FeedbackLoop, InterventionPoint, SystemMap } from '@valueos/sdui-types';
+
+import type { SDUIPageDefinition } from '../schema';
 
 /**
  * Generate SOF-enhanced Integrity page

@@ -7,8 +7,8 @@
  */
 
 import type { RedTeamOutput } from '../../../orchestration/agents/RedTeamAgent.js';
-import { saassDsoReductionScenario } from '../ground-truth/saas-dso-reduction.js';
 import { manufacturingYieldScenario } from '../ground-truth/manufacturing-yield.js';
+import { saassDsoReductionScenario } from '../ground-truth/saas-dso-reduction.js';
 
 // ============================================================================
 // Types

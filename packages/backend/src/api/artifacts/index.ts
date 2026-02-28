@@ -6,12 +6,20 @@
  */
 
 import { NextFunction, Request, Response, Router } from 'express';
-import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import { z, ZodError } from 'zod';
+
+import { logger } from "../../lib/logger.js";
 import { requireAuth } from '../../middleware/auth.js'
 import { requireRole } from '../../middleware/rbac.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
+
+import { 
+  DatabaseError,
+  getArtifactsRepository,
+  NotFoundError,
+} from './repository';
 import { 
   ApiErrorResponse,
   BatchCreateArtifactsSchema,
@@ -19,12 +27,6 @@ import {
   ListArtifactsQuerySchema,
   UpdateArtifactSchema,
 } from './types';
-import { 
-  DatabaseError,
-  getArtifactsRepository,
-  NotFoundError,
-} from './repository';
-import { logger } from "../../lib/logger.js";
 const standardLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 const strictLimiter = (_req: Request, _res: Response, next: NextFunction) => next();
 

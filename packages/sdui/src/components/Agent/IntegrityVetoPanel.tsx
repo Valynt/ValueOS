@@ -1,5 +1,6 @@
-import React, { useState } from "react";
 import { AlertTriangle, CheckCircle, Eye, EyeOff, XCircle } from "lucide-react";
+import React, { useState } from "react";
+
 import { ConfidenceDisplay } from "./ConfidenceDisplay";
 
 export interface IntegrityIssue {

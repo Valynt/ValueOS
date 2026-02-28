@@ -4,9 +4,9 @@ import { fileURLToPath } from "url";
 
 // Import the functions to test
 import {
+  formatPortsEnv,
   loadPorts,
   resolvePort,
-  formatPortsEnv,
   writePortsEnvFile,
 } from "../../scripts/dx/ports.js";
 

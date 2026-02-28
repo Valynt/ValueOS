@@ -5,11 +5,12 @@
  * and scalability validation of the Enhanced Parallel Executor system.
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { EnhancedParallelExecutor, createParallelTask, createParallelGroup, createParallelExecutionPlan } from '../src/services/EnhancedParallelExecutor';
-import { getSystemResourceMonitor, getMemoryPressureMonitor } from '../src/services/monitoring';
-import { getContextOptimizer } from '../src/services/ContextOptimizer';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
 import { AgentType } from '../src/services/agent-types';
+import { getContextOptimizer } from '../src/services/ContextOptimizer';
+import { createParallelExecutionPlan, createParallelGroup, createParallelTask, EnhancedParallelExecutor } from '../src/services/EnhancedParallelExecutor';
+import { getMemoryPressureMonitor, getSystemResourceMonitor } from '../src/services/monitoring';
 
 // ============================================================================
 // Performance Test Configuration

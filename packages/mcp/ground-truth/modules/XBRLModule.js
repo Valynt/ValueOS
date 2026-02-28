@@ -8,9 +8,9 @@
  * Security: IL4 (Impact Level 4 - Controlled Unclassified Information)
  * Standard: XBRL US GAAP Taxonomy
  */
+import { logger } from '../../lib/logger';
 import { BaseModule } from '../core/BaseModule';
 import { ErrorCodes, GroundTruthError, } from '../types';
-import { logger } from '../../lib/logger';
 /**
  * XBRL Module - Tier 1 Structured Data Source
  *

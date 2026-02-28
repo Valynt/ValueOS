@@ -5,8 +5,8 @@
  * Supports fuzzy matching, natural language descriptions, and semantic search.
  */
 
-import { SDUIComponentSection, SDUIPageDefinition } from "./schema";
 import { ComponentSelector } from "./AtomicUIActions";
+import { SDUIComponentSection, SDUIPageDefinition } from "./schema";
 
 /**
  * Component match result

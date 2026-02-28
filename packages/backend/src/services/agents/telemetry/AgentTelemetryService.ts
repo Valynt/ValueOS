@@ -1,6 +1,7 @@
 import { Counter, Histogram, metrics } from "@opentelemetry/api";
-import { AgentType } from "../../agent-types.js";
+
 import { logger } from "../../../lib/logger.js";
+import { AgentType } from "../../agent-types.js";
 
 type TelemetrySeverity = "debug" | "info" | "warning" | "error";
 

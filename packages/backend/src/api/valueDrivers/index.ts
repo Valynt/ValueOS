@@ -6,15 +6,9 @@
  */
 
 import { NextFunction, Request, Response, Router } from 'express';
-import { z, ZodError } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  ApiErrorResponse,
-  CreateValueDriverSchema,
-  ListValueDriversQuerySchema,
-  UpdateValueDriverSchema,
-} from './types';
-import { getValueDriversRepository } from './repository.js'
+import { z, ZodError } from 'zod';
+
 import {
   DbConflictError,
   DbForbiddenError,
@@ -23,11 +17,19 @@ import {
   DbValidationError,
   TransientDbError,
 } from '../../lib/db/errors';
+import { logger } from '../../lib/logger.js'
 import { AuthenticatedRequest, requireAuth, requireRole } from '../../middleware/auth.js'
+import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js'
 import { tenantContextMiddleware } from '../../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../../middleware/tenantDbContext.js'
-import { createRateLimiter, RateLimitTier } from '../../middleware/rateLimiter.js'
-import { logger } from '../../lib/logger.js'
+
+import { getValueDriversRepository } from './repository.js'
+import { 
+  ApiErrorResponse,
+  CreateValueDriverSchema,
+  ListValueDriversQuerySchema,
+  UpdateValueDriverSchema,
+} from './types';
 
 // ============================================================================
 // Router Setup

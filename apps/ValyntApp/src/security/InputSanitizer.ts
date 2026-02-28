@@ -6,6 +6,7 @@
  */
 
 import DOMPurify from 'isomorphic-dompurify';
+
 import { getSecurityConfig } from './SecurityConfig';
 
 /**

@@ -11,7 +11,6 @@
  * - Visual Hierarchy: left border color codes type at a glance
  */
 
-import React, { useCallback, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -25,7 +24,10 @@ import {
   Lightbulb,
   User,
 } from "lucide-react";
+import React, { useCallback, useState } from "react";
+
 import { ConfidenceDisplay } from "../Agent/ConfidenceDisplay";
+
 import { cn } from "@/lib/utils";
 
 export interface NarrativeBlockProps {

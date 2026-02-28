@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { createServerSupabaseClient } from './supabase';
 
 // Mock env vars to allow client creation

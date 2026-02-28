@@ -10,6 +10,7 @@
  * Uses Redis pub/sub for message queuing with event replay capabilities.
  */
 import { createClient } from "redis";
+
 import { logger } from "../../lib/logger.js";
 import { getCache } from "../core/Cache.js";
 export class EventBus {

@@ -7,10 +7,12 @@
 
 import type { Request } from 'express';
 import { z } from 'zod';
-import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import { createLogger } from '../../lib/logger.js';
-import { getCrmProvider } from './CrmProviderRegistry.js';
+import { createServerSupabaseClient } from '../../lib/supabase.js';
 import { getCrmWebhookQueue } from '../../workers/crmWorker.js';
+
+import { getCrmProvider } from './CrmProviderRegistry.js';
 import { redactSecrets } from './secretsRedaction.js';
 import type { CrmProvider, WebhookEventRow } from './types.js';
 

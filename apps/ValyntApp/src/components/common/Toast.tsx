@@ -1,5 +1,6 @@
 // Stub ToastProvider for development
 import { createContext, ReactNode, useContext } from "react";
+
 import { logger } from "@/lib/logger";
 
 interface ToastContextType {

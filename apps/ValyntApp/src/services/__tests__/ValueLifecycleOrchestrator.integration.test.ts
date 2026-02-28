@@ -1,10 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { ValueLifecycleOrchestrator } from "../src/services/ValueLifecycleOrchestrator";
 import { createClient } from "@supabase/supabase-js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { AuditLogger } from "../src/lib/agent-fabric/AuditLogger";
 import { LLMGateway } from "../src/lib/agent-fabric/LLMGateway";
 import { MemorySystem } from "../src/lib/agent-fabric/MemorySystem";
-import { AuditLogger } from "../src/lib/agent-fabric/AuditLogger";
 import { agentTelemetryService } from "../src/services/agents/telemetry/AgentTelemetryService";
+import { ValueLifecycleOrchestrator } from "../src/services/ValueLifecycleOrchestrator";
 
 // Mock external dependencies
 vi.mock("@supabase/supabase-js");

@@ -7,9 +7,10 @@
 
 import express, { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
+
+import { settings } from '../../config/settings';
 import { createLogger } from '../../lib/logger';
 import { sanitizeForLogging } from '../../lib/piiFilter';
-import { settings } from '../../config/settings';
 
 const logger = createLogger({ component: 'DocsAPI' });
 const router = express.Router();

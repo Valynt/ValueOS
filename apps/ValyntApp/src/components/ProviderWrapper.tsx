@@ -1,4 +1,5 @@
 import React, { ErrorInfo, ReactNode } from "react";
+
 import ErrorBoundary from "./ErrorBoundary";
 
 interface ProviderWrapperProps {

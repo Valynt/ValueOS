@@ -4,8 +4,8 @@ vi.mock("../../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { MemorySystem } from "../MemorySystem";
 import type { MemoryPersistenceBackend } from "../MemoryPersistenceBackend";
+import { MemorySystem } from "../MemorySystem";
 import type { Memory, MemoryQuery } from "../MemorySystem";
 
 function createMockBackend(): MemoryPersistenceBackend & {

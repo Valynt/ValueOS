@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Project } from "../types";
+
 import { useAuth } from "../../../contexts/AuthContext";
+import type { Project } from "../types";
 
 export function useProjects(workspaceId?: string) {
   const [projects, setProjects] = useState<Project[]>([]);

@@ -1,3 +1,5 @@
+import { logger } from "@shared/lib/logger";
+import { lazy, Suspense } from "react";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 /**
  * Lazy Component Registry
@@ -5,8 +7,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * Implements lazy loading for SDUI components to improve initial bundle size
  * and runtime performance. Components are loaded on-demand when first used.
  */
-import { lazy, Suspense } from "react";
-import { logger } from "@shared/lib/logger";
+
 import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetry";
 // Lazy component loaders
 const lazyComponents = {

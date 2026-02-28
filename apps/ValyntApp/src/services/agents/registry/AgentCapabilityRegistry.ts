@@ -8,10 +8,11 @@
  * for all agents in the ValueOS system.
  */
 
+import { v4 as uuidv4 } from "uuid";
+
+import { logger } from "../../../utils/logger";
 import { AgentType } from "../../agent-types";
 import { AgentCapability } from "../core/IAgent";
-import { logger } from "../../../utils/logger";
-import { v4 as uuidv4 } from "uuid";
 
 // ============================================================================
 // Registry Types

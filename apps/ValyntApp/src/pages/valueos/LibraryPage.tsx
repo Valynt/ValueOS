@@ -4,7 +4,6 @@
  * Templates, Value Drivers, and other strategic resources.
  */
 
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   ChevronRight,
@@ -16,9 +15,11 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const LIBRARY_SECTIONS = [

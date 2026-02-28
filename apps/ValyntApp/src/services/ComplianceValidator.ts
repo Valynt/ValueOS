@@ -5,8 +5,8 @@
  * Generates compliance stamps with evidence and confidence scores.
  */
 
-import { supabase } from '../lib/supabase';
 import { ComplianceMetadata, ComplianceRule } from '../components/Compliance/ComplianceStamp';
+import { supabase } from '../lib/supabase';
 
 export interface ValidationContext {
   reportId: string;

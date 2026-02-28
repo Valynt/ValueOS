@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+
 import { useCompanyValueContext } from "@/contexts/CompanyContextProvider";
 import { useTenant } from "@/contexts/TenantContext";
 import { isOnboardingBypassed } from "@/lib/onboarding-bypass";

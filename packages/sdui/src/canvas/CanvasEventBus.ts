@@ -22,8 +22,9 @@
  * ```
  */
 
-import { CanvasEvent, CanvasEventPayload } from "./types";
 import { logger } from "@shared/lib/logger";
+
+import { CanvasEvent, CanvasEventPayload } from "./types";
 
 export type CanvasEventListener = (event: CanvasEventPayload) => void;
 

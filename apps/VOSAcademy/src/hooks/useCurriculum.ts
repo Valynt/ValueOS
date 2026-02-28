@@ -3,7 +3,7 @@
  */
 
 import { useMemo } from "react";
-import { useAuth } from '@/hooks/useAuth';
+
 import {
   CurriculumModule,
   getCurriculumForRole,
@@ -18,6 +18,8 @@ import {
   ModuleStatus
 } from '../lib/progress-logic';
 import { trpc } from '../lib/trpc';
+
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * Hook to get user's curriculum based on their role

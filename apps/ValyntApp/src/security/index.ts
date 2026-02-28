@@ -13,13 +13,14 @@
  * - Configuration management
  */
 
-import { logger } from "../lib/logger";
 import { getConfig } from "../config/environment";
-import { getSecurityConfig, validateSecurityConfig } from "./SecurityConfig";
+import { logger } from "../lib/logger";
+
 import {
   attachCSRFFetchInterceptor,
   initializeCSRFProtection,
 } from "./CSRFProtection";
+import { getSecurityConfig, validateSecurityConfig } from "./SecurityConfig";
 import { createSecurityMetaTags, logSecurityHeaders } from "./SecurityHeaders";
 
 // Configuration

@@ -4,12 +4,13 @@
  * Generates SDUI components for Manifesto rule violations and warnings.
  */
 
-import { logger } from '../lib/logger.js'
-import { ManifestoCheckResult } from '../types/sdui-integration';
 import {
   AtomicUIAction,
   createAddAction,
 } from '@sdui/AtomicUIActions';
+
+import { logger } from '../lib/logger.js'
+import { ManifestoCheckResult } from '../types/sdui-integration';
 
 /**
  * Integrity Warning Generator

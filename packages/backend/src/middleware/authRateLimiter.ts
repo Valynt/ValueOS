@@ -16,8 +16,9 @@
  * WebSocketBroadcastAdapter) for cross-pod rate limiting.
  */
 
-import { NextFunction, Request, Response } from "express";
 import { createLogger } from "@shared/lib/logger";
+import { NextFunction, Request, Response } from "express";
+
 import { createCounter } from "../lib/observability/index.js";
 
 const logger = createLogger({ component: "AuthRateLimiter" });

@@ -7,10 +7,16 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+
+import type { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
 import { logger } from '../../lib/logger.js';
-import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../UnifiedAgentOrchestrator.js';
-import type { AgentType } from '../agent-types.js';
+import { supabase } from '../../lib/supabase.js';
 import type { IntentCategory } from '../../types/intent.js';
+import type { AgentType } from '../agent-types.js';
+import type { AgentMiddleware, AgentMiddlewareContext, AgentResponse } from '../UnifiedAgentOrchestrator.js';
+import type { VectorSearchService } from '../VectorSearchService.js';
+
+import type { EmbeddingService } from './EmbeddingService.js';
 import type {
   ClarificationPayload,
   HistoricalIntentMatch,
@@ -18,10 +24,6 @@ import type {
   IntentNode,
   IntentParameter,
 } from './types.js';
-import type { EmbeddingService } from './EmbeddingService.js';
-import type { VectorSearchService } from '../VectorSearchService.js';
-import type { LLMGateway } from '../../lib/agent-fabric/LLMGateway.js';
-import { supabase } from '../../lib/supabase.js';
 
 // ============================================================================
 // Configuration

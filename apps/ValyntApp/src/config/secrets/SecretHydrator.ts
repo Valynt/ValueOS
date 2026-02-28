@@ -1,7 +1,8 @@
+import { getEnvVar, setEnvVar } from '../../lib/env';
+import { logger } from '../../lib/logger';
+
 import type { SecretValue } from './ISecretProvider';
 import { defaultProvider } from './ProviderFactory';
-import { logger } from '../../lib/logger';
-import { getEnvVar, setEnvVar } from '../../lib/env';
 
 const isServer = typeof window === 'undefined';
 

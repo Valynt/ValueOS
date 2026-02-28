@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { type SetupData, SetupWizard } from "@/features/onboarding";
+
 import { logger } from "../../lib/logger";
+
+import { type SetupData, SetupWizard } from "@/features/onboarding";
 
 export function SetupPage() {
   const navigate = useNavigate();

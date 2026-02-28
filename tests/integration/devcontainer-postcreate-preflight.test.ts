@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
+
+import { describe, expect, it } from "vitest";
 
 describe("Devcontainer post-create preflight", () => {
   const scriptPath = path.join(process.cwd(), ".devcontainer", "scripts", "post-create.sh");

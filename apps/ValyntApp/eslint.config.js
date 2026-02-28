@@ -1,10 +1,10 @@
 import js from "@eslint/js";
-import globals from "globals";
 import importPlugin from "eslint-plugin-import";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import security from "eslint-plugin-security";
+import globals from "globals";
 import tseslint from "typescript-eslint";
 
 const ignoresConfig = {

@@ -5,18 +5,19 @@
  * CRITICAL: These tests ensure PCI compliance and prevent data breaches.
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import {
+  createBillingCustomer,
+  createInvoice,
+} from "../__helpers__/billing-factories";
 import {
   cleanupBillingTables,
   getTestSupabaseClient,
   seedTestData,
 } from "../__helpers__/db-helpers";
-import {
-  createBillingCustomer,
-  createInvoice,
-} from "../__helpers__/billing-factories";
 import { createMockStripePaymentMethod } from "../__helpers__/stripe-mocks.js"
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 describe("Sensitive Data Exposure Tests", () => {
   let supabase: SupabaseClient;

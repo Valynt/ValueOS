@@ -11,10 +11,12 @@
  * - Provide confidence-reasoning mismatch detection
  */
 
-import { logger } from '../lib/logger.js'
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { llmConfig } from '../config/llm.js'
 import { SDUIPageDefinition } from '@sdui/schema';
+
+import { llmConfig } from '../config/llm.js'
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { logger } from '../lib/logger.js'
+
 
 // ============================================================================
 // Types

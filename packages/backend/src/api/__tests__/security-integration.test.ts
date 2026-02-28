@@ -10,9 +10,9 @@
  * - Security headers
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import request from 'supertest';
 import express, { Express } from 'express';
+import request from 'supertest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies
 vi.mock('../../lib/logger', () => ({

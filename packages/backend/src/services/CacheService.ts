@@ -10,8 +10,9 @@
  * - LRU eviction for browser storage
  */
 
-import { logger } from "../lib/logger.js"
 import { createClient, RedisClientType } from "redis";
+
+import { logger } from "../lib/logger.js"
 import { getCurrentTenantContext } from "../middleware/tenantContext.js"
 
 export interface CacheOptions {

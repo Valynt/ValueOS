@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+
 import type { SensitivityLevel } from '../../lib/adminNavigation';
 
 interface ConfirmationModalProps {

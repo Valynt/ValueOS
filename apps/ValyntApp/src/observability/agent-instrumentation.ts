@@ -9,8 +9,9 @@
  * - Context handling across turns
  */
 
-import { logger, Metrics, withSpan } from "./instrumentation";
 import type { Span } from "@opentelemetry/api";
+
+import { logger, Metrics, withSpan } from "./instrumentation";
 
 // ============================================================================
 // AGENT BEHAVIOR METRICS

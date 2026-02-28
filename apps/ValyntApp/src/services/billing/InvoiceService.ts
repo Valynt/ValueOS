@@ -3,10 +3,11 @@
  * Manages invoice storage and retrieval
  */
 
-import StripeService from './StripeService';
-import { Invoice } from '../../types/billing';
 import { createLogger } from '../../lib/logger';
 import { getSupabaseClient } from '../../lib/supabase';
+import { Invoice } from '../../types/billing';
+
+import StripeService from './StripeService';
 
 const logger = createLogger({ component: 'InvoiceService' });
 

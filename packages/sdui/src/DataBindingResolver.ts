@@ -5,7 +5,6 @@
  * Supports caching, transforms, live refresh, and tenant-aware permissions.
  */
 
-import { logger } from "@shared/lib/logger";
 import {
   DataBinding,
   DataSourceContext,
@@ -16,7 +15,9 @@ import {
   validateDataBinding,
 } from "./DataBindingSchema";
 import { hasPermission, TenantContext } from "./TenantContext";
+
 import { ToolRegistry } from "@backend/services/ToolRegistry";
+import { logger } from "@shared/lib/logger";
 import { createClient } from "@supabase/supabase-js";
 
 /** Minimal interface for semantic memory integration */
@@ -25,6 +26,7 @@ interface SemanticMemoryService {
   searchSimilar(query: string, opts: { limit: number }): Promise<unknown>;
 }
 import PQueue from "p-queue";
+
 import { incrementSecurityMetric } from "./security/metrics";
 
 /**

@@ -3,8 +3,9 @@
  */
 
 import { EventEmitter } from "node:events";
-import { AgentIdentity } from "../auth/AgentIdentity";
+
 import { redisStreamBroker } from "../../services/messaging/RedisStreamBroker";
+import { AgentIdentity } from "../auth/AgentIdentity";
 import { createLogger } from "../logger";
 
 export type MessagePriority = "low" | "normal" | "high" | "urgent";

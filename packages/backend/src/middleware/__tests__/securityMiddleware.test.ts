@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { getSecurityConfig } from '../../security/SecurityConfig.js'
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../securityMiddleware';
-import { getSecurityConfig } from '../../security/SecurityConfig.js'
 
 function mockRes() {
   const headers: Record<string, string> = {};

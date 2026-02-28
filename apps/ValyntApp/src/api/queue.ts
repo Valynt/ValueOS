@@ -5,15 +5,16 @@
  */
 
 import { Request, Response } from 'express';
+
+import { requireConsent } from '../middleware/consentMiddleware';
+import { rateLimiters } from '../middleware/rateLimiter';
+import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
+import { createSecureRouter } from '../middleware/secureRouter';
+import { sessionTimeoutMiddleware } from '../middleware/securityMiddleware';
+import { consentRegistry } from '../services/consentRegistry';
 import { llmQueue } from '../services/MessageQueue';
 import { logger } from '../utils/logger';
-import { sessionTimeoutMiddleware } from '../middleware/securityMiddleware';
-import { rateLimiters } from '../middleware/rateLimiter';
-import { requireConsent } from '../middleware/consentMiddleware';
-import { consentRegistry } from '../services/consentRegistry';
 import { sanitizeAgentInput } from '../utils/security';
-import { createSecureRouter } from '../middleware/secureRouter';
-import { requestSanitizationMiddleware } from '../middleware/requestSanitizationMiddleware';
 
 const router = createSecureRouter('standard');
 router.use(

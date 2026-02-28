@@ -1,8 +1,11 @@
+import { ArrowRight, Award, BookOpen, Calendar, Clock, FileText, Search, Tag, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Award, BookOpen, Calendar, Clock, FileText, Search, Tag, TrendingUp } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+
 import { SEO } from './SEO';
+
+import { supabase } from '@/lib/supabase';
+
 
 interface BlogPost {
   id: string;

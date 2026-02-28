@@ -5,6 +5,7 @@
  * configurations, circuit breaker patterns, and adaptive throttling.
  */
 import { EventEmitter } from "events";
+
 import { logger } from "../../lib/logger";
 // ============================================================================
 // Circuit Breaker Implementation

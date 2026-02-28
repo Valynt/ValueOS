@@ -7,10 +7,11 @@
  * optimization for agent operations to prevent memory leaks and improve performance.
  */
 
+import { v4 as uuidv4 } from "uuid";
+
+import { logger } from "../../../utils/logger";
 import { AgentType } from "../../agent-types";
 import { AgentRequest, AgentResponse, IAgent } from "../core/IAgent";
-import { logger } from "../../../utils/logger";
-import { v4 as uuidv4 } from "uuid";
 import { agentTelemetryService } from "../telemetry/AgentTelemetryService";
 
 // ============================================================================

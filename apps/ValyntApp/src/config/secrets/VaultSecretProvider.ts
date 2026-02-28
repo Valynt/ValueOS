@@ -8,7 +8,10 @@
  * Created: 2024-11-29
  */
 
+import * as fs from 'fs';
+
 import { logger } from '../../lib/logger';
+
 import type {
   AuditAction,
   AuditResult,
@@ -16,7 +19,6 @@ import type {
   SecretMetadata,
   SecretValue
 } from './ISecretProvider';
-import * as fs from 'fs';
 import { SecretAuditEvent, StructuredSecretAuditLogger } from './SecretAuditLogger';
 
 // Type definitions for node-vault (simplified)

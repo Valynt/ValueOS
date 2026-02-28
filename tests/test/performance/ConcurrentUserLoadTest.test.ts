@@ -4,10 +4,11 @@
  * Tests system behavior with 100 concurrent users performing various operations
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { getWorkflowLifecycleIntegration } from '../../services/WorkflowLifecycleIntegration';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import { getSDUIStateManager } from '../../lib/state';
+import { getWorkflowLifecycleIntegration } from '../../services/WorkflowLifecycleIntegration';
 import { performanceMonitor } from '../../utils/performance';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';

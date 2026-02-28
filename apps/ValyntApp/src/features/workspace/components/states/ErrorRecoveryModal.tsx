@@ -8,15 +8,17 @@
 
 import {
   AlertTriangle,
-  RefreshCw,
   ArrowLeft,
-  Copy,
   ChevronDown,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
+
+import type { AgentPhase } from "../../agent/types";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { AgentPhase } from "../../agent/types";
 
 interface ErrorRecoveryModalProps {
   code: string;

@@ -7,8 +7,8 @@
  * Run with options: k6 run --vus 10 --duration 30s test/load/llm-load-test.js
  */
 
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import http from 'k6/http';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
 // Custom metrics

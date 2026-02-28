@@ -11,9 +11,10 @@
  * In K8s, deploy as a separate Deployment (see infra/k8s/base/worker-deployment.yaml).
  */
 
-import { initResearchWorker } from './researchWorker.js';
-import { initCrmWorkers } from './crmWorker.js';
 import { createLogger } from '../lib/logger.js';
+
+import { initCrmWorkers } from './crmWorker.js';
+import { initResearchWorker } from './researchWorker.js';
 
 const logger = createLogger({ component: 'WorkerMain' });
 

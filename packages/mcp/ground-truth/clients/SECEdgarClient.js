@@ -5,6 +5,7 @@
  * SEC EDGAR API: https://www.sec.gov/edgar/searchedgar/companies.htm
  */
 import { logger } from "../../lib/logger";
+
 import { fetchWithRetry } from "./utils/fetchWithRetry";
 export class SECEdgarClient {
     baseUrl = "https://www.sec.gov";

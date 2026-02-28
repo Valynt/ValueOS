@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { decrypt, encrypt } from '../encryption.js'
 
 describe('Encryption Utils', () => {

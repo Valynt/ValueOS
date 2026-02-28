@@ -11,16 +11,18 @@
  * and SDUI sections (KPIForm + ValueTreeCard).
  */
 
-import { BaseAgent } from './BaseAgent.js';
 import { z } from 'zod';
-import { logger } from '../../logger.js';
+
+import { getAdvancedCausalEngine } from '../../../services/reasoning/AdvancedCausalEngine.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
-import { getAdvancedCausalEngine } from '../../../services/reasoning/AdvancedCausalEngine.js';
+import { logger } from '../../logger.js';
+
+import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation

@@ -3,9 +3,9 @@
  * Runs as background job to aggregate usage events into batches
  */
 
-import { createServerSupabaseClient } from '../../lib/supabase';
 import { BillingMetric } from '../../config/billing';
 import { createLogger } from '../../lib/logger';
+import { createServerSupabaseClient } from '../../lib/supabase';
 
 const logger = createLogger({ component: 'UsageAggregator' });
 

@@ -3,9 +3,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { clearAllHydrationCache } from '../hooks/useDataHydration';
 import { renderPage, RenderPageOptions } from '../renderPage';
 import { SDUIPageDefinition, SDUIValidationError } from '../schema';
-import { clearAllHydrationCache } from '../hooks/useDataHydration';
 
 describe('renderPage', () => {
   beforeEach(() => {

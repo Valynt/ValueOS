@@ -6,6 +6,9 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { logger } from '../../lib/logger.js';
+
 import type {
   CreateDomainPackRequest,
   DomainPack,
@@ -15,7 +18,6 @@ import type {
   PaginatedResponse,
   UpdateDomainPackRequest,
 } from './types.js';
-import { logger } from '../../lib/logger.js';
 
 // ============================================================================
 // Repository Errors

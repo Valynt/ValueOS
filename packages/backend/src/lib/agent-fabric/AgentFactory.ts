@@ -7,21 +7,22 @@
  * agent construction logic.
  */
 
+import type { GroundTruthIntegrationService } from "../../services/GroundTruthIntegrationService.js";
+import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
 import { logger } from "../logger.js";
-import { LLMGateway } from "./LLMGateway.js";
-import { MemorySystem } from "./MemorySystem.js";
+
+import { BaseAgent } from "./agents/BaseAgent.js";
+import { ExpansionAgent } from "./agents/ExpansionAgent.js";
+import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
+import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
+import { IntegrityAgent } from "./agents/IntegrityAgent.js";
+import { OpportunityAgent } from "./agents/OpportunityAgent.js";
+import { RealizationAgent } from "./agents/RealizationAgent.js";
+import { TargetAgent } from "./agents/TargetAgent.js";
 import { CircuitBreaker } from "./CircuitBreaker.js";
 import { KnowledgeFabricValidator } from "./KnowledgeFabricValidator.js";
-import { BaseAgent } from "./agents/BaseAgent.js";
-import { OpportunityAgent } from "./agents/OpportunityAgent.js";
-import { TargetAgent } from "./agents/TargetAgent.js";
-import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
-import { ExpansionAgent } from "./agents/ExpansionAgent.js";
-import { IntegrityAgent } from "./agents/IntegrityAgent.js";
-import { RealizationAgent } from "./agents/RealizationAgent.js";
-import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
-import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
-import type { GroundTruthIntegrationService } from "../../services/GroundTruthIntegrationService.js";
+import { LLMGateway } from "./LLMGateway.js";
+import { MemorySystem } from "./MemorySystem.js";
 
 // Maps agent type strings to lifecycle stages for config construction
 const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {

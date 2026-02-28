@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { TargetAgent } from '../../lib/agent-fabric/agents/TargetAgent';
 import { createAgentInfrastructureMocks, createBoltClientMock } from '../fixtures/mocks/mockSupabaseClient';
 

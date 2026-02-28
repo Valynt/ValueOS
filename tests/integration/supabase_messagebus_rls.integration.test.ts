@@ -1,7 +1,9 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
-import { LLMQueueService } from "../../src/services/MessageQueue";
 import { v4 as uuidv4 } from "uuid";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { LLMQueueService } from "../../src/services/MessageQueue";
+
 
 // This integration test validates three concerns:
 // 1. Supabase/Postgres RLS behavior for org isolation

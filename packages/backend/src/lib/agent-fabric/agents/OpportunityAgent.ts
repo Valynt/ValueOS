@@ -10,20 +10,22 @@
  * page schema that the frontend renders directly.
  */
 
-import { BaseAgent } from './BaseAgent.js';
 import { z } from 'zod';
-import { logger } from '../../logger.js';
+
+import { formatDomainContextForPrompt, loadDomainContext } from '../../../agents/context/loadDomainContext.js';
+import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
+import { featureFlags } from '../../../config/featureFlags.js';
+import { mcpGroundTruthService } from '../../../services/MCPGroundTruthService.js';
+import type { FinancialDataResult } from '../../../services/MCPGroundTruthService.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
-import { mcpGroundTruthService } from '../../../services/MCPGroundTruthService.js';
-import type { FinancialDataResult } from '../../../services/MCPGroundTruthService.js';
-import { featureFlags } from '../../../config/featureFlags.js';
-import { formatDomainContextForPrompt, loadDomainContext } from '../../../agents/context/loadDomainContext.js';
-import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
+import { logger } from '../../logger.js';
+
+import { BaseAgent } from './BaseAgent.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation

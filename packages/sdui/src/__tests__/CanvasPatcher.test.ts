@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { CanvasPatcher } from '../canvas/CanvasPatcher';
 import { CanvasLayout } from '../canvas/types';
 

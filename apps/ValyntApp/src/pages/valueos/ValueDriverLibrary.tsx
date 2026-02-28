@@ -4,7 +4,6 @@
  * Create, edit, publish, and manage strategic value drivers.
  */
 
-import { useState } from "react";
 import {
   Archive,
   BarChart3,
@@ -15,11 +14,14 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/input";
 import { SimpleSelect } from "@/components/ui/select";
+import { ValueDriverEditor } from "@/components/value-drivers/ValueDriverEditor";
 import { cn } from "@/lib/utils";
 import {
   DriverStatus,
@@ -29,7 +31,6 @@ import {
   ValueDriver,
   ValueDriverType,
 } from "@/types/valueDriver";
-import { ValueDriverEditor } from "@/components/value-drivers/ValueDriverEditor";
 
 const TYPE_COLORS: Record<ValueDriverType, string> = {
   "cost-savings": "bg-emerald-100 text-emerald-700 border-emerald-200",

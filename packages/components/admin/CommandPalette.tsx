@@ -6,7 +6,9 @@
 
 'use client';
 
+import { DollarSign, Search, Settings, Shield, Zap } from 'lucide-react';
 import { useMemo, useState } from 'react';
+
 import {
   Dialog,
   DialogContent,
@@ -16,7 +18,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { DollarSign, Search, Settings, Shield, Zap } from 'lucide-react';
 
 interface CommandPaletteProps {
   open: boolean;

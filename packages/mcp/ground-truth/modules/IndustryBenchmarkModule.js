@@ -11,11 +11,13 @@
  *
  * Node Mapping: [NODE: Industry_Benchmark_Module], [NODE: Tier_3_Narrative]
  */
-import { BaseModule } from "../core/BaseModule.js";
-import { ErrorCodes, GroundTruthError, } from "../types/index.js";
 import { logger } from "../../lib/logger.js";
-import { EXPANDED_INDUSTRY_BENCHMARKS } from "./ExpandedIndustryBenchmarks.js";
+import { BaseModule } from "../core/BaseModule.js";
 import { LiveDataFeedService } from "../services/LiveDataFeedService.js";
+import { ErrorCodes, GroundTruthError, } from "../types/index.js";
+
+import { EXPANDED_INDUSTRY_BENCHMARKS } from "./ExpandedIndustryBenchmarks.js";
+
 /**
  * Industry Benchmark Module - Tier 3 Contextual Data
  *

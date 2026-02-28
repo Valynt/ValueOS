@@ -8,6 +8,7 @@
  */
 
 import { useMemo } from 'react';
+
 import type { AdminPermission } from '../lib/adminNavigation';
 
 type TenantRole = 'owner' | 'admin' | 'member' | 'viewer';

@@ -1,15 +1,17 @@
 // import { logger } from '../lib/logger'; // Not used in this file
-import { supabase } from '../lib/supabase';
-import { securityLogger } from './SecurityLogger';
-import { sanitizeLLMContent } from '../utils/security';
-import { llmSanitizer } from './LLMSanitizer';
-import type { LLMConfig, LLMMessage, LLMProvider, LLMResponse, LLMStreamCallback, LLMTool } from '../lib/agent-fabric/llm-types';
-import { webSocketManager } from './WebSocketManager';
-import type { WebSocketMessage } from './WebSocketManager';
 import {
   createInputGuardrailTripwire,
   validateAlertDetails,
 } from '../contracts/alert-details';
+import type { LLMConfig, LLMMessage, LLMProvider, LLMResponse, LLMStreamCallback, LLMTool } from '../lib/agent-fabric/llm-types';
+import { supabase } from '../lib/supabase';
+import { sanitizeLLMContent } from '../utils/security';
+
+import { llmSanitizer } from './LLMSanitizer';
+import { securityLogger } from './SecurityLogger';
+import { webSocketManager } from './WebSocketManager';
+import type { WebSocketMessage } from './WebSocketManager';
+
 
 interface ProxyChatRequest {
   messages: LLMMessage[];

@@ -1,7 +1,9 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import jwt from "jsonwebtoken";
-import WebSocket, { type WebSocketServer } from "ws";
 import type { Server } from "http";
+
+import jwt from "jsonwebtoken";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import WebSocket, { type WebSocketServer } from "ws";
+
 
 const jwtSecret = "test-websocket-secret";
 const WS_POLICY_VIOLATION_CODE = 1008;

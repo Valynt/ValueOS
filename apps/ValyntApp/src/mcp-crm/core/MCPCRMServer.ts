@@ -5,11 +5,6 @@
  * Uses tenant-level OAuth connections.
  */
 
-import { logger } from "../../lib/logger";
-import { supabase } from "../../lib/supabase";
-import { HubSpotModule } from "../modules/HubSpotModule";
-import { SalesforceModule } from "../modules/SalesforceModule";
-import { CRMConfigManager } from "../config/CRMConfigManager";
 import {
   MCPCRMError,
   MCPErrorCodes,
@@ -17,6 +12,12 @@ import {
   MCPResponseBuilder,
   ParallelInitializer,
 } from "@mcp-common/index";
+
+import { logger } from "../../lib/logger";
+import { supabase } from "../../lib/supabase";
+import { CRMConfigManager } from "../config/CRMConfigManager";
+import { HubSpotModule } from "../modules/HubSpotModule";
+import { SalesforceModule } from "../modules/SalesforceModule";
 import {
   CRMConnection,
   CRMModule,

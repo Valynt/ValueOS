@@ -9,20 +9,22 @@
  * mutations to specific components for snappy, responsive updates.
  */
 
-import { logger } from '../lib/logger.js'
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { llmConfig } from '../config/llm.js'
-import { getUIGenerationTracker } from './UIGenerationTracker.js'
-import { validateComponentSelection } from '@sdui/ComponentToolRegistry';
-import { ComponentMutationService } from './ComponentMutationService.js'
-import { CircuitBreaker as AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
-import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
 import {
   AtomicUIAction,
   validateAtomicAction,
 } from '@sdui/AtomicUIActions';
+import { validateComponentSelection } from '@sdui/ComponentToolRegistry';
 import type { SDUIPageDefinition } from '@sdui/schema';
+
+import { llmConfig } from '../config/llm.js'
+import { CircuitBreaker as AgentCircuitBreaker } from '../lib/agent-fabric/CircuitBreaker';
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { secureLLMComplete } from '../lib/llm/secureLLMWrapper';
+import { logger } from '../lib/logger.js'
 import type { Subgoal } from '../types/Subgoal';
+
+import { ComponentMutationService } from './ComponentMutationService.js'
+import { getUIGenerationTracker } from './UIGenerationTracker.js'
 
 export interface UIEvaluationResult {
   score: number;

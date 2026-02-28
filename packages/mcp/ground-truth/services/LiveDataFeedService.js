@@ -5,9 +5,9 @@
  * Provides caching, rate limiting, error handling, and data quality validation.
  */
 import { logger } from "../../lib/logger.js";
-import { SECEdgarClient } from "../clients/SECEdgarClient.js";
 import { BLSClient } from "../clients/BLSClient.js";
 import { CensusClient, } from "../clients/CensusClient.js";
+import { SECEdgarClient } from "../clients/SECEdgarClient.js";
 export class LiveDataFeedService {
     secClient;
     blsClient;

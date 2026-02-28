@@ -5,8 +5,10 @@
  * Supports pub/sub, message compression, and delivery guarantees.
  */
 
-import { logger } from '../lib/logger';
+import { compress, decompress } from 'lz-string';
 import { v4 as uuidv4 } from 'uuid';
+
+import { logger } from '../lib/logger';
 import type {
   ChannelConfig,
   CommunicationEvent,
@@ -14,7 +16,7 @@ import type {
   MessageHandler,
   MessageStats,
 } from '../types/CommunicationEvent';
-import { compress, decompress } from 'lz-string';
+
 
 export class MessageBus {
   private subscribers: Map<string, Set<MessageHandler>>;

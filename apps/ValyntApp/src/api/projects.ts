@@ -1,7 +1,8 @@
 import { Request, Response, Router } from "express";
+
 import { supabase } from "../lib/supabase";
-import { Logger } from "../utils/logger";
 import { requestSanitizationMiddleware } from "../middleware/requestSanitizationMiddleware";
+import { Logger } from "../utils/logger";
 
 const router = Router({ mergeParams: true });
 const logger = new Logger({ component: "ProjectsAPI" });

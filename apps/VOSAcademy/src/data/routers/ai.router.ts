@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { protectedProcedure, rateLimitMiddleware, router } from "../_core/trpc";
-import { invokeLLM } from "../_core/llm";
-import { getDb } from "../db";
+
 import { pillars } from "../../drizzle/schema";
 import { safeLLMOperation } from "../_core/error-handling";
+import { invokeLLM } from "../_core/llm";
+import { protectedProcedure, rateLimitMiddleware, router } from "../_core/trpc";
+import { getDb } from "../db";
 
 /**
  * AI Tutor router

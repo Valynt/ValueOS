@@ -11,11 +11,13 @@
  * - Provide confidence-reasoning mismatch detection
  */
 
-import { logger } from '../lib/logger';
-import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
-import { llmConfig } from '../config/llm';
-import { SDUIPageDefinition } from '../sdui/schema';
 import { v4 as uuidv4 } from 'uuid';
+
+import { llmConfig } from '../config/llm';
+import { LLMGateway } from '../lib/agent-fabric/LLMGateway';
+import { logger } from '../lib/logger';
+import { SDUIPageDefinition } from '../sdui/schema';
+
 
 // ============================================================================
 // Types

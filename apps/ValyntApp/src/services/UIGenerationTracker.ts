@@ -4,9 +4,10 @@
  * Tracks UI generation trajectories, user interactions, and calculates effectiveness metrics.
  */
 
+import { v4 as uuidv4 } from 'uuid';
+
 import { logger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
 import type {
   ComponentUsageStats,
   UIGenerationFeedback,

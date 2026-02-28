@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { SettingsSection } from '../../components/settings';
 import { Check, Edit2, Plus, Shield, Trash2, Users, X } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { SettingsSection } from '../../components/settings';
 
 interface OrganizationRole {
   id: string;

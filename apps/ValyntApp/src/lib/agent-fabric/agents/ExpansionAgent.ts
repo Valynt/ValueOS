@@ -5,14 +5,14 @@
  * focusing on upsell, cross-sell, and renewal scenarios.
  */
 
+import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
+import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
 import { BaseAgent } from "../BaseAgent";
 import {
   assertHighConfidence,
   assertProvenance,
   validateGroundTruthMetadata,
 } from "../ground-truth/GroundTruthValidator";
-import { AgentCapability, AgentRequest, AgentResponse } from "../../../services/agents/core/IAgent";
-import { AgentConfig, AgentType, ConfidenceLevel } from "../../../services/agent-types";
 
 export interface ExpansionOpportunity {
   opportunityId: string;

@@ -25,11 +25,11 @@ function log(level: LogLevel, message: string, context?: Record<string, unknown>
   const entry = { level, message, ts: new Date().toISOString(), ...context };
   switch (level) {
     case "error":
-      // eslint-disable-next-line no-console
+       
       console.error(JSON.stringify(entry));
       break;
     case "warn":
-      // eslint-disable-next-line no-console
+       
       console.warn(JSON.stringify(entry));
       break;
     default:

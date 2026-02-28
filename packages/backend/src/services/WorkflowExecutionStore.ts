@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+
 import type { AgentEvent, AgentState } from "../lib/agent/types";
 
 const redis = new Redis();

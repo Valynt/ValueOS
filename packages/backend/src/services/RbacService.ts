@@ -1,4 +1,5 @@
 import { logger } from "../lib/logger.js";
+
 import { AuthorizationError } from "./errors.js";
 
 export const SecretPermission = {

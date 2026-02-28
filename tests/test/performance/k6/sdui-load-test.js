@@ -1,5 +1,5 @@
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import http from 'k6/http';
 import { Trend } from 'k6/metrics';
 
 const sduiDuration = new Trend('sdui_duration', true);

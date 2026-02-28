@@ -6,8 +6,9 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseClient } from "../../lib/supabase.js"
+
 import { logger } from "../../lib/logger.js"
+import { getSupabaseClient } from "../../lib/supabase.js"
 
 // ============================================================================
 // Types

@@ -9,8 +9,9 @@
  * ensuring customer trust.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
 import type { BillingMetric } from '@/config/billing';
 
 describe('Usage Metering', () => {

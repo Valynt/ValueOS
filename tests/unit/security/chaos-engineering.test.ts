@@ -3,9 +3,10 @@
  * Comprehensive testing for chaos engineering components
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { chaosEngineering } from '../../../src/services/ChaosEngineering';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { SecureMessageBus } from '../../../src/lib/agent-fabric/SecureMessageBus';
+import { chaosEngineering } from '../../../src/services/ChaosEngineering';
 
 describe('Chaos Engineering Service', () => {
   let messageBus: SecureMessageBus;

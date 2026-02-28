@@ -3,12 +3,14 @@
  * Displays a visual progression track for a user's role-specific maturity advancement
  */
 
-import { getCurriculumForRole, MATURITY_LEVELS } from "@/data/curriculum";
+import { CheckCircle, Circle, Lock, Target } from "lucide-react";
+
+import { SectionCard } from "@/components/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { SectionCard } from "@/components/SectionCard";
-import { CheckCircle, Circle, Lock, Target } from "lucide-react";
+import { getCurriculumForRole, MATURITY_LEVELS } from "@/data/curriculum";
+
 
 interface RoleMaturityTrackProps {
   role: string;

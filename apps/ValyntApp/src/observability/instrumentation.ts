@@ -7,14 +7,6 @@
  * - Logs: Structured logging with trace context
  */
 
-import { NodeSDK } from "@opentelemetry/sdk-node";
-import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
-import { Resource } from "@opentelemetry/resources";
-import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
-import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
-import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { context, metrics, SpanStatusCode, trace } from "@opentelemetry/api";
 import type {
   Counter,
@@ -23,7 +15,16 @@ import type {
   Span,
   Tracer,
 } from "@opentelemetry/api";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { Resource } from "@opentelemetry/resources";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import * as winston from "winston";
+
 import { logger } from "../lib/logger";
 
 // Environment configuration with defaults

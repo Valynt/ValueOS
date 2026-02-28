@@ -7,14 +7,15 @@
  * Flow: CRM Deal → crm_get_deal_context → ContextInjectionBridge → TemplateDataSource
  */
 
-import { logger } from "../../lib/logger";
-import { getMCPCRMServer, MCPCRMServer } from "./MCPCRMServer";
 import type {
   FinancialData,
   MetricData,
   OutcomeData,
   TemplateDataSource,
 } from "../../components/templates";
+import { logger } from "../../lib/logger";
+
+import { getMCPCRMServer, MCPCRMServer } from "./MCPCRMServer";
 
 // ============================================================================
 // Types

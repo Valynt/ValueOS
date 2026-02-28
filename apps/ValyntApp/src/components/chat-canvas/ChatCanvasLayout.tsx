@@ -12,21 +12,23 @@
 import { useCallback, useEffect, useState } from "react";
 
 // Shell Layer
-import { CommandBar, Sidebar, TopBar } from "@/components/shell";
-import type { ValueCase } from "@/components/shell";
+import { logger } from "../../lib/logger";
 
-// Orchestration Layer
-import { AgentStatusIndicator } from "@/components/orchestration";
-import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
-import { useCanvasState } from "@/hooks/useCanvasState";
-
-// Canvas Layer
 import {
   AgentResponseCard,
   ChatInput,
   ValueSummaryCard,
 } from "@/components/canvas";
-import { logger } from "../../lib/logger";
+import { AgentStatusIndicator } from "@/components/orchestration";
+import { CommandBar, Sidebar, TopBar } from "@/components/shell";
+import type { ValueCase } from "@/components/shell";
+
+// Orchestration Layer
+import { useAgentOrchestrator } from "@/hooks/useAgentOrchestrator";
+import { useCanvasState } from "@/hooks/useCanvasState";
+
+// Canvas Layer
+
 
 // Mock data for demonstration
 const mockCases: ValueCase[] = [

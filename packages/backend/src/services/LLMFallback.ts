@@ -5,14 +5,17 @@
  * Together AI is the only supported LLM provider.
  */
 
-import { logger } from "../utils/logger.js"
 import { getEnvVar } from "@shared/lib/env";
-import { llmCache } from "./LLMCache.js"
-import { llmCostTracker } from "./LLMCostTracker.js"
-import { costGovernance } from "./CostGovernanceService.js"
-import { ExternalCircuitBreaker } from "./ExternalCircuitBreaker.js"
+
 import { assertModelAllowed } from '../config/models.js'
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js'
+import { logger } from "../utils/logger.js"
+
+import { costGovernance } from "./CostGovernanceService.js"
+import { ExternalCircuitBreaker } from "./ExternalCircuitBreaker.js"
+import { llmCache } from "./LLMCache.js"
+import { llmCostTracker } from "./LLMCostTracker.js"
+
 
 export interface LLMRequest {
   prompt: string;

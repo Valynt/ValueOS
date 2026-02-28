@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { MessageBus } from '../MessageBus.js';
 
 describe('MessageBus', () => {

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ArrowDownCircle, ArrowUpCircle, CheckCircle2, RefreshCcw, ShieldAlert, TrendingDown, TrendingUp } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+
 import { supabase } from '../lib/supabase';
 
 type MetricKey = 'adoption' | 'quality' | 'sentiment' | 'performance';

@@ -3,9 +3,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkspaceStateService } from '../WorkspaceStateService';
+
 import { WorkspaceState } from '../../types/sdui-integration';
 import { CacheService } from '../CacheService';
+import { WorkspaceStateService } from '../WorkspaceStateService';
 
 // Mock dependencies
 vi.mock('../CacheService');

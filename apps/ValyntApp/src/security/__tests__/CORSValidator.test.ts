@@ -5,6 +5,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { __setEnvSourceForTests } from "../../lib/env";
 import {
   getCORSHeaders,
   getEnvCORSOrigins,
@@ -12,7 +14,6 @@ import {
   isValidOrigin,
   validateCORSConfig,
 } from "../CORSValidator";
-import { __setEnvSourceForTests } from "../../lib/env";
 
 describe("CORSValidator", () => {
   describe("validateCORSConfig", () => {

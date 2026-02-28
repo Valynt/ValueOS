@@ -1,4 +1,5 @@
 import { createClient, RedisClientType } from 'redis';
+
 import { createLogger } from './logger';
 
 const logger = createLogger({ component: 'redis-client' });

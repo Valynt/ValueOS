@@ -6,8 +6,10 @@
  * layout through the CanvasLayout components.
  */
 
+import { createLogger } from "@shared/lib/logger";
 import React, { useEffect, useState } from "react";
-import { CanvasLayout } from "./types";
+
+import { ComponentErrorBoundary } from "../components/ComponentErrorBoundary";
 import {
   DashboardPanel,
   Grid,
@@ -15,8 +17,8 @@ import {
   VerticalSplit,
 } from "../components/SDUI/CanvasLayout";
 import { resolveComponentWithVersion } from "../registry";
-import { ComponentErrorBoundary } from "../components/ComponentErrorBoundary";
-import { createLogger } from "@shared/lib/logger";
+
+import { CanvasLayout } from "./types";
 
 const logger = createLogger({ component: "StreamingCanvas" });
 

@@ -6,10 +6,11 @@
  * Compatible with both browser and server environments.
  */
 
-import { BaseService } from "./BaseService";
-import { ValidationError } from "./errors";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
+
+import { BaseService } from "./BaseService";
+import { ValidationError } from "./errors";
 
 export interface MFASecret {
   id: string;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { valueCaseService } from '../ValueCaseService.js'
 
 const svc: any = valueCaseService;

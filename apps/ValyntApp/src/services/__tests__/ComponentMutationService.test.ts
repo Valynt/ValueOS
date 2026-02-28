@@ -2,8 +2,6 @@
  * Tests for ComponentMutationService
  */
 
-import { ComponentMutationService } from '../ComponentMutationService';
-import { SDUIPageDefinition } from '../../sdui/schema';
 import {
   createAddAction,
   createBatchAction,
@@ -12,6 +10,8 @@ import {
   createRemoveAction,
   validateAtomicAction,
 } from '../../sdui/AtomicUIActions';
+import { SDUIPageDefinition } from '../../sdui/schema';
+import { ComponentMutationService } from '../ComponentMutationService';
 
 describe('ComponentMutationService', () => {
   let service: ComponentMutationService;

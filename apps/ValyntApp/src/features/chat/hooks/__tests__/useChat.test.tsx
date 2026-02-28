@@ -1,8 +1,9 @@
 import { renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useChat } from "../useChat";
-import { api } from "../../../../api/client/unified-api-client";
 import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { api } from "../../../../api/client/unified-api-client";
+import { useChat } from "../useChat";
 
 // Mock the API client
 vi.mock("../../../../api/client/unified-api-client", () => ({

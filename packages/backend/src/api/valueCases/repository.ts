@@ -5,7 +5,10 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
+
+import { logger } from '../../lib/logger.js'
 import { createServerSupabaseClient } from '../../lib/supabase.js';
+
 import {
   CasePhase,
   CaseStatus,
@@ -15,7 +18,6 @@ import {
   UpdateValueCaseRequest,
   ValueCase,
 } from './types';
-import { logger } from '../../lib/logger.js'
 
 // ============================================================================
 // Repository Errors

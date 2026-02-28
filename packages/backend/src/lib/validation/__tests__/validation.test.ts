@@ -6,17 +6,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+
 import {
-  CreateDealSchema,
-  CreateUserSchema,
-  UpdateUserSchema,
-} from '../schemas';
-import {
-  detectPromptInjection,
-  sanitizeForLog,
-  sanitizeString,
-  stripHtml,
-} from '../sanitize';
+  normalizeEmail,
+  normalizePhone,
+  normalizeSlug,
+} from '../normalizers';
 import {
   analyzeRegexSafety,
   isValidEmail,
@@ -24,10 +19,16 @@ import {
   SafePatterns,
 } from '../safeRegex';
 import {
-  normalizeEmail,
-  normalizePhone,
-  normalizeSlug,
-} from '../normalizers';
+  detectPromptInjection,
+  sanitizeForLog,
+  sanitizeString,
+  stripHtml,
+} from '../sanitize';
+import {
+  CreateDealSchema,
+  CreateUserSchema,
+  UpdateUserSchema,
+} from '../schemas';
 import { formatZodErrors, hasUnknownFields } from '../zodHelpers.js'
 
 // ============================================================================

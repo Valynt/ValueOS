@@ -1,7 +1,9 @@
 import yaml from 'js-yaml';
+
 import { BotConfig, Repository } from '../types/index.js';
-import { githubClient } from './githubClient.js';
 import { logger } from '../utils/logger.js';
+
+import { githubClient } from './githubClient.js';
 
 const DEFAULT_CONFIG: BotConfig = {
   enabled: false,

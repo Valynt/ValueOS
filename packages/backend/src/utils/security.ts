@@ -4,8 +4,9 @@
  * Security functions for input sanitization, error handling, and validation.
  */
 
-import { llmSanitizer } from "../services/LLMSanitizer.js"
 import { createLogger } from "@shared/lib/logger";
+
+import { llmSanitizer } from "../services/LLMSanitizer.js"
 
 const logger = createLogger({ component: "SecurityUtils" });
 

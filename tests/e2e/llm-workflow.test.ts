@@ -5,11 +5,12 @@
  * with mocked LLM responses for deterministic testing.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
-import { mockLLMProvider } from '../fixtures/mocks/llmProvider';
-import { cleanupTestDatabase, setupTestDatabase } from '../fixtures/helpers/database';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
 import { createTestUser, getAuthToken } from '../fixtures/helpers/auth';
+import { cleanupTestDatabase, setupTestDatabase } from '../fixtures/helpers/database';
+import { mockLLMProvider } from '../fixtures/mocks/llmProvider';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
 const describeMaybe = runIntegration ? describe : describe.skip;

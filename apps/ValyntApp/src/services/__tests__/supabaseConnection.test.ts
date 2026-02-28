@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock Supabase client for unit tests
 vi.mock("@supabase/supabase-js", () => ({

@@ -7,11 +7,12 @@
  * - get_value_chain: Trace causal relationships between KPIs
  * - get_similar_traces: Find relevant VMRT examples for reasoning
  */
-import { BaseModule } from "../core/BaseModule";
-import { z } from "zod";
+import { checkBenchmarkAlignment } from "@backend/types/eso";
 import { ALL_ESO_KPIS, EXTENDED_ESO_EDGES, EXTENDED_PERSONA_MAPS, } from "@backend/types/eso-data";
 import { ALL_VMRT_SEEDS } from "@backend/types/vos-pt1-seed";
-import { checkBenchmarkAlignment } from "@backend/types/eso";
+import { z } from "zod";
+
+import { BaseModule } from "../core/BaseModule";
 // ============================================================================
 // Types
 // ============================================================================

@@ -6,9 +6,10 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+
+import { DataBindingResolver } from '../DataBindingResolver';
 import { sanitizeProps } from '../security/sanitization';
 import { createSessionContext, validateSession } from '../security/sessionValidation';
-import { DataBindingResolver } from '../DataBindingResolver';
 
 describe('Performance Benchmarks', () => {
   describe('XSS Sanitization Performance', () => {

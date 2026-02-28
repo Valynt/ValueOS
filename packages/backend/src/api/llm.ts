@@ -6,27 +6,28 @@
  */
 
 import { Request, Response, Router } from 'express';
-import { llmFallback } from '../services/LLMFallback.js'
-import { CostGovernanceError } from '../services/CostGovernanceService.js'
+
+import { assertKnownApprovedModel, MODEL_POLICY_VERSION, ModelDeniedError } from '../config/models.js'
+import { requireAuth } from '../middleware/auth.js'
+import { requireConsent } from '../middleware/consentMiddleware.js'
 import { llmRateLimiter } from '../middleware/llmRateLimiter.js'
-import { logger } from '../utils/logger.js'
-import { FallbackAIService } from '../services/FallbackAIService.js'
+import { rateLimiters } from '../middleware/rateLimiter.js'
+import { requirePermission } from '../middleware/rbac.js'
+import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
 import {
   csrfProtectionMiddleware,
   securityHeadersMiddleware,
   sessionTimeoutMiddleware,
 } from '../middleware/securityMiddleware';
 import { serviceIdentityMiddleware } from '../middleware/serviceIdentityMiddleware.js'
-import { rateLimiters } from '../middleware/rateLimiter.js'
-import { requestAuditMiddleware } from '../middleware/requestAuditMiddleware.js'
-import { requireConsent } from '../middleware/consentMiddleware.js'
-import { consentRegistry } from '../services/consentRegistry.js'
-import { sanitizeAgentInput } from '../utils/security.js'
-import { requireAuth } from '../middleware/auth.js'
-import { requirePermission } from '../middleware/rbac.js'
 import { tenantContextMiddleware } from '../middleware/tenantContext.js'
 import { tenantDbContextMiddleware } from '../middleware/tenantDbContext.js'
-import { assertKnownApprovedModel, MODEL_POLICY_VERSION, ModelDeniedError } from '../config/models.js'
+import { consentRegistry } from '../services/consentRegistry.js'
+import { CostGovernanceError } from '../services/CostGovernanceService.js'
+import { FallbackAIService } from '../services/FallbackAIService.js'
+import { llmFallback } from '../services/LLMFallback.js'
+import { logger } from '../utils/logger.js'
+import { sanitizeAgentInput } from '../utils/security.js'
 
 const router = Router();
 router.use(requestAuditMiddleware());

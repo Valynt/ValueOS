@@ -5,11 +5,12 @@
  * before rendering components to prevent runtime errors.
  */
 
-import { z } from "zod";
-import { SDUIComponentSection } from "./schema";
-import { ComponentResolutionResult, resolveComponentWithVersion } from "./registry";
-import { useDataBindings } from "./useDataBinding";
 import { logger } from "@shared/lib/logger";
+import { z } from "zod";
+
+import { ComponentResolutionResult, resolveComponentWithVersion } from "./registry";
+import { SDUIComponentSection } from "./schema";
+import { useDataBindings } from "./useDataBinding";
 
 /**
  * Validation result for component props

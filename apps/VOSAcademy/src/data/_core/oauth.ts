@@ -1,8 +1,11 @@
 import { createHash, createHmac, createPublicKey, randomBytes, timingSafeEqual } from "node:crypto";
+
 import jwt, { type JwtPayload } from "jsonwebtoken";
+
 import { upsertUser } from "../db";
-import { createSessionToken, parseCookies } from "./session";
+
 import { COOKIE_NAME, getSessionCookieOptions } from "./cookies";
+import { createSessionToken, parseCookies } from "./session";
 
 interface OAuthUserInfo {
   openId: string;

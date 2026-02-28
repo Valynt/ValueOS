@@ -3,16 +3,17 @@
  * These tests verify the instrumentation setup without requiring running services
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
 import {
-  initializeTelemetry,
-  shutdownTelemetry,
-  getTracer,
-  withSpan,
   getTraceContext,
-  Metrics,
+  getTracer,
+  initializeTelemetry,
   logger,
+  Metrics,
+  shutdownTelemetry,
   telemetryConfig,
+  withSpan,
 } from "../../../src/observability/instrumentation";
 
 describe("Observability Instrumentation - Unit Tests", () => {

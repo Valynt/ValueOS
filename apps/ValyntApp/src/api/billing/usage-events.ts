@@ -3,11 +3,12 @@
  * Contract-first ingestion API for usage events with idempotency
  */
 
-import express, { Request, Response } from "express";
 import { type SupabaseClient } from "@supabase/supabase-js";
+import express, { Request, Response } from "express";
+
 import { createLogger } from "../../lib/logger.js";
-import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware.js";
 import { createRequestSupabaseClient } from "../../lib/supabase.js";
+import { requestSanitizationMiddleware } from "../../middleware/requestSanitizationMiddleware.js";
 
 const router = express.Router();
 const logger = createLogger({ component: "UsageEventsAPI" });

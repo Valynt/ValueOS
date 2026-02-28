@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemorySystem } from '../../../src/lib/agent-fabric/MemorySystem';
-import { MemoryGarbageCollector } from '../../../src/lib/agent-fabric/MemoryGarbageCollector';
-import { createBoltClientMock } from '../../mocks/mockSupabaseClient';
+
 import { LLMGateway } from '../../../src/lib/agent-fabric/LLMGateway';
+import { MemoryGarbageCollector } from '../../../src/lib/agent-fabric/MemoryGarbageCollector';
+import { MemorySystem } from '../../../src/lib/agent-fabric/MemorySystem';
+import { createBoltClientMock } from '../../mocks/mockSupabaseClient';
 
 describe('Memory Garbage Collector', () => {
   let memorySystem: MemorySystem;

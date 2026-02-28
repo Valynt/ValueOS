@@ -4,7 +4,6 @@
  * Full editor with formula builder, persona tags, and narrative pitch.
  */
 
-import { useState } from "react";
 import {
   Calculator,
   Eye,
@@ -16,13 +15,14 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { SimpleSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { evaluateFormula } from "@/utils/formulas";
 import {
   FormulaVariable,
   PERSONA_TAG_LABELS,
@@ -33,6 +33,7 @@ import {
   ValueDriver,
   ValueDriverType,
 } from "@/types/valueDriver";
+import { evaluateFormula } from "@/utils/formulas";
 
 interface ValueDriverEditorProps {
   driver: ValueDriver | null;

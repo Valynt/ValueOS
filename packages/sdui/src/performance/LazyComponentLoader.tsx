@@ -6,6 +6,7 @@
  */
 
 import React, { ComponentType, lazy, Suspense } from 'react';
+
 import { LoadingFallback } from '../components/LoadingFallback';
 
 /**

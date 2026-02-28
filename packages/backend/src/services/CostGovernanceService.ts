@@ -5,10 +5,12 @@
  * Enforces circuit breakers when fiscal limits are exceeded.
  */
 
-import { logger } from "../utils/logger.js";
-import { getEnvVar } from "@shared/lib/env";
 import { randomUUID } from "node:crypto";
+
+import { getEnvVar } from "@shared/lib/env";
 import Redis from "ioredis";
+
+import { logger } from "../utils/logger.js";
 
 const DEFAULT_MAX_COST = 50;
 const DEFAULT_MAX_TOKENS = 200_000;

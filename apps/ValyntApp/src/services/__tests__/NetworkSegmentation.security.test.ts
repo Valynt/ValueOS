@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NetworkSegmentationManager } from "../NetworkSegmentation";
+
 import { clientRateLimit } from "../ClientRateLimit";
-import { assertSafeUrl } from "../security/ssrfGuard";
+import { NetworkSegmentationManager } from "../NetworkSegmentation";
 import { securityEvents } from "../security/securityLogger";
+import { assertSafeUrl } from "../security/ssrfGuard";
 
 // Mock dependencies
 vi.mock("../ClientRateLimit");

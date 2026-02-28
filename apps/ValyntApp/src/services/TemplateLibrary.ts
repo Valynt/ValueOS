@@ -1,6 +1,6 @@
 import { logger } from '../lib/logger';
-import { CanvasComponent } from '../types';
 import { createCurrencyBinding, createMetricBinding } from '../sdui/DataBindingSchema';
+import { CanvasComponent } from '../types';
 
 // ============================================================================
 // Template Type Definitions (Discriminated Union)

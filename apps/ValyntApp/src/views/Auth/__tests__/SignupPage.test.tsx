@@ -3,12 +3,13 @@
  * Comprehensive tests for user registration UI and validation
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { SignupPage } from '../SignupPage';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AuthContext } from '../../../contexts/AuthContext';
 import { RateLimitError, ValidationError } from '../../../services/errors';
+import { SignupPage } from '../SignupPage';
 
 // Mock useNavigate
 const mockNavigate = vi.fn();

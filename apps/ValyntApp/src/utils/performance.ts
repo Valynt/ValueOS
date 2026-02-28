@@ -2,8 +2,9 @@
  * Performance Monitoring and Optimization Utilities
  */
 
-import { logger } from "../lib/logger";
 import * as React from "react";
+
+import { logger } from "../lib/logger";
 
 export interface PerformanceMetric {
   name: string;

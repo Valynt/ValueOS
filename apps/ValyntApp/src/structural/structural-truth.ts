@@ -10,6 +10,13 @@
  * Part of Phase 3 - Integration & Business Case Generation
  */
 
+import { logger } from "../lib/logger";
+import {
+  ALL_STRUCTURAL_KPIS,
+  EXTENDED_STRUCTURAL_EDGES,
+  EXTENDED_STRUCTURAL_PERSONA_MAPS,
+  INITIAL_FORMULA_REGISTRY,
+} from "../types/structural-data";
 import {
   FormulaRegistry,
   FormulaStep,
@@ -20,14 +27,9 @@ import {
   StructuralPersona,
   ValidationResult,
 } from "../types/structural-truth";
-import {
-  ALL_STRUCTURAL_KPIS,
-  EXTENDED_STRUCTURAL_EDGES,
-  EXTENDED_STRUCTURAL_PERSONA_MAPS,
-  INITIAL_FORMULA_REGISTRY,
-} from "../types/structural-data";
+
 import { evaluateFormula } from "@/utils/formulas";
-import { logger } from "../lib/logger";
+
 
 export interface FormulaInput {
   kpiId: string;

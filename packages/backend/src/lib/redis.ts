@@ -7,10 +7,11 @@
  * `getRedisClient` so connection reuse and configuration stay consistent.
  */
 
-import { RedisClientType } from "redis";
-import { logger } from "./logger.js";
-import { getRedisKey } from "@shared/lib/redisKeys";
 import { getRedisClient as getSharedRedisClient } from "@shared/lib/redisClient";
+import { getRedisKey } from "@shared/lib/redisKeys";
+import { RedisClientType } from "redis";
+
+import { logger } from "./logger.js";
 
 let cachedClient: RedisClientType | null = null;
 

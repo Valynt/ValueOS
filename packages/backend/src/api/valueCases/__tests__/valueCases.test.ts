@@ -1,3 +1,5 @@
+import express, { Express } from 'express';
+import request from 'supertest';
 import { vi } from "vitest";
 /**
  * Value Cases API Tests
@@ -5,8 +7,7 @@ import { vi } from "vitest";
  * Tests for: happy path, validation failure, auth failure, dependency failure
  */
 
-import request from 'supertest';
-import express, { Express } from 'express';
+
 import { valueCasesRouter } from '../index.js'
 import { DatabaseError, getValueCasesRepository, NotFoundError } from '../repository.js'
 

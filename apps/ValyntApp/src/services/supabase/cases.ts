@@ -5,13 +5,14 @@
  * All queries enforce tenant isolation via tenant_id filter.
  */
 
-import { supabase } from "@/lib/supabase";
 import type {
   PortfolioValue,
   ValueCaseInsert,
   ValueCaseRow,
   ValueCaseWithRelations,
 } from "./types";
+
+import { supabase } from "@/lib/supabase";
 
 class CaseQueryError extends Error {
   constructor(

@@ -11,6 +11,11 @@
  */
 
 import { 
+  StructuralIndustry, 
+  StructuralPersona,
+} from '../types/structural-truth';
+
+import { 
   BusinessAction, 
   CAUSAL_RELATIONSHIPS, 
   CausalChain, 
@@ -20,10 +25,6 @@ import {
   TimeCurve
 } from './causal-truth';
 
-import { 
-  StructuralIndustry, 
-  StructuralPersona,
-} from '../types/structural-truth';
 
 export interface CausalTruthConfig {
   enableContextualAdjustments?: boolean;

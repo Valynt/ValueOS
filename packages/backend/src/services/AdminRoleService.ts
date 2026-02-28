@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "../lib/supabase.js";
-import { ValidationError } from "./errors.js";
+
 import { auditLogService } from "./AuditLogService.js";
+import { ValidationError } from "./errors.js";
 
 const CUSTOM_ROLE_PREFIX = "custom:";
 

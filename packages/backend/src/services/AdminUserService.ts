@@ -4,12 +4,13 @@
  * Handles tenant user administration with server-side permissions and audit logging.
  */
 
-import { createServerSupabaseClient } from "../lib/supabase.js"
 import { logger } from "../lib/logger.js"
+import { createServerSupabaseClient } from "../lib/supabase.js"
+
 import { AuditLogService } from "./AuditLogService.js"
 import { authDirectoryService } from "./AuthDirectoryService.js"
-import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 import { ValidationError } from "./errors.js"
+import { userProfileDirectoryService } from "./UserProfileDirectoryService.js"
 
 export type TenantRole = "owner" | "admin" | "member" | "viewer";
 

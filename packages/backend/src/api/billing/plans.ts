@@ -3,8 +3,9 @@
  * Provides available subscription plans
  */
 
-import express, { Request, Response } from 'express';
 import { createLogger } from '@shared/lib/logger';
+import express, { Request, Response } from 'express';
+
 import { PlanTier } from '../../config/billing.js';
 
 const router = express.Router();

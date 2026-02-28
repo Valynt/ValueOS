@@ -1,8 +1,10 @@
-import request from 'supertest';
+import { EVENT_TOPICS } from '@shared/types/events';
 import express from 'express';
+import request from 'supertest';
+
 import agentsRouter from '../../api/agents';
 import { getEventProducer } from '../../services/EventProducer';
-import { EVENT_TOPICS } from '@shared/types/events';
+
 
 vi.mock('../../services/EventProducer');
 

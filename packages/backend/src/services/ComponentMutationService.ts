@@ -5,8 +5,6 @@
  * Enables snappy, responsive UI updates in the Playground.
  */
 
-import { logger } from '../lib/logger.js'
-import { SDUIComponentSection, SDUIPageDefinition } from '@sdui/schema';
 import {
   ActionResult,
   AddComponentAction,
@@ -20,6 +18,9 @@ import {
   UpdateLayoutAction,
   validateAtomicAction,
 } from '@sdui/AtomicUIActions';
+import { SDUIComponentSection, SDUIPageDefinition } from '@sdui/schema';
+
+import { logger } from '../lib/logger.js'
 
 /**
  * Component Mutation Service

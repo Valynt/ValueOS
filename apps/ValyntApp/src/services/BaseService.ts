@@ -8,6 +8,7 @@
  */
 
 import { supabase } from "../lib/supabase";
+
 import { ErrorCode, handleServiceError, NetworkError, ServiceError, TimeoutError } from "./errors";
 
 export interface RetryConfig {

@@ -8,7 +8,7 @@
  * - Automatic downgrade on budget pressure
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("Agent Cost Limit Enforcement", () => {
   describe("Cost Accumulation", () => {
