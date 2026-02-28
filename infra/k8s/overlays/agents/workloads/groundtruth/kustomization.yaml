@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../base/agents/groundtruth/deployment.yaml
+commonLabels:
+  app.kubernetes.io/part-of: valueos-agents
+  valueos.io/agent-name: groundtruth
+namespace: valueos-agents

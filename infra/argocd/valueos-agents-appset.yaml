@@ -1,0 +1,249 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: valueos-agents
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+  generators:
+    - list:
+        elements:
+          - agentName: benchmark
+            imageName: valynt-benchmark
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: evaluation
+          - agentName: communicator
+            imageName: valynt-communicator
+            imageTag: latest
+            cpuRequest: 100m
+            memoryRequest: 256Mi
+            cpuLimit: 500m
+            memoryLimit: 1Gi
+            logLevel: info
+            maxConcurrentRequests: "8"
+            agentProfile: communication
+          - agentName: company-intelligence
+            imageName: valynt-company-intelligence
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: analysis
+          - agentName: coordinator
+            imageName: valynt-coordinator
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            logLevel: info
+            maxConcurrentRequests: "10"
+            agentProfile: orchestration
+          - agentName: expansion
+            imageName: valynt-expansion
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: growth
+          - agentName: financial-modeling
+            imageName: valynt-financial-modeling
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            logLevel: info
+            maxConcurrentRequests: "5"
+            agentProfile: financial
+          - agentName: groundtruth
+            imageName: valynt-groundtruth
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            logLevel: info
+            maxConcurrentRequests: "4"
+            agentProfile: validation
+          - agentName: integrity
+            imageName: valynt-integrity
+            imageTag: latest
+            cpuRequest: 100m
+            memoryRequest: 256Mi
+            cpuLimit: 500m
+            memoryLimit: 1Gi
+            logLevel: warn
+            maxConcurrentRequests: "4"
+            agentProfile: assurance
+          - agentName: intervention-designer
+            imageName: valynt-intervention-designer
+            imageTag: latest
+            cpuRequest: 250m
+            memoryRequest: 640Mi
+            cpuLimit: 1250m
+            memoryLimit: 2.5Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: design
+          - agentName: narrative
+            imageName: valynt-narrative
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: storytelling
+          - agentName: opportunity
+            imageName: valynt-opportunity
+            imageTag: latest
+            cpuRequest: 500m
+            memoryRequest: 1Gi
+            cpuLimit: 1500m
+            memoryLimit: 2Gi
+            logLevel: info
+            maxConcurrentRequests: "10"
+            agentProfile: discovery
+          - agentName: outcome-engineer
+            imageName: valynt-outcome-engineer
+            imageTag: latest
+            cpuRequest: 250m
+            memoryRequest: 640Mi
+            cpuLimit: 1250m
+            memoryLimit: 2.5Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: planning
+          - agentName: realization
+            imageName: valynt-realization
+            imageTag: latest
+            cpuRequest: 750m
+            memoryRequest: 1536Mi
+            cpuLimit: 2000m
+            memoryLimit: 3Gi
+            logLevel: info
+            maxConcurrentRequests: "8"
+            agentProfile: delivery
+          - agentName: research
+            imageName: valynt-research
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: research
+          - agentName: system-mapper
+            imageName: valynt-system-mapper
+            imageTag: latest
+            cpuRequest: 200m
+            memoryRequest: 512Mi
+            cpuLimit: 1000m
+            memoryLimit: 2Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: architecture
+          - agentName: target
+            imageName: valynt-target
+            imageTag: latest
+            cpuRequest: 100m
+            memoryRequest: 256Mi
+            cpuLimit: 500m
+            memoryLimit: 1Gi
+            logLevel: info
+            maxConcurrentRequests: "8"
+            agentProfile: drafting
+          - agentName: value-eval
+            imageName: valynt-value-eval
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            logLevel: info
+            maxConcurrentRequests: "5"
+            agentProfile: scoring
+          - agentName: value-mapping
+            imageName: valynt-value-mapping
+            imageTag: latest
+            cpuRequest: 150m
+            memoryRequest: 384Mi
+            cpuLimit: 750m
+            memoryLimit: 1.5Gi
+            logLevel: info
+            maxConcurrentRequests: "6"
+            agentProfile: mapping
+  template:
+    metadata:
+      name: 'valueos-{{ .agentName }}'
+      labels:
+        app.kubernetes.io/part-of: valueos
+        app.kubernetes.io/component: agent
+        valueos.io/agent-name: '{{ .agentName }}'
+    spec:
+      project: valueos
+      source:
+        repoURL: https://github.com/valueos/ValueOS.git
+        targetRevision: main
+        path: 'infra/k8s/overlays/agents/workloads/{{ .agentName }}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: valueos-agents
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+  templatePatch: |
+    spec:
+      source:
+        kustomize:
+          images:
+            - '{{ .imageName }}:{{ .imageTag }}'
+          patches:
+            - target:
+                kind: Deployment
+                name: {{ .agentName }}-agent
+              patch: |-
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: {{ .agentName }}-agent
+                spec:
+                  template:
+                    spec:
+                      containers:
+                        - name: {{ .agentName }}-agent
+                          resources:
+                            requests:
+                              cpu: {{ .cpuRequest }}
+                              memory: {{ .memoryRequest }}
+                            limits:
+                              cpu: {{ .cpuLimit }}
+                              memory: {{ .memoryLimit }}
+                          env:
+                            - name: LOG_LEVEL
+                              value: "{{ .logLevel }}"
+                            - name: MAX_CONCURRENT_REQUESTS
+                              value: "{{ .maxConcurrentRequests }}"
+                            - name: AGENT_PROFILE
+                              value: "{{ .agentProfile }}"
