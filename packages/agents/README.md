@@ -4,60 +4,57 @@ Agent runtime and orchestration for ValueOS.
 
 ## Structure
 
-The `packages/agents` directory contains individual agent implementations and shared core libraries.
-
 ```
 agents/
 ├── base/          # Shared runtime, logger, metrics, and config
-├── core/          # Agent definitions, base classes
-├── orchestration/ # Multi-agent coordination
+├── core/          # Saga state machine, evidence tiering, confidence scoring, idempotency, DLQ
+├── orchestration/ # HypothesisLoop, RedTeamAgent
 ├── tools/         # Tool interfaces and registry
-├── evaluation/    # Agent evaluation harness
-├── research/      # Research Agent
-├── expansion/     # Expansion Agent
-├── opportunity/   # Opportunity Agent
-└── [agent-name]/  # Other specific agents
+└── evaluation/    # Agent evaluation harness and datasets
 ```
 
-## Agent Development
+## Deprecated: Standalone Microservice Agents
 
-Each agent is a self-contained package that exposes an Express application and its core analyzer logic.
+> **The following subdirectories are deprecated and will be removed in a future release.**
+> They contain standalone Express-based agent microservices that were an early
+> architectural prototype. The production agent implementations live in
+> `packages/backend/src/lib/agent-fabric/agents/` and run inside the unified
+> backend process — not as separate microservices.
+>
+> These directories are **not imported by any production code**, are not started
+> by any compose file, and most return mock/hardcoded data.
+>
+> **Deprecated directories:**
+> `benchmark/`, `communicator/`, `company-intelligence/`, `coordinator/`,
+> `expansion/`, `financial-modeling/`, `groundtruth/`, `integrity/`,
+> `intervention-designer/`, `narrative/`, `opportunity/`, `outcome-engineer/`,
+> `realization/`, `research/`, `system-mapper/`, `target/`, `value-eval/`,
+> `value-mapping/`
+>
+> **Do not add new code to these directories.** If you need a new agent, add it
+> to `packages/backend/src/lib/agent-fabric/agents/` following the `BaseAgent`
+> pattern documented in `AGENTS.md`.
 
-### Directory Structure
+## Active Exports
 
-A typical agent package (e.g., `packages/agents/research`) should follow this structure:
+Only the following subpaths are exported and consumed by `packages/backend`:
 
-```
-research/
-├── src/
-│   ├── __tests__/      # Unit tests
-│   │   └── research.test.ts
-│   ├── index.ts        # Main entry point, Analyzer class, and Express app
-│   └── [other-files]
-├── package.json
-├── tsconfig.json
-└── README.md           # Agent-specific documentation
-```
-
-### Best Practices
-
-1.  **Export Analyzer Class:** Always export the main analyzer class (e.g., `ResearchAnalyzer`) to allow for unit testing without spinning up the server.
-2.  **Export App Instance:** Export the `app` instance created by `createServer` to allow for potential integration testing.
-3.  **Unit Tests:** Implement comprehensive unit tests in `src/__tests__/`. Mock external dependencies like `@valueos/agents/base` (logger, metrics) to test logic in isolation.
-4.  **Documentation:** Include a `README.md` in the agent's root directory describing capabilities, configuration, and API usage.
-5.  **Input Validation:** Use `zod` schemas to validate incoming requests.
+| Export path | Contents |
+|---|---|
+| `./core` | `ValueCaseSaga`, `EvidenceTiering`, `ConfidenceScorer`, `IdempotencyGuard`, `DeadLetterQueue` |
+| `./orchestration` | `HypothesisLoop`, `RedTeamAgent` |
+| `./tools` | Tool interfaces and registry |
+| `./evaluation` | Agent evaluation harness |
+| `./base` | Shared runtime (logger, metrics, config, health) |
 
 ## Testing
 
-To run tests for a specific agent:
-
 ```bash
-npx vitest run packages/agents/[agent-name] --passWithNoTests
-```
+# Run tests for active modules
+npx vitest run packages/agents/core --passWithNoTests
+npx vitest run packages/agents/orchestration --passWithNoTests
 
-To run all agent tests:
-
-```bash
+# Run all agent tests (includes deprecated — will be removed)
 npx vitest run packages/agents --passWithNoTests
 ```
 
@@ -65,10 +62,11 @@ npx vitest run packages/agents --passWithNoTests
 
 | Consumer | Can Import? |
 |----------|-------------|
-| `packages/backend` | ✅ Yes (to run agents) |
-| `apps/*` | ❌ No |
+| `packages/backend` | Yes (core, orchestration, tools, evaluation, base) |
+| `apps/*` | No |
 
 ## Dependencies
 
-- `@valueos/memory` - for agent memory access
-- `@valueos/infra` - for infrastructure (via memory)
+- `@valueos/agent-base` — shared runtime
+- `@valueos/memory` — agent memory access (peer)
+- `@valueos/infra` — infrastructure (peer, via memory)

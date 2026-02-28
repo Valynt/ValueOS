@@ -1,4 +1,9 @@
 /**
+ * @deprecated This standalone microservice agent is deprecated.
+ * Production agent implementations live in packages/backend/src/lib/agent-fabric/agents/.
+ * This file will be removed in a future release. Do not add new code here.
+ */
+/**
  * Ground Truth Agent
  *
  * Fetches grounding data and evidence for value claims.
