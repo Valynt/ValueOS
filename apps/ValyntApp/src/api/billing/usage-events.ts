@@ -12,10 +12,17 @@ import { createRequestSupabaseClient } from "../../lib/supabase.js";
 const router = express.Router();
 const logger = createLogger({ component: "UsageEventsAPI" });
 
+class MissingAuthError extends Error {
+  constructor() {
+    super("Missing authorization header");
+    this.name = "MissingAuthError";
+  }
+}
+
 function getClientFromReq(req: Request): SupabaseClient {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new Error("Missing authorization header");
+    throw new MissingAuthError();
   }
   const token = authHeader.slice(7).trim();
   return createRequestSupabaseClient(token);
@@ -65,7 +72,10 @@ router.post("/", async (req: Request, res: Response) => {
     let supabase: SupabaseClient;
     try {
       supabase = getClientFromReq(req);
-    } catch {
+    } catch (err) {
+      if (err instanceof MissingAuthError) {
+        return res.status(401).json({ error: "Unauthorized - missing authorization" });
+      }
       return res.status(503).json({ error: "Billing service not configured" });
     }
 
@@ -182,7 +192,10 @@ router.post("/batch", async (req: Request, res: Response) => {
     let supabase: SupabaseClient;
     try {
       supabase = getClientFromReq(req);
-    } catch {
+    } catch (err) {
+      if (err instanceof MissingAuthError) {
+        return res.status(401).json({ error: "Unauthorized - missing authorization" });
+      }
       return res.status(503).json({ error: "Billing service not configured" });
     }
 
