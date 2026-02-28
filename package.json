@@ -193,7 +193,8 @@
     "lint:fix": "eslint . --cache --fix",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh",
     "lint:custom-fix": "node .github/scripts/lint-custom-fix.js",
-    "check:todo-metadata": "node .github/scripts/check-todo-metadata.cjs"
+    "check:todo-metadata": "node .github/scripts/check-todo-metadata.cjs",
+    "check:frontend-bundle-service-role": "node scripts/ci/check-frontend-bundle-service-role.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": "eslint --fix"
