@@ -32,6 +32,7 @@ import { v4 as uuidv4 } from "uuid";
 import * as z from "zod";
 
 import { getTracer } from "../config/telemetry.js";
+import { getAutonomyConfig } from "../config/autonomy.js";
 
 import { ConfidenceMonitor } from "./ConfidenceMonitor";
 import GroundtruthAPI, {
@@ -55,6 +56,7 @@ import { SupabaseMemoryBackend } from "../lib/agent-fabric/SupabaseMemoryBackend
 import { logger } from "../lib/logger.js";
 
 import { semanticMemory } from "./SemanticMemory.js";
+import { securityLogger } from "./SecurityLogger.js";
 
 // ============================================================================
 // Local Types
@@ -68,24 +70,6 @@ interface StageLifecycleRecord {
   completedAt: string;
   summary?: string;
 }
-
-// Stub for missing imports
-interface AutonomyConfig {
-  maxAutonomousActions: number;
-  requireApproval: boolean;
-  killSwitchEnabled?: boolean;
-  maxDurationMs?: number;
-  maxCostUsd?: number;
-  requireApprovalForDestructive?: boolean;
-  agentAutonomyLevels?: Record<string, string>;
-  agentKillSwitches?: Record<string, boolean>;
-  agentMaxIterations?: Record<string, number>;
-}
-declare function getAutonomyConfig(): AutonomyConfig;
-declare const securityLogger: {
-  warn: (msg: string | Record<string, unknown>, meta?: Record<string, unknown>) => void;
-  log: (msg: string | Record<string, unknown>, meta?: Record<string, unknown>) => void;
-};
 
 // ============================================================================
 // Middleware Types
@@ -3156,7 +3140,15 @@ Provide a JSON response with:
     context: Record<string, any>,
     startTime: number
   ): Promise<void> {
-    const autonomy = getAutonomyConfig();
+    const autonomy = getAutonomyConfig() as ReturnType<typeof getAutonomyConfig> & {
+      killSwitchEnabled?: boolean;
+      maxDurationMs?: number;
+      maxCostUsd?: number;
+      requireApprovalForDestructive?: boolean;
+      agentAutonomyLevels?: Record<string, string>;
+      agentKillSwitches?: Record<string, boolean>;
+      agentMaxIterations?: Record<string, number>;
+    };
 
     // Check kill switch
     if (autonomy.killSwitchEnabled) {
