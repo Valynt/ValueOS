@@ -5,7 +5,7 @@
     "stability_window_days": 7
   },
   "strict_zones": {
-    "current_files": 49,
+    "current_files": 56,
     "weekly_growth_percent": 15,
     "weekly_growth_min_files": 7,
     "week_targets": {
@@ -79,7 +79,7 @@
     "packages/backend": 3061,
     "packages/sdui": 179,
     "packages/mcp": 411,
-    "packages/agents": 86,
+    "packages/agents": 0,
     "packages/infra": 6,
     "packages/services": 20,
     "packages/shared": 5,

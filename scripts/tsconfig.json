@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": [
+      "node",
+      "vitest",
+      "jest"
+    ]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.mts",
+    "**/*.tsx",
+    "**/*.mjs",
+    "**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

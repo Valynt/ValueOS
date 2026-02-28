@@ -183,6 +183,7 @@
     "dx:down:docker": "node scripts/dx/mode-entrypoint.js down --mode cloud-dev",
     "dx:cloud-dev": "node scripts/dx/mode-entrypoint.js up --mode cloud-dev",
     "dx:down:cloud-dev": "node scripts/dx/mode-entrypoint.js down --mode cloud-dev",
+    "typecheck:scripts": "tsc -p scripts/tsconfig.json --noEmit",
     "dev:frontend": "bash scripts/dev/start-frontend.sh",
     "dev:backend": "bash scripts/dev/start-backend.sh",
     "db:apply-migrations": "bash scripts/db/apply-migrations.sh"

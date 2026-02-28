@@ -290,6 +290,39 @@ const valyntBackendServiceImportGuard = {
   },
 };
 
+// Strong import boundary guard for ValyntApp service layer
+const valyntServicesImportGuard = {
+  files: ["apps/ValyntApp/src/services/**/*.{ts,tsx}"],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: [
+              "@valueos/*/src/*",
+              "@valueos/*/*/src/*",
+              "packages/*/src/*",
+              "../../packages/*",
+              "../../../packages/*",
+            ],
+            message:
+              "Service-layer code in apps/ValyntApp must consume package public APIs only. Do not import package internals or cross package via relative paths.",
+          },
+          {
+            group: [
+              "../apps/*",
+              "../../apps/*",
+              "../../../apps/*",
+            ],
+            message: "Do not import other apps from the service layer. Use published package APIs instead.",
+          },
+        ],
+      },
+    ],
+  },
+};
+
 // Test overrides - NO plugin redefinition, only rule overrides
 const testOverrides = {
   files: [
@@ -579,6 +612,7 @@ export default [
   pluginConfig,
   baseConfig,
   valyntBackendServiceImportGuard,
+  valyntServicesImportGuard,
   backendServiceAuthOverrides,
   backendNoConsoleOverrides,
   strictNoAnyOverrides,

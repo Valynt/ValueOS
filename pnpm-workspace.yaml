@@ -1,6 +1,6 @@
 packages:
   - "packages/*"
-  - "packages/agents/base"
+
   - "packages/mcp/ground-truth"
   - "packages/mcp/crm"
   - "packages/mcp/common"
