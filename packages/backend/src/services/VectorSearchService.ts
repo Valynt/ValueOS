@@ -410,12 +410,12 @@ export class VectorSearchService {
       "LOWER(metadata->>'data_sensitivity_level') <> 'unknown'",
     ];
 
-    // Type filter — validate against known enum to prevent injection
+    // Type filter — validate against known enum and escape for defense-in-depth
     if (type) {
       if (!VectorSearchService.VALID_TYPES.has(type)) {
         throw new Error(`Invalid memory type: ${type}`);
       }
-      conditions.push(`type = '${type}'`);
+      conditions.push(`type = '${this.escapeSqlLiteral(type)}'`);
     }
 
     if (requireLineage) {

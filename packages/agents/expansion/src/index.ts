@@ -1,11 +1,11 @@
 /**
- * Expansion Agent (Standalone Microservice)
- *
- * @deprecated This standalone Express-based agent uses mock data and is
- * superseded by the agent-fabric implementation at
- * packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts
- * which uses secureInvoke, memory integration, and Zod validation.
- * This service will be removed in a future release.
+ * @deprecated This standalone microservice agent is deprecated.
+ * Production agent implementations live in packages/backend/src/lib/agent-fabric/agents/.
+ * This file will be removed in a future release. Do not add new code here.
+ */
+/**
+ * Expansion Agent
+ * Analyzes expansion and growth strategies for business development
  */
 
 import express from "express";

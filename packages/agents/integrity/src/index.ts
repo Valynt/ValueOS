@@ -1,11 +1,13 @@
 /**
- * Integrity Agent (Standalone Microservice)
+ * @deprecated This standalone microservice agent is deprecated.
+ * Production agent implementations live in packages/backend/src/lib/agent-fabric/agents/.
+ * This file will be removed in a future release. Do not add new code here.
+ */
+/**
+ * Integrity Agent
  *
- * @deprecated This standalone Express-based agent is superseded by the
- * agent-fabric implementation at
- * packages/backend/src/lib/agent-fabric/agents/IntegrityAgent.ts
- * which uses secureInvoke, memory integration, and Zod validation.
- * This service will be removed in a future release.
+ * Validates value claims against evidence, performs integrity checks,
+ * and produces confidence scores. Uses LLMGateway for analysis.
  */
 
 import express from "express";

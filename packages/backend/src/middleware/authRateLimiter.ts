@@ -9,6 +9,11 @@
  * - Progressive backoff on repeated failures
  * - Temporary account lockout after threshold
  * - Distinct limits per auth action (login vs signup vs password reset)
+ *
+ * TODO: This store is in-memory (per-pod). With HPA scaling to 2–10 pods,
+ * an attacker can distribute requests across pods to get N × maxAttempts
+ * before being blocked. Migrate to Redis-backed store (like
+ * WebSocketBroadcastAdapter) for cross-pod rate limiting.
  */
 
 import { NextFunction, Request, Response } from "express";

@@ -1,12 +1,14 @@
 /**
- * Financial Modeling Agent (Standalone Microservice)
+ * @deprecated This standalone microservice agent is deprecated.
+ * Production agent implementations live in packages/backend/src/lib/agent-fabric/agents/.
+ * This file will be removed in a future release. Do not add new code here.
+ */
+/**
+ * Financial Modeling Agent
  *
- * @deprecated This standalone Express-based agent is superseded by the
- * agent-fabric implementation at
- * packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts
- * which uses secureInvoke, memory integration, domain pack context,
- * and MCP Ground Truth grounding. This service will be removed in a
- * future release.
+ * Builds Value Trees from confirmed hypotheses using the LLMGateway.
+ * Replaces mock data with structured LLM calls, Zod-validated output,
+ * and idempotency key support.
  */
 
 import express from "express";

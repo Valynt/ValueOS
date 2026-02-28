@@ -448,7 +448,9 @@ router.get("/session", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/refresh", requireAuth, async (req: Request, res: Response) => {
+// No requireAuth — clients call /refresh with an expired access token
+// and a valid refresh token. The auth middleware would reject expired tokens.
+router.post("/refresh", async (req: Request, res: Response) => {
   try {
     const result = await authService.refreshSession();
 

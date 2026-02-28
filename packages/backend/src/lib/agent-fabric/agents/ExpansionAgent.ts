@@ -1,15 +1,18 @@
 /**
  * ExpansionAgent
  *
- * Sits in the EXPANSION phase of the value lifecycle. Retrieves
- * realization plans, validated hypotheses, and KPI targets from
- * upstream agents via memory, then uses the LLM to identify growth
- * opportunities — upsell/cross-sell paths, market expansion,
- * product line extensions, and account development strategies.
+ * Final stage of the value lifecycle. Reads proof points, variance reports,
+ * and expansion signals written by RealizationAgent, then uses the LLM to
+ * identify upsell/cross-sell opportunities, new value cycles, and gap
+ * analyses based on realized outcomes.
  *
- * Output includes expansion opportunities with ROI projections,
- * prioritization scores, and SDUI sections (AgentResponseCard +
- * expansion opportunity cards).
+ * Successful expansion opportunities are stored in memory as new seeds
+ * that can re-enter the pipeline via OpportunityAgent, closing the
+ * value lifecycle loop.
+ *
+ * Output includes expansion opportunities, gap analysis, a new-cycle
+ * recommendation, and SDUI sections (AgentResponseCard + DiscoveryCard
+ * + InteractiveChart).
  */
 
 import { BaseAgent } from './BaseAgent.js';
@@ -21,9 +24,6 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
-import { featureFlags } from '../../../config/featureFlags.js';
-import { loadDomainContext } from '../../../agents/context/loadDomainContext.js';
-import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
@@ -31,50 +31,48 @@ import type { DomainContext } from '../../../agents/context/loadDomainContext.js
 
 const ExpansionOpportunitySchema = z.object({
   id: z.string(),
-  title: z.string(),
-  description: z.string(),
-  type: z.enum([
-    'upsell',
-    'cross_sell',
-    'market_expansion',
-    'product_extension',
-    'account_development',
-    'partnership',
-  ]),
-  source_hypothesis_id: z.string().optional(),
-  estimated_revenue_impact: z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  type: z.enum(['upsell', 'cross_sell', 'new_use_case', 'geographic_expansion', 'deeper_adoption']),
+  source_kpi_id: z.string(),
+  estimated_additional_value: z.object({
     low: z.number(),
     high: z.number(),
-    currency: z.string().default('USD'),
+    unit: z.enum(['usd', 'percent', 'hours', 'headcount']),
     timeframe_months: z.number().int().positive(),
   }),
-  effort_level: z.enum(['low', 'medium', 'high']),
-  priority_score: z.number().min(0).max(1),
-  prerequisites: z.array(z.string()),
-  risks: z.array(z.string()),
   confidence: z.number().min(0).max(1),
+  evidence: z.array(z.string()).min(1),
+  prerequisites: z.array(z.string()),
+  stakeholders: z.array(z.string()),
+});
+
+const GapAnalysisItemSchema = z.object({
+  kpi_id: z.string(),
+  kpi_name: z.string(),
+  gap_type: z.enum(['underperformance', 'missing_data', 'methodology_issue', 'scope_limitation']),
+  description: z.string(),
+  root_cause: z.string(),
+  recommended_action: z.string(),
+  priority: z.enum(['low', 'medium', 'high']),
 });
 
 const ExpansionAnalysisSchema = z.object({
-  opportunities: z.array(ExpansionOpportunitySchema).min(1),
-  market_assessment: z.string(),
-  account_health_indicators: z.array(z.object({
-    indicator: z.string(),
-    status: z.enum(['strong', 'moderate', 'weak']),
-    description: z.string(),
-  })),
-  recommended_sequence: z.array(z.string()),
-  total_addressable_expansion: z.object({
+  opportunities: z.array(ExpansionOpportunitySchema),
+  gap_analysis: z.array(GapAnalysisItemSchema),
+  portfolio_summary: z.string(),
+  total_expansion_potential: z.object({
     low: z.number(),
     high: z.number(),
-    currency: z.string().default('USD'),
-    timeframe_months: z.number().int().positive(),
+    currency: z.string(),
   }),
-  retention_risk_factors: z.array(z.object({
-    factor: z.string(),
-    severity: z.enum(['low', 'medium', 'high']),
-    mitigation: z.string(),
+  new_cycle_recommendations: z.array(z.object({
+    title: z.string(),
+    rationale: z.string(),
+    priority: z.enum(['low', 'medium', 'high']),
+    seed_query: z.string(),
   })),
+  recommended_next_steps: z.array(z.string()),
 });
 
 type ExpansionAnalysis = z.infer<typeof ExpansionAnalysisSchema>;
@@ -91,24 +89,24 @@ export class ExpansionAgent extends BaseAgent {
       throw new Error('Invalid input context');
     }
 
-    // Step 1: Retrieve upstream context from memory
-    const hypotheses = await this.retrieveHypotheses(context);
-    const realizationPlans = await this.retrieveRealizationPlans(context);
-    const kpiTargets = await this.retrieveKPITargets(context);
+    // Step 1: Retrieve proof points and expansion signals from RealizationAgent
+    const proofPoints = await this.retrieveProofPoints(context);
+    const expansionSignals = await this.retrieveExpansionSignals(context);
+    const varianceReport = await this.retrieveVarianceReport(context);
 
-    if (hypotheses.length === 0 && realizationPlans.length === 0) {
+    // Step 2: Retrieve original hypotheses for context
+    const hypotheses = await this.retrieveHypotheses(context);
+
+    if (proofPoints.length === 0 && expansionSignals.length === 0) {
       return this.buildOutput(
-        { error: 'No hypotheses or realization plans found. Run upstream agents first.' },
+        { error: 'No proof points or expansion signals found. Run RealizationAgent first.' },
         'failure', 'low', startTime,
       );
     }
 
-    // Step 1b: Load domain pack context
-    const domainContext = await this.loadDomainPackContext(context);
-
-    // Step 2: Generate expansion analysis via LLM
-    const analysis = await this.generateExpansionAnalysis(
-      context, hypotheses, realizationPlans, kpiTargets, domainContext,
+    // Step 3: Generate expansion analysis via LLM
+    const analysis = await this.analyzeExpansion(
+      context, proofPoints, expansionSignals, varianceReport, hypotheses,
     );
     if (!analysis) {
       return this.buildOutput(
@@ -117,65 +115,104 @@ export class ExpansionAgent extends BaseAgent {
       );
     }
 
-    // Step 3: Store expansion opportunities in memory
+    // Step 4: Store expansion opportunities as seeds for new cycles
     await this.storeExpansionInMemory(context, analysis);
 
-    // Step 4: Build SDUI sections
+    // Step 5: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis);
 
-    // Step 5: Determine confidence
-    const avgConfidence = analysis.opportunities.reduce((sum, o) => sum + o.confidence, 0)
-      / analysis.opportunities.length;
+    // Step 6: Determine confidence
+    const avgConfidence = analysis.opportunities.length > 0
+      ? analysis.opportunities.reduce((sum, o) => sum + o.confidence, 0) / analysis.opportunities.length
+      : 0.5;
     const confidenceLevel = this.toConfidenceLevel(avgConfidence);
 
     const result = {
       opportunities: analysis.opportunities,
-      market_assessment: analysis.market_assessment,
-      account_health_indicators: analysis.account_health_indicators,
-      recommended_sequence: analysis.recommended_sequence,
-      total_addressable_expansion: analysis.total_addressable_expansion,
-      retention_risk_factors: analysis.retention_risk_factors,
+      gap_analysis: analysis.gap_analysis,
+      portfolio_summary: analysis.portfolio_summary,
+      total_expansion_potential: analysis.total_expansion_potential,
+      new_cycle_recommendations: analysis.new_cycle_recommendations,
       opportunities_count: analysis.opportunities.length,
+      gaps_identified: analysis.gap_analysis.length,
+      new_cycles_recommended: analysis.new_cycle_recommendations.length,
       sdui_sections: sduiSections,
     };
 
     return this.buildOutput(result, 'success', confidenceLevel, startTime, {
-      reasoning: `Identified ${analysis.opportunities.length} expansion opportunities. ` +
-        `Total addressable expansion: $${analysis.total_addressable_expansion.low.toLocaleString()}-` +
-        `$${analysis.total_addressable_expansion.high.toLocaleString()} ` +
-        `over ${analysis.total_addressable_expansion.timeframe_months} months.`,
-      suggested_next_actions: analysis.recommended_sequence.slice(0, 3),
+      reasoning: `Identified ${analysis.opportunities.length} expansion opportunities ` +
+        `with potential value $${analysis.total_expansion_potential.low.toLocaleString()}-$${analysis.total_expansion_potential.high.toLocaleString()} ${analysis.total_expansion_potential.currency}. ` +
+        `${analysis.gap_analysis.length} gaps analyzed. ` +
+        `${analysis.new_cycle_recommendations.length} new value cycles recommended.`,
+      suggested_next_actions: analysis.recommended_next_steps,
     });
-  }
-
-  // -------------------------------------------------------------------------
-  // Domain Pack Context
-  // -------------------------------------------------------------------------
-
-  private async loadDomainPackContext(context: LifecycleContext): Promise<DomainContext> {
-    const empty: DomainContext = { pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [] };
-
-    if (!featureFlags.ENABLE_DOMAIN_PACK_CONTEXT) return empty;
-
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
-    if (!valueCaseId || !context.organization_id) return empty;
-
-    try {
-      const supabaseClient = (context as Record<string, unknown>).supabaseClient as
-        import('@supabase/supabase-js').SupabaseClient | undefined;
-      return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
-    } catch (err) {
-      logger.warn('ExpansionAgent: failed to load domain pack context', {
-        value_case_id: valueCaseId,
-        error: (err as Error).message,
-      });
-      return empty;
-    }
   }
 
   // -------------------------------------------------------------------------
   // Memory Retrieval
   // -------------------------------------------------------------------------
+
+  private async retrieveProofPoints(
+    context: LifecycleContext,
+  ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
+    try {
+      const memories = await this.memorySystem.retrieve({
+        agent_id: 'realization',
+        memory_type: 'semantic',
+        limit: 20,
+        organization_id: context.organization_id,
+      });
+      return memories
+        .filter(m => m.metadata?.type === 'proof_point')
+        .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
+    } catch (err) {
+      logger.warn('ExpansionAgent: failed to retrieve proof points', {
+        error: (err as Error).message,
+      });
+      return [];
+    }
+  }
+
+  private async retrieveExpansionSignals(
+    context: LifecycleContext,
+  ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
+    try {
+      const memories = await this.memorySystem.retrieve({
+        agent_id: 'realization',
+        memory_type: 'semantic',
+        limit: 10,
+        organization_id: context.organization_id,
+      });
+      return memories
+        .filter(m => m.metadata?.type === 'expansion_signal')
+        .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
+    } catch (err) {
+      logger.warn('ExpansionAgent: failed to retrieve expansion signals', {
+        error: (err as Error).message,
+      });
+      return [];
+    }
+  }
+
+  private async retrieveVarianceReport(
+    context: LifecycleContext,
+  ): Promise<{ content: string; metadata: Record<string, unknown> } | null> {
+    try {
+      const memories = await this.memorySystem.retrieve({
+        agent_id: 'realization',
+        memory_type: 'semantic',
+        limit: 5,
+        organization_id: context.organization_id,
+      });
+      const report = memories.find(m => m.metadata?.type === 'variance_report');
+      return report ? { content: report.content, metadata: report.metadata || {} } : null;
+    } catch (err) {
+      logger.warn('ExpansionAgent: failed to retrieve variance report', {
+        error: (err as Error).message,
+      });
+      return null;
+    }
+  }
 
   private async retrieveHypotheses(
     context: LifecycleContext,
@@ -191,45 +228,9 @@ export class ExpansionAgent extends BaseAgent {
         .filter(m => m.metadata?.verified === true && m.metadata?.category)
         .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
     } catch (err) {
-      logger.warn('Failed to retrieve hypotheses from memory', { error: (err as Error).message });
-      return [];
-    }
-  }
-
-  private async retrieveRealizationPlans(
-    context: LifecycleContext,
-  ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
-    try {
-      const memories = await this.memorySystem.retrieve({
-        agent_id: 'realization',
-        memory_type: 'semantic',
-        limit: 10,
-        organization_id: context.organization_id,
+      logger.warn('ExpansionAgent: failed to retrieve hypotheses', {
+        error: (err as Error).message,
       });
-      return memories
-        .filter(m => m.metadata?.type === 'realization_plan' || m.metadata?.type === 'realization_summary')
-        .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
-    } catch (err) {
-      logger.warn('Failed to retrieve realization plans from memory', { error: (err as Error).message });
-      return [];
-    }
-  }
-
-  private async retrieveKPITargets(
-    context: LifecycleContext,
-  ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
-    try {
-      const memories = await this.memorySystem.retrieve({
-        agent_id: 'target',
-        memory_type: 'semantic',
-        limit: 20,
-        organization_id: context.organization_id,
-      });
-      return memories
-        .filter(m => m.metadata?.kpi_id)
-        .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
-    } catch (err) {
-      logger.warn('Failed to retrieve KPI targets from memory', { error: (err as Error).message });
       return [];
     }
   }
@@ -238,72 +239,47 @@ export class ExpansionAgent extends BaseAgent {
   // LLM Expansion Analysis
   // -------------------------------------------------------------------------
 
-  private async generateExpansionAnalysis(
+  private async analyzeExpansion(
     context: LifecycleContext,
+    proofPoints: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    expansionSignals: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    varianceReport: { content: string; metadata: Record<string, unknown> } | null,
     hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    realizationPlans: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    kpis: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    domainContext?: DomainContext,
   ): Promise<ExpansionAnalysis | null> {
-    const hypothesesContext = hypotheses.map((h, i) => {
-      const m = h.metadata;
-      const impact = m.estimated_impact as Record<string, unknown> | undefined;
-      return `${i + 1}. ${h.content}\n   Category: ${m.category || 'unknown'}\n   ` +
-        `Impact: ${impact?.low || '?'}-${impact?.high || '?'} ${impact?.unit || ''}`;
+    const proofContext = proofPoints.map((p, i) => {
+      const m = p.metadata;
+      return `${i + 1}. ${p.content}
+   Direction: ${m.direction}, Confidence: ${m.confidence}
+   Variance: ${m.variance_percentage}%`;
     }).join('\n\n');
 
-    const realizationContext = realizationPlans.map((r, i) =>
-      `${i + 1}. ${r.content}\n   Timeline: ${r.metadata.timeline_months || '?'} months, ` +
-      `Confidence: ${r.metadata.confidence || '?'}`,
-    ).join('\n\n');
+    const signalContext = expansionSignals.length > 0
+      ? `\n\nExpansion signals from RealizationAgent:\n${expansionSignals.map(s => `- ${s.content}`).join('\n')}`
+      : '';
 
-    const kpiContext = kpis.map((k, i) => {
-      const m = k.metadata;
-      const baseline = m.baseline as Record<string, unknown> | undefined;
-      const target = m.target as Record<string, unknown> | undefined;
-      return `${i + 1}. ${k.content}\n   ${baseline?.value || '?'} → ${target?.value || '?'}`;
-    }).join('\n\n');
+    const varianceContext = varianceReport
+      ? `\n\nVariance report: ${varianceReport.content}`
+      : '';
 
-    let domainFragment = '';
-    if (domainContext?.glossary && Object.keys(domainContext.glossary).length > 0) {
-      domainFragment += `\n\nDomain terminology:\n${Object.entries(domainContext.glossary).map(([k, v]) => `- "${k}" → "${v}"`).join('\n')}`;
-    }
-    if (domainContext?.complianceRules && domainContext.complianceRules.length > 0) {
-      domainFragment += `\n\nCompliance constraints:\n${domainContext.complianceRules.map(r => `- ${r}`).join('\n')}`;
-    }
+    const hypothesisContext = hypotheses.length > 0
+      ? `\n\nOriginal hypotheses:\n${hypotheses.map(h => `- ${h.content} (category: ${h.metadata.category})`).join('\n')}`
+      : '';
 
-    const systemPrompt = `You are a Value Engineering expansion strategist. Your job is to identify growth opportunities based on validated value hypotheses and realization plans.
+    const systemPrompt = `You are a Value Expansion analyst. Your job is to identify growth opportunities from realized value data and recommend new value cycles.
 
-For each opportunity, provide:
-- type: upsell, cross_sell, market_expansion, product_extension, account_development, or partnership
-- estimated_revenue_impact: Revenue range with timeframe
-- effort_level: low, medium, or high
-- priority_score: 0.0-1.0 based on impact/effort ratio
-- prerequisites: What must be in place first
-- risks: Key risks to the expansion
-- confidence: 0.0-1.0
+Rules:
+- Analyze proof points to find KPIs that exceeded targets — these indicate expansion potential.
+- Analyze underperforming KPIs for gap analysis — identify root causes and remediation.
+- Each expansion opportunity must have a concrete estimated_additional_value range.
+- Types: upsell (more of the same), cross_sell (adjacent solutions), new_use_case (novel application), geographic_expansion, deeper_adoption.
+- New cycle recommendations should include a seed_query that OpportunityAgent can use to start a new discovery cycle.
+- Evidence must reference specific proof points or signals, not generic claims.
+- total_expansion_potential aggregates across all identified opportunities.
+- Gap analysis should be actionable with clear root causes and recommended actions.
 
-Also provide:
-- market_assessment: Overall market opportunity summary
-- account_health_indicators: Signals about account/customer health
-- recommended_sequence: Ordered list of which opportunities to pursue first
-- total_addressable_expansion: Aggregate revenue potential
-- retention_risk_factors: Factors that could cause churn
+Respond with valid JSON matching the schema. No markdown fences or commentary.`;
 
-Be specific. Ground recommendations in the existing hypotheses and realization plans. Respond with valid JSON. No markdown fences.${domainFragment}`;
-
-    const userPrompt = `Identify expansion opportunities based on:
-
-Validated Hypotheses:
-${hypothesesContext || 'None available.'}
-
-Realization Plans:
-${realizationContext || 'None available.'}
-
-KPI Targets:
-${kpiContext || 'None available.'}
-
-${context.user_inputs?.additional_context ? `Additional context: ${context.user_inputs.additional_context}` : ''}`;
+    const userPrompt = `Analyze expansion potential from these realized outcomes:\n\n${proofContext}${signalContext}${varianceContext}${hypothesisContext}\n\nIdentify expansion opportunities, perform gap analysis on underperforming areas, and recommend new value cycles.`;
 
     try {
       return await this.secureInvoke<ExpansionAnalysis>(
@@ -316,13 +292,13 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
           context: {
             agent: 'expansion',
             organization_id: context.organization_id,
-            hypothesis_count: hypotheses.length,
-            realization_plan_count: realizationPlans.length,
+            proof_point_count: proofPoints.length,
+            signal_count: expansionSignals.length,
           },
         },
       );
     } catch (err) {
-      logger.error('Expansion analysis failed', {
+      logger.error('ExpansionAgent: analysis failed', {
         error: (err as Error).message,
         workspace_id: context.workspace_id,
       });
@@ -334,60 +310,91 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
   // Memory Storage
   // -------------------------------------------------------------------------
 
+  /**
+   * Store expansion opportunities as seeds for new OpportunityAgent cycles.
+   */
   private async storeExpansionInMemory(
     context: LifecycleContext,
     analysis: ExpansionAnalysis,
   ): Promise<void> {
-    // Store overall expansion summary
-    try {
-      await this.memorySystem.storeSemanticMemory(
-        context.workspace_id,
-        'expansion',
-        'semantic',
-        `Expansion analysis: ${analysis.opportunities.length} opportunities identified. ` +
-          `Total addressable: $${analysis.total_addressable_expansion.low.toLocaleString()}-` +
-          `$${analysis.total_addressable_expansion.high.toLocaleString()}.`,
-        {
-          type: 'expansion_summary',
-          opportunities_count: analysis.opportunities.length,
-          total_addressable_low: analysis.total_addressable_expansion.low,
-          total_addressable_high: analysis.total_addressable_expansion.high,
-          retention_risk_count: analysis.retention_risk_factors.length,
-          organization_id: context.organization_id,
-          importance: 0.85,
-        },
-        context.organization_id,
-      );
-    } catch (err) {
-      logger.warn('Failed to store expansion summary in memory', { error: (err as Error).message });
-    }
-
-    // Store each opportunity individually
-    for (const opp of analysis.opportunities) {
+    // Store each expansion opportunity
+    for (const opportunity of analysis.opportunities) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
           'expansion',
           'semantic',
-          `Expansion opportunity: "${opp.title}" (${opp.type}) — ${opp.description}`,
+          `ExpansionOpportunity: ${opportunity.title} — ${opportunity.description} (type: ${opportunity.type}, value: ${opportunity.estimated_additional_value.low}-${opportunity.estimated_additional_value.high} ${opportunity.estimated_additional_value.unit})`,
           {
             type: 'expansion_opportunity',
-            opportunity_id: opp.id,
-            opportunity_type: opp.type,
-            source_hypothesis_id: opp.source_hypothesis_id,
-            revenue_impact_low: opp.estimated_revenue_impact.low,
-            revenue_impact_high: opp.estimated_revenue_impact.high,
-            effort_level: opp.effort_level,
-            priority_score: opp.priority_score,
-            confidence: opp.confidence,
+            opportunity_id: opportunity.id,
+            opportunity_type: opportunity.type,
+            source_kpi_id: opportunity.source_kpi_id,
+            estimated_additional_value: opportunity.estimated_additional_value,
+            confidence: opportunity.confidence,
+            prerequisites: opportunity.prerequisites,
+            stakeholders: opportunity.stakeholders,
             organization_id: context.organization_id,
-            importance: opp.priority_score,
+            importance: opportunity.confidence,
           },
           context.organization_id,
         );
       } catch (err) {
-        logger.warn('Failed to store expansion opportunity in memory', {
-          opportunity_id: opp.id,
+        logger.warn('ExpansionAgent: failed to store expansion opportunity', {
+          opportunity_id: opportunity.id,
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    // Store gap analysis items
+    for (const gap of analysis.gap_analysis) {
+      try {
+        await this.memorySystem.storeSemanticMemory(
+          context.workspace_id,
+          'expansion',
+          'semantic',
+          `GapAnalysis: ${gap.kpi_name} — ${gap.description} (root cause: ${gap.root_cause})`,
+          {
+            type: 'gap_analysis',
+            kpi_id: gap.kpi_id,
+            gap_type: gap.gap_type,
+            root_cause: gap.root_cause,
+            recommended_action: gap.recommended_action,
+            priority: gap.priority,
+            organization_id: context.organization_id,
+            importance: gap.priority === 'high' ? 0.9 : gap.priority === 'medium' ? 0.7 : 0.5,
+          },
+          context.organization_id,
+        );
+      } catch (err) {
+        logger.warn('ExpansionAgent: failed to store gap analysis', {
+          kpi_id: gap.kpi_id,
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    // Store new cycle seeds — these can be picked up by OpportunityAgent
+    for (const cycle of analysis.new_cycle_recommendations) {
+      try {
+        await this.memorySystem.storeSemanticMemory(
+          context.workspace_id,
+          'expansion',
+          'semantic',
+          `NewCycleSeed: ${cycle.title} — ${cycle.rationale}`,
+          {
+            type: 'new_cycle_seed',
+            seed_query: cycle.seed_query,
+            priority: cycle.priority,
+            organization_id: context.organization_id,
+            importance: cycle.priority === 'high' ? 0.95 : cycle.priority === 'medium' ? 0.8 : 0.6,
+          },
+          context.organization_id,
+        );
+      } catch (err) {
+        logger.warn('ExpansionAgent: failed to store new cycle seed', {
+          title: cycle.title,
           error: (err as Error).message,
         });
       }
@@ -401,9 +408,6 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
   private buildSDUISections(analysis: ExpansionAnalysis): Array<Record<string, unknown>> {
     const sections: Array<Record<string, unknown>> = [];
 
-    const avgConfidence = analysis.opportunities.reduce((sum, o) => sum + o.confidence, 0)
-      / analysis.opportunities.length;
-
     // Summary card
     sections.push({
       type: 'component',
@@ -414,11 +418,10 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
           agentId: 'expansion',
           agentName: 'Expansion Agent',
           timestamp: new Date().toISOString(),
-          content: `${analysis.market_assessment}\n\n` +
-            `${analysis.opportunities.length} expansion opportunities identified. ` +
-            `Total addressable: $${analysis.total_addressable_expansion.low.toLocaleString()}-` +
-            `$${analysis.total_addressable_expansion.high.toLocaleString()}.`,
-          confidence: avgConfidence,
+          content: `${analysis.portfolio_summary}\n\nTotal expansion potential: $${analysis.total_expansion_potential.low.toLocaleString()}-$${analysis.total_expansion_potential.high.toLocaleString()} ${analysis.total_expansion_potential.currency}.`,
+          confidence: analysis.opportunities.length > 0
+            ? analysis.opportunities.reduce((s, o) => s + o.confidence, 0) / analysis.opportunities.length
+            : 0.5,
           status: 'completed',
         },
         showReasoning: true,
@@ -427,36 +430,59 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
       },
     });
 
-    // Confidence display
-    sections.push({
-      type: 'component',
-      component: 'ConfidenceDisplay',
-      version: 1,
-      props: {
-        data: {
-          score: avgConfidence,
-          label: 'Expansion Confidence',
-          trend: 'stable' as const,
-        },
-        size: 'lg',
-        showTrend: false,
-        showLabel: true,
-      },
-    });
-
     // One DiscoveryCard per expansion opportunity
-    for (const opp of analysis.opportunities) {
+    for (const opportunity of analysis.opportunities) {
       sections.push({
         type: 'component',
         component: 'DiscoveryCard',
         version: 1,
         props: {
-          title: opp.title,
-          description: opp.description,
-          category: opp.type,
-          tags: [opp.effort_level, `priority: ${(opp.priority_score * 100).toFixed(0)}%`],
-          confidence: opp.confidence,
+          title: opportunity.title,
+          description: opportunity.description,
+          category: opportunity.type,
+          tags: opportunity.stakeholders,
+          confidence: opportunity.confidence,
           status: 'new' as const,
+        },
+      });
+    }
+
+    // Expansion potential chart
+    if (analysis.opportunities.length > 0) {
+      sections.push({
+        type: 'component',
+        component: 'InteractiveChart',
+        version: 1,
+        props: {
+          type: 'bar',
+          data: analysis.opportunities.map(o => ({
+            name: o.title,
+            low: o.estimated_additional_value.low,
+            high: o.estimated_additional_value.high,
+          })),
+          title: 'Expansion Opportunity Value Ranges',
+          xAxisLabel: 'Opportunity',
+          yAxisLabel: `Value (${analysis.opportunities[0]?.estimated_additional_value.unit || 'usd'})`,
+          showLegend: true,
+          showTooltip: true,
+        },
+      });
+    }
+
+    // Gap analysis narrative
+    if (analysis.gap_analysis.length > 0) {
+      const gapText = analysis.gap_analysis
+        .map(g => `**${g.priority.toUpperCase()}** ${g.kpi_name}: ${g.description}\n   Root cause: ${g.root_cause}\n   Action: ${g.recommended_action}`)
+        .join('\n\n');
+
+      sections.push({
+        type: 'component',
+        component: 'NarrativeBlock',
+        version: 1,
+        props: {
+          content: gapText,
+          type: 'analysis',
+          confidence: 0.7,
         },
       });
     }

@@ -6,7 +6,8 @@
  */
 
 import React, { ComponentType, lazy, Suspense } from "react";
-import { RegistryEntry, SDUIComponentSection } from "./registry";
+import { RegistryEntry } from "./registry";
+import { SDUIComponentSection } from "./schema";
 import { logger } from "@shared/lib/logger";
 import { sduiTelemetry, TelemetryEventType } from "../lib/telemetry/SDUITelemetry";
 
@@ -525,11 +526,11 @@ export class LazyComponentRegistry {
         }
       });
 
-    await Promise.allSettled(preloadPromises);
+    const results = await Promise.allSettled(preloadPromises);
 
     logger.info(`Preloaded ${componentNames.length} components`, {
       requested: componentNames.length,
-      successful: preloadPromises.filter((p) => p.status === "fulfilled").length,
+      successful: results.filter((r) => r.status === "fulfilled").length,
     });
   }
 

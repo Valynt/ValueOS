@@ -20,11 +20,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "valuecanvas-terraform-state"
+    bucket         = "valueos-terraform-state"
     key            = "staging/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "terraform-state-lock"
+    dynamodb_table = "valueos-terraform-locks"
   }
 }
 
@@ -34,7 +34,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "ValueCanvas"
+      Project     = "ValueOS"
       Environment = "staging"
       ManagedBy   = "Terraform"
       Owner       = "DevOps"
@@ -68,10 +68,10 @@ data "aws_availability_zones" "available" {
 
 # Local Variables
 locals {
-  name_prefix = "valuecanvas-staging"
+  name_prefix = "valueos-staging"
   
   common_tags = {
-    Project     = "ValueCanvas"
+    Project     = "ValueOS"
     Environment = "staging"
     ManagedBy   = "Terraform"
   }

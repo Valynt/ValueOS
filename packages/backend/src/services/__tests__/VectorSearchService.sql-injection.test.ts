@@ -58,7 +58,7 @@ function buildFilterClause(
     if (!VALID_TYPES.has(type)) {
       throw new Error(`Invalid memory type: ${type}`);
     }
-    conditions.push(`type = '${type}'`);
+    conditions.push(`type = '${escapeSqlLiteral(type)}'`);
   }
 
   if (requireLineage) {

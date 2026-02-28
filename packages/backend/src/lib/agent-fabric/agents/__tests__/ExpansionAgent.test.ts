@@ -34,18 +34,12 @@ vi.mock("../../MemorySystem.js", () => ({
 vi.mock("../../CircuitBreaker.js", () => ({
   CircuitBreaker: class {
     constructor() {}
-    execute = vi.fn().mockImplementation((fn: () => Promise<unknown>) => fn());
+    execute = vi.fn().mockImplementation((fn: () => Promise<any>) => fn());
   },
 }));
 
-vi.mock("../../../../config/featureFlags.js", () => ({
-  featureFlags: { ENABLE_DOMAIN_PACK_CONTEXT: false },
-}));
-
-vi.mock("../../../../agents/context/loadDomainContext.js", () => ({
-  loadDomainContext: vi.fn().mockResolvedValue({
-    pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [],
-  }),
+vi.mock("../../../../services/MCPGroundTruthService.js", () => ({
+  mcpGroundTruthService: { getFinancialData: vi.fn().mockResolvedValue(null) },
 }));
 
 // --- Imports ---
@@ -60,7 +54,7 @@ import type { AgentConfig, LifecycleContext } from "../../../../types/agent";
 
 function makeConfig(): AgentConfig {
   return {
-    id: "expansion-agent", name: "expansion", type: "expansion" as never,
+    id: "expansion-agent", name: "expansion", type: "expansion" as any,
     lifecycle_stage: "expansion", capabilities: [],
     model: { provider: "custom", model_name: "test" },
     prompts: { system_prompt: "", user_prompt_template: "" },
@@ -77,7 +71,63 @@ function makeContext(overrides: Partial<LifecycleContext> = {}): LifecycleContex
   };
 }
 
-// Hypotheses from OpportunityAgent
+// Proof points as stored by RealizationAgent
+const STORED_PROOF_POINTS = [
+  {
+    id: "mem_pp_1", agent_id: "realization", workspace_id: "ws-123",
+    content: "ProofPoint: procurement_cost_per_unit — committed: 32, realized: 33 currency. Variance: 3.1% (on_target).",
+    memory_type: "semantic", importance: 0.7,
+    created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,
+    metadata: {
+      type: "proof_point", kpi_id: "kpi-1", kpi_name: "procurement_cost_per_unit",
+      committed_value: 32, realized_value: 33, direction: "on_target",
+      variance_percentage: 3.1, confidence: 0.85,
+      organization_id: "org-456",
+    },
+  },
+  {
+    id: "mem_pp_2", agent_id: "realization", workspace_id: "ws-123",
+    content: "ProofPoint: customer_retention_rate — committed: 92, realized: 95 percentage. Variance: 3.3% (over).",
+    memory_type: "semantic", importance: 0.7,
+    created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,
+    metadata: {
+      type: "proof_point", kpi_id: "kpi-2", kpi_name: "customer_retention_rate",
+      committed_value: 92, realized_value: 95, direction: "over",
+      variance_percentage: 3.3, confidence: 0.9,
+      organization_id: "org-456",
+    },
+  },
+];
+
+// Expansion signals as stored by RealizationAgent
+const STORED_EXPANSION_SIGNALS = [
+  {
+    id: "mem_es_1", agent_id: "realization", workspace_id: "ws-123",
+    content: "ExpansionSignal: Customer retention exceeded target by 3pp, indicating potential for upsell. (KPI: kpi-2, type: exceeded_target)",
+    memory_type: "semantic", importance: 0.85,
+    created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,
+    metadata: {
+      type: "expansion_signal", kpi_id: "kpi-2", signal_type: "exceeded_target",
+      estimated_additional_value: 150000,
+      organization_id: "org-456",
+    },
+  },
+];
+
+// Variance report
+const STORED_VARIANCE_REPORT = {
+  id: "mem_vr_1", agent_id: "realization", workspace_id: "ws-123",
+  content: "VarianceReport: Overall realization rate 102%. 2 KPIs tracked. 0 interventions. 1 expansion signals.",
+  memory_type: "semantic", importance: 0.9,
+  created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,
+  metadata: {
+    type: "variance_report", overall_realization_rate: 1.02,
+    kpi_count: 2, intervention_count: 0, expansion_signal_count: 1,
+    organization_id: "org-456",
+  },
+};
+
+// Original hypotheses
 const STORED_HYPOTHESES = [
   {
     id: "mem_hyp_1", agent_id: "opportunity", workspace_id: "ws-123",
@@ -87,83 +137,79 @@ const STORED_HYPOTHESES = [
     metadata: {
       verified: true, category: "cost_reduction",
       estimated_impact: { low: 500000, high: 1200000, unit: "usd", timeframe_months: 12 },
-      confidence: 0.75, organization_id: "org-456",
-    },
-  },
-];
-
-// Realization plans from RealizationAgent
-const STORED_REALIZATION = [
-  {
-    id: "mem_real_1", agent_id: "realization", workspace_id: "ws-123",
-    content: 'Realization plan for "Supply Chain Optimization": Consolidate vendors.',
-    memory_type: "semantic", importance: 0.78,
-    created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,
-    metadata: {
-      type: "realization_plan", hypothesis_id: "hyp-1",
-      timeline_months: 12, confidence: 0.78, organization_id: "org-456",
-    },
-  },
-];
-
-// KPIs from TargetAgent
-const STORED_KPIS = [
-  {
-    id: "mem_kpi_1", agent_id: "target", workspace_id: "ws-123",
-    content: "KPI: procurement_cost_per_unit",
-    memory_type: "semantic", importance: 0.7,
-    created_at: "2024-01-01T00:00:00Z", accessed_at: "2024-01-01T00:00:00Z", access_count: 0,
-    metadata: {
-      kpi_id: "kpi-1",
-      baseline: { value: 45.5 }, target: { value: 32, timeframe_months: 12 },
       organization_id: "org-456",
     },
   },
 ];
 
-// Successful LLM response
-const SUCCESS_RESPONSE = JSON.stringify({
+// LLM response: expansion opportunities found
+const EXPANSION_RESPONSE = JSON.stringify({
   opportunities: [
     {
-      id: "exp-1",
-      title: "Cross-sell Procurement Analytics",
-      description: "Offer procurement analytics dashboard to existing supply chain optimization customers.",
-      type: "cross_sell",
-      source_hypothesis_id: "hyp-1",
-      estimated_revenue_impact: { low: 200000, high: 500000, currency: "USD", timeframe_months: 18 },
-      effort_level: "medium",
-      priority_score: 0.82,
-      prerequisites: ["Completed supply chain optimization implementation"],
-      risks: ["Customer budget constraints"],
-      confidence: 0.75,
+      id: "exp-1", title: "Customer Success Upsell Program",
+      description: "Leverage 95% retention rate to introduce premium support tier.",
+      type: "upsell", source_kpi_id: "kpi-2",
+      estimated_additional_value: { low: 200000, high: 450000, unit: "usd", timeframe_months: 12 },
+      confidence: 0.8,
+      evidence: ["Retention rate exceeded target by 3pp", "Customer satisfaction scores above 4.5/5"],
+      prerequisites: ["Premium tier product definition", "Customer segmentation analysis"],
+      stakeholders: ["VP Sales", "VP Customer Success"],
     },
     {
-      id: "exp-2",
-      title: "Market Expansion to Adjacent Industries",
-      description: "Apply procurement optimization methodology to manufacturing sector.",
-      type: "market_expansion",
-      estimated_revenue_impact: { low: 800000, high: 2000000, currency: "USD", timeframe_months: 24 },
-      effort_level: "high",
-      priority_score: 0.68,
-      prerequisites: ["Case study from current engagement", "Manufacturing domain expertise"],
-      risks: ["Different regulatory requirements", "Longer sales cycles"],
-      confidence: 0.6,
+      id: "exp-2", title: "Procurement Automation Extension",
+      description: "Extend procurement optimization to adjacent categories.",
+      type: "new_use_case", source_kpi_id: "kpi-1",
+      estimated_additional_value: { low: 100000, high: 300000, unit: "usd", timeframe_months: 18 },
+      confidence: 0.65,
+      evidence: ["Procurement cost on target, methodology proven"],
+      prerequisites: ["Category analysis for adjacent spend areas"],
+      stakeholders: ["VP Procurement", "CFO"],
     },
   ],
-  market_assessment: "Strong expansion potential in adjacent procurement technology markets.",
-  account_health_indicators: [
-    { indicator: "NPS Score", status: "strong", description: "Customer satisfaction is high based on implementation progress." },
-    { indicator: "Engagement Level", status: "moderate", description: "Regular touchpoints but could increase executive sponsorship." },
+  gap_analysis: [
+    {
+      kpi_id: "kpi-1", kpi_name: "procurement_cost_per_unit",
+      gap_type: "scope_limitation",
+      description: "Current optimization covers only direct materials. Indirect spend is unaddressed.",
+      root_cause: "Initial scope was limited to direct procurement.",
+      recommended_action: "Expand scope to include indirect procurement categories.",
+      priority: "medium",
+    },
   ],
-  recommended_sequence: [
-    "Complete current supply chain optimization",
-    "Launch procurement analytics cross-sell",
-    "Develop manufacturing sector case study",
+  portfolio_summary: "Strong realization across both KPIs. Retention overperformance creates upsell opportunity. Procurement methodology can be extended to adjacent categories.",
+  total_expansion_potential: { low: 300000, high: 750000, currency: "USD" },
+  new_cycle_recommendations: [
+    {
+      title: "Indirect Procurement Optimization",
+      rationale: "Direct procurement methodology proven. Apply to indirect spend for additional savings.",
+      priority: "high",
+      seed_query: "Analyze indirect procurement spend categories for optimization opportunities using proven direct procurement methodology.",
+    },
   ],
-  total_addressable_expansion: { low: 1000000, high: 2500000, currency: "USD", timeframe_months: 24 },
-  retention_risk_factors: [
-    { factor: "Competitor pricing pressure", severity: "medium", mitigation: "Demonstrate unique ROI through value tracking" },
+  recommended_next_steps: [
+    "Present upsell opportunity to VP Sales",
+    "Scope indirect procurement analysis",
+    "Schedule expansion review with CFO",
   ],
+});
+
+// LLM response: no expansion opportunities (gaps only)
+const GAPS_ONLY_RESPONSE = JSON.stringify({
+  opportunities: [],
+  gap_analysis: [
+    {
+      kpi_id: "kpi-1", kpi_name: "procurement_cost_per_unit",
+      gap_type: "underperformance",
+      description: "Procurement costs barely met target. No headroom for expansion.",
+      root_cause: "Market conditions shifted, reducing savings potential.",
+      recommended_action: "Re-evaluate vendor strategy for next cycle.",
+      priority: "high",
+    },
+  ],
+  portfolio_summary: "Limited expansion potential. Focus on gap remediation before pursuing new opportunities.",
+  total_expansion_potential: { low: 0, high: 0, currency: "USD" },
+  new_cycle_recommendations: [],
+  recommended_next_steps: ["Address procurement gaps", "Re-evaluate value targets"],
 });
 
 // --- Tests ---
@@ -176,27 +222,34 @@ describe("ExpansionAgent", () => {
 
     agent = new ExpansionAgent(
       makeConfig(), "org-456",
-      new MemorySystem({} as never) as never,
-      new LLMGateway("custom") as never,
-      new CircuitBreaker() as never,
+      new MemorySystem({} as any) as any,
+      new LLMGateway("custom") as any,
+      new CircuitBreaker() as any,
     );
 
-    // Default: all upstream data available
-    mockRetrieve.mockImplementation((query: Record<string, unknown>) => {
+    // Default: proof points, signals, variance report, and hypotheses available
+    mockRetrieve.mockImplementation((query: any) => {
+      if (query.agent_id === "realization") {
+        return Promise.resolve([
+          ...STORED_PROOF_POINTS,
+          ...STORED_EXPANSION_SIGNALS,
+          STORED_VARIANCE_REPORT,
+        ]);
+      }
       if (query.agent_id === "opportunity") return Promise.resolve(STORED_HYPOTHESES);
-      if (query.agent_id === "realization") return Promise.resolve(STORED_REALIZATION);
-      if (query.agent_id === "target") return Promise.resolve(STORED_KPIS);
       return Promise.resolve([]);
     });
 
+    // Default: expansion opportunities found
     mockComplete.mockResolvedValue({
       id: "resp-1", model: "test-model",
-      content: SUCCESS_RESPONSE, finish_reason: "stop",
+      content: EXPANSION_RESPONSE, finish_reason: "stop",
+      usage: { prompt_tokens: 900, completion_tokens: 600, total_tokens: 1500 },
     });
   });
 
-  describe("execute — success scenario", () => {
-    it("generates expansion opportunities and returns success", async () => {
+  describe("execute — expansion opportunities found", () => {
+    it("identifies expansion opportunities and returns success", async () => {
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("success");
@@ -205,133 +258,155 @@ describe("ExpansionAgent", () => {
       expect(result.result.opportunities_count).toBe(2);
     });
 
-    it("includes total addressable expansion in result", async () => {
+    it("includes expansion opportunities with value estimates", async () => {
       const result = await agent.execute(makeContext());
 
-      const tae = result.result.total_addressable_expansion as Record<string, unknown>;
-      expect(tae.low).toBe(1000000);
-      expect(tae.high).toBe(2500000);
+      const opportunities = result.result.opportunities;
+      expect(opportunities).toHaveLength(2);
+      expect(opportunities[0].type).toBe("upsell");
+      expect(opportunities[0].estimated_additional_value.low).toBe(200000);
+      expect(opportunities[1].type).toBe("new_use_case");
     });
 
-    it("includes account health indicators", async () => {
+    it("includes gap analysis", async () => {
       const result = await agent.execute(makeContext());
 
-      const indicators = result.result.account_health_indicators as Array<Record<string, unknown>>;
-      expect(indicators).toHaveLength(2);
-      expect(indicators[0].indicator).toBe("NPS Score");
+      expect(result.result.gap_analysis).toHaveLength(1);
+      expect(result.result.gap_analysis[0].gap_type).toBe("scope_limitation");
+      expect(result.result.gaps_identified).toBe(1);
     });
 
-    it("includes SDUI sections with AgentResponseCard, ConfidenceDisplay, and DiscoveryCards", async () => {
+    it("includes total expansion potential", async () => {
       const result = await agent.execute(makeContext());
 
-      const components = (result.result.sdui_sections as Array<Record<string, unknown>>).map(
-        (s) => s.component,
-      );
+      expect(result.result.total_expansion_potential.low).toBe(300000);
+      expect(result.result.total_expansion_potential.high).toBe(750000);
+    });
+
+    it("recommends new value cycles with seed queries", async () => {
+      const result = await agent.execute(makeContext());
+
+      expect(result.result.new_cycle_recommendations).toHaveLength(1);
+      expect(result.result.new_cycles_recommended).toBe(1);
+    });
+
+    it("includes SDUI sections with DiscoveryCards and chart", async () => {
+      const result = await agent.execute(makeContext());
+
+      const components = result.result.sdui_sections.map((s: any) => s.component);
       expect(components).toContain("AgentResponseCard");
-      expect(components).toContain("ConfidenceDisplay");
-      expect(components.filter(c => c === "DiscoveryCard")).toHaveLength(2);
+      expect(components).toContain("DiscoveryCard");
+      expect(components).toContain("InteractiveChart");
+      expect(components).toContain("NarrativeBlock");
     });
 
-    it("includes reasoning with opportunity count and addressable expansion", async () => {
+    it("creates one DiscoveryCard per opportunity", async () => {
+      const result = await agent.execute(makeContext());
+
+      const discoveryCards = result.result.sdui_sections.filter(
+        (s: any) => s.component === "DiscoveryCard",
+      );
+      expect(discoveryCards).toHaveLength(2);
+    });
+
+    it("stores opportunities, gaps, and cycle seeds in memory", async () => {
+      await agent.execute(makeContext());
+
+      // 1 tracking call from secureInvoke + 2 opportunities + 1 gap + 1 cycle seed = 5
+      expect(mockStoreSemanticMemory).toHaveBeenCalledTimes(5);
+
+      const opportunityCalls = mockStoreSemanticMemory.mock.calls.filter(
+        (call: any[]) => call[4]?.type === "expansion_opportunity",
+      );
+      expect(opportunityCalls).toHaveLength(2);
+
+      const gapCalls = mockStoreSemanticMemory.mock.calls.filter(
+        (call: any[]) => call[4]?.type === "gap_analysis",
+      );
+      expect(gapCalls).toHaveLength(1);
+
+      const seedCalls = mockStoreSemanticMemory.mock.calls.filter(
+        (call: any[]) => call[4]?.type === "new_cycle_seed",
+      );
+      expect(seedCalls).toHaveLength(1);
+      expect(seedCalls[0][4].seed_query).toContain("indirect procurement");
+    });
+
+    it("includes reasoning with opportunity count and value range", async () => {
       const result = await agent.execute(makeContext());
 
       expect(result.reasoning).toContain("2 expansion opportunities");
-      expect(result.reasoning).toContain("1,000,000");
-      expect(result.reasoning).toContain("2,500,000");
-    });
-
-    it("stores expansion summary and opportunities in memory", async () => {
-      await agent.execute(makeContext());
-
-      // 1 tracking call from secureInvoke + 1 summary + 2 opportunities = 4
-      expect(mockStoreSemanticMemory).toHaveBeenCalledTimes(4);
-
-      const summaryCall = mockStoreSemanticMemory.mock.calls.find(
-        (call: unknown[]) => (call[4] as Record<string, unknown>)?.type === "expansion_summary",
-      );
-      expect(summaryCall).toBeDefined();
-      expect((summaryCall![4] as Record<string, unknown>).opportunities_count).toBe(2);
-
-      const oppCalls = mockStoreSemanticMemory.mock.calls.filter(
-        (call: unknown[]) => (call[4] as Record<string, unknown>)?.type === "expansion_opportunity",
-      );
-      expect(oppCalls).toHaveLength(2);
-    });
-
-    it("suggests recommended sequence as next actions", async () => {
-      const result = await agent.execute(makeContext());
-
-      expect(result.suggested_next_actions).toContain("Complete current supply chain optimization");
+      expect(result.reasoning).toContain("$300,000");
+      expect(result.reasoning).toContain("$750,000");
+      expect(result.reasoning).toContain("1 gaps analyzed");
+      expect(result.reasoning).toContain("1 new value cycles");
     });
   });
 
-  describe("memory retrieval failures", () => {
-    it("fails when no hypotheses or realization plans in memory", async () => {
+  describe("execute — gaps only, no expansion", () => {
+    beforeEach(() => {
+      mockComplete.mockResolvedValue({
+        id: "resp-2", model: "test-model",
+        content: GAPS_ONLY_RESPONSE, finish_reason: "stop",
+      });
+    });
+
+    it("returns success even with no opportunities", async () => {
+      const result = await agent.execute(makeContext());
+
+      expect(result.status).toBe("success");
+      expect(result.result.opportunities_count).toBe(0);
+      expect(result.result.gaps_identified).toBe(1);
+    });
+
+    it("does not include InteractiveChart when no opportunities", async () => {
+      const result = await agent.execute(makeContext());
+
+      const components = result.result.sdui_sections.map((s: any) => s.component);
+      expect(components).toContain("AgentResponseCard");
+      expect(components).not.toContain("InteractiveChart");
+      expect(components).not.toContain("DiscoveryCard");
+    });
+  });
+
+  describe("memory retrieval", () => {
+    it("fails when no proof points or signals in memory", async () => {
       mockRetrieve.mockResolvedValue([]);
 
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("failure");
-      expect(result.result.error).toContain("No hypotheses or realization plans found");
+      expect(result.result.error).toContain("No proof points or expansion signals");
     });
 
-    it("works with only hypotheses (no realization plans)", async () => {
-      mockRetrieve.mockImplementation((query: Record<string, unknown>) => {
-        if (query.agent_id === "opportunity") return Promise.resolve(STORED_HYPOTHESES);
-        return Promise.resolve([]);
-      });
+    it("retrieves from realization and opportunity agents", async () => {
+      await agent.execute(makeContext());
 
-      const result = await agent.execute(makeContext());
-
-      expect(result.status).toBe("success");
-    });
-
-    it("works with only realization plans (no hypotheses)", async () => {
-      mockRetrieve.mockImplementation((query: Record<string, unknown>) => {
-        if (query.agent_id === "realization") return Promise.resolve(STORED_REALIZATION);
-        return Promise.resolve([]);
-      });
-
-      const result = await agent.execute(makeContext());
-
-      expect(result.status).toBe("success");
-    });
-
-    it("handles memory retrieval failure gracefully", async () => {
-      mockRetrieve.mockRejectedValue(new Error("Memory unavailable"));
-
-      const result = await agent.execute(makeContext());
-
-      expect(result.status).toBe("failure");
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({ agent_id: "realization", organization_id: "org-456" }),
+      );
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        expect.objectContaining({ agent_id: "opportunity", organization_id: "org-456" }),
+      );
     });
   });
 
-  describe("LLM failure handling", () => {
-    it("fails gracefully when LLM returns invalid JSON", async () => {
-      mockComplete.mockResolvedValue({
-        id: "resp-2", model: "test-model", content: "not json", finish_reason: "stop",
-      });
+  describe("LLM failure", () => {
+    it("returns failure when LLM call fails", async () => {
+      mockComplete.mockRejectedValue(new Error("LLM timeout"));
 
       const result = await agent.execute(makeContext());
 
       expect(result.status).toBe("failure");
-      expect(result.result.error).toContain("failed");
-    });
-
-    it("fails gracefully when LLM throws", async () => {
-      mockComplete.mockRejectedValue(new Error("LLM unavailable"));
-
-      const result = await agent.execute(makeContext());
-
-      expect(result.status).toBe("failure");
+      expect(result.result.error).toContain("Expansion analysis failed");
     });
   });
 
   describe("input validation", () => {
-    it("throws on missing workspace_id", async () => {
-      await expect(
-        agent.execute(makeContext({ workspace_id: "" })),
-      ).rejects.toThrow("Invalid input context");
+    it("throws when context is missing required fields", async () => {
+      const ctx = makeContext({ organization_id: "" });
+
+      await expect(agent.execute(ctx)).rejects.toThrow("Invalid input context");
     });
   });
 });

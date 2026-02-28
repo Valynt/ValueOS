@@ -27,13 +27,16 @@ resources:
   - frontend-pdb.yaml
   # Horizontal Pod Autoscalers
   - hpa.yaml
+  # Messaging infrastructure (Redis Streams broker + message worker)
+  - redis-streams.yaml
   # Security policies are in infra/k8s/security/ and applied separately:
   # kubectl apply -f ../security/istio-service-mesh.yaml
   # kubectl apply -f ../security/mesh-authentication.yaml
 
-commonLabels:
-  app.kubernetes.io/managed-by: kustomize
-  app.kubernetes.io/part-of: valynt
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: kustomize
+      app.kubernetes.io/part-of: valynt
 
 images:
   - name: ghcr.io/valynt/valueos-backend

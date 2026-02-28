@@ -18,6 +18,7 @@ interface EnhancedCircuitBreakerState {
     errorType: string;
     errorMessage: string;
     componentVersion: string;
+    severity: "low" | "medium" | "high" | "critical";
   }[];
   recoveryAttempts: number;
 }
@@ -35,6 +36,8 @@ interface EnhancedErrorCorrelation {
   userAgent?: string;
   sessionId?: string;
   userId?: string;
+  tenantId?: string;
+  organizationId?: string;
   stackTrace: string;
   componentStack: string;
   severity: "low" | "medium" | "high" | "critical";
@@ -209,6 +212,8 @@ export class EnhancedComponentErrorBoundary extends Component<
       userAgent: correlationContext?.userAgent,
       sessionId: correlationContext?.sessionId,
       userId: correlationContext?.userId,
+      tenantId: correlationContext?.tenantId,
+      organizationId: correlationContext?.organizationId,
       stackTrace: error.stack || "No stack trace available",
       componentStack: errorInfo?.componentStack || "No component stack available",
       severity,
@@ -293,6 +298,7 @@ export class EnhancedComponentErrorBoundary extends Component<
           errorType: errorCorrelation.errorType,
           errorMessage: errorCorrelation.errorMessage,
           componentVersion: errorCorrelation.componentVersion,
+          severity: errorCorrelation.severity,
         }
       ],
       recoveryAttempts: 0,
@@ -343,7 +349,7 @@ export class EnhancedComponentErrorBoundary extends Component<
       // Send telemetry event
       this.sendCircuitBreakerTelemetry("half_open", {
         recoveryAttempt: circuitBreaker.recoveryAttempts + 1,
-        maxAttempts,
+        maxAttempts: maxRecoveryAttempts,
       });
     }
   }
@@ -411,7 +417,7 @@ export class EnhancedComponentErrorBoundary extends Component<
     onError?.(error, errorInfo);
 
     // Log to error tracking service in production with correlation
-    if (isProduction()) {
+    if (isProduction) {
       captureException(error, {
         extra: {
           componentName,
@@ -481,10 +487,11 @@ export class EnhancedComponentErrorBoundary extends Component<
 
       // If circuit breaker was half-open, close it on successful retry
       if (this.state.circuitBreaker.state === "half-open") {
-        this.setState((prevState) => ({
+        const recoveryAttempts = this.state.circuitBreaker.recoveryAttempts;
+        this.setState((prev) => ({
           circuitBreaker: {
-            ...prevState.circuitBreaker,
-            state: "closed",
+            ...prev.circuitBreaker,
+            state: "closed" as const,
             failureCount: 0,
             failureHistory: [],
             recoveryAttempts: 0,
@@ -497,7 +504,7 @@ export class EnhancedComponentErrorBoundary extends Component<
 
         // Send telemetry event
         this.sendCircuitBreakerTelemetry("closed", {
-          recoveryAttempts: prevState.circuitBreaker.recoveryAttempts,
+          recoveryAttempts,
         });
       }
     }, delay);
@@ -534,7 +541,7 @@ export class EnhancedComponentErrorBoundary extends Component<
   /**
    * Send circuit breaker telemetry event
    */
-  private sendCircuitBreakerTelemetry(action: string, metadata: Record<string, any>): void {
+  private sendCircuitBreakerTelemetry(action: string, metadata: Record<string, unknown>): void {
     const { telemetryConfig } = this.props;
     if (!telemetryConfig?.enableTelemetry) return;
 
@@ -605,7 +612,7 @@ export class EnhancedComponentErrorBoundary extends Component<
     }
 
     // Determine if we should show error details
-    const shouldShowDetails = showErrorDetails ?? isDevelopment();
+    const shouldShowDetails = showErrorDetails ?? isDevelopment;
     const canRetry = this.shouldAllowRetry();
     const isCircuitOpen = cbState.state === "open";
     const isCircuitHalfOpen = cbState.state === "half-open";
@@ -719,7 +726,7 @@ export class EnhancedComponentErrorBoundary extends Component<
               )}
 
               {/* Admin reset button in development */}
-              {isDevelopment() && (isCircuitOpen || isCircuitHalfOpen) && (
+              {isDevelopment && (isCircuitOpen || isCircuitHalfOpen) && (
                 <button
                   onClick={this.resetCircuitBreaker}
                   className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -779,5 +786,8 @@ export function withEnhancedComponentErrorBoundary<P extends object>(
 
   return WrappedComponent;
 }
+
+// Alias for backward compatibility — most imports use this name
+export { EnhancedComponentErrorBoundary as ComponentErrorBoundary };
 
 export default EnhancedComponentErrorBoundary;

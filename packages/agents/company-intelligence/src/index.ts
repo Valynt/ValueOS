@@ -1,4 +1,9 @@
 /**
+ * @deprecated This standalone microservice agent is deprecated.
+ * Production agent implementations live in packages/backend/src/lib/agent-fabric/agents/.
+ * This file will be removed in a future release. Do not add new code here.
+ */
+/**
  * Company Intelligence Agent
  * Analyzes company intelligence and competitive landscape
  */

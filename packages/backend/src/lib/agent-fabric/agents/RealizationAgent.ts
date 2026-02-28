@@ -1,14 +1,17 @@
 /**
  * RealizationAgent
  *
- * Sits in the REALIZATION phase of the value lifecycle. Retrieves
- * validated hypotheses and KPI targets from upstream agents (Integrity,
- * Target, Opportunity) via memory, then uses the LLM to generate
- * concrete realization plans — implementation roadmaps, resource
- * requirements, milestones, and risk mitigations.
+ * Sits in the REALIZATION phase of the value lifecycle. Compares committed
+ * value (KPI targets from TargetAgent, validated by IntegrityAgent) against
+ * actual telemetry data to produce proof points and variance reports.
  *
- * Output includes per-hypothesis realization plans, tracking metrics,
- * and SDUI sections (AgentResponseCard + milestone timeline).
+ * When realized value falls below the committed threshold, the agent
+ * recommends interventions. When realized value exceeds commitments,
+ * it flags expansion signals for the downstream ExpansionAgent.
+ *
+ * Output includes proof points, variance analysis, intervention
+ * recommendations, and SDUI sections (AgentResponseCard + InteractiveChart
+ * + KPIForm + NarrativeBlock).
  */
 
 import { BaseAgent } from './BaseAgent.js';
@@ -20,64 +23,68 @@ import type {
   ConfidenceLevel,
   LifecycleContext,
 } from '../../../types/agent.js';
-import { featureFlags } from '../../../config/featureFlags.js';
-import { loadDomainContext } from '../../../agents/context/loadDomainContext.js';
-import type { DomainContext } from '../../../agents/context/loadDomainContext.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
 // ---------------------------------------------------------------------------
 
-const MilestoneSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  description: z.string(),
-  target_date_months: z.number().int().positive(),
-  dependencies: z.array(z.string()),
-  success_criteria: z.string(),
-  status: z.enum(['planned', 'in_progress', 'completed', 'at_risk']),
-});
-
-const ResourceRequirementSchema = z.object({
-  type: z.enum(['personnel', 'technology', 'budget', 'training', 'external']),
-  description: z.string(),
-  estimated_cost: z.number().min(0).optional(),
-  currency: z.string().default('USD'),
-  priority: z.enum(['required', 'recommended', 'optional']),
-});
-
-const RealizationPlanSchema = z.object({
-  hypothesis_id: z.string(),
-  hypothesis_title: z.string(),
-  implementation_approach: z.string(),
-  milestones: z.array(MilestoneSchema).min(1),
-  resources: z.array(ResourceRequirementSchema),
-  risks: z.array(z.object({
-    description: z.string(),
-    likelihood: z.enum(['low', 'medium', 'high']),
-    impact: z.enum(['low', 'medium', 'high']),
-    mitigation: z.string(),
-  })),
-  expected_timeline_months: z.number().int().positive(),
+const ProofPointSchema = z.object({
+  kpi_id: z.string(),
+  kpi_name: z.string(),
+  committed_value: z.number(),
+  realized_value: z.number(),
+  unit: z.string(),
+  measurement_date: z.string(),
+  variance_absolute: z.number(),
+  variance_percentage: z.number(),
+  direction: z.enum(['over', 'under', 'on_target']),
+  evidence: z.array(z.string()).min(1),
   confidence: z.number().min(0).max(1),
+  data_source: z.string(),
+});
+
+const InterventionSchema = z.object({
+  kpi_id: z.string(),
+  type: z.enum([
+    'review_assumptions',
+    'adjust_targets',
+    'validate_data',
+    'check_methodology',
+    'escalate_to_stakeholder',
+    'reallocate_resources',
+  ]),
+  priority: z.enum(['low', 'medium', 'high', 'critical']),
+  description: z.string(),
+  expected_impact: z.string(),
+  owner_role: z.string(),
 });
 
 const RealizationAnalysisSchema = z.object({
-  plans: z.array(RealizationPlanSchema).min(1),
-  overall_strategy: z.string(),
-  total_estimated_investment: z.number().min(0),
-  expected_roi_timeline_months: z.number().int().positive(),
-  tracking_metrics: z.array(z.object({
-    name: z.string(),
+  proof_points: z.array(ProofPointSchema).min(1),
+  overall_realization_rate: z.number().min(0).max(2),
+  variance_summary: z.string(),
+  interventions: z.array(InterventionSchema),
+  expansion_signals: z.array(z.object({
+    kpi_id: z.string(),
+    signal_type: z.enum(['exceeded_target', 'accelerated_timeline', 'new_opportunity']),
     description: z.string(),
-    measurement_frequency: z.enum(['daily', 'weekly', 'monthly', 'quarterly']),
-    target_value: z.string(),
-    unit: z.string(),
+    estimated_additional_value: z.number().optional(),
   })),
-  critical_success_factors: z.array(z.string()),
+  data_quality_assessment: z.string(),
+  recommended_next_steps: z.array(z.string()),
 });
 
 type RealizationAnalysis = z.infer<typeof RealizationAnalysisSchema>;
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Below this realization rate, interventions are triggered */
+const INTERVENTION_THRESHOLD = 0.8;
+
+/** Above this realization rate, expansion signals are flagged */
+const EXPANSION_THRESHOLD = 1.1;
 
 // ---------------------------------------------------------------------------
 // Agent
@@ -91,117 +98,85 @@ export class RealizationAgent extends BaseAgent {
       throw new Error('Invalid input context');
     }
 
-    // Step 1: Retrieve validated hypotheses and KPIs from upstream agents
-    const validatedHypotheses = await this.retrieveValidatedHypotheses(context);
-    const kpiTargets = await this.retrieveKPITargets(context);
+    // Step 1: Retrieve committed KPI targets from memory (written by TargetAgent)
+    const committedKPIs = await this.retrieveCommittedKPIs(context);
+
+    // Step 2: Retrieve integrity validation results
     const integrityResults = await this.retrieveIntegrityResults(context);
 
-    if (validatedHypotheses.length === 0 && kpiTargets.length === 0) {
+    if (committedKPIs.length === 0) {
       return this.buildOutput(
-        { error: 'No validated hypotheses or KPI targets found. Run upstream agents (Opportunity, Target, Integrity) first.' },
+        { error: 'No committed KPI targets found in memory. Run TargetAgent first.' },
         'failure', 'low', startTime,
       );
     }
 
-    // Step 1b: Load domain pack context
-    const domainContext = await this.loadDomainPackContext(context);
+    // Step 3: Retrieve telemetry / actual values from context
+    const telemetryData = this.extractTelemetryData(context);
 
-    // Step 2: Generate realization plans via LLM
-    const analysis = await this.generateRealizationPlans(
-      context, validatedHypotheses, kpiTargets, integrityResults, domainContext,
+    // Step 4: Generate realization analysis via LLM
+    const analysis = await this.analyzeRealization(
+      context, committedKPIs, integrityResults, telemetryData,
     );
     if (!analysis) {
       return this.buildOutput(
-        { error: 'Realization plan generation failed. Retry or provide more context.' },
+        { error: 'Realization analysis failed. Retry or provide telemetry data.' },
         'failure', 'low', startTime,
       );
     }
 
-    // Step 3: Store realization plans in memory
+    // Step 5: Store proof points and variance in memory for ExpansionAgent
     await this.storeRealizationInMemory(context, analysis);
 
-    // Step 4: Build SDUI sections
+    // Step 6: Build SDUI sections
     const sduiSections = this.buildSDUISections(analysis);
 
-    // Step 5: Determine confidence
-    const avgConfidence = analysis.plans.reduce((sum, p) => sum + p.confidence, 0)
-      / analysis.plans.length;
-    const confidenceLevel = this.toConfidenceLevel(avgConfidence);
+    // Step 7: Determine status based on realization rate
+    const rate = analysis.overall_realization_rate;
+    const hasInterventions = analysis.interventions.some(
+      i => i.priority === 'critical' || i.priority === 'high',
+    );
+    const status: AgentOutput['status'] = rate < INTERVENTION_THRESHOLD && hasInterventions
+      ? 'partial_success'
+      : 'success';
+
+    const confidenceLevel = this.toConfidenceLevel(
+      analysis.proof_points.reduce((sum, p) => sum + p.confidence, 0) / analysis.proof_points.length,
+    );
+
+    const overCount = analysis.proof_points.filter(p => p.direction === 'over').length;
+    const underCount = analysis.proof_points.filter(p => p.direction === 'under').length;
+    const onTargetCount = analysis.proof_points.filter(p => p.direction === 'on_target').length;
 
     const result = {
-      plans: analysis.plans,
-      overall_strategy: analysis.overall_strategy,
-      total_estimated_investment: analysis.total_estimated_investment,
-      expected_roi_timeline_months: analysis.expected_roi_timeline_months,
-      tracking_metrics: analysis.tracking_metrics,
-      critical_success_factors: analysis.critical_success_factors,
-      plans_count: analysis.plans.length,
-      total_milestones: analysis.plans.reduce((sum, p) => sum + p.milestones.length, 0),
+      proof_points: analysis.proof_points,
+      overall_realization_rate: analysis.overall_realization_rate,
+      variance_summary: analysis.variance_summary,
+      interventions: analysis.interventions,
+      expansion_signals: analysis.expansion_signals,
+      data_quality_assessment: analysis.data_quality_assessment,
+      kpis_tracked: analysis.proof_points.length,
+      kpis_on_target: onTargetCount + overCount,
+      kpis_under_target: underCount,
+      intervention_threshold: INTERVENTION_THRESHOLD,
+      expansion_threshold: EXPANSION_THRESHOLD,
       sdui_sections: sduiSections,
     };
 
-    return this.buildOutput(result, 'success', confidenceLevel, startTime, {
-      reasoning: `Generated ${analysis.plans.length} realization plans with ` +
-        `${result.total_milestones} milestones. ` +
-        `Estimated investment: $${analysis.total_estimated_investment.toLocaleString()}. ` +
-        `Expected ROI timeline: ${analysis.expected_roi_timeline_months} months.`,
-      suggested_next_actions: [
-        'Review implementation milestones and resource requirements',
-        'Assign owners to each realization plan',
-        'Proceed to ExpansionAgent for growth opportunity analysis',
-      ],
+    return this.buildOutput(result, status, confidenceLevel, startTime, {
+      reasoning: `Tracked ${analysis.proof_points.length} KPIs: ${onTargetCount} on target, ${overCount} exceeded, ${underCount} under target. ` +
+        `Overall realization rate: ${(rate * 100).toFixed(0)}%. ` +
+        (analysis.interventions.length > 0 ? `${analysis.interventions.length} interventions recommended. ` : '') +
+        (analysis.expansion_signals.length > 0 ? `${analysis.expansion_signals.length} expansion signals detected.` : ''),
+      suggested_next_actions: analysis.recommended_next_steps,
     });
-  }
-
-  // -------------------------------------------------------------------------
-  // Domain Pack Context
-  // -------------------------------------------------------------------------
-
-  private async loadDomainPackContext(context: LifecycleContext): Promise<DomainContext> {
-    const empty: DomainContext = { pack: undefined, kpis: [], assumptions: [], glossary: {}, complianceRules: [] };
-
-    if (!featureFlags.ENABLE_DOMAIN_PACK_CONTEXT) return empty;
-
-    const valueCaseId = context.user_inputs?.value_case_id as string | undefined;
-    if (!valueCaseId || !context.organization_id) return empty;
-
-    try {
-      const supabaseClient = (context as Record<string, unknown>).supabaseClient as
-        import('@supabase/supabase-js').SupabaseClient | undefined;
-      return await loadDomainContext(context.organization_id, valueCaseId, supabaseClient);
-    } catch (err) {
-      logger.warn('RealizationAgent: failed to load domain pack context', {
-        value_case_id: valueCaseId,
-        error: (err as Error).message,
-      });
-      return empty;
-    }
   }
 
   // -------------------------------------------------------------------------
   // Memory Retrieval
   // -------------------------------------------------------------------------
 
-  private async retrieveValidatedHypotheses(
-    context: LifecycleContext,
-  ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
-    try {
-      const memories = await this.memorySystem.retrieve({
-        agent_id: 'opportunity',
-        memory_type: 'semantic',
-        limit: 10,
-        organization_id: context.organization_id,
-      });
-      return memories
-        .filter(m => m.metadata?.verified === true && m.metadata?.category)
-        .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
-    } catch (err) {
-      logger.warn('Failed to retrieve validated hypotheses from memory', { error: (err as Error).message });
-      return [];
-    }
-  }
-
-  private async retrieveKPITargets(
+  private async retrieveCommittedKPIs(
     context: LifecycleContext,
   ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
     try {
@@ -215,7 +190,9 @@ export class RealizationAgent extends BaseAgent {
         .filter(m => m.metadata?.kpi_id)
         .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
     } catch (err) {
-      logger.warn('Failed to retrieve KPI targets from memory', { error: (err as Error).message });
+      logger.warn('RealizationAgent: failed to retrieve committed KPIs', {
+        error: (err as Error).message,
+      });
       return [];
     }
   }
@@ -234,77 +211,84 @@ export class RealizationAgent extends BaseAgent {
         .filter(m => m.metadata?.type === 'integrity_validation')
         .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
     } catch (err) {
-      logger.warn('Failed to retrieve integrity results from memory', { error: (err as Error).message });
+      logger.warn('RealizationAgent: failed to retrieve integrity results', {
+        error: (err as Error).message,
+      });
       return [];
     }
   }
 
   // -------------------------------------------------------------------------
-  // LLM Realization Plan Generation
+  // Telemetry Extraction
   // -------------------------------------------------------------------------
 
-  private async generateRealizationPlans(
+  /**
+   * Extract actual telemetry data from the lifecycle context.
+   * Telemetry can be provided via user_inputs.telemetry.
+   */
+  private extractTelemetryData(
     context: LifecycleContext,
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    kpis: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    integrityResults: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    domainContext?: DomainContext,
-  ): Promise<RealizationAnalysis | null> {
-    const hypothesesContext = hypotheses.map((h, i) => {
-      const m = h.metadata;
-      const impact = m.estimated_impact as Record<string, unknown> | undefined;
-      return `${i + 1}. ${h.content}\n   Category: ${m.category || 'unknown'}\n   ` +
-        `Estimated impact: ${impact?.low || '?'}-${impact?.high || '?'} ${impact?.unit || ''} over ${impact?.timeframe_months || '?'} months\n   ` +
-        `Confidence: ${m.confidence || 'unknown'}`;
-    }).join('\n\n');
+  ): Array<{ kpi_id: string; actual_value: number; measurement_date: string; source: string }> {
+    const telemetry = context.user_inputs?.telemetry as
+      Array<{ kpi_id: string; actual_value: number; measurement_date?: string; source?: string }> | undefined;
 
-    const kpiContext = kpis.map((k, i) => {
-      const m = k.metadata;
-      const baseline = m.baseline as Record<string, unknown> | undefined;
-      const target = m.target as Record<string, unknown> | undefined;
-      return `${i + 1}. ${k.content}\n   Baseline: ${baseline?.value || '?'} → Target: ${target?.value || '?'}\n   ` +
-        `Timeframe: ${target?.timeframe_months || '?'} months`;
+    if (!telemetry || !Array.isArray(telemetry)) {
+      return [];
+    }
+
+    return telemetry.map(t => ({
+      kpi_id: t.kpi_id,
+      actual_value: t.actual_value,
+      measurement_date: t.measurement_date || new Date().toISOString(),
+      source: t.source || 'user_provided',
+    }));
+  }
+
+  // -------------------------------------------------------------------------
+  // LLM Realization Analysis
+  // -------------------------------------------------------------------------
+
+  private async analyzeRealization(
+    context: LifecycleContext,
+    committedKPIs: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    integrityResults: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    telemetryData: Array<{ kpi_id: string; actual_value: number; measurement_date: string; source: string }>,
+  ): Promise<RealizationAnalysis | null> {
+    const kpiContext = committedKPIs.map((kpi, i) => {
+      const m = kpi.metadata;
+      const baseline = m.baseline as { value?: number; source?: string } | undefined;
+      const target = m.target as { value?: number; timeframe_months?: number } | undefined;
+      const telemetry = telemetryData.find(t => t.kpi_id === m.kpi_id);
+
+      return `${i + 1}. KPI: ${kpi.content}
+   ID: ${m.kpi_id}
+   Category: ${m.category}
+   Unit: ${m.unit}
+   Baseline: ${baseline?.value ?? 'unknown'} (source: ${baseline?.source ?? 'unknown'})
+   Committed Target: ${target?.value ?? 'unknown'} in ${target?.timeframe_months ?? '?'} months
+   ${telemetry ? `Actual Value: ${telemetry.actual_value} (measured: ${telemetry.measurement_date}, source: ${telemetry.source})` : 'Actual Value: not yet measured'}`;
     }).join('\n\n');
 
     const integrityContext = integrityResults.length > 0
-      ? `\n\nIntegrity validation summary:\n${integrityResults.map(r => r.content).join('\n')}`
+      ? `\n\nIntegrity validation context:\n${integrityResults.map(r => r.content).join('\n')}`
       : '';
 
-    let domainFragment = '';
-    if (domainContext?.assumptions && domainContext.assumptions.length > 0) {
-      domainFragment += `\n\nDomain assumptions to incorporate:\n${domainContext.assumptions.map(a => `- ${a.label}: ${a.defaultValue} ${a.unit || ''}`).join('\n')}`;
-    }
-    if (domainContext?.complianceRules && domainContext.complianceRules.length > 0) {
-      domainFragment += `\n\nCompliance requirements:\n${domainContext.complianceRules.map(r => `- ${r}`).join('\n')}`;
-    }
+    const systemPrompt = `You are a Value Realization analyst. Your job is to compare committed value targets against actual outcomes and produce proof points.
 
-    const systemPrompt = `You are a Value Engineering realization planner. Your job is to create concrete implementation plans for validated value hypotheses.
+Rules:
+- Each proof point must reference a specific KPI with committed vs realized values.
+- Variance is calculated as (realized - committed) / committed.
+- Direction: "over" if realized > committed * 1.05, "under" if realized < committed * 0.95, "on_target" otherwise.
+- overall_realization_rate is the weighted average of (realized / committed) across all KPIs.
+- Flag interventions for KPIs where realization rate < ${INTERVENTION_THRESHOLD} (${INTERVENTION_THRESHOLD * 100}%).
+- Flag expansion signals for KPIs where realization rate > ${EXPANSION_THRESHOLD} (${EXPANSION_THRESHOLD * 100}%).
+- If no actual telemetry is available for a KPI, estimate based on timeline progress and evidence.
+- Evidence must reference specific data sources, not generic claims.
+- data_quality_assessment should note any gaps in telemetry coverage.
 
-For each hypothesis, generate:
-- implementation_approach: How to execute this value driver
-- milestones: Specific, time-bound milestones with success criteria and dependencies
-- resources: Personnel, technology, budget, and training requirements
-- risks: Implementation risks with likelihood, impact, and mitigation strategies
-- expected_timeline_months: Total implementation timeline
-- confidence: 0.0-1.0 reflecting plan feasibility
+Respond with valid JSON matching the schema. No markdown fences or commentary.`;
 
-Also provide:
-- overall_strategy: Executive summary of the realization approach
-- total_estimated_investment: Sum of all resource costs
-- expected_roi_timeline_months: When ROI is expected
-- tracking_metrics: KPIs to monitor implementation progress
-- critical_success_factors: What must go right for success
-
-Be specific and actionable. Reference the KPI targets and integrity validation results. Respond with valid JSON. No markdown fences.${domainFragment}`;
-
-    const userPrompt = `Create realization plans for these validated hypotheses:
-
-${hypothesesContext}
-
-KPI Targets:
-${kpiContext || 'No KPI targets available.'}${integrityContext}
-
-${context.user_inputs?.additional_context ? `Additional context: ${context.user_inputs.additional_context}` : ''}`;
+    const userPrompt = `Analyze realization status for these committed KPIs:\n\n${kpiContext}${integrityContext}\n\nGenerate proof points comparing committed vs actual values, identify interventions needed, and flag expansion opportunities.`;
 
     try {
       return await this.secureInvoke<RealizationAnalysis>(
@@ -313,17 +297,17 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
         RealizationAnalysisSchema,
         {
           trackPrediction: true,
-          confidenceThresholds: { low: 0.6, high: 0.85 },
+          confidenceThresholds: { low: 0.5, high: 0.8 },
           context: {
             agent: 'realization',
             organization_id: context.organization_id,
-            hypothesis_count: hypotheses.length,
-            kpi_count: kpis.length,
+            kpi_count: committedKPIs.length,
+            telemetry_count: telemetryData.length,
           },
         },
       );
     } catch (err) {
-      logger.error('Realization plan generation failed', {
+      logger.error('RealizationAgent: analysis failed', {
         error: (err as Error).message,
         workspace_id: context.workspace_id,
       });
@@ -339,59 +323,87 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
     context: LifecycleContext,
     analysis: RealizationAnalysis,
   ): Promise<void> {
-    // Store overall realization summary
+    for (const proofPoint of analysis.proof_points) {
+      try {
+        await this.memorySystem.storeSemanticMemory(
+          context.workspace_id,
+          'realization',
+          'semantic',
+          `ProofPoint: ${proofPoint.kpi_name} — committed: ${proofPoint.committed_value}, realized: ${proofPoint.realized_value} ${proofPoint.unit}. Variance: ${proofPoint.variance_percentage.toFixed(1)}% (${proofPoint.direction}).`,
+          {
+            type: 'proof_point',
+            kpi_id: proofPoint.kpi_id,
+            kpi_name: proofPoint.kpi_name,
+            committed_value: proofPoint.committed_value,
+            realized_value: proofPoint.realized_value,
+            unit: proofPoint.unit,
+            variance_absolute: proofPoint.variance_absolute,
+            variance_percentage: proofPoint.variance_percentage,
+            direction: proofPoint.direction,
+            confidence: proofPoint.confidence,
+            data_source: proofPoint.data_source,
+            measurement_date: proofPoint.measurement_date,
+            organization_id: context.organization_id,
+            importance: proofPoint.direction === 'under' ? 0.95 : 0.7,
+          },
+          context.organization_id,
+        );
+      } catch (err) {
+        logger.warn('RealizationAgent: failed to store proof point', {
+          kpi_id: proofPoint.kpi_id,
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    for (const signal of analysis.expansion_signals) {
+      try {
+        await this.memorySystem.storeSemanticMemory(
+          context.workspace_id,
+          'realization',
+          'semantic',
+          `ExpansionSignal: ${signal.description} (KPI: ${signal.kpi_id}, type: ${signal.signal_type})`,
+          {
+            type: 'expansion_signal',
+            kpi_id: signal.kpi_id,
+            signal_type: signal.signal_type,
+            estimated_additional_value: signal.estimated_additional_value,
+            organization_id: context.organization_id,
+            importance: 0.85,
+          },
+          context.organization_id,
+        );
+      } catch (err) {
+        logger.warn('RealizationAgent: failed to store expansion signal', {
+          kpi_id: signal.kpi_id,
+          error: (err as Error).message,
+        });
+      }
+    }
+
     try {
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
         'realization',
         'semantic',
-        `Realization plans: ${analysis.plans.length} plans generated. ` +
-          `Total investment: $${analysis.total_estimated_investment.toLocaleString()}. ` +
-          `Expected ROI in ${analysis.expected_roi_timeline_months} months.`,
+        `VarianceReport: Overall realization rate ${(analysis.overall_realization_rate * 100).toFixed(0)}%. ` +
+          `${analysis.proof_points.length} KPIs tracked. ${analysis.interventions.length} interventions. ` +
+          `${analysis.expansion_signals.length} expansion signals.`,
         {
-          type: 'realization_summary',
-          plans_count: analysis.plans.length,
-          total_investment: analysis.total_estimated_investment,
-          roi_timeline_months: analysis.expected_roi_timeline_months,
-          tracking_metrics_count: analysis.tracking_metrics.length,
-          critical_success_factors: analysis.critical_success_factors,
+          type: 'variance_report',
+          overall_realization_rate: analysis.overall_realization_rate,
+          kpi_count: analysis.proof_points.length,
+          intervention_count: analysis.interventions.length,
+          expansion_signal_count: analysis.expansion_signals.length,
           organization_id: context.organization_id,
           importance: 0.9,
         },
         context.organization_id,
       );
     } catch (err) {
-      logger.warn('Failed to store realization summary in memory', { error: (err as Error).message });
-    }
-
-    // Store each plan individually for downstream retrieval
-    for (const plan of analysis.plans) {
-      try {
-        await this.memorySystem.storeSemanticMemory(
-          context.workspace_id,
-          'realization',
-          'semantic',
-          `Realization plan for "${plan.hypothesis_title}": ${plan.implementation_approach}`,
-          {
-            type: 'realization_plan',
-            hypothesis_id: plan.hypothesis_id,
-            hypothesis_title: plan.hypothesis_title,
-            milestone_count: plan.milestones.length,
-            resource_count: plan.resources.length,
-            risk_count: plan.risks.length,
-            timeline_months: plan.expected_timeline_months,
-            confidence: plan.confidence,
-            organization_id: context.organization_id,
-            importance: plan.confidence,
-          },
-          context.organization_id,
-        );
-      } catch (err) {
-        logger.warn('Failed to store realization plan in memory', {
-          hypothesis_id: plan.hypothesis_id,
-          error: (err as Error).message,
-        });
-      }
+      logger.warn('RealizationAgent: failed to store variance report', {
+        error: (err as Error).message,
+      });
     }
   }
 
@@ -402,8 +414,8 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
   private buildSDUISections(analysis: RealizationAnalysis): Array<Record<string, unknown>> {
     const sections: Array<Record<string, unknown>> = [];
 
-    const avgConfidence = analysis.plans.reduce((sum, p) => sum + p.confidence, 0)
-      / analysis.plans.length;
+    const onTarget = analysis.proof_points.filter(p => p.direction === 'on_target').length;
+    const over = analysis.proof_points.filter(p => p.direction === 'over').length;
 
     // Summary card
     sections.push({
@@ -415,12 +427,10 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
           agentId: 'realization',
           agentName: 'Realization Agent',
           timestamp: new Date().toISOString(),
-          content: `${analysis.overall_strategy}\n\n` +
-            `${analysis.plans.length} implementation plans generated. ` +
-            `Total investment: $${analysis.total_estimated_investment.toLocaleString()}. ` +
-            `Expected ROI: ${analysis.expected_roi_timeline_months} months.`,
-          confidence: avgConfidence,
-          status: 'completed',
+          content: `${analysis.variance_summary}\n\nOverall realization rate: ${(analysis.overall_realization_rate * 100).toFixed(0)}%. ` +
+            `${onTarget + over}/${analysis.proof_points.length} KPIs on or above target.`,
+          confidence: analysis.overall_realization_rate,
+          status: analysis.overall_realization_rate >= INTERVENTION_THRESHOLD ? 'completed' : 'warning',
         },
         showReasoning: true,
         showActions: true,
@@ -428,41 +438,57 @@ ${context.user_inputs?.additional_context ? `Additional context: ${context.user_
       },
     });
 
-    // Confidence display
+    // Variance chart — committed vs realized per KPI
     sections.push({
       type: 'component',
-      component: 'ConfidenceDisplay',
+      component: 'InteractiveChart',
       version: 1,
       props: {
-        data: {
-          score: avgConfidence,
-          label: 'Realization Confidence',
-          trend: 'stable' as const,
-        },
-        size: 'lg',
-        showTrend: false,
-        showLabel: true,
+        type: 'bar',
+        data: analysis.proof_points.map(p => ({
+          name: p.kpi_name,
+          committed: p.committed_value,
+          realized: p.realized_value,
+        })),
+        title: 'Committed vs Realized Value',
+        xAxisLabel: 'KPI',
+        yAxisLabel: 'Value',
+        showLegend: true,
+        showTooltip: true,
       },
     });
 
-    // Milestone timeline per plan
-    for (const plan of analysis.plans) {
+    // KPI actuals form (readonly)
+    sections.push({
+      type: 'component',
+      component: 'KPIForm',
+      version: 1,
+      props: {
+        kpis: analysis.proof_points.map(p => ({
+          name: p.kpi_name,
+          value: p.realized_value,
+          unit: p.unit,
+          source: p.data_source,
+        })),
+        title: 'Realized KPI Values',
+        readonly: true,
+      },
+    });
+
+    // Intervention narrative (if any)
+    if (analysis.interventions.length > 0) {
+      const interventionText = analysis.interventions
+        .map(i => `**${i.priority.toUpperCase()}** [${i.kpi_id}]: ${i.description} — ${i.expected_impact} (Owner: ${i.owner_role})`)
+        .join('\n\n');
+
       sections.push({
         type: 'component',
-        component: 'MilestoneTimeline',
+        component: 'NarrativeBlock',
         version: 1,
         props: {
-          title: plan.hypothesis_title,
-          milestones: plan.milestones.map(m => ({
-            id: m.id,
-            title: m.title,
-            description: m.description,
-            targetMonth: m.target_date_months,
-            status: m.status,
-            successCriteria: m.success_criteria,
-          })),
-          totalMonths: plan.expected_timeline_months,
-          confidence: plan.confidence,
+          content: interventionText,
+          type: 'recommendation',
+          confidence: analysis.overall_realization_rate,
         },
       });
     }

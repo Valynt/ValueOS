@@ -13,10 +13,17 @@ import type { AgentType } from "../../../services/agent-types.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import { MemorySystem } from "../MemorySystem.js";
+import type { KnowledgeFabricValidator, HallucinationCheckResult as KFHallucinationCheckResult } from "../KnowledgeFabricValidator.js";
 
 // ---------------------------------------------------------------------------
-// Hallucination detection result
+// Hallucination detection types
 // ---------------------------------------------------------------------------
+
+export interface HallucinationSignal {
+  type: 'refusal_pattern' | 'fabricated_data' | 'self_reference' | 'confidence_mismatch' | 'internal_contradiction' | 'ungrounded_claim';
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+}
 
 export interface HallucinationCheckResult {
   /** True when no hallucination signals detected */
@@ -27,12 +34,8 @@ export interface HallucinationCheckResult {
   groundingScore: number;
   /** When true, the output should be routed to human review */
   requiresEscalation: boolean;
-}
-
-export interface HallucinationSignal {
-  type: 'refusal_pattern' | 'fabricated_data' | 'self_reference' | 'confidence_mismatch' | 'internal_contradiction' | 'ungrounded_claim';
-  description: string;
-  severity: 'low' | 'medium' | 'high';
+  /** Knowledge Fabric validation result (when validator is configured) */
+  knowledgeFabric?: KFHallucinationCheckResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +50,7 @@ export abstract class BaseAgent {
   protected memorySystem: MemorySystem;
   protected llmGateway: LLMGateway;
   protected circuitBreaker: CircuitBreaker;
+  protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
 
   constructor(
     config: AgentConfig,
@@ -56,12 +60,21 @@ export abstract class BaseAgent {
     circuitBreaker: CircuitBreaker
   ) {
     this.lifecycleStage = config.lifecycle_stage;
-    this.version = "1.0.0"; // Default version, can be overridden
+    this.version = "1.0.0";
     this.name = config.name;
     this.organizationId = organizationId;
     this.memorySystem = memorySystem;
     this.llmGateway = llmGateway;
     this.circuitBreaker = circuitBreaker;
+    this.knowledgeFabricValidator = null;
+  }
+
+  /**
+   * Inject a KnowledgeFabricValidator for hallucination detection.
+   * Called by AgentFactory after construction.
+   */
+  setKnowledgeFabricValidator(validator: KnowledgeFabricValidator): void {
+    this.knowledgeFabricValidator = validator;
   }
 
   abstract execute(context: LifecycleContext): Promise<AgentOutput>;
@@ -97,11 +110,17 @@ export abstract class BaseAgent {
   }
 
   /**
-   * Secure LLM invocation with circuit breaker, hallucination detection, and Zod validation.
+   * Secure LLM invocation with circuit breaker, multi-signal hallucination
+   * detection, Knowledge Fabric cross-referencing, and Zod validation.
    *
-   * When hallucination signals fire at high severity, the result is flagged
-   * for escalation. Callers can inspect `hallucination_check` (boolean pass/fail)
-   * and `hallucination_details` (full signal breakdown) on the returned object.
+   * Hallucination detection runs two layers:
+   * 1. Multi-signal pattern analysis (refusal, self-reference, fabricated data,
+   *    internal contradictions, memory cross-reference, confidence calibration)
+   * 2. Knowledge Fabric validation (semantic memory contradictions, GroundTruth
+   *    benchmark checks) when a KnowledgeFabricValidator is configured
+   *
+   * Returns `hallucination_check` (boolean) and `hallucination_details`
+   * (full signal breakdown with grounding score).
    */
   protected async secureInvoke<T>(
     sessionId: string,
@@ -135,15 +154,31 @@ export abstract class BaseAgent {
 
       const response = await this.llmGateway.complete(request);
 
-      // Validate response with Zod first (fails fast on bad JSON)
+      // Knowledge Fabric cross-reference (runs in parallel with parse)
+      const kfResultPromise = this.validateWithKnowledgeFabric(response.content);
+
+      // Validate response with Zod (fails fast on bad JSON)
       const parsed = zodSchema.parse(JSON.parse(response.content));
 
-      // Run hallucination detection against the parsed output
+      // Run multi-signal hallucination detection
       const hallucinationResult = await this.checkHallucination(
         response.content,
         parsed as Record<string, unknown>,
         sessionId,
       );
+
+      // Merge Knowledge Fabric result
+      const kfResult = await kfResultPromise;
+      hallucinationResult.knowledgeFabric = kfResult;
+
+      if (!kfResult.passed) {
+        hallucinationResult.passed = false;
+        hallucinationResult.requiresEscalation = true;
+        hallucinationResult.groundingScore = Math.min(
+          hallucinationResult.groundingScore,
+          kfResult.confidence,
+        );
+      }
 
       // Track prediction if enabled
       if (trackPrediction) {
@@ -157,6 +192,9 @@ export abstract class BaseAgent {
             hallucination_check: hallucinationResult.passed,
             hallucination_signals: hallucinationResult.signals.length,
             requires_escalation: hallucinationResult.requiresEscalation,
+            validation_method: kfResult.method,
+            contradiction_count: kfResult.contradictions.length,
+            benchmark_misalignment_count: kfResult.benchmarkMisalignments.length,
           },
           this.organizationId
         );
@@ -180,19 +218,53 @@ export abstract class BaseAgent {
   }
 
   // -------------------------------------------------------------------------
-  // Hallucination Detection
+  // Knowledge Fabric Validation
+  // -------------------------------------------------------------------------
+
+  private async validateWithKnowledgeFabric(content: string): Promise<KFHallucinationCheckResult> {
+    if (!this.knowledgeFabricValidator) {
+      return {
+        passed: true,
+        confidence: 0.5,
+        contradictions: [],
+        benchmarkMisalignments: [],
+        method: "knowledge_fabric",
+      };
+    }
+
+    try {
+      return await this.knowledgeFabricValidator.validate(
+        content,
+        this.organizationId,
+        this.name
+      );
+    } catch (err) {
+      logger.warn("Knowledge Fabric validation failed, defaulting to pass", {
+        agent_id: this.name,
+        error: (err as Error).message,
+      });
+      return {
+        passed: true,
+        confidence: 0.5,
+        contradictions: [],
+        benchmarkMisalignments: [],
+        method: "knowledge_fabric",
+      };
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Multi-Signal Hallucination Detection
   // -------------------------------------------------------------------------
 
   /**
-   * Multi-signal hallucination detection.
-   *
-   * Checks:
+   * 6-signal hallucination detection pipeline:
    * 1. Refusal patterns — LLM declining to answer
-   * 2. Self-reference patterns — LLM breaking character
-   * 3. Fabricated data signals — suspiciously round numbers, fake citations
-   * 4. Internal contradictions — conflicting values within the output
-   * 5. Memory cross-reference — outputs that contradict stored facts
-   * 6. Confidence calibration — claimed confidence vs evidence quality
+   * 2. Self-reference — LLM breaking character
+   * 3. Fabricated data — fake URLs, round numbers, implausible percentages
+   * 4. Internal contradictions — range inversions, out-of-bounds confidence
+   * 5. Memory cross-reference — contradictions against stored facts
+   * 6. Confidence calibration — high confidence with thin evidence
    */
   protected async checkHallucination(
     rawContent: string,
@@ -219,11 +291,11 @@ export abstract class BaseAgent {
           description: `LLM refusal detected: ${pattern.source}`,
           severity: 'high',
         });
-        break; // One refusal signal is enough
+        break;
       }
     }
 
-    // 2. Self-reference patterns (LLM breaking character)
+    // 2. Self-reference patterns
     const selfRefPatterns = [
       /as a language model/i,
       /as an AI assistant/i,
@@ -243,13 +315,13 @@ export abstract class BaseAgent {
       }
     }
 
-    // 3. Fabricated data signals
+    // 3. Fabricated data
     this.checkFabricatedData(rawContent, parsedOutput, signals);
 
     // 4. Internal contradictions
     this.checkInternalContradictions(parsedOutput, signals);
 
-    // 5. Memory cross-reference (check against stored facts)
+    // 5. Memory cross-reference
     await this.crossReferenceMemory(parsedOutput, sessionId, signals);
 
     // 6. Confidence calibration
@@ -274,16 +346,11 @@ export abstract class BaseAgent {
     };
   }
 
-  /**
-   * Detect suspiciously fabricated data: round numbers, fake URLs,
-   * implausible percentages, and citation-like strings that look invented.
-   */
   private checkFabricatedData(
     rawContent: string,
     parsedOutput: Record<string, unknown>,
     signals: HallucinationSignal[],
   ): void {
-    // Fake URL patterns (common LLM hallucination)
     const fakeUrlPattern = /https?:\/\/(?:www\.)?(?:example\.com|fake|placeholder|lorem)/i;
     if (fakeUrlPattern.test(rawContent)) {
       signals.push({
@@ -293,7 +360,6 @@ export abstract class BaseAgent {
       });
     }
 
-    // Suspiciously precise large numbers (e.g., exactly $1,000,000)
     const roundNumberPattern = /\b\d{1,3}(,000){2,}\b/g;
     const roundMatches = rawContent.match(roundNumberPattern);
     if (roundMatches && roundMatches.length > 3) {
@@ -304,7 +370,6 @@ export abstract class BaseAgent {
       });
     }
 
-    // Check for implausible percentage values (> 1000%)
     const percentages = this.extractNumbers(parsedOutput, 'percent');
     for (const pct of percentages) {
       if (pct > 1000 || pct < -100) {
@@ -318,15 +383,10 @@ export abstract class BaseAgent {
     }
   }
 
-  /**
-   * Detect internal contradictions within the parsed output.
-   * Looks for conflicting numeric values that should be consistent.
-   */
   private checkInternalContradictions(
     parsedOutput: Record<string, unknown>,
     signals: HallucinationSignal[],
   ): void {
-    // Check low/high range consistency
     const ranges = this.extractRanges(parsedOutput);
     for (const range of ranges) {
       if (range.low > range.high) {
@@ -338,7 +398,6 @@ export abstract class BaseAgent {
       }
     }
 
-    // Check confidence values are within bounds
     const confidences = this.extractNumbers(parsedOutput, 'confidence');
     for (const conf of confidences) {
       if (conf < 0 || conf > 1) {
@@ -351,17 +410,12 @@ export abstract class BaseAgent {
     }
   }
 
-  /**
-   * Cross-reference output claims against stored memory.
-   * Flags outputs that contradict previously validated facts.
-   */
   private async crossReferenceMemory(
     parsedOutput: Record<string, unknown>,
     sessionId: string,
     signals: HallucinationSignal[],
   ): Promise<void> {
     try {
-      // Retrieve recent semantic memories for this tenant
       const memories = await this.memorySystem.retrieve({
         agent_id: this.name,
         memory_type: 'semantic',
@@ -371,14 +425,10 @@ export abstract class BaseAgent {
 
       if (memories.length === 0) return;
 
-      // Extract key claims from the output for comparison
       const outputStr = JSON.stringify(parsedOutput).toLowerCase();
 
       for (const memory of memories) {
-        // Check for numeric contradictions between memory and output
         if (memory.metadata?.type === 'integrity_validation' && memory.metadata?.veto === true) {
-          // If integrity previously vetoed and we're producing new claims,
-          // flag as potentially ungrounded
           if (outputStr.includes('supported') || outputStr.includes('validated')) {
             signals.push({
               type: 'ungrounded_claim',
@@ -393,10 +443,6 @@ export abstract class BaseAgent {
     }
   }
 
-  /**
-   * Check whether claimed confidence levels match the evidence quality.
-   * High confidence with weak evidence is a hallucination signal.
-   */
   private checkConfidenceCalibration(
     parsedOutput: Record<string, unknown>,
     signals: HallucinationSignal[],
@@ -404,7 +450,6 @@ export abstract class BaseAgent {
     const confidences = this.extractNumbers(parsedOutput, 'confidence');
     const evidenceArrays = this.extractArrayLengths(parsedOutput, 'evidence');
 
-    // If high confidence claimed but very little evidence provided
     if (confidences.length > 0 && evidenceArrays.length > 0) {
       const avgConfidence = confidences.reduce((a, b) => a + b, 0) / confidences.length;
       const avgEvidence = evidenceArrays.reduce((a, b) => a + b, 0) / evidenceArrays.length;
@@ -420,10 +465,9 @@ export abstract class BaseAgent {
   }
 
   // -------------------------------------------------------------------------
-  // Utility methods for hallucination detection
+  // Utility methods
   // -------------------------------------------------------------------------
 
-  /** Recursively extract numeric values from fields matching a key pattern */
   private extractNumbers(obj: unknown, keyPattern: string, results: number[] = []): number[] {
     if (obj === null || obj === undefined) return results;
     if (typeof obj === 'number' && !Number.isNaN(obj)) return results;
@@ -444,7 +488,6 @@ export abstract class BaseAgent {
     return results;
   }
 
-  /** Extract low/high range pairs for contradiction checking */
   private extractRanges(
     obj: unknown,
     path: string = '',
@@ -468,7 +511,6 @@ export abstract class BaseAgent {
     return results;
   }
 
-  /** Extract lengths of arrays whose keys match a pattern */
   private extractArrayLengths(obj: unknown, keyPattern: string, results: number[] = []): number[] {
     if (obj === null || obj === undefined || typeof obj !== 'object') return results;
 
