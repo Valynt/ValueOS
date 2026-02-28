@@ -215,6 +215,18 @@ jobs:
       - name: Multi-tenant chaos invariants
         run: node --test tests/integration/multi-tenant-chaos-invariants.test.mjs
 
+      - name: Launch chaos/smoke suite (blocking)
+        run: node scripts/chaos/launch-chaos-smoke.mjs
+
+      - name: Upload launch chaos/smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: launch-chaos-smoke-${{ github.run_id }}
+          path: artifacts/chaos-launch/**
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Build
         run: npx turbo run build
 

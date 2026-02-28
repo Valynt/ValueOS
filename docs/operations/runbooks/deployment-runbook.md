@@ -26,6 +26,7 @@ Authoritative operational runbook for production deployments. This runbook is th
 ## Preconditions
 - CI pipeline green on target commit.
 - Migration checks and docs-integrity checks passed.
+- Launch chaos/smoke gate passed (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence (`artifacts/chaos-launch/**/launch-chaos-results.json`).
 - On-call and incident commander assigned.
 
 ## Deployment Procedure
@@ -33,6 +34,7 @@ Authoritative operational runbook for production deployments. This runbook is th
 2. Apply DB migrations using standard migration pipeline.
 3. Deploy backend services, then frontend workloads.
 4. Run post-deploy smoke tests for auth, tenancy isolation, billing endpoints, and workflow execution.
+   - Include blocking chaos/smoke release suite: `node scripts/chaos/launch-chaos-smoke.mjs`.
 5. Monitor error rate, p95 latency, and queue depth for 15 minutes.
 
 ## Rollback Procedure

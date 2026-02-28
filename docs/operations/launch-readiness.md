@@ -85,6 +85,23 @@ This runbook protects tenant data, de-risks schema changes, and removes beta-onl
 - [ ] Accessibility readiness metrics published (including WCAG severity budget compliance: critical/serious = 0).
 - [ ] Localization readiness metrics published (coverage + key completeness dashboards for all release locales).
 - [ ] UX performance budgets validated in CI (bundle + route-level load targets) and attached to release checklist.
+- [ ] **Blocking launch chaos/smoke suite passed** (`node scripts/chaos/launch-chaos-smoke.mjs`) with machine-readable evidence attached (`artifacts/chaos-launch/**/launch-chaos-results.json`).
+
+## Blocking Launch Chaos/Smoke Suite (Release Gate)
+
+Before any production go-live, execute the unified suite:
+
+```bash
+node scripts/chaos/launch-chaos-smoke.mjs
+```
+
+Mandatory checks in this suite:
+
+1. Cross-tenant access attempt must fail (tenant isolation invariant).
+2. Billing bypass attempt must alert/block (plan enforcement middleware).
+3. Autoscale stress to high replica count with clean downscale (k8s backend deployment + HPA topology).
+
+Release sign-off is **No-Go** unless `launch-chaos-results.json` reports `"status": "pass"` and includes evidence pointers for each check. CI publishes this artifact as `launch-chaos-smoke-<run_id>`.
 
 ## Billing Sign-off: Early-Adopter `price_version_id` Audit
 
