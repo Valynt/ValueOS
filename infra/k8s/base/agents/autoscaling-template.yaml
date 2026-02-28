@@ -1,18 +1,20 @@
+# Common HPA template for all ValueOS agents.
+# Copy this and replace {{...}} placeholders for each agent deployment.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: opportunity-agent
+  name: {{agent-name}}-agent
   namespace: valynt-agents
   labels:
-    app: opportunity-agent
+    app: {{agent-name}}-agent
     autoscaling.valueos.dev/profile: queue-depth
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: opportunity-agent
+    name: {{agent-name}}-agent
   minReplicas: 2
-  maxReplicas: 8
+  maxReplicas: 12
   metrics:
     - type: External
       external:
@@ -21,7 +23,7 @@ spec:
           selector:
             matchLabels:
               queue: agent-tasks
-              agent_type: opportunity
+              agent_type: {{agent-name}}
         target:
           type: AverageValue
           averageValue: "10"
