@@ -31,6 +31,8 @@ logger.info("[Instrumentation] CORS imported successfully");
 
 import { createServer, type IncomingMessage } from "http";
 
+import { parseCorsAllowlist } from "@shared/config/cors";
+
 import { WebSocket, WebSocketServer } from "ws";
 
 import adminRouter from "./api/admin.js";
@@ -298,10 +300,11 @@ wss.on("connection", (ws: WebSocket, req) => {
 });
 
 // Middleware
-const corsOrigins = settings.security.corsOrigins;
-if (corsOrigins.includes("*") || corsOrigins.length === 0) {
-  throw new Error('CORS origins cannot include "*" or be empty when credentials are enabled');
-}
+const corsOrigins = parseCorsAllowlist(settings.security.corsOrigins.join(","), {
+  source: "settings.security.corsOrigins",
+  credentials: true,
+  requireNonEmpty: true,
+});
 app.use(
   cors({
     origin: corsOrigins,
