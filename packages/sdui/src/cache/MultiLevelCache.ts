@@ -70,13 +70,13 @@ export class MemoryCache<T> implements CacheLayer<T> {
   private cache = new Map<string, CacheEntry<T>>();
   private maxSize: number;
   private defaultTtl: number;
-  private stats: CacheStats;
+  private _stats: CacheStats;
   private accessOrder: string[] = [];
 
   constructor(config: CacheConfig = {}) {
     this.maxSize = config.maxSize || 1000;
     this.defaultTtl = config.ttl || 5 * 60 * 1000; // 5 minutes
-    this.stats = {
+    this._stats = {
       hits: 0,
       misses: 0,
       sets: 0,
@@ -93,7 +93,7 @@ export class MemoryCache<T> implements CacheLayer<T> {
     const entry = this.cache.get(key);
 
     if (!entry) {
-      this.stats.misses++;
+      this._stats.misses++;
       return null;
     }
 
@@ -101,8 +101,8 @@ export class MemoryCache<T> implements CacheLayer<T> {
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       this.removeFromAccessOrder(key);
-      this.stats.misses++;
-      this.stats.deletes++;
+      this._stats.misses++;
+      this._stats.deletes++;
       return null;
     }
 
@@ -110,7 +110,7 @@ export class MemoryCache<T> implements CacheLayer<T> {
     entry.accessCount++;
     entry.lastAccessed = Date.now();
     this.updateAccessOrder(key);
-    this.stats.hits++;
+    this._stats.hits++;
     this.updateHitRate();
 
     return entry.data;
@@ -135,8 +135,8 @@ export class MemoryCache<T> implements CacheLayer<T> {
 
     this.cache.set(key, entry);
     this.updateAccessOrder(key);
-    this.stats.sets++;
-    this.stats.currentSize = this.cache.size;
+    this._stats.sets++;
+    this._stats.currentSize = this.cache.size;
     this.updateMemoryUsage();
   }
 
@@ -144,8 +144,8 @@ export class MemoryCache<T> implements CacheLayer<T> {
     const deleted = this.cache.delete(key);
     if (deleted) {
       this.removeFromAccessOrder(key);
-      this.stats.deletes++;
-      this.stats.currentSize = this.cache.size;
+      this._stats.deletes++;
+      this._stats.currentSize = this.cache.size;
       this.updateMemoryUsage();
     }
   }
@@ -153,8 +153,8 @@ export class MemoryCache<T> implements CacheLayer<T> {
   async clear(): Promise<void> {
     this.cache.clear();
     this.accessOrder = [];
-    this.stats.currentSize = 0;
-    this.stats.memoryUsage = 0;
+    this._stats.currentSize = 0;
+    this._stats.memoryUsage = 0;
   }
 
   async has(key: string): Promise<boolean> {
@@ -167,17 +167,17 @@ export class MemoryCache<T> implements CacheLayer<T> {
   }
 
   async stats(): Promise<CacheStats> {
-    return { ...this.stats };
+    return { ...this._stats };
   }
 
   private evictLRU(): void {
     if (this.accessOrder.length === 0) return;
 
-    const lruKey = this.accessOrder[0];
+    const lruKey = this.accessOrder[0]!;
     this.cache.delete(lruKey);
     this.accessOrder.shift();
-    this.stats.evictions++;
-    this.stats.currentSize = this.cache.size;
+    this._stats.evictions++;
+    this._stats.currentSize = this.cache.size;
   }
 
   private updateAccessOrder(key: string): void {
@@ -193,8 +193,8 @@ export class MemoryCache<T> implements CacheLayer<T> {
   }
 
   private updateHitRate(): void {
-    const total = this.stats.hits + this.stats.misses;
-    this.stats.hitRate = total > 0 ? this.stats.hits / total : 0;
+    const total = this._stats.hits + this._stats.misses;
+    this._stats.hitRate = total > 0 ? this._stats.hits / total : 0;
   }
 
   private updateMemoryUsage(): void {
@@ -202,7 +202,7 @@ export class MemoryCache<T> implements CacheLayer<T> {
     for (const entry of this.cache.values()) {
       totalSize += entry.size || 0;
     }
-    this.stats.memoryUsage = totalSize;
+    this._stats.memoryUsage = totalSize;
   }
 
   private calculateSize(value: T): number {
@@ -221,12 +221,12 @@ export class SessionCache<T> implements CacheLayer<T> {
     this.prefix = prefix;
   }
 
-  private serialize(value: T): string {
+  private serialize(value: unknown): string {
     return JSON.stringify(value);
   }
 
-  private deserialize(value: string): T {
-    return JSON.parse(value);
+  private deserialize(value: string): { data: T; timestamp: number; expiresAt: number } {
+    return JSON.parse(value) as { data: T; timestamp: number; expiresAt: number };
   }
 
   async get(key: string): Promise<T | null> {
@@ -349,13 +349,13 @@ export class MultiLevelCache<T> {
    */
   async get(key: string): Promise<T | null> {
     for (let i = 0; i < this.layers.length; i++) {
-      const layer = this.layers[i];
+      const layer = this.layers[i]!;
       const value = await layer.get(key);
 
       if (value !== null) {
         // Promote to higher layers (write-through)
         for (let j = 0; j < i; j++) {
-          await this.layers[j].set(key, value);
+          await this.layers[j]!.set(key, value);
         }
 
         this.globalStats.hits++;
@@ -429,22 +429,23 @@ export class MultiLevelCache<T> {
   async stats(): Promise<CacheStats & { layerStats: Array<{ name: string; stats: CacheStats }> }> {
     const layerStats = await Promise.all(
       this.layers.map(async (layer, index) => ({
-        name: this.layerNames[index],
+        name: this.layerNames[index] ?? `layer-${index}`,
         stats: await layer.stats(),
       }))
     );
 
     // Aggregate stats
-    const aggregated = layerStats.reduce(
-      (acc, { stats }) => ({
-        hits: acc.hits + stats.hits,
-        misses: acc.misses + stats.misses,
-        sets: acc.sets + stats.sets,
-        deletes: acc.deletes + stats.deletes,
-        evictions: acc.evictions + stats.evictions,
-        currentSize: acc.currentSize + stats.currentSize,
-        maxSize: acc.maxSize + stats.maxSize,
-        memoryUsage: acc.memoryUsage + stats.memoryUsage,
+    const aggregated: CacheStats = layerStats.reduce<CacheStats>(
+      (acc, { stats: layerStat }) => ({
+        hits: acc.hits + layerStat.hits,
+        misses: acc.misses + layerStat.misses,
+        sets: acc.sets + layerStat.sets,
+        deletes: acc.deletes + layerStat.deletes,
+        evictions: acc.evictions + layerStat.evictions,
+        hitRate: 0,
+        currentSize: acc.currentSize + layerStat.currentSize,
+        maxSize: acc.maxSize + layerStat.maxSize,
+        memoryUsage: acc.memoryUsage + layerStat.memoryUsage,
       }),
       {
         hits: 0,
@@ -452,6 +453,7 @@ export class MultiLevelCache<T> {
         sets: 0,
         deletes: 0,
         evictions: 0,
+        hitRate: 0,
         currentSize: 0,
         maxSize: 0,
         memoryUsage: 0,

@@ -52,9 +52,10 @@ resources:
   - remaining-agents-hpa-part1.yaml
   - remaining-agents-hpa-part2.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: valynt
-  app.kubernetes.io/managed-by: kustomize
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: valynt
+      app.kubernetes.io/managed-by: kustomize
 
 images:
   - name: valynt/agent-opportunity

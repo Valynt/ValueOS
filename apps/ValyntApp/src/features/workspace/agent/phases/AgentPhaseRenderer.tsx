@@ -73,15 +73,15 @@ export function AgentPhaseRenderer({
         approveArtifact(a.id);
       }
     });
-    transition("APPROVED");
+    transition("ALL_ARTIFACTS_REVIEWED");
   }, [artifactList, approveArtifact, transition]);
 
   const handleRequestRevision = useCallback(() => {
-    transition("REVISION_NEEDED");
+    transition("ARTIFACT_REJECTED");
   }, [transition]);
 
   const handleFinalize = useCallback(() => {
-    transition("FINALIZED");
+    transition("FINALIZE_COMPLETE");
   }, [transition]);
 
   const handleRetry = useCallback(() => {

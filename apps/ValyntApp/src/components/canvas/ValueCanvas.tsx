@@ -87,6 +87,7 @@ const ValueCanvasContent: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 
   // Load session data
   useEffect(() => {
+    if (!organizationId) return;
     const loadSession = async () => {
       try {
         const session = await sessionService.loadSession(sessionId, organizationId);
@@ -115,6 +116,7 @@ const ValueCanvasContent: React.FC<ValueCanvasProps> = ({ sessionId, onSave }) =
 
   // Auto-save with debouncing
   useEffect(() => {
+    if (!organizationId) return;
     const autoSave = async () => {
       if (!nodes.length && !edges.length) return; // Don't save empty canvas
 

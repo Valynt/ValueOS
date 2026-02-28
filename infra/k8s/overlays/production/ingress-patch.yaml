@@ -2,6 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: valynt
+  namespace: valynt
   annotations:
     # Set these values from your AWS Certificate Manager ARN for the production domain.
     # Example: arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT_ID

@@ -4,7 +4,14 @@ import {
   canTransition,
   getValidActions,
   buildTransitionContext,
+  AGENT_STATE_CONFIG,
+  getStateConfig,
+  getValidEvents,
+  resolveTransition,
   type TransitionContext,
+  type AgentAction,
+  type AgentTransitionEvent,
+  type AgentStateConfig,
 } from '../state-machine';
 import type { AgentPhase } from '../types';
 
@@ -166,6 +173,61 @@ describe('Agent State Machine', () => {
       expect(ctx.hasPendingArtifacts).toBe(true);
       expect(ctx.hasCheckpoints).toBe(true);
       expect(ctx.errorRecoverable).toBe(true);
+    });
+  });
+
+  describe('backward-compatible exports', () => {
+    it('exports AGENT_STATE_CONFIG with all phases', () => {
+      const phases: AgentPhase[] = ['idle', 'clarify', 'plan', 'execute', 'review', 'finalize', 'error', 'resume'];
+      for (const phase of phases) {
+        const config = AGENT_STATE_CONFIG[phase];
+        expect(config).toBeDefined();
+        expect(config.phase).toBe(phase);
+        expect(config.label).toBeTruthy();
+        expect(config.color).toBeTruthy();
+        expect(config.textColor).toBeTruthy();
+        expect(config.borderColor).toBeTruthy();
+      }
+    });
+
+    it('getStateConfig returns config for a phase', () => {
+      const config: AgentStateConfig = getStateConfig('idle');
+      expect(config.phase).toBe('idle');
+      expect(config.label).toBe('Ready');
+    });
+
+    it('resolveTransition resolves with default context', () => {
+      // PLAN_PROPOSED from idle should go to plan
+      expect(resolveTransition('idle', 'PLAN_PROPOSED')).toBe('plan');
+      // Invalid transition returns null
+      expect(resolveTransition('idle', 'FINALIZE_COMPLETE')).toBeNull();
+    });
+
+    it('getValidEvents returns valid actions for a phase', () => {
+      const events = getValidEvents('idle');
+      expect(events).toContain('PLAN_PROPOSED');
+      expect(events).toContain('SEND_MESSAGE');
+    });
+
+    it('AgentTransitionEvent is assignable from AgentAction', () => {
+      // Type-level check: AgentTransitionEvent should be the same as AgentAction
+      const action: AgentAction = 'PLAN_APPROVED';
+      const event: AgentTransitionEvent = action;
+      expect(event).toBe('PLAN_APPROVED');
+    });
+  });
+
+  describe('corrected action names (bug #2)', () => {
+    it('ALL_ARTIFACTS_REVIEWED transitions review → finalize', () => {
+      expect(transition('review', 'ALL_ARTIFACTS_REVIEWED', withArtifacts)).toBe('finalize');
+    });
+
+    it('ARTIFACT_REJECTED transitions review → execute', () => {
+      expect(transition('review', 'ARTIFACT_REJECTED', baseCtx)).toBe('execute');
+    });
+
+    it('FINALIZE_COMPLETE transitions finalize → idle', () => {
+      expect(transition('finalize', 'FINALIZE_COMPLETE', baseCtx)).toBe('idle');
     });
   });
 });
