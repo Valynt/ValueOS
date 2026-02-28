@@ -9,6 +9,16 @@ spec:
 
 ---
 apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: valynt-agents-strict-peer-auth
+  namespace: valynt-agents
+spec:
+  mtls:
+    mode: STRICT
+
+---
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: api-allow-gateway-spiffe
@@ -22,7 +32,7 @@ spec:
     - from:
         - source:
             principals:
-              - spiffe://valynt/api-gateway
+              - cluster.local/ns/valynt/sa/valynt-backend
       to:
         - operation:
             ports: ["3000"]
@@ -42,12 +52,397 @@ spec:
     - from:
         - source:
             principals:
-              - spiffe://valynt/message-worker
-              - spiffe://valynt/opportunity-agent
-              - spiffe://valynt/api-gateway
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/opportunity-agent
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
       to:
         - operation:
             ports: ["6379"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: agents-default-deny
+  namespace: valynt-agents
+spec: {}
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: opportunity-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: opportunity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: target-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: target-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: expansion-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: expansion-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: integrity-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: integrity-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: realization-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: realization-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: company-intelligence-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: company-intelligence-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: financial-modeling-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: financial-modeling-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: value-mapping-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: value-mapping-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: system-mapper-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: system-mapper-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: intervention-designer-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: intervention-designer-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: outcome-engineer-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: outcome-engineer-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: coordinator-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: coordinator-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: value-eval-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: value-eval-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: communicator-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: communicator-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: research-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: research-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: benchmark-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: benchmark-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: narrative-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: narrative-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: groundtruth-agent-allow-callers
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      app: groundtruth-agent
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/valynt/sa/valynt-backend
+              - cluster.local/ns/valynt-agents/sa/coordinator-agent
+      to:
+        - operation:
+            ports: ["8080", "18080"]
 
 ---
 apiVersion: security.istio.io/v1beta1
