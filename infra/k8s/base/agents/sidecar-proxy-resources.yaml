@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-sidecar-config
+  namespace: valynt-agents
+data:
+  jwt_issuer: https://auth.valynt.io/
+  jwt_audience: valynt-agents
+  opa-config.yaml: "services:\n  envoy_ext_authz:\n    url: http://127.0.0.1:8181\n\
+    \    response_header_timeout_seconds: 2\nplugins:\n  envoy_ext_authz_grpc:\n \
+    \   addr: :9191\n    path: envoy/authz/allow\n    dry-run: false\n"
+  envoy.yaml: "static_resources:\n  listeners:\n  - name: ingress_listener\n    address:\n\
+    \      socket_address: { address: 0.0.0.0, port_value: 8080 }\n    filter_chains:\n\
+    \    - filters:\n      - name: envoy.filters.network.http_connection_manager\n\
+    \        typed_config:\n          \"@type\": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager\n\
+    \          stat_prefix: ingress_http\n          route_config:\n            name:\
+    \ local_route\n            virtual_hosts:\n            - name: agent_app\n   \
+    \           domains: [\"*\"]\n              routes:\n              - match: {\
+    \ prefix: \"/\" }\n                route: { cluster: local_app }\n          http_filters:\n\
+    \          - name: envoy.filters.http.jwt_authn\n            typed_config:\n \
+    \             \"@type\": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication\n\
+    \              providers:\n                default:\n                  issuer:\
+    \ https://auth.valynt.io/\n                  audiences: [\"valynt-agents\"]\n\
+    \                  local_jwks:\n                    filename: /etc/agent-certs/jwks.json\n\
+    \                  forward: true\n              rules:\n              - match:\
+    \ { prefix: \"/health\" }\n              - match: { prefix: \"/ready\" }\n   \
+    \           - match: { prefix: \"/\" }\n                requires: { provider_name:\
+    \ default }\n          - name: envoy.filters.http.ext_authz\n            typed_config:\n\
+    \              \"@type\": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz\n\
+    \              transport_api_version: V3\n              grpc_service:\n      \
+    \          envoy_grpc:\n                  cluster_name: opa_authz\n          -\
+    \ name: envoy.filters.http.router\n            typed_config:\n              \"\
+    @type\": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router\n\
+    \  clusters:\n  - name: local_app\n    connect_timeout: 2s\n    type: STATIC\n\
+    \    load_assignment:\n      cluster_name: local_app\n      endpoints:\n     \
+    \ - lb_endpoints:\n        - endpoint:\n            address:\n              socket_address:\
+    \ { address: 127.0.0.1, port_value: 18080 }\n  - name: opa_authz\n    connect_timeout:\
+    \ 1s\n    type: STATIC\n    http2_protocol_options: {}\n    load_assignment:\n\
+    \      cluster_name: opa_authz\n      endpoints:\n      - lb_endpoints:\n    \
+    \    - endpoint:\n            address:\n              socket_address: { address:\
+    \ 127.0.0.1, port_value: 9191 }\nadmin:\n  address:\n    socket_address: { address:\
+    \ 0.0.0.0, port_value: 15021 }\n"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-sidecar-policy
+  namespace: valynt-agents
+data:
+  policy.rego: "package envoy.authz\n\ndefault allow = false\n\nallow if {\n  input.parsed_path[0]\
+    \ == \"health\"\n}\n\nallow if {\n  input.parsed_path[0] == \"ready\"\n}\n\nallow\
+    \ if {\n  token := input.attributes.request.http.headers.authorization\n  startswith(lower(token),\
+    \ \"bearer \")\n}\n"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-sidecar-certs
+  namespace: valynt-agents
+type: Opaque
+stringData:
+  ca.crt: REPLACE_WITH_CA_CERT
+  tls.crt: REPLACE_WITH_WORKLOAD_CERT
+  tls.key: REPLACE_WITH_WORKLOAD_KEY
+  jwks.json: '{"keys": []}'
