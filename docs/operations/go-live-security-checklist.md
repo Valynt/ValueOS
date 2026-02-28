@@ -152,9 +152,9 @@
 
 ### Must-Have (Block release)
 
-- [ ] **Remove or gate auth bypass** in `SignupPage.tsx` and `LoginPage.tsx` — hardcoded credentials and bypass buttons must not ship to production
-- [ ] **Enable MFA** — change `mfaEnabled` from hardcoded `false` to env-driven, set `true` in production
-- [ ] **Fix CORS default** — remove `*` fallback from `environment.ts:68` and all WebSocket servers; make `CORS_ORIGINS` required
+- [x] **Remove or gate auth bypass** in `SignupPage.tsx` and `LoginPage.tsx` — hardcoded credentials removed, bypass gated behind `import.meta.env.DEV` (fixed 2026-02-28)
+- [x] **Enable MFA** — `mfaEnabled` now reads `process.env.MFA_ENABLED === 'true'`; set `MFA_ENABLED=true` in production env (fixed 2026-02-28)
+- [x] **Fix CORS default** — removed `*` fallback from `environment.ts:68` and `WebSocketServer.ts:72`; empty default triggers runtime guard (fixed 2026-02-28)
 - [ ] **Fix DATABASE_URL fallback** — remove `postgres:postgres` inline default in `compose.yml:31`
 - [ ] **Add tenant filter** to `ValueFabricService.ts` frontend queries (`getBenchmarks`, `getOntologyStats`)
 - [ ] **Audit `service_role` in browser bundle** — verify `UsageTrackingService.ts` server-only require is not resolved by Vite

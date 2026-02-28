@@ -27,7 +27,7 @@ export function isFeatureEnabled(feature: string): boolean {
 
 export function getConfig() {
   return {
-    auth: { mfaEnabled: false },
+    auth: { mfaEnabled: process.env.MFA_ENABLED === 'true' },
     features: {
       billing: false,
       usageTracking: false,
@@ -65,7 +65,7 @@ export function getConfig() {
     security: {
       csrfEnabled: process.env.CSRF_ENABLED !== "false",
       rateLimitEnabled: process.env.RATE_LIMIT_ENABLED !== "false",
-      corsOrigins: process.env.CORS_ORIGINS || "*",
+      corsOrigins: process.env.CORS_ORIGINS || "",
     },
   };
 }
