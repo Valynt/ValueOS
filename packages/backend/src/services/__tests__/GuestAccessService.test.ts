@@ -6,13 +6,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getGuestAccessService } from '../GuestAccessService.js'
 
 // Mock Supabase
-const mockSupabase = {
-  auth: {
-    getUser: vi.fn(),
+const { mockSupabase } = vi.hoisted(() => ({
+  mockSupabase: {
+    auth: {
+      getUser: vi.fn(),
+    },
+    from: vi.fn(),
+    rpc: vi.fn(),
   },
-  from: vi.fn(),
-  rpc: vi.fn(),
-};
+}));
 
 vi.mock('../../lib/supabase', () => ({
   supabase: mockSupabase,

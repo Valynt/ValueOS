@@ -12,14 +12,16 @@ type MockState = {
   selectResponse: { data: any; error: any };
 };
 
-const state: MockState = {
-  filters: [],
-  insertCount: 0,
-  insertError: null,
-  lastInsertPayload: null,
-  lastSelectColumns: null,
-  selectResponse: { data: [], error: null },
-};
+const { state } = vi.hoisted(() => ({
+  state: {
+    filters: [] as Array<{ op: string; column: string; value: unknown }>,
+    insertCount: 0,
+    insertError: null as { message: string } | null,
+    lastInsertPayload: null as Record<string, unknown> | null,
+    lastSelectColumns: null as string | null,
+    selectResponse: { data: [] as unknown[], error: null as unknown },
+  },
+}));
 
 vi.mock('@shared/lib/env', () => ({
   getEnvVar: (_name: string, options?: { defaultValue?: string }) => options?.defaultValue ?? null,

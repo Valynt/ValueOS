@@ -2,13 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as UsageTrackingService from '../UsageTrackingService.js'
 
 // Mocks
-vi.mock('../../lib/logger', () => ({
-  logger: {
+vi.mock('../../lib/logger', () => {
+  const logger = {
     debug: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
-  },
-}));
+    info: vi.fn(),
+  };
+  return {
+    logger,
+    createLogger: () => logger,
+  };
+});
 
 vi.mock('../../config/environment', () => ({
   getConfig: () => ({
@@ -16,15 +21,18 @@ vi.mock('../../config/environment', () => ({
   }),
 }));
 
-const mockSelect = vi.fn();
-const mockFrom = vi.fn(() => ({
-  select: mockSelect,
-  upsert: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  order: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockReturnThis(),
-  single: vi.fn().mockResolvedValue({ data: null, error: null }),
-}));
+const { mockSelect, mockFrom } = vi.hoisted(() => {
+  const mockSelect = vi.fn();
+  const mockFrom = vi.fn(() => ({
+    select: mockSelect,
+    upsert: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+  }));
+  return { mockSelect, mockFrom };
+});
 
 // Mock @supabase/supabase-js for createClient
 vi.mock('@supabase/supabase-js', () => ({

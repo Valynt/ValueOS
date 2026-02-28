@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IntegrationConnectionService } from "../IntegrationConnectionService.js";
 import { AuthorizationError, ValidationError } from "../errors.js";
 
-const mockLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 vi.mock("@shared/lib/logger", () => ({
   createLogger: () => mockLogger,

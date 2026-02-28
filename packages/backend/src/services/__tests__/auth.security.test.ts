@@ -17,8 +17,21 @@ import {
 } from "../../test-utils/auth.fixtures";
 import { resetAuthMocks, setupAuthMocks } from "../../test-utils/auth.helpers";
 
-// Setup mocks
-const mocks = setupAuthMocks();
+// Setup mocks — use vi.hoisted so the variable is available when vi.mock factory runs
+const { mocks } = vi.hoisted(() => {
+  const mockSupabaseAuth = {
+    signInWithPassword: async () => ({ data: { user: {}, session: {} }, error: null }),
+    signUp: async () => ({ data: { user: {}, session: {} }, error: null }),
+    signOut: async () => ({ error: null }),
+  };
+  return {
+    mocks: {
+      mockSupabaseAuth,
+      mockGetConfig: { mockReturnValue: () => {} },
+      mockClientRateLimit: { checkLimit: { mockResolvedValue: () => {} } },
+    },
+  };
+});
 
 vi.mock("../../lib/supabase", () => ({
   supabase: { auth: mocks.mockSupabaseAuth },

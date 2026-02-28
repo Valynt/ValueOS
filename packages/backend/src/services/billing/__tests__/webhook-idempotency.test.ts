@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { WebhookService } from '../WebhookService.js';
+import webhookService from '../WebhookService.js';
 
 // Mock Stripe webhook data
 const mockInvoiceWebhook = {
@@ -47,7 +47,7 @@ describe('Webhook Idempotency Validation', () => {
 
   describe('Event Deduplication', () => {
     it('should process webhook event only once', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process webhook first time
       const result1 = await webhookService.processWebhook(mockInvoiceWebhook);
@@ -64,7 +64,7 @@ describe('Webhook Idempotency Validation', () => {
     });
 
     it('should handle concurrent duplicate webhooks', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process multiple identical webhooks concurrently
       const promises = Array(5).fill().map(() =>
@@ -83,7 +83,7 @@ describe('Webhook Idempotency Validation', () => {
     });
 
     it('should use Stripe event ID for deduplication', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process original event
       await webhookService.processWebhook(mockInvoiceWebhook);
@@ -108,7 +108,7 @@ describe('Webhook Idempotency Validation', () => {
 
   describe('Idempotency Key Handling', () => {
     it('should respect Stripe idempotency keys', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process webhook with idempotency key
       const result1 = await webhookService.processWebhook(mockInvoiceWebhook);
@@ -125,7 +125,7 @@ describe('Webhook Idempotency Validation', () => {
         request: undefined // No idempotency key
       };
 
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Should still deduplicate based on event ID
       const result1 = await webhookService.processWebhook(webhookWithoutIdempotency);
@@ -144,7 +144,7 @@ describe('Webhook Idempotency Validation', () => {
         }
       };
 
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Should fall back to event ID deduplication
       const result1 = await webhookService.processWebhook(webhookWithBadIdempotency);
@@ -157,7 +157,7 @@ describe('Webhook Idempotency Validation', () => {
 
   describe('Event Processing Integrity', () => {
     it('should maintain data consistency across retries', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process webhook
       await webhookService.processWebhook(mockInvoiceWebhook);
@@ -177,7 +177,7 @@ describe('Webhook Idempotency Validation', () => {
     });
 
     it('should preserve event order', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Create sequence of related events
       const events = [
@@ -201,7 +201,7 @@ describe('Webhook Idempotency Validation', () => {
 
   describe('Error Handling', () => {
     it('should handle malformed webhook payloads', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       const malformedWebhook = {
         id: 'evt_malformed',
@@ -226,7 +226,7 @@ describe('Webhook Idempotency Validation', () => {
         // Invalid signature
       };
 
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       await expect(
         webhookService.processWebhook(invalidWebhook)
@@ -236,7 +236,7 @@ describe('Webhook Idempotency Validation', () => {
 
   describe('Performance and Scalability', () => {
     it('should handle high volume of duplicate webhooks', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process original
       await webhookService.processWebhook(mockInvoiceWebhook);
@@ -261,7 +261,7 @@ describe('Webhook Idempotency Validation', () => {
 
   describe('Security and Validation', () => {
     it('should validate webhook signatures', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Valid webhook should process
       const validResult = await webhookService.processWebhook(mockInvoiceWebhook);
@@ -286,7 +286,7 @@ describe('Webhook Idempotency Validation', () => {
     });
 
     it('should prevent replay attacks', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process legitimate webhook
       await webhookService.processWebhook(mockInvoiceWebhook);
@@ -303,7 +303,7 @@ describe('Webhook Idempotency Validation', () => {
         created: 1640995200 - 3600 // 1 hour ago
       };
 
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Should still deduplicate based on event ID
       const result1 = await webhookService.processWebhook(oldWebhook);
@@ -316,7 +316,7 @@ describe('Webhook Idempotency Validation', () => {
 
   describe('Monitoring and Observability', () => {
     it('should log duplicate webhook attempts', async () => {
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process original
       await webhookService.processWebhook(mockInvoiceWebhook);
@@ -342,7 +342,7 @@ describe('Webhook Idempotency Validation', () => {
 
     it('should handle webhook retries from Stripe', async () => {
       // Test Stripe's automatic retry behavior
-      const webhookService = new WebhookService();
+      // Use singleton instance;
 
       // Process webhook multiple times as Stripe would retry
       for (let i = 0; i < 3; i++) {
