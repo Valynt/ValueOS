@@ -17,6 +17,13 @@ vi.mock('../../config/environment', () => ({
   }),
 }));
 
+
+vi.mock('../api/client', () => ({
+  api: {
+    post: vi.fn().mockResolvedValue({ success: true }),
+  },
+}));
+
 const mockSelect = vi.fn();
 const mockFrom = vi.fn(() => ({
   select: mockSelect,
