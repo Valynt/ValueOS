@@ -1785,6 +1785,7 @@ export class UnifiedAgentOrchestrator {
         .from("workflow_executions")
         .insert({
           id: executionId,
+          organization_id: envelope.organizationId,
           workflow_definition_id: workflowDefinitionId,
           workflow_version: definition.version,
           status: "initiated",
@@ -1809,19 +1810,26 @@ export class UnifiedAgentOrchestrator {
         throw new Error("Failed to create workflow execution");
       }
 
-      await this.recordWorkflowEvent(executionId, "workflow_initiated", dag.initial_stage ?? "", {
-        envelope,
-        stageExecutionId: initialStageExecutionId,
-      });
+      await this.recordWorkflowEvent(
+        executionId,
+        envelope.organizationId,
+        "workflow_initiated",
+        dag.initial_stage ?? "",
+        {
+          envelope,
+          stageExecutionId: initialStageExecutionId,
+        }
+      );
 
       // Execute DAG asynchronously
       this.executeDAGAsync(
         execution.id,
+        envelope.organizationId,
         dag,
         { ...context, executionIntent: envelope },
         traceId
       ).catch(async (error) => {
-        await this.handleWorkflowFailure(execution.id, error.message);
+        await this.handleWorkflowFailure(execution.id, envelope.organizationId, error.message);
       });
 
       return {
@@ -2028,17 +2036,18 @@ Provide a JSON response with:
 
   private async executeDAGAsync(
     executionId: string,
+    organizationId: string,
     dag: WorkflowDAG,
     initialContext: Record<string, unknown>,
     traceId: string,
     executionRecord?: WorkflowExecutionRecord
   ): Promise<void> {
-    let executionContext = { ...initialContext };
+    let executionContext = { ...initialContext, organizationId };
     const defaultRecord: WorkflowExecutionRecord = executionRecord ?? {
       id: executionId,
       workflow_id: dag.id ?? "",
       workspace_id: "",
-      organization_id: "",
+      organization_id: organizationId,
       status: "running",
       started_at: new Date().toISOString(),
       context: initialContext,
@@ -2202,13 +2211,13 @@ Provide a JSON response with:
               },
             };
 
-            await this.recordWorkflowEvent(executionId, "stage_failed", stage.id, {
+            await this.recordWorkflowEvent(executionId, organizationId, "stage_failed", stage.id, {
               reason: "integrity_veto",
               metadata: structuralCheck.metadata,
             });
 
-            await this.persistExecutionRecord(executionId, recordSnapshot);
-            await this.updateExecutionStatus(executionId, "failed", stage.id, recordSnapshot);
+            await this.persistExecutionRecord(executionId, organizationId, recordSnapshot);
+            await this.updateExecutionStatus(executionId, organizationId, "failed", stage.id, recordSnapshot);
             continue;
           }
 
@@ -2260,13 +2269,13 @@ Provide a JSON response with:
               },
             };
 
-            await this.recordWorkflowEvent(executionId, "stage_failed", stage.id, {
+            await this.recordWorkflowEvent(executionId, organizationId, "stage_failed", stage.id, {
               reason: "integrity_veto",
               metadata: integrityCheck.metadata,
             });
 
-            await this.persistExecutionRecord(executionId, recordSnapshot);
-            await this.updateExecutionStatus(executionId, "failed", stage.id, recordSnapshot);
+            await this.persistExecutionRecord(executionId, organizationId, recordSnapshot);
+            await this.updateExecutionStatus(executionId, organizationId, "failed", stage.id, recordSnapshot);
             continue;
           }
 
@@ -2307,6 +2316,7 @@ Provide a JSON response with:
 
           await this.recordStageRun(
             executionId,
+            organizationId,
             stage,
             recordSnapshot,
             stageStart,
@@ -2350,8 +2360,8 @@ Provide a JSON response with:
           };
         }
 
-        await this.persistExecutionRecord(executionId, recordSnapshot);
-        await this.updateExecutionStatus(executionId, "in_progress", stage.id, recordSnapshot);
+        await this.persistExecutionRecord(executionId, organizationId, recordSnapshot);
+        await this.updateExecutionStatus(executionId, organizationId, "in_progress", stage.id, recordSnapshot);
       }
 
       if (integrityVetoed) {
@@ -2379,11 +2389,11 @@ Provide a JSON response with:
         errorSummary,
       });
 
-      await this.updateExecutionStatus(executionId, "failed", null, recordSnapshot);
+      await this.updateExecutionStatus(executionId, organizationId, "failed", null, recordSnapshot);
       return;
     }
 
-    await this.updateExecutionStatus(executionId, "completed", null, recordSnapshot);
+    await this.updateExecutionStatus(executionId, organizationId, "completed", null, recordSnapshot);
   }
 
   /**
@@ -3104,11 +3114,12 @@ Provide a JSON response with:
     return parsed.data as WorkflowDAG;
   }
 
-  private async getNextEventSequence(executionId: string): Promise<number> {
+  private async getNextEventSequence(executionId: string, organizationId: string): Promise<number> {
     const { data, error } = await supabase
       .from("workflow_events")
       .select("sequence")
       .eq("execution_id", executionId)
+      .eq("organization_id", organizationId)
       .order("sequence", { ascending: false })
       .limit(1);
 
@@ -3122,11 +3133,12 @@ Provide a JSON response with:
 
   private async recordWorkflowEvent(
     executionId: string,
+    organizationId: string,
     eventType: WorkflowEvent["event_type"] | "workflow_initiated",
     stageId: string | null,
     metadata: Record<string, any>
   ): Promise<void> {
-    const sequence = await this.getNextEventSequence(executionId);
+    const sequence = await this.getNextEventSequence(executionId, organizationId);
     const requestId = String(metadata.request_id ?? metadata.requestId ?? executionId);
     const eventMetadata = {
       ...metadata,
@@ -3136,6 +3148,7 @@ Provide a JSON response with:
 
     const { error } = await supabase.from("workflow_events").insert({
       execution_id: executionId,
+      organization_id: organizationId,
       event_type: eventType,
       stage_id: stageId,
       metadata: eventMetadata,
@@ -3176,7 +3189,7 @@ Provide a JSON response with:
     // Check duration limit
     const elapsed = Date.now() - startTime;
     if (autonomy.maxDurationMs && elapsed > autonomy.maxDurationMs) {
-      await this.handleWorkflowFailure(executionId, "Autonomy guard: max duration exceeded");
+      await this.handleWorkflowFailure(executionId, context.organizationId || context.organization_id || "", "Autonomy guard: max duration exceeded");
       securityLogger.log({
         category: "autonomy",
         action: "duration_limit_exceeded",
@@ -3194,7 +3207,7 @@ Provide a JSON response with:
     // Check cost limit
     const cost = context.cost_accumulated_usd || 0;
     if (autonomy.maxCostUsd && cost > autonomy.maxCostUsd) {
-      await this.handleWorkflowFailure(executionId, "Autonomy guard: max cost exceeded");
+      await this.handleWorkflowFailure(executionId, context.organizationId || context.organization_id || "", "Autonomy guard: max cost exceeded");
       securityLogger.log({
         category: "autonomy",
         action: "cost_limit_exceeded",
@@ -3214,7 +3227,7 @@ Provide a JSON response with:
       const approvalState = context.approvals || {};
       const destructivePending = context.destructive_actions_pending as string[] | undefined;
       if (destructivePending && destructivePending.length > 0 && !approvalState[executionId]) {
-        await this.handleWorkflowFailure(executionId, "Approval required for destructive actions");
+        await this.handleWorkflowFailure(executionId, context.organizationId || context.organization_id || "", "Approval required for destructive actions");
         securityLogger.log({
           category: "autonomy",
           action: "destructive_action_unapproved",
@@ -3237,6 +3250,7 @@ Provide a JSON response with:
     if (level === "observe") {
       await this.handleWorkflowFailure(
         executionId,
+        context.organizationId || context.organization_id || "",
         `Agent ${stageAgentId} restricted to observe-only`
       );
       securityLogger.log({
@@ -3259,6 +3273,7 @@ Provide a JSON response with:
     if (stageAgentId && agentKillSwitches[stageAgentId]) {
       await this.handleWorkflowFailure(
         executionId,
+        context.organizationId || context.organization_id || "",
         `Agent ${stageAgentId} is disabled by kill switch`
       );
       securityLogger.log({
@@ -3285,6 +3300,7 @@ Provide a JSON response with:
       if (executed >= maxIterations) {
         await this.handleWorkflowFailure(
           executionId,
+          context.organizationId || context.organization_id || "",
           `Agent ${stageAgentId} exceeded iteration limit`
         );
         securityLogger.log({
@@ -3308,16 +3324,19 @@ Provide a JSON response with:
 
   private async persistExecutionRecord(
     executionId: string,
+    organizationId: string,
     executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
     await supabase
       .from("workflow_executions")
       .update({ execution_record: executionRecord })
-      .eq("id", executionId);
+      .eq("id", executionId)
+      .eq("organization_id", organizationId);
   }
 
   private async recordStageRun(
     executionId: string,
+    organizationId: string,
     stage: WorkflowStage,
     executionRecord: WorkflowExecutionRecord,
     startedAt: Date,
@@ -3326,6 +3345,7 @@ Provide a JSON response with:
   ): Promise<void> {
     await supabase.from("workflow_stage_runs").insert({
       execution_id: executionId,
+      organization_id: organizationId,
       stage_id: stage.id,
       stage_name: stage.name || stage.id,
       lifecycle_stage: stage.agent_type,
@@ -3344,6 +3364,7 @@ Provide a JSON response with:
 
   private async updateExecutionStatus(
     executionId: string,
+    organizationId: string,
     status: WorkflowStatus,
     currentStage: string | null,
     executionRecord?: WorkflowExecutionRecord
@@ -3365,17 +3386,22 @@ Provide a JSON response with:
       update.completed_at = new Date().toISOString();
     }
 
-    await supabase.from("workflow_executions").update(update).eq("id", executionId);
+    await supabase
+      .from("workflow_executions")
+      .update(update)
+      .eq("id", executionId)
+      .eq("organization_id", organizationId);
   }
 
   /**
    * Get workflow execution status
    */
-  async getExecutionStatus(executionId: string): Promise<any> {
+  async getExecutionStatus(executionId: string, organizationId: string): Promise<any> {
     const { data, error } = await supabase
       .from("workflow_executions")
       .select("*")
       .eq("id", executionId)
+      .eq("organization_id", organizationId)
       .maybeSingle();
 
     if (error) {
@@ -3388,11 +3414,12 @@ Provide a JSON response with:
   /**
    * Get workflow execution logs
    */
-  async getExecutionLogs(executionId: string): Promise<any[]> {
+  async getExecutionLogs(executionId: string, organizationId: string): Promise<any[]> {
     const { data, error } = await supabase
       .from("workflow_execution_logs")
       .select("*")
       .eq("execution_id", executionId)
+      .eq("organization_id", organizationId)
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -3402,7 +3429,11 @@ Provide a JSON response with:
     return data || [];
   }
 
-  private async handleWorkflowFailure(executionId: string, errorMessage: string): Promise<void> {
+  private async handleWorkflowFailure(
+    executionId: string,
+    organizationId: string,
+    errorMessage: string
+  ): Promise<void> {
     await supabase
       .from("workflow_executions")
       .update({
@@ -3410,7 +3441,8 @@ Provide a JSON response with:
         error_message: errorMessage,
         completed_at: new Date().toISOString(),
       })
-      .eq("id", executionId);
+      .eq("id", executionId)
+      .eq("organization_id", organizationId);
 
     logger.error("Workflow failed", undefined, { executionId, errorMessage });
   }
