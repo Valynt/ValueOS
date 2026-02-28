@@ -74,3 +74,17 @@ export {
 
 // Connection Pool (separate export)
 export { ConnectionPool } from "./performance/ParallelInitializer";
+
+
+// Agent MCP discovery
+export {
+  capabilityToolSchema,
+  agentCapabilityEntrySchema,
+  mcpCapabilitiesDocumentSchema,
+  getAllAgentDeploymentIds,
+  getEnabledAgentDeploymentIds,
+  buildAgentCapabilitiesDocument,
+  toolSchemaMetadataByToolId,
+  type AgentDeploymentId,
+  type KnownToolId,
+} from "./agentMcpCapabilities";

@@ -444,5 +444,3 @@ export function getMessageBus(config?: { redis?: any; nats?: any }): MessageBus 
   }
   return messageBusInstance;
 }
-
-export default MessageBus;

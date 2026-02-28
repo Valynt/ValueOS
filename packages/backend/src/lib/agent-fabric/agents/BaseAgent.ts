@@ -9,7 +9,15 @@
 import { z } from "zod";
 
 import type { AgentType } from "../../../services/agent-types.js";
-import type { AgentConfig, AgentOutput, AgentOutputStatus, LifecycleContext, LifecycleStage } from "../../../types/agent.js";
+import type {
+  AgentConfig,
+  AgentOutput,
+  AgentOutputMetadata,
+  AgentOutputStatus,
+  ConfidenceLevel,
+  LifecycleContext,
+  LifecycleStage,
+} from "../../../types/agent.js";
 import { logger } from "../../logger.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import type { HallucinationCheckResult as KFHallucinationCheckResult, KnowledgeFabricValidator } from "../KnowledgeFabricValidator.js";
@@ -197,9 +205,9 @@ export abstract class BaseAgent {
       const kfResultPromise = this.validateWithKnowledgeFabric(response.content);
 
       // Validate response with Zod (fails fast on bad JSON)
-// ...existing code...
+      let parsedJson: unknown;
       try {
-        const parsedJson = JSON.parse(response.content);
+        parsedJson = JSON.parse(response.content);
       } catch (err) {
         logger.error("Failed to parse LLM response as JSON", {
           agent: this.name,
@@ -210,7 +218,6 @@ export abstract class BaseAgent {
         throw new Error("LLM response was not valid JSON: " + (err as Error).message);
       }
       const parsed = zodSchema.parse(parsedJson);
-// ...existing code...
 
       // Run multi-signal hallucination detection
       const hallucinationResult = await this.checkHallucination(
