@@ -19,6 +19,7 @@ import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
+import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import type { AgentConfig, LifecycleStage } from "../../types/agent.js";
 import type { GroundTruthIntegrationService } from "../../services/GroundTruthIntegrationService.js";
 
@@ -30,6 +31,7 @@ const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   expansion: "expansion",
   integrity: "integrity",
   realization: "realization",
+  "financial-modeling": "target",
 };
 
 // Maps agent types to their fabric agent classes.
@@ -42,6 +44,7 @@ const FABRIC_AGENT_CLASSES: Partial<
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
   realization: RealizationAgent,
+  "financial-modeling": FinancialModelingAgent,
 };
 
 export interface AgentFactoryDeps {

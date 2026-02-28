@@ -8,7 +8,9 @@ pnpm monorepo. Frontend apps in `apps/` (ValyntApp, VOSAcademy, mcp-dashboard). 
 
 **Stack:** React + Vite + Tailwind (frontend), Node.js + Express (backend), Supabase (Postgres + RLS + Auth + Realtime), Redis, BullMQ queues, CloudEvents messaging.
 
-**Agent system:** 7-agent fabric in `packages/backend/src/lib/agent-fabric/`. Orchestration via `UnifiedAgentOrchestrator`. Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
+**Agent system:** 6-agent fabric in `packages/backend/src/lib/agent-fabric/`. Agents: OpportunityAgent, TargetAgent, FinancialModelingAgent, IntegrityAgent, RealizationAgent, ExpansionAgent. Orchestration via `UnifiedAgentOrchestrator`. Vector memory with tenant-scoped queries. Inter-agent messaging via `MessageBus` (CloudEvents).
+
+**Standalone agents (deprecated):** Express-based microservices in `packages/agents/` (opportunity, target, integrity, realization, expansion, financial-modeling) use mock data and are superseded by the agent-fabric implementations. Do not extend these — use the fabric agents instead.
 
 ## Non-Negotiable Rules
 
@@ -30,7 +32,9 @@ Validate with: `pnpm run test:rls`
 
 ### 2. LLM calls via secureInvoke only
 
-All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSchema, options)` from `BaseAgent`. This wraps calls with circuit breaker, hallucination detection, and Zod validation. Never call `llmGateway.complete()` directly from agent code.
+All production agent LLM calls use `this.secureInvoke(sessionId, prompt, zodSchema, options)` from `BaseAgent`. This wraps calls with circuit breaker, multi-signal hallucination detection, and Zod validation. Never call `llmGateway.complete()` directly from agent code.
+
+`secureInvoke` returns `hallucination_check` (boolean) and `hallucination_details` (full signal breakdown with grounding score). High-severity signals trigger escalation logging. See `BaseAgent.checkHallucination()` for the detection pipeline.
 
 ### 3. service_role restrictions
 
@@ -143,8 +147,16 @@ Full policy-as-code: `.windsurf/rules/global.md`
 
 | File | Purpose |
 |---|---|
-| `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, agent base class |
-| `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped vector memory |
+| `packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts` | `secureInvoke`, hallucination detection, agent base class |
+| `packages/backend/src/lib/agent-fabric/agents/OpportunityAgent.ts` | Hypothesis generation (OPPORTUNITY phase) |
+| `packages/backend/src/lib/agent-fabric/agents/TargetAgent.ts` | KPI target generation (DRAFTING phase) |
+| `packages/backend/src/lib/agent-fabric/agents/FinancialModelingAgent.ts` | Financial model, ROI, sensitivity analysis |
+| `packages/backend/src/lib/agent-fabric/agents/IntegrityAgent.ts` | Claim validation, veto decisions (VALIDATING phase) |
+| `packages/backend/src/lib/agent-fabric/agents/RealizationAgent.ts` | Implementation plans, milestones (REALIZATION phase) |
+| `packages/backend/src/lib/agent-fabric/agents/ExpansionAgent.ts` | Growth opportunities, expansion strategies (EXPANSION phase) |
+| `packages/backend/src/lib/agent-fabric/AgentFactory.ts` | Agent instantiation with dependency injection |
+| `packages/backend/src/lib/agent-fabric/MemorySystem.ts` | Tenant-scoped in-memory store (to be replaced with pgvector) |
+| `packages/memory/` | Persistent memory subsystem (semantic, episodic, vector, provenance) |
 | `packages/backend/src/services/UnifiedAgentOrchestrator.ts` | Agent orchestration |
 | `packages/backend/src/services/MessageBus.ts` | CloudEvents inter-agent messaging |
 | `packages/backend/src/services/ToolRegistry.ts` | Static tool registration |
