@@ -42,6 +42,7 @@ import authRouter from "./api/auth.js";
 import billingRouter from "./api/billing/index.js";
 import { createCheckpointRouter } from "./api/checkpoints.js";
 import crmRouter from "./api/crm.js";
+import complianceRouter from "./api/compliance.js";
 import dsrRouter from "./api/dataSubjectRequests.js";
 import documentRouter from "./api/documents.js";
 import domainPacksRouter from "./api/domainPacks.js";
@@ -383,6 +384,7 @@ app.use("/api", apiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/admin/security", securityMonitoringRouter);
+app.use("/api/admin/compliance", complianceRouter);
 app.use(
   "/api/agents",
   serviceIdentityMiddleware,
