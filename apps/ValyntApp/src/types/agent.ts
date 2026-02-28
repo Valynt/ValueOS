@@ -1,6 +1,6 @@
 /**
  * Agent Type Definitions
- * 
+ *
  * Types for agent configuration, lifecycle context, agent outputs,
  * health monitoring, and agent orchestration.
  */
@@ -19,7 +19,7 @@ export interface AgentConfig {
   prompts: PromptConfig;
   parameters: AgentParameters;
   constraints: AgentConstraints;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type AgentType =

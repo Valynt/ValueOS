@@ -13,7 +13,6 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "types": [
-      "vitest/globals",
       "node"
     ],
     /* Bundler mode */

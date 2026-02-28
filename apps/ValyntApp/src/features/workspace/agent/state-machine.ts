@@ -6,7 +6,7 @@
  *   idle ──► plan ──► execute ──► review ──► finalize
  *    ▲        │         │          │           │
  *    │        ▼         ▼          ▼           │
- *    │      clarify   error ◄─── (any) ───────┘
+ *    │      clarify   error ◄─── (unknown) ───────┘
  *    │        │         │
  *    └────────┴─────────┘
  *    └──── resume ──────┘
@@ -112,7 +112,7 @@ const TRANSITIONS: Transition[] = [
   // resume → execute: resume mid-execution
   { from: 'resume', to: 'execute', action: 'SESSION_RESTORED' },
 
-  // Any state → error (except error itself)
+  // Unknown state → error (except error itself)
   { from: 'idle', to: 'error', action: 'ERROR_OCCURRED' },
   { from: 'plan', to: 'error', action: 'ERROR_OCCURRED' },
   { from: 'execute', to: 'error', action: 'ERROR_OCCURRED' },

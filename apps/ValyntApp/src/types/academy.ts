@@ -1,4 +1,3 @@
-
 export type AcademyPillar = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface AcademyLesson {
@@ -9,11 +8,11 @@ export interface AcademyLesson {
   contentType: string;
   order: number;
   estimatedMinutes: number;
-  sduiComponents: any[];
+  sduiComponents: unknown[];
   prerequisites: string[];
   tracks: string[];
-  labConfig?: any;
-  quizConfig?: any;
+  labConfig?: unknown;
+  quizConfig?: unknown;
 }
 
 export interface AcademyModule {
