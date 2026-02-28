@@ -238,7 +238,7 @@ export class ComplianceEvidenceService {
   }
 
   private escapeCsv(value: unknown): string {
-    const text = String(value ?? '');
+const text = String(value ?? '').replace(/^\s*([=+\-@])/, "'$1");
     if (text.includes(',') || text.includes('"') || text.includes('\n')) {
       return `"${text.replace(/"/g, '""')}"`;
     }
