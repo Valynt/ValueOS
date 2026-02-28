@@ -256,3 +256,21 @@ export interface OverageRates {
   storage_gb: number;
   user_seats: number;
 }
+
+
+export interface TenantBillingSpendPolicy {
+  organization_id: string;
+  daily_limit: number;
+  daily_spend: number;
+  monthly_hard_cap: number;
+  monthly_soft_cap: number;
+}
+
+export interface TenantExecutionState {
+  organization_id: string;
+  is_paused: boolean;
+  reason: string | null;
+  paused_at: string | null;
+  paused_by: string | null;
+  updated_at?: string;
+}

@@ -239,6 +239,10 @@ export interface IPWhitelistConfig {
 export interface LLMSpendingLimitsConfig {
   /** Organization ID */
   organizationId: string;
+  /** Daily hard cap (USD) */
+  dailyLimit: number;
+  /** Current daily spend (USD) */
+  dailySpend: number;
   /** Monthly hard cap (USD) */
   monthlyHardCap: number;
   /** Monthly soft cap (USD) - triggers warning */
