@@ -9,7 +9,7 @@
     "dev": "bash ../../scripts/dev/start-backend.sh",
     "worker:dev": "tsx src/workers/workerMain.ts",
     "worker": "node dist/workers/workerMain.js",
-    "build": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs && node ../../scripts/ci/check-backend-prod-bundle-safety.mjs",
     "build:typecheck": "tsc --noEmit",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",

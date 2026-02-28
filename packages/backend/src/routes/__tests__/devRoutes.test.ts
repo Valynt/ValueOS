@@ -34,6 +34,16 @@ describe('dev routes gating', () => {
     expect(hasDevRoute).toBe(false);
   });
 
+
+  it('never attempts dev module import in production even with module override', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.ENABLE_DEV_ROUTES = 'true';
+    process.env.VALUEOS_DEV_ROUTES_MODULE_PATH = './does-not-exist.js';
+
+    const app = express();
+    await expect(registerDevRoutes(app)).resolves.toBe(false);
+  });
+
   it('respects the dev route host allowlist', () => {
     process.env.NODE_ENV = 'development';
     process.env.ENABLE_DEV_ROUTES = 'true';

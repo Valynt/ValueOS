@@ -29,6 +29,10 @@ export function shouldEnableDevRoutes(): boolean {
   return isNonProduction && process.env.ENABLE_DEV_ROUTES === "true";
 }
 
+function getDevRoutesModulePath(): string {
+  return process.env.VALUEOS_DEV_ROUTES_MODULE_PATH ?? "./dev.js";
+}
+
 export function isDevRouteHostAllowed(hostname: string | undefined): boolean {
   if (!hostname) {
     return false;
@@ -49,11 +53,19 @@ export function isDevRouteHostAllowed(hostname: string | undefined): boolean {
 }
 
 export async function registerDevRoutes(app: Application): Promise<boolean> {
-  if (!shouldEnableDevRoutes()) {
+  const isNonProduction = (process.env.NODE_ENV ?? "development") !== "production";
+  const isExplicitlyEnabled = process.env.ENABLE_DEV_ROUTES === "true";
+
+  if (!isNonProduction || !isExplicitlyEnabled || !shouldEnableDevRoutes()) {
     return false;
   }
 
-  const { default: devRouter } = await import("./dev.js");
+  const devRoutesModulePath = getDevRoutesModulePath();
+  const devRoutesModule = (await import(devRoutesModulePath)) as {
+    default: Parameters<Application["use"]>[1];
+  };
+
+  const devRouter = devRoutesModule.default;
   app.use("/api/dev", devRouter);
   return true;
 }
