@@ -67,6 +67,7 @@ class PriceVersionService {
         version_tag: versionTag,
         plan_tier: planTier,
         definition,
+        tenant_id: null,
         status: "draft",
       })
       .select()
@@ -103,6 +104,7 @@ class PriceVersionService {
       .from("billing_price_versions")
       .update({ status: "archived", archived_at: new Date().toISOString() })
       .eq("plan_tier", version.plan_tier)
+      .is("tenant_id", null)
       .eq("status", "active");
 
     if (archiveError) throw archiveError;
@@ -136,6 +138,7 @@ class PriceVersionService {
       .from("billing_price_versions")
       .select("*")
       .eq("plan_tier", planTier)
+      .is("tenant_id", null)
       .eq("status", "active")
       .single();
 

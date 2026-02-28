@@ -52,20 +52,34 @@ CREATE TABLE IF NOT EXISTS public.billing_price_versions (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     version_tag text NOT NULL,
     plan_tier text NOT NULL,
+    tenant_id uuid,
     definition jsonb NOT NULL,
     status text NOT NULL DEFAULT 'draft',
     activated_at timestamptz,
     archived_at timestamptz,
     created_at timestamptz DEFAULT now(),
     CONSTRAINT billing_price_versions_status_check CHECK (status IN ('draft', 'active', 'archived')),
-    CONSTRAINT billing_price_versions_plan_tier_check CHECK (plan_tier IN ('free', 'standard', 'enterprise')),
-    CONSTRAINT billing_price_versions_tag_tier_unique UNIQUE (version_tag, plan_tier)
+    CONSTRAINT billing_price_versions_plan_tier_check CHECK (plan_tier IN ('free', 'standard', 'enterprise'))
 );
 
 COMMENT ON TABLE public.billing_price_versions IS 'Immutable versioned pricing definitions per plan tier';
 
 CREATE INDEX IF NOT EXISTS idx_billing_price_versions_active
-    ON public.billing_price_versions (plan_tier, status) WHERE status = 'active';
+    ON public.billing_price_versions (plan_tier, status) WHERE status = 'active' AND tenant_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_billing_price_versions_tenant_tier_status
+    ON public.billing_price_versions (tenant_id, plan_tier, status);
+
+CREATE INDEX IF NOT EXISTS idx_billing_price_versions_tenant_created_at
+    ON public.billing_price_versions (tenant_id, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_price_versions_global_tag_tier_unique
+    ON public.billing_price_versions (version_tag, plan_tier)
+    WHERE tenant_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_price_versions_tenant_tag_tier_unique
+    ON public.billing_price_versions (tenant_id, version_tag, plan_tier)
+    WHERE tenant_id IS NOT NULL;
 
 -- Seed v1 pricing from current PLANS config
 INSERT INTO public.billing_price_versions (version_tag, plan_tier, definition, status, activated_at)
