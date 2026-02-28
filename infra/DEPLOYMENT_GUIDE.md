@@ -1,5 +1,9 @@
 # ValueCanvas Infrastructure Deployment Guide
 
+> **Note:** The canonical deployment guide is [`DEPLOY.md`](../DEPLOY.md) at the repo root.
+> This file describes aspirational AWS/Terraform infrastructure not yet validated for v1.
+> See also: [`ops/STAGING_DEPLOY_CHECKLIST.md`](../ops/STAGING_DEPLOY_CHECKLIST.md)
+
 Complete guide for deploying ValueCanvas infrastructure to AWS using Terraform and GitHub Actions.
 
 ## 📋 Table of Contents

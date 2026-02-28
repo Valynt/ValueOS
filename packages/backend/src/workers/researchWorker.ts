@@ -13,6 +13,7 @@
 import { type Job, Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '../lib/logger.js';
 import { processResearchJob, type ResearchJobInput } from '../services/onboarding/ResearchJobWorker.js';
 import { LLMGateway } from '../lib/agent-fabric/LLMGateway.js';
 import type { LLMGatewayInterface } from '../services/onboarding/SuggestionExtractor.js';
@@ -116,7 +117,7 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
   _worker = new Worker<ResearchJobInput>(
     RESEARCH_QUEUE_NAME,
     async (job: Job<ResearchJobInput>) => {
-      console.log(`[research-worker] Processing job ${job.data.jobId} for tenant ${job.data.tenantId}`);
+      logger.info(`[research-worker] Processing job ${job.data.jobId} for tenant ${job.data.tenantId}`);
       const result = await processResearchJob(job.data, supabase, llm);
 
       if (result.status === 'failed') {
@@ -136,14 +137,14 @@ export function initResearchWorker(): Worker<ResearchJobInput> {
   );
 
   _worker.on('completed', (job) => {
-    console.log(`[research-worker] Job ${job.id} completed`);
+    logger.info(`[research-worker] Job ${job.id} completed`);
   });
 
   _worker.on('failed', (job, err) => {
     console.error(`[research-worker] Job ${job?.id} failed:`, err.message);
   });
 
-  console.log(`[research-worker] Listening on queue "${RESEARCH_QUEUE_NAME}"`);
+  logger.info(`[research-worker] Listening on queue "${RESEARCH_QUEUE_NAME}"`);
   return _worker;
 }
 
@@ -155,6 +156,6 @@ const isDirectRun = process.argv[1]?.endsWith('researchWorker.ts')
   || process.argv[1]?.endsWith('researchWorker.js');
 
 if (isDirectRun) {
-  console.log('[research-worker] Starting as standalone process');
+  logger.info("[research-worker] Starting as standalone process");
   initResearchWorker();
 }

@@ -303,9 +303,10 @@ function applyAuthContext(req: Request, user: AuthUser | undefined, session: Aut
   const tenantId = extractTenantId(claims, user);
   const userWithTenant = user ? { ...user, tenant_id: tenantId ?? user.tenant_id } : user;
 
-  (req as any).user = userWithTenant;
-  (req as any).session = session;
-  (req as any).tenantId = tenantId;
+  const authReq = req as AuthenticatedRequest;
+  authReq.user = userWithTenant as AuthenticatedRequest["user"];
+  (req as Record<string, unknown>).session = session;
+  authReq.tenantId = tenantId;
 }
 
 function ensureAuthHeader(req: Request, token?: string | null) {

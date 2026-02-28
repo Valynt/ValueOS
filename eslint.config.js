@@ -427,6 +427,47 @@ const backendServiceAuthOverrides = {
   },
 };
 
+// Enforce no-console in backend production code (use structured logger instead)
+const backendNoConsoleOverrides = {
+  files: [
+    "packages/backend/src/**/*.ts",
+  ],
+  ignores: [
+    "packages/backend/src/**/*.test.ts",
+    "packages/backend/src/**/*.spec.ts",
+    "packages/backend/src/**/__tests__/**",
+    "packages/backend/src/**/__benchmarks__/**",
+    "packages/backend/src/test-utils/**",
+    "packages/backend/src/lib/logger.ts",
+  ],
+  rules: {
+    "no-console": ["error", { allow: ["warn", "error"] }],
+  },
+};
+
+// Strict no-any enforcement for security-critical paths
+const strictNoAnyOverrides = {
+  files: [
+    "packages/backend/src/middleware/auth.ts",
+    "packages/backend/src/middleware/rbac.ts",
+    "packages/backend/src/middleware/authRateLimiter.ts",
+    "packages/backend/src/middleware/enhancedRateLimiter.ts",
+    "packages/backend/src/middleware/securityMiddleware.ts",
+    "packages/backend/src/middleware/securityHeaders.ts",
+    "packages/backend/src/services/AuthService.ts",
+    "packages/backend/src/services/AuthDirectoryService.ts",
+    "packages/backend/src/services/AuthPolicy.ts",
+    "packages/backend/src/api/auth.ts",
+    "packages/backend/src/api/admin.ts",
+    "packages/backend/src/services/billing/**/*.ts",
+    "packages/backend/src/lib/agent-fabric/agents/BaseAgent.ts",
+    "packages/backend/src/lib/agent-fabric/MemorySystem.ts",
+  ],
+  rules: {
+    "@typescript-eslint/no-explicit-any": "error",
+  },
+};
+
 
 
 const appModuleBoundaryOverrides = {
@@ -539,6 +580,8 @@ export default [
   baseConfig,
   valyntBackendServiceImportGuard,
   backendServiceAuthOverrides,
+  backendNoConsoleOverrides,
+  strictNoAnyOverrides,
   configOverrides,
   testOverrides,
   k6Overrides,

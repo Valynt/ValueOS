@@ -91,7 +91,7 @@ if (process.env.ENABLE_TELEMETRY !== "false") {
     metricsMiddleware = metricsModule.metricsMiddleware;
     getMetricsRegistry = metricsModule.getMetricsRegistry;
   } catch (error) {
-    console.warn("Telemetry modules not available, running without observability");
+    logger.warn("Telemetry modules not available, running without observability");
   }
 }
 
