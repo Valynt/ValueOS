@@ -98,12 +98,12 @@ describe("AgentFactory", () => {
       expect(factory.hasFabricAgent("expansion")).toBe(true);
       expect(factory.hasFabricAgent("integrity")).toBe(true);
       expect(factory.hasFabricAgent("realization")).toBe(true);
+      expect(factory.hasFabricAgent("financial-modeling")).toBe(true);
     });
 
     it("returns false for unimplemented agents", () => {
       expect(factory.hasFabricAgent("narrative")).toBe(false);
       expect(factory.hasFabricAgent("coordinator")).toBe(false);
-      expect(factory.hasFabricAgent("financial-modeling")).toBe(false);
       expect(factory.hasFabricAgent("nonexistent")).toBe(false);
     });
   });
@@ -116,7 +116,8 @@ describe("AgentFactory", () => {
       expect(types).toContain("expansion");
       expect(types).toContain("integrity");
       expect(types).toContain("realization");
-      expect(types).toHaveLength(5);
+      expect(types).toContain("financial-modeling");
+      expect(types).toHaveLength(6);
     });
   });
 
@@ -156,6 +157,13 @@ describe("AgentFactory", () => {
       expect(agent.lifecycleStage).toBe("realization");
     });
 
+    it("creates a FinancialModelingAgent with correct properties", () => {
+      const agent = factory.create("financial-modeling", "org-123");
+      expect(agent).toBeDefined();
+      expect(agent.name).toBe("financial-modeling");
+      expect(agent.lifecycleStage).toBe("modeling");
+    });
+
     it("throws for unimplemented agent types", () => {
       expect(() => factory.create("narrative", "org-123")).toThrow(
         /No fabric agent implementation for type "narrative"/
@@ -174,6 +182,13 @@ describe("AgentFactory", () => {
       const agent = factory.createForStage("opportunity", "org-456");
       expect(agent).toBeDefined();
       expect(agent.lifecycleStage).toBe("opportunity");
+    });
+
+    it("maps modeling stage to financial-modeling agent", () => {
+      const agent = factory.createForStage("modeling", "org-456");
+      expect(agent).toBeDefined();
+      expect(agent.name).toBe("financial-modeling");
+      expect(agent.lifecycleStage).toBe("modeling");
     });
   });
 });
