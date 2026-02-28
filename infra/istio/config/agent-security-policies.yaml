@@ -12,17 +12,41 @@ kind: AuthorizationPolicy
 metadata:
   name: allow-nothing-by-default
   namespace: valynt-agents
-spec: {}
+spec:
+  selector:
+    matchLabels:
+      component: agent
+      app.kubernetes.io/component: agent
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: agent-to-agent-communication
+  name: deny-api-without-tenant-claim
   namespace: valynt-agents
 spec:
   selector:
     matchLabels:
       component: agent
+      app.kubernetes.io/component: agent
+  action: DENY
+  rules:
+    - to:
+        - operation:
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[tenant_id]
+          notValues: ["*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: agent-api-access
+  namespace: valynt-agents
+spec:
+  selector:
+    matchLabels:
+      component: agent
+      app.kubernetes.io/component: agent
   action: ALLOW
   rules:
     - from:
@@ -30,37 +54,32 @@ spec:
             principals: ["cluster.local/ns/valynt-agents/sa/valynt-agent"]
       to:
         - operation:
-            methods: ["GET", "POST", "PUT", "DELETE"]
-            paths: ["/health", "/metrics", "/api/*"]
----
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: backend-to-agents
-  namespace: valynt-agents
-spec:
-  selector:
-    matchLabels:
-      component: agent
-  action: ALLOW
-  rules:
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[tenant_id]
+          values: ["*"]
     - from:
         - source:
             principals: ["cluster.local/ns/default/sa/backend"]
       to:
         - operation:
-            methods: ["GET", "POST", "PUT", "DELETE"]
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
             paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[tenant_id]
+          values: ["*"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: prometheus-to-agents
+  name: observability-access
   namespace: valynt-agents
 spec:
   selector:
     matchLabels:
       component: agent
+      app.kubernetes.io/component: agent
   action: ALLOW
   rules:
     - from:
@@ -69,7 +88,7 @@ spec:
       to:
         - operation:
             methods: ["GET"]
-            paths: ["/health", "/metrics"]
+            paths: ["/health", "/metrics", "/stats/prometheus"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
@@ -80,10 +99,12 @@ spec:
   selector:
     matchLabels:
       component: agent
+      app.kubernetes.io/component: agent
   jwtRules:
   - issuer: "valueos-issuer"
     jwksUri: "https://valueos-issuer/.well-known/jwks.json"
     forwardOriginalToken: true
+
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
