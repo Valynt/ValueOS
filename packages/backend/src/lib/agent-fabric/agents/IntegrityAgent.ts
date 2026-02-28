@@ -189,7 +189,7 @@ export class IntegrityAgent extends BaseAgent {
   // Memory Retrieval
   // -------------------------------------------------------------------------
 
-  private async retrieveKPIs(context: LifecycleContext): Promise<Array<{ id: string; content: string; metadata: Record<string, any> }>> {
+  private async retrieveKPIs(context: LifecycleContext): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
     try {
       const memories = await this.memorySystem.retrieve({
         agent_id: 'target',
@@ -206,7 +206,7 @@ export class IntegrityAgent extends BaseAgent {
     }
   }
 
-  private async retrieveHypotheses(context: LifecycleContext): Promise<Array<{ id: string; content: string; metadata: Record<string, any> }>> {
+  private async retrieveHypotheses(context: LifecycleContext): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
     try {
       const memories = await this.memorySystem.retrieve({
         agent_id: 'opportunity',
@@ -228,8 +228,8 @@ export class IntegrityAgent extends BaseAgent {
   // -------------------------------------------------------------------------
 
   private buildClaims(
-    kpis: Array<{ id: string; content: string; metadata: Record<string, any> }>,
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, any> }>,
+    kpis: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
   ): Array<{ id: string; text: string; evidence: string[]; source: string }> {
     const claims: Array<{ id: string; text: string; evidence: string[]; source: string }> = [];
 
@@ -425,8 +425,8 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     analysis: IntegrityAnalysis,
     integrityResult: IntegrityCheck,
     vetoDecision: VetoDecision,
-  ): Array<Record<string, any>> {
-    const sections: Array<Record<string, any>> = [];
+  ): Array<Record<string, unknown>> {
+    const sections: Array<Record<string, unknown>> = [];
     const supported = analysis.claim_validations.filter(c => c.verdict === 'supported').length;
     const total = analysis.claim_validations.length;
 

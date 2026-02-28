@@ -391,8 +391,8 @@ Generate a JSON object with:
   private buildSDUISections(
     analysis: OpportunityAnalysis,
     financialData: FinancialDataResult | null,
-  ): Array<Record<string, any>> {
-    const sections: Array<Record<string, any>> = [];
+  ): Array<Record<string, unknown>> {
+    const sections: Array<Record<string, unknown>> = [];
 
     // Summary card
     sections.push({

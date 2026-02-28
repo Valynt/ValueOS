@@ -199,7 +199,7 @@ export class TargetAgent extends BaseAgent {
   private async retrieveHypotheses(context: LifecycleContext): Promise<Array<{
     id: string;
     content: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
   }>> {
     try {
       const memories = await this.memorySystem.retrieve({
@@ -233,7 +233,7 @@ export class TargetAgent extends BaseAgent {
   /**
    * Build the system prompt with hypothesis context.
    */
-  private buildSystemPrompt(hypotheses: Array<{ content: string; metadata: Record<string, any> }>): string {
+  private buildSystemPrompt(hypotheses: Array<{ content: string; metadata: Record<string, unknown> }>): string {
     const hypothesisContext = hypotheses.map((h, i) => {
       const m = h.metadata;
       const impact = m.estimated_impact || {};
@@ -270,7 +270,7 @@ ${hypothesisContext}`;
    */
   private async generateTargets(
     context: LifecycleContext,
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, any> }>,
+    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
     query?: string,
   ): Promise<TargetAnalysis | null> {
     const systemPrompt = this.buildSystemPrompt(hypotheses);
@@ -324,7 +324,7 @@ Generate a JSON object with:
    */
   private async validateAllCausalTraces(
     kpis: KPIDefinition[],
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, any> }>,
+    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
   ): Promise<CausalTrace[]> {
     const results: CausalTrace[] = [];
 
@@ -341,7 +341,7 @@ Generate a JSON object with:
    */
   private async validateCausalTrace(
     kpi: KPIDefinition,
-    hypotheses: Array<{ id: string; content: string; metadata: Record<string, any> }>,
+    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
   ): Promise<CausalTrace> {
     try {
       const action = this.categoryToAction(kpi.category);
@@ -482,8 +482,8 @@ Generate a JSON object with:
   private buildSDUISections(
     analysis: TargetAnalysis,
     causalResults: CausalTrace[],
-  ): Array<Record<string, any>> {
-    const sections: Array<Record<string, any>> = [];
+  ): Array<Record<string, unknown>> {
+    const sections: Array<Record<string, unknown>> = [];
     const verifiedCount = causalResults.filter(c => c.verified).length;
 
     // Summary card
@@ -509,7 +509,7 @@ Generate a JSON object with:
     });
 
     // KPI form with all definitions
-    const kpiFormData: Array<Record<string, any>> = analysis.kpi_definitions.map(kpi => ({
+    const kpiFormData: Array<Record<string, unknown>> = analysis.kpi_definitions.map(kpi => ({
       id: kpi.id,
       label: kpi.name,
       unit: kpi.unit === 'currency' ? '$' : kpi.unit === 'percentage' ? '%' : kpi.unit,

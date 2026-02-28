@@ -241,6 +241,9 @@ export class MemorySystem {
    * Store a full episode record (agent invocation lifecycle).
    */
   async storeEpisode(input: EpisodeInput, organizationId: string): Promise<string> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant isolation in storeEpisode");
+    }
     const episodeId = `ep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const episode: Episode = {
       id: episodeId,
@@ -277,6 +280,9 @@ export class MemorySystem {
     organizationId: string,
     limit: number = 5
   ): Promise<Episode[]> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant isolation in retrieveSimilarEpisodes");
+    }
     const agentId = context.agent as string | undefined;
     const query = context.query as string | undefined;
 
@@ -396,6 +402,9 @@ export class MemorySystem {
   }
 
   async clear(agentId: string, organizationId: string, workspaceId?: string): Promise<number> {
+    if (!organizationId) {
+      throw new Error("organizationId is required for tenant isolation in clear()");
+    }
     let count = 0;
     for (const [id, memory] of this.memories.entries()) {
       if (

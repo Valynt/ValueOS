@@ -171,7 +171,7 @@ export abstract class BaseAgent {
       context?: Record<string, unknown>;
       idempotencyKey?: string;
     } = {}
-  ): Promise<T & { hallucination_check?: boolean; hallucination_details?: HallucinationCheckResult }> {
+  ): Promise<T & { hallucination_check?: boolean; hallucination_details?: HallucinationCheckResult; error?: string }> {
     const {
       trackPrediction = true,
       confidenceThresholds = { low: 0.6, high: 0.85 },
@@ -197,7 +197,19 @@ export abstract class BaseAgent {
       const kfResultPromise = this.validateWithKnowledgeFabric(response.content);
 
       // Validate response with Zod (fails fast on bad JSON)
-      const parsed = zodSchema.parse(JSON.parse(response.content));
+      let parsedJson;
+      try {
+        parsedJson = JSON.parse(response.content);
+      } catch (err) {
+        logger.error("Failed to parse LLM response as JSON", {
+          agent: this.name,
+          session_id: sessionId,
+          error: (err as Error).message,
+          content: response.content,
+        });
+        throw new Error("LLM response was not valid JSON: " + (err as Error).message);
+      }
+      const parsed = zodSchema.parse(parsedJson);
 
       // Run multi-signal hallucination detection
       const hallucinationResult = await this.checkHallucination(
@@ -288,6 +300,7 @@ export abstract class BaseAgent {
         contradictions: [],
         benchmarkMisalignments: [],
         method: "knowledge_fabric",
+        requiresEscalation: true,
       };
     }
   }
@@ -478,15 +491,12 @@ export abstract class BaseAgent {
         }
       }
     } catch (err) {
-      // Log error with context for visibility
-      console.error('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', {
+      logger.warn('[BaseAgent.crossReferenceMemory] Memory cross-reference failed', {
         agent: this.name,
         organizationId: this.organizationId,
-        error: err,
+        error: (err as Error).message,
       });
-      // Escalate if error indicates tenant isolation violation
       if (err && typeof err.message === 'string' && err.message.includes('tenant')) {
-        // Optionally, escalate or rethrow for audit trail
         throw new Error(`Tenant isolation violation in crossReferenceMemory: ${err.message}`);
       }
       // Otherwise, skip cross-reference but error is now visible

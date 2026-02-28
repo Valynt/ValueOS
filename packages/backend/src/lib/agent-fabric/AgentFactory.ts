@@ -13,7 +13,6 @@ import { logger } from "../logger.js";
 
 import { BaseAgent } from "./agents/BaseAgent.js";
 import { ExpansionAgent } from "./agents/ExpansionAgent.js";
-import { FinancialModelingAgent } from "./agents/FinancialModelingAgent.js";
 import { IntegrityAgent } from "./agents/IntegrityAgent.js";
 import { OpportunityAgent } from "./agents/OpportunityAgent.js";
 import { RealizationAgent } from "./agents/RealizationAgent.js";
@@ -28,11 +27,9 @@ const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   opportunity: "opportunity",
   financial_modeling: "modeling",
   target: "target",
-  "financial-modeling": "target", // financial modeling is part of the DRAFTING/target phase
   expansion: "expansion",
   integrity: "integrity",
   realization: "realization",
-  "financial-modeling": "target",
 };
 
 // Maps agent types to their fabric agent classes.
@@ -42,11 +39,9 @@ const FABRIC_AGENT_CLASSES: Partial<
   opportunity: OpportunityAgent,
   financial_modeling: FinancialModelingAgent,
   target: TargetAgent,
-  "financial-modeling": FinancialModelingAgent,
   expansion: ExpansionAgent,
   integrity: IntegrityAgent,
   realization: RealizationAgent,
-  "financial-modeling": FinancialModelingAgent,
 };
 
 export interface AgentFactoryDeps {
