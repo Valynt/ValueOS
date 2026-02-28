@@ -10,4 +10,22 @@ services:
     working_dir: /workspaces/ValueOS
     volumes:
       - ../../../:/workspaces/ValueOS:cached
-      - pnpm-store:/home/node/.local
+      - pnpm-store:/home/node/.local/share/pnpm
+    environment:
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /opt/devcontainer/scripts/on-create.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    image: node:20-slim
+    profiles: ["devcontainer"]
+    working_dir: /workspaces/ValueOS
+    command: ["bash", "-lc", "p{
