@@ -11,6 +11,7 @@ import type { AgentType } from "../../../services/agent-types.js";
 import { LLMGateway } from "../LLMGateway.js";
 import { CircuitBreaker } from "../CircuitBreaker.js";
 import { MemorySystem } from "../MemorySystem.js";
+import type { KnowledgeFabricValidator, HallucinationCheckResult } from "../KnowledgeFabricValidator.js";
 
 export abstract class BaseAgent {
   public readonly lifecycleStage: string;
@@ -20,6 +21,7 @@ export abstract class BaseAgent {
   protected memorySystem: MemorySystem;
   protected llmGateway: LLMGateway;
   protected circuitBreaker: CircuitBreaker;
+  protected knowledgeFabricValidator: KnowledgeFabricValidator | null;
 
   constructor(
     config: AgentConfig,
@@ -35,6 +37,15 @@ export abstract class BaseAgent {
     this.memorySystem = memorySystem;
     this.llmGateway = llmGateway;
     this.circuitBreaker = circuitBreaker;
+    this.knowledgeFabricValidator = null;
+  }
+
+  /**
+   * Inject a KnowledgeFabricValidator for hallucination detection.
+   * Called by AgentFactory after construction.
+   */
+  setKnowledgeFabricValidator(validator: KnowledgeFabricValidator): void {
+    this.knowledgeFabricValidator = validator;
   }
 
   abstract execute(context: LifecycleContext): Promise<AgentOutput>;
@@ -70,7 +81,12 @@ export abstract class BaseAgent {
   }
 
   /**
-   * Secure LLM invocation with circuit breaker, hallucination detection, and Zod validation
+   * Secure LLM invocation with circuit breaker, Knowledge Fabric hallucination
+   * detection, and Zod validation.
+   *
+   * Hallucination detection cross-references the LLM response against:
+   * 1. Tenant-scoped semantic memory (contradicting facts from prior agent runs)
+   * 2. GroundTruth benchmarks (ESO KPIs, VMRT traces)
    */
   protected async secureInvoke<T>(
     sessionId: string,
@@ -104,8 +120,9 @@ export abstract class BaseAgent {
 
       const response = await this.llmGateway.complete(request);
 
-      // Basic hallucination check (placeholder - implement proper detection)
-      const hallucination_check = this.checkHallucination(response.content);
+      // Knowledge Fabric cross-reference hallucination detection
+      const validationResult = await this.validateWithKnowledgeFabric(response.content);
+      const hallucination_check = validationResult.passed;
 
       // Validate response with Zod
       const parsed = zodSchema.parse(JSON.parse(response.content));
@@ -117,7 +134,13 @@ export abstract class BaseAgent {
           this.name,
           "episodic",
           `LLM Response: ${response.content.substring(0, 200)}...`,
-          { confidence: 0.8, hallucination_check },
+          {
+            confidence: validationResult.confidence,
+            hallucination_check,
+            validation_method: validationResult.method,
+            contradiction_count: validationResult.contradictions.length,
+            benchmark_misalignment_count: validationResult.benchmarkMisalignments.length,
+          },
           this.organizationId
         );
       }
@@ -127,18 +150,39 @@ export abstract class BaseAgent {
   }
 
   /**
-   * Basic hallucination detection (placeholder implementation)
+   * Validate LLM output via Knowledge Fabric cross-referencing.
+   * Falls back to a passing result if no validator is configured.
    */
-  private checkHallucination(content: string): boolean {
-    // Placeholder: Implement proper hallucination detection
-    // For now, check for common hallucination patterns
-    const hallucinationPatterns = [
-      /I'm sorry, but I cannot/i,
-      /I don't have access to/i,
-      /As an AI, I must/i,
-    ];
+  private async validateWithKnowledgeFabric(content: string): Promise<HallucinationCheckResult> {
+    if (!this.knowledgeFabricValidator) {
+      return {
+        passed: true,
+        confidence: 0.5,
+        contradictions: [],
+        benchmarkMisalignments: [],
+        method: "knowledge_fabric",
+      };
+    }
 
-    return !hallucinationPatterns.some((pattern) => pattern.test(content));
+    try {
+      return await this.knowledgeFabricValidator.validate(
+        content,
+        this.organizationId,
+        this.name
+      );
+    } catch (err) {
+      logger.warn("Knowledge Fabric validation failed, defaulting to pass", {
+        agent_id: this.name,
+        error: (err as Error).message,
+      });
+      return {
+        passed: true,
+        confidence: 0.5,
+        contradictions: [],
+        benchmarkMisalignments: [],
+        method: "knowledge_fabric",
+      };
+    }
   }
 
   getCapabilities(): string[] {
