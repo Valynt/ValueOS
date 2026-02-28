@@ -1,16 +1,7 @@
 {
   "strict_zones": [
     "packages/integrations/src",
-    "packages/memory/src"
-  ],
-  "strict_projects": [
-    "packages/integrations/tsconfig.strict-zone.json",
-    "packages/memory/tsconfig.strict-zone.json"
-  ],
-  "comment": "Strict islands phase 1: integration and memory core modules only. These zones must remain at 0 TS errors.",
-  "migration_note": "Expand strict_zones one package at a time after each zone reaches zero TS errors under its strict-zone tsconfig.",
-  "ratchet": {
-    "baseline_file": ".quality/tsc-baseline.json",
-    "command": "pnpm exec tsc --noEmit --pretty false"
-  }
-}
+    "packages/memory/src",
+    "packages/shared/src",
+    "packages/sdui-types",
+    "packages/mcp"

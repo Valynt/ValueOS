@@ -5,12 +5,7 @@
  * Ensures all systems are ready before rendering the UI.
  */
 
-import {
-  getConfig,
-  isDevelopment,
-  isProduction,
-  validateEnvironmentConfig,
-} from "./config/environment";
+import { getConfig, isDevelopment, isProduction, validateEnvironmentConfig } from "./config/environment";
 import {
   DEFAULT_AGENT_CHECK_TIMEOUT_DEV,
   DEFAULT_AGENT_CHECK_TIMEOUT_PROD,
@@ -395,9 +390,10 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<Bootstr
   const duration = Date.now() - startTime;
 
   // Final summary
-  logger.debug("\n" + "=".repeat(50));
+  const BOOTSTRAP_COMPLETE_LINE = "=".repeat(50);
+  logger.debug("\n" + BOOTSTRAP_COMPLETE_LINE);
   logger.info("🎉 Bootstrap Complete!");
-  logger.debug("=".repeat(50));
+  logger.debug(BOOTSTRAP_COMPLETE_LINE);
   logger.info(`Duration: ${duration}ms`);
   logger.info(`Errors: ${errors.length}`);
   logger.info(`Warnings: ${warnings.length}`);
