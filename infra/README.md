@@ -35,6 +35,12 @@ This registry is enforced in CI (`scripts/ci/check-infra-manifest-registry.mjs`)
 | Production compose | `infra/docker/docker-compose.prod.yml` | Platform / DevOps | Self-contained production stack (caddy, backend, frontend, postgres, redis). | Active |
 | Legacy `infra/docker/docker-compose*.yml` files | `infra/docker/*.yml` (except prod) | Platform / DevOps | Compatibility include shims only; no service definitions allowed. | Deprecated |
 
+#### Postgres exposure policy by profile
+
+- `ops/compose/compose.yml` (local dev) publishes Postgres on `127.0.0.1:${PGPORT:-5432}:5432` only, so local tooling can connect without exposing the database on external interfaces.
+- `infra/docker/docker-compose.prod.yml` (production-like) does **not** publish a Postgres host port; services must use internal Docker networking (`postgres:5432`).
+- CI guardrail: `scripts/ci/check-compose-db-bindings.mjs` fails if a Compose file introduces a `:5432` host binding that is not loopback-bound (`127.0.0.1:`).
+
 ### Kubernetes targets
 
 | Target | Path | Owner | Purpose | Status |
