@@ -336,13 +336,26 @@ ALTER TABLE public.billing_approval_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_approval_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.entitlement_snapshots ENABLE ROW LEVEL SECURITY;
 
--- billing_meters: read-only for all authenticated users (catalog data)
+-- billing_meters is intentionally global catalog metadata (no tenant data).
+-- Exception is explicit: meter definitions are product-wide constants and do
+-- not encode usage, entitlement, or customer-specific state.
+-- Risk acceptance: authenticated read-only access is allowed; anon access is
+-- denied in production posture.
 CREATE POLICY billing_meters_select ON public.billing_meters
     FOR SELECT TO authenticated USING (true);
 
--- billing_price_versions: read-only for authenticated (catalog data)
+-- billing_price_versions: tenant-scoped read access via tenant-linked
+-- subscriptions, enforced from JWT tenant_id context.
 CREATE POLICY billing_price_versions_select ON public.billing_price_versions
-    FOR SELECT TO authenticated USING (true);
+    FOR SELECT TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1
+            FROM public.subscriptions s
+            WHERE s.price_version_id = billing_price_versions.id
+              AND s.tenant_id = (auth.jwt() ->> 'tenant_id')::uuid
+        )
+    );
 
 -- usage_policies: tenant-scoped
 CREATE POLICY usage_policies_tenant ON public.usage_policies
@@ -375,14 +388,10 @@ GRANT ALL ON public.billing_approval_policies TO service_role;
 GRANT ALL ON public.billing_approval_requests TO service_role;
 GRANT ALL ON public.entitlement_snapshots TO service_role;
 
--- authenticated gets SELECT on catalog tables
+-- authenticated gets scoped access required by application paths
 GRANT SELECT ON public.billing_meters TO authenticated;
 GRANT SELECT ON public.billing_price_versions TO authenticated;
 GRANT SELECT ON public.usage_policies TO authenticated;
 GRANT SELECT ON public.billing_approval_policies TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.billing_approval_requests TO authenticated;
 GRANT SELECT ON public.entitlement_snapshots TO authenticated;
-
--- anon gets SELECT on catalog tables only
-GRANT SELECT ON public.billing_meters TO anon;
-GRANT SELECT ON public.billing_price_versions TO anon;
