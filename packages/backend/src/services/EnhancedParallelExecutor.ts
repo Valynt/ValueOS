@@ -11,7 +11,7 @@ import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js";
 import { getCategorizedCircuitBreakerManager } from "./CircuitBreakerManager.js";
 import { getSecureSharedContext } from "./SecureSharedContext.js";
 import { getContextOptimizer } from "./ContextOptimizer.js";
-import { getSystemResourceMonitor, ResourceListener } from "./monitoring/SystemResourceMonitor.js";
+import { getSystemResourceMonitor, ResourceListener, SystemResources } from "./monitoring/SystemResourceMonitor.js";
 import { randomUUID } from "crypto";
 
 // ============================================================================
@@ -57,8 +57,8 @@ export interface ParallelTask {
   id: string;
   agentType: AgentType;
   query: string;
-  context?: Record<string, any>;
-  parameters?: Record<string, any>;
+  context?: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
   priority: ParallelPriority;
   dependencies: string[];
   estimatedDuration: number;
@@ -110,7 +110,7 @@ export interface TaskResult {
   taskId: string;
   agentType: AgentType;
   success: boolean;
-  result?: any;
+  result?: unknown;
   error?: string;
   duration: number;
   tokens?: {
@@ -187,7 +187,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
   /**
    * Handle resource changes for dynamic scaling
    */
-  onResourceChange(resources: any): void {
+  onResourceChange(resources: SystemResources): void {
     if (!this.resourceScalingEnabled) return;
 
     const newConcurrency = this.resourceMonitor.getOptimalConcurrency(this.baseMaxConcurrency);
@@ -438,7 +438,13 @@ export class EnhancedParallelExecutor implements ResourceListener {
         if (result.status === "fulfilled") {
           results.push(result.value);
         } else {
-          const task = batch.find((t) => t.id === (result.reason as any).taskId);
+          let task;
+          if (typeof result.reason === "object" && result.reason !== null && "taskId" in result.reason) {
+            const maybeReason = result.reason as { taskId?: unknown };
+            if (typeof maybeReason.taskId === "string") {
+              task = batch.find((t) => t.id === maybeReason.taskId);
+            }
+          }
           const agentType =
             task?.agentType && Object.values(AgentType).includes(task.agentType as AgentType)
               ? (task.agentType as AgentType)
@@ -495,7 +501,7 @@ export class EnhancedParallelExecutor implements ResourceListener {
    */
   private async executePipelineTasks(tasks: ParallelTask[]): Promise<TaskResult[]> {
     const results: TaskResult[] = [];
-    let contextData: Record<string, any> = {};
+    let contextData: Record<string, unknown> = {};
 
     for (const task of tasks) {
       try {
@@ -779,9 +785,9 @@ export class EnhancedParallelExecutor implements ResourceListener {
    * Get execution statistics
    */
   getExecutionStats(): {
-    circuitBreakerStats: any;
-    contextStats: any;
-    sharedContextStats: any;
+    circuitBreakerStats: unknown;
+    contextStats: unknown;
+    sharedContextStats: unknown;
   } {
     return {
       circuitBreakerStats: this.circuitBreakerManager.getAllCategoryStats(),

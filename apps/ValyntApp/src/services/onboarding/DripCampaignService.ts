@@ -21,7 +21,7 @@ interface DripSendResult {
   template: DripTemplate;
   userId: string;
   email: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ProviderConfig {
@@ -150,7 +150,7 @@ export class DripCampaignService {
     template: DripTemplate,
     event: OnboardingEvent,
     timestamp: number,
-    additionalMetadata: Record<string, any> = {}
+    additionalMetadata: Record<string, unknown> = {}
   ): Promise<DripSendResult> {
     const sent = this.sentTemplates.get(event.userId) ?? new Set<DripTemplate>();
     if (sent.has(template)) {
@@ -200,7 +200,7 @@ export class DripCampaignService {
     return `${baseUrl}${path}?${params.toString()}`;
   }
 
-  private async dispatchToProvider(template: DripTemplate, data: Record<string, any>): Promise<boolean> {
+  private async dispatchToProvider(template: DripTemplate, data: Record<string, unknown>): Promise<boolean> {
     if (!this.provider.apiKey) {
       logger.info('Skipping drip send (provider not configured)', { template, data });
       return false;

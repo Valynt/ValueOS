@@ -68,11 +68,11 @@ export interface ContributionMetrics {
 export interface SharedContext {
   sessionId: string;
   objective: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   history: ContextEntry[];
   artifacts: Artifact[];
   constraints: Constraint[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ContextEntry {
@@ -90,7 +90,7 @@ export interface Artifact {
   type: "report" | "analysis" | "recommendation" | "model" | "data";
   name: string;
   description: string;
-  content: any;
+  content: unknown;
   createdBy: string;
   createdAt: number;
   version: number;
@@ -122,12 +122,12 @@ export interface CollaborationTask {
   type: TaskType;
   assignedTo: string[];
   dependencies: string[];
-  input: any;
-  output: any;
+  input: unknown;
+  output: unknown;
   status: TaskStatus;
   priority: TaskPriority;
   deadline?: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ConflictResolution {
@@ -197,7 +197,7 @@ export type ConsensusType = "unanimous" | "majority" | "supermajority" | "weight
 
 export class AgentCollaborationService extends EventEmitter {
   private messageBroker: AgentMessageBroker;
-  private performanceMonitor: any;
+  private performanceMonitor: unknown;
   private teams = new Map<string, AgentTeam>();
   private activeCollaborations = new Map<string, CollaborationTask>();
   private conflicts = new Map<string, ConflictResolution>();
@@ -275,7 +275,7 @@ export class AgentCollaborationService extends EventEmitter {
   /**
    * Execute a collaborative task
    */
-  async executeCollaborativeTask(teamId: string, task: CollaborationTask): Promise<any> {
+  async executeCollaborativeTask(teamId: string, task: CollaborationTask): Promise<unknown> {
     const team = this.teams.get(teamId);
     if (!team) {
       throw new Error(`Team ${teamId} not found`);
@@ -290,7 +290,7 @@ export class AgentCollaborationService extends EventEmitter {
       team.lastActivity = Date.now();
 
       // Execute based on collaboration pattern
-      let result: any;
+      let result: unknown;
 
       switch (team.collaborationPattern) {
         case "sequential":
@@ -508,12 +508,12 @@ export class AgentCollaborationService extends EventEmitter {
 
   private setupMessageHandlers(): void {
     // Handle incoming collaboration messages
-    this.messageBroker.on("message", (message: any) => {
+    this.messageBroker.on("message", (message: unknown) => {
       this.handleCollaborationMessage(message);
     });
   }
 
-  private handleCollaborationMessage(message: any): void {
+  private handleCollaborationMessage(message: unknown): void {
     // Process collaboration-specific messages
     if (message.type === "collaboration_request") {
       this.handleCollaborationRequest(message);
@@ -604,7 +604,7 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeSequentialCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
+  ): Promise<unknown> {
     const results = [];
 
     for (const agentId of task.assignedTo) {
@@ -624,7 +624,7 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeParallelCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
+  ): Promise<unknown> {
     const promises = task.assignedTo.map((agentId) => this.assignTaskToAgent(agentId, task));
 
     const results = await Promise.all(promises);
@@ -634,7 +634,7 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeIterativeCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
+  ): Promise<unknown> {
     let currentResult = task.input;
     let iterations = 0;
     const maxIterations = 5;
@@ -663,7 +663,7 @@ export class AgentCollaborationService extends EventEmitter {
   private async executeAdaptiveCollaboration(
     team: AgentTeam,
     task: CollaborationTask
-  ): Promise<any> {
+  ): Promise<unknown> {
     // Start with parallel execution
     let result = await this.executeParallelCollaboration(team, task);
 
@@ -677,14 +677,14 @@ export class AgentCollaborationService extends EventEmitter {
     return result;
   }
 
-  private async assignTaskToAgent(agentId: string, task: CollaborationTask): Promise<any> {
+  private async assignTaskToAgent(agentId: string, task: CollaborationTask): Promise<unknown> {
     return await this.messageBroker.sendToAgent("collaboration_service", agentId, {
       type: "task_assignment",
       task,
     });
   }
 
-  private synthesizeResults(results: any[]): any {
+  private synthesizeResults(results: unknown[]): unknown {
     // Simple synthesis - in practice would use more sophisticated methods
     return {
       combinedResults: results,
@@ -693,27 +693,27 @@ export class AgentCollaborationService extends EventEmitter {
     };
   }
 
-  private calculateSynthesisConfidence(results: any[]): number {
+  private calculateSynthesisConfidence(results: unknown[]): number {
     if (results.length === 0) return 0;
 
     const avgConfidence =
-      results.reduce((sum: number, result: any) => sum + (result.confidence || 0.5), 0) /
+      results.reduce((sum: number, result: unknown) => sum + (result.confidence || 0.5), 0) /
       results.length;
 
     return avgConfidence;
   }
 
-  private hasConverged(previous: any, current: any): boolean {
+  private hasConverged(previous: unknown, current: unknown): boolean {
     // Simple convergence check
     return JSON.stringify(previous) === JSON.stringify(current);
   }
 
-  private shouldSwitchToSequential(team: AgentTeam, task: CollaborationTask, result: any): boolean {
+  private shouldSwitchToSequential(team: AgentTeam, task: CollaborationTask, result: unknown): boolean {
     // Decision logic for switching to sequential
     return task.dependencies.length > 0;
   }
 
-  private shouldSwitchToIterative(team: AgentTeam, task: CollaborationTask, result: any): boolean {
+  private shouldSwitchToIterative(team: AgentTeam, task: CollaborationTask, result: unknown): boolean {
     // Decision logic for switching to iterative
     return (result.confidence || 0) < 0.8;
   }
@@ -771,7 +771,7 @@ export class AgentCollaborationService extends EventEmitter {
     };
   }
 
-  private analyzeVotes(votes: VotingRecord[], consensusType: ConsensusType, options?: any): string {
+  private analyzeVotes(votes: VotingRecord[], consensusType: ConsensusType, options?: unknown): string {
     const approveVotes = votes.filter((v) => v.vote === "approve").length;
     const rejectVotes = votes.filter((v) => v.vote === "reject").length;
     const totalVotes = votes.length;
@@ -817,12 +817,12 @@ export class AgentCollaborationService extends EventEmitter {
     };
   }
 
-  private handleCollaborationRequest(message: any): void {
+  private handleCollaborationRequest(message: unknown): void {
     // Handle incoming collaboration requests
     logger.info("Collaboration request received", { from: message.from, type: message.type });
   }
 
-  private handleConflictNotification(message: any): void {
+  private handleConflictNotification(message: unknown): void {
     // Handle conflict notifications
     logger.info("Conflict notification received", {
       from: message.from,
@@ -830,7 +830,7 @@ export class AgentCollaborationService extends EventEmitter {
     });
   }
 
-  private handleConsensusRequest(message: any): void {
+  private handleConsensusRequest(message: unknown): void {
     // Handle consensus requests
     logger.info("Consensus request received", { from: message.from, topic: message.topic });
   }

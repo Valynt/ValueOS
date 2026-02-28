@@ -230,7 +230,7 @@ describe('CacheService', () => {
 
     it('should handle serialization errors', async () => {
       const key = 'test-key';
-      const circularRef: any = { a: 1 };
+      const circularRef: unknown = { a: 1 };
       circularRef.self = circularRef;
 
       try {

@@ -25,7 +25,7 @@ export interface RequestConfig {
 }
 
 interface PendingRequest {
-  promise: Promise<any>;
+  promise: Promise<unknown>;
   timestamp: number;
 }
 
@@ -34,7 +34,7 @@ export abstract class BaseService {
   protected serviceName: string;
 
   private pendingRequests: Map<string, PendingRequest> = new Map();
-  private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly DEDUP_TIMEOUT = 1000; // 1 second
 
@@ -198,7 +198,7 @@ export abstract class BaseService {
   /**
    * Logging utility
    */
-  protected log(level: "debug" | "info" | "warn" | "error", message: string, data?: any): void {
+  protected log(level: "debug" | "info" | "warn" | "error", message: string, data?: unknown): void {
     const logData = {
       service: this.serviceName,
       timestamp: new Date().toISOString(),
@@ -243,7 +243,7 @@ export abstract class BaseService {
   /**
    * Validate required fields
    */
-  protected validateRequired<T extends Record<string, any>>(data: T, fields: (keyof T)[]): void {
+  protected validateRequired<T extends Record<string, unknown>>(data: T, fields: (keyof T)[]): void {
     const missing = fields.filter((field) => !data[field]);
     if (missing.length > 0) {
       throw new ServiceError(

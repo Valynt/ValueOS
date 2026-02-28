@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('AuditLogService', () => {
-  let mockDB: any;
+  let mockDB: unknown;
 
   beforeEach(() => {
     mockDB = {

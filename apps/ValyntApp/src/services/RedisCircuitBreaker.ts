@@ -264,7 +264,7 @@ export class RedisCircuitBreaker {
   /**
    * Check if Redis is healthy (for health checks)
    */
-  async isRedisHealthy(redisClient: any): Promise<boolean> {
+  async isRedisHealthy(redisClient: unknown): Promise<boolean> {
     try {
       await this.execute({
         operation: () => redisClient.ping(),
@@ -281,13 +281,13 @@ export class RedisCircuitBreaker {
   /**
    * Get Redis client with circuit breaker wrapper
    */
-  wrapRedisClient(redisClient: any): any {
+  wrapRedisClient(redisClient: unknown): unknown {
     return new Proxy(redisClient, {
       get: (target, prop) => {
         const originalMethod = target[prop];
 
         if (typeof originalMethod === 'function') {
-          return (...args: any[]) => {
+          return (...args: unknown[]) => {
             return this.execute({
               operation: () => originalMethod.apply(target, args),
               operationName: `redis-${prop.toString()}`,
@@ -304,7 +304,7 @@ export class RedisCircuitBreaker {
   /**
    * Create rate limiter store with circuit breaker
    */
-  createRateLimitStore(redisClient: any, options: any = {}) {
+  createRateLimitStore(redisClient: unknown, options: unknown = {}) {
     const wrappedClient = this.wrapRedisClient(redisClient);
 
     return {

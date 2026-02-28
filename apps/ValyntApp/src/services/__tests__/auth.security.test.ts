@@ -261,7 +261,7 @@ describe("Authentication Security Tests", () => {
       });
 
       // Act
-      let error: any;
+      let error: unknown;
       try {
         await service.login(credentials);
       } catch (e) {

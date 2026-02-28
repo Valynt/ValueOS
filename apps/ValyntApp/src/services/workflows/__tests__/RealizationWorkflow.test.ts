@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('RealizationWorkflow', () => {
-  let mockDB: any;
-  let mockAgents: any;
+  let mockDB: unknown;
+  let mockAgents: unknown;
 
   beforeEach(() => {
     mockDB = {

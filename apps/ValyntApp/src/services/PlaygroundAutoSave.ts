@@ -148,15 +148,15 @@ export interface ConflictResolution {
   /**
    * Resolved layout (if resolved)
    */
-  layout?: any;
+  layout?: unknown;
 
   /**
    * Conflicts that require manual resolution
    */
   conflicts?: Array<{
     path: string;
-    serverValue: any;
-    clientValue: any;
+    serverValue: unknown;
+    clientValue: unknown;
     description: string;
   }>;
 
@@ -174,8 +174,8 @@ export class ConflictResolver {
    * Resolve conflict between server and client versions
    */
   async resolve(
-    serverLayout: any,
-    clientLayout: any,
+    serverLayout: unknown,
+    clientLayout: unknown,
     strategy: ConflictStrategy = 'merge'
   ): Promise<ConflictResolution> {
     try {
@@ -219,7 +219,7 @@ export class ConflictResolver {
   /**
    * Merge two layouts
    */
-  private mergeLayouts(serverLayout: any, clientLayout: any): ConflictResolution {
+  private mergeLayouts(serverLayout: unknown, clientLayout: unknown): ConflictResolution {
     // Simple merge strategy: use client layout but preserve server metadata
     const merged = {
       ...clientLayout,
@@ -251,18 +251,18 @@ export class ConflictResolver {
    * Detect conflicts between layouts
    */
   private detectConflicts(
-    serverLayout: any,
-    clientLayout: any
+    serverLayout: unknown,
+    clientLayout: unknown
   ): Array<{
     path: string;
-    serverValue: any;
-    clientValue: any;
+    serverValue: unknown;
+    clientValue: unknown;
     description: string;
   }> {
     const conflicts: Array<{
       path: string;
-      serverValue: any;
-      clientValue: any;
+      serverValue: unknown;
+      clientValue: unknown;
       description: string;
     }> = [];
 
@@ -304,7 +304,7 @@ export class ConflictResolver {
   /**
    * Check if layouts have conflicts
    */
-  hasConflicts(serverLayout: any, clientLayout: any): boolean {
+  hasConflicts(serverLayout: unknown, clientLayout: unknown): boolean {
     return this.detectConflicts(serverLayout, clientLayout).length > 0;
   }
 }

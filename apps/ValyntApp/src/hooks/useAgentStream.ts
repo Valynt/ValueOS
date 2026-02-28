@@ -5,24 +5,28 @@ import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../lib/logger";
 
+interface ToolCall {
+  id: string;
+  tool: string;
+  args: Record<string, unknown>;
+  result?: unknown;
+}
+
+interface Suggestion {
+  id: string;
+  type: "content" | "assumption" | "driver";
+  content: string;
+  applyData?: unknown;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
   metadata?: {
-    toolCalls?: Array<{
-      id: string;
-      tool: string;
-      args: Record<string, unknown>;
-      result?: unknown;
-    }>;
-    suggestions?: Array<{
-      id: string;
-      type: "content" | "assumption" | "driver";
-      content: string;
-      applyData?: unknown;
-    }>;
+    toolCalls?: ToolCall[];
+    suggestions?: Suggestion[];
   };
 }
 
@@ -43,7 +47,7 @@ interface UseAgentStreamOptions {
   tenantId?: string;
   onMessage?: (message: ChatMessage) => void;
   onError?: (error: Error) => void;
-  onToolExecuted?: (toolCall: any, result: any) => void;
+  onToolExecuted?: (toolCall: ToolCall, result: unknown) => void;
   onThinking?: (message: string) => void;
   onExecuting?: (message: string) => void;
   onCompleted?: (message: string) => void;
@@ -54,7 +58,7 @@ interface AgentStreamResult {
   isStreaming: boolean;
   sendMessage: (content: string) => Promise<void>;
   applySuggestion: (suggestionId: string) => void;
-  executeTool: (toolName: string, args: Record<string, any>) => Promise<any>;
+  executeTool: (toolName: string, args: Record<string, unknown>) => Promise<unknown>;
   clearMessages: () => void;
 }
 
@@ -229,7 +233,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): AgentStream
   );
 
   const executeTool = useCallback(
-    async (toolName: string, args: Record<string, any>) => {
+    async (toolName: string, args: Record<string, unknown>) => {
       try {
         // For now, simulate tool execution
         // In real implementation, this would call the backend tool service

@@ -141,7 +141,7 @@ export class SessionTimeoutService {
   /**
    * Get session info from request (Express)
    */
-  getSessionInfo(req: any): SessionInfo | null {
+  getSessionInfo(req: unknown): SessionInfo | null {
     if (!req.session || !req.user) {
       return null;
     }
@@ -158,7 +158,7 @@ export class SessionTimeoutService {
   /**
    * Update session in request (Express)
    */
-  updateSessionInfo(req: any, session: SessionInfo): void {
+  updateSessionInfo(req: unknown, session: SessionInfo): void {
     if (req.session) {
       req.session.createdAt = session.createdAt;
       req.session.lastActivity = session.lastActivity;

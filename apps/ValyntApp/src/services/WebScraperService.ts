@@ -16,7 +16,7 @@ export class WebScraperService {
   private maxRequestsPerMinute = 10; // Conservative limit per domain
   private cache: Map<string, { result: WebScraperResult; timestamp: number }> = new Map();
   private cacheTtlMs = 30 * 60 * 1000; // 30 minutes cache TTL
-  private redis: any | null = null;
+  private redis: unknown | null = null;
   private encryptionKey: string;
   private dnsCache: Map<string, { ips: string[]; timestamp: number }> = new Map();
   private dnsCacheTtlMs = 5 * 60 * 1000; // 5 minutes DNS cache TTL
@@ -30,7 +30,7 @@ export class WebScraperService {
     if (redisUrl) {
       try {
         this.redis = createClient(redisUrl);
-        this.redis.on("error", (err: any) => logger.error("Redis connection error", { err }));
+        this.redis.on("error", (err: unknown) => logger.error("Redis connection error", { err }));
       } catch (error) {
         logger.warn("Failed to initialize Redis, falling back to in-memory rate limiting", {
           error,

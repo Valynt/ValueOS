@@ -342,7 +342,7 @@ export class CalculationEngine {
   /**
    * Serialize the engine state for persistence
    */
-  serialize(): any {
+  serialize(): unknown {
     return {
       namedExpressions: this.hf.getAllNamedExpressionsSerialized(),
       nodeMappings: {
@@ -355,7 +355,7 @@ export class CalculationEngine {
   /**
    * Deserialize and restore engine state
    */
-  deserialize(data: any): void {
+  deserialize(data: unknown): void {
     try {
       // Clear existing state
       this.nodeIdToNamedExpression.clear();

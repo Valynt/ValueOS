@@ -45,7 +45,7 @@ export interface CounterfactualAnalysis {
 export interface CounterfactualScenario {
   type: "intervention" | "prevention" | "modification";
   description: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   timeframe: string;
 }
 
@@ -102,7 +102,7 @@ export interface EvidenceSource {
   relevance: number;
   source: string;
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ReasoningConfig {
@@ -164,7 +164,7 @@ export class AdvancedCausalEngine extends EventEmitter {
   async inferCausalRelationship(
     action: string,
     targetKpi: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<CausalInference> {
     const cacheKey = `${action}-${targetKpi}-${JSON.stringify(context || {})}`;
 
@@ -290,7 +290,7 @@ export class AdvancedCausalEngine extends EventEmitter {
   async performBayesianInference(
     action: string,
     targetKpi: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<Map<string, number>> {
     // Get or create Bayesian network
     const network = await this.getOrCreateBayesianNetwork(action, targetKpi);
@@ -415,8 +415,8 @@ export class AdvancedCausalEngine extends EventEmitter {
   }
 
   private async calculateProbabilisticEffect(
-    relationship: any,
-    context?: Record<string, any>
+    relationship: unknown,
+    context?: Record<string, unknown>
   ): Promise<CausalEffect> {
     // Base effect from relationship
     const baseMagnitude = relationship.impact_distribution?.p50 || 0;
@@ -460,7 +460,7 @@ export class AdvancedCausalEngine extends EventEmitter {
     };
   }
 
-  private calculateInferenceConfidence(relationship: any, effect: CausalEffect): number {
+  private calculateInferenceConfidence(relationship: unknown, effect: CausalEffect): number {
     // Base confidence from relationship
     const baseConfidence = relationship.confidence_score || 0.7;
 
@@ -541,7 +541,7 @@ export class AdvancedCausalEngine extends EventEmitter {
 
   private performExactInference(
     network: BayesianNetwork,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     inferences?: Map<string, number>
   ): void {
     // Simplified exact inference (in practice, would use more sophisticated algorithms)
@@ -562,7 +562,7 @@ export class AdvancedCausalEngine extends EventEmitter {
 
   private performApproximateInference(
     network: BayesianNetwork,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     inferences?: Map<string, number>
   ): void {
     // Use loopy belief propagation or other approximate methods
@@ -572,7 +572,7 @@ export class AdvancedCausalEngine extends EventEmitter {
 
   private performSamplingInference(
     network: BayesianNetwork,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     inferences?: Map<string, number>
   ): void {
     // Monte Carlo sampling
@@ -598,7 +598,7 @@ export class AdvancedCausalEngine extends EventEmitter {
 
   private sampleFromNetwork(
     network: BayesianNetwork,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Record<string, string> {
     const sample: Record<string, string> = {};
 
@@ -621,7 +621,7 @@ export class AdvancedCausalEngine extends EventEmitter {
     return sample;
   }
 
-  private createTemporalModel(relationship: any, timeHorizon: number): TemporalCausalModel {
+  private createTemporalModel(relationship: unknown, timeHorizon: number): TemporalCausalModel {
     // Default temporal parameters
     const timeToEffect = 30; // 30 days
     const effectDuration = 180; // 6 months
@@ -640,7 +640,7 @@ export class AdvancedCausalEngine extends EventEmitter {
   }
 
   private async applyCounterfactualScenario(
-    relationship: any,
+    relationship: unknown,
     scenario: CounterfactualScenario,
     baselineValue: number
   ): Promise<number> {
@@ -669,7 +669,7 @@ export class AdvancedCausalEngine extends EventEmitter {
   }
 
   private calculateCounterfactualConfidence(
-    relationship: any,
+    relationship: unknown,
     scenario: CounterfactualScenario
   ): number {
     const baseConfidence = relationship.confidence_score || 0.7;
@@ -680,7 +680,7 @@ export class AdvancedCausalEngine extends EventEmitter {
     return Math.max(0.3, baseConfidence - complexityPenalty);
   }
 
-  private identifyAssumptions(scenario: CounterfactualScenario, relationship: any): string[] {
+  private identifyAssumptions(scenario: CounterfactualScenario, relationship: unknown): string[] {
     const assumptions: string[] = [];
 
     assumptions.push(

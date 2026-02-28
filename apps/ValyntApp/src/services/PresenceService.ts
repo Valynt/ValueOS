@@ -13,7 +13,7 @@ export interface ActiveSession {
   userId: string;
   pagePath: string;
   action?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   lastHeartbeat: string;
   createdAt: string;
 }
@@ -45,7 +45,7 @@ export class PresenceService extends TenantAwareService {
     tenantId: string,
     pagePath: string,
     action: string = 'viewing',
-    metadata: Record<string, any> = {}
+    metadata: Record<string, unknown> = {}
   ): Promise<string> {
     this.log('info', 'Starting presence tracking', { userId, tenantId, pagePath, action });
 
@@ -86,11 +86,11 @@ export class PresenceService extends TenantAwareService {
   async updatePresence(
     sessionId: string,
     action: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     return this.executeRequest(
       async () => {
-        const updates: any = {
+        const updates: unknown = {
           action,
           last_heartbeat: new Date().toISOString(),
         };

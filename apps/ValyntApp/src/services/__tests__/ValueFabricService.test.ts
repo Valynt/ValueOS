@@ -17,7 +17,7 @@ const baseTables = {
   ],
 };
 
-let supabase: any;
+let supabase: unknown;
 let service: ValueFabricService;
 
 beforeEach(() => {

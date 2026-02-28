@@ -44,11 +44,11 @@ vi.mock('../../lib/rules', () => ({
 
 describe('ActionRouter', () => {
   let router: ActionRouter;
-  let mockAuditLogService: any;
-  let mockOrchestrator: any;
-  let mockAgentAPI: any;
+  let mockAuditLogService: unknown;
+  let mockOrchestrator: unknown;
+  let mockAgentAPI: unknown;
   
-  let mockComponentMutationService: any;
+  let mockComponentMutationService: unknown;
 
   const execution: ExecutionRequest = { intent: 'FullValueAnalysis', environment: 'production' };
   const context: ActionContext = {
@@ -101,7 +101,7 @@ describe('ActionRouter', () => {
     });
 
     it('should fail validation for invokeAgent without agentId', () => {
-      const action: any = {
+      const action: unknown = {
         type: 'invokeAgent',
         input: { query: 'test' },
         execution,
@@ -126,7 +126,7 @@ describe('ActionRouter', () => {
     });
 
     it('should fail validation for navigateToStage without stage', () => {
-      const action: any = {
+      const action: unknown = {
         type: 'navigateToStage',
       };
 
@@ -309,7 +309,7 @@ describe('ActionRouter', () => {
     });
 
     it('should fail routing for invalid action', async () => {
-      const action: any = {
+      const action: unknown = {
         type: 'invokeAgent',
         // Missing required fields
       };
@@ -377,7 +377,7 @@ describe('ActionRouter', () => {
 
       router.registerHandler('customAction', customHandler);
 
-      const action: any = {
+      const action: unknown = {
         type: 'customAction',
       };
 

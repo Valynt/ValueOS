@@ -123,7 +123,7 @@ const baseConfig = {
     "no-redeclare": "off",
     "no-case-declarations": "warn",
     "no-useless-escape": "warn",
-    // Downgraded to warn: 4,500+ violations across the codebase. Fix incrementally.
+    // Promoting any usage to a warning as part of Phase 1 debt reduction; tighten to error once existing usages are removed.
     "@typescript-eslint/no-explicit-any": "warn",
     // Requires type-aware parserOptions.project (disabled to avoid OOM in monorepo)
     // "@typescript-eslint/no-unnecessary-type-assertion": "warn",

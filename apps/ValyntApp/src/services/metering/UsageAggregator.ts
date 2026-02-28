@@ -62,7 +62,7 @@ class UsageAggregator {
   /**
    * Group events by tenant and metric
    */
-  private groupEvents(events: any[]): Record<string, any[]> {
+  private groupEvents(events: unknown[]): Record<string, any[]> {
     const groups: Record<string, any[]> = {};
 
     events.forEach(event => {
@@ -79,7 +79,7 @@ class UsageAggregator {
   /**
    * Create aggregate from group
    */
-  private async createAggregate(events: any[]): Promise<void> {
+  private async createAggregate(events: unknown[]): Promise<void> {
     if (events.length === 0) return;
 
     const firstEvent = events[0];
@@ -110,7 +110,7 @@ class UsageAggregator {
       return;
     }
 
-    const subscriptionIds = subscriptions.map((s: any) => s.id);
+    const subscriptionIds = subscriptions.map((s: unknown) => s.id);
 
     // Find a subscription_item for these subscriptions and metric
     const { data: subItems, error: subItemsErr } = await supabase

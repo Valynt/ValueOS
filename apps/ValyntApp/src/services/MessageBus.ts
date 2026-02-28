@@ -21,10 +21,10 @@ export class MessageBus {
   private channels: Map<string, ChannelConfig>;
   private stats: Map<string, MessageStats>;
   private messageHistory: Map<string, CommunicationEvent[]>;
-  private redis: any; // Redis client (optional)
-  private nats: any; // NATS client (optional)
+  private redis: unknown; // Redis client (optional)
+  private nats: unknown; // NATS client (optional)
 
-  constructor(config?: { redis?: any; nats?: any }) {
+  constructor(config?: { redis?: unknown; nats?: unknown }) {
     this.subscribers = new Map();
     this.channels = new Map();
     this.stats = new Map();
@@ -121,7 +121,7 @@ export class MessageBus {
   /**
    * Compress message payload
    */
-  compressMessage(payload: any): any {
+  compressMessage(payload: unknown): unknown {
     try {
       const jsonString = JSON.stringify(payload);
       const compressed = compress(jsonString);
@@ -135,7 +135,7 @@ export class MessageBus {
   /**
    * Expand compressed message
    */
-  expandMessage(payload: any): any {
+  expandMessage(payload: unknown): unknown {
     try {
       if (payload.__compressed) {
         const decompressed = decompress(payload.data);
@@ -339,7 +339,7 @@ export class MessageBus {
     this.messageHistory.set(channel, history);
   }
 
-  private shouldCompress(payload: any): boolean {
+  private shouldCompress(payload: unknown): boolean {
     const jsonString = JSON.stringify(payload);
     return jsonString.length > 1024; // Compress if > 1KB
   }
@@ -432,7 +432,7 @@ export class MessageBus {
 // Singleton instance
 let messageBusInstance: MessageBus | null = null;
 
-export function getMessageBus(config?: { redis?: any; nats?: any }): MessageBus {
+export function getMessageBus(config?: { redis?: unknown; nats?: unknown }): MessageBus {
   if (!messageBusInstance) {
     messageBusInstance = new MessageBus(config);
   }

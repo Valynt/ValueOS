@@ -5,7 +5,7 @@ export interface EmailOptions {
   to: string;
   subject: string;
   template?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   html?: string;
   text?: string;
 }
@@ -38,7 +38,7 @@ export class EmailService {
     });
   }
 
-  private renderTemplate(templateName: string, data: Record<string, any>): string {
+  private renderTemplate(templateName: string, data: Record<string, unknown>): string {
     if (templateName === "welcome") {
       return this.renderWelcomeTemplate(data);
     }
@@ -56,7 +56,7 @@ export class EmailService {
     return "";
   }
 
-  private renderDeactivationTemplate(data: Record<string, any>): string {
+  private renderDeactivationTemplate(data: Record<string, unknown>): string {
     const { organizationName, reason } = data;
 
     return `
@@ -93,7 +93,7 @@ export class EmailService {
     `;
   }
 
-  private renderCustomerPortalAccessTemplate(data: Record<string, any>): string {
+  private renderCustomerPortalAccessTemplate(data: Record<string, unknown>): string {
     const { companyName, portalUrl } = data;
 
     return `
@@ -135,7 +135,7 @@ export class EmailService {
     `;
   }
 
-  private renderWelcomeTemplate(data: Record<string, any>): string {
+  private renderWelcomeTemplate(data: Record<string, unknown>): string {
     const { organizationName, tier, features, limits } = data;
 
     const featureList = Array.isArray(features)
@@ -216,7 +216,7 @@ export class EmailService {
     `;
   }
 
-  private renderInviteTemplate(data: Record<string, any>): string {
+  private renderInviteTemplate(data: Record<string, unknown>): string {
     const { inviterName, organizationName, inviteLink, role } = data;
     const appUrl = getConfig().app.url;
 

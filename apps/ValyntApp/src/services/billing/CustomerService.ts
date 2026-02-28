@@ -35,7 +35,7 @@ export class CustomerService {
     tenantId: string,
     organizationName: string,
     email: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<BillingCustomer> {
     if (!this.stripe) {
       throw new Error('Billing service not configured');

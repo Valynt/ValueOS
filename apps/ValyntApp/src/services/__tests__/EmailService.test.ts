@@ -76,7 +76,7 @@ describe('EmailService', () => {
     );
 
     // Get the log call arguments to inspect the content
-    const logCall = (logger.info as any).mock.calls.find((call: any[]) =>
+    const logCall = (logger.info as any).mock.calls.find((call: unknown[]) =>
       call[0] === 'Sending email to owner@example.com'
     );
     const logData = logCall[1];

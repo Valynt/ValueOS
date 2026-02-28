@@ -27,7 +27,7 @@ export interface SessionInitOptions {
   userId: string;
   tenantId: string;
   initialStage?: LifecycleStage;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**

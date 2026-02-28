@@ -11,7 +11,7 @@ import { ComplianceMetadata, ComplianceRule } from '../components/Compliance/Com
 export interface ValidationContext {
   reportId: string;
   reportType: 'value_commit' | 'roi_model' | 'qbr' | 'value_case';
-  content: any;
+  content: unknown;
   userId: string;
   organizationId: string;
 }
@@ -118,7 +118,7 @@ const MANIFESTO_RULES: ManifestoRule[] = [
         evidence.push(`${context.content.assumptions.length} assumptions documented`);
         
         // Check if assumptions have sources
-        const withSources = context.content.assumptions.filter((a: any) => a.source);
+        const withSources = context.content.assumptions.filter((a: unknown) => a.source);
         if (withSources.length > 0) {
           evidence.push(`${withSources.length} assumptions have documented sources`);
         } else {
@@ -262,7 +262,7 @@ const MANIFESTO_RULES: ManifestoRule[] = [
         evidence.push(`${context.content.risks.length} risks identified`);
         
         // Check for mitigation strategies
-        const withMitigation = context.content.risks.filter((r: any) => r.mitigation);
+        const withMitigation = context.content.risks.filter((r: unknown) => r.mitigation);
         if (withMitigation.length > 0) {
           evidence.push(`${withMitigation.length} risks have mitigation strategies`);
         } else {

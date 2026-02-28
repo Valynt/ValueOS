@@ -233,7 +233,7 @@ export class UIGenerationTracker {
   /**
    * Get layout effectiveness
    */
-  async getLayoutEffectiveness(layoutType: string): Promise<any> {
+  async getLayoutEffectiveness(layoutType: string): Promise<unknown> {
     const { data, error } = await supabase
       .from('layout_effectiveness')
       .select('*')
@@ -275,7 +275,7 @@ export class UIGenerationTracker {
       `)
       .eq('trajectory.generation_method', 'static');
 
-    const calcStats = (metrics: any[]) => {
+    const calcStats = (metrics: unknown[]) => {
       if (!metrics || metrics.length === 0) {
         return { avg_quality: 0, avg_time: 0, success_rate: 0 };
       }

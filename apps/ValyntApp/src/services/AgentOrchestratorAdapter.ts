@@ -49,7 +49,7 @@ class AgentOrchestratorAdapter {
     return execution;
   }
 
-  private buildExecutionEnvelope(userId: string, context?: Record<string, any>): ExecutionEnvelope {
+  private buildExecutionEnvelope(userId: string, context?: Record<string, unknown>): ExecutionEnvelope {
     return {
       intent: 'agent-orchestrator-adapter',
       actor: { id: userId },
@@ -208,7 +208,7 @@ class AgentOrchestratorAdapter {
    */
   async executeWorkflow(
     workflowDefinitionId: string,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     userId: string
   ) {
     const envelope = this.buildExecutionEnvelope(userId, context);
@@ -242,7 +242,7 @@ class AgentOrchestratorAdapter {
   async planTask(
     intentType: string,
     description: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     return this.unifiedOrchestrator.planTask(intentType, description, context);
   }

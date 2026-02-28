@@ -420,8 +420,8 @@ export class ComponentMutationService {
    * Check if props match selector
    */
   private propsMatch(
-    componentProps: Record<string, any>,
-    selectorProps: Record<string, any>
+    componentProps: Record<string, unknown>,
+    selectorProps: Record<string, unknown>
   ): boolean {
     for (const [key, value] of Object.entries(selectorProps)) {
       if (componentProps[key] !== value) {
@@ -447,7 +447,7 @@ export class ComponentMutationService {
     }
 
     // Navigate to parent object
-    let current: any = section;
+    let current: unknown = section;
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
       if (part.type === 'property') {

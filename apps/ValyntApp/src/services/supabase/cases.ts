@@ -24,10 +24,10 @@ class CaseQueryError extends Error {
 }
 
 // The Supabase client may be null during SSR.
-// We cast to `any` for `.from()` calls because the client is not
-// generated with Database types — consistent with existing services.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getClient(): any {
+// We cast to a specific client type so callers can use `.from()` with
+// proper typings. Supabase is initialized with `createClient` and
+// the exported `supabase` variable is `ReturnType<typeof createClient> | null`.
+function getClient(): ReturnType<typeof createClient> {
   if (!supabase) {
     throw new CaseQueryError("getClient", {
       message: "Supabase client not available (server-side rendering?)",

@@ -1,6 +1,6 @@
 /**
  * Billing Type Definitions
- * 
+ *
  * Types for Stripe integration, subscription management, invoicing,
  * usage metering, and customer billing operations.
  */
@@ -56,7 +56,7 @@ export interface Subscription {
   trial_start?: string;
   trial_end?: string;
   items: SubscriptionItem[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -102,7 +102,7 @@ export interface Invoice {
   due_date?: string;
   paid_at?: string;
   line_items: InvoiceLineItem[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -123,7 +123,7 @@ export interface InvoiceLineItem {
   currency: string;
   period_start: string;
   period_end: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -137,7 +137,7 @@ export interface UsageRecord {
   quantity: number;
   timestamp: string;
   idempotency_key: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -206,7 +206,7 @@ export interface WebhookEvent {
   id: string;
   stripe_event_id: string;
   event_type: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   processed: boolean;
   processed_at?: string;
   retry_count: number;

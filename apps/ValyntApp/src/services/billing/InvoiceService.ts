@@ -13,8 +13,8 @@ const logger = createLogger({ component: 'InvoiceService' });
 const supabase = (() => { try { return getSupabaseClient(); } catch { return null; } })();
 
 class InvoiceService {
-  private stripe: any;
-  private stripeService: any;
+  private stripe: unknown;
+  private stripeService: unknown;
 
   constructor() {
     // Initialize Stripe service only if billing is configured
@@ -31,7 +31,7 @@ class InvoiceService {
   /**
    * Store invoice from Stripe
    */
-  async storeInvoice(stripeInvoice: any): Promise<Invoice> {
+  async storeInvoice(stripeInvoice: unknown): Promise<Invoice> {
     if (!this.stripe || !supabase) {
       throw new Error('Billing service not configured');
     }
@@ -120,7 +120,7 @@ class InvoiceService {
   /**
    * Update existing invoice
    */
-  async updateInvoice(stripeInvoice: any): Promise<Invoice> {
+  async updateInvoice(stripeInvoice: unknown): Promise<Invoice> {
     const { data, error } = await supabase
       .from('invoices')
       .update({
@@ -190,7 +190,7 @@ class InvoiceService {
   /**
    * Get upcoming invoice preview from Stripe
    */
-  async getUpcomingInvoice(tenantId: string): Promise<any> {
+  async getUpcomingInvoice(tenantId: string): Promise<unknown> {
     try {
       const { data: customer } = await supabase
         .from('billing_customers')

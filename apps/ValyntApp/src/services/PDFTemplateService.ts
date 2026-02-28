@@ -35,14 +35,14 @@ export interface PDFGenerationOptions {
 export interface PDFContent {
   title: string;
   sections: PDFSection[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PDFSection {
   id: string;
   type: "title" | "text" | "table" | "chart" | "list" | "metadata";
   title?: string;
-  content: any;
+  content: unknown;
   style?: PDFStyle;
 }
 
@@ -413,7 +413,7 @@ export class PDFTemplateService {
   /**
    * Generate PDF structure
    */
-  private generatePDFStructure(content: PDFContent, template?: ArtifactTemplate): any {
+  private generatePDFStructure(content: PDFContent, template?: ArtifactTemplate): unknown {
     const structure = {
       metadata: {
         title: content.title,
@@ -443,10 +443,10 @@ export class PDFTemplateService {
   /**
    * Merge content with template structure
    */
-  private mergeWithTemplate(sections: any[], templateStructure: any): any[] {
+  private mergeWithTemplate(sections: unknown[], templateStructure: unknown): unknown[] {
     if (templateStructure.sections) {
       // Map template sections to content sections
-      return templateStructure.sections.map((templateSection: any) => {
+      return templateStructure.sections.map((templateSection: unknown) => {
         const contentSection = sections.find(s => s.id === templateSection.id);
         return {
           ...templateSection,
@@ -460,7 +460,7 @@ export class PDFTemplateService {
     }
 
     if (templateStructure.slides) {
-      return templateStructure.slides.map((templateSlide: any) => {
+      return templateStructure.slides.map((templateSlide: unknown) => {
         const contentSection = sections.find(s => s.id === templateSlide.id);
         return {
           ...templateSlide,
@@ -479,7 +479,7 @@ export class PDFTemplateService {
   /**
    * Create PDF blob (simulated)
    */
-  private async createPDFBlob(structure: any, options: PDFGenerationOptions): Promise<Blob> {
+  private async createPDFBlob(structure: unknown, options: PDFGenerationOptions): Promise<Blob> {
     // In a real implementation, this would use jsPDF or similar library
     // For now, we'll create a simulated PDF blob with the structure as JSON
     const pdfContent = {
@@ -595,7 +595,7 @@ export class PDFTemplateService {
    * Create PDF content from value case
    */
   createContentFromValueCase(
-    valueCase: any,
+    valueCase: unknown,
     templateType: ArtifactType,
     brandingProfile?: BrandingProfile
   ): PDFContent {
@@ -649,7 +649,7 @@ export class PDFTemplateService {
   /**
    * Create executive summary sections
    */
-  private createExecutiveSummarySections(valueCase: any): PDFSection[] {
+  private createExecutiveSummarySections(valueCase: unknown): PDFSection[] {
     return [
       {
         id: "header",
@@ -694,7 +694,7 @@ export class PDFTemplateService {
   /**
    * Create CFO brief sections
    */
-  private createCFOBriefSections(valueCase: any): PDFSection[] {
+  private createCFOBriefSections(valueCase: unknown): PDFSection[] {
     return [
       {
         id: "header",
@@ -748,7 +748,7 @@ export class PDFTemplateService {
   /**
    * Create board deck sections
    */
-  private createBoardDeckSections(valueCase: any): PDFSection[] {
+  private createBoardDeckSections(valueCase: unknown): PDFSection[] {
     return [
       {
         id: "title",
@@ -812,7 +812,7 @@ export class PDFTemplateService {
   /**
    * Create default sections
    */
-  private createDefaultSections(valueCase: any): PDFSection[] {
+  private createDefaultSections(valueCase: unknown): PDFSection[] {
     return [
       {
         id: "header",

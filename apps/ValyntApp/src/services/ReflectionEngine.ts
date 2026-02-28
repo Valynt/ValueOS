@@ -21,7 +21,7 @@ export interface RubricCriterion {
   category: 'clarity' | 'accuracy' | 'completeness' | 'relevance' | 'actionability' | 'compliance';
   description: string;
   weight: number;
-  evaluator: (output: any, _context: any) => Promise<{
+  evaluator: (output: unknown, _context: unknown) => Promise<{
     score: number; // 0-10
     feedback: string;
     suggestions: string[];
@@ -43,7 +43,7 @@ export interface ReflectionResult {
 }
 
 export interface RefinementContext {
-  originalOutput: any;
+  originalOutput: unknown;
   reflectionResult: ReflectionResult;
   agentType: string;
   userId: string;
@@ -187,7 +187,7 @@ const RUBRIC_CRITERIA: RubricCriterion[] = [
         suggestions.push('Document all assumptions explicitly');
       } else {
         // Check if assumptions have sources
-        const withoutSources = output.assumptions.filter((a: any) => !a.source);
+        const withoutSources = output.assumptions.filter((a: unknown) => !a.source);
         if (withoutSources.length > 0) {
           score -= 2;
           suggestions.push('Provide sources for all assumptions');
@@ -521,7 +521,7 @@ export class ReflectionEngine {
   /**
    * Evaluate output against the 18-point rubric
    */
-  async evaluate(output: any, _context: any): Promise<ReflectionResult> {
+  async evaluate(output: unknown, _context: unknown): Promise<ReflectionResult> {
     const criteriaResults: Array<{
       criterion: string;
       score: number;
@@ -587,7 +587,7 @@ export class ReflectionEngine {
   /**
    * Refine output based on reflection results
    */
-  async refine(context: RefinementContext): Promise<any> {
+  async refine(context: RefinementContext): Promise<unknown> {
     const { originalOutput, reflectionResult, agentType, userId, organizationId } = context;
 
     // Generate refinement prompt
@@ -656,7 +656,7 @@ export class ReflectionEngine {
   /**
    * Generate refinement prompt for agent
    */
-  private generateRefinementPrompt(output: any, reflectionResult: ReflectionResult): string {
+  private generateRefinementPrompt(output: unknown, reflectionResult: ReflectionResult): string {
     const lowScores = reflectionResult.criteriaResults
       .filter(r => r.score < 7.0)
       .map(r => `- ${r.criterion}: ${r.feedback}`)
@@ -681,7 +681,7 @@ Please provide an improved version that addresses these issues while maintaining
   /**
    * Log refinement activity
    */
-  private async logRefinement(context: RefinementContext, refinedOutput: any): Promise<void> {
+  private async logRefinement(context: RefinementContext, refinedOutput: unknown): Promise<void> {
     await supabase.from('reflection_log').insert({
       agent_type: context.agentType,
       user_id: context.userId,

@@ -185,7 +185,7 @@ export class SemanticMemoryService {
         resultsCount: data?.length || 0,
       });
 
-      return (data || []).map((row: any) => ({
+      return (data || []).map((row: unknown) => ({
         entry: {
           id: row.id,
           type: row.type,
@@ -328,8 +328,8 @@ export class SemanticMemoryService {
   async storeWorkflowResult(data: {
     workflowId: string;
     workflowType: string;
-    input: any;
-    output: any;
+    input: unknown;
+    output: unknown;
     score: number;
     duration: number;
     userId: string;

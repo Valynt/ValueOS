@@ -17,7 +17,7 @@
 import { logger } from "../lib/logger.js";
 import { v4 as uuidv4 } from "uuid";
 import { getTracer } from "../config/telemetry.js";
-import { SpanStatusCode } from "@opentelemetry/api";
+import { Span, SpanStatusCode } from "@opentelemetry/api";
 import * as z from "zod";
 import { CircuitBreakerManager } from "./CircuitBreaker.js";
 import { AgentRecord, AgentRegistry } from "./AgentRegistry.js";
@@ -2398,7 +2398,7 @@ Provide a JSON response with:
           'agent.agent_type': stage.agent_type,
         },
       },
-      async (stageSpan: any) => {
+      async (stageSpan: Span) => {
     const stageStart = Date.now();
 
     const circuitBreakerKey = `${executionId}-${stage.id}`;
@@ -2435,8 +2435,9 @@ Provide a JSON response with:
       },
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stageExecutionAgent: any = {
+    const stageExecutionAgent: {
+      execute: (request?: unknown) => Promise<RetryAgentResponse<Record<string, unknown>>>;
+    } = {
       execute: async (_request?: unknown): Promise<RetryAgentResponse<Record<string, unknown>>> => {
         const agentType = stage.agent_type as AgentType;
         if (!this.checkAgentRateLimit(agentType)) {

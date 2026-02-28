@@ -155,7 +155,7 @@ export async function createTestUser(
  */
 export async function executeAsServiceRole<T = any>(
   supabase: SupabaseClient,
-  query: () => Promise<{ data: T | null; error: any }>
+  query: () => Promise<{ data: T | null; error: unknown }>
 ): Promise<T> {
   const { data, error } = await query();
 
@@ -175,8 +175,8 @@ export async function executeAsServiceRole<T = any>(
  */
 export async function executeAsUser<T = any>(
   user: { id: string; email: string; tenantId: string },
-  query: (client: SupabaseClient) => Promise<{ data: T | null; error: any }>
-): Promise<{ data: T | null; error: any }> {
+  query: (client: SupabaseClient) => Promise<{ data: T | null; error: unknown }>
+): Promise<{ data: T | null; error: unknown }> {
   // If anon key is not available, we can't create a client that respects RLS easily
   // (unless we use the service role key which bypasses it)
   if (!supabaseAnonKey) {
@@ -227,7 +227,7 @@ export async function assertRowCount(
   supabase: SupabaseClient,
   tableName: string,
   expectedCount: number,
-  filter?: Record<string, any>
+  filter?: Record<string, unknown>
 ): Promise<void> {
   let query = supabase
     .from(tableName)
@@ -260,8 +260,8 @@ export async function assertRowCount(
 export async function assertRecordExists(
   supabase: SupabaseClient,
   tableName: string,
-  filter: Record<string, any>,
-  expectedFields?: Record<string, any>
+  filter: Record<string, unknown>,
+  expectedFields?: Record<string, unknown>
 ): Promise<void> {
   let query = supabase.from(tableName).select("*");
 
@@ -314,12 +314,12 @@ export async function waitForCondition(
 export async function seedTestData(
   supabase: SupabaseClient,
   data: {
-    customers?: any[];
-    subscriptions?: any[];
-    subscriptionItems?: any[];
-    usageEvents?: any[];
-    usageQuotas?: any[];
-    invoices?: any[];
+    customers?: unknown[];
+    subscriptions?: unknown[];
+    subscriptionItems?: unknown[];
+    usageEvents?: unknown[];
+    usageQuotas?: unknown[];
+    invoices?: unknown[];
   }
 ): Promise<void> {
   if (data.customers) {

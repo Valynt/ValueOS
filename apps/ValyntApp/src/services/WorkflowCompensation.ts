@@ -125,13 +125,13 @@ export class WorkflowCompensation {
 
   private async persistRollbackState(
     executionId: string,
-    executionContext: Record<string, any>,
+    executionContext: Record<string, unknown>,
     rollbackState: RollbackState,
     markRolledBack = false
   ): Promise<void> {
     const updatedContext = { ...executionContext, rollback_state: rollbackState };
 
-    const update: Record<string, any> = {
+    const update: Record<string, unknown> = {
       context: updatedContext,
       updated_at: new Date().toISOString()
     };
@@ -236,14 +236,14 @@ export class WorkflowCompensation {
     ]);
   }
 
-  private getCompensationPolicy(context: Record<string, any>): CompensationPolicy {
+  private getCompensationPolicy(context: Record<string, unknown>): CompensationPolicy {
     return context.compensation_policy || 'continue_on_error';
   }
 
   private async logRollbackEvent(
     executionId: string,
     eventType: string,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): Promise<void> {
     await supabase
       .from('workflow_events')

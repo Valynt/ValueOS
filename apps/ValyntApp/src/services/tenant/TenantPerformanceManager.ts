@@ -103,7 +103,7 @@ export interface TenantConfiguration {
   complianceFrameworks: string[];
   securitySettings: SecuritySettings;
   integrationSettings: IntegrationSettings;
-  customSettings: Record<string, any>;
+  customSettings: Record<string, unknown>;
 }
 
 export interface SecuritySettings {
@@ -1229,5 +1229,5 @@ export interface SchedulingResult {
   tenantId: string;
   allocation: number;
   nextAllocation: number;
-  resources: any[];
+  resources: unknown[];
 }

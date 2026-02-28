@@ -81,7 +81,7 @@ export interface HistoryOperation {
   /**
    * Metadata
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -231,7 +231,7 @@ export interface PlaygroundSession {
   /**
    * Session context (additional data)
    */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -318,7 +318,7 @@ export interface CreateSessionOptions {
   /**
    * Additional context
    */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -343,7 +343,7 @@ export interface UpdateSessionOptions {
   /**
    * Update context
    */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 
   /**
    * Create checkpoint
@@ -368,7 +368,7 @@ export interface CommitOptions {
   /**
    * Artifact metadata
    */
-  artifactMetadata?: Record<string, any>;
+  artifactMetadata?: Record<string, unknown>;
 
   /**
    * Persist to workflow execution
@@ -485,7 +485,7 @@ export const PlaygroundSessionSchema = z.object({
 /**
  * Validate session data
  */
-export function validateSession(data: any): {
+export function validateSession(data: unknown): {
   valid: boolean;
   errors: string[];
 } {

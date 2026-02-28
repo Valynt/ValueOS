@@ -135,7 +135,7 @@ describe('WorkflowSDUIAdapter', () => {
       expect(actions.length).toBeGreaterThan(0);
       const timeAction = actions.find((a) =>
         a.type === 'mutate_component' &&
-        (a as any).mutations?.some((m: any) => m.path === 'props.estimatedTimeRemaining')
+        a.mutations?.some((m: unknown) => m.path === 'props.estimatedTimeRemaining')
       );
       expect(timeAction).toBeDefined();
     });
@@ -263,7 +263,7 @@ describe('WorkflowSDUIAdapter', () => {
 
       const successAction = actions.find((a) =>
         a.type === 'mutate_component' &&
-        (a as any).mutations?.some((m: any) => m.value === 'check-circle')
+        (a as any).mutations?.some((m: unknown) => m.value === 'check-circle')
       );
       expect(successAction).toBeDefined();
     });
@@ -283,7 +283,7 @@ describe('WorkflowSDUIAdapter', () => {
 
       const errorAction = actions.find((a) =>
         a.type === 'mutate_component' &&
-        (a as any).mutations?.some((m: any) => m.value === 'x-circle')
+        (a as any).mutations?.some((m: unknown) => m.value === 'x-circle')
       );
       expect(errorAction).toBeDefined();
     });

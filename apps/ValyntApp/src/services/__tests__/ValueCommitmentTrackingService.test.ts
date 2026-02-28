@@ -28,7 +28,7 @@ vi.mock('../GroundTruthIntegrationService', () => ({
 
 describe('ValueCommitmentTrackingService', () => {
   let service: ValueCommitmentTrackingService;
-  let mockGroundTruthService: any;
+  let mockGroundTruthService: unknown;
 
   beforeEach(() => {
     vi.clearAllMocks();

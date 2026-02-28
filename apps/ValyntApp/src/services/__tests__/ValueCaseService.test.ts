@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { valueCaseService } from '../ValueCaseService';
 
-const svc: any = valueCaseService;
+const svc: unknown = valueCaseService;
 
 describe('ValueCaseService mappers', () => {
   it('maps value_cases rows with company profile and normalizes stage/status', () => {

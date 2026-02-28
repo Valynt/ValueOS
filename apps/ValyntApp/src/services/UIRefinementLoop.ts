@@ -610,7 +610,7 @@ Generate atomic actions to fulfill this request.`,
   /**
    * Validate layout structure
    */
-  private validateLayout(layout: any): {
+  private validateLayout(layout: unknown): {
     valid: boolean;
     errors: string[];
   } {

@@ -39,13 +39,13 @@ export interface StageExecutionContext {
   workflowId: string;
   stageId: string;
   stage: WorkflowStage;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   attempt: number;
 }
 
 export interface StageExecutionResult {
   success: boolean;
-  output?: any;
+  output?: unknown;
   error?: string;
   duration: number;
   retryable: boolean;
@@ -55,7 +55,7 @@ export interface CompensationContext {
   executionId: string;
   stageId: string;
   artifactsCreated: string[];
-  stateChanges: Record<string, any>;
+  stateChanges: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -104,7 +104,7 @@ export class WorkflowDAGExecutor {
    */
   async executeWorkflow(
     workflowId: string,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
     userId: string
   ): Promise<string> {
     const workflow = getWorkflowById(workflowId);
@@ -182,7 +182,7 @@ export class WorkflowDAGExecutor {
         });
 
         // Update execution context with output and executed steps
-        const contextUpdate: Record<string, any> = {
+        const contextUpdate: Record<string, unknown> = {
           executed_steps: executedSteps,
         };
 
@@ -338,7 +338,7 @@ export class WorkflowDAGExecutor {
     executionId: string,
     workflowId: string,
     stage: WorkflowStage
-  ): Promise<any> {
+  ): Promise<unknown> {
     // Get execution context
     const { data: execution } = await supabase
       .from("workflow_executions")
@@ -405,7 +405,7 @@ export class WorkflowDAGExecutor {
   private getNextStage(
     workflow: WorkflowDAG,
     currentStageId: string,
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): string | null {
     const transitions = workflow.transitions.filter((t) => t.from_stage === currentStageId);
 
@@ -433,7 +433,7 @@ export class WorkflowDAGExecutor {
   /**
    * Evaluate a condition against the execution context
    */
-  private evaluateCondition(condition: string, context: Record<string, any>): boolean {
+  private evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
     // Support negation
     if (condition.startsWith("!")) {
       const key = condition.substring(1);
@@ -544,7 +544,7 @@ export class WorkflowDAGExecutor {
    */
   private async updateExecutionContext(
     executionId: string,
-    contextUpdate: Record<string, any>
+    contextUpdate: Record<string, unknown>
   ): Promise<void> {
     const { data: execution } = await supabase
       .from("workflow_executions")
@@ -604,7 +604,7 @@ export class WorkflowDAGExecutor {
     executionId: string,
     eventType: string,
     stageId: string | null,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): Promise<void> {
     await supabase.from("workflow_events").insert({
       execution_id: executionId,
@@ -617,7 +617,7 @@ export class WorkflowDAGExecutor {
   /**
    * Get circuit breaker status for a stage
    */
-  getCircuitBreakerStatus(workflowId: string, stageId: string): any {
+  getCircuitBreakerStatus(workflowId: string, stageId: string): unknown {
     const key = `${workflowId}:${stageId}`;
     return this.circuitBreakers.getState(key);
   }

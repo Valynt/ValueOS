@@ -73,7 +73,7 @@ export interface RobustConnectionOptions {
  */
 export interface ConnectionMessage {
   type: string;
-  payload: any;
+  payload: unknown;
   timestamp: number;
   messageId: string;
   strategy: ConnectionStrategy;
@@ -102,7 +102,7 @@ class BrowserEventEmitter {
     }
   }
 
-  emit(event: string, ...args: any[]): void {
+  emit(event: string, ...args: unknown[]): void {
     const eventListeners = this.listeners.get(event);
     if (eventListeners) {
       eventListeners.forEach(listener => listener(...args));
@@ -533,7 +533,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
 
         if (response.ok) {
           const messages = await response.json();
-          messages.forEach((message: any) => {
+          messages.forEach((message: unknown) => {
             this.handleMessage({ data: JSON.stringify(message) }, 'polling');
           });
         }
@@ -579,7 +579,7 @@ export class RobustConnectionManager extends BrowserEventEmitter {
   /**
    * Handle incoming message
    */
-  private handleMessage(event: any, strategy: ConnectionStrategy): void {
+  private handleMessage(event: unknown, strategy: ConnectionStrategy): void {
     try {
       const message: ConnectionMessage = typeof event.data === 'string'
         ? JSON.parse(event.data)

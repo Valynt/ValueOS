@@ -12,9 +12,9 @@ export interface RateLimitConfig {
   maxRequests: number; // Maximum requests per window
   skipSuccessfulRequests?: boolean; // Don't count successful requests
   skipFailedRequests?: boolean; // Don't count failed requests
-  keyGenerator?: (req: any) => string; // Custom key generator
-  skip?: (req: any) => boolean; // Skip rate limiting for certain requests
-  handler?: (req: any, res: any, next: any) => void; // Custom handler for rate limit exceeded
+  keyGenerator?: (req: unknown) => string; // Custom key generator
+  skip?: (req: unknown) => boolean; // Skip rate limiting for certain requests
+  handler?: (req: unknown, res: unknown, next: unknown) => void; // Custom handler for rate limit exceeded
 }
 
 export interface RateLimitResult {
@@ -49,7 +49,7 @@ export class RateLimitService {
   /**
    * Check if request should be allowed based on rate limit
    */
-  checkLimit(key: string, config: RateLimitConfig, req?: any): RateLimitResult {
+  checkLimit(key: string, config: RateLimitConfig, req?: unknown): RateLimitResult {
     // Check if rate limiting should be skipped
     if (config.skip && req && config.skip(req)) {
       return {
@@ -120,7 +120,7 @@ export class RateLimitService {
    * Middleware factory for Express routes
    */
   createMiddleware(config: RateLimitConfig) {
-    return (req: any, res: any, next: any) => {
+    return (req: unknown, res: unknown, next: unknown) => {
       const key = this.generateKey(req);
       const result = this.checkLimit(key, config, req);
 
@@ -153,7 +153,7 @@ export class RateLimitService {
   /**
    * Generate rate limit key from request
    */
-  private generateKey(req: any): string {
+  private generateKey(req: unknown): string {
     // Use IP address as default key
     const ip = req.ip || req.connection?.remoteAddress || "unknown";
     const userId = req.user?.id || "anonymous";

@@ -38,18 +38,18 @@ export interface LifecycleContext {
   tenantId?: string;
   organizationId?: string;
   sessionId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface StageInput {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface StageResult {
   success: boolean;
-  data: any;
+  data: unknown;
   confidence?: string;
-  assumptions?: any[];
+  assumptions?: unknown[];
   error?: string;
   stageExecutionId?: string;
   lineage?: StageLineage;
@@ -64,8 +64,8 @@ export interface StageLineage {
 }
 
 export interface StageDelta {
-  before: any;
-  after: any;
+  before: unknown;
+  after: unknown;
 }
 
 export interface CompensationOutcome {
@@ -262,7 +262,7 @@ export class ValueLifecycleOrchestrator {
 
   private registerStageCompensations(
     stage: LifecycleStage,
-    persistedResult: any,
+    persistedResult: unknown,
     enrichedResult: StageResult,
     input: StageInput,
     context: LifecycleContext
@@ -415,9 +415,9 @@ export class ValueLifecycleOrchestrator {
 
   private async persistStageResults(
     stage: LifecycleStage,
-    result: any,
+    result: unknown,
     context: LifecycleContext
-  ): Promise<any> {
+  ): Promise<unknown> {
     const tableName = `${stage}_results`;
 
     const { data, error } = await this.supabase
@@ -465,11 +465,11 @@ export class ValueLifecycleOrchestrator {
     return DESTRUCTIVE_STAGES.has(stage);
   }
 
-  private captureDelta(before: any, after: any): StageDelta {
+  private captureDelta(before: unknown, after: unknown): StageDelta {
     return { before: before ?? null, after };
   }
 
-  private async updateValueTree(persistedData: any, context: LifecycleContext): Promise<void> {
+  private async updateValueTree(persistedData: unknown, context: LifecycleContext): Promise<void> {
     logger.info("Updating value tree", { persistedData, context });
     // Implementation would update the value tree
   }
@@ -494,7 +494,7 @@ export class ValueLifecycleOrchestrator {
 
   private async scheduleNextStage(
     currentStage: LifecycleStage,
-    persistedData: any,
+    persistedData: unknown,
     context: LifecycleContext
   ): Promise<void> {
     logger.info("Scheduling next stage", { currentStage, persistedData });
@@ -507,7 +507,7 @@ export class ValueLifecycleOrchestrator {
   async executeMARLHandoff(
     fromStage: LifecycleStage,
     toStage: LifecycleStage,
-    sharedContext: Record<string, any>,
+    sharedContext: Record<string, unknown>,
     lifecycleContext: LifecycleContext
   ): Promise<StageResult> {
     const traceId = agentTelemetryService.startExecutionTrace({
@@ -580,8 +580,8 @@ export class ValueLifecycleOrchestrator {
   private async performMARLHandoff(
     fromAgent: BaseAgent,
     toAgent: BaseAgent,
-    marlState: any,
-    sharedContext: Record<string, any>
+    marlState: unknown,
+    sharedContext: Record<string, unknown>
   ): Promise<StageResult> {
     // Share episodic memory between agents
     await fromAgent.shareEpisodicMemory(toAgent);
@@ -654,7 +654,7 @@ export class ValueLifecycleOrchestrator {
     };
   }
 
-  private mergeAgentMemories(fromAgent: BaseAgent, toAgent: BaseAgent): any {
+  private mergeAgentMemories(fromAgent: BaseAgent, toAgent: BaseAgent): unknown {
     // Merge episodic memories for collaborative reasoning
     const fromMemory = fromAgent.getMARLHistory();
     const toMemory = toAgent.getMARLHistory();
@@ -667,7 +667,7 @@ export class ValueLifecycleOrchestrator {
     };
   }
 
-  private extractCollaborativeInsights(fromMemory: any[], toMemory: any[]): any {
+  private extractCollaborativeInsights(fromMemory: unknown[], toMemory: unknown[]): unknown {
     // Extract patterns and insights from combined agent memories
     // This is a simplified implementation
     const insights = {
@@ -679,13 +679,13 @@ export class ValueLifecycleOrchestrator {
     // Analyze interaction patterns
     const allInteractions = [...fromMemory, ...toMemory];
     const successfulInteractions = allInteractions.filter((i) =>
-      Object.values(i.rewards).every((r: any) => r > 0)
+      Object.values(i.rewards).every((r: unknown) => r > 0)
     );
 
     insights.successfulPatterns = successfulInteractions.map((i) => ({
-      actions: i.actions.map((a: any) => a.actionType),
+      actions: i.actions.map((a: unknown) => a.actionType),
       avgReward:
-        Object.values(i.rewards).reduce((sum: number, r: any) => sum + r, 0) /
+        Object.values(i.rewards).reduce((sum: number, r: unknown) => sum + r, 0) /
         Object.keys(i.rewards).length,
     }));
 

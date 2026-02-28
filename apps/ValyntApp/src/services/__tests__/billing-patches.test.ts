@@ -11,7 +11,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 // Mock supabase client creation to capture calls
 vi.mock('@supabase/supabase-js', () => {
   // Create one shared mock client instance used across imports
-  const state: any = {
+  const state: unknown = {
     lastUpdatePayload: null,
     lastUpsertPayload: null,
     lastInsertPayload: null,
@@ -25,19 +25,19 @@ vi.mock('@supabase/supabase-js', () => {
 
   const createBuilder = (table: string) => {
     return {
-      select: (..._args: any[]) => createBuilder(table),
-      eq: (_k: string, _v: any) => createBuilder(table),
-      in: (_k: string, _v: any) => createBuilder(table),
+      select: (..._args: unknown[]) => createBuilder(table),
+      eq: (_k: string, _v: unknown) => createBuilder(table),
+      in: (_k: string, _v: unknown) => createBuilder(table),
       limit: (_n?: number) => createBuilder(table),
-      order: (_col?: string, _opts?: any) => createBuilder(table),
-      gte: (_k: string, _v: any) => createBuilder(table),
-      lte: (_k: string, _v: any) => createBuilder(table),
+      order: (_col?: string, _opts?: unknown) => createBuilder(table),
+      gte: (_k: string, _v: unknown) => createBuilder(table),
+      lte: (_k: string, _v: unknown) => createBuilder(table),
       single: async () => {
         if (table === 'webhook_events') return { data: { retry_count: 2 }, error: null };
         if (table === 'billing_customers') return { data: { tenant_id: 'tenant-1' }, error: null };
         return { data: null, error: null };
       },
-      update: async (payload: any) => {
+      update: async (payload: unknown) => {
         if (table === 'usage_events') {
           state.processedEventIds.push(payload);
         }
@@ -47,7 +47,7 @@ vi.mock('@supabase/supabase-js', () => {
         state.lastUpdatePayload = payload;
         return { error: null };
       },
-      insert: async (payload: any, options?: any) => {
+      insert: async (payload: unknown, options?: unknown) => {
         const payloads = Array.isArray(payload) ? payload : [payload];
         if (table === 'webhook_events') {
           for (const entry of payloads) {
@@ -91,7 +91,7 @@ vi.mock('@supabase/supabase-js', () => {
         }
         return { error: null };
       },
-      upsert: async (payload: any) => {
+      upsert: async (payload: unknown) => {
         state.lastUpsertPayload = payload;
         return { error: null };
       },
@@ -118,7 +118,7 @@ vi.mock('../../config/billing', () => ({
 
 // Mock TenantProvisioning to avoid loading heavy/possibly invalid modules during unit tests
 vi.mock('../TenantProvisioning', () => ({
-  isWithinLimits: (_usage: any, _limits: any) => ({ exceeded: [] }),
+  isWithinLimits: (_usage: unknown, _limits: unknown) => ({ exceeded: [] }),
 }));
 
 vi.mock('../../config/environment', () => ({

@@ -124,9 +124,9 @@ describe('AgentMemoryIntegration', () => {
       };
 
       const mockAgentAPI = integration.getAgentAPI() as any;
-      let capturedContext: any = null;
+      let capturedContext: unknown = null;
       
-      mockAgentAPI.invokeAgent = vi.fn().mockImplementation((req: any) => {
+      mockAgentAPI.invokeAgent = vi.fn().mockImplementation((req: unknown) => {
         capturedContext = req.context;
         return Promise.resolve({
           success: true,

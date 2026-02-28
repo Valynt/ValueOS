@@ -1,19 +1,30 @@
 {
-  "extends": "../tsconfig.app.json",
+  // Standalone tsconfig for the aging scripts/ directory.  It intentionally
+  // does *not* extend the root config because the parent includes `src`
+  // and `packages/*/src`, causing `pnpm run typecheck:scripts` to check
+  // the entire repo instead of just the scripts tree.
   "compilerOptions": {
-    "noEmit": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
     "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "../src/*"
+      ]
+    },
     "types": [
       "node",
       "vitest"
     ]
   },
   "include": [
-    "**/*.ts",
-    "**/*.mts",
-    "**/*.tsx",
-    "**/*.mjs",
-    "**/*.js"
+    "**/*"
   ],
   "exclude": [
     "node_modules",

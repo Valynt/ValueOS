@@ -36,7 +36,7 @@ export interface AgentAuditLog {
   /**
    * Response data (sanitized)
    */
-  response_data?: any;
+  response_data?: unknown;
 
   /**
    * Response metadata
@@ -85,7 +85,7 @@ export interface AgentAuditLog {
   /**
    * Additional metadata
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -495,8 +495,8 @@ export async function logAgentResponse(
   agent: AgentType,
   query: string,
   success: boolean,
-  responseData?: any,
-  responseMetadata?: any,
+  responseData?: unknown,
+  responseMetadata?: unknown,
   error?: string,
   context?: AgentContext
 ): Promise<void> {

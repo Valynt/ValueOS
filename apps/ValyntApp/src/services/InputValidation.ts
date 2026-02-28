@@ -12,7 +12,7 @@ const logger = createLogger({ component: 'InputValidation' });
 export interface ValidationSchema {
   $schema?: string;
   type: 'object';
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   required?: string[];
   additionalProperties?: boolean;
 }
@@ -21,7 +21,7 @@ export interface ValidationResult {
   isValid: boolean;
   errors?: string[];
   warnings?: string[];
-  sanitizedData?: any;
+  sanitizedData?: unknown;
 }
 
 export interface ValidationRule {
@@ -29,9 +29,9 @@ export interface ValidationRule {
   name: string;
   description: string;
   schema: ValidationSchema;
-  sanitizers?: Array<(data: any) => any>;
-  preValidators?: Array<(data: any) => boolean>;
-  postValidators?: Array<(data: any) => ValidationResult>;
+  sanitizers?: Array<(data: unknown) => unknown>;
+  preValidators?: Array<(data: unknown) => boolean>;
+  postValidators?: Array<(data: unknown) => ValidationResult>;
 }
 
 export class EnhancedInputValidator {
@@ -331,7 +331,7 @@ export class EnhancedInputValidator {
   /**
    * Validate data against a rule
    */
-  validate(ruleId: string, data: any): ValidationResult {
+  validate(ruleId: string, data: unknown): ValidationResult {
     const rule = this.rules.get(ruleId);
 
     if (!rule) {
@@ -434,7 +434,7 @@ export class EnhancedInputValidator {
   /**
    * Validate multiple rules
    */
-  validateMultiple(rules: Array<{ ruleId: string; data: any }>): ValidationResult {
+  validateMultiple(rules: Array<{ ruleId: string; data: unknown }>): ValidationResult {
     const allErrors: string[] = [];
     const allWarnings: string[] = [];
     let allValid = true;
@@ -464,7 +464,7 @@ export class EnhancedInputValidator {
   /**
    * Add custom validation keyword
    */
-  addKeyword(keyword: string, definition: any): void {
+  addKeyword(keyword: string, definition: unknown): void {
     this.ajv.addKeyword(keyword, definition);
     logger.info('Custom validation keyword added', { keyword });
   }

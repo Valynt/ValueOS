@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('MultiAgentCollaboration', () => {
-  let mockMemorySystem: any;
-  let mockAgents: any;
+  let mockMemorySystem: unknown;
+  let mockAgents: unknown;
 
   beforeEach(() => {
     mockMemorySystem = {

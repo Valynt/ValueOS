@@ -50,7 +50,7 @@ export interface QueryOptions {
   tenantId?: string;
 
   /** Initial execution context */
-  initialContext?: Record<string, any> & {
+  initialContext?: Record<string, unknown> & {
     organizationId?: string;
   };
 }
@@ -299,7 +299,7 @@ export class AgentQueryService {
    * @param options Query options
    * @returns Agent response
    */
-  async queryAgent(prompt: string, options: any = {}): Promise<any> {
+  async queryAgent(prompt: string, options: unknown = {}): Promise<unknown> {
     const controller = new AbortController();
     const { signal } = controller;
     const timeout = 30000;
@@ -321,7 +321,7 @@ export class AgentQueryService {
       }
 
       return await response.json();
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.name === "AbortError") {
         throw new TimeoutError("The request timed out after 30 seconds.");
       }

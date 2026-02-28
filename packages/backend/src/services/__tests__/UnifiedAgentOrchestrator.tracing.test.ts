@@ -14,6 +14,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Span } from '@opentelemetry/api';
 
 // ---------------------------------------------------------------------------
 // In-memory OTel span capture
@@ -247,7 +248,7 @@ describe('Orchestrator tracing patterns (R3.1-R3.4)', () => {
       },
       async (rootSpan: any) => {
         // selectAgent child span
-        mockTracer.startActiveSpan('agent.selectAgent', (selectSpan: any) => {
+        mockTracer.startActiveSpan('agent.selectAgent', (selectSpan: Span) => {
           selectSpan.setAttributes({
             'agent.selected_type': 'research',
             'agent.routing_strategy': 'stage-based',
@@ -266,7 +267,7 @@ describe('Orchestrator tracing patterns (R3.1-R3.4)', () => {
               'agent.agent_type': 'research',
             },
           },
-          async (stageSpan: any) => {
+          async (stageSpan: Span) => {
             // executeStage grandchild span
             await mockTracer.startActiveSpan(
               'agent.executeStage',
@@ -276,7 +277,7 @@ describe('Orchestrator tracing patterns (R3.1-R3.4)', () => {
                   'agent.agent_type': 'research',
                 },
               },
-              async (execSpan: any) => {
+              async (execSpan: Span) => {
                 execSpan.setAttributes({ 'agent.latency_ms': 42 });
                 execSpan.setStatus({ code: 0 });
                 execSpan.end();

@@ -58,12 +58,12 @@ export class ArtifactVersionControl extends EventEmitter {
    */
   async createVersion(
     artifactId: string,
-    data: any,
+    data: unknown,
     metadata: {
       generatedBy: string;
       dataHash: string;
       sourceDataVersion?: string;
-      assumptions?: any[];
+      assumptions?: unknown[];
       tags?: string[];
     }
   ): Promise<ArtifactVersion> {
@@ -178,7 +178,7 @@ export class ArtifactVersionControl extends EventEmitter {
   ): Promise<{
     versionA: ArtifactVersion | null;
     versionB: ArtifactVersion | null;
-    differences: any[];
+    differences: unknown[];
   }> {
     const [vA, vB] = await Promise.all([
       this.getVersion(artifactId, versionA),
@@ -239,7 +239,7 @@ export class ArtifactVersionControl extends EventEmitter {
     artifactId: string,
     eventType: AuditEventType,
     userId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<AuditEvent> {
     const artifact = await this.getArtifact(artifactId);
     if (!artifact) {
@@ -796,10 +796,10 @@ export class ArtifactVersionControl extends EventEmitter {
     return `${major}.${minor}.${patch + 1}`;
   }
 
-  private findDifferences(dataA: any, dataB: any): any[] {
-    const differences: any[] = [];
+  private findDifferences(dataA: unknown, dataB: unknown): unknown[] {
+    const differences: unknown[] = [];
 
-    const compare = (a: any, b: any, path: string = "") => {
+    const compare = (a: unknown, b: unknown, path: string = "") => {
       if (a === b) return;
 
       if (typeof a !== typeof b) {

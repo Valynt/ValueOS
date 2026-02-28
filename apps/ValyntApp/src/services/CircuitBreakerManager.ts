@@ -54,7 +54,7 @@ export interface CircuitBreakerEvent {
   previousState?: string;
   newState?: string;
   timestamp: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -366,7 +366,7 @@ export class CategorizedCircuitBreakerManager extends BaseCircuitBreakerManager 
       reliability: number;
     }>;
   } {
-    const categoryPerformance: Record<string, any> = {};
+    const categoryPerformance: Record<string, unknown> = {};
     let totalRequests = 0;
     let totalFailures = 0;
 

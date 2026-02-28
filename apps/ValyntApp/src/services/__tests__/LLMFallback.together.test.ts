@@ -78,7 +78,7 @@ describe("LLMFallback Service - Together AI Only", () => {
 
       // The response provider field should NEVER be 'openai'
       // This is enforced by the TypeScript type
-      const mockResponse: any = {
+      const mockResponse: unknown = {
         provider: "together_ai",
         content: "test",
         promptTokens: 10,

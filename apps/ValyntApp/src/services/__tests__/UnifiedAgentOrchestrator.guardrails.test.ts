@@ -442,7 +442,7 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
       const config = autonomyModule.getAutonomyConfig();
       const limit = config.agentMaxIterations?.['agent-1'] || Infinity;
       const currentCount = executedSteps.filter(
-        (s: any) => s.agent_id === 'agent-1'
+        (s: unknown) => s.agent_id === 'agent-1'
       ).length;
 
       expect(currentCount).toBeLessThan(limit);
@@ -463,10 +463,10 @@ describe('UnifiedAgentOrchestrator - Guardrail Tests', () => {
       const config = autonomyModule.getAutonomyConfig();
       
       const agent1Count = context.executed_steps.filter(
-        (s: any) => s.agent_id === 'agent-1'
+        (s: unknown) => s.agent_id === 'agent-1'
       ).length;
       const agent2Count = context.executed_steps.filter(
-        (s: any) => s.agent_id === 'agent-2'
+        (s: unknown) => s.agent_id === 'agent-2'
       ).length;
 
       expect(agent1Count).toBe(3);

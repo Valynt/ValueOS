@@ -130,7 +130,7 @@ describe('AgentAPI - Negative Path Tests', () => {
     });
 
     it('should reject request with circular reference in parameters', async () => {
-      const circular: any = { a: 1 };
+      const circular: unknown = { a: 1 };
       circular.self = circular;
 
       const invalidRequest: AgentRequest = {
@@ -232,7 +232,7 @@ describe('AgentAPI - Negative Path Tests', () => {
       try {
         await agentAPI.invokeAgent(request);
         expect.fail('Should have thrown RateLimitError');
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).toContain('rate limit');
         expect(error.retryAfter).toBeDefined();
       }

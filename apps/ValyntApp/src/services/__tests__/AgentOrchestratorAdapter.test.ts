@@ -388,8 +388,8 @@ describe("AgentOrchestratorAdapter", () => {
 
   describe("invokeAgent", () => {
     it("should invoke agent and poll for results", async () => {
-      const mockEvents: any[] = [];
-      const onEvent = (event: any) => mockEvents.push(event);
+      const mockEvents: unknown[] = [];
+      const onEvent = (event: unknown) => mockEvents.push(event);
 
       // Mock invokeAgent to return a job ID
       (agentService.invokeAgent as any).mockResolvedValue({
@@ -426,8 +426,8 @@ describe("AgentOrchestratorAdapter", () => {
     });
 
     it("should handle errors during invocation", async () => {
-      const mockEvents: any[] = [];
-      const onEvent = (event: any) => mockEvents.push(event);
+      const mockEvents: unknown[] = [];
+      const onEvent = (event: unknown) => mockEvents.push(event);
 
       (agentService.invokeAgent as any).mockResolvedValue({
         success: false,
@@ -444,8 +444,8 @@ describe("AgentOrchestratorAdapter", () => {
     });
 
     it("should handle polling timeout", async () => {
-      const mockEvents: any[] = [];
-      const onEvent = (event: any) => mockEvents.push(event);
+      const mockEvents: unknown[] = [];
+      const onEvent = (event: unknown) => mockEvents.push(event);
 
       (agentService.invokeAgent as any).mockResolvedValue({
         success: true,
@@ -470,8 +470,8 @@ describe("AgentOrchestratorAdapter", () => {
     });
 
     it("should handle job failure", async () => {
-      const mockEvents: any[] = [];
-      const onEvent = (event: any) => mockEvents.push(event);
+      const mockEvents: unknown[] = [];
+      const onEvent = (event: unknown) => mockEvents.push(event);
 
       (agentService.invokeAgent as any).mockResolvedValue({
         success: true,
@@ -492,8 +492,8 @@ describe("AgentOrchestratorAdapter", () => {
 
   describe("cancel", () => {
     it("should cancel ongoing operation", async () => {
-      const mockEvents: any[] = [];
-      const onEvent = (event: any) => mockEvents.push(event);
+      const mockEvents: unknown[] = [];
+      const onEvent = (event: unknown) => mockEvents.push(event);
 
       (agentService.invokeAgent as any).mockResolvedValue({
         success: true,

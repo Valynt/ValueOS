@@ -17,7 +17,7 @@ export interface HistoryEntry {
   component_id: string;
   action_type: 'created' | 'updated' | 'deleted' | 'moved' | 'resized';
   actor: string;
-  changes: any;
+  changes: unknown;
   timestamp: string;
 }
 
@@ -28,7 +28,7 @@ export interface AgentActivity {
   activity_type: 'suggestion' | 'calculation' | 'visualization' | 'narrative' | 'data-import';
   title: string;
   content: string;
-  metadata: any;
+  metadata: unknown;
   timestamp: string;
 }
 
@@ -121,7 +121,7 @@ class PersistenceService {
     updates: Partial<CanvasComponent>,
     actor: string = 'user'
   ): Promise<boolean> {
-    const dbUpdates: any = {};
+    const dbUpdates: unknown = {};
 
     if (updates.position) {
       dbUpdates.position_x = updates.position.x;
@@ -215,7 +215,7 @@ class PersistenceService {
     componentId: string,
     actionType: 'created' | 'updated' | 'deleted' | 'moved' | 'resized',
     actor: string,
-    changes: any
+    changes: unknown
   ): Promise<void> {
     const { error } = await supabase
       .from('component_history')
@@ -271,7 +271,7 @@ class PersistenceService {
     activityType: 'suggestion' | 'calculation' | 'visualization' | 'narrative' | 'data-import',
     title: string,
     content: string,
-    metadata: any = {}
+    metadata: unknown = {}
   ): Promise<void> {
     const { error } = await supabase
       .from('agent_activities')

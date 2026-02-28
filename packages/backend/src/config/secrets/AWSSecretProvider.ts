@@ -15,16 +15,12 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 
 // Stub commands not available in the installed SDK version
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DeleteSecretCommand = CreateSecretCommand as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DescribeSecretCommand = CreateSecretCommand as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ListSecretsCommand = CreateSecretCommand as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PutSecretValueCommand = CreateSecretCommand as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const RotateSecretCommand = CreateSecretCommand as any;
+// We cast through unknown to satisfy the compiler without using `any`.
+const DeleteSecretCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
+const DescribeSecretCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
+const ListSecretsCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
+const PutSecretValueCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
+const RotateSecretCommand = CreateSecretCommand as unknown as typeof CreateSecretCommand;
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 import { logger } from "../../lib/logger.js"
 import type {

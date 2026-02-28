@@ -342,7 +342,7 @@ describe("Stripe API Failure Handling Tests", () => {
 
   describe("Graceful Degradation", () => {
     it("should queue webhooks when Stripe API is down", () => {
-      const failedWebhooks: any[] = [];
+      const failedWebhooks: unknown[] = [];
 
       // Stripe API fails
       try {
@@ -362,7 +362,7 @@ describe("Stripe API Failure Handling Tests", () => {
 
     it("should continue accepting usage events during outage", () => {
       // Even if Stripe API is down, still accept and queue usage events
-      const usageQueue: any[] = [];
+      const usageQueue: unknown[] = [];
 
       const event = {
         tenant_id: "tenant_123",
@@ -381,13 +381,13 @@ describe("Stripe API Failure Handling Tests", () => {
 
   describe("Error Logging and Monitoring", () => {
     it("should log all Stripe API errors", async () => {
-      const errorLog: any[] = [];
+      const errorLog: unknown[] = [];
 
       mockStripe.customers.create.mockRejectedValue(StripeErrors.apiError());
 
       try {
         await mockStripe.customers.create({});
-      } catch (error: any) {
+      } catch (error: unknown) {
         errorLog.push({
           timestamp: new Date(),
           type: error.type,

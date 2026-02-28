@@ -20,7 +20,7 @@ vi.mock('../../../config/billing', () => ({
 }));
 
 describe('StripeService', () => {
-  let StripeService: any;
+  let StripeService: unknown;
 
   beforeAll(async () => {
     const module = await import('../StripeService');

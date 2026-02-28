@@ -91,7 +91,7 @@ export interface Permission {
 export interface PermissionCondition {
   type: ConditionType;
   operator: ConditionOperator;
-  value: any;
+  value: unknown;
   negate?: boolean;
 }
 
@@ -151,7 +151,7 @@ export interface AuditTrail {
   resourceType: ResourceType;
   action: string;
   outcome: AuditOutcome;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   ipAddress: string;
   userAgent: string;
   timestamp: number;
@@ -249,22 +249,22 @@ export interface LocationRestrictions {
 export interface PolicyCondition {
   type: string;
   operator: string;
-  value: any;
+  value: unknown;
 }
 
 export interface PolicyAction {
   type: "allow" | "deny" | "log" | "alert" | "quarantine";
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 export interface RuleCondition {
   expression: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 export interface RuleAction {
   type: string;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 }
 
 export interface ComplianceFinding {
@@ -291,7 +291,7 @@ export interface IncidentEvent {
   timestamp: number;
   type: string;
   description: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export interface IncidentMitigation {
@@ -438,7 +438,7 @@ export class AgentSecurityService extends EventEmitter {
     sessionId: string,
     action: string,
     resource: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<AuthorizationResult> {
     const securityContext = this.securityContexts.get(sessionId);
 
@@ -571,7 +571,7 @@ export class AgentSecurityService extends EventEmitter {
     description: string,
     source: string,
     affectedResources: string[],
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<string> {
     const incidentId = uuidv4();
     const now = Date.now();
@@ -894,7 +894,7 @@ export class AgentSecurityService extends EventEmitter {
     };
   }
 
-  private calculateTrustLevel(validation: CredentialValidationResult, context: any): TrustLevel {
+  private calculateTrustLevel(validation: CredentialValidationResult, context: unknown): TrustLevel {
     let trustLevel: TrustLevel = "low";
 
     // Base trust from authentication method
@@ -934,7 +934,7 @@ export class AgentSecurityService extends EventEmitter {
     context: SecurityContext,
     action: string,
     resource: string,
-    requestContext?: Record<string, any>
+    requestContext?: Record<string, unknown>
   ): Promise<PermissionCheckResult> {
     // Check direct permissions
     for (const permissionName of context.permissions) {
@@ -967,7 +967,7 @@ export class AgentSecurityService extends EventEmitter {
     permission: Permission,
     action: string,
     resource: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): boolean {
     // Check action match
     if (permission.action !== "*" && permission.action !== action) {
@@ -996,7 +996,7 @@ export class AgentSecurityService extends EventEmitter {
 
   private evaluateCondition(
     condition: PermissionCondition,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): boolean {
     if (!context) return true;
 
@@ -1028,7 +1028,7 @@ export class AgentSecurityService extends EventEmitter {
     context: SecurityContext,
     action: string,
     resource: string,
-    requestContext?: Record<string, any>
+    requestContext?: Record<string, unknown>
   ): Promise<PolicyCheckResult> {
     for (const policy of this.policies.values()) {
       if (!policy.enabled) continue;
@@ -1054,7 +1054,7 @@ export class AgentSecurityService extends EventEmitter {
     _context: SecurityContext,
     _action: string,
     _resource: string,
-    _requestContext?: Record<string, any>
+    _requestContext?: Record<string, unknown>
   ): Promise<PolicyCheckResult> {
     // Mock policy evaluation - in reality would have sophisticated rule engine
     for (const rule of policy.rules) {
@@ -1161,7 +1161,7 @@ export class AgentSecurityService extends EventEmitter {
 
   private async generateComplianceReport(
     framework: ComplianceFramework,
-    _scope?: any
+    _scope?: unknown
   ): Promise<ComplianceReport> {
     // Mock compliance report generation
     const report: ComplianceReport = {
@@ -1297,7 +1297,7 @@ export interface CredentialValidationResult {
 export interface AuthorizationResult {
   granted: boolean;
   reason: string;
-  conditions?: any[];
+  conditions?: unknown[];
   requiresMFA?: boolean;
   riskScore: number;
 }
@@ -1310,7 +1310,7 @@ export interface PermissionCheckResult {
 export interface PolicyCheckResult {
   allowed: boolean;
   reason: string;
-  conditions?: any[];
+  conditions?: unknown[];
   requiresMFA?: boolean;
 }
 

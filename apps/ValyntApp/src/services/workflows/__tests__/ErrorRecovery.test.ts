@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('ErrorRecovery', () => {
-  let mockDB: any;
-  let mockWorkflow: any;
+  let mockDB: unknown;
+  let mockWorkflow: unknown;
 
   beforeEach(() => {
     mockDB = {

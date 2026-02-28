@@ -26,7 +26,7 @@ export interface IntegrityValidationRequest {
   content: IntegrityContent;
   contentType: ContentType;
   agentType: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   traceId: string;
   validationLevel: ValidationLevel;
 }
@@ -50,7 +50,7 @@ export interface IntegrityContent {
   workflowState?: WorkflowState;
   reasoning?: string[];
   metrics?: Record<string, number>;
-  memoryData?: any;
+  memoryData?: unknown;
   confidence?: number;
   sources?: SourceReference[];
 }
@@ -78,7 +78,7 @@ export interface IntegrityCheck {
   status: 'pass' | 'fail' | 'warning';
   score: number;
   details: string;
-  evidence?: any;
+  evidence?: unknown;
 }
 
 export enum CheckType {
@@ -98,7 +98,7 @@ export interface IntegrityViolation {
   description: string;
   impact: string;
   remediation: string;
-  evidence?: any;
+  evidence?: unknown;
 }
 
 // ============================================================================
@@ -668,7 +668,7 @@ export class IntegrityValidationService {
 
     // Check sections
     if (page.sections) {
-      page.sections.forEach((section: any, index: number) => {
+      page.sections.forEach((section: unknown, index: number) => {
         if (!section.type) {
           errors.push(`Section ${index}: Type is required`);
           score -= 0.1;
@@ -827,7 +827,7 @@ class ConsistencyChecker {
     };
   }
 
-  async checkContextAlignment(content: IntegrityContent, context: Record<string, any>): Promise<{
+  async checkContextAlignment(content: IntegrityContent, context: Record<string, unknown>): Promise<{
     aligned: boolean;
     score: number;
     details: string;
@@ -842,7 +842,7 @@ class ConsistencyChecker {
     };
   }
 
-  async checkCrossAgentConsistency(content: IntegrityContent, memories: any[]): Promise<{
+  async checkCrossAgentConsistency(content: IntegrityContent, memories: unknown[]): Promise<{
     consistent: boolean;
     score: number;
     details: string;
@@ -857,7 +857,7 @@ class ConsistencyChecker {
     };
   }
 
-  async checkMetricAccuracy(metrics: Record<string, number>, context: Record<string, any>): Promise<{
+  async checkMetricAccuracy(metrics: Record<string, number>, context: Record<string, unknown>): Promise<{
     accurate: boolean;
     score: number;
     details: string;

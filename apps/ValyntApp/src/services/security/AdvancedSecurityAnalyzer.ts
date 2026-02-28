@@ -15,7 +15,7 @@ interface SecurityEvent {
   userId?: string;
   agentId?: string;
   description: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   mitigations: string[];
 }
 
@@ -29,7 +29,7 @@ interface ThreatIntelligence {
     category: string;
     enabled: boolean;
   }>;
-  riskFactors: any[];
+  riskFactors: unknown[];
   lastUpdated: Date;
 }
 

@@ -30,12 +30,12 @@ export interface LLMJobData {
   userId: string;
   sessionId?: string;
   promptKey?: string;
-  promptVariables?: Record<string, any>;
+  promptVariables?: Record<string, unknown>;
   prompt?: string;
   model?: string;
   maxTokens?: number;
   temperature?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LLMJobResult {

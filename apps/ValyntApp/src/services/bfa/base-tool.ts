@@ -199,7 +199,7 @@ export abstract class BaseSemanticTool<TInput, TOutput> implements SemanticTool<
   /**
    * Sanitize data for logging to prevent sensitive data exposure
    */
-  private sanitizeForLogging(data: any): any {
+  private sanitizeForLogging(data: unknown): unknown {
     if (typeof data !== "object" || data === null) {
       return data;
     }

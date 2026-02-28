@@ -149,7 +149,7 @@ export class RedisCircuitBreaker {
     }
   }
 
-  async getStats(): Promise<any> {
+  async getStats(): Promise<unknown> {
     // naive: scan is expensive; callers should request known breaker keys
     return { info: 'RedisCircuitBreaker: stats require explicit keys' };
   }

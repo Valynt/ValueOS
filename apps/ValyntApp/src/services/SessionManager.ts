@@ -28,7 +28,7 @@ export interface SessionState {
 
 export type SessionEventType = 'idle_warning' | 'idle_timeout' | 'absolute_timeout' | 'activity' | 'logout';
 
-export type SessionEventListener = (type: SessionEventType, data?: any) => void;
+export type SessionEventListener = (type: SessionEventType, data?: unknown) => void;
 
 export class SessionManager extends BaseService {
   private static readonly DEFAULT_CONFIG: SessionConfig = {
@@ -349,7 +349,7 @@ export class SessionManager extends BaseService {
   /**
    * Emit event to listeners
    */
-  private emitEvent(type: SessionEventType, data?: any): void {
+  private emitEvent(type: SessionEventType, data?: unknown): void {
     this.eventListeners.forEach(listener => {
       try {
         listener(type, data);
@@ -362,12 +362,12 @@ export class SessionManager extends BaseService {
   /**
    * Throttle function calls
    */
-  private throttle<T extends (...args: any[]) => any>(
+  private throttle<T extends (...args: unknown[]) => any>(
     func: T,
     limit: number
   ): (...args: Parameters<T>) => void {
     let inThrottle: boolean;
-    return function(this: any, ...args: Parameters<T>) {
+    return function(this: unknown, ...args: Parameters<T>) {
       if (!inThrottle) {
         func.apply(this, args);
         inThrottle = true;

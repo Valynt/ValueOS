@@ -472,7 +472,7 @@ export class CanvasSchemaService {
   /**
    * Fetch workspace data from Value Fabric
    */
-  private async fetchWorkspaceData(state: WorkspaceState): Promise<any> {
+  private async fetchWorkspaceData(state: WorkspaceState): Promise<unknown> {
     try {
       logger.debug('Fetching workspace data', {
         workspaceId: state.workspaceId,
@@ -480,7 +480,7 @@ export class CanvasSchemaService {
       });
 
       // Fetch data based on lifecycle stage
-      const data: any = {
+      const data: unknown = {
         businessCase: null,
         systemMap: null,
         valueTree: null,
@@ -978,7 +978,7 @@ export class CanvasSchemaService {
   private async fetchROI(workspaceId: string): Promise<{
     model: ROIModel;
     calculations: ROIModelCalculation[];
-    results: any;
+    results: unknown;
   } | null> {
     try {
       const supabase = getSupabaseClient();
@@ -1048,7 +1048,7 @@ export class CanvasSchemaService {
       const results: ManifestoValidationResult[] = [];
 
       // Helper to process artifacts
-      const collectResults = (artifacts: any[]) => {
+      const collectResults = (artifacts: unknown[]) => {
         if (!artifacts) return;
         artifacts.forEach(artifact => {
           if (artifact.compliance_metadata && artifact.compliance_metadata.results) {
@@ -1067,7 +1067,7 @@ export class CanvasSchemaService {
 
       // 2. Fetch ROI Models (linked via Value Trees)
       if (valueTrees && valueTrees.length > 0) {
-        const valueTreeIds = valueTrees.map((vt: any) => vt.id);
+        const valueTreeIds = valueTrees.map((vt: unknown) => vt.id);
         const { data: roiModels } = await supabase
           .from('roi_models')
           .select('id, compliance_metadata')
@@ -1119,7 +1119,7 @@ export class CanvasSchemaService {
   /**
    * Fetch assumptions
    */
-  private async fetchAssumptions(workspaceId: string, businessCase?: any): Promise<VMRTAssumption[]> {
+  private async fetchAssumptions(workspaceId: string, businessCase?: unknown): Promise<VMRTAssumption[]> {
     try {
       // 1. Try to fetch from database models first
       const supabase = getSupabaseClient();
@@ -1221,7 +1221,7 @@ export class CanvasSchemaService {
   /**
    * Fetch realization metrics
    */
-  private async fetchRealizationMetrics(workspaceId: string): Promise<any> {
+  private async fetchRealizationMetrics(workspaceId: string): Promise<unknown> {
     try {
       const supabase = getSupabaseClient();
 
@@ -1235,7 +1235,7 @@ export class CanvasSchemaService {
         .maybeSingle();
 
       let implementationStatus = 'planning';
-      let kpiMeasurements: any[] = [];
+      let kpiMeasurements: unknown[] = [];
 
       if (report) {
         // Map status
@@ -1282,7 +1282,7 @@ export class CanvasSchemaService {
    */
   private selectTemplate(
     state: WorkspaceState,
-    data: any
+    data: unknown
   ): LifecycleStage {
     // Template selection based on lifecycle stage
     return state.lifecycleStage;
@@ -1293,7 +1293,7 @@ export class CanvasSchemaService {
    */
   private async generateSchemaFromTemplate(
     template: LifecycleStage,
-    data: any,
+    data: unknown,
     state: WorkspaceState
   ): Promise<SDUIPageDefinition> {
     switch (template) {
@@ -1345,7 +1345,7 @@ export class CanvasSchemaService {
    */
   private async applyAtomicActions(
     schema: SDUIPageDefinition,
-    actions: any[]
+    actions: unknown[]
   ): Promise<SDUIPageDefinition> {
     // Deep clone schema to avoid mutation side effects on the input
     // Using JSON parse/stringify is safe for SDUI definitions as they are JSON-serializable
@@ -1412,7 +1412,7 @@ export class CanvasSchemaService {
     }
   }
 
-  private applyPropertyMutation(obj: any, mutation: PropertyMutation): void {
+  private applyPropertyMutation(obj: unknown, mutation: PropertyMutation): void {
     const { path, operation, value } = mutation;
 
     // Parse path: props.data[0].value -> ['props', 'data', '0', 'value']
@@ -1553,7 +1553,7 @@ export class CanvasSchemaService {
     else if (typeof order[0] === 'string') {
         const ids = order as string[];
         const sectionsById = new Map<string, any>();
-        const sectionsWithoutId: any[] = [];
+        const sectionsWithoutId: unknown[] = [];
 
         existingSections.forEach(s => {
             if (s.type === 'component' && s.props?.id) {
@@ -1563,7 +1563,7 @@ export class CanvasSchemaService {
             }
         });
 
-        const reorderedWithIds: any[] = [];
+        const reorderedWithIds: unknown[] = [];
         ids.forEach(id => {
             const s = sectionsById.get(id);
             if (s) {

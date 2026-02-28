@@ -17,7 +17,7 @@ export interface StageCompensationContext {
   stageId: string;
   stage: LifecycleStage;
   artifactsCreated: string[];
-  stateChanges: Record<string, any>;
+  stateChanges: Record<string, unknown>;
   executionId: string;
 }
 

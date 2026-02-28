@@ -450,9 +450,9 @@ export class LifecycleAgentFactory implements IAgentFactory {
    * Load agent classes dynamically
    */
   private async loadAgentClasses(): Promise<
-    Partial<Record<AgentType, new (config: any) => IAgent>>
+    Partial<Record<AgentType, new (config: unknown) => IAgent>>
   > {
-    const agentClasses: Partial<Record<AgentType, new (config: any) => IAgent>> = {};
+    const agentClasses: Partial<Record<AgentType, new (config: unknown) => IAgent>> = {};
 
     try {
       // Import lifecycle agents from agent-fabric

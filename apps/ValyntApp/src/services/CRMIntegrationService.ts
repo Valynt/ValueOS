@@ -92,7 +92,7 @@ export class CRMIntegrationService {
    */
   async syncAnalysisToDeal(
     dealId: string,
-    analysisData: any,
+    analysisData: unknown,
     tenantId?: string // Optional for now to maintain compat, but required for enforcement
   ): Promise<CRMSyncResult> {
     logger.info("Starting CRM Sync", { dealId });
@@ -157,7 +157,7 @@ export class CRMIntegrationService {
     }
   }
 
-  private formatAnalysisAsNote(data: any): string {
+  private formatAnalysisAsNote(data: unknown): string {
     const timestamp = new Date().toLocaleString();
     let body = `<p><strong>ValueOS Analysis - ${timestamp}</strong></p>`;
 
@@ -167,7 +167,7 @@ export class CRMIntegrationService {
 
     if (data.valueHypotheses && Array.isArray(data.valueHypotheses)) {
       body += `<p><strong>Strategic Value Hypotheses:</strong></p><ul>`;
-      data.valueHypotheses.forEach((h: any) => {
+      data.valueHypotheses.forEach((h: unknown) => {
         body += `<li><strong>${h.title}</strong>: ${h.description} (Confidence: ${h.confidence}%)</li>`;
       });
       body += `</ul><br/>`;
@@ -175,7 +175,7 @@ export class CRMIntegrationService {
 
     if (data.keyMetrics && Array.isArray(data.keyMetrics)) {
       body += `<p><strong>Target Metrics:</strong></p><ul>`;
-      data.keyMetrics.forEach((m: any) => {
+      data.keyMetrics.forEach((m: unknown) => {
         body += `<li>${m.label}: ${m.value} (${m.trend})</li>`;
       });
       body += `</ul>`;

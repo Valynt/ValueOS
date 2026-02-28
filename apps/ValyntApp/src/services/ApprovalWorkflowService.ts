@@ -12,7 +12,7 @@ export interface ApprovalWorkflow {
   description?: string;
   scope: 'organization' | 'team' | 'all';
   scopeId?: string;
-  triggerConditions: Record<string, any>;
+  triggerConditions: Record<string, unknown>;
   approvalLevels: number;
   requiredApprovers: string[];
   timeoutHours: number;
@@ -28,7 +28,7 @@ export interface ApprovalRequest {
   workflowId: string;
   requestedBy: string;
   changeType: string;
-  changeData: Record<string, any>;
+  changeData: Record<string, unknown>;
   justification?: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
   currentLevel: number;
@@ -89,7 +89,7 @@ export class ApprovalWorkflowService extends BaseService {
     workflowId: string;
     requestedBy: string;
     changeType: string;
-    changeData: Record<string, any>;
+    changeData: Record<string, unknown>;
     justification?: string;
   }): Promise<ApprovalRequest> {
     this.validateRequired(input, ['workflowId', 'requestedBy', 'changeType', 'changeData']);
@@ -184,7 +184,7 @@ export class ApprovalWorkflowService extends BaseService {
         const nextLevel = currentLevel + 1;
         const isFullyApproved = nextLevel > (workflow?.approval_levels || 1);
 
-        const updates: any = {
+        const updates: unknown = {
           approvals,
           current_level: isFullyApproved ? currentLevel : nextLevel,
           updated_at: new Date().toISOString(),
@@ -372,7 +372,7 @@ export class ApprovalWorkflowService extends BaseService {
     );
   }
 
-  private mapWorkflow(data: any): ApprovalWorkflow {
+  private mapWorkflow(data: unknown): ApprovalWorkflow {
     return {
       id: data.id,
       name: data.name,
@@ -391,7 +391,7 @@ export class ApprovalWorkflowService extends BaseService {
     };
   }
 
-  private mapRequest(data: any): ApprovalRequest {
+  private mapRequest(data: unknown): ApprovalRequest {
     return {
       id: data.id,
       workflowId: data.workflow_id,

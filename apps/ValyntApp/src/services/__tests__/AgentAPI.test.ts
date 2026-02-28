@@ -11,7 +11,7 @@ import type { AgentRequest, AgentResponse, AgentType } from '../../services/Agen
 
 describe('AgentAPI', () => {
   let api: AgentAPI;
-  let mockFetch: any;
+  let mockFetch: unknown;
 
   beforeEach(() => {
     // Mock global fetch

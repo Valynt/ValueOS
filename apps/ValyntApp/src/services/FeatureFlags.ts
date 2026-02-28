@@ -19,12 +19,12 @@ export interface FeatureFlag {
     userIds?: string[];
     tiers?: ('free' | 'basic' | 'pro' | 'enterprise')[];
     countries?: string[];
-    customRules?: Record<string, any>;
+    customRules?: Record<string, unknown>;
   };
   variants?: {
     name: string;
     weight: number;
-    config: Record<string, any>;
+    config: Record<string, unknown>;
   }[];
   metadata: {
     owner: string;
@@ -37,7 +37,7 @@ export interface FeatureFlag {
 export interface FeatureFlagEvaluation {
   enabled: boolean;
   variant?: string;
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
   reason: string;
 }
 
@@ -192,7 +192,7 @@ export class FeatureFlagsService {
       userId: string;
       userTier?: 'free' | 'basic' | 'pro' | 'enterprise';
       country?: string;
-      customAttributes?: Record<string, any>;
+      customAttributes?: Record<string, unknown>;
     }
   ): Promise<FeatureFlagEvaluation> {
     const flag = await this.getFlag(key);
@@ -249,7 +249,7 @@ export class FeatureFlagsService {
       userId: string;
       userTier?: string;
       country?: string;
-      customAttributes?: Record<string, any>;
+      customAttributes?: Record<string, unknown>;
     }
   ): FeatureFlagEvaluation {
     const { targeting } = flag;
@@ -308,8 +308,8 @@ export class FeatureFlagsService {
    * Evaluate custom rules
    */
   private evaluateCustomRules(
-    rules: Record<string, any>,
-    attributes: Record<string, any>
+    rules: Record<string, unknown>,
+    attributes: Record<string, unknown>
   ): boolean {
     for (const [key, value] of Object.entries(rules)) {
       if (attributes[key] !== value) {
@@ -401,11 +401,11 @@ export class FeatureFlagsService {
       userId: string;
       userTier?: 'free' | 'basic' | 'pro' | 'enterprise';
       country?: string;
-      customAttributes?: Record<string, any>;
+      customAttributes?: Record<string, unknown>;
     }
   ): Promise<{
     variant: string | null;
-    config: Record<string, any> | null;
+    config: Record<string, unknown> | null;
   }> {
     const evaluation = await this.isEnabled(key, context);
 

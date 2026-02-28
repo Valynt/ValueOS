@@ -20,13 +20,13 @@ export interface SharedContext {
   traceId: string;
   workflowId?: string;
   timestamp: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface AgentContext {
   agentType: AgentType;
   sessionId: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   permissions: string[];
   dataAccessLevel: string;
   complianceChecks: string[];
@@ -38,9 +38,9 @@ export interface ContextShareRequest {
   fromAgent: AgentType;
   toAgent: AgentType;
   contextKey: string;
-  data: any;
+  data: unknown;
   securityContext: SecurityContext;
-  auditMetadata: Record<string, any>;
+  auditMetadata: Record<string, unknown>;
 }
 
 export interface SecurityContext {
@@ -63,7 +63,7 @@ export interface ContextValidationResult {
 
 export interface ContextCache {
   key: string;
-  data: any;
+  data: unknown;
   securityContext: SecurityContext;
   createdAt: number;
   expiresAt: number;
@@ -600,7 +600,7 @@ export class SecureSharedContext {
     return levels[agentType] || 1;
   }
 
-  private assessDataSensitivity(data: any): 'low' | 'medium' | 'high' {
+  private assessDataSensitivity(data: unknown): 'low' | 'medium' | 'high' {
     if (!data || typeof data !== 'object') return 'low';
 
     const sensitiveKeywords = [

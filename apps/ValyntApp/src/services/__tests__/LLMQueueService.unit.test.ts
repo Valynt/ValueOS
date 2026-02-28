@@ -5,11 +5,11 @@ vi.mock("bullmq", async () => {
   const actual = await vi.importActual<any>("bullmq");
   class FakeQueue {
     name: string;
-    jobs: any[] = [];
+    jobs: unknown[] = [];
     constructor(name: string) {
       this.name = name;
     }
-    async add(jobName: string, data: any, __opts?: any) {
+    async add(jobName: string, data: unknown, __opts?: unknown) {
       const job = { id: `${this.jobs.length + 1}`, name: jobName, data };
       this.jobs.push(job);
       return job;

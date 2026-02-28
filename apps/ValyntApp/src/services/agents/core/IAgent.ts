@@ -26,7 +26,7 @@ export interface AgentRequest {
   /** Organization ID */
   organizationId?: string;
   /** Additional context data */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   /** Request parameters */
   parameters?: Record<string, unknown>;
   /** Request timeout in milliseconds */

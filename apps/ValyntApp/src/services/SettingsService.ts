@@ -21,7 +21,7 @@ const SecureSettingsSchemas = {
 export interface Setting {
   id: string;
   key: string;
-  value: any;
+  value: unknown;
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   scope: 'user' | 'team' | 'organization';
   scopeId: string;
@@ -31,14 +31,14 @@ export interface Setting {
 
 export interface SettingCreateInput {
   key: string;
-  value: any;
+  value: unknown;
   type: Setting['type'];
   scope: Setting['scope'];
   scopeId: string;
 }
 
 export interface SettingUpdateInput {
-  value: any;
+  value: unknown;
 }
 
 export interface SettingsQueryOptions {
@@ -157,9 +157,9 @@ export class SettingsService extends TenantAwareService {
   async getOrganizationConfig(
     tenantId: string,
     userId: string
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const cacheKey = tenantCache.buildOrgConfigKey(tenantId);
-    const cached = await tenantCache.get<Record<string, any>>(cacheKey);
+    const cached = await tenantCache.get<Record<string, unknown>>(cacheKey);
 
     if (cached) {
       return cached;
@@ -170,7 +170,7 @@ export class SettingsService extends TenantAwareService {
       scopeId: tenantId,
     }, userId);
 
-    const config = settings.reduce<Record<string, any>>((acc, setting) => {
+    const config = settings.reduce<Record<string, unknown>>((acc, setting) => {
       acc[setting.key] = setting.value;
       return acc;
     }, {});
@@ -388,7 +388,7 @@ export class SettingsService extends TenantAwareService {
   async bulkUpdateSettings(
     scope: Setting['scope'],
     scopeId: string,
-    settings: Record<string, any>,
+    settings: Record<string, unknown>,
     userId?: string
   ): Promise<Setting[]> {
     this.log('info', 'Bulk updating settings', { scope, scopeId, count: Object.keys(settings).length });
@@ -419,7 +419,7 @@ export class SettingsService extends TenantAwareService {
    */
   async initializeOrganizationSettings(
     organizationId: string,
-    settings: Record<string, any>,
+    settings: Record<string, unknown>,
     userId: string
   ): Promise<Setting[]> {
     this.log('info', 'Initializing organization settings', { organizationId, count: Object.keys(settings).length });
@@ -435,7 +435,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Serialize value for storage
    */
-  private serializeValue(value: any, type: Setting['type']): string {
+  private serializeValue(value: unknown, type: Setting['type']): string {
     switch (type) {
       case 'string':
         return String(value);
@@ -454,7 +454,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Deserialize value from storage with schema validation
    */
-  private deserializeValue(value: string, type: Setting['type']): any {
+  private deserializeValue(value: string, type: Setting['type']): unknown {
 
     try {
       switch (type) {
@@ -492,7 +492,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Validate that value matches type
    */
-  private validateSettingType(value: any, type: Setting['type']): void {
+  private validateSettingType(value: unknown, type: Setting['type']): void {
     switch (type) {
       case 'string':
         if (typeof value !== 'string') {
@@ -525,7 +525,7 @@ export class SettingsService extends TenantAwareService {
   /**
    * Infer type from value
    */
-  private inferType(value: any): Setting['type'] {
+  private inferType(value: unknown): Setting['type'] {
     if (typeof value === 'string') return 'string';
     if (typeof value === 'number') return 'number';
     if (typeof value === 'boolean') return 'boolean';

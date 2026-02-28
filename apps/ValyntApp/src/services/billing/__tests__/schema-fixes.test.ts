@@ -20,7 +20,7 @@ import { vi } from "vitest";
 describe("SaaS Schema Architecture Fixes", () => {
   let subscriptionService: ReturnType<typeof SubscriptionService>;
   let customerService: ReturnType<typeof CustomerService>;
-  let mockSupabase: any;
+  let mockSupabase: unknown;
 
   beforeEach(() => {
     // Mock Supabase client

@@ -524,11 +524,11 @@ export class ValueFabricService {
   }
 
   private determineLifecycleStage(data: {
-    businessObjectives: any[];
-    valueTrees: any[];
-    valueCommits: any[];
-    realizationReports: any[];
-    expansionModels: any[];
+    businessObjectives: unknown[];
+    valueTrees: unknown[];
+    valueCommits: unknown[];
+    realizationReports: unknown[];
+    expansionModels: unknown[];
   }): "opportunity" | "target" | "realization" | "expansion" {
     if (data.expansionModels.length > 0) return "expansion";
     if (data.realizationReports.length > 0) return "realization";
@@ -633,9 +633,9 @@ export class ValueFabricService {
     resourceType: string,
     resourceId: string,
     action: string,
-    oldValues: any,
-    newValues: any,
-    metadata?: Record<string, any>
+    oldValues: unknown,
+    newValues: unknown,
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
       const {

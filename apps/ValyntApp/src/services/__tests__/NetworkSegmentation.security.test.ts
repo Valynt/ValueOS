@@ -11,9 +11,9 @@ vi.mock("../security/securityLogger");
 
 describe("NetworkSegmentationManager Security Tests", () => {
   let networkManager: NetworkSegmentationManager;
-  let mockRateLimit: any;
-  let mockSSRFGuard: any;
-  let mockSecurityEvents: any;
+  let mockRateLimit: unknown;
+  let mockSSRFGuard: unknown;
+  let mockSecurityEvents: unknown;
 
   beforeEach(() => {
     mockRateLimit = {

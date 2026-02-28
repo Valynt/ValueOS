@@ -541,7 +541,7 @@ export class APIKeyRotationService {
     });
   }
 
-  private async notifyAdmins(notification: any): Promise<void> {
+  private async notifyAdmins(notification: unknown): Promise<void> {
     logger.warn("Manual rotation required", notification);
 
     // In production, send email/Slack notification

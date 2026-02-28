@@ -28,7 +28,7 @@ export interface Alert {
   currentValue: number;
   threshold: number;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AlertRule {
@@ -311,7 +311,7 @@ export class AlertingService {
   /**
    * Aggregate metrics across all agents
    */
-  private aggregateAgentMetrics(metrics: any[]): {
+  private aggregateAgentMetrics(metrics: unknown[]): {
     successRate: number;
     hallucinationRate: number;
     lowConfidenceRate: number;

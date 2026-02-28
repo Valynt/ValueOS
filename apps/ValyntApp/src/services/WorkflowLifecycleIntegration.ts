@@ -73,7 +73,7 @@ export class WorkflowLifecycleIntegration {
    */
   async executeWorkflow(
     userId: string,
-    initialInput: any,
+    initialInput: unknown,
     options: WorkflowExecutionOptions = {}
   ): Promise<WorkflowExecution> {
     if (!options.tenantId) {
@@ -297,7 +297,7 @@ export class WorkflowLifecycleIntegration {
    */
   async resumeWorkflow(
     executionId: string,
-    resumeInput?: any
+    resumeInput?: unknown
   ): Promise<WorkflowExecution> {
     const execution = this.executions.get(executionId);
     if (!execution) {

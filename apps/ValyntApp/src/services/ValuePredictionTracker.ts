@@ -16,7 +16,7 @@ export interface ValuePrediction {
   confidence: number;
   sessionId: string;
   agentId: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ActualOutcome {
@@ -315,7 +315,7 @@ export class ValuePredictionTracker {
 
       if (error) throw error;
 
-      return (data || []).map((p: any) => {
+      return (data || []).map((p: unknown) => {
         const createdAt = new Date(p.created_at);
         const daysOld = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
         

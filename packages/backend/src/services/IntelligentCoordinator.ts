@@ -17,8 +17,8 @@ import { getUnifiedAgentAPI } from "./UnifiedAgentAPI.js";
 export interface AgentRequest {
   agent: AgentType;
   query: string;
-  context?: Record<string, any>;
-  parameters?: Record<string, any>;
+  context?: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
   sessionId?: string;
   userId?: string;
   traceId?: string;
@@ -80,7 +80,7 @@ export interface RoutingCache {
 
 export class IntelligentCoordinator {
   private routingCache: Map<string, RoutingCache> = new Map();
-  private contextCache: Map<string, any> = new Map();
+  private contextCache: Map<string, unknown> = new Map();
   private agentAPI = getUnifiedAgentAPI();
   private readonly CACHE_TTL = 300000; // 5 minutes
   private readonly MAX_CACHE_SIZE = 1000;
@@ -206,7 +206,7 @@ export class IntelligentCoordinator {
    */
   private assessComplexity(
     query: string,
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): RequestAnalysis["complexity"] {
     const indicators = {
       simple: ["what is", "how to", "explain", "define", "list"],
@@ -231,7 +231,7 @@ export class IntelligentCoordinator {
   /**
    * Identify required domains based on query content
    */
-  private identifyDomains(query: string, context: Record<string, any>): AgentDomain[] {
+  private identifyDomains(query: string, context: Record<string, unknown>): AgentDomain[] {
     const domains: AgentDomain[] = [];
 
     // Research domain
@@ -298,7 +298,7 @@ export class IntelligentCoordinator {
    */
   private assessSecurityLevel(
     query: string,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     domains: AgentDomain[]
   ): RequestAnalysis["securityLevel"] {
     // Check for sensitive data indicators
@@ -640,7 +640,7 @@ export class IntelligentCoordinator {
    * Get compliance checks for an agent
    */
   private getComplianceChecks(agent: AgentType, analysis: RequestAnalysis): string[] {
-    const checks: unknown[] = [];
+    const checks: string[] = [];
 
     // Base compliance checks
     if (["financial-modeling", "target"].includes(agent)) {

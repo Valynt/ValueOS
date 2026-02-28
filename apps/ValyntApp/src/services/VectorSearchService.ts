@@ -24,7 +24,7 @@ export interface SemanticMemory {
   type: 'value_proposition' | 'target_definition' | 'opportunity' | 'integrity_check' | 'workflow_result';
   content: string;
   embedding: number[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   created_at: string;
   similarity?: number;
 }
@@ -37,7 +37,7 @@ export interface SearchOptions {
   /** Maximum results */
   limit?: number;
   /** Metadata filters */
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   /** Enable caching */
   useCache?: boolean;
   /** Require lineage metadata */
@@ -110,7 +110,7 @@ export class VectorSearchService {
       }
 
       // Format results
-      const results: SearchResult[] = (data || []).map((row: any) => {
+      const results: SearchResult[] = (data || []).map((row: unknown) => {
         const lineage = {
           source_origin: row.metadata?.source_origin,
           data_sensitivity_level: row.metadata?.data_sensitivity_level
@@ -251,7 +251,7 @@ export class VectorSearchService {
         .select('type');
 
       const byType: Record<string, number> = {};
-      typeData?.forEach((row: any) => {
+      typeData?.forEach((row: unknown) => {
         byType[row.type] = (byType[row.type] || 0) + 1;
       });
 
@@ -363,7 +363,7 @@ export class VectorSearchService {
 
   private buildFilterClause(
     type?: SemanticMemory['type'],
-    filters: Record<string, any> = {},
+    filters: Record<string, unknown> = {},
     requireLineage: boolean = true
   ): string {
     const conditions: string[] = [

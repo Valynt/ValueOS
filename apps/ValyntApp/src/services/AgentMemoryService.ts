@@ -46,7 +46,7 @@ export enum MemoryType {
 export interface AgentMemoryContent {
   title: string;
   description: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   tags: string[];
   confidence: number;
   source: string;
@@ -486,7 +486,7 @@ export class AgentMemoryService {
     }
   }
 
-  private mapDatabaseRecord(record: any): AgentMemory {
+  private mapDatabaseRecord(record: unknown): AgentMemory {
     return {
       id: record.id,
       caseId: record.case_id,

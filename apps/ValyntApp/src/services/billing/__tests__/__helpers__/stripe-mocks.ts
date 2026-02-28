@@ -272,7 +272,7 @@ export function createMockStripeInvoice(
  */
 export function createMockStripeEvent(
   type: string,
-  data: any,
+  data: unknown,
   overrides?: Partial<Stripe.Event>
 ): Stripe.Event {
   return {
@@ -447,8 +447,8 @@ export function createMockStripeError(
   type: string,
   message: string = "Test error",
   code?: string
-): any {
-  const error: any = new Error(message);
+): unknown {
+  const error: unknown = new Error(message);
   error.type = type;
   error.code = code;
   error.statusCode = type === "StripeAPIError" ? 500 : 400;

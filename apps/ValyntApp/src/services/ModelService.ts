@@ -86,7 +86,7 @@ export class ModelService {
   }> {
     // Resolve audit actor once
     const auditActor = await this.resolveAuditActor();
-    const auditPromises: Promise<any>[] = [];
+    const auditPromises: Promise<unknown>[] = [];
 
     // Helper to log audit entry
     const logAudit = (

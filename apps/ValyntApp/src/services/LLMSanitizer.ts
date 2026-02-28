@@ -310,7 +310,7 @@ export class LLMSanitizer extends BaseService {
   /**
    * Check for prototype pollution in object
    */
-  private hasPrototypePollution(obj: any): boolean {
+  private hasPrototypePollution(obj: unknown): boolean {
     if (typeof obj !== 'object' || obj === null) {
       return false;
     }
@@ -335,12 +335,12 @@ export class LLMSanitizer extends BaseService {
   /**
    * Sanitize object (remove dangerous properties)
    */
-  sanitizeObject<T extends Record<string, any>>(obj: T): T {
+  sanitizeObject<T extends Record<string, unknown>>(obj: T): T {
     if (typeof obj !== 'object' || obj === null) {
       return obj;
     }
 
-    const sanitized: any = Array.isArray(obj) ? [] : {};
+    const sanitized: unknown = Array.isArray(obj) ? [] : {};
     const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
 
     for (const key of Object.keys(obj)) {
@@ -506,8 +506,8 @@ export class LLMSanitizer extends BaseService {
   /**
    * Comprehensive input sanitization for agent invocations
    */
-  sanitizeAgentInput(input: any): {
-    sanitized: any;
+  sanitizeAgentInput(input: unknown): {
+    sanitized: unknown;
     violations: string[];
     injectionDetected: boolean;
     severity: 'low' | 'medium' | 'high';
@@ -560,7 +560,7 @@ export class LLMSanitizer extends BaseService {
     }
 
     if (typeof input === 'object' && input !== null) {
-      const sanitizedObj: any = {};
+      const sanitizedObj: unknown = {};
 
       for (const [key, value] of Object.entries(input)) {
         const result = this.sanitizeAgentInput(value);

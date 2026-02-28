@@ -8,7 +8,7 @@ export async function enqueueEmailNotification(input: {
   tenantId: string;
   recipient: string;
   template: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   idempotencyKey: string;
 }): Promise<string> {
   return redisStreamBroker.publish('notifications.email.requested', {
@@ -22,7 +22,7 @@ export async function enqueueDataExport(input: {
   tenantId: string;
   exportType: string;
   requestedBy: string;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   idempotencyKey: string;
 }): Promise<string> {
   return redisStreamBroker.publish('data.export.requested', {

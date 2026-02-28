@@ -2,7 +2,7 @@ export interface CollaborationEvent {
   type: "presence" | "edit" | "comment";
   userId: string;
   userName: string;
-  payload: any;
+  payload: unknown;
   timestamp: string;
 }
 
@@ -41,7 +41,7 @@ export class CollaborationService {
   /**
    * Simulates broadcasting an edit event.
    */
-  public sendEdit(userId: string, userName: string, change: any) {
+  public sendEdit(userId: string, userName: string, change: unknown) {
     this.broadcast({
       type: "edit",
       userId,

@@ -33,7 +33,7 @@ export interface UsageEvent {
   organizationId: string;
   type: UsageEventType;
   amount: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -321,7 +321,7 @@ async function persistUsage(usage: TenantUsage): Promise<void> {
       api_calls: usage.apiCalls,
       agent_calls: usage.agentCalls,
       last_updated: usage.lastUpdated.toISOString(),
-    } as Record<string, any>;
+    } as Record<string, unknown>;
 
     const { error } = await serviceRoleSupabase.from("tenant_usage").upsert(payload).select();
 
@@ -389,7 +389,7 @@ export async function getUsageHistory(
     }
 
     if (data) {
-      return data.map((item: any) => ({
+      return data.map((item: unknown) => ({
         organizationId: item.organization_id,
         period: item.period,
         users: item.users || 0,

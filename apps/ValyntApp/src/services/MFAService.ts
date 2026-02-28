@@ -289,7 +289,7 @@ export class MFAService extends BaseService {
     userId: string,
     method: "totp" | "webauthn",
     // @ts-ignore
-    credential: any
+    credential: unknown
   ): Promise<MFAVerificationResult> {
     if (method === "totp") {
       return this.verifyMFAToken(userId, credential.token);

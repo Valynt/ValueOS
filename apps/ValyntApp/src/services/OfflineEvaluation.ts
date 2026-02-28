@@ -13,8 +13,8 @@ export interface GoldenExample {
   name: string;
   description: string;
   agentType: 'OpportunityAgent' | 'TargetAgent' | 'IntegrityAgent' | 'ReflectionEngine';
-  input: any;
-  expectedOutput: any;
+  input: unknown;
+  expectedOutput: unknown;
   evaluationCriteria: {
     metric: string;
     threshold: number;
@@ -32,7 +32,7 @@ export interface EvaluationResult {
   exampleId: string;
   exampleName: string;
   agentType: string;
-  actualOutput: any;
+  actualOutput: unknown;
   scores: {
     metric: string;
     score: number;
@@ -113,7 +113,7 @@ export class OfflineEvaluationService {
    */
   async evaluateOutput(
     example: GoldenExample,
-    actualOutput: any
+    actualOutput: unknown
   ): Promise<EvaluationResult['scores']> {
     const scores: EvaluationResult['scores'] = [];
 
@@ -183,7 +183,7 @@ export class OfflineEvaluationService {
   /**
    * Exact match evaluation
    */
-  private exactMatch(expected: any, actual: any): number {
+  private exactMatch(expected: unknown, actual: unknown): number {
     return JSON.stringify(expected) === JSON.stringify(actual) ? 1.0 : 0.0;
   }
 
@@ -239,7 +239,7 @@ export class OfflineEvaluationService {
   /**
    * Check if output contains required keywords
    */
-  private containsKeywords(output: any, keywords: string[]): number {
+  private containsKeywords(output: unknown, keywords: string[]): number {
     const text = JSON.stringify(output).toLowerCase();
     const matchedKeywords = keywords.filter((kw) =>
       text.includes(kw.toLowerCase())
@@ -250,7 +250,7 @@ export class OfflineEvaluationService {
   /**
    * Check JSON structure match
    */
-  private jsonStructureMatch(expected: any, actual: any): number {
+  private jsonStructureMatch(expected: unknown, actual: unknown): number {
     const expectedKeys = Object.keys(expected).sort();
     const actualKeys = Object.keys(actual).sort();
 
@@ -263,7 +263,7 @@ export class OfflineEvaluationService {
   /**
    * Check numeric value is in range
    */
-  private numericRange(value: any, min: number, max: number): number {
+  private numericRange(value: unknown, min: number, max: number): number {
     const num = typeof value === 'number' ? value : parseFloat(value);
     if (isNaN(num)) return 0.0;
     return num >= min && num <= max ? 1.0 : 0.0;
@@ -272,7 +272,7 @@ export class OfflineEvaluationService {
   /**
    * Check text length is in range
    */
-  private lengthRange(text: any, minLength: number, maxLength: number): number {
+  private lengthRange(text: unknown, minLength: number, maxLength: number): number {
     const str = String(text);
     const length = str.length;
     return length >= minLength && length <= maxLength ? 1.0 : 0.0;
@@ -281,7 +281,7 @@ export class OfflineEvaluationService {
   /**
    * Check regex pattern match
    */
-  private regexMatch(text: any, pattern: string): number {
+  private regexMatch(text: unknown, pattern: string): number {
     const regex = new RegExp(pattern);
     return regex.test(String(text)) ? 1.0 : 0.0;
   }
@@ -291,7 +291,7 @@ export class OfflineEvaluationService {
    */
   async evaluateExample(
     example: GoldenExample,
-    agentFunction: (input: any) => Promise<any>
+    agentFunction: (input: unknown) => Promise<unknown>
   ): Promise<EvaluationResult> {
     const startTime = Date.now();
 
@@ -349,7 +349,7 @@ export class OfflineEvaluationService {
   async runEvaluation(
     name: string,
     agentType: string,
-    agentFunction: (input: any) => Promise<any>,
+    agentFunction: (input: unknown) => Promise<unknown>,
     promptVersion?: string
   ): Promise<EvaluationRun> {
     logger.info('Starting evaluation run', { name, agentType, promptVersion });

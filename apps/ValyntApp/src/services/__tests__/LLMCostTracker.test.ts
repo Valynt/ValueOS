@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 
 vi.mock('@supabase/supabase-js', () => {
   // Create one shared mock client instance used across imports
-  const state: any = {
+  const state: unknown = {
     lastInsertPayload: null,
     lastUpdatePayload: null,
     selectResponse: { data: null, error: null },
@@ -14,21 +14,21 @@ vi.mock('@supabase/supabase-js', () => {
 
   const createBuilder = (table: string) => {
     return {
-      select: (..._args: any[]) => createBuilder(table),
-      eq: (_k: string, _v: any) => createBuilder(table),
-      gte: (_k: string, _v: any) => createBuilder(table),
-      lte: (_k: string, _v: any) => createBuilder(table),
+      select: (..._args: unknown[]) => createBuilder(table),
+      eq: (_k: string, _v: unknown) => createBuilder(table),
+      gte: (_k: string, _v: unknown) => createBuilder(table),
+      lte: (_k: string, _v: unknown) => createBuilder(table),
       limit: (_n: number) => createBuilder(table),
-      insert: async (payload: any) => {
+      insert: async (payload: unknown) => {
         state.lastInsertPayload = payload;
         state.insertCount++;
         return { error: null };
       },
-      update: async (payload: any) => {
+      update: async (payload: unknown) => {
         state.lastUpdatePayload = payload;
         return { error: null };
       },
-      then: (resolve: (value: any) => void) => resolve(state.selectResponse),
+      then: (resolve: (value: unknown) => void) => resolve(state.selectResponse),
     } as any;
   };
 

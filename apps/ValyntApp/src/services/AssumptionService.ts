@@ -7,8 +7,8 @@ export class AssumptionService {
    */
   async updateAssumption(
     assumptionId: string,
-    updates: Record<string, any>
-  ): Promise<{ assumptionId: string; updated: boolean; data: any }> {
+    updates: Record<string, unknown>
+  ): Promise<{ assumptionId: string; updated: boolean; data: unknown }> {
     logger.info('Updating assumption', { assumptionId });
 
     // Ensure we are not trying to update immutable fields or ID
@@ -36,7 +36,7 @@ export class AssumptionService {
   /**
    * Get an assumption by ID
    */
-  async getAssumption(assumptionId: string): Promise<any> {
+  async getAssumption(assumptionId: string): Promise<unknown> {
     const { data, error } = await supabase
       .from('assumptions')
       .select('*')

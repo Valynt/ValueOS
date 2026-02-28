@@ -23,7 +23,7 @@ export interface ContextWindow {
   lastAccessed: number;
   accessCount: number;
   expiresAt: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ContextCompression {
@@ -111,7 +111,7 @@ export class ContextOptimizer {
     agentType: AgentType,
     sessionId: string,
     content: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, unknown> = {}
   ): Promise<ContextOptimization> {
     const startTime = Date.now();
     const windowId = this.generateWindowId(agentType, sessionId);
@@ -203,7 +203,7 @@ export class ContextOptimizer {
     sessionId: string,
     content: string,
     priority: ContextWindow['priority'] = 'medium',
-    metadata: Record<string, any> = {}
+    metadata: Record<string, unknown> = {}
   ): Promise<void> {
     const windowId = this.generateWindowId(agentType, sessionId);
     const existingWindow = this.contextWindows.get(windowId);

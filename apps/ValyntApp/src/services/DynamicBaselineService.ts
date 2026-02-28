@@ -32,7 +32,7 @@ export interface TenantBaseline {
 export interface MetricData {
   value: number;
   timestamp: Date;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface BaselineCalculation {
@@ -434,7 +434,7 @@ export class DynamicBaselineService extends TenantAwareService {
     tenantId: string,
     metricName: string,
     value: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<void> {
     try {
       await this.supabase.from('security_metrics').insert({
@@ -526,7 +526,7 @@ export class DynamicBaselineService extends TenantAwareService {
   /**
    * Map database record to TenantBaseline interface
    */
-  private mapDbBaseline(dbRecord: any): TenantBaseline {
+  private mapDbBaseline(dbRecord: unknown): TenantBaseline {
     return {
       id: dbRecord.id,
       tenantId: dbRecord.tenant_id,

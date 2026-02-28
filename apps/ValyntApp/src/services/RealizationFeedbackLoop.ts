@@ -228,7 +228,7 @@ export class RealizationFeedbackLoop {
 
     // Calculate average accuracy
     const avgVariance =
-      recentFeedback.reduce((sum: number, f: any) => sum + Math.abs(f.variance_percentage), 0) /
+      recentFeedback.reduce((sum: number, f: unknown) => sum + Math.abs(f.variance_percentage), 0) /
       recentFeedback.length;
 
     // Retrain if average variance > 25%

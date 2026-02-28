@@ -105,7 +105,7 @@ export const MCP_TOOLS: LLMTool[] = [
  */
 export async function executeMCPTool(
   toolName: string,
-  args: Record<string, any>
+  args: Record<string, unknown>
 ): Promise<string> {
   try {
     switch (toolName) {
@@ -262,7 +262,7 @@ export function createToolExecutor(
     }
 
     // Otherwise use standard MCP tool executor
-    return executeMCPTool(toolName, args as Record<string, any>);
+    return executeMCPTool(toolName, args as Record<string, unknown>);
   };
 }
 

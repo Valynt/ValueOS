@@ -20,7 +20,7 @@ export interface ConversationMessage {
   agentName?: string;
   confidence?: number;
   reasoning?: string[];
-  sduiPage?: any;
+  sduiPage?: unknown;
   metadata?: Record<string, unknown>;
 }
 

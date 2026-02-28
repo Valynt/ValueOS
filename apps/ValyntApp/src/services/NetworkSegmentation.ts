@@ -33,7 +33,7 @@ export interface NetworkRequest {
   url: string;
   method: string;
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   agentType: string;
   agentId: string;
   priority?: "low" | "medium" | "high" | "critical";
@@ -42,7 +42,7 @@ export interface NetworkRequest {
 export interface NetworkResponse {
   status: number;
   headers: Record<string, string>;
-  data: any;
+  data: unknown;
   duration: number;
   encrypted: boolean;
 }
@@ -307,7 +307,7 @@ export class NetworkSegmentationManager {
     options: {
       method?: string;
       headers?: Record<string, string>;
-      body?: any;
+      body?: unknown;
       priority?: "low" | "medium" | "high" | "critical";
     } = {}
   ): Promise<NetworkResponse> {
@@ -500,7 +500,7 @@ export class NetworkSegmentationManager {
       // Use DNS resolution to get IP
       const dns = require("dns");
       const addresses = await new Promise<string[]>((resolve, reject) => {
-        dns.resolve4(domain, (err: any, addresses: string[]) => {
+        dns.resolve4(domain, (err: unknown, addresses: string[]) => {
           if (err) reject(err);
           else resolve(addresses);
         });

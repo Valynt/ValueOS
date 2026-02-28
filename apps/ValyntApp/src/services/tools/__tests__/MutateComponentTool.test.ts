@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('MutateComponentTool', () => {
-  let mockLayout: any;
-  let mockContext: any;
+  let mockLayout: unknown;
+  let mockContext: unknown;
 
   beforeEach(() => {
     mockLayout = {
@@ -202,7 +202,7 @@ describe('MutateComponentTool', () => {
         data: {
           layout: {
             ...mockLayout,
-            components: mockLayout.components.filter((c: any) => c.id !== 'comp-1')
+            components: mockLayout.components.filter((c: unknown) => c.id !== 'comp-1')
           },
           affected_components: ['comp-1']
         }
@@ -297,7 +297,7 @@ describe('MutateComponentTool', () => {
   describe('Component Selectors', () => {
     it('should select by id', async () => {
       const selector = { id: 'comp-1' };
-      const component = mockLayout.components.find((c: any) => c.id === selector.id);
+      const component = mockLayout.components.find((c: unknown) => c.id === selector.id);
 
       expect(component).toBeDefined();
       expect(component.id).toBe('comp-1');
@@ -305,7 +305,7 @@ describe('MutateComponentTool', () => {
 
     it('should select by type', async () => {
       const selector = { type: 'chart' };
-      const components = mockLayout.components.filter((c: any) => c.type === selector.type);
+      const components = mockLayout.components.filter((c: unknown) => c.type === selector.type);
 
       expect(components.length).toBeGreaterThan(0);
       expect(components[0].type).toBe('chart');

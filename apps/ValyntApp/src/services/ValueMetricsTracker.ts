@@ -22,7 +22,7 @@ export interface ValueMetric {
     | 'stakeholders_aligned';
   metric_value: number;
   unit: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   case_id?: string;
   timestamp: string;
 }

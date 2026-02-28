@@ -48,7 +48,7 @@ export class IntegrityWarningGenerator {
    * Generate actions for violations
    */
   private generateViolationActions(
-    violations: any[],
+    violations: unknown[],
     workspaceId: string
   ): AtomicUIAction[] {
     const actions: AtomicUIAction[] = [];
@@ -104,7 +104,7 @@ export class IntegrityWarningGenerator {
    * Generate warning banners
    */
   private generateWarningBanners(
-    warnings: any[],
+    warnings: unknown[],
     workspaceId: string
   ): AtomicUIAction[] {
     const actions: AtomicUIAction[] = [];
@@ -197,7 +197,7 @@ export class IntegrityWarningGenerator {
    */
   generateOverrideRequestUI(
     requestId: string,
-    violations: any[]
+    violations: unknown[]
   ): AtomicUIAction {
     return createAddAction(
       {

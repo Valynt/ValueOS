@@ -28,7 +28,7 @@ export interface KernelEventMetadata {
     requiredPermissions: Permission[];
     allowedStages: LifecycleStage[];
   };
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface KernelEvent {
@@ -37,7 +37,7 @@ export interface KernelEvent {
   type: CanonicalKernelEventType;
   occurredAt: string;
   metadata: KernelEventMetadata;
-  payload?: Record<string, any>;
+  payload?: Record<string, unknown>;
 }
 
 export interface KernelInvocationContext {
@@ -47,7 +47,7 @@ export interface KernelInvocationContext {
   stage?: LifecycleStage;
   userId?: string;
   workspaceId?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export class ValueKernel {
@@ -66,13 +66,13 @@ export class ValueKernel {
   }
 
   completeStage(
-    invocation: KernelInvocationContext & { result?: Record<string, any> }
+    invocation: KernelInvocationContext & { result?: Record<string, unknown> }
   ): KernelEvent {
     return this.emitEvent('StageCompleted', invocation, { result: invocation.result });
   }
 
   valueUpdated(
-    invocation: KernelInvocationContext & { changeSet: Record<string, any> }
+    invocation: KernelInvocationContext & { changeSet: Record<string, unknown> }
   ): KernelEvent {
     return this.emitEvent('ValueUpdated', invocation, {
       changeSet: invocation.changeSet,
@@ -80,7 +80,7 @@ export class ValueKernel {
   }
 
   assumptionChanged(
-    invocation: KernelInvocationContext & { assumptionId: string; updates: Record<string, any> }
+    invocation: KernelInvocationContext & { assumptionId: string; updates: Record<string, unknown> }
   ): KernelEvent {
     return this.emitEvent('AssumptionChanged', invocation, {
       assumptionId: invocation.assumptionId,
@@ -95,7 +95,7 @@ export class ValueKernel {
   private emitEvent(
     type: CanonicalKernelEventType,
     invocation: KernelInvocationContext,
-    payload?: Record<string, any>
+    payload?: Record<string, unknown>
   ): KernelEvent {
     const binding: IntentBinding = assertEntryPointAccess({
       entryPoint: invocation.entryPoint,

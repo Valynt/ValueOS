@@ -307,7 +307,7 @@ describe("MCP Tools - Load Testing", () => {
 });
 
 // Helper functions
-function getToolArgs(toolName: string, index: number): Record<string, any> {
+function getToolArgs(toolName: string, index: number): Record<string, unknown> {
   switch (toolName) {
     case "get_company_financials":
       return {

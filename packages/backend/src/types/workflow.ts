@@ -81,7 +81,7 @@ export interface WorkflowExecution {
   workflow_definition_id?: string;
   status: WorkflowExecutionStatus;
   current_stage_id?: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   started_at: string;
   completed_at?: string;
   updated_at: string;
@@ -113,7 +113,7 @@ export interface CompensationContext {
   execution_id: string;
   stage_id: string;
   artifacts_created: string[];
-  state_changes: Record<string, any>;
+  state_changes: Record<string, unknown>;
 }
 
 export type CompensationPolicy = "halt_on_error" | "continue_on_error" | "skip_compensation";
@@ -144,7 +144,7 @@ export interface WorkflowEvent {
   event_type: WorkflowEventType;
   stage_id?: string;
   timestamp: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 export type WorkflowEventType =

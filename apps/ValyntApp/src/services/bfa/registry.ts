@@ -12,7 +12,7 @@ import { AgentContext, SemanticTool, ToolRegistry } from './types';
  */
 export class InMemoryToolRegistry implements ToolRegistry {
   private tools = new Map<string, SemanticTool<any, any>>();
-  private toolMetadata = new Map<string, { description: string; policy: any }>();
+  private toolMetadata = new Map<string, { description: string; policy: unknown }>();
 
   /**
    * Register a new semantic tool
@@ -35,7 +35,7 @@ export class InMemoryToolRegistry implements ToolRegistry {
   /**
    * List all available tools with metadata
    */
-  list(): Array<{ id: string; description: string; policy: any }> {
+  list(): Array<{ id: string; description: string; policy: unknown }> {
     return Array.from(this.toolMetadata.entries()).map(([id, metadata]) => ({
       id,
       description: metadata.description,

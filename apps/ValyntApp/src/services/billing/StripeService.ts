@@ -42,7 +42,7 @@ class StripeService {
   /**
    * Handle Stripe API errors consistently
    */
-  public handleError(error: any, context: string): never {
+  public handleError(error: unknown, context: string): never {
     logger.error(`Stripe error in ${context}`, error);
 
     if (error.type === 'StripeCardError') {

@@ -20,7 +20,7 @@ class UsageEmitter {
     metric: BillingMetric,
     amount: number,
     requestId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
       // Non-blocking insert

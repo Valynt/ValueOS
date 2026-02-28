@@ -14,7 +14,7 @@ vi.mock('../ValueLifecycleOrchestrator', async () => {
 
 describe('WorkflowLifecycleIntegration', () => {
   it('executes full lifecycle and completes', async () => {
-    const fakeSupabase: any = {}; // Not used in happy path due to mocks
+    const fakeSupabase: unknown = {}; // Not used in happy path due to mocks
     const integration = new WorkflowLifecycleIntegration(fakeSupabase as any);
 
     const exec = await integration.executeWorkflow('user-1', { initial: true }, { tenantId: 'tenant-1' });
@@ -30,7 +30,7 @@ describe('WorkflowLifecycleIntegration', () => {
       executeLifecycleStage: vi.fn().mockImplementationOnce(async () => ({ success: true, data: {} })).mockImplementationOnce(async () => { throw new Error('Stage failed'); }),
     }));
 
-    const fakeSupabase: any = {};
+    const fakeSupabase: unknown = {};
     const integration = new WorkflowLifecycleIntegration(fakeSupabase as any);
 
     await expect(

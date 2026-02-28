@@ -14,10 +14,10 @@ vi.mock("../src/lib/agent-fabric/AuditLogger");
 
 describe("ValueLifecycleOrchestrator Integration Tests", () => {
   let orchestrator: ValueLifecycleOrchestrator;
-  let mockSupabase: any;
-  let mockLLMGateway: any;
-  let mockMemorySystem: any;
-  let mockAuditLogger: any;
+  let mockSupabase: unknown;
+  let mockLLMGateway: unknown;
+  let mockMemorySystem: unknown;
+  let mockAuditLogger: unknown;
 
   beforeAll(() => {
     // Setup mocks

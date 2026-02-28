@@ -49,7 +49,7 @@ export class PlaygroundWorkflowAdapter {
     userId: string,
     organizationId: string,
     initialLayout: SDUIPageDefinition,
-    context: Record<string, any> = {}
+    context: Record<string, unknown> = {}
   ): Promise<{
     sessionId: string;
     workflowExecutionId: string;
@@ -296,7 +296,7 @@ export class PlaygroundWorkflowAdapter {
    */
   async getHistory(sessionId: string): Promise<{
     success: boolean;
-    history?: any[];
+    history?: unknown[];
     currentIndex?: number;
     error?: string;
   }> {

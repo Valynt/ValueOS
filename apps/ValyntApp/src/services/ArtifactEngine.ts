@@ -444,12 +444,12 @@ export class ArtifactEngine extends EventEmitter {
   async createArtifactVersion(
     artifactId: string,
     format: ArtifactFormat,
-    data: any,
+    data: unknown,
     metadata: {
       generatedBy: string;
       dataHash: string;
       sourceDataVersion?: string;
-      assumptions?: any[];
+      assumptions?: unknown[];
     }
   ): Promise<ArtifactVersion> {
     const artifact = await this.getArtifact(artifactId);
@@ -630,7 +630,7 @@ export class ArtifactEngine extends EventEmitter {
     artifactId: string,
     versionId: string,
     format: ArtifactFormat,
-    data: any
+    data: unknown
   ): Promise<ArtifactStorageMetadata> {
     // Convert data to appropriate format
     let content: Blob;
@@ -861,7 +861,7 @@ export class ArtifactEngine extends EventEmitter {
     artifactId: string,
     eventType: AuditEventType,
     userId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<AuditEvent> {
     const artifact = await this.getArtifact(artifactId);
     if (!artifact) {
@@ -1065,7 +1065,7 @@ export class ArtifactEngine extends EventEmitter {
   // Helper Methods
   // ============================================================================
 
-  private async getValueCaseData(valueCaseId: string): Promise<any> {
+  private async getValueCaseData(valueCaseId: string): Promise<unknown> {
     const { data, error } = await this.supabase
       .from("value_cases")
       .select()
@@ -1081,9 +1081,9 @@ export class ArtifactEngine extends EventEmitter {
 
   private async generateArtifactData(
     template: ArtifactTemplate,
-    valueCase: any,
+    valueCase: unknown,
     brandingProfile?: BrandingProfile
-  ): Promise<any> {
+  ): Promise<unknown> {
     // In a real implementation, this would use a template engine
     // For now, we'll return a simplified structure
     return {
@@ -1106,7 +1106,7 @@ export class ArtifactEngine extends EventEmitter {
     };
   }
 
-  private generateDataHash(data: any): string {
+  private generateDataHash(data: unknown): string {
     const str = JSON.stringify(data);
     let hash = 0;
     for (let i = 0; i < str.length; i++) {

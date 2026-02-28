@@ -1,6 +1,6 @@
 /**
  * Agent Type Definitions
- * 
+ *
  * Types for agent configuration, lifecycle context, agent outputs,
  * health monitoring, and agent orchestration.
  */
@@ -19,7 +19,7 @@ export interface AgentConfig {
   prompts: PromptConfig;
   parameters: AgentParameters;
   constraints: AgentConstraints;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Canonical AgentType is defined in services/agent-types.ts.
@@ -54,7 +54,7 @@ export interface PromptConfig {
 export interface FewShotExample {
   input: string;
   output: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface AgentParameters {
@@ -83,18 +83,18 @@ export interface LifecycleContext {
   organization_id: string;
   user_id: string;
   lifecycle_stage: LifecycleStage;
-  previous_stage_outputs?: Record<string, any>;
+  previous_stage_outputs?: Record<string, unknown>;
   workspace_data: WorkspaceData;
-  user_inputs: Record<string, any>;
-  metadata?: Record<string, any>;
+  user_inputs: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkspaceData {
-  opportunity?: Record<string, any>;
-  target?: Record<string, any>;
-  realization?: Record<string, any>;
-  expansion?: Record<string, any>;
-  integrity?: Record<string, any>;
+  opportunity?: Record<string, unknown>;
+  target?: Record<string, unknown>;
+  realization?: Record<string, unknown>;
+  expansion?: Record<string, unknown>;
+  integrity?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -106,7 +106,7 @@ export interface AgentOutput {
   agent_type: AgentType;
   lifecycle_stage: LifecycleStage;
   status: AgentOutputStatus;
-  result: Record<string, any>;
+  result: Record<string, unknown>;
   confidence: ConfidenceLevel;
   reasoning?: string;
   suggested_next_actions?: string[];
@@ -134,7 +134,7 @@ export interface AgentError {
   message: string;
   severity: 'error' | 'warning';
   recoverable: boolean;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface AgentOutputMetadata {
@@ -185,7 +185,7 @@ export interface HealthIssue {
   type: 'error' | 'warning' | 'info';
   message: string;
   timestamp: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -220,7 +220,7 @@ export interface AgentRecord extends AgentRegistration {
 export interface AgentExecutionRequest {
   agent_id: string;
   context: LifecycleContext;
-  input: Record<string, any>;
+  input: Record<string, unknown>;
   options?: ExecutionOptions;
 }
 
@@ -240,6 +240,6 @@ export interface AgentCapability {
   name: string;
   description: string;
   required_permissions: string[];
-  input_schema: Record<string, any>;
-  output_schema: Record<string, any>;
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
 }

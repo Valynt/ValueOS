@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowStateService } from '../WorkflowStateService';
 
 // In-memory stub for agent_sessions table
-const sessionStore: Record<string, any> = {};
+const sessionStore: Record<string, unknown> = {};
 
 const supabaseStub = {
   from: vi.fn((table: string) => {
@@ -12,7 +12,7 @@ const supabaseStub = {
 
     return {
       select: vi.fn().mockReturnThis(),
-      insert: vi.fn((payload: any) => {
+      insert: vi.fn((payload: unknown) => {
         const id = `sess-${Object.keys(sessionStore).length + 1}`;
         sessionStore[id] = {
           id,
@@ -27,7 +27,7 @@ const supabaseStub = {
           single: vi.fn().mockResolvedValue({ data: { id }, error: null }),
         };
       }),
-      update: vi.fn((payload: any) => ({
+      update: vi.fn((payload: unknown) => ({
         eq: vi.fn((_, id: string) => {
           if (sessionStore[id]) {
             sessionStore[id] = {
@@ -46,7 +46,7 @@ const supabaseStub = {
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       eq: vi.fn((field: string, value: string) => {
-        const rows = Object.values(sessionStore).filter((row: any) => row[field] === value);
+        const rows = Object.values(sessionStore).filter((row: unknown) => row[field] === value);
         return {
           single: vi.fn().mockResolvedValue({ data: rows[0] || null, error: rows[0] ? null : { message: 'not found' } }),
           select: vi.fn().mockReturnThis(),

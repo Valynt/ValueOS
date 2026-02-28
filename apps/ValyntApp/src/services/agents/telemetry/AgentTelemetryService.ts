@@ -1000,8 +1000,8 @@ export class AgentTelemetryService {
     successRate: number;
     errorRate: number;
     topErrorTypes: Array<{ type: string; count: number; percentage: number }>;
-    performance: any;
-    avgResourceUsage: any;
+    performance: unknown;
+    avgResourceUsage: unknown;
   } {
     const traces = [...this.completedTraces];
     const totalExecutions = traces.length;

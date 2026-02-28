@@ -21,7 +21,7 @@ class TransactionalSubscriptionService {
   /**
    * Update subscription with atomic transaction support
    */
-  async updateSubscriptionWithTransaction(tenantId: string, newPlanTier: PlanTier): Promise<any> {
+  async updateSubscriptionWithTransaction(tenantId: string, newPlanTier: PlanTier): Promise<unknown> {
     // Start a database transaction
     const { data: subscription, error: fetchError } = await this.supabase
       .from("subscriptions")
@@ -62,7 +62,7 @@ class TransactionalSubscriptionService {
     try {
       // Phase 1: Update Stripe subscription items atomically
       const stripeUpdatePromises =
-        items?.map(async (item: any) => {
+        items?.map(async (item: unknown) => {
           const newPriceId = this.getPriceIdForPlan(newPlanTier, item.metric);
           if (!newPriceId) {
             throw new Error(`No price ID found for metric ${item.metric} in plan ${newPlanTier}`);
@@ -133,7 +133,7 @@ class TransactionalSubscriptionService {
   /**
    * Perform rollback of subscription changes
    */
-  private async performRollback(rollbackState: any): Promise<void> {
+  private async performRollback(rollbackState: unknown): Promise<void> {
     try {
       logger.info("Rolling back subscription changes", { rollbackState });
 

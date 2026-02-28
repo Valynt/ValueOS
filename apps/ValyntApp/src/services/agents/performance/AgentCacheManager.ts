@@ -232,7 +232,7 @@ export class AgentCacheManager {
   private cleanupInterval: NodeJS.Timeout | null = null;
   private currentSize: number = 0;
   private redisNamespace = process.env.AGENT_CACHE_NAMESPACE || "agent-cache";
-  private redisClientPromise: Promise<any> | null = null;
+  private redisClientPromise: Promise<unknown> | null = null;
   private messageBus = getMessageBus();
   private static readonly CACHE_INVALIDATION_CHANNEL = "agent.cache.invalidation";
 
@@ -985,7 +985,7 @@ export class AgentCacheManager {
     this.messageBus.subscribe(
       AgentCacheManager.CACHE_INVALIDATION_CHANNEL,
       "agent-cache-manager",
-      async (event: any) => {
+      async (event: unknown) => {
         const payload = event?.payload ?? event?.data ?? event;
         if (!payload || !payload.type) {
           return;
@@ -1703,7 +1703,7 @@ export class AgentCacheManager {
   /**
    * NEW: Publish invalidation event to message bus
    */
-  private async publishInvalidationEvent(data: any): Promise<void> {
+  private async publishInvalidationEvent(data: unknown): Promise<void> {
     try {
       await this.messageBus.publishMessage(AgentCacheManager.CACHE_INVALIDATION_CHANNEL, {
         channel: AgentCacheManager.CACHE_INVALIDATION_CHANNEL,

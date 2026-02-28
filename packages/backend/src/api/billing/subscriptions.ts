@@ -12,8 +12,7 @@ const router = express.Router();
 const logger = createLogger({ component: "SubscriptionsAPI" });
 
 const withRequestContext = (req: Request, res: Response, meta?: Record<string, unknown>) => ({
-  requestId: (req as any).requestId || res.locals.requestId,
-  ...meta,
+  requestId: req.requestId || res.locals.requestId,
 });
 
 /**
@@ -22,7 +21,7 @@ const withRequestContext = (req: Request, res: Response, meta?: Record<string, u
  */
 router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
 
     if (!tenantId) {
       res.status(401).json({ error: "Unauthorized" });
@@ -50,7 +49,7 @@ router.get("/", async (req: Request, res: Response): Promise<void> => {
  */
 router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const { planTier, trialDays } = req.body;
     const idempotencyKey = (req.headers["idempotency-key"] as string) || req.body.idempotencyKey;
 
@@ -117,7 +116,7 @@ router.put("/", async (req: Request, res: Response): Promise<void> => {
  */
 router.delete("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.tenantId;
     const { immediately } = req.query;
 
     if (!tenantId) {

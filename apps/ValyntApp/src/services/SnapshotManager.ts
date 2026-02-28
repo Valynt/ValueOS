@@ -7,7 +7,7 @@ export interface FormulaSnapshot {
   id: string;
   valueCaseId: string;
   valueTreeId: string;
-  formula: any;
+  formula: unknown;
   timestamp: string;
   agent: string;
   reason: string;

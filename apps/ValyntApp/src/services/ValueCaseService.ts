@@ -144,7 +144,7 @@ class ValueCaseService extends TenantAwareService {
         .order("updated_at", { ascending: false });
 
       if (!vcError && valueCases && valueCases.length > 0) {
-        return valueCases.map((vc: any) => this.mapValueCase(vc));
+        return valueCases.map((vc: unknown) => this.mapValueCase(vc));
       }
 
       // Fallback to legacy business_cases table, but still restrict to owner
@@ -159,7 +159,7 @@ class ValueCaseService extends TenantAwareService {
         return [];
       }
 
-      return (businessCases || []).map((bc: any) => this.mapBusinessCase(bc));
+      return (businessCases || []).map((bc: unknown) => this.mapBusinessCase(bc));
     } catch (error) {
       logger.error("Error fetching value cases", error instanceof Error ? error : undefined);
       return [];
@@ -656,7 +656,7 @@ class ValueCaseService extends TenantAwareService {
   // Mappers
   // ============================================================================
 
-  private mapValueCase(data: any): ValueCase {
+  private mapValueCase(data: unknown): ValueCase {
     const metadata = data.metadata || {};
     const stage = metadata.stage || "opportunity";
     const status = data.status === "published" ? "completed" : "in-progress";
@@ -675,7 +675,7 @@ class ValueCaseService extends TenantAwareService {
     };
   }
 
-  private mapBusinessCase(data: any): ValueCase {
+  private mapBusinessCase(data: unknown): ValueCase {
     const metadata = data.metadata || {};
     const stage = metadata.stage || "opportunity";
     const status = data.status === "presented" ? "completed" : "in-progress";

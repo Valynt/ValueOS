@@ -127,7 +127,7 @@ export class RateLimitKeyService {
     }
 
     const [, service, tier, tenantId, resource, scope] = parts;
-    const result: any = { service, tier, tenantId };
+    const result: unknown = { service, tier, tenantId };
 
     if (resource) {
       if (resource.startsWith('user:')) {

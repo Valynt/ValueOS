@@ -663,7 +663,7 @@ export const settingsCache = {
  * Agent response cache with query + context as key
  */
 export const agentCache = {
-  async get(query: string, context: Record<string, any>): Promise<any | null> {
+  async get(query: string, context: Record<string, unknown>): Promise<any | null> {
     const cacheKey = this.getCacheKey(query, context);
     return cacheService.get(cacheKey, {
       ttl: 10 * 60 * 1000, // 10 minutes
@@ -672,7 +672,7 @@ export const agentCache = {
     });
   },
 
-  async set(query: string, context: Record<string, any>, response: any): Promise<void> {
+  async set(query: string, context: Record<string, unknown>, response: unknown): Promise<void> {
     const cacheKey = this.getCacheKey(query, context);
     return cacheService.set(cacheKey, response, {
       ttl: 10 * 60 * 1000,
@@ -681,7 +681,7 @@ export const agentCache = {
     });
   },
 
-  async invalidate(query: string, context: Record<string, any>): Promise<void> {
+  async invalidate(query: string, context: Record<string, unknown>): Promise<void> {
     const cacheKey = this.getCacheKey(query, context);
     return cacheService.delete(cacheKey, {
       namespace: 'agent',
@@ -696,14 +696,14 @@ export const agentCache = {
     });
   },
 
-  getCacheKey(query: string, context: Record<string, any>): string {
+  getCacheKey(query: string, context: Record<string, unknown>): string {
     // Create deterministic cache key from query + context
     const contextStr = JSON.stringify(this.normalizeContext(context));
     const hash = this.simpleHash(query + contextStr);
     return `${context.agentType || 'unknown'}:${hash}`;
   },
 
-  normalizeContext(context: Record<string, any>): Record<string, any> {
+  normalizeContext(context: Record<string, unknown>): Record<string, unknown> {
     // Remove non-deterministic fields
     const { sessionId, timestamp, ...normalized } = context;
     return normalized;
@@ -732,7 +732,7 @@ export const workflowCache = {
     });
   },
 
-  async set(workflowId: string, workflow: any): Promise<void> {
+  async set(workflowId: string, workflow: unknown): Promise<void> {
     return cacheService.set(workflowId, workflow, {
       ttl: 30 * 60 * 1000,
       namespace: 'workflow',

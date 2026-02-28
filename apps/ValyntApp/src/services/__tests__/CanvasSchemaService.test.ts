@@ -166,7 +166,7 @@ describe('CanvasSchemaService', () => {
       // Check if sections exists (based on passing tests)
       expect(schema.sections).toBeDefined();
 
-      const header = schema.sections.find((c: any) =>
+      const header = schema.sections.find((c: unknown) =>
         c.type === 'PageHeader' ||
         (c.type === 'component' && c.component === 'PageHeader')
       ) as any;

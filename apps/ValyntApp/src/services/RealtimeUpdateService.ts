@@ -33,7 +33,7 @@ class BrowserEventEmitter {
     }
   }
 
-  emit(event: string, ...args: any[]): void {
+  emit(event: string, ...args: unknown[]): void {
     const eventListeners = this.listeners.get(event);
     if (eventListeners) {
       eventListeners.forEach(listener => listener(...args));
@@ -72,9 +72,9 @@ export type ConflictResolutionStrategy =
  */
 export interface ConflictResolution {
   strategy: ConflictResolutionStrategy;
-  resolved: any;
-  localChanges: any;
-  remoteChanges: any;
+  resolved: unknown;
+  localChanges: unknown;
+  remoteChanges: unknown;
   conflicts: string[];
 }
 
@@ -239,7 +239,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
       }
     }
 
-    let resolved: any;
+    let resolved: unknown;
 
     switch (this.conflictResolutionStrategy) {
       case 'last_write_wins':
@@ -308,12 +308,12 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
    */
   private setupEventHandlers(): void {
     // Handle incoming SDUI updates
-    this.wsManager.on('sdui_update', (payload: any) => {
+    this.wsManager.on('sdui_update', (payload: unknown) => {
       this.handleIncomingUpdate(payload);
     });
 
     // Handle connection state changes
-    this.wsManager.on('state_change', (event: any) => {
+    this.wsManager.on('state_change', (event: unknown) => {
       this.emit('connection_state_change', event);
     });
 
@@ -326,7 +326,7 @@ export class RealtimeUpdateService extends BrowserEventEmitter {
   /**
    * Handle incoming update
    */
-  private async handleIncomingUpdate(payload: any): Promise<void> {
+  private async handleIncomingUpdate(payload: unknown): Promise<void> {
     const { workspaceId, update } = payload;
 
     logger.info('Received update', {

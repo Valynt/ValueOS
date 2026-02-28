@@ -29,8 +29,8 @@ interface PrefetchConfig {
 
 interface PrefetchCache {
   stage: WorkflowStage;
-  context: any;
-  result: any;
+  context: unknown;
+  result: unknown;
   timestamp: number;
 }
 
@@ -97,7 +97,7 @@ class AgentPrefetchService {
    */
   async prefetchNextStage(
     currentStage: WorkflowStage,
-    context: any
+    context: unknown
   ): Promise<void> {
     if (!this.config.enabled) {
       logger.debug('Prefetch disabled');
@@ -154,8 +154,8 @@ class AgentPrefetchService {
    */
   getPrefetchedResult(
     stage: WorkflowStage,
-    context: any
-  ): any | null {
+    context: unknown
+  ): unknown | null {
     const cacheKey = this.getCacheKey(stage, context);
     const cached = this.cache.get(cacheKey);
 
@@ -172,8 +172,8 @@ class AgentPrefetchService {
    */
   private async fetchStageData(
     stage: WorkflowStage,
-    context: any
-  ): Promise<any> {
+    context: unknown
+  ): Promise<unknown> {
     // This would call the appropriate agent based on stage
     // For now, we'll use a generic approach
     
@@ -192,7 +192,7 @@ class AgentPrefetchService {
   /**
    * Get prompt for stage
    */
-  private getStagePrompt(stage: WorkflowStage, context: any): string {
+  private getStagePrompt(stage: WorkflowStage, context: unknown): string {
     switch (stage) {
       case 'opportunity':
         return `Analyze opportunity for: ${context.company}`;
@@ -229,7 +229,7 @@ class AgentPrefetchService {
   /**
    * Generate cache key
    */
-  private getCacheKey(stage: WorkflowStage, context: any): string {
+  private getCacheKey(stage: WorkflowStage, context: unknown): string {
     // Simple hash of stage + context
     const contextStr = JSON.stringify(context);
     return `${stage}:${contextStr}`;

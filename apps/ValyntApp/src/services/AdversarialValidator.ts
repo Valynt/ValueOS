@@ -26,7 +26,7 @@ export interface AdversarialValidationRequest {
   agentType: string;
   confidence: number;
   reasoning: string[];
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   traceId: string;
 }
 
@@ -505,7 +505,7 @@ Respond with JSON format:
 }`;
   }
 
-  private buildConsistencyChallenge(response: SDUIPageDefinition, context: Record<string, any>): string {
+  private buildConsistencyChallenge(response: SDUIPageDefinition, context: Record<string, unknown>): string {
     return `You are an expert in logical consistency analysis.
 
 Analyze this SDUI response for consistency with the provided context:
@@ -553,7 +553,7 @@ Respond with JSON format:
   // Response Parsers
   // ============================================================================
 
-  private parseStructuralResponse(response: string): any {
+  private parseStructuralResponse(response: string): unknown {
     try {
       return JSON.parse(response);
     } catch (error) {
@@ -567,7 +567,7 @@ Respond with JSON format:
     }
   }
 
-  private parseReasoningResponse(response: string): any {
+  private parseReasoningResponse(response: string): unknown {
     try {
       return JSON.parse(response);
     } catch (error) {
@@ -580,7 +580,7 @@ Respond with JSON format:
     }
   }
 
-  private parseSourceResponse(response: string): any {
+  private parseSourceResponse(response: string): unknown {
     try {
       return JSON.parse(response);
     } catch (error) {
@@ -593,7 +593,7 @@ Respond with JSON format:
     }
   }
 
-  private parseConsistencyResponse(response: string): any {
+  private parseConsistencyResponse(response: string): unknown {
     try {
       return JSON.parse(response);
     } catch (error) {
@@ -607,7 +607,7 @@ Respond with JSON format:
     }
   }
 
-  private parseMetricResponse(response: string): any {
+  private parseMetricResponse(response: string): unknown {
     try {
       return JSON.parse(response);
     } catch (error) {

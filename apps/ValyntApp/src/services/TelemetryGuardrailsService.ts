@@ -11,7 +11,7 @@ export interface AgentSuggestionEvent {
   userId?: string;
   organizationId: string;
   timestamp: Date;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface SecurityEvent {
@@ -20,7 +20,7 @@ export interface SecurityEvent {
   agentId?: string;
   sessionId?: string;
   organizationId: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   timestamp: Date;
 }
 

@@ -36,7 +36,7 @@ export interface StorageConfig {
 export interface StorageOptions {
   compress?: boolean;
   encrypt?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   retentionDays?: number;
 }
 

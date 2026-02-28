@@ -31,7 +31,7 @@ export interface ConfidenceAlert {
   alertType: "low_confidence_spike" | "high_hallucination_rate" | "confidence_degradation";
   severity: "warning" | "critical";
   message: string;
-  metrics: Record<string, any>;
+  metrics: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -226,7 +226,7 @@ export class ConfidenceMonitor {
     agentType: string,
     predictionId: string,
     violationType: "low_confidence" | "hallucination" | "data_gaps",
-    details: Record<string, any>
+    details: Record<string, unknown>
   ): Promise<void> {
     try {
       await this.supabase.from("confidence_violations").insert({
@@ -248,7 +248,7 @@ export class ConfidenceMonitor {
     }
   }
 
-  private groupByAgentType(predictions: any[]): Record<string, any[]> {
+  private groupByAgentType(predictions: unknown[]): Record<string, any[]> {
     return predictions.reduce(
       (acc, pred) => {
         const type = pred.agent_type;
@@ -262,7 +262,7 @@ export class ConfidenceMonitor {
 
   private async analyzeAgentPredictions(
     agentType: string,
-    predictions: any[]
+    predictions: unknown[]
   ): Promise<ConfidenceAlert[]> {
     const alerts: ConfidenceAlert[] = [];
 

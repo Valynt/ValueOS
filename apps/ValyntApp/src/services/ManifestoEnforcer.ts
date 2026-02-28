@@ -22,7 +22,7 @@ export interface DetailedValidationResult {
   rule: ManifestoRule;
   validation: ValidationRule;
   passed: boolean;
-  artifact: any;
+  artifact: unknown;
   message: string;
 }
 
@@ -155,7 +155,7 @@ export class ManifestoEnforcer {
    * Validate artifact against all rules
    */
   private async validateArtifact(
-    artifact: any,
+    artifact: unknown,
     actionType: string
   ): Promise<DetailedValidationResult[]> {
     const results: DetailedValidationResult[] = [];
@@ -200,7 +200,7 @@ export class ManifestoEnforcer {
   /**
    * Check if rule applies to action type
    */
-  private ruleApplies(rule: ManifestoRule, actionType: string, artifact: any): boolean {
+  private ruleApplies(rule: ManifestoRule, actionType: string, artifact: unknown): boolean {
     // RULE_001: Applies to all actions with business outcomes
     if (rule.id === 'RULE_001') {
       return actionType === 'updateValueTree' || actionType === 'exportArtifact';
@@ -247,7 +247,7 @@ export class ManifestoEnforcer {
   /**
    * Extract artifact from action
    */
-  private extractArtifact(action: CanonicalAction): any | null {
+  private extractArtifact(action: CanonicalAction): unknown | null {
     switch (action.type) {
       case 'updateValueTree':
         return action.updates;

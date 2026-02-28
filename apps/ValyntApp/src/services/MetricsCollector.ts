@@ -461,7 +461,7 @@ export class MetricsCollector {
   /**
    * Helper: Group predictions by agent type
    */
-  private groupByAgentType(predictions: any[]): Record<string, any[]> {
+  private groupByAgentType(predictions: unknown[]): Record<string, any[]> {
     return predictions.reduce((acc, pred) => {
       const type = pred.agent_type;
       if (!acc[type]) acc[type] = [];
@@ -473,7 +473,7 @@ export class MetricsCollector {
   /**
    * Helper: Group predictions by type
    */
-  private groupByPredictionType(predictions: any[]): Record<string, any[]> {
+  private groupByPredictionType(predictions: unknown[]): Record<string, any[]> {
     return predictions.reduce((acc, pred) => {
       const type = pred.prediction_type;
       if (!acc[type]) acc[type] = [];

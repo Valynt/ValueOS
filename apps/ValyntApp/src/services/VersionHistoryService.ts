@@ -9,8 +9,8 @@ import { NotFoundError } from './errors';
 export interface SettingsVersion {
   id: string;
   settingKey: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   scope: 'user' | 'team' | 'organization';
   scopeId: string;
   changedBy: string;
@@ -26,8 +26,8 @@ export interface SettingsVersion {
 
 export interface VersionCreateInput {
   settingKey: string;
-  oldValue?: any;
-  newValue: any;
+  oldValue?: unknown;
+  newValue: unknown;
   scope: 'user' | 'team' | 'organization';
   scopeId: string;
   changedBy: string;
@@ -218,14 +218,14 @@ export class VersionHistoryService extends BaseService {
   ): Promise<{
     version1: SettingsVersion;
     version2: SettingsVersion;
-    differences: Array<{ field: string; value1: any; value2: any }>;
+    differences: Array<{ field: string; value1: unknown; value2: unknown }>;
   }> {
     const [version1, version2] = await Promise.all([
       this.getVersion(versionId1),
       this.getVersion(versionId2),
     ]);
 
-    const differences: Array<{ field: string; value1: any; value2: any }> = [];
+    const differences: Array<{ field: string; value1: unknown; value2: unknown }> = [];
 
     // Deep compare values
     const keys = new Set([
@@ -250,8 +250,8 @@ export class VersionHistoryService extends BaseService {
    */
   async getRollbackPreview(versionId: string): Promise<{
     version: SettingsVersion;
-    currentValue: any;
-    rollbackValue: any;
+    currentValue: unknown;
+    rollbackValue: unknown;
     affectedSettings: string[];
   }> {
     const version = await this.getVersion(versionId);
@@ -267,7 +267,7 @@ export class VersionHistoryService extends BaseService {
   /**
    * Map database record to SettingsVersion
    */
-  private mapVersion(data: any): SettingsVersion {
+  private mapVersion(data: unknown): SettingsVersion {
     return {
       id: data.id,
       settingKey: data.setting_key,

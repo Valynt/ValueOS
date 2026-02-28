@@ -193,7 +193,7 @@ export class AuditLogService extends BaseService {
   /**
    * Calculate cryptographic hash for integrity
    */
-  private async calculateHash(data: any): Promise<string> {
+  private async calculateHash(data: unknown): Promise<string> {
     const content = JSON.stringify(data);
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(content);

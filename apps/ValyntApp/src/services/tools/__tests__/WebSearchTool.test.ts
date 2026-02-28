@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('WebSearchTool', () => {
-  let mockLogger: any;
-  let mockContext: any;
+  let mockLogger: unknown;
+  let mockContext: unknown;
 
   beforeEach(() => {
     mockLogger = {

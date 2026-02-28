@@ -26,7 +26,7 @@ export class SelfImprovementService {
    * Analyzes historical variance to suggest model refinements.
    * Simulates Pillar 10: Self-Improvement Loops.
    */
-  public async getRefinementSuggestions(currentModel: any): Promise<RefinementSuggestion[]> {
+  public async getRefinementSuggestions(currentModel: unknown): Promise<RefinementSuggestion[]> {
     // Simulate AI analysis of past realization data vs current model
     return [
       {

@@ -8,8 +8,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('ValueFabricAPI', () => {
-  let mockRequest: any;
-  let mockResponse: any;
+  let mockRequest: unknown;
+  let mockResponse: unknown;
 
   beforeEach(() => {
     mockRequest = {

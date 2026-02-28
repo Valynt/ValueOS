@@ -29,7 +29,7 @@ export class IntegrationControlService {
 
       if (error || !data) return true; // Default to enabled if we can't check
 
-      const settings = data.settings as Record<string, any>;
+      const settings = data.settings as Record<string, unknown>;
       if (settings?.integrations?.enabled === false) {
         return false;
       }
@@ -58,7 +58,7 @@ export class IntegrationControlService {
       throw new Error(`Failed to fetch organization settings: ${fetchError.message}`);
     }
 
-    const currentSettings = (org.settings || {}) as Record<string, any>;
+    const currentSettings = (org.settings || {}) as Record<string, unknown>;
     const newSettings = {
       ...currentSettings,
       integrations: {
@@ -97,11 +97,11 @@ export class IntegrationControlService {
       .single();
 
     if (org?.settings) {
-      const settings = org.settings as Record<string, any>;
+      const settings = org.settings as Record<string, unknown>;
       let modified = false;
 
       // Recursive function to find and redact keys
-      const redactKeys = (obj: any): any => {
+      const redactKeys = (obj: unknown): unknown => {
         if (!obj || typeof obj !== 'object') return obj;
 
         for (const key in obj) {
@@ -165,7 +165,7 @@ export class IntegrationControlService {
                 try {
                     let parsed = JSON.parse(value);
 
-                    const redactKeys = (obj: any): any => {
+                    const redactKeys = (obj: unknown): unknown => {
                         if (!obj || typeof obj !== 'object') return obj;
                         for (const k in obj) {
                              const lowerK = k.toLowerCase();

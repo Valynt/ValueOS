@@ -413,7 +413,7 @@ export function createSecurityMiddleware(supabase: SupabaseClient): SecurityMidd
 // ============================================================================
 
 export function createAuthMiddleware(security: SecurityMiddleware) {
-  return async (req: any, res: any, next: any) => {
+  return async (req: unknown, res: unknown, next: unknown) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     const agentType = req.headers['x-agent-type'] as AgentType;
     const sessionId = req.headers['x-session-id'] as string;

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkflowCompensation } from '../../services/WorkflowCompensation';
 import { createBoltClientMock } from '../utils/mockSupabaseClient';
 
-let supabaseClient: any = createBoltClientMock();
+let supabaseClient: unknown = createBoltClientMock();
 vi.mock('../../lib/supabase', () => ({
   get supabase() {
     return supabaseClient;

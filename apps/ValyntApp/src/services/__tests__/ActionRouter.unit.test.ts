@@ -9,7 +9,7 @@ vi.mock('../../lib/rules', () => ({ enforceRules: vi.fn().mockResolvedValue({ al
 
 describe('ActionRouter', () => {
   it('routes runWorkflowStep action to orchestrator and returns success', async () => {
-    const orchestrator: any = { executeWorkflow: vi.fn().mockResolvedValue({ executionId: 'exec-1', status: 'initiated' }) };
+    const orchestrator: unknown = { executeWorkflow: vi.fn().mockResolvedValue({ executionId: 'exec-1', status: 'initiated' }) };
     const router = new ActionRouter(undefined, orchestrator as any, undefined as any, undefined as any);
 
     const action = { type: 'runWorkflowStep', workflowId: 'wf-1', stepId: 's1', input: { x: 1 } } as any;

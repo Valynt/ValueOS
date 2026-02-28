@@ -15,7 +15,7 @@ export interface DemoEvent {
   step_id?: string;
   step_number?: number;
   time_spent_seconds?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 

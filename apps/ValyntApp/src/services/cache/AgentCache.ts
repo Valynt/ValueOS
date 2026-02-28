@@ -20,7 +20,7 @@ export interface CacheEntry<T = any> {
   accessCount: number;
   lastAccessed: number;
   size: number; // bytes
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CacheStats {
@@ -59,7 +59,7 @@ export interface CacheOptions {
   ttl?: number;
   tags?: string[];
   priority?: "low" | "medium" | "high";
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -481,7 +481,7 @@ export class AgentCache extends EventEmitter {
     }
   }
 
-  private calculateSize(value: any): number {
+  private calculateSize(value: unknown): number {
     try {
       // Rough estimation of serialized size
       const serialized = JSON.stringify(value);

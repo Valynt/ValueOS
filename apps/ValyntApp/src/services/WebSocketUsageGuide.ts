@@ -10,9 +10,9 @@ import { robustConnectionManager } from './RobustConnectionManager';
 import { logger } from '../lib/logger';
 
 // Local helper types for the usage guide
-type WSMessage = { type?: string; payload?: any; strategy?: string; [key: string]: any };
+type WSMessage = { type?: string; payload?: unknown; strategy?: string; [key: string]: unknown };
 type StateChange = { from: string; to: string };
-type ConnectionHealth = { isHealthy: boolean; strategy?: string; details?: any; [key: string]: any };
+type ConnectionHealth = { isHealthy: boolean; strategy?: string; details?: unknown; [key: string]: unknown };
 
 /**
  * Basic WebSocket Manager Usage

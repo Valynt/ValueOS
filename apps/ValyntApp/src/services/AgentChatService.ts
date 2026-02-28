@@ -708,7 +708,7 @@ ${stagePrompt}`;
     query: string,
     response: string,
     confidence: number,
-    analysisData?: any // Phase 5: Capture structured data
+    analysisData?: unknown // Phase 5: Capture structured data
   ): WorkflowState {
     const nextState = { ...currentState };
 

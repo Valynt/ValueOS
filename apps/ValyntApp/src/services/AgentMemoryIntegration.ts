@@ -24,7 +24,7 @@ export interface MemoryEnhancedResponse<T = any> extends AgentResponse<T> {
   /** Episode ID if memory was stored */
   episodeId?: string;
   /** Retrieved similar episodes */
-  similarEpisodes?: any[];
+  similarEpisodes?: unknown[];
   /** Memory stats */
   memoryStats?: {
     episodesRetrieved: number;
@@ -66,7 +66,7 @@ export class AgentMemoryIntegration {
     const memoryLimit = request.memoryLimit || 5;
 
     try {
-      let similarEpisodes: any[] = [];
+      let similarEpisodes: unknown[] = [];
       let enhancedContext = { ...request.context };
 
       // Step 1: Retrieve similar episodes if memory enabled
@@ -171,9 +171,9 @@ export class AgentMemoryIntegration {
    * Enhance request context with memory
    */
   private enhanceContextWithMemory(
-    context: Record<string, any>,
-    similarEpisodes: any[]
-  ): Record<string, any> {
+    context: Record<string, unknown>,
+    similarEpisodes: unknown[]
+  ): Record<string, unknown> {
     const memoryContext = similarEpisodes.map((episode) => ({
       taskIntent: episode.task_intent,
       success: episode.success,
@@ -292,7 +292,7 @@ export class AgentMemoryIntegration {
 
       const episodes = data || [];
       const totalReward = episodes.reduce(
-        (sum: number, ep: any) => sum + (ep.reward_score || 0),
+        (sum: number, ep: unknown) => sum + (ep.reward_score || 0),
         0
       );
 

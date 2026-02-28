@@ -10,8 +10,8 @@ vi.mock('../PlaygroundAutoSave', () => {
 
 describe('PlaygroundWorkflowAdapter', () => {
   it('starts draft workflow and creates session', async () => {
-    const orchestrator: any = { executeWorkflow: vi.fn().mockResolvedValue('wf-exec-1') };
-    const sessionService: any = {
+    const orchestrator: unknown = { executeWorkflow: vi.fn().mockResolvedValue('wf-exec-1') };
+    const sessionService: unknown = {
       createSession: vi.fn().mockResolvedValue({ sessionId: 'session-1', metadata: { autoSaveInterval: 1000 } }),
       loadSession: vi.fn()
     };

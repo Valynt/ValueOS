@@ -3,7 +3,7 @@ import { CanvasComponent } from '../types';
 export interface BatchOperation {
   type: 'align' | 'distribute' | 'resize' | 'delete' | 'duplicate' | 'group';
   componentIds: string[];
-  params?: any;
+  params?: unknown;
 }
 
 export interface BatchResult {

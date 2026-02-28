@@ -44,10 +44,10 @@ export interface WebAuthnRegistrationOptions {
   challenge: string;
   rp: { name: string; id: string };
   user: { id: string; name: string; displayName: string };
-  pubKeyCredParams: any[];
+  pubKeyCredParams: unknown[];
   timeout: number;
   attestation: string;
-  authenticatorSelection: any;
+  authenticatorSelection: unknown;
 }
 
 // WebAuthn configuration
@@ -67,7 +67,7 @@ export class WebAuthnService extends BaseService {
     userId: string,
     userEmail: string,
     userName: string
-  ): Promise<any> {
+  ): Promise<unknown> {
     this.log("info", "Generating WebAuthn registration options", { userId });
 
     return this.executeRequest(
@@ -181,12 +181,12 @@ export class WebAuthnService extends BaseService {
   /**
    * Generate authentication options for login
    */
-  async generateAuthenticationOptions(userId?: string): Promise<any> {
+  async generateAuthenticationOptions(userId?: string): Promise<unknown> {
     this.log("info", "Generating WebAuthn authentication options", { userId });
 
     return this.executeRequest(
       async () => {
-        let allowCredentials: any[] = [];
+        let allowCredentials: unknown[] = [];
 
         // If userId provided, get their credentials
         if (userId) {

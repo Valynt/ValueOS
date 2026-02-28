@@ -69,7 +69,7 @@ import {
 
 export interface AgentResponse {
   type: "component" | "message" | "suggestion" | "sdui-page";
-  payload: any;
+  payload: unknown;
   streaming?: boolean;
   sduiPage?: SDUIPageDefinition;
   metadata?: IntegrityVetoMetadata;
@@ -735,7 +735,7 @@ export class UnifiedAgentOrchestrator {
   private buildExecutionRecord(
     workflowDefinitionId: string,
     workflowVersion: number,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     userId: string,
     traceId: string
   ): WorkflowExecutionRecord {
@@ -1058,7 +1058,7 @@ export class UnifiedAgentOrchestrator {
   async executeWorkflow(
     envelope: ExecutionEnvelope,
     workflowDefinitionId: string,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
     userId?: string
   ): Promise<WorkflowExecutionResult> {
     this.validateExecutionIntent(envelope);
@@ -1164,7 +1164,7 @@ export class UnifiedAgentOrchestrator {
    */
   async simulateWorkflow(
     workflowDefinitionId: string,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
     options?: {
       maxSteps?: number;
       stopOnFailure?: boolean;
@@ -1201,7 +1201,7 @@ export class UnifiedAgentOrchestrator {
     const similarEpisodes = await this.memorySystem.retrieveSimilarEpisodes(context, 5, orgId);
 
     // Simulate each stage
-    const stepsSimulated: any[] = [];
+    const stepsSimulated: unknown[] = [];
     let currentStageId = dag.initial_stage;
     let simulationContext = { ...context };
     let stepNumber = 0;
@@ -1292,10 +1292,10 @@ export class UnifiedAgentOrchestrator {
    */
   private async predictStageOutcome(
     stage: WorkflowStage,
-    context: Record<string, any>,
-    similarEpisodes: any[]
+    context: Record<string, unknown>,
+    similarEpisodes: unknown[]
   ): Promise<{
-    outcome: Record<string, any>;
+    outcome: Record<string, unknown>;
     confidence: number;
     estimatedDuration: number;
   }> {
@@ -1334,7 +1334,7 @@ Provide a JSON response with:
   private async executeDAGAsync(
     executionId: string,
     dag: WorkflowDAG,
-    initialContext: Record<string, any>,
+    initialContext: Record<string, unknown>,
     traceId: string,
     executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
@@ -1435,7 +1435,7 @@ Provide a JSON response with:
   private async executeDAGWithParallelExecution(
     executionId: string,
     dag: WorkflowDAG,
-    initialContext: Record<string, any>,
+    initialContext: Record<string, unknown>,
     traceId: string,
     executionRecord: WorkflowExecutionRecord,
     parallelGroups: Array<{ stages: string[]; dependencies: string[] }>
@@ -1580,7 +1580,7 @@ Provide a JSON response with:
   private async executeDAGSequentially(
     executionId: string,
     dag: WorkflowDAG,
-    initialContext: Record<string, any>,
+    initialContext: Record<string, unknown>,
     traceId: string,
     executionRecord: WorkflowExecutionRecord
   ): Promise<void> {
@@ -1749,10 +1749,10 @@ Provide a JSON response with:
   private async executeStageWithRetry(
     executionId: string,
     stage: WorkflowStage,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     route: StageRoute,
     traceId: string
-  ): Promise<{ status: "completed" | "failed"; output?: any; error?: string }> {
+  ): Promise<{ status: "completed" | "failed"; output?: unknown; error?: string }> {
     const circuitBreakerKey = `${executionId}-${stage.id}`;
     const retryConfig = {
       max_attempts: stage.retry_config?.max_attempts ?? this.config.maxRetryAttempts,
@@ -1788,7 +1788,7 @@ Provide a JSON response with:
     };
 
     const stageExecutionAgent: IAgent = {
-      execute: async (): Promise<RetryAgentResponse<Record<string, any>>> => {
+      execute: async (): Promise<RetryAgentResponse<Record<string, unknown>>> => {
         const result = await this.circuitBreakers.execute(
           circuitBreakerKey,
           () => this.executeStage(stage, context, route),
@@ -1876,9 +1876,9 @@ Provide a JSON response with:
    */
   private async executeStage(
     stage: WorkflowStage,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     route: StageRoute
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const agentType = stage.agent_type as AgentType;
     const agentContext: AgentContext = {
       userId: context.userId,
@@ -2054,7 +2054,7 @@ Provide a JSON response with:
   async planTask(
     intentType: string,
     description: string,
-    context: Record<string, any> = {}
+    context: Record<string, unknown> = {}
   ): Promise<TaskPlanResult> {
     if (!this.config.enableTaskPlanning) {
       throw new Error("Task planning is disabled");
@@ -2090,7 +2090,7 @@ Provide a JSON response with:
     taskId: string,
     intentType: string,
     description: string,
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): SubgoalDefinition[] {
     // Map intent types to subgoal sequences
     const subgoalPatterns: Record<
@@ -2362,7 +2362,7 @@ Provide a JSON response with:
     executionId: string,
     eventType: WorkflowEvent["event_type"] | "workflow_initiated",
     stageId: string | null,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): Promise<void> {
     const sequence = await this.getNextEventSequence(executionId);
     const { error } = await supabase.from("workflow_events").insert({
@@ -2384,7 +2384,7 @@ Provide a JSON response with:
   private async checkAutonomyGuardrails(
     executionId: string,
     stageId: string,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     startTime: number
   ): Promise<void> {
     const autonomy = getAutonomyConfig();
@@ -2445,7 +2445,7 @@ Provide a JSON response with:
     const maxIterations = stageAgentId ? agentMaxIterations[stageAgentId] : undefined;
     if (maxIterations !== undefined) {
       const executed = (context.executed_steps || []).filter(
-        (s: any) => s.agent_id === stageAgentId
+        (s: unknown) => s.agent_id === stageAgentId
       ).length;
       if (executed >= maxIterations) {
         await this.handleWorkflowFailure(
@@ -2475,7 +2475,7 @@ Provide a JSON response with:
     executionRecord: WorkflowExecutionRecord,
     startedAt: Date,
     completedAt: Date,
-    output?: Record<string, any>
+    output?: Record<string, unknown>
   ): Promise<void> {
     await supabase.from("workflow_stage_runs").insert({
       execution_id: executionId,
@@ -2501,7 +2501,7 @@ Provide a JSON response with:
     currentStage: string | null,
     executionRecord?: WorkflowExecutionRecord
   ): Promise<void> {
-    const update: any = {
+    const update: unknown = {
       status,
       current_stage: currentStage,
       updated_at: new Date().toISOString(),
@@ -2524,7 +2524,7 @@ Provide a JSON response with:
   /**
    * Get workflow execution status
    */
-  async getExecutionStatus(executionId: string): Promise<any> {
+  async getExecutionStatus(executionId: string): Promise<unknown> {
     const { data, error } = await supabase
       .from("workflow_executions")
       .select("*")

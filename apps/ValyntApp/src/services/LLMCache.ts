@@ -82,7 +82,7 @@ export class LLMCache {
   /**
    * Generate cache key from prompt and model
    */
-  private generateCacheKey(prompt: string, model: string, options?: any): string {
+  private generateCacheKey(prompt: string, model: string, options?: unknown): string {
     // Create a hash of the prompt + model + options
     const content = JSON.stringify({
       prompt: prompt.trim().toLowerCase(),
@@ -105,7 +105,7 @@ export class LLMCache {
   async get(
     prompt: string,
     model: string,
-    options?: any
+    options?: unknown
   ): Promise<LLMCacheEntry | null> {
     if (!this.config.enabled || !this.connected) {
       return null;
@@ -153,7 +153,7 @@ export class LLMCache {
       completionTokens: number;
       cost: number;
     },
-    options?: any
+    options?: unknown
   ): Promise<void> {
     if (!this.config.enabled || !this.connected) {
       return;
@@ -189,7 +189,7 @@ export class LLMCache {
   /**
    * Delete cached response
    */
-  async delete(prompt: string, model: string, options?: any): Promise<void> {
+  async delete(prompt: string, model: string, options?: unknown): Promise<void> {
     if (!this.config.enabled || !this.connected) {
       return;
     }
@@ -316,7 +316,7 @@ export class LLMCache {
       cost: number;
     },
     ttl: number,
-    options?: any
+    options?: unknown
   ): Promise<void> {
     if (!this.config.enabled || !this.connected) {
       return;

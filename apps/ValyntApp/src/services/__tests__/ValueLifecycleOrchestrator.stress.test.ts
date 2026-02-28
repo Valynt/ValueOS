@@ -3,7 +3,7 @@ import { ValueLifecycleOrchestrator } from "../src/services/ValueLifecycleOrches
 import { createBoltClientMock } from "../../../../tests/test/mocks/mockSupabaseClient";
 import { WorkflowCompensation } from "../WorkflowCompensation";
 
-let mockSupabase: any;
+let mockSupabase: unknown;
 // Top-level mock for supabase singleton used across modules
 vi.mock("../lib/supabase", () => ({
   get supabase() {
@@ -12,10 +12,10 @@ vi.mock("../lib/supabase", () => ({
 }));
 
 describe("ValueLifecycleOrchestrator - Zero-Trust Lineage Stress Test", () => {
-  let orchestrator: any;
-  let mockLLMGateway: any;
-  let mockMemorySystem: any;
-  let mockAuditLogger: any;
+  let orchestrator: unknown;
+  let mockLLMGateway: unknown;
+  let mockMemorySystem: unknown;
+  let mockAuditLogger: unknown;
 
   beforeEach(() => {
     mockSupabase = createBoltClientMock();
@@ -46,7 +46,7 @@ describe("ValueLifecycleOrchestrator - Zero-Trust Lineage Stress Test", () => {
     };
 
     // Opportunity agent: stores tenant-scoped memory and succeeds
-    const opportunityExecute = vi.fn().mockImplementation(async (sessionId: string, input: any) => {
+    const opportunityExecute = vi.fn().mockImplementation(async (sessionId: string, input: unknown) => {
       await mockMemorySystem.storeSemanticMemory(
         sessionId,
         "opportunity-agent",

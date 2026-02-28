@@ -43,7 +43,7 @@ export class CanvasService {
       const nodes: CanvasNode[] = [];
       const edges: CanvasEdge[] = [];
 
-      (elements || []).forEach((el: any) => {
+      (elements || []).forEach((el: unknown) => {
         if (el.element_type === "connector") {
           // It's an edge
           const content = el.content || {};

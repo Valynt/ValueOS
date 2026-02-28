@@ -18,8 +18,8 @@ vi.mock('../../lib/supabase', () => {
         if (table === 'workflow_definitions') {
           return {
             select: () => ({
-              eq: (_k: string, _v: any) => ({
-                eq: (_k2: string, _v2: any) => ({
+              eq: (_k: string, _v: unknown) => ({
+                eq: (_k2: string, _v2: unknown) => ({
                   maybeSingle: async () => ({ data: null, error: null }),
                 }),
               }),
@@ -29,7 +29,7 @@ vi.mock('../../lib/supabase', () => {
 
         if (table === 'workflow_executions') {
           return {
-            insert: (_payload: any) => ({
+            insert: (_payload: unknown) => ({
               select: () => ({ single: async () => ({ data: { id: 'exec-1' }, error: null }) }),
             }),
           };
@@ -77,8 +77,8 @@ describe('UnifiedAgentOrchestrator.executeWorkflow', () => {
       if (table === 'workflow_definitions') {
         return {
           select: () => ({
-            eq: (_k: string, _v: any) => ({
-              eq: (_k2: string, _v2: any) => ({
+            eq: (_k: string, _v: unknown) => ({
+              eq: (_k2: string, _v2: unknown) => ({
                 maybeSingle: async () => ({ data: mockDef, error: null }),
               }),
             }),
@@ -88,7 +88,7 @@ describe('UnifiedAgentOrchestrator.executeWorkflow', () => {
 
       if (table === 'workflow_executions') {
         return {
-          insert: (_payload: any) => ({
+          insert: (_payload: unknown) => ({
             select: () => ({ single: async () => ({ data: { id: 'exec-42' }, error: null }) }),
           }),
         };

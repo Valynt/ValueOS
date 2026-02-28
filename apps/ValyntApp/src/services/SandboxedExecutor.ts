@@ -20,7 +20,7 @@ export interface SandboxConfig {
 
 export interface ExecutionResult {
   success: boolean;
-  output?: any;
+  output?: unknown;
   stdout?: string;
   stderr?: string;
   error?: string;

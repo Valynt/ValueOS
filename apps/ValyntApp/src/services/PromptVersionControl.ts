@@ -39,7 +39,7 @@ export interface PromptExecution {
   id: string;
   promptVersionId: string;
   userId: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   renderedPrompt: string;
   response: string;
   latency: number;
@@ -230,7 +230,7 @@ export class PromptVersionControlService {
   /**
    * Render prompt with variables
    */
-  renderPrompt(template: string, variables: Record<string, any>): string {
+  renderPrompt(template: string, variables: Record<string, unknown>): string {
     let rendered = template;
 
     for (const [key, value] of Object.entries(variables)) {
@@ -254,7 +254,7 @@ export class PromptVersionControlService {
    */
   async executePrompt(
     promptKey: string,
-    variables: Record<string, any>,
+    variables: Record<string, unknown>,
     userId: string,
     options?: {
       version?: number;

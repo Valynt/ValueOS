@@ -63,7 +63,7 @@ export interface AgentContext {
   /**
    * Additional context data
    */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -88,7 +88,7 @@ export interface AgentConfig {
   /**
    * Configuration parameters
    */
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 
   /**
    * Enable MARL capabilities

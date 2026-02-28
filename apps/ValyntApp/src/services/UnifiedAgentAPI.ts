@@ -52,9 +52,9 @@ export interface UnifiedAgentRequest {
   /** Tenant ID for multi-tenant isolation */
   tenantId?: string;
   /** Additional context */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   /** Request parameters */
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
   /** Groundtruth integration options */
   groundtruth?: GroundtruthInvocationOptions;
   /** Trace ID for observability */
@@ -84,7 +84,7 @@ export interface UnifiedAgentResponse<T = any> {
   /** Response type */
   type?: "component" | "message" | "suggestion" | "sdui-page";
   /** Response payload */
-  payload?: any;
+  payload?: unknown;
   /** Status (for workflow) */
   status?: string;
   /** Response metadata */
@@ -426,7 +426,7 @@ export class UnifiedAgentAPI {
   async callAgent(
     agent: AgentType,
     query: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<UnifiedAgentResponse> {
     return this.invoke({
       agent,
@@ -441,7 +441,7 @@ export class UnifiedAgentAPI {
   async generateSDUIPage(
     agent: AgentType,
     query: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<UnifiedAgentResponse<SDUIPageDefinition>> {
     const response = await this.invoke<SDUIPageDefinition>({
       agent,
@@ -670,7 +670,7 @@ export class UnifiedAgentAPI {
     await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500));
 
     // Generate mock response based on agent type
-    const mockResponses: Record<string, any> = {
+    const mockResponses: Record<string, unknown> = {
       opportunity: {
         painPoints: ["Inefficient manual processes", "High operational costs"],
         recommendations: ["Automation", "Process optimization"],

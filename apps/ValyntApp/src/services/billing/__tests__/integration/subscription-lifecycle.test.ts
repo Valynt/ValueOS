@@ -27,7 +27,7 @@ vi.mock("../../StripeService", () => ({
   default: {
     getInstance: vi.fn(() => ({
       getClient: () => createMockStripeClient(),
-      handleError: (error: any) => {
+      handleError: (error: unknown) => {
         throw error;
       },
     })),

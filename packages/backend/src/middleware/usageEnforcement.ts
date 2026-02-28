@@ -32,8 +32,8 @@ interface UsageEnforcementOptions {
 export function usageEnforcementMiddleware(options: UsageEnforcementOptions) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const tenantId = (req as any).tenantId;
-      const userId = (req as any).userId;
+      const tenantId = req.tenantId;
+      const userId = req.userId;
 
       if (!tenantId) {
         logger.warn('No tenant ID in request', { path: req.path });
@@ -73,7 +73,7 @@ export function usageEnforcementMiddleware(options: UsageEnforcementOptions) {
       }
 
       // Add usage context to request for tracking
-      (req as any).usageContext = {
+      req.usageContext = {
         tenantId,
         userId,
         metric,
@@ -92,7 +92,7 @@ export function usageEnforcementMiddleware(options: UsageEnforcementOptions) {
     } catch (error) {
       logger.error('Error in usage enforcement middleware', error as Error, {
         path: req.path,
-        tenantId: (req as any).tenantId
+        tenantId: req.tenantId
       });
 
       // On error, allow request to proceed (fail open)
@@ -108,7 +108,7 @@ export function usageRecordingMiddleware(options: UsageEnforcementOptions) {
   return async (req: Request, res: Response, next: NextFunction) => {
     // Store original end function
     const originalEnd = res.end;
-    const usageContext = (req as any).usageContext;
+const usageContext = req.usageContext;
 
     if (!usageContext) {
       return next();

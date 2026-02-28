@@ -38,7 +38,7 @@ export interface TenantConfig {
   tier: TenantTier;
   ownerId: string;
   ownerEmail: string;
-  settings?: Record<string, any>;
+  settings?: Record<string, unknown>;
   features?: string[];
   limits?: TenantLimits;
 }

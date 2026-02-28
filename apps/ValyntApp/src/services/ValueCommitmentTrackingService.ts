@@ -680,8 +680,8 @@ export class ValueCommitmentTrackingService {
     commitmentId: string,
     userId: string,
     action: CommitmentAudit["action"],
-    previousValues: Record<string, any>,
-    newValues: Record<string, any>,
+    previousValues: Record<string, unknown>,
+    newValues: Record<string, unknown>,
     reason: string
   ): Promise<void> {
     try {

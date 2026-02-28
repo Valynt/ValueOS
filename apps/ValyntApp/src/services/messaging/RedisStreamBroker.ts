@@ -51,7 +51,7 @@ export class RedisStreamBroker {
     try {
       await this.redis.xgroup('CREATE', this.streamName, this.groupName, '$', 'MKSTREAM');
       this.log.info('Created consumer group', { stream: this.streamName, group: this.groupName });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error?.message?.includes('BUSYGROUP')) {
         this.log.debug('Consumer group already exists', { stream: this.streamName, group: this.groupName });
       } else {
@@ -156,7 +156,7 @@ export class RedisStreamBroker {
     eventName: EventName;
     attempt: number;
     error: Error;
-    payload: any;
+    payload: unknown;
   }): Promise<void> {
     const { id, eventName, attempt, error, payload } = params;
     const nextAttempt = attempt + 1;

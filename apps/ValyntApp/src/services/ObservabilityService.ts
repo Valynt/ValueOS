@@ -21,7 +21,7 @@ export class ObservabilityService {
   /**
    * Logs critical agentic and financial failures.
    */
-  public logAlert(level: "warn" | "critical", message: string, metadata: any) {
+  public logAlert(level: "warn" | "critical", message: string, metadata: unknown) {
     console.error(`[ALERT][${level.toUpperCase()}] ${message}`, {
       ...metadata,
       timestamp: new Date().toISOString(),
@@ -41,7 +41,7 @@ export class ObservabilityService {
   /**
    * Monitors for "Silent Failures" in financial reasoning.
    */
-  public verifyVMRTIntegrity(log: any): boolean {
+  public verifyVMRTIntegrity(log: unknown): boolean {
     const isValid = log.hash && log.validatedValue !== undefined;
     if (!isValid) {
       this.logAlert("critical", "VMRT Integrity Violation Detected", {

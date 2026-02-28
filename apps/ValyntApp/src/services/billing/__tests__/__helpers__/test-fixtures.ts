@@ -19,7 +19,7 @@ export function setupMockStripe() {
   // Mock the StripeService using spyOn instead of vi.mock to avoid hoisting issues
   vi.spyOn(StripeService, 'getInstance').mockReturnValue({
     getClient: () => mockClient,
-    handleError: (error: any, context: string) => {
+    handleError: (error: unknown, context: string) => {
       throw error;
     },
     generateIdempotencyKey: (prefix: string, uniqueId: string) =>
@@ -109,7 +109,7 @@ export const assertions = {
   /**
    * Assert object has required fields
    */
-  hasRequiredFields<T extends Record<string, any>>(
+  hasRequiredFields<T extends Record<string, unknown>>(
     obj: T,
     requiredFields: (keyof T)[]
   ): void {
@@ -200,7 +200,7 @@ export async function retryOperation<T>(
   maxRetries: number = 3,
   delayMs: number = 100
 ): Promise<T> {
-  let lastError: any;
+  let lastError: unknown;
 
   for (let i = 0; i < maxRetries; i++) {
     try {

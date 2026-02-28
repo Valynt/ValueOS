@@ -11,8 +11,8 @@ import { ExternalCircuitBreaker } from './ExternalCircuitBreaker';
 
 // MCP Server type (dynamic import to avoid circular deps)
 interface MCPServer {
-  executeTool(toolName: string, args: Record<string, any>): Promise<{
-    content: Array<{ type: string; text?: string; resource?: any }>;
+  executeTool(toolName: string, args: Record<string, unknown>): Promise<{
+    content: Array<{ type: string; text?: string; resource?: unknown }>;
     isError?: boolean;
   }>;
 }
@@ -110,7 +110,7 @@ class MCPGroundTruthService {
   /**
    * Parse MCP tool result (content contains JSON string)
    */
-  private parseToolResult(result: { content: Array<{ text?: string }>; isError?: boolean }): any {
+  private parseToolResult(result: { content: Array<{ text?: string }>; isError?: boolean }): unknown {
     if (result.isError) return null;
     const textContent = result.content.find(c => c.text);
     if (!textContent?.text) return null;
@@ -199,7 +199,7 @@ class MCPGroundTruthService {
     operation: 'financialsMcp' | 'verifyMcp' | 'benchmarksMcp',
     toolName: string,
     args: Record<string, unknown>,
-    transform: (data: any) => T | null
+    transform: (data: unknown) => T | null
   ): Promise<T | null> {
     if (!this.server) {
       logger.warn('MCP server not available, returning null', { operation, toolName });
@@ -420,7 +420,7 @@ Use these verified figures in your analysis. Do not hallucinate different number
   // Private Helpers
   // ============================================================================
 
-  private transformResult(data: any, request: FinancialDataRequest): FinancialDataResult {
+  private transformResult(data: unknown, request: FinancialDataRequest): FinancialDataResult {
     return {
       entityName: data.entity_name || request.entityId,
       entityId: request.entityId,

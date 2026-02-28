@@ -23,7 +23,7 @@ import { AgentIdentity } from "../lib/auth/AgentIdentity";
 export interface AgentMessageRequest {
   fromAgentId: string;
   toAgentId: string;
-  payload: any;
+  payload: unknown;
   priority?: MessagePriority;
   encrypted?: boolean;
   correlationId?: string;
@@ -33,7 +33,7 @@ export interface AgentMessageRequest {
 export interface AgentMessageResponse {
   success: boolean;
   message?: SecureMessage;
-  response?: any;
+  response?: unknown;
   error?: string;
   deliveryTime: number;
 }
@@ -188,7 +188,7 @@ export class AgentMessageBroker {
   async sendToAgent<T = any>(
     fromAgentId: string,
     toAgentId: string,
-    payload: any,
+    payload: unknown,
     options: {
       priority?: MessagePriority;
       encrypted?: boolean;
