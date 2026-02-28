@@ -28,6 +28,7 @@ export type { AgentType } from '../services/agent-types.js';
 
 export type LifecycleStage =
   | 'opportunity'
+  | 'modeling'
   | 'target'
   | 'realization'
   | 'expansion'

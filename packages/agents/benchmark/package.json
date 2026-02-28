@@ -1,5 +1,6 @@
 {
   "name": "@valueos/benchmark-agent",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Benchmarking and performance comparison agent for ValueOS",
   "type": "module",

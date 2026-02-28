@@ -1,5 +1,6 @@
 {
   "name": "@valueos/groundtruth-agent",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Fact verification and truth validation agent for ValueOS",
   "type": "module",

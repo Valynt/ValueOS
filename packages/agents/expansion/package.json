@@ -1,5 +1,6 @@
 {
   "name": "@valueos/expansion-agent",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Expansion and growth analysis agent for ValueOS",
   "type": "module",

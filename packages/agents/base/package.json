@@ -1,5 +1,6 @@
 {
   "name": "@valueos/agent-base",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Shared base utilities and runtime for ValueOS agents",
   "type": "module",

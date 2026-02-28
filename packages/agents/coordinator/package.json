@@ -1,5 +1,6 @@
 {
   "name": "@valueos/coordinator-agent",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Agent coordination and workflow management agent for ValueOS",
   "type": "module",

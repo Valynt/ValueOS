@@ -1,5 +1,6 @@
 {
   "name": "@valueos/financial-modeling-agent",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Financial modeling and analysis agent for ValueOS",
   "type": "module",
