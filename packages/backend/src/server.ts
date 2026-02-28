@@ -53,6 +53,7 @@ import llmRouter from "./api/llm.js";
 import onboardingRouter from "./api/onboarding.js";
 import projectsRouter from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
+import { usageRouter } from "./api/usage.js";
 import securityMonitoringRouter from "./api/securityMonitoring.js";
 import teamsRouter from "./api/teams.js";
 import workflowRouter from "./api/workflow.js";
@@ -65,13 +66,14 @@ import {
   secretVolumeWatcher,
 } from "./config/secrets/SecretVolumeWatcher";
 import { validateEnvOrThrow } from "./config/validateEnv.js";
+import { getConfig } from "./config/environment.js";
 import docsApiRouter from "./docs-api/index.js";
 import { getUnifiedOrchestrator } from "./services/UnifiedAgentOrchestrator.js";
 import { initCrmWorkers } from "./workers/crmWorker.js";
 import { initResearchWorker } from "./workers/researchWorker.js";
 const initializeContext = async () => {};
 import { createVersionedApiRouter } from "./versioning.js";
-import { registerDevRoutes } from "./routes/devRoutes.js";
+import { assertDevRoutesConfiguration, registerDevRoutes } from "./routes/devRoutes.js";
 import { getAgentPolicyService } from './services/policy/AgentPolicyService.js';
 import { getBroadcastAdapter, initBroadcastAdapter } from "./services/WebSocketBroadcastAdapter.js";
 
@@ -410,6 +412,7 @@ app.use(
 );
 app.use("/api/docs", docsApiRouter);
 app.use("/api/referrals", referralsRouter);
+app.use("/api/usage", usageRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/dsr", dsrRouter);
 app.use("/api/teams", teamsRouter);
@@ -438,8 +441,31 @@ app.use(notFoundHandler);
 // Global error handler (must be last)
 app.use(globalErrorHandler);
 
+function validateProductionMfaStartup(): void {
+  if (settings.NODE_ENV !== "production") {
+    return;
+  }
+
+  const mfaOverrideEnabled = process.env.MFA_PRODUCTION_OVERRIDE === "true";
+  const { auth } = getConfig();
+
+  if (!auth.mfaEnabled && !mfaOverrideEnabled) {
+    throw new Error(
+      "Refusing production startup: MFA is not enabled. Set MFA_ENABLED=true or set MFA_PRODUCTION_OVERRIDE=true only for emergency recovery."
+    );
+  }
+
+  if (!auth.mfaEnabled && mfaOverrideEnabled) {
+    logger.warn(
+      "Production startup override in use: MFA is disabled because MFA_PRODUCTION_OVERRIDE=true. This should only be used for emergency recovery."
+    );
+  }
+}
+
 async function startServer(): Promise<void> {
   logger.info("[Instrumentation] Starting backend server initialization");
+
+  assertDevRoutesConfiguration();
 
   // 0. Setup global error handlers for unhandled rejections/exceptions
   logger.info("[Instrumentation] Setting up global error handlers");
@@ -459,6 +485,7 @@ async function startServer(): Promise<void> {
 
   // 2. Validate production requirements
   logger.info("[Instrumentation] Validating production requirements");
+  validateProductionMfaStartup();
   if (settings.NODE_ENV === "production" && !isConsentRegistryConfigured()) {
     throw new Error(
       "Consent registry is not configured. Verify consent registry Supabase URL and authentication configuration."

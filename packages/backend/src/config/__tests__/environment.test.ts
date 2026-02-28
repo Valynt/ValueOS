@@ -162,6 +162,23 @@ describe('Environment Configuration', () => {
     });
   });
 
+
+  describe('MFA configuration', () => {
+    it('enables MFA when MFA_ENABLED=true', () => {
+      process.env.MFA_ENABLED = 'true';
+      const config = getConfig();
+
+      expect(config.auth.mfaEnabled).toBe(true);
+    });
+
+    it('defaults MFA to disabled when MFA_ENABLED is not explicitly true', () => {
+      delete process.env.MFA_ENABLED;
+      const config = getConfig();
+
+      expect(config.auth.mfaEnabled).toBe(false);
+    });
+  });
+
   describe('resetConfig', () => {
     it('should reset configuration', () => {
       const config1 = getConfig();

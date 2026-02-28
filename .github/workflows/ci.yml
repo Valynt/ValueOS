@@ -74,6 +74,9 @@ jobs:
       - name: Guard browser provider secrets
         run: pnpm check:browser-provider-secrets
 
+      - name: Guard frontend bundle service-role identifiers
+        run: pnpm check:frontend-bundle-service-role
+
       - name: Check service duplicate filenames
         run: pnpm check:service-duplicates
 
@@ -97,6 +100,9 @@ jobs:
 
       - name: Compose drift guard
         run: node scripts/ci/check-compose-drift.mjs
+
+      - name: Compose DB binding guard
+        run: node scripts/ci/check-compose-db-bindings.mjs
 
       - name: Env/port drift guard
         run: node scripts/ci/check-env-port-drift.mjs

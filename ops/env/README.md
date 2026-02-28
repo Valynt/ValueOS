@@ -3,7 +3,7 @@
 ## Canonical precedence (highest -> lowest)
 1. Shell environment (exported variables in your terminal / CI runner)
 2. Mode env file (`ops/env/.env.<mode>`)
-3. Repo defaults embedded in scripts/compose
+3. Secure defaults from committed templates (for example `ops/env/.env.local.example`) copied into your local mode env file
 
 ## Canonical mode files
 - `local` -> `ops/env/.env.local`
@@ -20,7 +20,7 @@ Start from `ops/env/.env.local.example` and copy to the mode file you run.
 - Canonical invocation uses:
   - `--env-file ops/env/.env.local` (or other mode file)
   - `--env-file ops/env/.env.ports` (generated ports)
-- `ops/compose/compose.yml` services also include `env_file: ../../ops/env/.env.local` for deterministic local defaults.
+- Compose services fail fast for required secrets (for example `DATABASE_URL`) using `${VAR:?...}` syntax; do not rely on inline fallback credentials in compose files.
 
 ### Frontend (Vite)
 - Humans set canonical names only (for example `API_BASE_URL`).
@@ -45,12 +45,12 @@ Start from `ops/env/.env.local.example` and copy to the mode file you run.
 
 ### `local`
 - Required: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- Required DB target: `DATABASE_URL` OR all `PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD`
+- Required DB target: `DATABASE_URL` (set in your mode env file).
 - `REDIS_URL` / `NATS_URL` optional.
 
 ### `cloud-dev`
 - Required: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF`
-- Required DB target: `DATABASE_URL` OR all PG atomics.
+- Required DB target: `DATABASE_URL` (set in your mode env file).
 
 ### `test`
 - Required: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`

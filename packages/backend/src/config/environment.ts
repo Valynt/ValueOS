@@ -4,16 +4,24 @@
 
 import { parseCorsAllowlist } from "@shared/config/cors";
 
+// Re-exports from shared utility
 export { getEnvironment, isProduction, isDevelopment, isTest } from "@shared/config/environment";
 
+/**
+ * Types and Interfaces
+ */
 export type AppEnvironment = "development" | "staging" | "production" | "test";
 export type LogLevel = "debug" | "info" | "warn" | "error";
+
 export interface EnvironmentConfig {
   environment: AppEnvironment;
   logLevel: LogLevel;
   [key: string]: unknown;
 }
 
+/**
+ * Standard I/O Helpers
+ */
 export function writeStderr(msg: string): void {
   process.stderr.write(msg + "\n");
 }
@@ -22,11 +30,19 @@ export function writeStdout(msg: string): void {
   process.stdout.write(msg + "\n");
 }
 
+/**
+ * Feature Flag Helper
+ * Converts environment variables to booleans following the FEATURE_ prefix convention.
+ */
 export function isFeatureEnabled(feature: string): boolean {
   // Simple implementation - can be enhanced with actual feature flags
   return process.env[`FEATURE_${feature.toUpperCase()}`] === "true";
 }
 
+/**
+ * Main Configuration Factory
+ * Aggregates environment variables into a structured, type-safe object.
+ */
 export function getConfig() {
   const corsOrigins = parseCorsAllowlist(process.env.CORS_ORIGINS, {
     source: "CORS_ORIGINS",
@@ -34,8 +50,10 @@ export function getConfig() {
     requireNonEmpty: true,
   });
 
+  const mfaEnabled = process.env.MFA_ENABLED === "true";
+
   return {
-    auth: { mfaEnabled: process.env.MFA_ENABLED === 'true' },
+    auth: { mfaEnabled },
     features: {
       billing: false,
       usageTracking: false,
@@ -77,3 +95,6 @@ export function getConfig() {
     },
   };
 }
+
+// Export a inferred type for the configuration object
+export type AppConfig = ReturnType<typeof getConfig>;
