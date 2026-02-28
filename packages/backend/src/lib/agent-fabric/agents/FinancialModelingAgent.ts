@@ -1,19 +1,32 @@
 /**
  * FinancialModelingAgent
  *
- * Sits in the DRAFTING phase after TargetAgent. Retrieves KPI targets and
- * financial model inputs from memory, uses the LLM to build a Value Tree
- * with ROI projections, and validates all monetary calculations through
- * decimal.js to avoid floating-point drift.
+ * Authority Level 4 agent in the MODELING phase. Takes confirmed hypotheses
+ * from OpportunityAgent and builds financial models (ROI, NPV, IRR, payback,
+ * sensitivity) using the economic kernel's decimal.js-backed math.
  *
- * Output includes a Value Tree (JSON), sensitivity analysis, ROI summary,
- * and SDUI sections (ValueTreeCard + KPIForm).
+ * The LLM structures the financial assumptions and cash flow projections;
+ * the economic kernel computes the precise results. This separation ensures
+ * financial calculations are deterministic and auditable while the LLM
+ * handles domain reasoning.
+ *
+ * Output is stored in memory for TargetAgent to consume when setting KPI
+ * targets, and for IntegrityAgent to validate.
  */
 
-import Decimal from 'decimal.js';
 import { BaseAgent } from './BaseAgent.js';
 import { z } from 'zod';
+import Decimal from 'decimal.js';
 import { logger } from '../../logger.js';
+import {
+  calculateNPV,
+  calculateIRR,
+  calculatePayback,
+  calculateROI,
+  sensitivityAnalysis,
+  toDecimalArray,
+  roundTo,
+} from '../../../domain/economic-kernel/economic_kernel.js';
 import type {
   AgentOutput,
   AgentOutputMetadata,
@@ -21,93 +34,77 @@ import type {
   LifecycleContext,
 } from '../../../types/agent.js';
 
-// Configure decimal.js for financial precision (matches economic kernel)
-Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
-
 // ---------------------------------------------------------------------------
 // Zod schemas for LLM output validation
 // ---------------------------------------------------------------------------
 
-interface ValueTreeNode {
-  id: string;
-  label: string;
-  type: 'root' | 'category' | 'driver' | 'metric';
-  value?: number;
-  unit?: 'usd' | 'percent' | 'hours' | 'headcount' | 'ratio';
-  time_basis?: 'monthly' | 'quarterly' | 'annual' | 'one-time';
-  confidence: number;
-  assumptions: string[];
-  citations: string[];
-  children: ValueTreeNode[];
-}
-
-// Recursive schema — define the base shape first, then wire up the lazy ref.
-const baseNodeShape = {
-  id: z.string().min(1),
-  label: z.string().min(1),
-  type: z.enum(['root', 'category', 'driver', 'metric']),
-  /** Raw numeric value from LLM — will be re-validated with decimal.js */
-  value: z.number().optional(),
-  unit: z.enum(['usd', 'percent', 'hours', 'headcount', 'ratio']).optional(),
-  time_basis: z.enum(['monthly', 'quarterly', 'annual', 'one-time']).optional(),
-  confidence: z.number().min(0).max(1),
-  assumptions: z.array(z.string()).default([]),
-  citations: z.array(z.string()).default([]),
-} as const;
-
-const ValueTreeNodeSchema: z.ZodType<ValueTreeNode> = z.lazy(() =>
-  z.object({
-    ...baseNodeShape,
-    children: z.array(ValueTreeNodeSchema).default([]),
-  }),
-) as z.ZodType<ValueTreeNode>;
-
-const SensitivityVariableSchema = z.object({
-  name: z.string(),
-  base_value: z.number(),
-  low_value: z.number(),
-  high_value: z.number(),
-  unit: z.string(),
-  impact_on_total: z.object({
-    at_low: z.number(),
-    at_high: z.number(),
-  }),
-});
-
-const ROISummarySchema = z.object({
-  total_value: z.number(),
-  total_cost: z.number(),
-  net_value: z.number(),
-  roi_percent: z.number(),
-  payback_months: z.number().int().positive(),
-  confidence: z.number().min(0).max(1),
+const CashFlowProjectionSchema = z.object({
+  hypothesis_id: z.string(),
+  hypothesis_description: z.string(),
+  category: z.enum([
+    'cost_reduction',
+    'revenue_growth',
+    'risk_mitigation',
+    'efficiency',
+    'productivity',
+  ]),
+  assumptions: z.array(z.string()).min(1),
+  /** Period 0 = initial investment (negative), periods 1..n = projected returns */
+  cash_flows: z.array(z.number()).min(2),
   currency: z.string().default('USD'),
+  period_type: z.enum(['monthly', 'quarterly', 'annual']).default('annual'),
+  discount_rate: z.number().min(0).max(1),
+  total_investment: z.number(),
+  total_benefit: z.number(),
+  confidence: z.number().min(0).max(1),
+  risk_factors: z.array(z.string()),
+  data_sources: z.array(z.string()),
 });
 
-const FinancialAnalysisSchema = z.object({
-  value_tree: z.array(ValueTreeNodeSchema).min(1),
-  roi_summary: ROISummarySchema,
-  sensitivity_variables: z.array(SensitivityVariableSchema).min(1),
-  key_assumptions: z.array(z.string()).min(1),
-  methodology_notes: z.string(),
+const FinancialModelingOutputSchema = z.object({
+  projections: z.array(CashFlowProjectionSchema).min(1),
+  portfolio_summary: z.string(),
+  key_assumptions: z.array(z.string()),
+  sensitivity_parameters: z.array(z.object({
+    name: z.string(),
+    base_value: z.number(),
+    perturbations: z.array(z.number()).min(2),
+  })).optional(),
+  recommended_next_steps: z.array(z.string()),
 });
 
-type FinancialAnalysis = z.infer<typeof FinancialAnalysisSchema>;
+type FinancialModelingOutput = z.infer<typeof FinancialModelingOutputSchema>;
 
 // ---------------------------------------------------------------------------
-// Decimal-validated output types
+// Computed financial model (after economic kernel processing)
 // ---------------------------------------------------------------------------
 
-interface ValidatedROI {
-  total_value: string;
-  total_cost: string;
-  net_value: string;
-  roi_percent: string;
-  payback_months: number;
-  confidence: number;
+interface ComputedModel {
+  hypothesis_id: string;
+  hypothesis_description: string;
+  category: string;
+  assumptions: string[];
+  cash_flows: number[];
   currency: string;
-  /** True when net_value === total_value - total_cost within tolerance */
-  arithmetic_verified: boolean;
+  period_type: string;
+  discount_rate: number;
+  total_investment: number;
+  total_benefit: number;
+  confidence: number;
+  risk_factors: string[];
+  data_sources: string[];
+  // Computed by economic kernel with decimal.js precision
+  roi: number;
+  npv: number;
+  irr: number | null;
+  irr_converged: boolean;
+  payback_period: number | null;
+  payback_fractional: number | null;
+  sensitivity: Array<{
+    parameter: string;
+    base_npv: number;
+    points: Array<{ multiplier: number; npv: number }>;
+  }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,73 +119,59 @@ export class FinancialModelingAgent extends BaseAgent {
       throw new Error('Invalid input context');
     }
 
-    // Step 1: Retrieve financial model inputs from TargetAgent via memory
-    const modelInputs = await this.retrieveModelInputs(context);
-    if (modelInputs.length === 0) {
+    // Step 1: Retrieve hypotheses from OpportunityAgent memory
+    const hypotheses = await this.retrieveHypotheses(context);
+
+    if (hypotheses.length === 0) {
       return this.buildOutput(
-        { error: 'No financial model inputs found in memory. Run TargetAgent first.' },
-        'failure',
-        'low',
-        startTime,
+        { error: 'No hypotheses found in memory. Run OpportunityAgent first.' },
+        'failure', 'low', startTime,
       );
     }
 
-    // Step 2: Generate Value Tree and ROI via LLM
-    const query = context.user_inputs?.query as string | undefined;
-    const analysis = await this.generateFinancialModel(context, modelInputs, query);
-    if (!analysis) {
+    // Step 2: Load domain pack context for sector-specific financial parameters
+    const domainContext = await this.loadDomainPackContext(context);
+
+    // Step 3: Use LLM to structure financial assumptions and cash flow projections
+    const llmOutput = await this.generateProjections(context, hypotheses, domainContext);
+    if (!llmOutput) {
       return this.buildOutput(
-        { error: 'Financial model generation failed. Retry or provide more context.' },
-        'failure',
-        'low',
-        startTime,
+        { error: 'Financial projection generation failed.' },
+        'failure', 'low', startTime,
       );
     }
 
-    // Step 3: Validate monetary arithmetic with decimal.js
-    const validatedROI = this.validateROIArithmetic(analysis.roi_summary);
-    const treeTotal = this.computeTreeTotal(analysis.value_tree);
+    // Step 4: Run projections through economic kernel for precise calculations
+    const computedModels = this.computeFinancials(llmOutput);
 
-    // Step 4: Store results in memory for downstream agents (Integrity, Narrative)
-    await this.storeModelInMemory(context, analysis, validatedROI);
+    // Step 5: Store models in memory for TargetAgent and IntegrityAgent
+    await this.storeModelsInMemory(context, computedModels, llmOutput);
 
-    // Step 5: Build SDUI sections
-    const sduiSections = this.buildSDUISections(analysis, validatedROI);
+    // Step 6: Build SDUI sections
+    const sduiSections = this.buildSDUISections(computedModels, llmOutput);
 
-    // Step 6: Determine confidence
-    const confidenceLevel = this.toConfidenceLevel(analysis.roi_summary.confidence);
-
-    const warnings: string[] = [];
-    if (!validatedROI.arithmetic_verified) {
-      warnings.push(
-        'ROI arithmetic did not pass decimal.js verification. ' +
-        `LLM net_value=${analysis.roi_summary.net_value}, ` +
-        `computed=${validatedROI.net_value}`,
-      );
-    }
+    // Step 7: Aggregate results
+    const totalNPV = computedModels.reduce((sum, m) => sum + m.npv, 0);
+    const avgConfidence = computedModels.reduce((sum, m) => sum + m.confidence, 0) / computedModels.length;
+    const positiveNPVCount = computedModels.filter(m => m.npv > 0).length;
 
     const result = {
-      value_tree: analysis.value_tree,
-      roi_summary: validatedROI,
-      sensitivity_variables: analysis.sensitivity_variables,
-      key_assumptions: analysis.key_assumptions,
-      methodology_notes: analysis.methodology_notes,
-      tree_total: treeTotal.toString(),
-      model_inputs_used: modelInputs.length,
+      models: computedModels,
+      portfolio_summary: llmOutput.portfolio_summary,
+      key_assumptions: llmOutput.key_assumptions,
+      total_npv: totalNPV,
+      models_count: computedModels.length,
+      positive_npv_count: positiveNPVCount,
+      average_confidence: avgConfidence,
       sdui_sections: sduiSections,
     };
 
-    return this.buildOutput(result, 'success', confidenceLevel, startTime, {
-      reasoning:
-        `Built Value Tree with ${this.countNodes(analysis.value_tree)} nodes ` +
-        `from ${modelInputs.length} model inputs. ` +
-        `ROI: ${validatedROI.roi_percent}%, payback: ${validatedROI.payback_months} months.`,
-      suggested_next_actions: [
-        'Run IntegrityAgent to validate claims and evidence',
-        'Review sensitivity variables with finance team',
-        'Adjust assumptions based on customer-specific data',
-      ],
-      warnings,
+    return this.buildOutput(result, 'success', this.toConfidenceLevel(avgConfidence), startTime, {
+      reasoning: `Built ${computedModels.length} financial models from ${hypotheses.length} hypotheses. ` +
+        `Total portfolio NPV: $${Math.round(totalNPV).toLocaleString()}. ` +
+        `${positiveNPVCount}/${computedModels.length} models have positive NPV. ` +
+        `Average confidence: ${(avgConfidence * 100).toFixed(0)}%.`,
+      suggested_next_actions: llmOutput.recommended_next_steps,
     });
   }
 
@@ -196,110 +179,105 @@ export class FinancialModelingAgent extends BaseAgent {
   // Memory Retrieval
   // -------------------------------------------------------------------------
 
-  /**
-   * Retrieve financial model inputs stored by TargetAgent.
-   */
-  private async retrieveModelInputs(context: LifecycleContext): Promise<Array<{
-    id: string;
-    content: string;
-    metadata: Record<string, unknown>;
-  }>> {
+  private async retrieveHypotheses(
+    context: LifecycleContext,
+  ): Promise<Array<{ id: string; content: string; metadata: Record<string, unknown> }>> {
     try {
       const memories = await this.memorySystem.retrieve({
-        agent_id: 'target',
+        agent_id: 'opportunity',
         memory_type: 'semantic',
-        limit: 20,
+        limit: 15,
         organization_id: context.organization_id,
       });
-
       return memories
-        .filter(m => {
-          const meta = m.metadata || {};
-          return meta.category && meta.financial_model_input === true;
-        })
-        .map(m => ({
-          id: m.id,
-          content: m.content,
-          metadata: (m.metadata || {}) as Record<string, unknown>,
-        }));
+        .filter(m => m.metadata?.verified === true && m.metadata?.category)
+        .map(m => ({ id: m.id, content: m.content, metadata: m.metadata || {} }));
     } catch (err) {
-      logger.warn('Failed to retrieve model inputs from memory', {
+      logger.warn('FinancialModelingAgent: failed to retrieve hypotheses', {
         error: (err as Error).message,
       });
       return [];
     }
   }
 
-  // -------------------------------------------------------------------------
-  // LLM Financial Model Generation
-  // -------------------------------------------------------------------------
-
-  private buildSystemPrompt(
-    modelInputs: Array<{ content: string; metadata: Record<string, unknown> }>,
-  ): string {
-    const inputContext = modelInputs.map((m, i) => {
-      const meta = m.metadata;
-      return `${i + 1}. ${m.content}
-   Category: ${meta.category}
-   Baseline: ${meta.baseline_value} → Target: ${meta.target_value} ${meta.unit}
-   Timeframe: ${meta.timeframe_months} months
-   Assumptions: ${(meta.assumptions as string[] || []).join('; ')}
-   Sensitivity vars: ${(meta.sensitivity_variables as string[] || []).join(', ')}`;
-    }).join('\n\n');
-
-    return `You are a Financial Modeling agent for a Value Engineering platform. Build a Value Tree and ROI model from KPI targets and financial model inputs.
-
-Rules:
-- The value_tree must be hierarchical: root → category → driver → metric.
-- Every monetary value must be precise — use exact numbers, not rounded estimates.
-- ROI summary must be internally consistent: net_value = total_value - total_cost.
-- roi_percent = (net_value / total_cost) * 100.
-- Sensitivity variables must show impact at low and high bounds.
-- All assumptions must be explicit and falsifiable.
-- Respond with valid JSON matching the schema. No markdown fences.
-
-Financial Model Inputs:
-${inputContext}`;
+  /**
+   * Load domain pack context if available. Domain packs provide
+   * sector-specific discount rates, risk profiles, and benchmark ranges.
+   */
+  private async loadDomainPackContext(
+    context: LifecycleContext,
+  ): Promise<string> {
+    try {
+      const domainPack = context.workspace_data?.domain_pack as
+        { sector?: string; discount_rate?: number; risk_profile?: string } | undefined;
+      if (domainPack) {
+        return `Sector: ${domainPack.sector || 'general'}. ` +
+          `Default discount rate: ${domainPack.discount_rate ?? 0.1}. ` +
+          `Risk profile: ${domainPack.risk_profile || 'moderate'}.`;
+      }
+    } catch {
+      // Domain pack is optional
+    }
+    return 'No domain pack available. Use general financial assumptions.';
   }
 
-  private async generateFinancialModel(
+  // -------------------------------------------------------------------------
+  // LLM Projection Generation
+  // -------------------------------------------------------------------------
+
+  private async generateProjections(
     context: LifecycleContext,
-    modelInputs: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
-    query?: string,
-  ): Promise<FinancialAnalysis | null> {
-    const systemPrompt = this.buildSystemPrompt(modelInputs);
+    hypotheses: Array<{ id: string; content: string; metadata: Record<string, unknown> }>,
+    domainContext: string,
+  ): Promise<FinancialModelingOutput | null> {
+    const hypothesisContext = hypotheses.map((h, i) => {
+      const m = h.metadata;
+      const impact = m.estimated_impact as { low?: number; high?: number; unit?: string } | undefined;
+      return `${i + 1}. ${h.content}
+   Category: ${m.category}
+   Confidence: ${m.confidence ?? 'unknown'}
+   ${impact ? `Estimated impact: ${impact.low}-${impact.high} ${impact.unit}` : ''}`;
+    }).join('\n\n');
 
-    const userPrompt = `Build a financial model and Value Tree from these inputs.
+    const systemPrompt = `You are a Financial Modeling analyst for a Value Engineering platform. Build cash flow projections from confirmed hypotheses.
 
-${query ? `Additional context: ${query}` : ''}
+Rules:
+- Each hypothesis gets one cash flow projection.
+- cash_flows[0] is the initial investment (negative number).
+- cash_flows[1..n] are projected returns per period.
+- discount_rate should reflect the risk level (0.08-0.15 typical range).
+- total_investment = absolute value of cash_flows[0].
+- total_benefit = sum of cash_flows[1..n].
+- confidence reflects data quality and assumption reliability (0.0-1.0).
+- assumptions must be specific and falsifiable, not generic.
+- risk_factors should identify what could invalidate the projection.
+- data_sources should reference where the numbers come from.
+- sensitivity_parameters: pick 2-3 key variables to test (e.g., discount_rate, revenue_growth, cost_savings).
+  Each perturbation array should contain multipliers like [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3].
 
-Generate a JSON object with:
-- value_tree: Hierarchical tree of value drivers with monetary values
-- roi_summary: Total value, cost, net value, ROI %, payback period
-- sensitivity_variables: Key variables with low/high impact ranges
-- key_assumptions: List of assumptions underlying the model
-- methodology_notes: Brief description of modeling approach`;
+Domain context: ${domainContext}
+
+Respond with valid JSON matching the schema. No markdown fences or commentary.`;
+
+    const userPrompt = `Build financial models for these confirmed hypotheses:\n\n${hypothesisContext}`;
 
     try {
-      const result = await this.secureInvoke<FinancialAnalysis>(
+      return await this.secureInvoke<FinancialModelingOutput>(
         context.workspace_id,
         `${systemPrompt}\n\n${userPrompt}`,
-        FinancialAnalysisSchema as z.ZodType<FinancialAnalysis>,
+        FinancialModelingOutputSchema,
         {
           trackPrediction: true,
-          // Financial modeling requires higher confidence thresholds
-          confidenceThresholds: { low: 0.7, high: 0.9 },
+          confidenceThresholds: { low: 0.6, high: 0.85 },
           context: {
-            agent: 'financial-modeling',
+            agent: 'financial_modeling',
             organization_id: context.organization_id,
-            input_count: modelInputs.length,
+            hypothesis_count: hypotheses.length,
           },
         },
       );
-
-      return result;
     } catch (err) {
-      logger.error('Financial model generation failed', {
+      logger.error('FinancialModelingAgent: projection generation failed', {
         error: (err as Error).message,
         workspace_id: context.workspace_id,
       });
@@ -308,84 +286,179 @@ Generate a JSON object with:
   }
 
   // -------------------------------------------------------------------------
-  // Decimal.js Arithmetic Validation
+  // Economic Kernel Computation (decimal.js precision)
   // -------------------------------------------------------------------------
 
   /**
-   * Re-derive net_value and roi_percent from total_value and total_cost
-   * using decimal.js. Flags discrepancies from the LLM output.
+   * Run each LLM-generated projection through the economic kernel.
+   * The LLM provides the structure; the kernel provides the math.
    */
-  private validateROIArithmetic(roi: z.infer<typeof ROISummarySchema>): ValidatedROI {
-    const totalValue = new Decimal(roi.total_value);
-    const totalCost = new Decimal(roi.total_cost);
-    const computedNet = totalValue.minus(totalCost);
-    const computedROI = totalCost.isZero()
-      ? new Decimal(0)
-      : computedNet.dividedBy(totalCost).times(100);
+  private computeFinancials(output: FinancialModelingOutput): ComputedModel[] {
+    return output.projections.map(proj => {
+      const flows = toDecimalArray(proj.cash_flows);
+      const rate = new Decimal(proj.discount_rate);
 
-    const llmNet = new Decimal(roi.net_value);
-    // Allow 0.01 tolerance for LLM rounding
-    const tolerance = new Decimal('0.01');
-    const arithmeticVerified = computedNet.minus(llmNet).abs().lessThanOrEqualTo(
-      tolerance.times(Decimal.max(computedNet.abs(), new Decimal(1))),
-    );
+      // NPV via economic kernel
+      const npv = calculateNPV(flows, rate);
 
-    return {
-      total_value: totalValue.toFixed(2),
-      total_cost: totalCost.toFixed(2),
-      net_value: computedNet.toFixed(2),
-      roi_percent: computedROI.toFixed(2),
-      payback_months: roi.payback_months,
-      confidence: roi.confidence,
-      currency: roi.currency,
-      arithmetic_verified: arithmeticVerified,
-    };
-  }
+      // IRR via Newton-Raphson
+      const irrResult = calculateIRR(flows);
 
-  /**
-   * Sum all leaf-node USD values in the tree using decimal.js.
-   */
-  private computeTreeTotal(nodes: ValueTreeNode[]): Decimal {
-    let total = new Decimal(0);
-    for (const node of nodes) {
-      if (node.children.length > 0) {
-        total = total.plus(this.computeTreeTotal(node.children));
-      } else if (node.value != null && node.unit === 'usd') {
-        total = total.plus(new Decimal(node.value));
+      // Payback period
+      const paybackResult = calculatePayback(flows);
+
+      // ROI
+      const totalBenefits = new Decimal(proj.total_benefit);
+      const totalCosts = new Decimal(proj.total_investment);
+      let roi: Decimal;
+      try {
+        roi = calculateROI(totalBenefits, totalCosts);
+      } catch {
+        // total_investment is 0 — shouldn't happen but handle gracefully
+        roi = new Decimal(0);
       }
-    }
-    return total;
+
+      // Sensitivity analysis on discount rate
+      const sensitivityResults: ComputedModel['sensitivity'] = [];
+      if (output.sensitivity_parameters) {
+        for (const param of output.sensitivity_parameters) {
+          if (param.name.toLowerCase().includes('discount')) {
+            const result = sensitivityAnalysis(
+              param.name,
+              new Decimal(param.base_value),
+              param.perturbations.map(p => new Decimal(p)),
+              (paramValue: Decimal) => calculateNPV(flows, paramValue),
+            );
+            sensitivityResults.push({
+              parameter: result.parameterName,
+              base_npv: Number(roundTo(result.baseOutput, 2)),
+              points: result.points.map(p => ({
+                multiplier: Number(p.parameterValue),
+                npv: Number(roundTo(p.outputValue, 2)),
+              })),
+            });
+          } else {
+            // For non-discount parameters, scale the cash flows
+            const result = sensitivityAnalysis(
+              param.name,
+              new Decimal(param.base_value),
+              param.perturbations.map(p => new Decimal(p)),
+              (multiplier: Decimal) => {
+                const scaledFlows = flows.map((f, i) =>
+                  i === 0 ? f : f.times(multiplier),
+                );
+                return calculateNPV(scaledFlows, rate);
+              },
+            );
+            sensitivityResults.push({
+              parameter: result.parameterName,
+              base_npv: Number(roundTo(result.baseOutput, 2)),
+              points: result.points.map(p => ({
+                multiplier: Number(p.parameterValue),
+                npv: Number(roundTo(p.outputValue, 2)),
+              })),
+            });
+          }
+        }
+      }
+
+      return {
+        hypothesis_id: proj.hypothesis_id,
+        hypothesis_description: proj.hypothesis_description,
+        category: proj.category,
+        assumptions: proj.assumptions,
+        cash_flows: proj.cash_flows,
+        currency: proj.currency,
+        period_type: proj.period_type,
+        discount_rate: proj.discount_rate,
+        total_investment: proj.total_investment,
+        total_benefit: proj.total_benefit,
+        confidence: proj.confidence,
+        risk_factors: proj.risk_factors,
+        data_sources: proj.data_sources,
+        roi: Number(roundTo(roi, 4)),
+        npv: Number(roundTo(npv, 2)),
+        irr: irrResult.converged ? Number(roundTo(irrResult.rate, 4)) : null,
+        irr_converged: irrResult.converged,
+        payback_period: paybackResult.period,
+        payback_fractional: paybackResult.fractionalPeriod
+          ? Number(roundTo(paybackResult.fractionalPeriod, 2))
+          : null,
+        sensitivity: sensitivityResults,
+      };
+    });
   }
 
   // -------------------------------------------------------------------------
   // Memory Storage
   // -------------------------------------------------------------------------
 
-  private async storeModelInMemory(
+  private async storeModelsInMemory(
     context: LifecycleContext,
-    analysis: FinancialAnalysis,
-    validatedROI: ValidatedROI,
+    models: ComputedModel[],
+    llmOutput: FinancialModelingOutput,
   ): Promise<void> {
+    // Store each computed model
+    for (const model of models) {
+      try {
+        await this.memorySystem.storeSemanticMemory(
+          context.workspace_id,
+          'financial_modeling',
+          'semantic',
+          `FinancialModel: ${model.hypothesis_description} — ROI: ${(model.roi * 100).toFixed(1)}%, NPV: $${Math.round(model.npv).toLocaleString()}, ` +
+            `IRR: ${model.irr !== null ? (model.irr * 100).toFixed(1) + '%' : 'N/A'}, ` +
+            `Payback: ${model.payback_fractional !== null ? model.payback_fractional.toFixed(1) + ' periods' : 'N/A'}.`,
+          {
+            type: 'financial_model',
+            hypothesis_id: model.hypothesis_id,
+            category: model.category,
+            roi: model.roi,
+            npv: model.npv,
+            irr: model.irr,
+            irr_converged: model.irr_converged,
+            payback_period: model.payback_period,
+            payback_fractional: model.payback_fractional,
+            total_investment: model.total_investment,
+            total_benefit: model.total_benefit,
+            discount_rate: model.discount_rate,
+            currency: model.currency,
+            period_type: model.period_type,
+            confidence: model.confidence,
+            assumptions: model.assumptions,
+            risk_factors: model.risk_factors,
+            organization_id: context.organization_id,
+            importance: model.npv > 0 ? 0.85 : 0.6,
+          },
+          context.organization_id,
+        );
+      } catch (err) {
+        logger.warn('FinancialModelingAgent: failed to store model', {
+          hypothesis_id: model.hypothesis_id,
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    // Store portfolio summary
     try {
+      const totalNPV = models.reduce((sum, m) => sum + m.npv, 0);
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
-        'financial-modeling',
+        'financial_modeling',
         'semantic',
-        `Value Tree ROI Model: net value ${validatedROI.net_value} ${validatedROI.currency}, ` +
-        `ROI ${validatedROI.roi_percent}%, payback ${validatedROI.payback_months} months`,
+        `PortfolioSummary: ${models.length} models. Total NPV: $${Math.round(totalNPV).toLocaleString()}. ${llmOutput.portfolio_summary}`,
         {
-          verified: validatedROI.arithmetic_verified,
-          roi_summary: validatedROI,
-          node_count: this.countNodes(analysis.value_tree),
-          sensitivity_count: analysis.sensitivity_variables.length,
-          key_assumptions: analysis.key_assumptions,
+          type: 'portfolio_summary',
+          models_count: models.length,
+          total_npv: totalNPV,
+          key_assumptions: llmOutput.key_assumptions,
           organization_id: context.organization_id,
-          importance: validatedROI.confidence,
+          importance: 0.9,
         },
         context.organization_id,
       );
     } catch (err) {
-      logger.warn('Failed to store financial model in memory', {
+      logger.warn('FinancialModelingAgent: failed to store portfolio summary', {
         error: (err as Error).message,
       });
     }
@@ -396,68 +469,102 @@ Generate a JSON object with:
   // -------------------------------------------------------------------------
 
   private buildSDUISections(
-    analysis: FinancialAnalysis,
-    validatedROI: ValidatedROI,
+    models: ComputedModel[],
+    llmOutput: FinancialModelingOutput,
   ): Array<Record<string, unknown>> {
     const sections: Array<Record<string, unknown>> = [];
 
-    // ROI summary card
+    const totalNPV = models.reduce((sum, m) => sum + m.npv, 0);
+    const avgConfidence = models.reduce((sum, m) => sum + m.confidence, 0) / models.length;
+    const positiveCount = models.filter(m => m.npv > 0).length;
+
+    // Summary card
     sections.push({
       type: 'component',
       component: 'AgentResponseCard',
       version: 1,
       props: {
         response: {
-          agentId: 'financial-modeling',
+          agentId: 'financial_modeling',
           agentName: 'Financial Modeling Agent',
           timestamp: new Date().toISOString(),
-          content:
-            `**ROI Summary**\n` +
-            `Total Value: ${validatedROI.currency} ${validatedROI.total_value}\n` +
-            `Total Cost: ${validatedROI.currency} ${validatedROI.total_cost}\n` +
-            `Net Value: ${validatedROI.currency} ${validatedROI.net_value}\n` +
-            `ROI: ${validatedROI.roi_percent}%\n` +
-            `Payback: ${validatedROI.payback_months} months`,
-          confidence: validatedROI.confidence,
+          content: `${llmOutput.portfolio_summary}\n\nTotal portfolio NPV: $${Math.round(totalNPV).toLocaleString()}. ` +
+            `${positiveCount}/${models.length} models have positive NPV.`,
+          confidence: avgConfidence,
           status: 'completed',
         },
-        showReasoning: false,
+        showReasoning: true,
         showActions: true,
-        stage: 'financial-modeling',
+        stage: 'modeling',
       },
     });
 
-    // Value Tree card
+    // Value tree chart — NPV per model
+    sections.push({
+      type: 'component',
+      component: 'InteractiveChart',
+      version: 1,
+      props: {
+        type: 'bar',
+        data: models.map(m => ({
+          name: m.hypothesis_description.slice(0, 40),
+          npv: m.npv,
+          roi: m.roi * 100,
+        })),
+        title: 'Financial Model NPV by Hypothesis',
+        xAxisLabel: 'Hypothesis',
+        yAxisLabel: `NPV (${models[0]?.currency || 'USD'})`,
+        showLegend: true,
+        showTooltip: true,
+      },
+    });
+
+    // Value tree card with model details
     sections.push({
       type: 'component',
       component: 'ValueTreeCard',
       version: 1,
       props: {
-        tree: analysis.value_tree,
-        title: 'Value Driver Tree',
-        editable: false,
+        models: models.map(m => ({
+          title: m.hypothesis_description,
+          category: m.category,
+          roi: `${(m.roi * 100).toFixed(1)}%`,
+          npv: `$${Math.round(m.npv).toLocaleString()}`,
+          irr: m.irr !== null ? `${(m.irr * 100).toFixed(1)}%` : 'N/A',
+          payback: m.payback_fractional !== null
+            ? `${m.payback_fractional.toFixed(1)} ${m.period_type} periods`
+            : 'N/A',
+          confidence: m.confidence,
+          investment: `$${Math.round(m.total_investment).toLocaleString()}`,
+          benefit: `$${Math.round(m.total_benefit).toLocaleString()}`,
+        })),
+        title: 'Value Tree',
       },
     });
 
-    // Sensitivity KPI form
-    const sensitivityKPIs = analysis.sensitivity_variables.map(sv => ({
-      name: sv.name,
-      value: sv.base_value,
-      unit: sv.unit,
-      source: `Range: ${sv.low_value} – ${sv.high_value}`,
-    }));
-
-    if (sensitivityKPIs.length > 0) {
-      sections.push({
-        type: 'component',
-        component: 'KPIForm',
-        version: 1,
-        props: {
-          kpis: sensitivityKPIs,
-          title: 'Sensitivity Variables',
-          readonly: true,
-        },
-      });
+    // Sensitivity chart (if available)
+    const allSensitivity = models.flatMap(m => m.sensitivity);
+    if (allSensitivity.length > 0) {
+      const firstSensitivity = allSensitivity[0];
+      if (firstSensitivity) {
+        sections.push({
+          type: 'component',
+          component: 'InteractiveChart',
+          version: 1,
+          props: {
+            type: 'line',
+            data: firstSensitivity.points.map(p => ({
+              name: `${p.multiplier}`,
+              npv: p.npv,
+            })),
+            title: `Sensitivity: ${firstSensitivity.parameter}`,
+            xAxisLabel: firstSensitivity.parameter,
+            yAxisLabel: 'NPV',
+            showLegend: false,
+            showTooltip: true,
+          },
+        });
+      }
     }
 
     return sections;
@@ -466,14 +573,6 @@ Generate a JSON object with:
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
-
-  private countNodes(nodes: ValueTreeNode[]): number {
-    let count = 0;
-    for (const node of nodes) {
-      count += 1 + this.countNodes(node.children);
-    }
-    return count;
-  }
 
   private toConfidenceLevel(score: number): ConfidenceLevel {
     if (score >= 0.85) return 'very_high';
@@ -488,24 +587,22 @@ Generate a JSON object with:
     status: AgentOutput['status'],
     confidence: ConfidenceLevel,
     startTime: number,
-    extra?: { reasoning?: string; suggested_next_actions?: string[]; warnings?: string[] },
+    extra?: { reasoning?: string; suggested_next_actions?: string[] },
   ): AgentOutput {
     const metadata: AgentOutputMetadata = {
       execution_time_ms: Date.now() - startTime,
       model_version: this.version,
       timestamp: new Date().toISOString(),
     };
-
     return {
       agent_id: this.name,
-      agent_type: 'financial-modeling',
-      lifecycle_stage: 'target', // financial modeling is part of the DRAFTING/target phase
+      agent_type: 'financial_modeling',
+      lifecycle_stage: 'modeling',
       status,
       result,
       confidence,
       reasoning: extra?.reasoning,
       suggested_next_actions: extra?.suggested_next_actions,
-      warnings: extra?.warnings,
       metadata,
     };
   }

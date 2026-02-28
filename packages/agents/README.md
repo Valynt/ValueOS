@@ -4,69 +4,70 @@ Agent runtime and orchestration for ValueOS.
 
 ## Structure
 
+This package contains two distinct layers:
+
+### Active library modules (used by `packages/backend`)
+
 ```
 agents/
-├── base/          # Shared runtime, logger, metrics, and config
-├── core/          # Saga state machine, evidence tiering, confidence scoring, idempotency, DLQ
-├── orchestration/ # HypothesisLoop, RedTeamAgent
+├── core/          # ValueCaseSaga, EvidenceTiering, ConfidenceScorer, IdempotencyGuard, DeadLetterQueue
+├── orchestration/ # HypothesisLoop, RedTeamAgent, agent interfaces
 ├── tools/         # Tool interfaces and registry
-└── evaluation/    # Agent evaluation harness and datasets
+├── evaluation/    # Agent evaluation harness
 ```
 
-## Deprecated: Standalone Microservice Agents
+These modules are imported by `packages/backend` and are the active orchestration layer.
 
-> **The following subdirectories are deprecated and will be removed in a future release.**
-> They contain standalone Express-based agent microservices that were an early
-> architectural prototype. The production agent implementations live in
-> `packages/backend/src/lib/agent-fabric/agents/` and run inside the unified
-> backend process — not as separate microservices.
->
-> These directories are **not imported by any production code**, are not started
-> by any compose file, and most return mock/hardcoded data.
->
-> **Deprecated directories:**
-> `benchmark/`, `communicator/`, `company-intelligence/`, `coordinator/`,
-> `expansion/`, `financial-modeling/`, `groundtruth/`, `integrity/`,
-> `intervention-designer/`, `narrative/`, `opportunity/`, `outcome-engineer/`,
-> `realization/`, `research/`, `system-mapper/`, `target/`, `value-eval/`,
-> `value-mapping/`
->
-> **Do not add new code to these directories.** If you need a new agent, add it
-> to `packages/backend/src/lib/agent-fabric/agents/` following the `BaseAgent`
-> pattern documented in `AGENTS.md`.
+### Deprecated standalone microservices
 
-## Active Exports
+> **DEPRECATED:** The standalone Express microservices below are superseded by the
+> agent-fabric implementations in `packages/backend/src/lib/agent-fabric/agents/`.
+> They use mock data, are not referenced by active CI, and have no consumers.
+> Do not add new functionality here — implement new agents in the agent-fabric.
 
-Only the following subpaths are exported and consumed by `packages/backend`:
+```
+agents/
+├── base/                  # Shared Express runtime (only used by standalone services)
+├── benchmark/             # ⛔ Deprecated — uses mock data
+├── communicator/          # ⛔ Deprecated — uses mock data
+├── company-intelligence/  # ⛔ Deprecated — uses mock data
+├── coordinator/           # ⛔ Deprecated — uses mock data
+├── expansion/             # ⛔ Deprecated — uses mock data
+├── financial-modeling/    # ⛔ Deprecated — uses mock data
+├── groundtruth/           # ⛔ Deprecated — uses mock data
+├── integrity/             # ⛔ Deprecated — uses mock data
+├── intervention-designer/ # ⛔ Deprecated — uses mock data
+├── narrative/             # ⛔ Deprecated — uses mock data
+├── opportunity/           # ⛔ Deprecated — uses mock data
+├── outcome-engineer/      # ⛔ Deprecated — uses mock data
+├── realization/           # ⛔ Deprecated — uses mock data
+├── research/              # ⛔ Deprecated — uses mock data
+├── system-mapper/         # ⛔ Deprecated — uses mock data
+├── target/                # ⛔ Deprecated — uses mock data
+├── value-eval/            # ⛔ Deprecated — uses mock data
+└── value-mapping/         # ⛔ Deprecated — uses mock data
+```
 
-| Export path | Contents |
-|---|---|
-| `./core` | `ValueCaseSaga`, `EvidenceTiering`, `ConfidenceScorer`, `IdempotencyGuard`, `DeadLetterQueue` |
-| `./orchestration` | `HypothesisLoop`, `RedTeamAgent` |
-| `./tools` | Tool interfaces and registry |
-| `./evaluation` | Agent evaluation harness |
-| `./base` | Shared runtime (logger, metrics, config, health) |
+Production agent implementations live in `packages/backend/src/lib/agent-fabric/agents/`
+and use `secureInvoke` with real LLM calls, Zod validation, and tenant-scoped memory.
 
 ## Testing
 
+To run tests for the active library modules:
+
 ```bash
-# Run tests for active modules
 npx vitest run packages/agents/core --passWithNoTests
 npx vitest run packages/agents/orchestration --passWithNoTests
-
-# Run all agent tests (includes deprecated — will be removed)
-npx vitest run packages/agents --passWithNoTests
 ```
 
 ## Import Rules
 
 | Consumer | Can Import? |
 |----------|-------------|
-| `packages/backend` | Yes (core, orchestration, tools, evaluation, base) |
-| `apps/*` | No |
+| `packages/backend` | ✅ Yes (`core/`, `orchestration/`, `tools/`, `evaluation/`) |
+| `apps/*` | ❌ No |
 
 ## Dependencies
 
-- `@valueos/agent-base` — shared runtime
-- `@valueos/memory` — agent memory access (peer)
-- `@valueos/infra` — infrastructure (peer, via memory)
+- `@valueos/memory` - for agent memory access
+- `@valueos/infra` - for infrastructure (via memory)

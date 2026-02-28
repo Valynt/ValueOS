@@ -26,6 +26,7 @@ import type { GroundTruthIntegrationService } from "../../services/GroundTruthIn
 // Maps agent type strings to lifecycle stages for config construction
 const AGENT_LIFECYCLE_MAP: Record<string, LifecycleStage> = {
   opportunity: "opportunity",
+  financial_modeling: "modeling",
   target: "target",
   "financial-modeling": "target", // financial modeling is part of the DRAFTING/target phase
   expansion: "expansion",
@@ -39,6 +40,7 @@ const FABRIC_AGENT_CLASSES: Partial<
   Record<string, new (config: AgentConfig, organizationId: string, memorySystem: MemorySystem, llmGateway: LLMGateway, circuitBreaker: CircuitBreaker) => BaseAgent>
 > = {
   opportunity: OpportunityAgent,
+  financial_modeling: FinancialModelingAgent,
   target: TargetAgent,
   "financial-modeling": FinancialModelingAgent,
   expansion: ExpansionAgent,

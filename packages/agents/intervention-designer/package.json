@@ -1,5 +1,6 @@
 {
   "name": "@valueos/intervention-designer-agent",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Intervention design and solution engineering agent for ValueOS",
   "type": "module",

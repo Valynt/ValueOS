@@ -1,5 +1,6 @@
 {
   "name": "@valueos/outcome-engineer-agent",
+  "deprecated": "Superseded by agent-fabric in packages/backend/src/lib/agent-fabric/agents/. Uses mock data.",
   "version": "1.0.0",
   "description": "Outcome engineering and result optimization agent for ValueOS",
   "type": "module",

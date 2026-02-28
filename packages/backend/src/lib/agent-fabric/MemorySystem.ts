@@ -251,7 +251,6 @@ export class MemorySystem {
       initial_state: input.initialState,
       final_state: input.finalState,
       success: input.success,
-if (!epOrgId || epOrgId !== organizationId) continue;
       duration_seconds: input.durationSeconds,
       created_at: new Date().toISOString(),
     };
