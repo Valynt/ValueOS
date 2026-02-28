@@ -41,6 +41,18 @@ type TenantCandidateSource = "tct" | "service-header" | "user-claim" | "user-loo
 type TenantContextUser = {
   role?: string | string[];
   app_metadata?: { roles?: unknown; tier?: string };
+  tenant_id?: string;
+  organization_id?: string;
+};
+
+const isAgentEndpoint = (req: Request): boolean => {
+  const requestPath = (req.originalUrl || req.path || "").toLowerCase();
+  return requestPath.startsWith("/api/agents") || requestPath.startsWith("/api/groundtruth");
+};
+
+const resolveClaimTenantId = (req: Request): string | null => {
+  const user = (req as any).user as TenantContextUser | undefined;
+  return user?.tenant_id ?? user?.organization_id ?? null;
 };
 
 const resolveRoles = (user: TenantContextUser | undefined): string[] => {
@@ -148,8 +160,9 @@ export const tenantContextMiddleware = (enforce = true) => {
       }
     }
 
+    const claimTenantId = resolveClaimTenantId(req);
+
     if (!resolvedTenantId) {
-      const claimTenantId = (req as any).user?.tenant_id || (req as any).user?.organization_id;
       if (claimTenantId) {
         resolvedTenantId = claimTenantId;
         tenantSource = "user-claim";
@@ -180,6 +193,20 @@ export const tenantContextMiddleware = (enforce = true) => {
         });
       }
       return next();
+    }
+
+    if (isAgentEndpoint(req) && claimTenantId && resolvedTenantId !== claimTenantId) {
+      logger.warn("Agent tenant claim mismatch", {
+        path: req.originalUrl || req.path,
+        claimTenantId,
+        resolvedTenantId,
+        source: tenantSource,
+        userId,
+      });
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "Agent tenant context must match authenticated tenant claims.",
+      });
     }
 
     const tenantExists = await verifyTenantExists(resolvedTenantId);

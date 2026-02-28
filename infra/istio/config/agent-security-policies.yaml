@@ -32,6 +32,23 @@ spec:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE"]
             paths: ["/health", "/metrics", "/api/*"]
+      when:
+        - key: request.auth.claims[tenant_id]
+          values: ["*"]
+        - key: request.headers[x-tenant-id]
+          values: ["*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/valynt-agents/sa/valynt-agent"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/health", "/metrics", "/api/*"]
+      when:
+        - key: request.auth.claims[organization_id]
+          values: ["*"]
+        - key: request.headers[x-tenant-id]
+          values: ["*"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -51,6 +68,23 @@ spec:
         - operation:
             methods: ["GET", "POST", "PUT", "DELETE"]
             paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[tenant_id]
+          values: ["*"]
+        - key: request.headers[x-tenant-id]
+          values: ["*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/backend"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/api/*"]
+      when:
+        - key: request.auth.claims[organization_id]
+          values: ["*"]
+        - key: request.headers[x-tenant-id]
+          values: ["*"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
