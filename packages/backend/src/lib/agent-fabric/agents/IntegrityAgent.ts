@@ -385,21 +385,18 @@ Be strict. Flag unsupported assumptions. Respond with valid JSON. No markdown fe
     analysis: IntegrityAnalysis,
     vetoDecision: VetoDecision,
   ): Promise<void> {
-    // Mitigation: Cap claim validations processed from LLM output to prevent memory exhaustion/DoS
-    // Limit to 20 claim validations
-    const cappedClaimValidations = analysis.claim_validations.slice(0, 20);
     try {
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
         'integrity',
         'semantic',
-        `Integrity validation: ${cappedClaimValidations.length} claims checked. ` +
-          `${cappedClaimValidations.filter(c => c.verdict === 'supported').length} supported. ` +
+        `Integrity validation: ${analysis.claim_validations.length} claims checked. ` +
+          `${analysis.claim_validations.filter(c => c.verdict === 'supported').length} supported. ` +
           (vetoDecision.veto ? 'VETOED.' : vetoDecision.reRefine ? 'Re-refinement requested.' : 'Passed.'),
         {
           type: 'integrity_validation',
-          claim_count: cappedClaimValidations.length,
-          supported_count: cappedClaimValidations.filter(c => c.verdict === 'supported').length,
+          claim_count: analysis.claim_validations.length,
+          supported_count: analysis.claim_validations.filter(c => c.verdict === 'supported').length,
           scores: {
             data_quality: analysis.data_quality_score,
             logical_consistency: analysis.logical_consistency_score,

@@ -325,13 +325,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     context: LifecycleContext,
     analysis: RealizationAnalysis,
   ): Promise<void> {
-    // Mitigation: Cap items processed from LLM output to prevent memory exhaustion/DoS
-    // Limit to 20 per category (proof_points, expansion_signals, interventions)
-    const cappedProofPoints = analysis.proof_points.slice(0, 20);
-    const cappedExpansionSignals = analysis.expansion_signals.slice(0, 20);
-    const cappedInterventions = analysis.interventions.slice(0, 20);
-
-    for (const proofPoint of cappedProofPoints) {
+    for (const proofPoint of analysis.proof_points) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -364,7 +358,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
       }
     }
 
-    for (const signal of cappedExpansionSignals) {
+    for (const signal of analysis.expansion_signals) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -389,23 +383,20 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
       }
     }
 
-    // Interventions are not stored as separate memory entries in the original code,
-    // but if you add such logic, cap with cappedInterventions.
-
     try {
       await this.memorySystem.storeSemanticMemory(
         context.workspace_id,
         'realization',
         'semantic',
         `VarianceReport: Overall realization rate ${(analysis.overall_realization_rate * 100).toFixed(0)}%. ` +
-          `${cappedProofPoints.length} KPIs tracked. ${cappedInterventions.length} interventions. ` +
-          `${cappedExpansionSignals.length} expansion signals.`,
+          `${analysis.proof_points.length} KPIs tracked. ${analysis.interventions.length} interventions. ` +
+          `${analysis.expansion_signals.length} expansion signals.`,
         {
           type: 'variance_report',
           overall_realization_rate: analysis.overall_realization_rate,
-          kpi_count: cappedProofPoints.length,
-          intervention_count: cappedInterventions.length,
-          expansion_signal_count: cappedExpansionSignals.length,
+          kpi_count: analysis.proof_points.length,
+          intervention_count: analysis.interventions.length,
+          expansion_signal_count: analysis.expansion_signals.length,
           organization_id: context.organization_id,
           importance: 0.9,
         },

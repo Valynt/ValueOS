@@ -138,8 +138,8 @@ export class OpportunityAgent extends BaseAgent {
     }
   }
 
-  private extractOpportunityData(request: AgentRequest): Record<string, any> {
-    const data: Record<string, any> = {
+  private extractOpportunityData(request: AgentRequest): Record<string, unknown> {
+    const data: Record<string, unknown> = {
       query: request.query,
       parameters: request.parameters || {},
       context: request.context || {},
@@ -163,7 +163,7 @@ export class OpportunityAgent extends BaseAgent {
     return data;
   }
 
-  private async analyzeOpportunity(data: Record<string, any>): Promise<OpportunityAnalysis> {
+  private async analyzeOpportunity(data: Record<string, unknown>): Promise<OpportunityAnalysis> {
     const prompt = this.buildAnalysisPrompt(data);
 
     const llmResponse = await this.callLLM({
@@ -194,7 +194,7 @@ export class OpportunityAgent extends BaseAgent {
     };
   }
 
-  private buildAnalysisPrompt(data: Record<string, any>): string {
+  private buildAnalysisPrompt(data: Record<string, unknown>): string {
     return `
 Analyze the following business opportunity information and provide a structured analysis:
 

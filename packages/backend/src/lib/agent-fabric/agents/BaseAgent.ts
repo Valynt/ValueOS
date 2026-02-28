@@ -171,7 +171,7 @@ export abstract class BaseAgent {
       context?: Record<string, unknown>;
       idempotencyKey?: string;
     } = {}
-  ): Promise<T & { hallucination_check?: boolean; hallucination_details?: HallucinationCheckResult; error?: string }> {
+  ): Promise<T & { hallucination_check?: boolean; hallucination_details?: HallucinationCheckResult }> {
     const {
       trackPrediction = true,
       confidenceThresholds = { low: 0.6, high: 0.85 },

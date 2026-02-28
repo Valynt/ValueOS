@@ -319,14 +319,8 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     context: LifecycleContext,
     analysis: ExpansionAnalysis,
   ): Promise<void> {
-    // Mitigation: Cap items processed from LLM output to prevent memory exhaustion/DoS
-    // Limit to 20 per category (opportunities, gap_analysis, new_cycle_recommendations)
-    const cappedOpportunities = analysis.opportunities.slice(0, 20);
-    const cappedGaps = analysis.gap_analysis.slice(0, 20);
-    const cappedCycles = analysis.new_cycle_recommendations.slice(0, 20);
-
     // Store each expansion opportunity
-    for (const opportunity of cappedOpportunities) {
+    for (const opportunity of analysis.opportunities) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -356,7 +350,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     }
 
     // Store gap analysis items
-    for (const gap of cappedGaps) {
+    for (const gap of analysis.gap_analysis) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
@@ -384,7 +378,7 @@ Respond with valid JSON matching the schema. No markdown fences or commentary.`;
     }
 
     // Store new cycle seeds — these can be picked up by OpportunityAgent
-    for (const cycle of cappedCycles) {
+    for (const cycle of analysis.new_cycle_recommendations) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,

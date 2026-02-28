@@ -331,10 +331,7 @@ Generate a JSON object with:
     context: LifecycleContext,
     analysis: OpportunityAnalysis,
   ): Promise<void> {
-    // Mitigation: Cap hypotheses processed from LLM output to prevent memory exhaustion/DoS
-    // Limit to 20 hypotheses
-    const cappedHypotheses = analysis.hypotheses.slice(0, 20);
-    for (const hypothesis of cappedHypotheses) {
+    for (const hypothesis of analysis.hypotheses) {
       try {
         await this.memorySystem.storeSemanticMemory(
           context.workspace_id,
