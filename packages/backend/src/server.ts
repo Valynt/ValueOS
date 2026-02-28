@@ -50,6 +50,7 @@ import healthRouter, { markAsShuttingDown } from "./api/health/index.js";
 import initiativesRouter from "./api/initiatives/index.js";
 import integrationsRouter from "./api/integrations.js";
 import llmRouter from "./api/llm.js";
+import { mcpDiscoveryRouter, serveMcpCapabilitiesDocument } from "./api/mcpDiscovery.js";
 import onboardingRouter from "./api/onboarding.js";
 import projectsRouter from "./api/projects.js";
 import referralsRouter from "./api/referrals.js";
@@ -369,6 +370,9 @@ app.post("/api/csp-report", express.json({ type: "application/csp-report" }), cs
 // Secret Health Check Endpoint
 app.get("/health/secrets", secretHealthMiddleware());
 
+// Well-known MCP discovery document
+app.get("/.well-known/mcp-capabilities.json", serveMcpCapabilitiesDocument);
+
 // Mount routes
 apiRouter.use("/billing", billingRouter);
 apiRouter.use("/projects", requireAuth, tenantContextMiddleware(), projectsRouter);
@@ -402,6 +406,7 @@ app.use(
   groundtruthRouter
 );
 app.use("/api/llm", llmRouter);
+app.use("/api/mcp", mcpDiscoveryRouter);
 app.use("/api", workflowRouter);
 app.use(
   "/api/documents",
