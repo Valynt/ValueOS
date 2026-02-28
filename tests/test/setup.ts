@@ -24,7 +24,26 @@ process.env.TEST_MODE = 'true';
 
 // Supabase credentials for integration tests — read from environment, fall back to local supabase-demo keys
 process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
-process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+
+const LOCAL_TEST_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+
+export const resolveSupabaseAnonKey = (): string => {
+  if (process.env.VITE_SUPABASE_ANON_KEY) {
+    return process.env.VITE_SUPABASE_ANON_KEY;
+  }
+
+  // Local test-only fallback key for dev/test runs.
+  if (process.env.NODE_ENV === 'test') {
+    return LOCAL_TEST_SUPABASE_ANON_KEY;
+  }
+
+  throw new Error(
+    'VITE_SUPABASE_ANON_KEY fallback can only be used when NODE_ENV is "test".',
+  );
+};
+
+process.env.VITE_SUPABASE_ANON_KEY = resolveSupabaseAnonKey();
 
 // Mock fetch globally
 global.fetch = vi.fn();
